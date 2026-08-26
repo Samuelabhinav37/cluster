@@ -1,0 +1,46 @@
+# Gmail Declutter (v0)
+
+Chrome extension. Shows senders from your Promotions/Updates mail (last 180 days),
+verified real unsubscribe (RFC 8058 one-click where the sender supports it,
+mailto:/link fallback otherwise), and a "Keep sorted" action that creates a real
+Gmail label + filter so future mail from that sender auto-files itself.
+
+Nothing is stored server-side — everything runs in your browser, in your own
+Gmail account, using your own OAuth token.
+
+## One-time setup (you do this part — it's an external dashboard, not code)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/), create a new project.
+2. **OAuth consent screen**: set User Type to "External", publishing status
+   "Testing" (this avoids Google's full verification/CASA process while you're
+   validating — capped at 100 test users you add by email).
+   - Add yourself (and later testers) under "Test users".
+   - Add scopes: `gmail.modify` and `gmail.settings.basic`.
+3. Run `npm install && npm run dev` (or `npm run build`) first — you need the
+   extension loaded once to get its ID.
+4. Go to `chrome://extensions`, enable Developer Mode, "Load unpacked", select
+   the `dist/` folder. Copy the extension ID Chrome assigns it.
+5. Back in Cloud Console: **Credentials → Create Credentials → OAuth client ID**,
+   application type **Chrome Extension**, paste the extension ID.
+6. Copy the generated client ID into `manifest.json`'s `oauth2.client_id`,
+   replacing the placeholder. Re-run `npm run build` and reload the extension.
+
+## Dev
+
+```
+npm install
+npm run dev     # or: npm run build, then load dist/ as unpacked
+```
+
+Click the toolbar icon to open the dashboard tab.
+
+## What's deliberately not built yet
+
+- No background sync / push notifications — you open it, it fetches fresh.
+- No cross-device sync of "keep sorted" decisions beyond what Gmail filters
+  themselves already do server-side.
+- No confirmed-stopped tracking (checking whether mail from a sender actually
+  stopped after N days) — status just shows "requested".
+- Single account only.
+
+These are the natural v1 additions once the core loop is validated on real use.

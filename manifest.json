@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Gmail Declutter",
+  "version": "0.1.0",
+  "description": "Real, verified unsubscribe. Auto-sort the rest into labels.",
+  "action": {
+    "default_title": "Gmail Declutter"
+  },
+  "background": {
+    "service_worker": "src/background.ts",
+    "type": "module"
+  },
+  "permissions": ["identity", "storage", "tabs", "alarms"],
+  "host_permissions": [
+    "https://gmail.googleapis.com/*",
+    "https://graph.microsoft.com/*",
+    "https://login.microsoftonline.com/*"
+  ],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "oauth2": {
+    "client_id": "995931931748-0hjufbdg626m372dm5pi1f9toe7ausuc.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/gmail.modify",
+      "https://www.googleapis.com/auth/gmail.settings.basic"
+    ]
+  }
+}
