@@ -31,6 +31,21 @@
       </div>
       <button id="connect-outlook">Connect Outlook</button>
       <p id="status" role="status">Loading your senders…</p>
+
+      <section id="digest-section" hidden>
+        <h2>Digest</h2>
+        <p class="hint">
+          A quick on-device summary of what's in your inbox right now —
+          generated locally by Chrome from the counts below, nothing sent
+          anywhere.
+        </p>
+        <div id="digest-bar" class="bulk-bar">
+          <button id="generate-digest-btn" disabled>Generate digest</button>
+          <span id="digest-status" role="status"></span>
+        </div>
+        <p id="digest-text" hidden></p>
+      </section>
+
       <div id="sender-bulk-bar" class="bulk-bar" hidden>
         <button id="select-safe-senders">Select safe</button>
         <span id="sender-selected-count">0 selected</span>

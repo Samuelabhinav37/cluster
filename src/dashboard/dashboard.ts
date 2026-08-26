@@ -9,6 +9,7 @@ import {
   safeSenderKeys,
   totalDeletableAcrossGroups,
 } from "../lib/bulkActions";
+import { buildDigestInput, checkDigestAvailability, generateDigest } from "../lib/aiDigest";
 import { categorizeDomain, DOMAIN_CATEGORY_LABELS, type DomainCategory } from "../lib/domainCategories";
 import { buildDomainGroups, domainOf, type DomainGroup } from "../lib/domainGrouping";
 import { buildExpiryBuckets, mergeExpiryBuckets, totalExpiryCount, type ExpiryBucket } from "../lib/expiryTriage";
@@ -67,6 +68,11 @@ const applyScanSettingsBtn = document.getElementById("apply-scan-settings-btn") 
 const onboardingBanner = document.getElementById("onboarding-banner") as HTMLDivElement;
 const onboardingDismissBtn = document.getElementById("onboarding-dismiss-btn") as HTMLButtonElement;
 
+const digestSectionEl = document.getElementById("digest-section") as HTMLElement;
+const generateDigestBtn = document.getElementById("generate-digest-btn") as HTMLButtonElement;
+const digestStatusEl = document.getElementById("digest-status") as HTMLSpanElement;
+const digestTextEl = document.getElementById("digest-text") as HTMLParagraphElement;
+
 async function main() {
   statusEl.textContent = "Connecting…";
   cachedSettings = await getSettings();
@@ -106,6 +112,7 @@ async function main() {
 
   wireBulkHandlers();
   wireOfflineHandling();
+  await wireDigest();
   await scanAndRender();
 }
 
@@ -169,6 +176,7 @@ async function scanAndRender() {
   render(senders);
   renderDomainGroups(senders);
   renderExpirySection(senders);
+  generateDigestBtn.disabled = false;
 }
 
 function showScanError(err: unknown) {
@@ -661,6 +669,37 @@ function wireScanSettings() {
     } finally {
       applyScanSettingsBtn.disabled = false;
       applyScanSettingsBtn.textContent = "Rescan";
+    }
+  };
+}
+
+// ── AI-powered smart digest (Chrome's on-device Summarizer) ─────────────
+// Narrates only already-computed aggregate counts (category/sender/expiry
+// totals, same data already shown in the tables) — never subjects or
+// bodies. The whole section stays hidden when the on-device model isn't
+// available in this browser/hardware.
+async function wireDigest() {
+  const availability = await checkDigestAvailability();
+  if (availability === "unavailable") return;
+  digestSectionEl.hidden = false;
+
+  generateDigestBtn.onclick = async () => {
+    generateDigestBtn.disabled = true;
+    digestTextEl.hidden = true;
+    digestStatusEl.textContent = availability === "available" ? "Generating…" : "Downloading on-device model…";
+    try {
+      const input = buildDigestInput(currentSenders, currentExpiryBuckets);
+      const summary = await generateDigest(input, (fraction) => {
+        digestStatusEl.textContent = `Downloading on-device model… ${Math.round(fraction * 100)}%`;
+      });
+      digestStatusEl.textContent = "";
+      digestTextEl.textContent = summary;
+      digestTextEl.hidden = false;
+    } catch (err) {
+      digestStatusEl.textContent = "Couldn't generate a digest right now.";
+      console.error(err);
+    } finally {
+      generateDigestBtn.disabled = false;
     }
   };
 }
