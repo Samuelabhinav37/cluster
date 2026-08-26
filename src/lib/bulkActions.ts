@@ -72,6 +72,45 @@ export async function executeBulkKeepSorted(
   return { succeeded, failed: outcomes.length - succeeded };
 }
 
+export interface SnoozePartition {
+  eligible: SenderSummary[];
+  unsupported: SenderSummary[];
+}
+
+export function partitionForSnooze(
+  selected: SenderSummary[],
+  providerById: Map<ProviderId, EmailProvider>,
+): SnoozePartition {
+  const eligible: SenderSummary[] = [];
+  const unsupported: SenderSummary[] = [];
+  for (const s of selected) {
+    (providerById.get(s.provider)?.snoozeMessages ? eligible : unsupported).push(s);
+  }
+  return { eligible, unsupported };
+}
+
+export async function executeBulkSnooze(
+  eligible: SenderSummary[],
+  providerById: Map<ProviderId, EmailProvider>,
+): Promise<{ succeeded: SenderSummary[]; failed: SenderSummary[] }> {
+  const outcomes = await mapWithConcurrency(eligible, 5, async (s) => {
+    const provider = providerById.get(s.provider);
+    if (!provider?.snoozeMessages) return false;
+    try {
+      const token = await provider.getAuthToken(false);
+      await provider.snoozeMessages(token, s.messageIds);
+      return true;
+    } catch (err) {
+      console.error(err);
+      return false;
+    }
+  });
+  const succeeded: SenderSummary[] = [];
+  const failed: SenderSummary[] = [];
+  eligible.forEach((s, i) => (outcomes[i] ? succeeded : failed).push(s));
+  return { succeeded, failed };
+}
+
 export function mergeDeletableIdsByProvider(groups: DomainGroup[]): Map<ProviderId, string[]> {
   const merged = new Map<ProviderId, string[]>();
   for (const g of groups) {

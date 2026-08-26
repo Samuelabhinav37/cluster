@@ -1,9 +1,11 @@
 import {
   executeBulkDeleteDomains,
   executeBulkKeepSorted,
+  executeBulkSnooze,
   executeBulkUnsubscribe,
   mergeDeletableIdsByProvider,
   partitionForKeepSorted,
+  partitionForSnooze,
   partitionForUnsubscribe,
   safeDomainGroupKeys,
   safeSenderKeys,
@@ -19,6 +21,8 @@ import { gmailProvider } from "../lib/providers/gmailProvider";
 import { outlookProvider } from "../lib/providers/outlookProvider";
 import { buildSenderSummaries, type SenderSummary } from "../lib/senderModel";
 import { getSettings, updateSettings, type DeclutterSettings } from "../lib/settingsStore";
+import { excludeSnoozedMessages } from "../lib/snoozeFilter";
+import { resurfaceDueSnoozed } from "../lib/snoozeResurface";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
 
 const providerById = new Map<ProviderId, EmailProvider>([
@@ -47,6 +51,9 @@ const unsubscribeBulkSlot = document.getElementById("unsubscribe-bulk-slot") as 
 const bulkUnsubscribeBtn = document.getElementById("bulk-unsubscribe-btn") as HTMLButtonElement;
 const keepSortedBulkSlot = document.getElementById("keep-sorted-bulk-slot") as HTMLSpanElement;
 const bulkKeepSortedBtn = document.getElementById("bulk-keep-sorted-btn") as HTMLButtonElement;
+const snoozeDurationSelect = document.getElementById("snooze-duration-select") as HTMLSelectElement;
+const snoozeBulkSlot = document.getElementById("snooze-bulk-slot") as HTMLSpanElement;
+const bulkSnoozeBtn = document.getElementById("bulk-snooze-btn") as HTMLButtonElement;
 
 const domainBulkBar = document.getElementById("domain-bulk-bar") as HTMLDivElement;
 const domainSelectedCountEl = document.getElementById("domain-selected-count") as HTMLSpanElement;
@@ -89,6 +96,7 @@ async function main() {
   };
 
   await gmailProvider.getAuthToken(true);
+  resurfaceDueSnoozed(gmailProvider).catch((err) => console.error("Resurfacing snoozed mail failed", err));
 
   if (await outlookProvider.isConnected()) {
     activeProviders.push(outlookProvider);
@@ -127,6 +135,7 @@ function wireOfflineHandling() {
     selectSafeDomainsBtn.disabled = disabled;
     bulkUnsubscribeBtn.disabled = disabled;
     bulkKeepSortedBtn.disabled = disabled;
+    bulkSnoozeBtn.disabled = disabled;
     bulkDeleteDomainsBtn.disabled = disabled;
     expiryCleanupBtn.disabled = disabled;
     fastDeleteToggle.disabled = disabled;
@@ -168,6 +177,13 @@ async function scanAndRender() {
     showScanError(err);
     return;
   }
+
+  const activeSnoozedIds = new Set(
+    Object.entries(cachedSettings.snoozedMessages)
+      .filter(([, v]) => v.resurfaceAt > Date.now())
+      .map(([id]) => id),
+  );
+  senders = excludeSnoozedMessages(senders, activeSnoozedIds);
 
   statusEl.hidden = true;
   senderGroupsEl.hidden = false;
@@ -339,7 +355,7 @@ function render(senders: SenderSummary[]) {
   renderCategoryGroups(
     senderGroupsEl,
     groups,
-    ["", "Provider", "Sender", `Count (${cachedSettings.scanWindowDays}d)`, "Unsubscribe", "Keep sorted"],
+    ["", "Provider", "Sender", `Count (${cachedSettings.scanWindowDays}d)`, "Unsubscribe", "Keep sorted", "Snooze"],
     buildSenderRow,
     "senders",
     "collapsedSenderCategories",
@@ -381,6 +397,7 @@ function buildSenderRow(sender: SenderSummary): HTMLTableRowElement {
 
   row.appendChild(buildUnsubscribeCell(sender));
   row.appendChild(buildKeepSortedCell(sender));
+  row.appendChild(buildSnoozeCell(sender));
 
   return row;
 }
@@ -396,6 +413,7 @@ function updateSenderBulkBar() {
   senderSelectedCountEl.textContent = `${selectedSenderKeys.size} selected`;
   bulkUnsubscribeBtn.disabled = selectedSenderKeys.size === 0;
   bulkKeepSortedBtn.disabled = selectedSenderKeys.size === 0;
+  bulkSnoozeBtn.disabled = selectedSenderKeys.size === 0;
 }
 
 // ── Confirmed-unsubscribe tracking ───────────────────────────────────────
@@ -497,6 +515,66 @@ function buildKeepSortedCell(sender: SenderSummary): HTMLTableCellElement {
     }
   };
   cell.appendChild(btn);
+  return cell;
+}
+
+// ── Snooze (Gmail-only) ──────────────────────────────────────────────────
+// Moves mail out of the inbox under a dedicated label and remembers when to
+// bring it back (settingsStore.snoozedMessages, checked by the background
+// alarm and on dashboard load — see snoozeResurface.ts). Never offered for
+// Outlook: Graph has no snooze primitive, and a folder-move approximation
+// would silently go stale if the user reorganizes mail elsewhere.
+async function recordSnoozedMessages(ids: string[], provider: ProviderId, resurfaceAt: number) {
+  if (ids.length === 0) return;
+  const snoozedMessages = { ...cachedSettings.snoozedMessages };
+  for (const id of ids) snoozedMessages[id] = { resurfaceAt, provider };
+  cachedSettings = await updateSettings({ snoozedMessages });
+}
+
+function buildSnoozeCell(sender: SenderSummary): HTMLTableCellElement {
+  const cell = document.createElement("td");
+
+  if (!providerById.get(sender.provider)?.snoozeMessages) {
+    cell.textContent = "Not supported for this provider";
+    return cell;
+  }
+
+  const select = document.createElement("select");
+  for (const [days, label] of [
+    [1, "1 day"],
+    [7, "1 week"],
+    [30, "1 month"],
+  ] as const) {
+    const option = document.createElement("option");
+    option.value = String(days);
+    option.textContent = label;
+    if (days === 7) option.selected = true;
+    select.appendChild(option);
+  }
+
+  const btn = document.createElement("button");
+  btn.textContent = "Snooze";
+  btn.onclick = async () => {
+    const provider = providerById.get(sender.provider);
+    if (!provider?.snoozeMessages) return;
+    btn.disabled = true;
+    select.disabled = true;
+    btn.textContent = "Snoozing…";
+    try {
+      const token = await provider.getAuthToken(false);
+      await provider.snoozeMessages(token, sender.messageIds);
+      const resurfaceAt = Date.now() + Number(select.value) * 24 * 60 * 60 * 1000;
+      await recordSnoozedMessages(sender.messageIds, sender.provider, resurfaceAt);
+      btn.textContent = `Snoozed until ${new Date(resurfaceAt).toLocaleDateString()} ✓`;
+    } catch (err) {
+      btn.textContent = "Failed, try again";
+      btn.disabled = false;
+      select.disabled = false;
+      console.error(err);
+    }
+  };
+
+  cell.append(select, btn);
   return cell;
 }
 
@@ -837,6 +915,27 @@ function wireBulkHandlers() {
     renderConfirmStep(keepSortedBulkSlot, resetKeepSortedBulkSlot, summaryText, false, async () => {
       const { succeeded, failed } = await executeBulkKeepSorted(eligible, providerById);
       return `Sorted ${succeeded}, failed ${failed}, skipped ${unsupported.length}`;
+    });
+  };
+
+  const resetSnoozeBulkSlot = () => {
+    snoozeBulkSlot.innerHTML = "";
+    snoozeBulkSlot.appendChild(bulkSnoozeBtn);
+  };
+
+  bulkSnoozeBtn.onclick = () => {
+    const selected = currentSenders.filter((s) => selectedSenderKeys.has(s.key));
+    const { eligible, unsupported } = partitionForSnooze(selected, providerById);
+    const days = Number(snoozeDurationSelect.value);
+    const resurfaceAt = Date.now() + days * 24 * 60 * 60 * 1000;
+    const summaryText = `${eligible.length} will be snoozed for ${snoozeDurationSelect.options[snoozeDurationSelect.selectedIndex].textContent}, ${unsupported.length} skipped — not supported for this provider`;
+
+    renderConfirmStep(snoozeBulkSlot, resetSnoozeBulkSlot, summaryText, false, async () => {
+      const { succeeded, failed } = await executeBulkSnooze(eligible, providerById);
+      for (const s of succeeded) await recordSnoozedMessages(s.messageIds, s.provider, resurfaceAt);
+      const message = `Snoozed ${succeeded.length}, failed ${failed.length}, skipped ${unsupported.length}`;
+      await scanAndRender();
+      return message;
     });
   };
 

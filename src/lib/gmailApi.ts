@@ -133,6 +133,32 @@ export async function createLabel(token: string, name: string): Promise<string> 
   return data.id;
 }
 
+// Gmail's labels.create 409s if the name already exists — every caller that
+// might run more than once per label name (across sessions, not just one
+// button click) should use this instead of createLabel directly.
+export async function getOrCreateLabel(token: string, name: string): Promise<string> {
+  const data = await gmailFetch("/users/me/labels", token);
+  const existing = (data.labels ?? []).find((l: { id: string; name: string }) => l.name === name);
+  if (existing) return existing.id;
+  return createLabel(token, name);
+}
+
+const SNOOZE_LABEL_NAME = "Declutter/Snoozed";
+
+// Snooze is entirely our own bookkeeping — Gmail has no snooze primitive.
+// This just moves mail out of the inbox under a dedicated label; the
+// resurface timestamp lives in settingsStore.snoozedMessages, checked by
+// the background triage alarm (and on dashboard load).
+export async function snoozeMessages(token: string, ids: string[]): Promise<void> {
+  const labelId = await getOrCreateLabel(token, SNOOZE_LABEL_NAME);
+  await batchModify(token, ids, [labelId], ["INBOX"]);
+}
+
+export async function resurfaceMessages(token: string, ids: string[]): Promise<void> {
+  const labelId = await getOrCreateLabel(token, SNOOZE_LABEL_NAME);
+  await batchModify(token, ids, ["INBOX"], [labelId]);
+}
+
 export async function createSenderFilter(
   token: string,
   fromAddress: string,

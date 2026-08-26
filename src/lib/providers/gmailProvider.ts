@@ -1,11 +1,13 @@
 import {
   batchDeleteMessages,
   batchModify,
-  createLabel,
   createSenderFilter,
   getAuthToken as gmailGetAuthToken,
   getMessageMetadata as fetchGmailMessageMetadata,
+  getOrCreateLabel,
   listMessageIds,
+  resurfaceMessages as apiResurfaceMessages,
+  snoozeMessages as apiSnoozeMessages,
   trashMessage,
   untrashMessage,
 } from "../gmailApi";
@@ -74,8 +76,16 @@ export const gmailProvider: EmailProvider = {
   },
 
   async keepSorted(token, fromAddress, label, existingIds) {
-    const labelId = await createLabel(token, label);
+    const labelId = await getOrCreateLabel(token, label);
     await createSenderFilter(token, fromAddress, labelId);
     await batchModify(token, existingIds, [labelId], ["INBOX"]);
+  },
+
+  async snoozeMessages(token, ids) {
+    await apiSnoozeMessages(token, ids);
+  },
+
+  async resurfaceMessages(token, ids) {
+    await apiResurfaceMessages(token, ids);
   },
 };

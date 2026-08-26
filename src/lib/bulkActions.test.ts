@@ -2,9 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import {
   executeBulkDeleteDomains,
   executeBulkKeepSorted,
+  executeBulkSnooze,
   executeBulkUnsubscribe,
   mergeDeletableIdsByProvider,
   partitionForKeepSorted,
+  partitionForSnooze,
   partitionForUnsubscribe,
   safeDomainGroupKeys,
   safeSenderKeys,
@@ -125,6 +127,51 @@ describe("partitionForKeepSorted / executeBulkKeepSorted", () => {
     const { succeeded, failed } = await executeBulkKeepSorted(senders, providerById);
     expect(succeeded).toBe(1);
     expect(failed).toBe(1);
+  });
+});
+
+describe("partitionForSnooze / executeBulkSnooze", () => {
+  function makeProvider(id: ProviderId, withSnooze: boolean): EmailProvider {
+    return {
+      id,
+      isConnected: vi.fn(async () => true),
+      getAuthToken: vi.fn(async () => "token"),
+      listCandidateMessages: vi.fn(async () => []),
+      getMessageMetadata: vi.fn(),
+      trashMessages: vi.fn(async () => {}),
+      snoozeMessages: withSnooze ? vi.fn(async () => {}) : undefined,
+    };
+  }
+
+  it("splits senders by whether their provider supports snooze (Gmail-only)", () => {
+    const providerById = new Map<ProviderId, EmailProvider>([
+      ["gmail", makeProvider("gmail", true)],
+      ["outlook", makeProvider("outlook", false)],
+    ]);
+    const senders = [
+      makeSender({ address: "a@x.com", provider: "gmail" }),
+      makeSender({ address: "b@x.com", provider: "outlook" }),
+    ];
+    const { eligible, unsupported } = partitionForSnooze(senders, providerById);
+    expect(eligible.map((s) => s.address)).toEqual(["a@x.com"]);
+    expect(unsupported.map((s) => s.address)).toEqual(["b@x.com"]);
+  });
+
+  it("calls snoozeMessages for each eligible sender with its message ids, reporting failures separately", async () => {
+    const gmail = makeProvider("gmail", true);
+    (gmail.snoozeMessages as ReturnType<typeof vi.fn>).mockImplementationOnce(async () => {
+      throw new Error("boom");
+    });
+    const providerById = new Map<ProviderId, EmailProvider>([["gmail", gmail]]);
+    const senders = [
+      makeSender({ address: "a@x.com", provider: "gmail", messageIds: ["m1"] }),
+      makeSender({ address: "b@x.com", provider: "gmail", messageIds: ["m2"] }),
+    ];
+    const { succeeded, failed } = await executeBulkSnooze(senders, providerById);
+    expect(succeeded).toHaveLength(1);
+    expect(failed).toHaveLength(1);
+    expect(gmail.snoozeMessages).toHaveBeenCalledWith("token", ["m1"]);
+    expect(gmail.snoozeMessages).toHaveBeenCalledWith("token", ["m2"]);
   });
 });
 

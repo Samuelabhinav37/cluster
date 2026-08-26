@@ -50,4 +50,12 @@ export interface EmailProvider {
    * Gmail portion of a mixed-provider delete.
    */
   untrashMessages?(token: string, ids: string[]): Promise<void>;
+  /**
+   * Snooze — Gmail-only, via label + resurface-timestamp bookkeeping (see
+   * settingsStore.snoozedMessages / snoozeResurface.ts). Outlook has no
+   * native snooze primitive, and a folder-move approximation would silently
+   * go stale if the user reorganizes mail elsewhere.
+   */
+  snoozeMessages?(token: string, ids: string[]): Promise<void>;
+  resurfaceMessages?(token: string, ids: string[]): Promise<void>;
 }

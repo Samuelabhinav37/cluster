@@ -9,6 +9,8 @@ export interface DeclutterSettings {
   unsubscribeRequests: Record<string, { requestedAt: number; provider: ProviderId }>;
   fastPermanentDeleteEnabled: boolean;
   onboardingDismissed: boolean;
+  // Gmail-only — keyed by message id (see gmailApi.snoozeMessages).
+  snoozedMessages: Record<string, { resurfaceAt: number; provider: ProviderId }>;
 }
 
 const STORAGE_KEY = "declutterSettings";
@@ -21,6 +23,7 @@ const DEFAULT_SETTINGS: DeclutterSettings = {
   unsubscribeRequests: {},
   fastPermanentDeleteEnabled: false,
   onboardingDismissed: false,
+  snoozedMessages: {},
 };
 
 export async function getSettings(): Promise<DeclutterSettings> {

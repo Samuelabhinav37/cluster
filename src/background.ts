@@ -4,6 +4,8 @@ import { outlookProvider } from "./lib/providers/outlookProvider";
 import type { EmailProvider } from "./lib/providers/emailProvider";
 import { buildSenderSummaries } from "./lib/senderModel";
 import { getSettings } from "./lib/settingsStore";
+import { excludeSnoozedMessages } from "./lib/snoozeFilter";
+import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
 
 chrome.action.onClicked.addListener(async () => {
   const url = chrome.runtime.getURL("src/dashboard/index.html");
@@ -30,7 +32,10 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === TRIAGE_ALARM) runBackgroundTriage();
+  if (alarm.name === TRIAGE_ALARM) {
+    resurfaceDueSnoozed(gmailProvider).catch((err) => console.error("Resurfacing snoozed mail failed", err));
+    runBackgroundTriage();
+  }
 });
 
 async function runBackgroundTriage() {
@@ -41,7 +46,13 @@ async function runBackgroundTriage() {
     if (connected.length === 0) return;
 
     const settings = await getSettings();
-    const senders = await buildSenderSummaries(connected, settings.maxMessagesPerProvider, settings.scanWindowDays);
+    let senders = await buildSenderSummaries(connected, settings.maxMessagesPerProvider, settings.scanWindowDays);
+    const activeSnoozedIds = new Set(
+      Object.entries(settings.snoozedMessages)
+        .filter(([, v]) => v.resurfaceAt > Date.now())
+        .map(([id]) => id),
+    );
+    senders = excludeSnoozedMessages(senders, activeSnoozedIds);
     const total = totalExpiryCount(buildExpiryBuckets(senders));
 
     if (total > 0) {
