@@ -74,12 +74,16 @@ export async function getMessageMetadata(token: string, id: string): Promise<Raw
   return { headers, labelIds: data.labelIds ?? [], internalDate: Number(data.internalDate ?? 0) };
 }
 
-export async function trashMessage(token: string, id: string): Promise<void> {
-  await gmailFetch(`/users/me/messages/${id}/trash`, token, { method: "POST" });
+// Batched via batchModify below rather than one call per message — trash and
+// untrash are just label mutations under the hood (add/remove TRASH), and
+// batchModify's flat per-call quota cost (vs. per-message for /trash) matters
+// once a bulk flow (delete-domain, expiry cleanup) spans hundreds of ids.
+export async function trashMessages(token: string, ids: string[]): Promise<void> {
+  await batchModify(token, ids, ["TRASH"], ["INBOX"]);
 }
 
-export async function untrashMessage(token: string, id: string): Promise<void> {
-  await gmailFetch(`/users/me/messages/${id}/untrash`, token, { method: "POST" });
+export async function untrashMessages(token: string, ids: string[]): Promise<void> {
+  await batchModify(token, ids, ["INBOX"], ["TRASH"]);
 }
 
 // https://mail.google.com/ is a Google-classified *restricted* scope — not in
@@ -107,7 +111,7 @@ export async function getElevatedAuthToken(interactive: boolean): Promise<string
 
 const BATCH_DELETE_CHUNK_SIZE = 1000;
 
-// Permanent — no Trash recovery, unlike trashMessage. Requires a token
+// Permanent — no Trash recovery, unlike trashMessages. Requires a token
 // obtained via getElevatedAuthToken.
 export async function batchDeleteMessages(token: string, ids: string[]): Promise<void> {
   for (let i = 0; i < ids.length; i += BATCH_DELETE_CHUNK_SIZE) {
@@ -174,16 +178,20 @@ export async function createSenderFilter(
   });
 }
 
+const BATCH_MODIFY_CHUNK_SIZE = 1000;
+
 export async function batchModify(
   token: string,
   ids: string[],
   addLabelIds: string[],
   removeLabelIds: string[],
 ): Promise<void> {
-  if (ids.length === 0) return;
-  await gmailFetch("/users/me/messages/batchModify", token, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ids, addLabelIds, removeLabelIds }),
-  });
+  for (let i = 0; i < ids.length; i += BATCH_MODIFY_CHUNK_SIZE) {
+    const chunk = ids.slice(i, i + BATCH_MODIFY_CHUNK_SIZE);
+    await gmailFetch("/users/me/messages/batchModify", token, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: chunk, addLabelIds, removeLabelIds }),
+    });
+  }
 }

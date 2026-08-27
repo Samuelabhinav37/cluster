@@ -8,10 +8,9 @@ import {
   listMessageIds,
   resurfaceMessages as apiResurfaceMessages,
   snoozeMessages as apiSnoozeMessages,
-  trashMessage,
-  untrashMessage,
+  trashMessages as apiTrashMessages,
+  untrashMessages as apiUntrashMessages,
 } from "../gmailApi";
-import { mapWithConcurrency } from "../concurrency";
 import { parseListUnsubscribe } from "../unsubscribe";
 import type { EmailProvider, NormalizedMessageMetadata } from "./emailProvider";
 
@@ -64,11 +63,11 @@ export const gmailProvider: EmailProvider = {
   },
 
   async trashMessages(token, ids) {
-    await mapWithConcurrency(ids, 10, (id) => trashMessage(token, id));
+    await apiTrashMessages(token, ids);
   },
 
   async untrashMessages(token, ids) {
-    await mapWithConcurrency(ids, 10, (id) => untrashMessage(token, id));
+    await apiUntrashMessages(token, ids);
   },
 
   async permanentlyDeleteMessages(token, ids) {
