@@ -61,4 +61,18 @@ describe("buildSenderSummaries", () => {
     await buildSenderSummaries([gmail], 250, 30);
     expect(gmail.listCandidateMessages).toHaveBeenCalledWith("gmail-token", 250, 30);
   });
+
+  it("computes threatSignals per sender from scoreMessageForThreats", async () => {
+    const gmail = makeProvider("gmail", [
+      makeMeta({ id: "g1", fromAddress: "paypal-support@gmail.com", fromDisplayName: "PayPal Support" }),
+      makeMeta({ id: "g2", fromAddress: "hello@ordinary-newsletter.example", fromDisplayName: "Ordinary Newsletter" }),
+    ]);
+
+    const senders = await buildSenderSummaries([gmail]);
+
+    const flagged = senders.find((s) => s.address === "paypal-support@gmail.com")!;
+    expect(flagged.threatSignals).toEqual([{ kind: "freemail-brand-claim", brand: "paypal", confidence: "high" }]);
+    const clean = senders.find((s) => s.address === "hello@ordinary-newsletter.example")!;
+    expect(clean.threatSignals).toEqual([]);
+  });
 });

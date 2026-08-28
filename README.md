@@ -52,7 +52,27 @@ not send Athena telemetry. The connection exchanges an enrollment credential for
 token held in `chrome.storage.session`, keeps at most 200 minimized events in memory, and retries
 without delaying mailbox work.
 
-This is transport groundwork, not phishing detection. Clutter currently emits no security events
-because its rule-based detection and quarantine module has not been built. Future detections must
-call `queueAthenaSecurityEvent` only after a local warning or quarantine action, must never include
-message bodies or subjects, and must never automatically delete mail.
+**First rule-based detection: brand impersonation** (`src/lib/threatSignals.ts`). From the same
+headers already fetched for the declutter feature (sender address, display name — never the
+message body or subject), flags a sender whose display name claims to be a well-known brand
+(PayPal, a major bank, Microsoft, IRS, a shipping carrier, ...) but whose actual mail domain isn't
+that brand's real one — highest confidence when it's a consumer free-mail domain (`gmail.com`,
+`outlook.com`, etc.) making the claim, since no real bank sends from one. Flagged senders surface
+in a new, clearly separate "Possible impersonation" dashboard section — never blended into the
+regular declutter view — and get reported as minimized `warned` events to Athena (when connected;
+otherwise nothing happens beyond the dashboard section) via the background triage's existing
+6-hourly alarm. Nothing is labeled, moved, or deleted automatically; this is detection and
+reporting only, not action, matching the never-auto-delete rule below.
+
+**Deliberately not built yet, and why** (see `threatSignals.ts`'s own header for the full
+reasoning): SPF/DKIM/DMARC authentication-result checking, which needs a provider-layer change to
+fetch the `Authentication-Results` header this feature doesn't request today; and cross-referencing
+link domains against a real malicious/phishing domain list, which needs a real data-sourcing
+decision first (a live fetch would contradict this project's own metadata-only, no-server-calls
+stance, so it would have to be a build-time-vendored copy instead — new tooling, not a
+`threatSignals.ts` change). Also not built: any actual label/quarantine *action* on a flagged
+sender — today this only warns (dashboard + Athena event), consistent with the rule below that any
+future action must never auto-delete mail.
+
+Any future detection must call `queueAthenaSecurityEvent` only after a local warning or quarantine
+action, must never include message bodies or subjects, and must never automatically delete mail.

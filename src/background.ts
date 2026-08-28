@@ -2,11 +2,11 @@ import { buildExpiryBuckets, totalExpiryCount } from "./lib/expiryTriage";
 import { gmailProvider } from "./lib/providers/gmailProvider";
 import { outlookProvider } from "./lib/providers/outlookProvider";
 import type { EmailProvider } from "./lib/providers/emailProvider";
-import { buildSenderSummaries } from "./lib/senderModel";
+import { buildSenderSummaries, type SenderSummary } from "./lib/senderModel";
 import { getSettings } from "./lib/settingsStore";
 import { excludeSnoozedMessages } from "./lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
-import { flushAthenaSecurityEvents } from "./lib/athenaIntegration";
+import { flushAthenaSecurityEvents, queueAthenaSecurityEvent } from "./lib/athenaIntegration";
 
 chrome.action.onClicked.addListener(async () => {
   const url = chrome.runtime.getURL("src/dashboard/index.html");
@@ -43,6 +43,32 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ATHENA_ALARM) void flushAthenaSecurityEvents();
 });
 
+// Reports every sender threatSignals flagged (see senderModel.ts /
+// threatSignals.ts) as a minimized Athena "warned" event -- queueAthenaSecurityEvent
+// itself no-ops instantly when Athena isn't configured (the common case), so this
+// runs unconditionally rather than checking twice. sourceEventId is deterministic
+// per sender+signal (not per triage run), so re-flagging the same sender on the
+// next 6-hourly triage is a safe, server-side-deduped no-op, not a repeat alert.
+// This only ever reports -- it never labels, moves, or acts on the message itself;
+// see threatSignals.ts's own header for why that's a deliberately separate,
+// not-yet-built step.
+async function reportThreatSignals(senders: SenderSummary[]) {
+  const now = new Date().toISOString();
+  for (const sender of senders) {
+    for (const signal of sender.threatSignals) {
+      await queueAthenaSecurityEvent({
+        sourceEventId: `${sender.key}:${signal.kind}:${signal.brand}`,
+        occurredAt: now,
+        action: "warned",
+        severity: signal.confidence === "high" ? "high" : "medium",
+        ruleId: `threat-signal:${signal.kind}`,
+        targetIndicator: sender.address.slice(sender.address.lastIndexOf("@") + 1),
+        evidence: { brand: signal.brand, kind: signal.kind },
+      });
+    }
+  }
+}
+
 async function runBackgroundTriage() {
   try {
     const candidates = [gmailProvider, outlookProvider];
@@ -58,6 +84,7 @@ async function runBackgroundTriage() {
         .map(([id]) => id),
     );
     senders = excludeSnoozedMessages(senders, activeSnoozedIds);
+    await reportThreatSignals(senders);
     const total = totalExpiryCount(buildExpiryBuckets(senders));
 
     if (total > 0) {

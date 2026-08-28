@@ -26,6 +26,7 @@ function makeSender(provider: ProviderId, messages: MessageRecord[]): SenderSumm
     protectedMessageIds: messages.filter((m) => m.isProtected).map((m) => m.id),
     unsubscribe: {},
     messages,
+    threatSignals: [],
   };
 }
 

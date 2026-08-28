@@ -1,5 +1,6 @@
 import { mapWithConcurrency } from "./concurrency";
 import { classifyMessageKind, type MessageKind } from "./messageKind";
+import { scoreMessageForThreats, type ThreatSignal } from "./threatSignals";
 import type {
   EmailProvider,
   NormalizedMessageMetadata,
@@ -24,6 +25,13 @@ export interface SenderSummary {
   protectedMessageIds: string[];
   unsubscribe: UnsubscribeInfo;
   messages: MessageRecord[];
+  /**
+   * Computed once from the sender's own address/display name, not per
+   * message -- scoreMessageForThreats only looks at sender identity, which
+   * is identical across every message from one sender key, so scoring it
+   * again per message would just repeat the same answer.
+   */
+  threatSignals: ThreatSignal[];
 }
 
 function hasUnsubscribe(info: UnsubscribeInfo): boolean {
@@ -55,6 +63,7 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
       address: meta.fromAddress,
       displayName: meta.fromDisplayName,
       count: 1,
+      threatSignals: scoreMessageForThreats(meta),
       messageIds: [meta.id],
       protectedMessageIds: meta.isProtected ? [meta.id] : [],
       unsubscribe: meta.unsubscribe,

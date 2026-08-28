@@ -63,6 +63,8 @@ const deleteDomainsBulkSlot = document.getElementById("delete-domains-bulk-slot"
 const bulkDeleteDomainsBtn = document.getElementById("bulk-delete-domains-btn") as HTMLButtonElement;
 
 const expirySectionEl = document.getElementById("expiry-section") as HTMLElement;
+const securitySectionEl = document.getElementById("security-section") as HTMLElement;
+const securitySenderListEl = document.getElementById("security-sender-list") as HTMLUListElement;
 const expiryBreakdownEl = document.getElementById("expiry-breakdown") as HTMLSpanElement;
 const expiryCleanupSlot = document.getElementById("expiry-cleanup-slot") as HTMLSpanElement;
 const expiryCleanupBtn = document.getElementById("expiry-cleanup-btn") as HTMLButtonElement;
@@ -212,6 +214,7 @@ async function scanAndRender() {
   render(senders);
   renderDomainGroups(senders);
   renderExpirySection(senders);
+  renderSecuritySection(senders);
   generateDigestBtn.disabled = false;
 }
 
@@ -703,6 +706,27 @@ function buildDeleteDomainCell(group: DomainGroup): HTMLTableCellElement {
 
   cell.appendChild(btn);
   return cell;
+}
+
+// ── Possible-impersonation (threatSignals) section ──────────────────────
+// Read-only: lists what threatSignals.ts flagged, nothing more. Labeling,
+// quarantining, or otherwise acting on a flagged sender isn't built yet --
+// see threatSignals.ts's own header comment for the reasoning.
+function renderSecuritySection(senders: SenderSummary[]) {
+  const flagged = senders.filter((s) => s.threatSignals.length > 0);
+  securitySectionEl.hidden = flagged.length === 0;
+  if (flagged.length === 0) return;
+
+  securitySenderListEl.replaceChildren(
+    ...flagged.map((sender) => {
+      const li = document.createElement("li");
+      const labels = sender.threatSignals
+        .map((s) => (s.kind === "freemail-brand-claim" ? `claims to be ${s.brand}, sent from a free-mail address` : `claims to be ${s.brand}, domain doesn't match`))
+        .join("; ");
+      li.textContent = `${sender.displayName || sender.address} <${sender.address}> — ${labels}`;
+      return li;
+    }),
+  );
 }
 
 // ── Ready-to-clean-up (retention expiry) section ────────────────────────

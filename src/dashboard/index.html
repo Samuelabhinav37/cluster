@@ -25,6 +25,16 @@
         <button id="athena-connect-btn">Allow Athena connection</button>
         <span id="athena-status" role="status"></span>
       </section>
+      <section id="security-section" hidden>
+        <h2>Possible impersonation</h2>
+        <p class="hint">
+          Senders whose display name claims to be a well-known brand, but whose actual address
+          doesn't match that brand's real domain — a common phishing pattern. This is a heuristic
+          from headers already fetched for the declutter feature, not a verified fact: check
+          before acting. Nothing here is auto-labeled, moved, or deleted.
+        </p>
+        <ul id="security-sender-list"></ul>
+      </section>
       <div id="scan-settings-bar" class="bulk-bar">
         <label>
           Scan window (days):

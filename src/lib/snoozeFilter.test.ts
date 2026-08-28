@@ -12,6 +12,7 @@ function makeSender(overrides: Partial<SenderSummary> & { address: string; messa
     provider: "gmail",
     displayName: "",
     unsubscribe: {},
+    threatSignals: [],
     ...overrides,
     count: overrides.messages.length,
     messageIds: overrides.messages.map((m) => m.id),

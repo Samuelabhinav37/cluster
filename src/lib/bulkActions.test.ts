@@ -27,6 +27,7 @@ function makeSender(overrides: Partial<SenderSummary> & { address: string }): Se
     protectedMessageIds: [],
     unsubscribe: {},
     messages: [],
+    threatSignals: [],
     ...overrides,
   };
 }
