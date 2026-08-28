@@ -63,7 +63,7 @@ export interface RawMessageMetadata {
 
 export async function getMessageMetadata(token: string, id: string): Promise<RawMessageMetadata> {
   const params = new URLSearchParams({ format: "metadata" });
-  for (const header of ["From", "List-Unsubscribe", "List-Unsubscribe-Post", "Subject"]) {
+  for (const header of ["From", "List-Unsubscribe", "List-Unsubscribe-Post", "Subject", "Authentication-Results"]) {
     params.append("metadataHeaders", header);
   }
   const data = await gmailFetch(`/users/me/messages/${id}?${params}`, token);

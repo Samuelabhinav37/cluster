@@ -59,6 +59,7 @@ async function getMessageMetadata(token: string, id: string): Promise<Normalized
     isProtected: data.flag?.flagStatus === "flagged",
     unsubscribe: parseListUnsubscribe(find("List-Unsubscribe"), find("List-Unsubscribe-Post")),
     receivedAt: data.receivedDateTime ? new Date(data.receivedDateTime).getTime() : 0,
+    authenticationResults: find("Authentication-Results"),
   };
 }
 

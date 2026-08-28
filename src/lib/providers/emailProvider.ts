@@ -19,6 +19,11 @@ export interface NormalizedMessageMetadata {
   unsubscribe: UnsubscribeInfo;
   /** Epoch ms the message was received — never a claimed in-body date. */
   receivedAt: number;
+  /** Raw Authentication-Results header text, if the provider/relay added one
+   * -- see emailAuth.ts for parsing. Undefined (not empty string) when the
+   * message had no such header at all, distinct from a header that's
+   * present but doesn't mention a given mechanism. */
+  authenticationResults?: string;
 }
 
 export interface EmailProvider {
@@ -58,4 +63,14 @@ export interface EmailProvider {
    */
   snoozeMessages?(token: string, ids: string[]): Promise<void>;
   resurfaceMessages?(token: string, ids: string[]): Promise<void>;
+  /**
+   * Labels the given message ids as possible phishing and archives them out
+   * of the inbox — Gmail-only, deliberately manual and per-occurrence
+   * rather than a standing filter (see threatSignals.ts): a signal that
+   * fires today (a lookalike domain, a DMARC fail) isn't guaranteed to
+   * still apply to whatever this sender does next, so this never creates a
+   * rule that would silently keep acting on future mail unreviewed. Never
+   * deletes — same "label/quarantine, never delete" rule as keepSorted.
+   */
+  labelSuspicious?(token: string, ids: string[]): Promise<void>;
 }

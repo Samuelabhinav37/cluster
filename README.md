@@ -52,27 +52,41 @@ not send Athena telemetry. The connection exchanges an enrollment credential for
 token held in `chrome.storage.session`, keeps at most 200 minimized events in memory, and retries
 without delaying mailbox work.
 
-**First rule-based detection: brand impersonation** (`src/lib/threatSignals.ts`). From the same
-headers already fetched for the declutter feature (sender address, display name — never the
-message body or subject), flags a sender whose display name claims to be a well-known brand
-(PayPal, a major bank, Microsoft, IRS, a shipping carrier, ...) but whose actual mail domain isn't
-that brand's real one — highest confidence when it's a consumer free-mail domain (`gmail.com`,
-`outlook.com`, etc.) making the claim, since no real bank sends from one. Flagged senders surface
-in a new, clearly separate "Possible impersonation" dashboard section — never blended into the
-regular declutter view — and get reported as minimized `warned` events to Athena (when connected;
-otherwise nothing happens beyond the dashboard section) via the background triage's existing
-6-hourly alarm. Nothing is labeled, moved, or deleted automatically; this is detection and
-reporting only, not action, matching the never-auto-delete rule below.
+**Rule-based detection** (`src/lib/threatSignals.ts`), four kinds, all from headers already
+fetched for the declutter feature (sender address, display name, and now `Authentication-Results`
+— never the message body or subject, no new OAuth scope, no network call of its own):
 
-**Deliberately not built yet, and why** (see `threatSignals.ts`'s own header for the full
-reasoning): SPF/DKIM/DMARC authentication-result checking, which needs a provider-layer change to
-fetch the `Authentication-Results` header this feature doesn't request today; and cross-referencing
-link domains against a real malicious/phishing domain list, which needs a real data-sourcing
-decision first (a live fetch would contradict this project's own metadata-only, no-server-calls
-stance, so it would have to be a build-time-vendored copy instead — new tooling, not a
-`threatSignals.ts` change). Also not built: any actual label/quarantine *action* on a flagged
-sender — today this only warns (dashboard + Athena event), consistent with the rule below that any
-future action must never auto-delete mail.
+- **Brand impersonation / freemail-brand-claim** — a display name claims a well-known brand
+  (PayPal, a major bank, Microsoft, IRS, a shipping carrier, ...; ~35 brands across payments,
+  shipping, tech, telecom, and government) but the actual mail domain isn't that brand's real one
+  or a subdomain of it — highest confidence when a consumer free-mail domain (`gmail.com`,
+  `outlook.com`, etc.) is making the claim, since no real bank sends from one.
+- **Lookalike domain** — the sender's domain is a small edit distance (≤2, e.g. `paypa1.com`,
+  `arnazon.com`) from a brand's real domain, fired independently of whether the display name names
+  the brand at all — classic typosquatting.
+- **Failed authentication** — the message's own `Authentication-Results` header shows a DMARC
+  fail. This one applies to *any* sender, not just the curated brand list, since a forged sender
+  doesn't have to impersonate a name on that list to be forged. Gmail already sent this header back
+  for free once added to the existing `metadataHeaders` allowlist; Outlook was already fetching it
+  in full via `internetMessageHeaders`, just unread until now.
+
+Flagged senders surface in a clearly separate "Possible impersonation" dashboard section — never
+blended into the regular declutter view — and get reported as minimized `warned` events to Athena
+(when connected; otherwise nothing happens beyond the dashboard section) via the background
+triage's existing 6-hourly alarm, deduplicated server-side by a deterministic per-sender-per-signal
+id so repeat triage runs don't re-alert.
+
+**One manual action, Gmail only: "Label as suspicious."** Applies a `Declutter/Possible Phishing`
+label and archives the currently-flagged messages out of the inbox — never deletes. Deliberately a
+one-click, per-occurrence action rather than a standing filter: a signal that fires today (a
+lookalike domain, a DMARC fail) isn't guaranteed to still apply to whatever this sender sends next,
+so nothing here creates a rule that keeps acting on future mail unreviewed.
+
+**Still deliberately not built, and why** (see `threatSignals.ts`'s own header): cross-referencing
+link domains against a real malicious/phishing domain list needs a real data-sourcing decision
+first — a live fetch would contradict this project's own metadata-only, no-server-calls stance, so
+it would have to be a build-time-vendored copy instead, new tooling, not a `threatSignals.ts`
+change.
 
 Any future detection must call `queueAthenaSecurityEvent` only after a local warning or quarantine
 action, must never include message bodies or subjects, and must never automatically delete mail.

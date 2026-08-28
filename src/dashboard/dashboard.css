@@ -211,3 +211,20 @@ select {
   max-width: 65ch;
   line-height: 1.5;
 }
+
+#security-sender-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+}
+
+#security-sender-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--panel-bg);
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+}

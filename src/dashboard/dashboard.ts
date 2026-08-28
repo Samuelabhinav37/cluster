@@ -709,9 +709,22 @@ function buildDeleteDomainCell(group: DomainGroup): HTMLTableCellElement {
 }
 
 // ── Possible-impersonation (threatSignals) section ──────────────────────
-// Read-only: lists what threatSignals.ts flagged, nothing more. Labeling,
-// quarantining, or otherwise acting on a flagged sender isn't built yet --
-// see threatSignals.ts's own header comment for the reasoning.
+// Read-only detail plus one manual, per-sender action (labelSuspicious) --
+// never automatic, never a standing filter. See threatSignals.ts and
+// emailProvider.ts's labelSuspicious doc comment for the reasoning.
+function describeSignal(s: SenderSummary["threatSignals"][number]): string {
+  switch (s.kind) {
+    case "freemail-brand-claim":
+      return `claims to be ${s.brand}, sent from a free-mail address`;
+    case "brand-impersonation":
+      return `claims to be ${s.brand}, domain doesn't match`;
+    case "lookalike-domain":
+      return `domain closely resembles ${s.brand}'s real domain`;
+    case "failed-authentication":
+      return `failed DMARC authentication (claimed domain: ${s.brand})`;
+  }
+}
+
 function renderSecuritySection(senders: SenderSummary[]) {
   const flagged = senders.filter((s) => s.threatSignals.length > 0);
   securitySectionEl.hidden = flagged.length === 0;
@@ -720,10 +733,30 @@ function renderSecuritySection(senders: SenderSummary[]) {
   securitySenderListEl.replaceChildren(
     ...flagged.map((sender) => {
       const li = document.createElement("li");
-      const labels = sender.threatSignals
-        .map((s) => (s.kind === "freemail-brand-claim" ? `claims to be ${s.brand}, sent from a free-mail address` : `claims to be ${s.brand}, domain doesn't match`))
-        .join("; ");
-      li.textContent = `${sender.displayName || sender.address} <${sender.address}> — ${labels}`;
+      const label = sender.threatSignals.map(describeSignal).join("; ");
+      const text = document.createElement("span");
+      text.textContent = `${sender.displayName || sender.address} <${sender.address}> — ${label} `;
+      li.appendChild(text);
+
+      const provider = providerById.get(sender.provider);
+      if (provider?.labelSuspicious) {
+        const btn = document.createElement("button");
+        btn.textContent = "Label as suspicious";
+        btn.onclick = async () => {
+          btn.disabled = true;
+          btn.textContent = "Labeling…";
+          try {
+            const token = await provider.getAuthToken(false);
+            await provider.labelSuspicious!(token, sender.messageIds);
+            btn.textContent = "Labeled ✓";
+          } catch (err) {
+            btn.textContent = "Failed, try again";
+            btn.disabled = false;
+            console.error(err);
+          }
+        };
+        li.appendChild(btn);
+      }
       return li;
     }),
   );

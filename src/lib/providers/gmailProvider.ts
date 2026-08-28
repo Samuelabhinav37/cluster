@@ -14,6 +14,11 @@ import {
 import { parseListUnsubscribe } from "../unsubscribe";
 import type { EmailProvider, NormalizedMessageMetadata } from "./emailProvider";
 
+// Same "Declutter/X" nesting convention as gmailApi.ts's own
+// SNOOZE_LABEL_NAME, so both show up under one parent label in Gmail's
+// sidebar rather than as unrelated top-level labels.
+const SUSPICIOUS_LABEL_NAME = "Declutter/Possible Phishing";
+
 function parseFrom(from: string): { address: string; displayName: string } {
   const match = from.match(/^(.*?)<(.+)>$/);
   if (match) {
@@ -59,6 +64,7 @@ export const gmailProvider: EmailProvider = {
       isProtected: labelIds.includes("STARRED"),
       unsubscribe: parseListUnsubscribe(headers["List-Unsubscribe"], headers["List-Unsubscribe-Post"]),
       receivedAt: internalDate,
+      authenticationResults: headers["Authentication-Results"],
     };
   },
 
@@ -86,5 +92,10 @@ export const gmailProvider: EmailProvider = {
 
   async resurfaceMessages(token, ids) {
     await apiResurfaceMessages(token, ids);
+  },
+
+  async labelSuspicious(token, ids) {
+    const labelId = await getOrCreateLabel(token, SUSPICIOUS_LABEL_NAME);
+    await batchModify(token, ids, [labelId], ["INBOX"]);
   },
 };
