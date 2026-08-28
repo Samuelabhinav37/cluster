@@ -14,10 +14,17 @@
           already tells it — subjects, senders, dates, and starred/flagged
           status, never message bodies. Nothing is deleted without you
           confirming first, and everything runs from your own sign-in — no
-          data leaves your browser to any server.
+          data leaves your browser except through provider APIs and optional features you explicitly enable.
         </p>
         <button id="onboarding-dismiss-btn">Got it</button>
       </div>
+      <section id="athena-section" class="onboarding-banner" hidden>
+        <p><strong>Athena email security is available for this managed installation.</strong>
+          Enabling the connection sends only minimized security evidence to your organization's
+          Athena server. Mailbox cleanup stays local and suspicious mail is never auto-deleted.</p>
+        <button id="athena-connect-btn">Allow Athena connection</button>
+        <span id="athena-status" role="status"></span>
+      </section>
       <div id="scan-settings-bar" class="bulk-bar">
         <label>
           Scan window (days):

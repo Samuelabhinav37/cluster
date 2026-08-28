@@ -44,3 +44,15 @@ Click the toolbar icon to open the dashboard tab.
 - Single account only.
 
 These are the natural v1 additions once the core loop is validated on real use.
+## Optional Athena integration
+
+Clutter contains a dormant enterprise connection to Athena. It activates only when Chrome managed
+policy provides the `athena` object declared by `managed_schema.json`; normal consumer installs do
+not send Athena telemetry. The connection exchanges an enrollment credential for a short-lived
+token held in `chrome.storage.session`, keeps at most 200 minimized events in memory, and retries
+without delaying mailbox work.
+
+This is transport groundwork, not phishing detection. Clutter currently emits no security events
+because its rule-based detection and quarantine module has not been built. Future detections must
+call `queueAthenaSecurityEvent` only after a local warning or quarantine action, must never include
+message bodies or subjects, and must never automatically delete mail.

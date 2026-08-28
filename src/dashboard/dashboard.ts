@@ -24,6 +24,7 @@ import { getSettings, updateSettings, type DeclutterSettings } from "../lib/sett
 import { excludeSnoozedMessages } from "../lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "../lib/snoozeResurface";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
+import { athenaOriginPatterns, getAthenaConfig } from "../lib/athenaIntegration";
 
 const providerById = new Map<ProviderId, EmailProvider>([
   [gmailProvider.id, gmailProvider],
@@ -79,6 +80,24 @@ const digestSectionEl = document.getElementById("digest-section") as HTMLElement
 const generateDigestBtn = document.getElementById("generate-digest-btn") as HTMLButtonElement;
 const digestStatusEl = document.getElementById("digest-status") as HTMLSpanElement;
 const digestTextEl = document.getElementById("digest-text") as HTMLParagraphElement;
+const athenaSectionEl = document.getElementById("athena-section") as HTMLElement;
+const athenaConnectBtn = document.getElementById("athena-connect-btn") as HTMLButtonElement;
+const athenaStatusEl = document.getElementById("athena-status") as HTMLSpanElement;
+
+async function wireAthenaConnection() {
+  const config = await getAthenaConfig();
+  if (!config) return;
+  athenaSectionEl.hidden = false;
+  const origins = athenaOriginPatterns(config);
+  const granted = await chrome.permissions.contains({ origins });
+  athenaStatusEl.textContent = granted ? "Connected to your organization's Athena origin." : "Permission required.";
+  athenaConnectBtn.hidden = granted;
+  athenaConnectBtn.onclick = async () => {
+    const allowed = await chrome.permissions.request({ origins });
+    athenaConnectBtn.hidden = allowed;
+    athenaStatusEl.textContent = allowed ? "Connection enabled." : "Connection permission was not granted.";
+  };
+}
 
 async function main() {
   statusEl.textContent = "Connecting…";
@@ -88,6 +107,7 @@ async function main() {
   scanWindowInput.value = String(cachedSettings.scanWindowDays);
   maxMessagesInput.value = String(cachedSettings.maxMessagesPerProvider);
   wireScanSettings();
+  await wireAthenaConnection();
 
   onboardingBanner.hidden = cachedSettings.onboardingDismissed;
   onboardingDismissBtn.onclick = async () => {

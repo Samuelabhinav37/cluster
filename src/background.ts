@@ -6,6 +6,7 @@ import { buildSenderSummaries } from "./lib/senderModel";
 import { getSettings } from "./lib/settingsStore";
 import { excludeSnoozedMessages } from "./lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
+import { flushAthenaSecurityEvents } from "./lib/athenaIntegration";
 
 chrome.action.onClicked.addListener(async () => {
   const url = chrome.runtime.getURL("src/dashboard/index.html");
@@ -22,13 +23,16 @@ chrome.action.onClicked.addListener(async () => {
 // badge — never deletes anything itself. Actual deletion always happens
 // from the dashboard's "Ready to clean up" section, behind one confirm.
 const TRIAGE_ALARM = "declutter-triage";
+const ATHENA_ALARM = "declutter-athena-flush";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 1, periodInMinutes: 360 });
+  chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
 });
 
 chrome.runtime.onStartup.addListener(() => {
   chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 1, periodInMinutes: 360 });
+  chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -36,6 +40,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     resurfaceDueSnoozed(gmailProvider).catch((err) => console.error("Resurfacing snoozed mail failed", err));
     runBackgroundTriage();
   }
+  if (alarm.name === ATHENA_ALARM) void flushAthenaSecurityEvents();
 });
 
 async function runBackgroundTriage() {
