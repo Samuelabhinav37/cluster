@@ -1,4 +1,5 @@
 import { fetchWithRetry } from "./httpRetry";
+import { extractLinksFromHtml, type ExtractedLink } from "./linkMismatch";
 
 const API_BASE = "https://gmail.googleapis.com/gmail/v1";
 
@@ -194,4 +195,39 @@ export async function batchModify(
       body: JSON.stringify({ ids: chunk, addLabelIds, removeLabelIds }),
     });
   }
+}
+
+interface GmailMessagePart {
+  mimeType?: string;
+  body?: { data?: string };
+  parts?: GmailMessagePart[];
+}
+
+function findHtmlPartData(part: GmailMessagePart): string | null {
+  if (part.mimeType === "text/html" && part.body?.data) return part.body.data;
+  for (const child of part.parts ?? []) {
+    const found = findHtmlPartData(child);
+    if (found) return found;
+  }
+  return null;
+}
+
+function decodeBase64Url(data: string): string {
+  const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+/** Fetches the HTML body specifically (format=full -- a materially bigger,
+ * more sensitive request than the metadata-only fetch every other feature
+ * in this file uses) and extracts its links. Deliberately not called by
+ * the background triage's normal scan -- see linkMismatch.ts's own header
+ * and the dashboard's "Deep scan" action, which is the only caller. */
+export async function getMessageLinks(token: string, id: string): Promise<ExtractedLink[]> {
+  const data = await gmailFetch(`/users/me/messages/${id}?format=full`, token);
+  const htmlData = data.payload ? findHtmlPartData(data.payload) : null;
+  if (!htmlData) return [];
+  return extractLinksFromHtml(decodeBase64Url(htmlData));
 }

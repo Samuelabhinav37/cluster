@@ -73,4 +73,13 @@ export interface EmailProvider {
    * deletes — same "label/quarantine, never delete" rule as keepSorted.
    */
   labelSuspicious?(token: string, ids: string[]): Promise<void>;
+  /**
+   * Fetches one message's full HTML body and returns its links -- Gmail
+   * only, deliberately manual (see the dashboard's "Deep scan" button, the
+   * only caller) rather than part of the normal metadata-only scan. A
+   * materially bigger fetch (format=full vs. the metadata format every
+   * other method here uses) for a narrow, opt-in purpose: link-target-
+   * mismatch detection (see linkMismatch.ts).
+   */
+  getMessageLinks?(token: string, id: string): Promise<{ text: string; href: string }[]>;
 }

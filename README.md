@@ -82,6 +82,15 @@ one-click, per-occurrence action rather than a standing filter: a signal that fi
 lookalike domain, a DMARC fail) isn't guaranteed to still apply to whatever this sender sends next,
 so nothing here creates a rule that keeps acting on future mail unreviewed.
 
+**A second manual action, Gmail only: "Deep scan."** Everything above only ever reads headers
+already fetched for the declutter feature. Deep scan is the one deliberate exception — a per-message,
+opt-in fetch of the message's full HTML body (`gmailApi.ts`'s `getMessageLinks`, `format=full`, a
+materially bigger and more sensitive request than the metadata-only fetch everything else here
+uses) to check whether a link's visible text (`paypal.com` as the clickable text) points somewhere
+other than where it claims (`linkMismatch.ts`). Never run automatically, never as part of the
+background triage — only when a user clicks it for a specific flagged sender's most recent message.
+A finding reports the same minimized `warned` event to Athena as every other signal.
+
 **Still deliberately not built, and why** (see `threatSignals.ts`'s own header): cross-referencing
 link domains against a real malicious/phishing domain list needs a real data-sourcing decision
 first — a live fetch would contradict this project's own metadata-only, no-server-calls stance, so

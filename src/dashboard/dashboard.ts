@@ -24,7 +24,8 @@ import { getSettings, updateSettings, type DeclutterSettings } from "../lib/sett
 import { excludeSnoozedMessages } from "../lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "../lib/snoozeResurface";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
-import { athenaOriginPatterns, getAthenaConfig } from "../lib/athenaIntegration";
+import { athenaOriginPatterns, getAthenaConfig, queueAthenaSecurityEvent } from "../lib/athenaIntegration";
+import { findMismatchedLinks } from "../lib/linkMismatch";
 
 const providerById = new Map<ProviderId, EmailProvider>([
   [gmailProvider.id, gmailProvider],
@@ -722,6 +723,41 @@ function describeSignal(s: SenderSummary["threatSignals"][number]): string {
       return `domain closely resembles ${s.brand}'s real domain`;
     case "failed-authentication":
       return `failed DMARC authentication (claimed domain: ${s.brand})`;
+    case "link-mismatch":
+      return `a link's visible text doesn't match where it actually goes`;
+  }
+}
+
+// Deep scan is the one place this dashboard fetches a message body
+// (format=full, via getMessageLinks) -- deliberately manual, one message
+// at a time, never part of the automatic triage. See linkMismatch.ts.
+async function runDeepScan(sender: SenderSummary, resultEl: HTMLElement): Promise<void> {
+  const provider = providerById.get(sender.provider);
+  if (!provider?.getMessageLinks || sender.messageIds.length === 0) return;
+  resultEl.textContent = "Scanning…";
+  try {
+    const token = await provider.getAuthToken(false);
+    const links = await provider.getMessageLinks(token, sender.messageIds[0]);
+    const suspicious = findMismatchedLinks(links);
+    if (suspicious.length === 0) {
+      resultEl.textContent = "No mismatched links found in the most recent message.";
+      return;
+    }
+    resultEl.textContent = suspicious
+      .map((link) => `"${link.displayedDomain}" actually points to ${link.actualDomain}`)
+      .join("; ");
+    void queueAthenaSecurityEvent({
+      sourceEventId: `${sender.key}:link-mismatch:${sender.messageIds[0]}`,
+      occurredAt: new Date().toISOString(),
+      action: "warned",
+      severity: "high",
+      ruleId: "threat-signal:link-mismatch",
+      targetIndicator: sender.address.slice(sender.address.lastIndexOf("@") + 1),
+      evidence: { kind: "link-mismatch", count: suspicious.length },
+    });
+  } catch (err) {
+    resultEl.textContent = "Scan failed, try again.";
+    console.error(err);
   }
 }
 
@@ -756,6 +792,19 @@ function renderSecuritySection(senders: SenderSummary[]) {
           }
         };
         li.appendChild(btn);
+      }
+
+      if (provider?.getMessageLinks) {
+        const scanResult = document.createElement("span");
+        scanResult.className = "hint";
+        const scanBtn = document.createElement("button");
+        scanBtn.textContent = "Deep scan (checks links in the most recent message)";
+        scanBtn.onclick = async () => {
+          scanBtn.disabled = true;
+          await runDeepScan(sender, scanResult);
+          scanBtn.disabled = false;
+        };
+        li.append(scanBtn, scanResult);
       }
       return li;
     }),

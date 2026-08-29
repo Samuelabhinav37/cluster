@@ -3,6 +3,7 @@ import {
   batchModify,
   createSenderFilter,
   getAuthToken as gmailGetAuthToken,
+  getMessageLinks as fetchGmailMessageLinks,
   getMessageMetadata as fetchGmailMessageMetadata,
   getOrCreateLabel,
   listMessageIds,
@@ -97,5 +98,9 @@ export const gmailProvider: EmailProvider = {
   async labelSuspicious(token, ids) {
     const labelId = await getOrCreateLabel(token, SUSPICIOUS_LABEL_NAME);
     await batchModify(token, ids, [labelId], ["INBOX"]);
+  },
+
+  async getMessageLinks(token, id) {
+    return fetchGmailMessageLinks(token, id);
   },
 };

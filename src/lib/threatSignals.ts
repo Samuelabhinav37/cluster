@@ -31,7 +31,17 @@
 import type { NormalizedMessageMetadata } from "./providers/emailProvider";
 import { parseAuthenticationResults } from "./emailAuth";
 
-export type ThreatSignalKind = "brand-impersonation" | "freemail-brand-claim" | "lookalike-domain" | "failed-authentication";
+// "link-mismatch" is never produced by scoreMessageForThreats below -- it's
+// only ever reported by the dashboard's manual "Deep scan" action (see
+// linkMismatch.ts), which needs the message body this module deliberately
+// never fetches. Listed here anyway so it shares one type with the other
+// three, rather than a second, parallel signal-kind type for one caller.
+export type ThreatSignalKind =
+  | "brand-impersonation"
+  | "freemail-brand-claim"
+  | "lookalike-domain"
+  | "failed-authentication"
+  | "link-mismatch";
 
 export interface ThreatSignal {
   kind: ThreatSignalKind;
