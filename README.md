@@ -1,12 +1,41 @@
-# Gmail Declutter (v0)
+# Gmail Declutter
 
-Chrome extension. Shows senders from your Promotions/Updates mail (last 180 days),
-verified real unsubscribe (RFC 8058 one-click where the sender supports it,
-mailto:/link fallback otherwise), and a "Keep sorted" action that creates a real
-Gmail label + filter so future mail from that sender auto-files itself.
+Chrome (MV3) extension for Gmail + Outlook. Scans your Promotions/Updates mail
+using only message **metadata** — sender, subject, date, size, read/starred
+state, and a handful of headers — never the message body (one opt-in exception,
+"Deep scan", below). Nothing is stored server-side; everything runs in your
+browser under your own OAuth sign-in. See `SECURITY.md` for the full data /
+scope breakdown.
 
-Nothing is stored server-side — everything runs in your browser, in your own
-Gmail account, using your own OAuth token.
+## Dashboard tabs
+
+Open with the toolbar icon.
+
+- **Clean up** — senders and domains grouped by category; a retention "Ready to
+  clean up" bucket (one-time codes, stale shipping, old newsletters, judged only
+  by age); **Smart Views** (older-than-1-year, large mail, promotions, OTPs,
+  shipping) that archive or trash the whole matched set behind one confirm;
+  **Trim to newest N per sender**; and **"You never open these"** (senders whose
+  every non-starred message is still unread) with Mute-all / Trash-all. Per-row:
+  verified unsubscribe, Keep sorted (label + filter), **Mute** (a local
+  BlackHole — a standing `from:` filter into `Declutter/Muted`), Snooze.
+- **Subscriptions** — every unsubscribe-capable sender in the scan, ranked by
+  volume, with per-row and bulk "unsubscribe all verified one-click". Request
+  status ("Requested 3d ago") survives reloads.
+- **Security** — "Possible impersonation" (see the detection section below).
+- **Rules** — standing Auto-Clean rules: AND-ed conditions (from domain/address,
+  older-than, kind, unread, has-unsubscribe) → one action (label / archive /
+  trash / mark read). Applied on demand and by the 6-hourly background sweep.
+  Starred mail is always excluded; rules never permanently delete.
+- **Screener** — opt-in. Holds mail from senders you've never emailed under a
+  `Declutter/Screener` label, out of the inbox, until you **Allow** (adds to the
+  allow-list, restores the mail) or **Block** (mutes). Your Sent mail is the
+  automatic allow-list.
+- **Recently done** — every action Declutter took, newest first, with **Undo**
+  where reversible (Gmail untrash / unarchive / unmute).
+
+Every destructive action is behind a confirm; starred/flagged mail is always
+skipped.
 
 ## One-time setup (you do this part — it's an external dashboard, not code)
 
@@ -36,14 +65,18 @@ Click the toolbar icon to open the dashboard tab.
 
 ## What's deliberately not built yet
 
-- No background sync / push notifications — you open it, it fetches fresh.
-- No cross-device sync of "keep sorted" decisions beyond what Gmail filters
-  themselves already do server-side.
-- No confirmed-stopped tracking (checking whether mail from a sender actually
-  stopped after N days) — status just shows "requested".
-- Single account only.
-
-These are the natural v1 additions once the core loop is validated on real use.
+- **One account per provider.** `ProviderId` is a closed two-value union
+  threaded through every data structure; multi-account is a large, independent
+  change.
+- **Outlook is scan + trash + unsubscribe only.** Keep-sorted, mute, rules
+  (archive/label/mark-read), snooze, undo, and the Screener are Gmail-only —
+  they need Gmail's filters/labels API. Outlook rows show "Not supported for
+  this provider".
+- **No confirmed-stopped tracking** — unsubscribe status shows "Requested Nd
+  ago", not whether the sender actually stopped.
+- **The `mail.google.com` restricted scope** (opt-in "Fast permanent delete")
+  would trigger Google CASA review if the project is ever published past OAuth
+  "Testing". Everything else uses non-restricted scopes.
 ## Optional Athena integration
 
 Clutter contains a dormant enterprise connection to Athena. It activates only when Chrome managed

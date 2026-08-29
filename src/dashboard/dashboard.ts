@@ -439,9 +439,6 @@ function renderCategoryGroups<T>(
     const details = document.createElement("details");
     details.className = "category-group";
     details.open = !cachedSettings[collapseSettingsKey].includes(group.category);
-    details.addEventListener("toggle", () => {
-      toggleCollapsedCategory(collapseSettingsKey, group.category, !details.open);
-    });
 
     const summary = document.createElement("summary");
     summary.textContent = `${DOMAIN_CATEGORY_LABELS[group.category]} `;
@@ -455,12 +452,24 @@ function renderCategoryGroups<T>(
     const thead = document.createElement("thead");
     thead.appendChild(headerRow(headers));
     table.appendChild(thead);
-
     const tbody = document.createElement("tbody");
-    for (const item of group.items) tbody.appendChild(buildRow(item));
     table.appendChild(tbody);
-
     details.appendChild(table);
+
+    // Build the rows only when the group is actually open — a collapsed
+    // category costs nothing until the user expands it.
+    let rowsBuilt = false;
+    const buildRows = () => {
+      if (rowsBuilt) return;
+      for (const item of group.items) tbody.appendChild(buildRow(item));
+      rowsBuilt = true;
+    };
+    if (details.open) buildRows();
+    details.addEventListener("toggle", () => {
+      toggleCollapsedCategory(collapseSettingsKey, group.category, !details.open);
+      if (details.open) buildRows();
+    });
+
     container.appendChild(details);
   }
 }
@@ -981,23 +990,32 @@ function renderSecuritySection(senders: SenderSummary[]) {
 
       const provider = providerById.get(sender.provider);
       if (provider?.labelSuspicious) {
+        const slot = document.createElement("span");
         const btn = document.createElement("button");
         btn.textContent = "Label as suspicious";
-        btn.onclick = async () => {
-          btn.disabled = true;
-          btn.textContent = "Labeling…";
-          try {
-            const token = await provider.getAuthToken(false);
-            await provider.labelSuspicious!(token, sender.messageIds);
-            await logAction("labelSuspicious", `Labelled ${sender.messageIds.length} from ${sender.address} as suspicious`);
-            btn.textContent = "Labeled ✓";
-          } catch (err) {
-            btn.textContent = "Failed, try again";
-            btn.disabled = false;
-            console.error(err);
-          }
+        const reset = () => {
+          slot.innerHTML = "";
+          slot.appendChild(btn);
         };
-        li.appendChild(btn);
+        btn.onclick = () => {
+          renderConfirmStep(
+            slot,
+            reset,
+            `Move ${sender.messageIds.length} message${sender.messageIds.length === 1 ? "" : "s"} from ${sender.address} to a "Possible Phishing" label, out of the inbox?`,
+            false,
+            async () => {
+              const token = await provider.getAuthToken(false);
+              await provider.labelSuspicious!(token, sender.messageIds);
+              await logAction(
+                "labelSuspicious",
+                `Labelled ${sender.messageIds.length} from ${sender.address} as suspicious`,
+              );
+              return "Labeled ✓";
+            },
+          );
+        };
+        slot.appendChild(btn);
+        li.appendChild(slot);
       }
 
       if (provider?.getMessageLinks) {

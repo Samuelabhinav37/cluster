@@ -73,6 +73,16 @@ button.danger {
   font-size: 0.85em;
 }
 
+.hint {
+  color: var(--muted);
+  font-size: 0.9em;
+  max-width: 65ch;
+}
+
+a {
+  color: inherit;
+}
+
 #domain-groups {
   margin-top: 2.5rem;
 }
