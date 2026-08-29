@@ -73,12 +73,36 @@ async function getSession(config: AthenaManagedConfig): Promise<AgentSession | n
   } catch { return null; }
 }
 
+// Every read-modify-write of QUEUE_KEY runs through this chain. chrome.storage
+// has no atomic update, so a dashboard deep-scan enqueue racing the
+// background alarm's enqueue/flush would otherwise read the same array and
+// the second write would clobber the first's events.
+let queueLock: Promise<unknown> = Promise.resolve();
+function withQueueLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = queueLock.then(fn, fn);
+  queueLock = run.catch(() => {});
+  return run;
+}
+
+async function appendToQueue(events: ClutterSecurityEvent[]): Promise<void> {
+  await withQueueLock(async () => {
+    const stored = await chrome.storage.session.get(QUEUE_KEY);
+    const queue = Array.isArray(stored[QUEUE_KEY]) ? stored[QUEUE_KEY] as ClutterSecurityEvent[] : [];
+    queue.push(...events);
+    await chrome.storage.session.set({ [QUEUE_KEY]: queue.slice(-MAX_QUEUE_LENGTH) });
+  });
+}
+
 export async function queueAthenaSecurityEvent(event: ClutterSecurityEvent): Promise<void> {
+  return queueAthenaSecurityEvents([event]);
+}
+
+/** Batched enqueue -- one config check, one locked read-modify-write for the
+ * whole set, instead of that round-trip per event. */
+export async function queueAthenaSecurityEvents(events: ClutterSecurityEvent[]): Promise<void> {
+  if (events.length === 0) return;
   if (!(await getAthenaConfig())) return;
-  const stored = await chrome.storage.session.get(QUEUE_KEY);
-  const queue = Array.isArray(stored[QUEUE_KEY]) ? stored[QUEUE_KEY] as ClutterSecurityEvent[] : [];
-  queue.push(event);
-  await chrome.storage.session.set({ [QUEUE_KEY]: queue.slice(-MAX_QUEUE_LENGTH) });
+  await appendToQueue(events);
 }
 
 export async function flushAthenaSecurityEvents(): Promise<void> {
@@ -103,6 +127,15 @@ export async function flushAthenaSecurityEvents(): Promise<void> {
       if (!response.ok) break;
       sent += 1;
     }
-  } catch { return; }
-  if (sent > 0) await chrome.storage.session.set({ [QUEUE_KEY]: queue.slice(sent) });
+  } catch { /* keep whatever we managed to send below */ }
+  if (sent === 0) return;
+  // Re-read under the lock and drop only the first `sent` entries: events
+  // enqueued while the POSTs were in flight were appended after them, so
+  // they survive. Server-side dedup by source_event_id makes an occasional
+  // re-send of an already-delivered event harmless.
+  await withQueueLock(async () => {
+    const current = await chrome.storage.session.get(QUEUE_KEY);
+    const currentQueue = Array.isArray(current[QUEUE_KEY]) ? current[QUEUE_KEY] as ClutterSecurityEvent[] : [];
+    await chrome.storage.session.set({ [QUEUE_KEY]: currentQueue.slice(sent) });
+  });
 }

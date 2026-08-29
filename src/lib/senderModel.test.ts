@@ -62,6 +62,53 @@ describe("buildSenderSummaries", () => {
     expect(gmail.listCandidateMessages).toHaveBeenCalledWith("gmail-token", 250, 30);
   });
 
+  it("flags failed-authentication from any of a sender's messages, not just the first one seen", async () => {
+    // First message from this sender authenticates fine; a later one fails
+    // DMARC (the spoofed copy). The old code only scored the first message,
+    // so this signal was silently missed.
+    const gmail = makeProvider("gmail", [
+      makeMeta({ id: "g1", fromAddress: "alerts@bank.example", authenticationResults: "mx.google.com; spf=pass; dkim=pass; dmarc=pass" }),
+      makeMeta({ id: "g2", fromAddress: "alerts@bank.example", authenticationResults: "mx.google.com; dmarc=fail (p=REJECT)" }),
+    ]);
+
+    const senders = await buildSenderSummaries([gmail]);
+
+    expect(senders[0].threatSignals).toEqual([
+      { kind: "failed-authentication", brand: "bank.example", confidence: "high" },
+    ]);
+  });
+
+  it("records the failed-authentication signal only once even when several messages fail", async () => {
+    const gmail = makeProvider("gmail", [
+      makeMeta({ id: "g1", fromAddress: "x@y.example", authenticationResults: "mx; dmarc=fail" }),
+      makeMeta({ id: "g2", fromAddress: "x@y.example", authenticationResults: "mx; dmarc=fail" }),
+      makeMeta({ id: "g3", fromAddress: "x@y.example", authenticationResults: "mx; dmarc=fail" }),
+    ]);
+
+    const senders = await buildSenderSummaries([gmail]);
+
+    expect(senders[0].threatSignals.filter((s) => s.kind === "failed-authentication")).toHaveLength(1);
+  });
+
+  it("keeps identity signals and adds a later message's auth failure alongside them", async () => {
+    const gmail = makeProvider("gmail", [
+      makeMeta({ id: "g1", fromAddress: "paypal-support@gmail.com", fromDisplayName: "PayPal Support" }),
+      makeMeta({
+        id: "g2",
+        fromAddress: "paypal-support@gmail.com",
+        fromDisplayName: "PayPal Support",
+        authenticationResults: "mx; dmarc=fail",
+      }),
+    ]);
+
+    const senders = await buildSenderSummaries([gmail]);
+
+    expect(senders[0].threatSignals).toEqual([
+      { kind: "freemail-brand-claim", brand: "paypal", confidence: "high" },
+      { kind: "failed-authentication", brand: "gmail.com", confidence: "high" },
+    ]);
+  });
+
   it("computes threatSignals per sender from scoreMessageForThreats", async () => {
     const gmail = makeProvider("gmail", [
       makeMeta({ id: "g1", fromAddress: "paypal-support@gmail.com", fromDisplayName: "PayPal Support" }),

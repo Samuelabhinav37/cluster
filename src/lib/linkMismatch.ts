@@ -39,6 +39,29 @@ function isSameOrSubdomain(domain: string, other: string): boolean {
   return domain === other || domain.endsWith(`.${other}`) || other.endsWith(`.${domain}`);
 }
 
+/** Distinct http(s) link-target hosts that `isBlocked` rejects. The
+ * predicate is injected so this module stays dependency-free and the
+ * matching can be unit-tested without the real vendored blocklist -- the
+ * dashboard passes blocklist.ts's isBlockedDomain. */
+export function findBlocklistedLinkTargets(
+  links: ExtractedLink[],
+  isBlocked: (domain: string) => boolean,
+): string[] {
+  const hits = new Set<string>();
+  for (const link of links) {
+    let host: string;
+    try {
+      const url = new URL(link.href);
+      if (url.protocol !== "http:" && url.protocol !== "https:") continue;
+      host = url.hostname.toLowerCase();
+    } catch {
+      continue;
+    }
+    if (host && isBlocked(host)) hits.add(host);
+  }
+  return [...hits];
+}
+
 /** Only flags links whose *visible text* itself looks like a domain --
  * "Click here" or "Unsubscribe" pointing to an unfamiliar domain is normal
  * and not flagged; "paypal.com" as the clickable text pointing anywhere
@@ -48,6 +71,11 @@ export function findMismatchedLinks(links: ExtractedLink[]): SuspiciousLink[] {
   for (const link of links) {
     const displayMatch = DOMAIN_LIKE_RE.exec(link.text);
     if (!displayMatch) continue;
+    // Skip when the domain-shaped token is really the host of an email
+    // address in the visible text ("email us at support@paypal.com") -- that
+    // isn't a link label claiming to be a site, so a differing href is not a
+    // mismatch worth flagging.
+    if (displayMatch.index > 0 && link.text[displayMatch.index - 1] === "@") continue;
     const displayedDomain = displayMatch[0].toLowerCase();
 
     let url: URL;

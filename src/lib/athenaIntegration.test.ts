@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { athenaOriginPatterns, flushAthenaSecurityEvents, isAthenaConfigured, queueAthenaSecurityEvent } from "./athenaIntegration";
+import { athenaOriginPatterns, flushAthenaSecurityEvents, isAthenaConfigured, queueAthenaSecurityEvent, queueAthenaSecurityEvents } from "./athenaIntegration";
 
 const managed: Record<string, unknown> = {};
 const session: Record<string, unknown> = {};
@@ -68,5 +68,33 @@ describe("Athena integration", () => {
     await queueAthenaSecurityEvent({ sourceEventId: "event-1", occurredAt: new Date().toISOString(),
       action: "warned", severity: "low", ruleId: "none" });
     expect(session.athenaSecurityEventQueue).toBeUndefined();
+  });
+
+  it("appends a batch of events in one write", async () => {
+    managed.athena = config;
+    await queueAthenaSecurityEvents([
+      { sourceEventId: "b1", occurredAt: new Date().toISOString(), action: "warned", severity: "high", ruleId: "r" },
+      { sourceEventId: "b2", occurredAt: new Date().toISOString(), action: "warned", severity: "medium", ruleId: "r" },
+    ]);
+    expect((session.athenaSecurityEventQueue as unknown[]).map((e) => (e as { sourceEventId: string }).sourceEventId)).toEqual([
+      "b1",
+      "b2",
+    ]);
+  });
+
+  it("serialises concurrent enqueues through the queue lock instead of clobbering", async () => {
+    managed.athena = config;
+    await Promise.all(
+      Array.from({ length: 12 }, (_, i) =>
+        queueAthenaSecurityEvent({
+          sourceEventId: `c${i}`,
+          occurredAt: new Date().toISOString(),
+          action: "warned",
+          severity: "low",
+          ruleId: "r",
+        }),
+      ),
+    );
+    expect((session.athenaSecurityEventQueue as unknown[]).length).toBe(12);
   });
 });

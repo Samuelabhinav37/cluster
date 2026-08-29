@@ -87,15 +87,23 @@ already fetched for the declutter feature. Deep scan is the one deliberate excep
 opt-in fetch of the message's full HTML body (`gmailApi.ts`'s `getMessageLinks`, `format=full`, a
 materially bigger and more sensitive request than the metadata-only fetch everything else here
 uses) to check whether a link's visible text (`paypal.com` as the clickable text) points somewhere
-other than where it claims (`linkMismatch.ts`). Never run automatically, never as part of the
-background triage — only when a user clicks it for a specific flagged sender's most recent message.
-A finding reports the same minimized `warned` event to Athena as every other signal.
+other than where it claims (`linkMismatch.ts`), **and** whether any link points at a domain on the
+blocklist (below). Never run automatically, never as part of the background triage — only when a
+user clicks it for a specific flagged sender's most recent message. A finding reports the same
+minimized `warned` event to Athena as every other signal.
 
-**Still deliberately not built, and why** (see `threatSignals.ts`'s own header): cross-referencing
-link domains against a real malicious/phishing domain list needs a real data-sourcing decision
-first — a live fetch would contradict this project's own metadata-only, no-server-calls stance, so
-it would have to be a build-time-vendored copy instead, new tooling, not a `threatSignals.ts`
-change.
+**Known-bad domain list** (`blocklisted-domain`): a static, in-repo set — a hand-maintained seed
+(`src/lib/blocklistSeed.ts`, edited directly) unioned with a build-time-vendored slice of
+abuse.ch's URLhaus feed (`src/lib/data/malwareDomains.generated.json`, refreshed by
+`npm run refresh:blocklist`). No live fetch at runtime, so it stays within the metadata-only,
+no-server-calls stance. A sender whose domain (or a parent of it) is on the list gets a
+high-confidence `blocklisted-domain` signal in the normal triage; Deep scan additionally checks
+every link target against the same list. Refreshing the URLhaus slice is a manual dev step — review
+the diff before committing; abuse.ch may require a free account's `URLHAUS_AUTH_KEY`.
+
+The "Possible impersonation" section is ordered by a combined risk score (`senderRiskScore` in
+`threatSignals.ts`): a confirmed blocklist hit outranks a freemail brand claim, which outranks a
+lone lookalike or DMARC failure, and any two signals on one sender outrank a single one.
 
 Any future detection must call `queueAthenaSecurityEvent` only after a local warning or quarantine
 action, must never include message bodies or subjects, and must never automatically delete mail.

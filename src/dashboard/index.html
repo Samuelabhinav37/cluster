@@ -28,10 +28,11 @@
       <section id="security-section" hidden>
         <h2>Possible impersonation</h2>
         <p class="hint">
-          Senders whose display name claims to be a well-known brand, but whose actual address
-          doesn't match that brand's real domain — a common phishing pattern. This is a heuristic
-          from headers already fetched for the declutter feature, not a verified fact: check
-          before acting. Nothing here is auto-labeled, moved, or deleted.
+          Senders that claim a well-known brand whose real domain doesn't match, fail
+          authentication, use a lookalike domain, or appear on a known-bad domain list — common
+          phishing patterns. Mostly heuristics from headers already fetched for the declutter
+          feature, not verified facts: check before acting. Nothing here is auto-labeled, moved,
+          or deleted. Ordered by risk.
         </p>
         <ul id="security-sender-list"></ul>
       </section>

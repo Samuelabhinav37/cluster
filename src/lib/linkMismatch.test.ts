@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractLinksFromHtml, findMismatchedLinks } from "./linkMismatch";
+import { extractLinksFromHtml, findBlocklistedLinkTargets, findMismatchedLinks } from "./linkMismatch";
 
 describe("extractLinksFromHtml", () => {
   it("extracts a plain anchor's text and href", () => {
@@ -55,6 +55,12 @@ describe("findMismatchedLinks", () => {
     expect(findMismatchedLinks([{ text: "contact@example.com", href: "mailto:contact@example.com" }])).toEqual([]);
   });
 
+  it("does not flag a domain-shaped token that is really an email-address host in the visible text", () => {
+    expect(
+      findMismatchedLinks([{ text: "Email us at support@paypal.com", href: "https://help.example/contact" }])
+    ).toEqual([]);
+  });
+
   it("flags only the mismatched links out of a mixed set", () => {
     const links = [
       { text: "Click here", href: "https://evil.example" },
@@ -63,5 +69,31 @@ describe("findMismatchedLinks", () => {
     const result = findMismatchedLinks(links);
     expect(result).toHaveLength(1);
     expect(result[0].displayedDomain).toBe("amazon.com");
+  });
+});
+
+describe("findBlocklistedLinkTargets", () => {
+  const isBlocked = (d: string) => d === "malware.example" || d === "phish.example";
+
+  it("returns the distinct blocked http(s) hosts among the links", () => {
+    const links = [
+      { text: "a", href: "https://malware.example/x" },
+      { text: "b", href: "http://phish.example/" },
+      { text: "c", href: "https://safe.example/" },
+      { text: "d", href: "https://malware.example/y" },
+    ];
+    expect(findBlocklistedLinkTargets(links, isBlocked).sort()).toEqual(["malware.example", "phish.example"]);
+  });
+
+  it("ignores non-http(s) and unparseable hrefs", () => {
+    const links = [
+      { text: "e", href: "mailto:x@malware.example" },
+      { text: "f", href: "not a url" },
+    ];
+    expect(findBlocklistedLinkTargets(links, isBlocked)).toEqual([]);
+  });
+
+  it("returns an empty array when nothing is blocked", () => {
+    expect(findBlocklistedLinkTargets([{ text: "g", href: "https://safe.example" }], isBlocked)).toEqual([]);
   });
 });

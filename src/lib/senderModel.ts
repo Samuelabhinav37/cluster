@@ -1,6 +1,6 @@
 import { mapWithConcurrency } from "./concurrency";
 import { classifyMessageKind, type MessageKind } from "./messageKind";
-import { scoreMessageForThreats, type ThreatSignal } from "./threatSignals";
+import { scoreMessageAuthentication, scoreSenderIdentity, type ThreatSignal } from "./threatSignals";
 import type {
   EmailProvider,
   NormalizedMessageMetadata,
@@ -26,10 +26,11 @@ export interface SenderSummary {
   unsubscribe: UnsubscribeInfo;
   messages: MessageRecord[];
   /**
-   * Computed once from the sender's own address/display name, not per
-   * message -- scoreMessageForThreats only looks at sender identity, which
-   * is identical across every message from one sender key, so scoring it
-   * again per message would just repeat the same answer.
+   * Brand-impersonation and lookalike-domain signals are computed once from
+   * the sender's own address/display name -- identical across every message
+   * from one sender key. The failed-authentication signal is different:
+   * DMARC alignment is per-message, so buildSenderSummaries keeps checking
+   * every message from the sender and adds it if any one of them fails.
    */
   threatSignals: ThreatSignal[];
 }
@@ -56,14 +57,22 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     if (!hasUnsubscribe(existing.unsubscribe) && hasUnsubscribe(meta.unsubscribe)) {
       existing.unsubscribe = meta.unsubscribe;
     }
+    // Identity signals were settled from the first message and don't change;
+    // DMARC alignment is per-message, so keep checking until one message
+    // from this sender trips it (then stop -- one is enough to flag).
+    if (!existing.threatSignals.some((s) => s.kind === "failed-authentication")) {
+      const authSignal = scoreMessageAuthentication(meta);
+      if (authSignal) existing.threatSignals.push(authSignal);
+    }
   } else {
+    const authSignal = scoreMessageAuthentication(meta);
     senders.set(key, {
       key,
       provider: meta.provider,
       address: meta.fromAddress,
       displayName: meta.fromDisplayName,
       count: 1,
-      threatSignals: scoreMessageForThreats(meta),
+      threatSignals: authSignal ? [...scoreSenderIdentity(meta), authSignal] : scoreSenderIdentity(meta),
       messageIds: [meta.id],
       protectedMessageIds: meta.isProtected ? [meta.id] : [],
       unsubscribe: meta.unsubscribe,

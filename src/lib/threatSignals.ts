@@ -6,8 +6,8 @@
 // authenticationResults) -- never the message body, never a new OAuth
 // scope, never a network call of its own.
 //
-// Four signal kinds, in order of how much they need to already know about
-// a brand:
+// Signal kinds, in order of how much they need to already know about a
+// brand:
 // - "failed-authentication": DMARC fail on the header the provider already
 //   fetched (see emailAuth.ts) -- fires for ANY sender, not just the
 //   BRAND_DOMAINS list below, since a forged sender doesn't have to
@@ -17,30 +17,29 @@
 //   match against BRAND_DOMAINS, freemail-claim distinguished as the
 //   highest-confidence case.
 // - "lookalike-domain": the sender domain is a small edit distance from a
-//   brand's real domain (paypa1.com, arnazon.com) without being an exact or
-//   subdomain match -- classic typosquatting, independent of whether the
-//   display name mentions the brand by name at all.
-//
-// What this still does NOT do, and why: cross-referencing link domains
-// against a real malicious/phishing domain list needs a real
-// data-sourcing decision first -- a live fetch would contradict this
-// project's own metadata-only, no-server-calls stance (see
-// domainCategories.ts's own comment), so it would have to be a
-// build-time-vendored copy instead, new tooling, not a threatSignals.ts
-// change. Flagged, not guessed at.
+//   brand's real domain (paypa1.com, arnazon.com), or renders identically
+//   to one after homoglyph normalisation (Cyrillic 'a'), without being an
+//   exact or subdomain match -- classic typosquatting, independent of
+//   whether the display name mentions the brand by name at all.
+// - "blocklisted-domain": the sender domain (or a parent of it) is on the
+//   static blocklist -- the hand-maintained seed plus the build-time
+//   vendored URLhaus slice (see blocklist.ts). Still a committed copy, no
+//   live fetch, so it stays within the project's no-network stance.
 import type { NormalizedMessageMetadata } from "./providers/emailProvider";
 import { parseAuthenticationResults } from "./emailAuth";
+import { isBlockedDomain } from "./blocklist";
 
 // "link-mismatch" is never produced by scoreMessageForThreats below -- it's
 // only ever reported by the dashboard's manual "Deep scan" action (see
 // linkMismatch.ts), which needs the message body this module deliberately
-// never fetches. Listed here anyway so it shares one type with the other
-// three, rather than a second, parallel signal-kind type for one caller.
+// never fetches. Listed here anyway so it shares one type with the others,
+// rather than a second, parallel signal-kind type for one caller.
 export type ThreatSignalKind =
   | "brand-impersonation"
   | "freemail-brand-claim"
   | "lookalike-domain"
   | "failed-authentication"
+  | "blocklisted-domain"
   | "link-mismatch";
 
 export interface ThreatSignal {
@@ -120,6 +119,15 @@ const LOOKALIKE_MAX_DISTANCE = 2;
 // Below this length, small edit distances stop being meaningful signal --
 // short domains are close to lots of unrelated short domains by chance.
 const LOOKALIKE_MIN_DOMAIN_LENGTH = 6;
+// The same coincidence problem, from the brand's side: edit-distance
+// lookalike matching is only trustworthy when the brand's own label (the
+// bit before the first dot) is long enough that a legitimate unrelated
+// domain is unlikely to land within LOOKALIKE_MAX_DISTANCE of it by chance.
+// ups.com is one substitution from ubs.com (UBS, a real bank); att.com is
+// two edits from att.net (AT&T's own other domain) -- neither is a
+// typosquat. Senders impersonating a short-label brand still get caught by
+// the display-name brand-impersonation check, which doesn't rely on this.
+const LOOKALIKE_MIN_BRAND_LABEL_LENGTH = 5;
 
 function domainOf(address: string): string {
   const at = address.lastIndexOf("@");
@@ -130,15 +138,48 @@ function isSameOrSubdomain(domain: string, legitimateDomain: string): boolean {
   return domain === legitimateDomain || domain.endsWith(`.${legitimateDomain}`);
 }
 
+function escapeRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Precompiled once rather than per sender. A brand key can carry a space
+// ("capital one") or punctuation ("at&t", "t-mobile"): escape any regex
+// metacharacters, and let a run of whitespace in the key match any
+// whitespace in the display name so "Capital  One" or a non-breaking space
+// still matches. Word-boundary anchored -- "irs" must not match inside
+// "shirsley" -- and only ever tested against the display name, a short,
+// human-authored field, not free text.
+const BRAND_MATCHERS: Array<{ brand: string; re: RegExp }> = Object.keys(BRAND_DOMAINS).map((brand) => ({
+  brand,
+  re: new RegExp(`\\b${escapeRegExp(brand).replace(/\s+/g, "\\s+")}\\b`, "i"),
+}));
+
 function matchedBrand(displayName: string): string | null {
-  const lower = displayName.toLowerCase();
-  for (const brand of Object.keys(BRAND_DOMAINS)) {
-    // Word-boundary match, not substring -- "irs" shouldn't match "shirsley@example.com"-
-    // shaped display names, and this only ever looks at the display name anyway (a
-    // short, human-authored field), not free text.
-    if (new RegExp(`\\b${brand}\\b`, "i").test(lower)) return brand;
+  for (const { brand, re } of BRAND_MATCHERS) {
+    if (re.test(displayName)) return brand;
   }
   return null;
+}
+
+// Unicode/ASCII confusables actually used in domain phishing, each mapped
+// to the ASCII character it imitates. Deliberately not the full ~6000-entry
+// Unicode confusables table -- just the Cyrillic/Greek letters that render
+// identically to a Latin letter in a domain, plus the classic digit/letter
+// swaps (paypa1.com, g00gle.com). Applied to build an "ASCII skeleton" of a
+// domain so a homoglyph swap that would otherwise be a large raw edit
+// distance (Cyrillic 'а' is a different code point, not one substitution)
+// still resolves to the brand it's imitating.
+const CONFUSABLES: Record<string, string> = {
+  // Cyrillic letters that render identically to a lowercase Latin letter
+  а: "a", е: "e", о: "o", р: "p", с: "c", х: "x", у: "y", ѕ: "s", і: "i", ј: "j", ԁ: "d",
+  // Greek, same test
+  ο: "o", α: "a", ρ: "p", ν: "v", ι: "i", ϲ: "c",
+  // classic digit-for-letter swaps
+  "0": "o", "1": "l", "5": "s",
+};
+
+function asciiSkeleton(domain: string): string {
+  return [...domain.toLowerCase()].map((ch) => CONFUSABLES[ch] ?? ch).join("");
 }
 
 // Standard Levenshtein edit distance, iterative single-row form -- no
@@ -159,14 +200,30 @@ function editDistance(a: string, b: string): number {
 
 function findLookalikeBrand(senderDomain: string): string | null {
   if (senderDomain.length < LOOKALIKE_MIN_DOMAIN_LENGTH) return null;
+  const skeleton = asciiSkeleton(senderDomain);
   for (const [brand, domains] of Object.entries(BRAND_DOMAINS)) {
     for (const legitDomain of domains) {
       if (isSameOrSubdomain(senderDomain, legitDomain)) return null; // The real thing -- stop checking this sender entirely, not just this brand.
-      const distance = editDistance(senderDomain, legitDomain);
-      if (distance > 0 && distance <= LOOKALIKE_MAX_DISTANCE) return brand;
+      if (legitDomain.split(".")[0].length < LOOKALIKE_MIN_BRAND_LABEL_LENGTH) continue;
+      // Confusable-normalised exact match: the domain renders identically to
+      // the brand's real one but isn't it -- a Cyrillic 'а' in pаypаl.com, a
+      // digit 1 in paypa1.com. The strongest lookalike case, and one raw
+      // edit distance misses entirely for the homoglyph variant.
+      if (skeleton === legitDomain && senderDomain !== legitDomain) return brand;
+      if (editDistanceWithin(senderDomain, legitDomain, LOOKALIKE_MAX_DISTANCE)) return brand;
+      // A homoglyph swap plus an ordinary typo can push the raw string past
+      // the threshold while the skeleton stays close -- check that too.
+      if (skeleton !== senderDomain && editDistanceWithin(skeleton, legitDomain, LOOKALIKE_MAX_DISTANCE)) {
+        return brand;
+      }
     }
   }
   return null;
+}
+
+function editDistanceWithin(a: string, b: string, max: number): boolean {
+  const distance = editDistance(a, b);
+  return distance > 0 && distance <= max;
 }
 
 function brandSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
@@ -204,23 +261,81 @@ function authenticationSignal(message: NormalizedMessageMetadata): ThreatSignal 
   return { kind: "failed-authentication", brand: senderDomain, confidence: "high" };
 }
 
-/** Pure, synchronous, and already-fetched-data-only -- same shape as
- * classifyMessageKind. Returns every signal that fired, not just the first
- * one; callers decide what to do with an empty array (nothing suspicious
- * found) versus one or more signals. */
-export function scoreMessageForThreats(message: NormalizedMessageMetadata): ThreatSignal[] {
+/** Signals that come purely from sender identity -- the from-address and
+ * display name -- and are therefore identical for every message from one
+ * sender key. senderModel computes these once per sender, not per message.
+ * Pure, synchronous, already-fetched-data-only. */
+export function scoreSenderIdentity(message: NormalizedMessageMetadata): ThreatSignal[] {
   const signals: ThreatSignal[] = [];
+
+  // Independent of any brand match -- a domain on the blocklist is a fact on
+  // its own, and can co-exist with a brand/lookalike signal on the same
+  // sender.
+  const senderDomain = domainOf(message.fromAddress);
+  if (senderDomain && isBlockedDomain(senderDomain)) {
+    signals.push({ kind: "blocklisted-domain", brand: senderDomain, confidence: "high" });
+  }
+
   const brand = brandSignal(message);
-  if (brand) signals.push(brand);
-  // Only check for a lookalike if the exact-brand check didn't already fire
-  // -- a message from paypa1.com claiming to be "PayPal" would otherwise
-  // report as both brand-impersonation AND lookalike-domain for the same
-  // underlying fact.
-  if (!brand) {
+  if (brand) {
+    signals.push(brand);
+  } else {
+    // Only check for a lookalike if the exact-brand check didn't already
+    // fire -- a message from paypa1.com claiming to be "PayPal" would
+    // otherwise report as both brand-impersonation AND lookalike-domain for
+    // the same underlying fact.
     const lookalike = lookalikeSignal(message);
     if (lookalike) signals.push(lookalike);
   }
-  const auth = authenticationSignal(message);
-  if (auth) signals.push(auth);
   return signals;
+}
+
+/** The one signal that varies message-to-message for a single sender: DMARC
+ * alignment is a property of each delivered message, not of the sender's
+ * identity -- a forwarded copy can fail where a direct one passes, and an
+ * attacker may spoof the From on only some messages. senderModel re-checks
+ * this across all of a sender's messages, not just the first one seen. */
+export function scoreMessageAuthentication(message: NormalizedMessageMetadata): ThreatSignal | null {
+  return authenticationSignal(message);
+}
+
+/** Full per-message score: the sender-identity signals plus this one
+ * message's own authentication result. Returns every signal that fired, not
+ * just the first; callers decide what an empty array (nothing suspicious)
+ * versus one or more signals means. */
+export function scoreMessageForThreats(message: NormalizedMessageMetadata): ThreatSignal[] {
+  const auth = scoreMessageAuthentication(message);
+  const identity = scoreSenderIdentity(message);
+  return auth ? [...identity, auth] : identity;
+}
+
+// Relative weights for turning a sender's set of signals into one number the
+// dashboard can rank by. These are ordinal, not calibrated probabilities --
+// the point is only that "claims a brand from a Gmail address" outranks a
+// lone medium signal, and that two signals on the same sender outrank one.
+const SIGNAL_WEIGHTS: Record<ThreatSignalKind, number> = {
+  "blocklisted-domain": 6, // a confirmed-bad domain, not a heuristic
+  "freemail-brand-claim": 5, // no legitimate reason a bank emails from gmail.com
+  "lookalike-domain": 4,
+  "link-mismatch": 4,
+  "failed-authentication": 3,
+  "brand-impersonation": 3,
+};
+
+export type RiskTier = "high" | "elevated" | "low";
+
+/** Sum of every signal's weight plus a point for each high-confidence one,
+ * so a sender that trips several signals sorts above one that trips a single
+ * medium signal. Zero for a sender with no signals. */
+export function senderRiskScore(signals: ThreatSignal[]): number {
+  return signals.reduce(
+    (total, s) => total + SIGNAL_WEIGHTS[s.kind] + (s.confidence === "high" ? 1 : 0),
+    0,
+  );
+}
+
+export function riskTier(score: number): RiskTier {
+  if (score >= 6) return "high";
+  if (score >= 3) return "elevated";
+  return "low";
 }

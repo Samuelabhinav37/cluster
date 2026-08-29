@@ -6,7 +6,7 @@ import { buildSenderSummaries, type SenderSummary } from "./lib/senderModel";
 import { getSettings } from "./lib/settingsStore";
 import { excludeSnoozedMessages } from "./lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
-import { flushAthenaSecurityEvents, queueAthenaSecurityEvent } from "./lib/athenaIntegration";
+import { flushAthenaSecurityEvents, queueAthenaSecurityEvents } from "./lib/athenaIntegration";
 
 chrome.action.onClicked.addListener(async () => {
   const url = chrome.runtime.getURL("src/dashboard/index.html");
@@ -54,19 +54,18 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // not-yet-built step.
 async function reportThreatSignals(senders: SenderSummary[]) {
   const now = new Date().toISOString();
-  for (const sender of senders) {
-    for (const signal of sender.threatSignals) {
-      await queueAthenaSecurityEvent({
-        sourceEventId: `${sender.key}:${signal.kind}:${signal.brand}`,
-        occurredAt: now,
-        action: "warned",
-        severity: signal.confidence === "high" ? "high" : "medium",
-        ruleId: `threat-signal:${signal.kind}`,
-        targetIndicator: sender.address.slice(sender.address.lastIndexOf("@") + 1),
-        evidence: { brand: signal.brand, kind: signal.kind },
-      });
-    }
-  }
+  const events = senders.flatMap((sender) =>
+    sender.threatSignals.map((signal) => ({
+      sourceEventId: `${sender.key}:${signal.kind}:${signal.brand}`,
+      occurredAt: now,
+      action: "warned" as const,
+      severity: signal.confidence === "high" ? ("high" as const) : ("medium" as const),
+      ruleId: `threat-signal:${signal.kind}`,
+      targetIndicator: sender.address.slice(sender.address.lastIndexOf("@") + 1),
+      evidence: { brand: signal.brand, kind: signal.kind },
+    })),
+  );
+  await queueAthenaSecurityEvents(events);
 }
 
 async function runBackgroundTriage() {

@@ -25,7 +25,9 @@ import { excludeSnoozedMessages } from "../lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "../lib/snoozeResurface";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
 import { athenaOriginPatterns, getAthenaConfig, queueAthenaSecurityEvent } from "../lib/athenaIntegration";
-import { findMismatchedLinks } from "../lib/linkMismatch";
+import { findBlocklistedLinkTargets, findMismatchedLinks } from "../lib/linkMismatch";
+import { isBlockedDomain } from "../lib/blocklist";
+import { riskTier, senderRiskScore } from "../lib/threatSignals";
 
 const providerById = new Map<ProviderId, EmailProvider>([
   [gmailProvider.id, gmailProvider],
@@ -723,9 +725,22 @@ function describeSignal(s: SenderSummary["threatSignals"][number]): string {
       return `domain closely resembles ${s.brand}'s real domain`;
     case "failed-authentication":
       return `failed DMARC authentication (claimed domain: ${s.brand})`;
+    case "blocklisted-domain":
+      return `sending domain (${s.brand}) is on a known-bad domain list`;
     case "link-mismatch":
       return `a link's visible text doesn't match where it actually goes`;
+    default: {
+      const unreachable: never = s.kind;
+      return unreachable;
+    }
   }
+}
+
+// messageIds is in fetch order, not date order -- pick the genuinely most
+// recent message so "checks the most recent message" is true.
+function newestMessageId(sender: SenderSummary): string | undefined {
+  if (sender.messages.length === 0) return sender.messageIds[0];
+  return [...sender.messages].sort((a, b) => b.receivedAt - a.receivedAt)[0].id;
 }
 
 // Deep scan is the one place this dashboard fetches a message body
@@ -733,28 +748,49 @@ function describeSignal(s: SenderSummary["threatSignals"][number]): string {
 // at a time, never part of the automatic triage. See linkMismatch.ts.
 async function runDeepScan(sender: SenderSummary, resultEl: HTMLElement): Promise<void> {
   const provider = providerById.get(sender.provider);
-  if (!provider?.getMessageLinks || sender.messageIds.length === 0) return;
+  const targetId = newestMessageId(sender);
+  if (!provider?.getMessageLinks || !targetId) return;
   resultEl.textContent = "Scanning…";
   try {
     const token = await provider.getAuthToken(false);
-    const links = await provider.getMessageLinks(token, sender.messageIds[0]);
+    const links = await provider.getMessageLinks(token, targetId);
     const suspicious = findMismatchedLinks(links);
-    if (suspicious.length === 0) {
-      resultEl.textContent = "No mismatched links found in the most recent message.";
+    const blocked = findBlocklistedLinkTargets(links, isBlockedDomain);
+
+    const findings = [
+      ...suspicious.map((link) => `"${link.displayedDomain}" actually points to ${link.actualDomain}`),
+      ...blocked.map((host) => `links to ${host}, a known-bad domain`),
+    ];
+    if (findings.length === 0) {
+      resultEl.textContent = "No mismatched or known-bad links found in the most recent message.";
       return;
     }
-    resultEl.textContent = suspicious
-      .map((link) => `"${link.displayedDomain}" actually points to ${link.actualDomain}`)
-      .join("; ");
-    void queueAthenaSecurityEvent({
-      sourceEventId: `${sender.key}:link-mismatch:${sender.messageIds[0]}`,
-      occurredAt: new Date().toISOString(),
-      action: "warned",
-      severity: "high",
-      ruleId: "threat-signal:link-mismatch",
-      targetIndicator: sender.address.slice(sender.address.lastIndexOf("@") + 1),
-      evidence: { kind: "link-mismatch", count: suspicious.length },
-    });
+    resultEl.textContent = findings.join("; ");
+
+    const domain = sender.address.slice(sender.address.lastIndexOf("@") + 1);
+    const now = new Date().toISOString();
+    if (suspicious.length > 0) {
+      void queueAthenaSecurityEvent({
+        sourceEventId: `${sender.key}:link-mismatch:${targetId}`,
+        occurredAt: now,
+        action: "warned",
+        severity: "high",
+        ruleId: "threat-signal:link-mismatch",
+        targetIndicator: domain,
+        evidence: { kind: "link-mismatch", count: suspicious.length },
+      });
+    }
+    if (blocked.length > 0) {
+      void queueAthenaSecurityEvent({
+        sourceEventId: `${sender.key}:blocklisted-link:${targetId}`,
+        occurredAt: now,
+        action: "warned",
+        severity: "high",
+        ruleId: "threat-signal:blocklisted-link",
+        targetIndicator: domain,
+        evidence: { kind: "blocklisted-link", hosts: blocked },
+      });
+    }
   } catch (err) {
     resultEl.textContent = "Scan failed, try again.";
     console.error(err);
@@ -762,17 +798,24 @@ async function runDeepScan(sender: SenderSummary, resultEl: HTMLElement): Promis
 }
 
 function renderSecuritySection(senders: SenderSummary[]) {
-  const flagged = senders.filter((s) => s.threatSignals.length > 0);
+  // Rank by combined risk so a sender tripping several signals (or a
+  // freemail brand claim) sorts above one with a lone medium signal.
+  const flagged = senders
+    .filter((s) => s.threatSignals.length > 0)
+    .map((sender) => ({ sender, score: senderRiskScore(sender.threatSignals) }))
+    .sort((a, b) => b.score - a.score);
   securitySectionEl.hidden = flagged.length === 0;
   if (flagged.length === 0) return;
 
   securitySenderListEl.replaceChildren(
-    ...flagged.map((sender) => {
+    ...flagged.map(({ sender, score }) => {
       const li = document.createElement("li");
       const label = sender.threatSignals.map(describeSignal).join("; ");
+      const tierEl = document.createElement("strong");
+      tierEl.textContent = `${riskTier(score).toUpperCase()} risk`;
       const text = document.createElement("span");
-      text.textContent = `${sender.displayName || sender.address} <${sender.address}> — ${label} `;
-      li.appendChild(text);
+      text.textContent = ` — ${sender.displayName || sender.address} <${sender.address}> — ${label} `;
+      li.append(tierEl, text);
 
       const provider = providerById.get(sender.provider);
       if (provider?.labelSuspicious) {
