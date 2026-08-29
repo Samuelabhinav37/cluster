@@ -78,7 +78,7 @@ export interface EmailProvider {
   unmuteSender?(token: string, fromAddress: string, mutedIds: string[]): Promise<void>;
   /**
    * Screener (Phase 6) — Gmail-only. screenSender holds a sender's mail under
-   * Declutter/Screener; allowSenderThrough reverses it; listSentCorrespondents
+   * Clutter/Screener; allowSenderThrough reverses it; listSentCorrespondents
    * returns everyone the user has emailed (the implicit allowlist).
    */
   screenSender?(token: string, fromAddress: string, existingIds: string[]): Promise<void>;

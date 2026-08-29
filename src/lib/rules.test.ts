@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeRule, matchRule, ruleHasConditions, type DeclutterRule } from "./rules";
+import { describeRule, matchRule, ruleHasConditions, type ClutterRule } from "./rules";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import type { ProviderId } from "./providers/emailProvider";
 
@@ -32,7 +32,7 @@ function sender(over: Partial<SenderSummary> & { address: string; messages: Mess
   };
 }
 
-function rule(over: Partial<DeclutterRule> = {}): DeclutterRule {
+function rule(over: Partial<ClutterRule> = {}): ClutterRule {
   return {
     id: "r1",
     name: "Test rule",
@@ -114,7 +114,7 @@ describe("describeRule", () => {
   });
   it("names the label for a label action", () => {
     expect(
-      describeRule(rule({ conditions: { fromDomain: "x.com" }, action: "label", labelName: "Declutter/News" })),
-    ).toBe('messages from @x.com → label "Declutter/News"');
+      describeRule(rule({ conditions: { fromDomain: "x.com" }, action: "label", labelName: "Clutter/News" })),
+    ).toBe('messages from @x.com → label "Clutter/News"');
   });
 });

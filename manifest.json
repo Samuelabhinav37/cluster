@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "Gmail Declutter",
+  "name": "Clutter",
   "version": "0.1.0",
-  "description": "Real, verified unsubscribe. Auto-sort the rest into labels.",
+  "description": "Metadata-only inbox cleanup, rules, a screener, verified unsubscribe, and header-based phishing checks — all in your browser.",
   "action": {
-    "default_title": "Gmail Declutter"
+    "default_title": "Clutter"
   },
   "background": {
     "service_worker": "src/background.ts",

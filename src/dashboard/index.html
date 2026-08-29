@@ -2,15 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Gmail Declutter</title>
+    <title>Clutter</title>
     <link rel="stylesheet" href="./dashboard.css" />
   </head>
   <body>
     <main>
-      <h1>Gmail Declutter</h1>
+      <h1>Clutter</h1>
       <div id="onboarding-banner" class="onboarding-banner" hidden>
         <p>
-          Gmail Declutter sorts and cleans up mail using only what your inbox
+          Clutter sorts and cleans up mail using only what your inbox
           already tells it — subjects, senders, dates, and starred/flagged
           status, never message bodies. Nothing is deleted without you
           confirming first, and everything runs from your own sign-in — no
@@ -183,7 +183,7 @@
           <p class="hint">
             Senders that claim a well-known brand whose real domain doesn't match, fail
             authentication, use a lookalike domain, or appear on a known-bad domain list — common
-            phishing patterns. Mostly heuristics from headers already fetched for the declutter
+            phishing patterns. Mostly heuristics from headers already fetched for the cleanup
             feature, not verified facts: check before acting. Nothing here is auto-labeled, moved,
             or deleted. Ordered by risk.
           </p>
@@ -235,7 +235,7 @@
             <option value="markRead">mark read</option>
             <option value="label">label</option>
           </select>
-          <input type="text" id="rule-label" placeholder="Declutter/Label" hidden />
+          <input type="text" id="rule-label" placeholder="Clutter/Label" hidden />
           <button type="submit" id="rule-add-btn">Add rule</button>
           <span id="rule-form-error" class="hint"></span>
         </form>
@@ -249,7 +249,7 @@
         <p class="hint">
           Hold mail from senders you've never emailed until you decide about
           them. When on, the background sweep moves unknown senders' mail into a
-          "Declutter/Screener" label and out of your inbox. Your sent mail (who
+          "Clutter/Screener" label and out of your inbox. Your sent mail (who
           you've written to) is the automatic allow-list; nothing here is ever
           deleted.
         </p>
@@ -265,7 +265,7 @@
       <section class="tab-panel" data-tab="recent" role="tabpanel" hidden>
         <h2>Recently done</h2>
         <p class="hint">
-          Everything Declutter changed, newest first, with an Undo where the
+          Everything Clutter changed, newest first, with an Undo where the
           action can be reversed. Populated in a later build.
         </p>
         <div id="recent-list"></div>

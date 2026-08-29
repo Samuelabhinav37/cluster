@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "./screener";
 import type { SenderSummary } from "./senderModel";
-import type { DeclutterSettings } from "./settingsStore";
+import type { ClutterSettings } from "./settingsStore";
 
-function settings(over: Partial<DeclutterSettings> = {}): DeclutterSettings {
+function settings(over: Partial<ClutterSettings> = {}): ClutterSettings {
   return {
     scanWindowDays: 180,
     maxMessagesPerProvider: 500,

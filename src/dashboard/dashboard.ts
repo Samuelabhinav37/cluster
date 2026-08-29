@@ -20,7 +20,7 @@ import type { EmailProvider, ProviderId } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { outlookProvider } from "../lib/providers/outlookProvider";
 import { buildSenderSummaries, type SenderSummary } from "../lib/senderModel";
-import { getSettings, updateSettings, type DeclutterSettings } from "../lib/settingsStore";
+import { getSettings, updateSettings, type ClutterSettings } from "../lib/settingsStore";
 import { excludeSnoozedMessages } from "../lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "../lib/snoozeResurface";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
@@ -31,7 +31,7 @@ import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import {
   describeRule,
   ruleHasConditions,
-  type DeclutterRule,
+  type ClutterRule,
   type RuleAction,
   type RuleConditions,
 } from "../lib/rules";
@@ -67,7 +67,7 @@ const selectedSubKeys = new Set<string>();
 let currentSenders: SenderSummary[] = [];
 let currentDomainGroups: DomainGroup[] = [];
 let currentExpiryBuckets: ExpiryBucket[] = [];
-let cachedSettings: DeclutterSettings;
+let cachedSettings: ClutterSettings;
 
 const statusEl = document.getElementById("status") as HTMLParagraphElement;
 const senderGroupsEl = document.getElementById("sender-groups") as HTMLDivElement;
@@ -690,7 +690,7 @@ function buildKeepSortedCell(sender: SenderSummary): HTMLTableCellElement {
     btn.textContent = "Setting up…";
     try {
       const token = await provider.getAuthToken(false);
-      const labelName = `Declutter/${sender.displayName || sender.address}`;
+      const labelName = `Clutter/${sender.displayName || sender.address}`;
       await provider.keepSorted(token, sender.address, labelName, sender.messageIds);
       await logAction("keepSorted", `Kept ${sender.address} sorted into "${labelName}"`);
       btn.textContent = "Sorted ✓";
@@ -1290,7 +1290,7 @@ function wireRulesTab() {
       ruleFormError.textContent = "A label action needs a label name.";
       return;
     }
-    const rule: DeclutterRule = {
+    const rule: ClutterRule = {
       id: crypto.randomUUID(),
       name: ruleNameInput.value.trim() || "Untitled rule",
       enabled: true,
@@ -1773,7 +1773,7 @@ function renderScreenerTab(senders: SenderSummary[]) {
     p.className = "hint";
     p.textContent =
       cachedSettings.screenedSenders.length > 0
-        ? `Screener is off. ${cachedSettings.screenedSenders.length} sender(s) are still held — turn it back on to review them, or find them under the Declutter/Screener label in Gmail.`
+        ? `Screener is off. ${cachedSettings.screenedSenders.length} sender(s) are still held — turn it back on to review them, or find them under the Clutter/Screener label in Gmail.`
         : "Screener is off.";
     screenerQueueEl.appendChild(p);
   } else {

@@ -60,7 +60,7 @@ export async function executeBulkKeepSorted(
     if (!provider?.keepSorted) return false;
     try {
       const token = await provider.getAuthToken(false);
-      const labelName = `Declutter/${s.displayName || s.address}`;
+      const labelName = `Clutter/${s.displayName || s.address}`;
       await provider.keepSorted(token, s.address, labelName, s.messageIds);
       return true;
     } catch (err) {

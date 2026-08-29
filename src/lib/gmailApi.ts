@@ -116,9 +116,9 @@ export async function labelMessages(token: string, ids: string[], labelName: str
   await batchModify(token, ids, [labelId], ["INBOX"]);
 }
 
-const SCREENER_LABEL_NAME = "Declutter/Screener";
+const SCREENER_LABEL_NAME = "Clutter/Screener";
 
-// Screener: hold a sender's mail under Declutter/Screener and out of the inbox
+// Screener: hold a sender's mail under Clutter/Screener and out of the inbox
 // via a standing from: filter — same mechanism as muteSender, different label,
 // and always reversible with allowSenderThrough.
 export async function screenSender(token: string, fromAddress: string, existingIds: string[]): Promise<void> {
@@ -167,10 +167,10 @@ export async function listSentCorrespondents(token: string, maxMessages = 300): 
   return [...addresses].slice(0, 1000);
 }
 
-const MUTED_LABEL_NAME = "Declutter/Muted";
+const MUTED_LABEL_NAME = "Clutter/Muted";
 
 // Local "BlackHole": a standing from:<address> filter that files future mail
-// under Declutter/Muted and out of the inbox, plus the same move for mail
+// under Clutter/Muted and out of the inbox, plus the same move for mail
 // already in the inbox. Independent of whether the sender honours unsubscribe.
 export async function muteSender(token: string, fromAddress: string, existingIds: string[]): Promise<void> {
   const labelId = await getOrCreateLabel(token, MUTED_LABEL_NAME);
@@ -260,7 +260,7 @@ export async function getOrCreateLabel(token: string, name: string): Promise<str
   return createLabel(token, name);
 }
 
-const SNOOZE_LABEL_NAME = "Declutter/Snoozed";
+const SNOOZE_LABEL_NAME = "Clutter/Snoozed";
 
 // Snooze is entirely our own bookkeeping — Gmail has no snooze primitive.
 // This just moves mail out of the inbox under a dedicated label; the

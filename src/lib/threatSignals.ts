@@ -2,7 +2,7 @@
 // connection" (athenaIntegration.ts) has been wired up since the last pass,
 // but nothing generated a real event until this module existed. Same
 // constraint as messageKind.ts: only headers already fetched for the
-// existing declutter feature (fromAddress, fromDisplayName, subject,
+// existing cleanup feature (fromAddress, fromDisplayName, subject,
 // authenticationResults) -- never the message body, never a new OAuth
 // scope, never a network call of its own.
 //

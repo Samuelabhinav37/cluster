@@ -1,4 +1,4 @@
-# Gmail Declutter
+# Clutter
 
 Chrome (MV3) extension for Gmail + Outlook. Scans your Promotions/Updates mail
 using only message **metadata** — sender, subject, date, size, read/starred
@@ -18,7 +18,7 @@ Open with the toolbar icon.
   **Trim to newest N per sender**; and **"You never open these"** (senders whose
   every non-starred message is still unread) with Mute-all / Trash-all. Per-row:
   verified unsubscribe, Keep sorted (label + filter), **Mute** (a local
-  BlackHole — a standing `from:` filter into `Declutter/Muted`), Snooze.
+  BlackHole — a standing `from:` filter into `Clutter/Muted`), Snooze.
 - **Subscriptions** — every unsubscribe-capable sender in the scan, ranked by
   volume, with per-row and bulk "unsubscribe all verified one-click". Request
   status ("Requested 3d ago") survives reloads.
@@ -28,10 +28,10 @@ Open with the toolbar icon.
   trash / mark read). Applied on demand and by the 6-hourly background sweep.
   Starred mail is always excluded; rules never permanently delete.
 - **Screener** — opt-in. Holds mail from senders you've never emailed under a
-  `Declutter/Screener` label, out of the inbox, until you **Allow** (adds to the
+  `Clutter/Screener` label, out of the inbox, until you **Allow** (adds to the
   allow-list, restores the mail) or **Block** (mutes). Your Sent mail is the
   automatic allow-list.
-- **Recently done** — every action Declutter took, newest first, with **Undo**
+- **Recently done** — every action Clutter took, newest first, with **Undo**
   where reversible (Gmail untrash / unarchive / unmute).
 
 Every destructive action is behind a confirm; starred/flagged mail is always
@@ -86,7 +86,7 @@ token held in `chrome.storage.session`, keeps at most 200 minimized events in me
 without delaying mailbox work.
 
 **Rule-based detection** (`src/lib/threatSignals.ts`), four kinds, all from headers already
-fetched for the declutter feature (sender address, display name, and now `Authentication-Results`
+fetched for the cleanup feature (sender address, display name, and now `Authentication-Results`
 — never the message body or subject, no new OAuth scope, no network call of its own):
 
 - **Brand impersonation / freemail-brand-claim** — a display name claims a well-known brand
@@ -104,19 +104,19 @@ fetched for the declutter feature (sender address, display name, and now `Authen
   in full via `internetMessageHeaders`, just unread until now.
 
 Flagged senders surface in a clearly separate "Possible impersonation" dashboard section — never
-blended into the regular declutter view — and get reported as minimized `warned` events to Athena
+blended into the regular cleanup view — and get reported as minimized `warned` events to Athena
 (when connected; otherwise nothing happens beyond the dashboard section) via the background
 triage's existing 6-hourly alarm, deduplicated server-side by a deterministic per-sender-per-signal
 id so repeat triage runs don't re-alert.
 
-**One manual action, Gmail only: "Label as suspicious."** Applies a `Declutter/Possible Phishing`
+**One manual action, Gmail only: "Label as suspicious."** Applies a `Clutter/Possible Phishing`
 label and archives the currently-flagged messages out of the inbox — never deletes. Deliberately a
 one-click, per-occurrence action rather than a standing filter: a signal that fires today (a
 lookalike domain, a DMARC fail) isn't guaranteed to still apply to whatever this sender sends next,
 so nothing here creates a rule that keeps acting on future mail unreviewed.
 
 **A second manual action, Gmail only: "Deep scan."** Everything above only ever reads headers
-already fetched for the declutter feature. Deep scan is the one deliberate exception — a per-message,
+already fetched for the cleanup feature. Deep scan is the one deliberate exception — a per-message,
 opt-in fetch of the message's full HTML body (`gmailApi.ts`'s `getMessageLinks`, `format=full`, a
 materially bigger and more sensitive request than the metadata-only fetch everything else here
 uses) to check whether a link's visible text (`paypal.com` as the clickable text) points somewhere

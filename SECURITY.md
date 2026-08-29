@@ -1,6 +1,6 @@
 # Security & data handling
 
-Gmail Declutter is a Manifest V3 Chrome extension. **There is no Gmail Declutter
+Clutter is a Manifest V3 Chrome extension. **There is no Clutter
 server.** Everything runs in the extension, in your browser, under your own OAuth
 sign-in. Nothing you do in the extension is sent to us, because there is no "us"
 to send it to.
@@ -69,5 +69,5 @@ recipient addresses. The endpoint must be HTTPS. See `src/lib/athenaIntegration.
 ## Reporting a vulnerability
 
 Open a GitHub security advisory on
-<https://github.com/Samuelabhinav37/gmail-declutter>, or a private issue. Please
+<https://github.com/Samuelabhinav37/clutter>, or a private issue. Please
 describe the class of problem rather than posting a working exploit.

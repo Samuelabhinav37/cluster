@@ -1,8 +1,8 @@
 import type { ProviderId } from "./providers/emailProvider";
-import type { DeclutterRule } from "./rules";
+import type { ClutterRule } from "./rules";
 import type { ActionLogEntry } from "./actionLog";
 
-export interface DeclutterSettings {
+export interface ClutterSettings {
   scanWindowDays: number;
   maxMessagesPerProvider: number;
   collapsedSenderCategories: string[];
@@ -16,7 +16,7 @@ export interface DeclutterSettings {
 
   // ── Power features (Phases 2–6) ──────────────────────────────────────────
   /** Standing user rules — Auto Clean equivalent (see rules.ts / ruleRunner.ts). */
-  rules: DeclutterRule[];
+  rules: ClutterRule[];
   /** Rolling "here's what I did" log (see actionLog.ts). Capped at MAX_LOG_ENTRIES. */
   actionLog: ActionLogEntry[];
   /** From-addresses the user has muted via the local BlackHole. */
@@ -25,7 +25,7 @@ export interface DeclutterSettings {
   screenerEnabled: boolean;
   /** Addresses the user has explicitly let through the Screener. */
   screenerAllowlist: string[];
-  /** Addresses currently held in the Declutter/Screener label, awaiting a
+  /** Addresses currently held in the Clutter/Screener label, awaiting a
    * decision — so the background sweep doesn't re-screen them and the tab can
    * tell "held" from "trusted". */
   screenedSenders: string[];
@@ -39,9 +39,9 @@ export interface DeclutterSettings {
   collapsedSmartViews: string[];
 }
 
-const STORAGE_KEY = "declutterSettings";
+const STORAGE_KEY = "clutterSettings";
 
-const DEFAULT_SETTINGS: DeclutterSettings = {
+const DEFAULT_SETTINGS: ClutterSettings = {
   scanWindowDays: 180,
   maxMessagesPerProvider: 500,
   collapsedSenderCategories: [],
@@ -62,13 +62,13 @@ const DEFAULT_SETTINGS: DeclutterSettings = {
   collapsedSmartViews: [],
 };
 
-export async function getSettings(): Promise<DeclutterSettings> {
+export async function getSettings(): Promise<ClutterSettings> {
   const data = await chrome.storage.local.get(STORAGE_KEY);
-  const stored = data[STORAGE_KEY] as Partial<DeclutterSettings> | undefined;
+  const stored = data[STORAGE_KEY] as Partial<ClutterSettings> | undefined;
   return { ...DEFAULT_SETTINGS, ...stored };
 }
 
-export async function updateSettings(partial: Partial<DeclutterSettings>): Promise<DeclutterSettings> {
+export async function updateSettings(partial: Partial<ClutterSettings>): Promise<ClutterSettings> {
   const next = { ...(await getSettings()), ...partial };
   await chrome.storage.local.set({ [STORAGE_KEY]: next });
   return next;

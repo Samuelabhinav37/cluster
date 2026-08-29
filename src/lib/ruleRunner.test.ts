@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import type { EmailProvider, ProviderId } from "./providers/emailProvider";
-import type { DeclutterRule } from "./rules";
+import type { ClutterRule } from "./rules";
 
 const { appendActionLog } = vi.hoisted(() => ({ appendActionLog: vi.fn() }));
 vi.mock("./actionLog", async (orig) => ({
@@ -42,7 +42,7 @@ function fakeProvider(id: ProviderId, over: Partial<EmailProvider> = {}): EmailP
   };
 }
 
-const archiveRule: DeclutterRule = {
+const archiveRule: ClutterRule = {
   id: "r1",
   name: "Old newsletters",
   enabled: true,
