@@ -4,7 +4,7 @@ import { outlookProvider } from "./lib/providers/outlookProvider";
 import type { EmailProvider, ProviderId } from "./lib/providers/emailProvider";
 import { applyRules } from "./lib/ruleRunner";
 import { buildSenderSummaries, type SenderSummary } from "./lib/senderModel";
-import { getSettings } from "./lib/settingsStore";
+import { getSettings, updateSettings } from "./lib/settingsStore";
 import { excludeSnoozedMessages } from "./lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
 import { flushAthenaSecurityEvents, queueAthenaSecurityEvents } from "./lib/athenaIntegration";
@@ -93,9 +93,17 @@ async function runBackgroundTriage() {
       [gmailProvider.id, gmailProvider],
       [outlookProvider.id, outlookProvider],
     ]);
-    await applyRules(settings.rules, senders, providerById);
+    const ruleResults = await applyRules(settings.rules, senders, providerById);
+    const ruleMoved = ruleResults.reduce(
+      (sum, r) => sum + [...r.movedByProvider.values()].reduce((a, b) => a + b, 0),
+      0,
+    );
 
     const total = totalExpiryCount(buildExpiryBuckets(senders));
+
+    await updateSettings({
+      lastTriageSummary: `${new Date().toLocaleString()} — ${ruleMoved} actioned by rules, ${total} ready to clean up`,
+    });
 
     if (total > 0) {
       await chrome.action.setBadgeText({ text: total > 99 ? "99+" : String(total) });

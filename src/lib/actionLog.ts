@@ -23,6 +23,8 @@ export interface ActionLogUndo {
   provider: ProviderId;
   ids: string[];
   via: "untrash" | "unarchive" | "unmute";
+  /** Only for via: "unmute" — the address whose standing filter to remove. */
+  fromAddress?: string;
 }
 
 export interface ActionLogEntry {

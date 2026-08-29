@@ -97,6 +97,22 @@ describe("applyRules", () => {
 
     expect(trashMessages).toHaveBeenCalledWith("outlook-token", ["1"]);
   });
+
+  it("attaches an undo to the log entry for a Gmail trash/archive rule, not for markRead", async () => {
+    const gmail = fakeProvider("gmail", {
+      archiveMessages: vi.fn(async () => {}),
+      markReadMessages: vi.fn(async () => {}),
+    });
+    const s = sender("a@news.com", "gmail", [msg({ id: "1" }), msg({ id: "2" })]);
+
+    await applyRules([archiveRule], [s], new Map([["gmail", gmail]]));
+    const archiveEntry = appendActionLog.mock.calls.at(-1)![0][0];
+    expect(archiveEntry.undo).toEqual({ provider: "gmail", ids: ["1", "2"], via: "unarchive" });
+
+    appendActionLog.mockClear();
+    await applyRules([{ ...archiveRule, action: "markRead" }], [s], new Map([["gmail", gmail]]));
+    expect(appendActionLog.mock.calls.at(-1)![0][0].undo).toBeUndefined();
+  });
 });
 
 describe("previewRuleMatches", () => {

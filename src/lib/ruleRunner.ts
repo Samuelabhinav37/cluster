@@ -7,6 +7,9 @@ export interface RuleRunResult {
   rule: DeclutterRule;
   /** How many messages were actioned, per provider. */
   movedByProvider: Map<ProviderId, number>;
+  /** Gmail ids this run trashed or archived — the reversible portion. */
+  undoableGmailIds: string[];
+  undoVia?: "untrash" | "unarchive";
 }
 
 // Returns true if the action ran, false if this provider can't do it (Outlook
@@ -55,6 +58,7 @@ export async function applyRules(
     if (!rule.enabled) continue;
     const matched = matchRule(rule, senders);
     const moved = new Map<ProviderId, number>();
+    let undoableGmailIds: string[] = [];
 
     for (const [providerId, ids] of matched) {
       if (ids.length === 0) continue;
@@ -64,12 +68,16 @@ export async function applyRules(
         const token = await provider.getAuthToken(false);
         if (await runAction(provider, token, rule.action, rule.labelName, ids)) {
           moved.set(providerId, ids.length);
+          if (providerId === "gmail" && (rule.action === "trash" || rule.action === "archive")) {
+            undoableGmailIds = ids;
+          }
         }
       } catch (err) {
         console.error(`Rule "${rule.name}" failed for ${providerId}`, err);
       }
     }
 
+    const undoVia = rule.action === "trash" ? "untrash" : rule.action === "archive" ? "unarchive" : undefined;
     const total = [...moved.values()].reduce((a, b) => a + b, 0);
     if (total > 0) {
       logEntries.push({
@@ -77,9 +85,13 @@ export async function applyRules(
         at: Date.now(),
         kind: "rule",
         summary: `Rule "${rule.name}": ${describeRule(rule)} — ${total} message${total === 1 ? "" : "s"}`,
+        undo:
+          undoableGmailIds.length > 0 && undoVia
+            ? { provider: "gmail", ids: undoableGmailIds, via: undoVia }
+            : undefined,
       });
     }
-    results.push({ rule, movedByProvider: moved });
+    results.push({ rule, movedByProvider: moved, undoableGmailIds, undoVia });
   }
 
   await appendActionLog(logEntries);

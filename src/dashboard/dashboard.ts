@@ -36,7 +36,13 @@ import {
   type RuleConditions,
 } from "../lib/rules";
 import { applyRules, previewRuleMatches } from "../lib/ruleRunner";
-import { appendActionLog, makeLogId } from "../lib/actionLog";
+import {
+  appendActionLog,
+  makeLogId,
+  type ActionLogEntry,
+  type ActionLogKind,
+  type ActionLogUndo,
+} from "../lib/actionLog";
 import type { MessageKind } from "../lib/messageKind";
 
 const providerById = new Map<ProviderId, EmailProvider>([
@@ -118,6 +124,8 @@ const ruleFormError = document.getElementById("rule-form-error") as HTMLSpanElem
 const ruleApplySlot = document.getElementById("rule-apply-slot") as HTMLDivElement;
 const ruleApplyBtn = document.getElementById("rule-apply-btn") as HTMLButtonElement;
 
+const recentListEl = document.getElementById("recent-list") as HTMLDivElement;
+
 // ── Tabs ─────────────────────────────────────────────────────────────────
 function showTab(name: string) {
   const target = tabButtons.some((b) => b.dataset.tab === name) ? name : "cleanup";
@@ -195,6 +203,7 @@ async function main() {
   wireOfflineHandling();
   wireRulesTab();
   renderRulesTab();
+  renderRecentTab();
   await wireDigest();
   await scanAndRender();
 }
@@ -512,17 +521,12 @@ function buildMuteCell(sender: SenderSummary): HTMLTableCellElement {
         cachedSettings = await updateSettings({
           mutedSenders: [...cachedSettings.mutedSenders, sender.address],
         });
-        await appendActionLog([
-          {
-            id: makeLogId("mute"),
-            at: Date.now(),
-            kind: "mute",
-            summary: `Muted ${sender.address}`,
-            undo: { provider: "gmail", ids: sender.messageIds, via: "unmute" },
-          },
-        ]);
-        btn.textContent = "Muted ✓";
-        btn.disabled = true;
+        await logAction("mute", `Muted ${sender.address}`, {
+          provider: "gmail",
+          ids: sender.messageIds,
+          via: "unmute",
+          fromAddress: sender.address,
+        });
         return "Muted ✓";
       },
     );
@@ -591,6 +595,7 @@ function buildUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
       const ok = await fireOneClickUnsubscribe(sender.unsubscribe.postUrl!);
       if (ok) {
         await recordUnsubscribeRequests([sender]);
+        await logAction("unsubscribe", `Unsubscribed from ${sender.address}`);
         applyState();
       } else {
         statusEl.textContent = "Request failed, try again";
@@ -637,6 +642,7 @@ function buildKeepSortedCell(sender: SenderSummary): HTMLTableCellElement {
       const token = await provider.getAuthToken(false);
       const labelName = `Declutter/${sender.displayName || sender.address}`;
       await provider.keepSorted(token, sender.address, labelName, sender.messageIds);
+      await logAction("keepSorted", `Kept ${sender.address} sorted into "${labelName}"`);
       btn.textContent = "Sorted ✓";
     } catch (err) {
       btn.textContent = "Failed, try again";
@@ -695,6 +701,10 @@ function buildSnoozeCell(sender: SenderSummary): HTMLTableCellElement {
       await provider.snoozeMessages(token, sender.messageIds);
       const resurfaceAt = Date.now() + Number(select.value) * 24 * 60 * 60 * 1000;
       await recordSnoozedMessages(sender.messageIds, sender.provider, resurfaceAt);
+      await logAction(
+        "snooze",
+        `Snoozed ${sender.messageIds.length} from ${sender.address} until ${new Date(resurfaceAt).toLocaleDateString()}`,
+      );
       btn.textContent = `Snoozed until ${new Date(resurfaceAt).toLocaleDateString()} ✓`;
     } catch (err) {
       btn.textContent = "Failed, try again";
@@ -806,7 +816,13 @@ function buildDeleteDomainCell(group: DomainGroup): HTMLTableCellElement {
     renderConfirmStep(cell, resetCell, summaryText, true, async () => {
       const merged = mergeDeletableIdsByProvider([group]);
       await executeBulkDeleteDomains(merged, providerById);
-      appendUndoButton(cell, merged.get("gmail") ?? []);
+      const gmailIds = merged.get("gmail") ?? [];
+      appendUndoButton(cell, gmailIds);
+      await logAction(
+        "trash",
+        `Moved ${deletable} from ${group.domain} to Trash`,
+        gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "untrash" } : undefined,
+      );
       return `Moved ${deletable} to Trash ✓`;
     });
   };
@@ -932,6 +948,7 @@ function renderSecuritySection(senders: SenderSummary[]) {
           try {
             const token = await provider.getAuthToken(false);
             await provider.labelSuspicious!(token, sender.messageIds);
+            await logAction("labelSuspicious", `Labelled ${sender.messageIds.length} from ${sender.address} as suspicious`);
             btn.textContent = "Labeled ✓";
           } catch (err) {
             btn.textContent = "Failed, try again";
@@ -1243,6 +1260,7 @@ function wireRulesTab() {
       async () => {
         const results = await applyRules(cachedSettings.rules, currentSenders, providerById);
         cachedSettings = await getSettings();
+        renderRecentTab();
         const moved = results.reduce(
           (sum, r) => sum + [...r.movedByProvider.values()].reduce((a, b) => a + b, 0),
           0,
@@ -1252,6 +1270,98 @@ function wireRulesTab() {
       },
     );
   };
+}
+
+// ── Recently done (review loop) ──────────────────────────────────────────
+// Every action path calls logAction; the tab shows them newest-first with an
+// Undo where the change is reversible (Gmail trash/archive/mute only).
+async function logAction(kind: ActionLogKind, summary: string, undo?: ActionLogUndo) {
+  await appendActionLog([{ id: makeLogId(kind), at: Date.now(), kind, summary, undo }]);
+  cachedSettings = await getSettings();
+  renderRecentTab();
+}
+
+async function undoEntry(entry: ActionLogEntry) {
+  if (!entry.undo) return;
+  const token = await gmailProvider.getAuthToken(false);
+  if (entry.undo.via === "untrash") {
+    await gmailProvider.untrashMessages!(token, entry.undo.ids);
+  } else if (entry.undo.via === "unarchive") {
+    await gmailProvider.unarchiveMessages!(token, entry.undo.ids);
+  } else if (entry.undo.via === "unmute" && entry.undo.fromAddress) {
+    await gmailProvider.unmuteSender!(token, entry.undo.fromAddress, entry.undo.ids);
+    cachedSettings = await updateSettings({
+      mutedSenders: cachedSettings.mutedSenders.filter((a) => a !== entry.undo!.fromAddress),
+    });
+  }
+  cachedSettings = await updateSettings({
+    actionLog: cachedSettings.actionLog.map((e) => (e.id === entry.id ? { ...e, undone: true } : e)),
+  });
+  renderRecentTab();
+  await scanAndRender();
+}
+
+function renderRecentTab() {
+  recentListEl.innerHTML = "";
+
+  if (cachedSettings.lastTriageSummary) {
+    const p = document.createElement("p");
+    p.className = "hint";
+    p.textContent = `Last background sweep: ${cachedSettings.lastTriageSummary}`;
+    recentListEl.appendChild(p);
+  }
+
+  const entries = [...cachedSettings.actionLog].reverse();
+  if (entries.length === 0) {
+    const p = document.createElement("p");
+    p.className = "hint";
+    p.textContent = "Nothing done yet.";
+    recentListEl.appendChild(p);
+    return;
+  }
+
+  let lastDay = "";
+  for (const entry of entries) {
+    const day = new Date(entry.at).toLocaleDateString();
+    if (day !== lastDay) {
+      const h = document.createElement("h3");
+      h.textContent = day;
+      recentListEl.appendChild(h);
+      lastDay = day;
+    }
+
+    const row = document.createElement("div");
+    row.className = "recent-row";
+
+    const text = document.createElement("span");
+    const time = new Date(entry.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    text.textContent = `${time} — ${entry.summary}`;
+    row.appendChild(text);
+
+    if (entry.undone) {
+      const done = document.createElement("span");
+      done.className = "hint";
+      done.textContent = "undone";
+      row.appendChild(done);
+    } else if (entry.undo) {
+      const undoBtn = document.createElement("button");
+      undoBtn.textContent = "Undo";
+      undoBtn.onclick = async () => {
+        undoBtn.disabled = true;
+        undoBtn.textContent = "Undoing…";
+        try {
+          await undoEntry(entry);
+        } catch (err) {
+          undoBtn.disabled = false;
+          undoBtn.textContent = "Undo failed, try again";
+          console.error(err);
+        }
+      };
+      row.appendChild(undoBtn);
+    }
+
+    recentListEl.appendChild(row);
+  }
 }
 
 // ── Bulk action bars ─────────────────────────────────────────────────────
@@ -1290,6 +1400,7 @@ function wireBulkHandlers() {
       summary.textContent = "Unsubscribing…";
       const { succeeded, failed } = await executeBulkUnsubscribe(automatable, fireOneClickUnsubscribe);
       await recordUnsubscribeRequests(succeeded);
+      if (succeeded.length > 0) await logAction("unsubscribe", `Bulk unsubscribed from ${succeeded.length} senders`);
       render(currentSenders);
       return `Unsubscribed ${succeeded.length}, failed ${failed.length}, skipped ${manual.length} (no verified link)`;
     });
@@ -1307,6 +1418,7 @@ function wireBulkHandlers() {
 
     renderConfirmStep(keepSortedBulkSlot, resetKeepSortedBulkSlot, summaryText, false, async () => {
       const { succeeded, failed } = await executeBulkKeepSorted(eligible, providerById);
+      if (succeeded > 0) await logAction("keepSorted", `Kept ${succeeded} sender${succeeded === 1 ? "" : "s"} sorted`);
       return `Sorted ${succeeded}, failed ${failed}, skipped ${unsupported.length}`;
     });
   };
@@ -1326,6 +1438,9 @@ function wireBulkHandlers() {
     renderConfirmStep(snoozeBulkSlot, resetSnoozeBulkSlot, summaryText, false, async () => {
       const { succeeded, failed } = await executeBulkSnooze(eligible, providerById);
       for (const s of succeeded) await recordSnoozedMessages(s.messageIds, s.provider, resurfaceAt);
+      if (succeeded.length > 0) {
+        await logAction("snooze", `Snoozed ${succeeded.length} sender${succeeded.length === 1 ? "" : "s"} until ${new Date(resurfaceAt).toLocaleDateString()}`);
+      }
       const message = `Snoozed ${succeeded.length}, failed ${failed.length}, skipped ${unsupported.length}`;
       await scanAndRender();
       return message;
@@ -1353,6 +1468,11 @@ function wireBulkHandlers() {
     renderConfirmStep(deleteDomainsBulkSlot, resetDeleteDomainsBulkSlot, summaryText, true, async () => {
       const { message, undoableGmailIds } = await executeSmartDelete(merged);
       appendUndoButton(deleteDomainsBulkSlot, undoableGmailIds);
+      await logAction(
+        "trash",
+        `Cleared ${deletable} across ${selected.length} domain${selected.length === 1 ? "" : "s"}`,
+        undoableGmailIds.length > 0 ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" } : undefined,
+      );
       return message;
     });
   };
@@ -1366,6 +1486,11 @@ function wireBulkHandlers() {
       const { message, undoableGmailIds } = await executeSmartDelete(merged);
       chrome.action.setBadgeText({ text: "" }).catch(() => {});
       appendUndoButton(expiryCleanupSlot, undoableGmailIds);
+      await logAction(
+        "trash",
+        `Cleaned up ${total} expired message${total === 1 ? "" : "s"}`,
+        undoableGmailIds.length > 0 ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" } : undefined,
+      );
       return message;
     });
   };
