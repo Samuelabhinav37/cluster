@@ -1,17 +1,30 @@
 {
   "type": "object",
-  "additionalProperties": false,
   "properties": {
     "athena": {
       "type": "object",
-      "title": "Optional Athena enterprise connection. Leave unset for normal consumer installs.",
-      "additionalProperties": false,
+      "description": "Optional Athena enterprise connection. Leave unset for normal consumer installs.",
       "properties": {
-        "tenantId": { "type": "string", "title": "Athena tenant id." },
-        "agentId": { "type": "string", "title": "Athena security agent id returned during enrollment." },
-        "tokenUrl": { "type": "string", "title": "HTTPS Athena agent-token endpoint." },
-        "eventsUrl": { "type": "string", "title": "HTTPS Athena security-events endpoint." },
-        "enrollmentSecret": { "type": "string", "title": "Enrollment credential provisioned by the organization." }
+        "tenantId": {
+          "type": "string",
+          "description": "Athena tenant id."
+        },
+        "agentId": {
+          "type": "string",
+          "description": "Athena security agent id returned during enrollment."
+        },
+        "tokenUrl": {
+          "type": "string",
+          "description": "HTTPS Athena agent-token endpoint."
+        },
+        "eventsUrl": {
+          "type": "string",
+          "description": "HTTPS Athena security-events endpoint."
+        },
+        "enrollmentSecret": {
+          "type": "string",
+          "description": "Enrollment credential provisioned by the organization."
+        }
       }
     }
   }
