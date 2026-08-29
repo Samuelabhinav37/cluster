@@ -1,4 +1,7 @@
+import { domainOf } from "./domainGrouping";
 import type { MessageKind } from "./messageKind";
+import type { ProviderId } from "./providers/emailProvider";
+import type { SenderSummary } from "./senderModel";
 
 // Standing user-defined rules — Declutter's answer to Clean Email's "Auto
 // Clean". A rule is a set of AND-ed conditions over a single message plus one
@@ -36,4 +39,71 @@ export interface DeclutterRule {
   action: RuleAction;
   /** Required when action === "label". Nested under "Declutter/" by convention. */
   labelName?: string;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** A rule needs at least one condition — an all-empty rule matches nothing, so
+ * a mis-saved rule can never sweep an entire inbox. */
+export function ruleHasConditions(c: RuleConditions): boolean {
+  return Object.values(c).some((v) => v !== undefined && v !== "");
+}
+
+function senderHasUnsubscribe(sender: SenderSummary): boolean {
+  const u = sender.unsubscribe;
+  return Boolean(u.postUrl || u.httpUrl || u.mailto);
+}
+
+/**
+ * Message ids this rule would act on, grouped by provider. Sender-level
+ * conditions (from address/domain, has-unsubscribe) are checked once per
+ * sender; message-level ones (age, kind, unread) per message. Starred/flagged
+ * mail is always excluded regardless of the rule.
+ */
+export function matchRule(rule: DeclutterRule, senders: SenderSummary[]): Map<ProviderId, string[]> {
+  const out = new Map<ProviderId, string[]>();
+  const c = rule.conditions;
+  if (!ruleHasConditions(c)) return out;
+  const now = Date.now();
+
+  for (const sender of senders) {
+    if (c.fromAddress && sender.address !== c.fromAddress.toLowerCase()) continue;
+    if (c.fromDomain && domainOf(sender.address) !== c.fromDomain.toLowerCase()) continue;
+    if (c.hasUnsubscribe !== undefined && senderHasUnsubscribe(sender) !== c.hasUnsubscribe) continue;
+
+    for (const m of sender.messages) {
+      if (m.isProtected) continue;
+      if (c.kind && m.kind !== c.kind) continue;
+      if (c.unread !== undefined && m.unread !== c.unread) continue;
+      if (c.olderThanDays !== undefined && now - m.receivedAt < c.olderThanDays * DAY_MS) continue;
+
+      const list = out.get(sender.provider);
+      if (list) list.push(m.id);
+      else out.set(sender.provider, [m.id]);
+    }
+  }
+  return out;
+}
+
+const ACTION_PHRASE: Record<RuleAction, string> = {
+  label: "→ label",
+  archive: "→ archive",
+  trash: "→ move to Trash",
+  markRead: "→ mark read",
+};
+
+/** Human-readable one-liner for the rules list. */
+export function describeRule(rule: DeclutterRule): string {
+  const c = rule.conditions;
+  const parts: string[] = [c.kind ? `${c.kind} messages` : "messages"];
+  if (c.fromAddress) parts.push(`from ${c.fromAddress}`);
+  else if (c.fromDomain) parts.push(`from @${c.fromDomain}`);
+  if (c.hasUnsubscribe === true) parts.push("with an unsubscribe link");
+  if (c.hasUnsubscribe === false) parts.push("with no unsubscribe link");
+  if (c.unread === true) parts.push("still unread");
+  if (c.unread === false) parts.push("already read");
+  if (c.olderThanDays !== undefined) parts.push(`older than ${c.olderThanDays} days`);
+  const action =
+    rule.action === "label" ? `${ACTION_PHRASE.label} "${rule.labelName ?? "?"}"` : ACTION_PHRASE[rule.action];
+  return `${parts.join(" ")} ${action}`;
 }

@@ -1,7 +1,8 @@
 import { buildExpiryBuckets, totalExpiryCount } from "./lib/expiryTriage";
 import { gmailProvider } from "./lib/providers/gmailProvider";
 import { outlookProvider } from "./lib/providers/outlookProvider";
-import type { EmailProvider } from "./lib/providers/emailProvider";
+import type { EmailProvider, ProviderId } from "./lib/providers/emailProvider";
+import { applyRules } from "./lib/ruleRunner";
 import { buildSenderSummaries, type SenderSummary } from "./lib/senderModel";
 import { getSettings } from "./lib/settingsStore";
 import { excludeSnoozedMessages } from "./lib/snoozeFilter";
@@ -84,6 +85,16 @@ async function runBackgroundTriage() {
     );
     senders = excludeSnoozedMessages(senders, activeSnoozedIds);
     await reportThreatSignals(senders);
+
+    // Standing user rules (Auto Clean). Operates on the in-memory scan, so the
+    // expiry badge below can momentarily still count a message a trash-rule
+    // just removed — it self-corrects on the next 6-hourly sweep.
+    const providerById = new Map<ProviderId, EmailProvider>([
+      [gmailProvider.id, gmailProvider],
+      [outlookProvider.id, outlookProvider],
+    ]);
+    await applyRules(settings.rules, senders, providerById);
+
     const total = totalExpiryCount(buildExpiryBuckets(senders));
 
     if (total > 0) {

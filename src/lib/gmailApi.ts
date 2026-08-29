@@ -94,6 +94,59 @@ export async function untrashMessages(token: string, ids: string[]): Promise<voi
   await batchModify(token, ids, ["INBOX"], ["TRASH"]);
 }
 
+// Archive / unarchive / mark-read are all just INBOX / UNREAD label mutations.
+export async function archiveMessages(token: string, ids: string[]): Promise<void> {
+  await batchModify(token, ids, [], ["INBOX"]);
+}
+
+export async function unarchiveMessages(token: string, ids: string[]): Promise<void> {
+  await batchModify(token, ids, ["INBOX"], []);
+}
+
+export async function markReadMessages(token: string, ids: string[]): Promise<void> {
+  await batchModify(token, ids, [], ["UNREAD"]);
+}
+
+// Rule action "label": apply a (nested) label and file the mail out of the
+// inbox — same "tag + skip inbox" shape as keepSorted, minus the standing
+// filter, since a rule re-runs on every scan anyway.
+export async function labelMessages(token: string, ids: string[], labelName: string): Promise<void> {
+  const labelId = await getOrCreateLabel(token, labelName);
+  await batchModify(token, ids, [labelId], ["INBOX"]);
+}
+
+const MUTED_LABEL_NAME = "Declutter/Muted";
+
+// Local "BlackHole": a standing from:<address> filter that files future mail
+// under Declutter/Muted and out of the inbox, plus the same move for mail
+// already in the inbox. Independent of whether the sender honours unsubscribe.
+export async function muteSender(token: string, fromAddress: string, existingIds: string[]): Promise<void> {
+  const labelId = await getOrCreateLabel(token, MUTED_LABEL_NAME);
+  await createSenderFilter(token, fromAddress, labelId);
+  if (existingIds.length > 0) await batchModify(token, existingIds, [labelId], ["INBOX"]);
+}
+
+export async function unmuteSender(token: string, fromAddress: string, mutedIds: string[]): Promise<void> {
+  await deleteSenderFilters(token, fromAddress);
+  if (mutedIds.length > 0) {
+    const labelId = await getOrCreateLabel(token, MUTED_LABEL_NAME);
+    await batchModify(token, mutedIds, ["INBOX"], [labelId]);
+  }
+}
+
+// Deletes every filter whose `from` criterion is exactly this address — used to
+// reverse a mute and (Phase 6) to let a sender back through the Screener.
+export async function deleteSenderFilters(token: string, fromAddress: string): Promise<void> {
+  const data = await gmailFetch("/users/me/settings/filters", token);
+  const target = fromAddress.toLowerCase();
+  const matches = (data.filter ?? []).filter(
+    (f: { criteria?: { from?: string } }) => (f.criteria?.from ?? "").toLowerCase() === target,
+  );
+  for (const f of matches as { id: string }[]) {
+    await gmailFetch(`/users/me/settings/filters/${f.id}`, token, { method: "DELETE" });
+  }
+}
+
 // https://mail.google.com/ is a Google-classified *restricted* scope — not in
 // this extension's default manifest scopes. Only requested interactively when
 // a user opts into "Fast permanent delete" (see settingsStore), and would

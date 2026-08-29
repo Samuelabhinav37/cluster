@@ -28,6 +28,16 @@ import { athenaOriginPatterns, getAthenaConfig, queueAthenaSecurityEvent } from 
 import { findBlocklistedLinkTargets, findMismatchedLinks } from "../lib/linkMismatch";
 import { isBlockedDomain } from "../lib/blocklist";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
+import {
+  describeRule,
+  ruleHasConditions,
+  type DeclutterRule,
+  type RuleAction,
+  type RuleConditions,
+} from "../lib/rules";
+import { applyRules, previewRuleMatches } from "../lib/ruleRunner";
+import { appendActionLog, makeLogId } from "../lib/actionLog";
+import type { MessageKind } from "../lib/messageKind";
 
 const providerById = new Map<ProviderId, EmailProvider>([
   [gmailProvider.id, gmailProvider],
@@ -92,6 +102,21 @@ const athenaStatusEl = document.getElementById("athena-status") as HTMLSpanEleme
 const tabButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("#tabs button[data-tab]"));
 const tabPanels = Array.from(document.querySelectorAll<HTMLElement>("section.tab-panel[data-tab]"));
 const securityEmptyEl = document.getElementById("security-empty") as HTMLParagraphElement;
+
+const rulesListEl = document.getElementById("rules-list") as HTMLDivElement;
+const ruleForm = document.getElementById("rule-form") as HTMLFormElement;
+const ruleNameInput = document.getElementById("rule-name") as HTMLInputElement;
+const ruleFromDomainInput = document.getElementById("rule-from-domain") as HTMLInputElement;
+const ruleFromAddressInput = document.getElementById("rule-from-address") as HTMLInputElement;
+const ruleOlderDaysInput = document.getElementById("rule-older-days") as HTMLInputElement;
+const ruleKindSel = document.getElementById("rule-kind") as HTMLSelectElement;
+const ruleUnsubSel = document.getElementById("rule-unsub") as HTMLSelectElement;
+const ruleUnreadSel = document.getElementById("rule-unread") as HTMLSelectElement;
+const ruleActionSel = document.getElementById("rule-action") as HTMLSelectElement;
+const ruleLabelInput = document.getElementById("rule-label") as HTMLInputElement;
+const ruleFormError = document.getElementById("rule-form-error") as HTMLSpanElement;
+const ruleApplySlot = document.getElementById("rule-apply-slot") as HTMLDivElement;
+const ruleApplyBtn = document.getElementById("rule-apply-btn") as HTMLButtonElement;
 
 // ── Tabs ─────────────────────────────────────────────────────────────────
 function showTab(name: string) {
@@ -168,6 +193,8 @@ async function main() {
 
   wireBulkHandlers();
   wireOfflineHandling();
+  wireRulesTab();
+  renderRulesTab();
   await wireDigest();
   await scanAndRender();
 }
@@ -404,7 +431,7 @@ function render(senders: SenderSummary[]) {
   renderCategoryGroups(
     senderGroupsEl,
     groups,
-    ["", "Provider", "Sender", `Count (${cachedSettings.scanWindowDays}d)`, "Unsubscribe", "Keep sorted", "Snooze"],
+    ["", "Provider", "Sender", `Count (${cachedSettings.scanWindowDays}d)`, "Unsubscribe", "Keep sorted", "Mute", "Snooze"],
     buildSenderRow,
     "senders",
     "collapsedSenderCategories",
@@ -446,9 +473,63 @@ function buildSenderRow(sender: SenderSummary): HTMLTableRowElement {
 
   row.appendChild(buildUnsubscribeCell(sender));
   row.appendChild(buildKeepSortedCell(sender));
+  row.appendChild(buildMuteCell(sender));
   row.appendChild(buildSnoozeCell(sender));
 
   return row;
+}
+
+// ── Mute (local BlackHole) ───────────────────────────────────────────────
+// A standing from:<address> filter hiding all mail from this sender, now and
+// future — independent of whether they honour unsubscribe. Gmail-only.
+function buildMuteCell(sender: SenderSummary): HTMLTableCellElement {
+  const cell = document.createElement("td");
+  const provider = providerById.get(sender.provider);
+  if (!provider?.muteSender) {
+    cell.textContent = "—";
+    return cell;
+  }
+
+  const btn = document.createElement("button");
+  const isMuted = () => cachedSettings.mutedSenders.includes(sender.address);
+  btn.textContent = isMuted() ? "Muted ✓" : "Mute";
+  btn.disabled = isMuted();
+
+  const reset = () => {
+    cell.innerHTML = "";
+    cell.appendChild(btn);
+  };
+
+  btn.onclick = () => {
+    renderConfirmStep(
+      cell,
+      reset,
+      `Hide all mail from ${sender.address}, now and in future?`,
+      false,
+      async () => {
+        const token = await provider.getAuthToken(false);
+        await provider.muteSender!(token, sender.address, sender.messageIds);
+        cachedSettings = await updateSettings({
+          mutedSenders: [...cachedSettings.mutedSenders, sender.address],
+        });
+        await appendActionLog([
+          {
+            id: makeLogId("mute"),
+            at: Date.now(),
+            kind: "mute",
+            summary: `Muted ${sender.address}`,
+            undo: { provider: "gmail", ids: sender.messageIds, via: "unmute" },
+          },
+        ]);
+        btn.textContent = "Muted ✓";
+        btn.disabled = true;
+        return "Muted ✓";
+      },
+    );
+  };
+
+  cell.appendChild(btn);
+  return cell;
 }
 
 function refreshSenderCheckboxes() {
@@ -1052,6 +1133,125 @@ function appendUndoButton(container: HTMLElement, gmailIds: string[]) {
     }
   };
   container.appendChild(undoBtn);
+}
+
+// ── Rules tab (Auto Clean) ───────────────────────────────────────────────
+function renderRulesTab() {
+  rulesListEl.innerHTML = "";
+  if (cachedSettings.rules.length === 0) {
+    const p = document.createElement("p");
+    p.className = "hint";
+    p.textContent = "No rules yet — add one below.";
+    rulesListEl.appendChild(p);
+    return;
+  }
+  for (const rule of cachedSettings.rules) {
+    const row = document.createElement("div");
+    row.className = "rule-row";
+
+    const toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    toggle.checked = rule.enabled;
+    toggle.onchange = async () => {
+      cachedSettings = await updateSettings({
+        rules: cachedSettings.rules.map((r) => (r.id === rule.id ? { ...r, enabled: toggle.checked } : r)),
+      });
+    };
+
+    const label = document.createElement("label");
+    label.append(toggle, document.createTextNode(` ${rule.name} `));
+
+    const desc = document.createElement("span");
+    desc.className = "hint";
+    desc.textContent = describeRule(rule);
+
+    const del = document.createElement("button");
+    del.textContent = "Delete";
+    del.onclick = async () => {
+      cachedSettings = await updateSettings({
+        rules: cachedSettings.rules.filter((r) => r.id !== rule.id),
+      });
+      renderRulesTab();
+    };
+
+    row.append(label, desc, del);
+    rulesListEl.appendChild(row);
+  }
+}
+
+function collectRuleConditions(): RuleConditions {
+  const c: RuleConditions = {};
+  if (ruleFromDomainInput.value.trim()) c.fromDomain = ruleFromDomainInput.value.trim().toLowerCase();
+  if (ruleFromAddressInput.value.trim()) c.fromAddress = ruleFromAddressInput.value.trim().toLowerCase();
+  if (ruleOlderDaysInput.value) c.olderThanDays = Math.max(1, Number(ruleOlderDaysInput.value));
+  if (ruleKindSel.value) c.kind = ruleKindSel.value as MessageKind;
+  if (ruleUnsubSel.value) c.hasUnsubscribe = ruleUnsubSel.value === "yes";
+  if (ruleUnreadSel.value) c.unread = ruleUnreadSel.value === "yes";
+  return c;
+}
+
+function resetRuleApplySlot() {
+  ruleApplySlot.innerHTML = "";
+  ruleApplySlot.appendChild(ruleApplyBtn);
+}
+
+function wireRulesTab() {
+  ruleActionSel.onchange = () => {
+    ruleLabelInput.hidden = ruleActionSel.value !== "label";
+  };
+
+  ruleForm.onsubmit = async (e) => {
+    e.preventDefault();
+    ruleFormError.textContent = "";
+    const conditions = collectRuleConditions();
+    if (!ruleHasConditions(conditions)) {
+      ruleFormError.textContent = "Add at least one condition.";
+      return;
+    }
+    const action = ruleActionSel.value as RuleAction;
+    const labelName = action === "label" ? ruleLabelInput.value.trim() : undefined;
+    if (action === "label" && !labelName) {
+      ruleFormError.textContent = "A label action needs a label name.";
+      return;
+    }
+    const rule: DeclutterRule = {
+      id: crypto.randomUUID(),
+      name: ruleNameInput.value.trim() || "Untitled rule",
+      enabled: true,
+      conditions,
+      action,
+      labelName,
+    };
+    cachedSettings = await updateSettings({ rules: [...cachedSettings.rules, rule] });
+    ruleForm.reset();
+    ruleLabelInput.hidden = true;
+    renderRulesTab();
+  };
+
+  ruleApplyBtn.onclick = () => {
+    const enabled = cachedSettings.rules.filter((r) => r.enabled);
+    if (enabled.length === 0) {
+      ruleFormError.textContent = "No enabled rules to apply.";
+      return;
+    }
+    const count = previewRuleMatches(cachedSettings.rules, currentSenders);
+    renderConfirmStep(
+      ruleApplySlot,
+      resetRuleApplySlot,
+      `Apply ${enabled.length} rule${enabled.length === 1 ? "" : "s"} to ${count} message${count === 1 ? "" : "s"}?`,
+      false,
+      async () => {
+        const results = await applyRules(cachedSettings.rules, currentSenders, providerById);
+        cachedSettings = await getSettings();
+        const moved = results.reduce(
+          (sum, r) => sum + [...r.movedByProvider.values()].reduce((a, b) => a + b, 0),
+          0,
+        );
+        await scanAndRender();
+        return `Applied — ${moved} message${moved === 1 ? "" : "s"} actioned`;
+      },
+    );
+  };
 }
 
 // ── Bulk action bars ─────────────────────────────────────────────────────

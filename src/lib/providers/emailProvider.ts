@@ -62,6 +62,21 @@ export interface EmailProvider {
    */
   untrashMessages?(token: string, ids: string[]): Promise<void>;
   /**
+   * Rule-engine actions (see ruleRunner.ts) — Gmail-only for now, same
+   * optional-method pattern as keepSorted. archive/unarchive toggle INBOX;
+   * markRead clears UNREAD; labelMessages tags + files out of the inbox.
+   */
+  archiveMessages?(token: string, ids: string[]): Promise<void>;
+  unarchiveMessages?(token: string, ids: string[]): Promise<void>;
+  markReadMessages?(token: string, ids: string[]): Promise<void>;
+  labelMessages?(token: string, ids: string[], labelName: string): Promise<void>;
+  /**
+   * Local BlackHole — a standing filter hiding all mail from an address, now
+   * and future (see gmailApi.muteSender). Gmail-only: needs the filters API.
+   */
+  muteSender?(token: string, fromAddress: string, existingIds: string[]): Promise<void>;
+  unmuteSender?(token: string, fromAddress: string, mutedIds: string[]): Promise<void>;
+  /**
    * Snooze — Gmail-only, via label + resurface-timestamp bookkeeping (see
    * settingsStore.snoozedMessages / snoozeResurface.ts). Outlook has no
    * native snooze primitive, and a folder-move approximation would silently

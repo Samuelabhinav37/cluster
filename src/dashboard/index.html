@@ -158,11 +158,52 @@
         <h2>Rules</h2>
         <p class="hint">
           Standing clean-up rules — conditions on a message (sender, age, kind,
-          unread, has-unsubscribe) plus one action (label, archive, trash, mark
-          read). Applied on every scan and by the background sweep. Populated in
-          a later build.
+          unread, has-unsubscribe) plus one action. Applied when you click
+          "Apply" below and on every background sweep. Starred/flagged mail is
+          always skipped; rules never permanently delete.
         </p>
         <div id="rules-list"></div>
+        <form id="rule-form" class="bulk-bar">
+          <input type="text" id="rule-name" placeholder="Rule name" />
+          <input type="text" id="rule-from-domain" placeholder="from domain, e.g. news.example.com" />
+          <input type="text" id="rule-from-address" placeholder="from address (exact)" />
+          <label>
+            older than
+            <input type="number" id="rule-older-days" min="1" max="3650" />
+            days
+          </label>
+          <select id="rule-kind">
+            <option value="">any kind</option>
+            <option value="otp">otp</option>
+            <option value="shipping">shipping</option>
+            <option value="receipt">receipt</option>
+            <option value="newsletter">newsletter</option>
+            <option value="social">social</option>
+            <option value="other">other</option>
+          </select>
+          <select id="rule-unsub">
+            <option value="">unsubscribe: any</option>
+            <option value="yes">has unsubscribe</option>
+            <option value="no">no unsubscribe</option>
+          </select>
+          <select id="rule-unread">
+            <option value="">read state: any</option>
+            <option value="yes">unread</option>
+            <option value="no">already read</option>
+          </select>
+          <select id="rule-action">
+            <option value="archive">archive</option>
+            <option value="trash">move to Trash</option>
+            <option value="markRead">mark read</option>
+            <option value="label">label</option>
+          </select>
+          <input type="text" id="rule-label" placeholder="Declutter/Label" hidden />
+          <button type="submit" id="rule-add-btn">Add rule</button>
+          <span id="rule-form-error" class="hint"></span>
+        </form>
+        <div id="rule-apply-slot">
+          <button id="rule-apply-btn">Apply enabled rules now</button>
+        </div>
       </section>
 
       <section class="tab-panel" data-tab="recent" role="tabpanel" hidden>

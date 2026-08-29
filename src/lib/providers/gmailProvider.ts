@@ -1,4 +1,5 @@
 import {
+  archiveMessages as apiArchiveMessages,
   batchDeleteMessages,
   batchModify,
   createSenderFilter,
@@ -6,10 +7,15 @@ import {
   getMessageLinks as fetchGmailMessageLinks,
   getMessageMetadata as fetchGmailMessageMetadata,
   getOrCreateLabel,
+  labelMessages as apiLabelMessages,
   listMessageIds,
+  markReadMessages as apiMarkReadMessages,
+  muteSender as apiMuteSender,
   resurfaceMessages as apiResurfaceMessages,
   snoozeMessages as apiSnoozeMessages,
   trashMessages as apiTrashMessages,
+  unarchiveMessages as apiUnarchiveMessages,
+  unmuteSender as apiUnmuteSender,
   untrashMessages as apiUntrashMessages,
 } from "../gmailApi";
 import { parseListUnsubscribe } from "../unsubscribe";
@@ -77,6 +83,30 @@ export const gmailProvider: EmailProvider = {
 
   async untrashMessages(token, ids) {
     await apiUntrashMessages(token, ids);
+  },
+
+  async archiveMessages(token, ids) {
+    await apiArchiveMessages(token, ids);
+  },
+
+  async unarchiveMessages(token, ids) {
+    await apiUnarchiveMessages(token, ids);
+  },
+
+  async markReadMessages(token, ids) {
+    await apiMarkReadMessages(token, ids);
+  },
+
+  async labelMessages(token, ids, labelName) {
+    await apiLabelMessages(token, ids, labelName);
+  },
+
+  async muteSender(token, fromAddress, existingIds) {
+    await apiMuteSender(token, fromAddress, existingIds);
+  },
+
+  async unmuteSender(token, fromAddress, mutedIds) {
+    await apiUnmuteSender(token, fromAddress, mutedIds);
   },
 
   async permanentlyDeleteMessages(token, ids) {

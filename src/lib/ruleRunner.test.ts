@@ -1,0 +1,107 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { MessageRecord, SenderSummary } from "./senderModel";
+import type { EmailProvider, ProviderId } from "./providers/emailProvider";
+import type { DeclutterRule } from "./rules";
+
+const { appendActionLog } = vi.hoisted(() => ({ appendActionLog: vi.fn() }));
+vi.mock("./actionLog", async (orig) => ({
+  ...(await orig<typeof import("./actionLog")>()),
+  appendActionLog,
+}));
+
+import { applyRules, previewRuleMatches } from "./ruleRunner";
+
+function msg(over: Partial<MessageRecord> & { id: string }): MessageRecord {
+  return { receivedAt: Date.now(), kind: "newsletter", isProtected: false, unread: false, sizeBytes: 0, ...over };
+}
+
+function sender(address: string, provider: ProviderId, messages: MessageRecord[]): SenderSummary {
+  return {
+    key: `${provider}:${address}`,
+    provider,
+    address,
+    displayName: address,
+    count: messages.length,
+    messageIds: messages.map((m) => m.id),
+    protectedMessageIds: messages.filter((m) => m.isProtected).map((m) => m.id),
+    unsubscribe: {},
+    messages,
+    threatSignals: [],
+  };
+}
+
+function fakeProvider(id: ProviderId, over: Partial<EmailProvider> = {}): EmailProvider {
+  return {
+    id,
+    isConnected: vi.fn(async () => true),
+    getAuthToken: vi.fn(async () => `${id}-token`),
+    listCandidateMessages: vi.fn(async () => []),
+    getMessageMetadata: vi.fn(),
+    trashMessages: vi.fn(async () => {}),
+    ...over,
+  };
+}
+
+const archiveRule: DeclutterRule = {
+  id: "r1",
+  name: "Old newsletters",
+  enabled: true,
+  conditions: { kind: "newsletter", fromDomain: "news.com" },
+  action: "archive",
+};
+
+beforeEach(() => appendActionLog.mockClear());
+
+describe("applyRules", () => {
+  it("calls the matching provider action with the matched ids and logs one entry", async () => {
+    const archiveMessages = vi.fn(async () => {});
+    const gmail = fakeProvider("gmail", { archiveMessages });
+    const s = sender("a@news.com", "gmail", [msg({ id: "1" }), msg({ id: "2" })]);
+
+    const results = await applyRules([archiveRule], [s], new Map([["gmail", gmail]]));
+
+    expect(archiveMessages).toHaveBeenCalledWith("gmail-token", ["1", "2"]);
+    expect(results[0].movedByProvider.get("gmail")).toBe(2);
+    expect(appendActionLog).toHaveBeenCalledTimes(1);
+    expect(appendActionLog.mock.calls[0][0]).toHaveLength(1);
+  });
+
+  it("skips disabled rules and writes no log entry when nothing matched", async () => {
+    const archiveMessages = vi.fn(async () => {});
+    const gmail = fakeProvider("gmail", { archiveMessages });
+    const s = sender("a@other.com", "gmail", [msg({ id: "1" })]);
+
+    await applyRules([{ ...archiveRule, enabled: false }], [s], new Map([["gmail", gmail]]));
+    await applyRules([archiveRule], [s], new Map([["gmail", gmail]])); // domain doesn't match
+
+    expect(archiveMessages).not.toHaveBeenCalled();
+    expect(appendActionLog).toHaveBeenCalledWith([]);
+  });
+
+  it("no-ops a rule whose action the provider doesn't support", async () => {
+    const outlook = fakeProvider("outlook"); // no archiveMessages
+    const s = sender("a@news.com", "outlook", [msg({ id: "1" })]);
+
+    const results = await applyRules([archiveRule], [s], new Map([["outlook", outlook]]));
+
+    expect(results[0].movedByProvider.size).toBe(0);
+    expect(appendActionLog).toHaveBeenCalledWith([]);
+  });
+
+  it("trash works for any provider via trashMessages", async () => {
+    const trashMessages = vi.fn(async () => {});
+    const outlook = fakeProvider("outlook", { trashMessages });
+    const s = sender("a@news.com", "outlook", [msg({ id: "1" })]);
+
+    await applyRules([{ ...archiveRule, action: "trash" }], [s], new Map([["outlook", outlook]]));
+
+    expect(trashMessages).toHaveBeenCalledWith("outlook-token", ["1"]);
+  });
+});
+
+describe("previewRuleMatches", () => {
+  it("counts matches across enabled rules only", () => {
+    const s = sender("a@news.com", "gmail", [msg({ id: "1" }), msg({ id: "2" })]);
+    expect(previewRuleMatches([archiveRule, { ...archiveRule, id: "r2", enabled: false }], [s])).toBe(2);
+  });
+});
