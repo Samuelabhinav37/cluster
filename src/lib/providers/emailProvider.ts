@@ -77,6 +77,14 @@ export interface EmailProvider {
   muteSender?(token: string, fromAddress: string, existingIds: string[]): Promise<void>;
   unmuteSender?(token: string, fromAddress: string, mutedIds: string[]): Promise<void>;
   /**
+   * Screener (Phase 6) — Gmail-only. screenSender holds a sender's mail under
+   * Declutter/Screener; allowSenderThrough reverses it; listSentCorrespondents
+   * returns everyone the user has emailed (the implicit allowlist).
+   */
+  screenSender?(token: string, fromAddress: string, existingIds: string[]): Promise<void>;
+  allowSenderThrough?(token: string, fromAddress: string, screenedIds: string[]): Promise<void>;
+  listSentCorrespondents?(token: string): Promise<string[]>;
+  /**
    * Snooze — Gmail-only, via label + resurface-timestamp bookkeeping (see
    * settingsStore.snoozedMessages / snoozeResurface.ts). Outlook has no
    * native snooze primitive, and a folder-move approximation would silently

@@ -17,6 +17,7 @@ export type ActionLogKind =
   | "snooze"
   | "labelSuspicious"
   | "keepSorted"
+  | "screener"
   | "rule";
 
 export interface ActionLogUndo {

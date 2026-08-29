@@ -3,7 +3,9 @@ import { gmailProvider } from "./lib/providers/gmailProvider";
 import { outlookProvider } from "./lib/providers/outlookProvider";
 import type { EmailProvider, ProviderId } from "./lib/providers/emailProvider";
 import { applyRules } from "./lib/ruleRunner";
+import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "./lib/screener";
 import { buildSenderSummaries, type SenderSummary } from "./lib/senderModel";
+import type { DeclutterSettings } from "./lib/settingsStore";
 import { getSettings, updateSettings } from "./lib/settingsStore";
 import { excludeSnoozedMessages } from "./lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
@@ -69,6 +71,45 @@ async function reportThreatSignals(senders: SenderSummary[]) {
   await queueAthenaSecurityEvents(events);
 }
 
+// Screener: hold mail from senders the user has never corresponded with. Opt-in
+// (settings.screenerEnabled). Refreshes the sent-correspondent allowlist on a
+// TTL, then moves each newly-unknown sender's mail under Declutter/Screener and
+// records it in screenedSenders so it isn't re-screened. Returns how many
+// senders are currently held, for the badge.
+async function runScreener(settings: DeclutterSettings, senders: SenderSummary[]): Promise<number> {
+  if (!settings.screenerEnabled || !gmailProvider.screenSender) return 0;
+  const token = await gmailProvider.getAuthToken(false).catch(() => null);
+  if (!token) return 0;
+
+  let sent = settings.sentCorrespondents;
+  if (sentCorrespondentsStale(settings) && gmailProvider.listSentCorrespondents) {
+    try {
+      sent = { addresses: await gmailProvider.listSentCorrespondents(token), fetchedAt: Date.now() };
+      await updateSettings({ sentCorrespondents: sent });
+    } catch (err) {
+      console.error("Screener: sent-correspondent refresh failed", err);
+    }
+  }
+
+  const known = knownSenderSet({ ...settings, sentCorrespondents: sent });
+  const excluded = new Set([...settings.mutedSenders, ...settings.screenedSenders].map((a) => a.toLowerCase()));
+  const pending = pendingScreenerSenders(senders, known, excluded);
+
+  const screened: string[] = [];
+  for (const s of pending) {
+    try {
+      await gmailProvider.screenSender(token, s.address, s.messageIds);
+      screened.push(s.address);
+    } catch (err) {
+      console.error("Screener: failed to hold", s.address, err);
+    }
+  }
+  if (screened.length > 0) {
+    await updateSettings({ screenedSenders: [...settings.screenedSenders, ...screened] });
+  }
+  return settings.screenedSenders.length + screened.length;
+}
+
 async function runBackgroundTriage() {
   try {
     const candidates = [gmailProvider, outlookProvider];
@@ -99,14 +140,16 @@ async function runBackgroundTriage() {
       0,
     );
 
+    const held = await runScreener(settings, senders);
     const total = totalExpiryCount(buildExpiryBuckets(senders));
 
     await updateSettings({
-      lastTriageSummary: `${new Date().toLocaleString()} — ${ruleMoved} actioned by rules, ${total} ready to clean up`,
+      lastTriageSummary: `${new Date().toLocaleString()} — ${ruleMoved} actioned by rules, ${total} ready to clean up${held > 0 ? `, ${held} held by Screener` : ""}`,
     });
 
-    if (total > 0) {
-      await chrome.action.setBadgeText({ text: total > 99 ? "99+" : String(total) });
+    const badgeCount = total + held;
+    if (badgeCount > 0) {
+      await chrome.action.setBadgeText({ text: badgeCount > 99 ? "99+" : String(badgeCount) });
       await chrome.action.setBadgeBackgroundColor({ color: "#c0392b" });
     } else {
       await chrome.action.setBadgeText({ text: "" });

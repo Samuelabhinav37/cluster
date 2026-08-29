@@ -1,3 +1,4 @@
+import { mapWithConcurrency } from "./concurrency";
 import { fetchWithRetry } from "./httpRetry";
 import { extractLinksFromHtml, type ExtractedLink } from "./linkMismatch";
 
@@ -113,6 +114,57 @@ export async function markReadMessages(token: string, ids: string[]): Promise<vo
 export async function labelMessages(token: string, ids: string[], labelName: string): Promise<void> {
   const labelId = await getOrCreateLabel(token, labelName);
   await batchModify(token, ids, [labelId], ["INBOX"]);
+}
+
+const SCREENER_LABEL_NAME = "Declutter/Screener";
+
+// Screener: hold a sender's mail under Declutter/Screener and out of the inbox
+// via a standing from: filter — same mechanism as muteSender, different label,
+// and always reversible with allowSenderThrough.
+export async function screenSender(token: string, fromAddress: string, existingIds: string[]): Promise<void> {
+  const labelId = await getOrCreateLabel(token, SCREENER_LABEL_NAME);
+  await createSenderFilter(token, fromAddress, labelId);
+  if (existingIds.length > 0) await batchModify(token, existingIds, [labelId], ["INBOX"]);
+}
+
+export async function allowSenderThrough(token: string, fromAddress: string, screenedIds: string[]): Promise<void> {
+  await deleteSenderFilters(token, fromAddress);
+  if (screenedIds.length > 0) {
+    const labelId = await getOrCreateLabel(token, SCREENER_LABEL_NAME);
+    await batchModify(token, screenedIds, ["INBOX"], [labelId]);
+  }
+}
+
+function parseAddressList(value: string): string[] {
+  return value
+    .split(",")
+    .map((part) => {
+      const m = part.match(/<([^>]+)>/);
+      return (m ? m[1] : part).trim().toLowerCase();
+    })
+    .filter((a) => a.includes("@") && !/\s/.test(a));
+}
+
+// Everyone the user has emailed recently — the implicit Screener allowlist.
+// Metadata-only (To/Cc headers of Sent mail); capped so a big Sent folder
+// doesn't turn this into a huge scan.
+export async function listSentCorrespondents(token: string, maxMessages = 300): Promise<string[]> {
+  const stubs = await listMessageIds(token, "in:sent newer_than:2y", maxMessages);
+  const addresses = new Set<string>();
+  await mapWithConcurrency(stubs, 10, async (stub) => {
+    try {
+      const params = new URLSearchParams({ format: "metadata" });
+      params.append("metadataHeaders", "To");
+      params.append("metadataHeaders", "Cc");
+      const data = await gmailFetch(`/users/me/messages/${stub.id}?${params}`, token);
+      for (const h of data.payload?.headers ?? []) {
+        for (const addr of parseAddressList(h.value ?? "")) addresses.add(addr);
+      }
+    } catch (err) {
+      console.error("listSentCorrespondents: skipping a message", err);
+    }
+  });
+  return [...addresses].slice(0, 1000);
 }
 
 const MUTED_LABEL_NAME = "Declutter/Muted";

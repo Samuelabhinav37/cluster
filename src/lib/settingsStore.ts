@@ -25,6 +25,10 @@ export interface DeclutterSettings {
   screenerEnabled: boolean;
   /** Addresses the user has explicitly let through the Screener. */
   screenerAllowlist: string[];
+  /** Addresses currently held in the Declutter/Screener label, awaiting a
+   * decision — so the background sweep doesn't re-screen them and the tab can
+   * tell "held" from "trusted". */
+  screenedSenders: string[];
   /** Cache of people the user has emailed — the implicit Screener allowlist. */
   sentCorrespondents: { addresses: string[]; fetchedAt: number };
   /** One-line summary of the last background triage, shown in "Recently done". */
@@ -51,6 +55,7 @@ const DEFAULT_SETTINGS: DeclutterSettings = {
   mutedSenders: [],
   screenerEnabled: false,
   screenerAllowlist: [],
+  screenedSenders: [],
   sentCorrespondents: { addresses: [], fetchedAt: 0 },
   lastTriageSummary: "",
   activeTab: "cleanup",

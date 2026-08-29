@@ -8,9 +8,12 @@ import {
   getMessageMetadata as fetchGmailMessageMetadata,
   getOrCreateLabel,
   labelMessages as apiLabelMessages,
+  allowSenderThrough as apiAllowSenderThrough,
   listMessageIds,
+  listSentCorrespondents as apiListSentCorrespondents,
   markReadMessages as apiMarkReadMessages,
   muteSender as apiMuteSender,
+  screenSender as apiScreenSender,
   resurfaceMessages as apiResurfaceMessages,
   snoozeMessages as apiSnoozeMessages,
   trashMessages as apiTrashMessages,
@@ -107,6 +110,18 @@ export const gmailProvider: EmailProvider = {
 
   async unmuteSender(token, fromAddress, mutedIds) {
     await apiUnmuteSender(token, fromAddress, mutedIds);
+  },
+
+  async screenSender(token, fromAddress, existingIds) {
+    await apiScreenSender(token, fromAddress, existingIds);
+  },
+
+  async allowSenderThrough(token, fromAddress, screenedIds) {
+    await apiAllowSenderThrough(token, fromAddress, screenedIds);
+  },
+
+  async listSentCorrespondents(token) {
+    return apiListSentCorrespondents(token);
   },
 
   async permanentlyDeleteMessages(token, ids) {
