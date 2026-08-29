@@ -27,6 +27,16 @@ describe("parseListUnsubscribe", () => {
     expect(info.httpUrl).toBeUndefined();
   });
 
+  it("drops a plain http:// link but still keeps a mailto from the same header", () => {
+    const info = parseListUnsubscribe(
+      "<http://example.com/unsub?id=1>, <mailto:unsub@example.com>",
+      "List-Unsubscribe=One-Click",
+    );
+    expect(info.httpUrl).toBeUndefined();
+    expect(info.postUrl).toBeUndefined();
+    expect(info.mailto).toBe("mailto:unsub@example.com");
+  });
+
   it("only sets postUrl when List-Unsubscribe-Post declares one-click support", () => {
     const withoutPost = parseListUnsubscribe("<https://example.com/unsub>", undefined);
     expect(withoutPost.postUrl).toBeUndefined();

@@ -19,9 +19,13 @@ export function parseListUnsubscribe(
     const value = match[1];
     if (value.startsWith("mailto:")) {
       info.mailto = value;
-    } else if (value.startsWith("http")) {
+    } else if (value.startsWith("https:")) {
       info.httpUrl = value;
     }
+    // A plain http:// unsubscribe link is dropped: RFC 8058 one-click requires
+    // HTTPS, firing it would leak the unsubscribe token in cleartext, and it's
+    // the only thing that would otherwise pull http://*/* into a permission
+    // request. mailto/https links from the same header still work.
   }
 
   // RFC 8058: only trust a bare GET link as one-click-safe when the sender

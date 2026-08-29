@@ -33,6 +33,11 @@ async function loadTokens(): Promise<OutlookTokenState | null> {
   return (data[STORAGE_KEY] as OutlookTokenState) ?? null;
 }
 
+// Deliberate tradeoff: the access + refresh tokens sit unencrypted in
+// chrome.storage.local. MV3 has no better primitive — chrome.storage.session
+// is memory-only and would drop the refresh token on every browser restart,
+// defeating "stay connected". Same posture every MV3 OAuth extension takes;
+// the Gmail side is custodied by chrome.identity instead.
 async function saveTokens(tokens: OutlookTokenState): Promise<void> {
   await chrome.storage.local.set({ [STORAGE_KEY]: tokens });
 }
@@ -86,6 +91,12 @@ async function interactiveSignIn(): Promise<OutlookTokenState> {
 
   const responseUrl = await launchWebAuthFlow(authUrl.toString(), true);
   const params = new URL(responseUrl).searchParams;
+  // Reject a redirect whose state doesn't echo the nonce we just generated —
+  // launchWebAuthFlow already binds the response to this request, but
+  // validating state is cheap defence-in-depth against a replayed/injected code.
+  if (params.get("state") !== state) {
+    throw new Error("Outlook sign-in failed: state mismatch");
+  }
   const code = params.get("code");
   if (!code) {
     throw new Error(`Outlook sign-in failed: ${params.get("error_description") ?? "no code returned"}`);

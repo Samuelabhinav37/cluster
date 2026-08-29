@@ -39,6 +39,16 @@ function hasUnsubscribe(info: UnsubscribeInfo): boolean {
   return Boolean(info.postUrl || info.httpUrl || info.mailto);
 }
 
+// Union `incoming` into `existing` in place, keyed by kind+brand so re-scoring
+// the same sender never double-records a signal.
+function mergeSignals(existing: ThreatSignal[], incoming: ThreatSignal[]) {
+  for (const signal of incoming) {
+    if (!existing.some((s) => s.kind === signal.kind && s.brand === signal.brand)) {
+      existing.push(signal);
+    }
+  }
+}
+
 function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessageMetadata) {
   if (!meta.fromAddress) return;
   const key = `${meta.provider}:${meta.fromAddress}`;
@@ -57,9 +67,16 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     if (!hasUnsubscribe(existing.unsubscribe) && hasUnsubscribe(meta.unsubscribe)) {
       existing.unsubscribe = meta.unsubscribe;
     }
-    // Identity signals were settled from the first message and don't change;
-    // DMARC alignment is per-message, so keep checking until one message
-    // from this sender trips it (then stop -- one is enough to flag).
+    // Identity signals derive from the from-address (constant for this key) and
+    // the display name (NOT constant — an attacker can send some messages as
+    // "PayPal" and others as themselves from one address). Re-score whenever
+    // the display name differs from what we've already seen and union anything
+    // new; mergeSignals dedupes so an unchanged sender costs one cheap compare.
+    if (meta.fromDisplayName !== existing.displayName) {
+      mergeSignals(existing.threatSignals, scoreSenderIdentity(meta));
+    }
+    // DMARC alignment is per-message, so keep checking until one message from
+    // this sender trips it (then stop -- one is enough to flag).
     if (!existing.threatSignals.some((s) => s.kind === "failed-authentication")) {
       const authSignal = scoreMessageAuthentication(meta);
       if (authSignal) existing.threatSignals.push(authSignal);

@@ -109,6 +109,34 @@ describe("buildSenderSummaries", () => {
     ]);
   });
 
+  it("catches a brand claim that only appears in a later message's display name", async () => {
+    // First message looks ordinary; a later one from the SAME address changes
+    // the display name to impersonate a brand. Identity signals used to be
+    // frozen after message 1, so this was missed.
+    const gmail = makeProvider("gmail", [
+      makeMeta({ id: "g1", fromAddress: "noreply@sketchy.example", fromDisplayName: "Weekly Update" }),
+      makeMeta({ id: "g2", fromAddress: "noreply@sketchy.example", fromDisplayName: "PayPal" }),
+    ]);
+
+    const senders = await buildSenderSummaries([gmail]);
+
+    expect(senders[0].threatSignals).toEqual([
+      { kind: "brand-impersonation", brand: "paypal", confidence: "medium" },
+    ]);
+  });
+
+  it("does not duplicate a signal when the display name varies but the brand claim repeats", async () => {
+    const gmail = makeProvider("gmail", [
+      makeMeta({ id: "g1", fromAddress: "x@sketchy.example", fromDisplayName: "PayPal" }),
+      makeMeta({ id: "g2", fromAddress: "x@sketchy.example", fromDisplayName: "PayPal Inc" }),
+      makeMeta({ id: "g3", fromAddress: "x@sketchy.example", fromDisplayName: "PayPal Support" }),
+    ]);
+
+    const senders = await buildSenderSummaries([gmail]);
+
+    expect(senders[0].threatSignals.filter((s) => s.kind === "brand-impersonation")).toHaveLength(1);
+  });
+
   it("computes threatSignals per sender from scoreMessageForThreats", async () => {
     const gmail = makeProvider("gmail", [
       makeMeta({ id: "g1", fromAddress: "paypal-support@gmail.com", fromDisplayName: "PayPal Support" }),
