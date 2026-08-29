@@ -38,6 +38,14 @@ import {
 import { applyRules, previewRuleMatches } from "../lib/ruleRunner";
 import { neverReadSenders } from "../lib/neverRead";
 import {
+  SMART_VIEWS,
+  evaluateSmartView,
+  smartViewMessageCount,
+  smartViewSenderCount,
+  type SmartView,
+} from "../lib/smartViews";
+import { keepNewestExcess } from "../lib/keepNewest";
+import {
   appendActionLog,
   makeLogId,
   type ActionLogEntry,
@@ -142,6 +150,12 @@ const neverReadTrashSlot = document.getElementById("never-read-trash-slot") as H
 const neverReadTrashBtn = document.getElementById("never-read-trash-btn") as HTMLButtonElement;
 const neverReadListEl = document.getElementById("never-read-list") as HTMLDivElement;
 
+const smartViewChipsEl = document.getElementById("smart-view-chips") as HTMLSpanElement;
+const smartViewResultSlot = document.getElementById("smart-view-result-slot") as HTMLDivElement;
+const keepNewestNInput = document.getElementById("keep-newest-n") as HTMLInputElement;
+const keepNewestSlot = document.getElementById("keep-newest-slot") as HTMLSpanElement;
+const keepNewestBtn = document.getElementById("keep-newest-btn") as HTMLButtonElement;
+
 // ── Tabs ─────────────────────────────────────────────────────────────────
 function showTab(name: string) {
   const target = tabButtons.some((b) => b.dataset.tab === name) ? name : "cleanup";
@@ -216,6 +230,7 @@ async function main() {
   };
 
   wireBulkHandlers();
+  wireKeepNewest();
   wireOfflineHandling();
   wireRulesTab();
   renderRulesTab();
@@ -295,6 +310,7 @@ async function scanAndRender() {
   renderSecuritySection(senders);
   renderSubscriptionsTab(senders);
   renderNeverReadSection(senders);
+  renderSmartViews(senders);
   generateDigestBtn.disabled = false;
 }
 
@@ -1549,6 +1565,120 @@ function renderNeverReadSection(senders: SenderSummary[]) {
   neverReadListEl.appendChild(table);
 
   resetNeverReadSlots();
+}
+
+// ── Smart Views + Keep-newest (Clean up tab) ─────────────────────────────
+async function applySmartView(view: SmartView, action: "archive" | "trash"): Promise<string> {
+  const merged = evaluateSmartView(view, currentSenders);
+  const gmailIds = merged.get("gmail") ?? [];
+  let total = 0;
+  for (const [pid, ids] of merged) {
+    const provider = providerById.get(pid);
+    if (!provider || ids.length === 0) continue;
+    const token = await provider.getAuthToken(false);
+    if (action === "trash") {
+      await provider.trashMessages(token, ids);
+      total += ids.length;
+    } else if (provider.archiveMessages) {
+      await provider.archiveMessages(token, ids);
+      total += ids.length;
+    }
+  }
+  const via = action === "trash" ? "untrash" : "unarchive";
+  await logAction(
+    action === "trash" ? "trash" : "archive",
+    `View "${view.label}": ${action} — ${total} message${total === 1 ? "" : "s"}`,
+    gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via } : undefined,
+  );
+  await scanAndRender();
+  return `${action === "trash" ? "Trashed" : "Archived"} ${total}`;
+}
+
+function clearSmartViewResult() {
+  smartViewResultSlot.innerHTML = "";
+}
+
+function openSmartView(view: SmartView, msgCount: number, senderCount: number) {
+  smartViewResultSlot.innerHTML = "";
+  smartViewResultSlot.className = "bulk-bar";
+
+  const info = document.createElement("span");
+  info.textContent = `${view.label}: ${msgCount} message${msgCount === 1 ? "" : "s"} across ${senderCount} sender${senderCount === 1 ? "" : "s"}`;
+
+  const archiveBtn = document.createElement("button");
+  archiveBtn.textContent = "Archive";
+  archiveBtn.onclick = () =>
+    renderConfirmStep(smartViewResultSlot, clearSmartViewResult, `Archive ${msgCount}?`, false, () =>
+      applySmartView(view, "archive"),
+    );
+
+  const trashBtn = document.createElement("button");
+  trashBtn.className = "danger";
+  trashBtn.textContent = "Trash";
+  trashBtn.onclick = () =>
+    renderConfirmStep(smartViewResultSlot, clearSmartViewResult, `Move ${msgCount} to Trash?`, true, () =>
+      applySmartView(view, "trash"),
+    );
+
+  const cancel = document.createElement("button");
+  cancel.textContent = "Cancel";
+  cancel.onclick = clearSmartViewResult;
+
+  smartViewResultSlot.append(info, archiveBtn, trashBtn, cancel);
+}
+
+function renderSmartViews(senders: SenderSummary[]) {
+  smartViewChipsEl.innerHTML = "";
+  clearSmartViewResult();
+  for (const view of SMART_VIEWS) {
+    const msgCount = smartViewMessageCount(view, senders);
+    const chip = document.createElement("button");
+    chip.className = "smart-view-chip";
+    chip.textContent = `${view.label} (${msgCount})`;
+    chip.title = view.hint;
+    chip.disabled = msgCount === 0;
+    chip.onclick = () => openSmartView(view, msgCount, smartViewSenderCount(view, senders));
+    smartViewChipsEl.appendChild(chip);
+  }
+}
+
+function resetKeepNewestSlot() {
+  keepNewestSlot.innerHTML = "";
+  keepNewestSlot.appendChild(keepNewestBtn);
+}
+
+function wireKeepNewest() {
+  keepNewestBtn.onclick = () => {
+    const n = Math.max(1, Number(keepNewestNInput.value) || 3);
+    const merged = keepNewestExcess(currentSenders, n);
+    const gmailIds = merged.get("gmail") ?? [];
+    const total = [...merged.values()].reduce((a, b) => a + b.length, 0);
+    if (total === 0) {
+      renderConfirmStep(keepNewestSlot, resetKeepNewestSlot, `Nothing to trim — no sender has more than ${n}.`, false, async () => "");
+      return;
+    }
+    renderConfirmStep(
+      keepNewestSlot,
+      resetKeepNewestSlot,
+      `Move ${total} older message${total === 1 ? "" : "s"} to Trash, keeping the newest ${n} per sender?`,
+      true,
+      async () => {
+        for (const [pid, ids] of merged) {
+          const provider = providerById.get(pid);
+          if (!provider || ids.length === 0) continue;
+          const token = await provider.getAuthToken(false);
+          await provider.trashMessages(token, ids);
+        }
+        await logAction(
+          "trash",
+          `Trimmed to newest ${n} per sender — ${total} message${total === 1 ? "" : "s"}`,
+          gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "untrash" } : undefined,
+        );
+        await scanAndRender();
+        return `Trimmed ${total}`;
+      },
+    );
+  };
 }
 
 // ── Bulk action bars ─────────────────────────────────────────────────────
