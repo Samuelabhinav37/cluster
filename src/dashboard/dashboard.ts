@@ -89,6 +89,28 @@ const athenaSectionEl = document.getElementById("athena-section") as HTMLElement
 const athenaConnectBtn = document.getElementById("athena-connect-btn") as HTMLButtonElement;
 const athenaStatusEl = document.getElementById("athena-status") as HTMLSpanElement;
 
+const tabButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("#tabs button[data-tab]"));
+const tabPanels = Array.from(document.querySelectorAll<HTMLElement>("section.tab-panel[data-tab]"));
+const securityEmptyEl = document.getElementById("security-empty") as HTMLParagraphElement;
+
+// ── Tabs ─────────────────────────────────────────────────────────────────
+function showTab(name: string) {
+  const target = tabButtons.some((b) => b.dataset.tab === name) ? name : "cleanup";
+  for (const panel of tabPanels) panel.hidden = panel.dataset.tab !== target;
+  for (const btn of tabButtons) btn.setAttribute("aria-selected", String(btn.dataset.tab === target));
+}
+
+function wireTabs() {
+  showTab(cachedSettings.activeTab);
+  for (const btn of tabButtons) {
+    btn.onclick = async () => {
+      const name = btn.dataset.tab!;
+      showTab(name);
+      cachedSettings = await updateSettings({ activeTab: name });
+    };
+  }
+}
+
 async function wireAthenaConnection() {
   const config = await getAthenaConfig();
   if (!config) return;
@@ -107,6 +129,7 @@ async function wireAthenaConnection() {
 async function main() {
   statusEl.textContent = "Connecting…";
   cachedSettings = await getSettings();
+  wireTabs();
   fastDeleteToggle.checked = cachedSettings.fastPermanentDeleteEnabled;
   wireFastDeleteToggle();
   scanWindowInput.value = String(cachedSettings.scanWindowDays);
@@ -805,6 +828,7 @@ function renderSecuritySection(senders: SenderSummary[]) {
     .map((sender) => ({ sender, score: senderRiskScore(sender.threatSignals) }))
     .sort((a, b) => b.score - a.score);
   securitySectionEl.hidden = flagged.length === 0;
+  securityEmptyEl.hidden = flagged.length > 0;
   if (flagged.length === 0) return;
 
   securitySenderListEl.replaceChildren(

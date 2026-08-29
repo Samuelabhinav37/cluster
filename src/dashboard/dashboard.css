@@ -212,6 +212,51 @@ select {
   line-height: 1.5;
 }
 
+#tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin: 1.5rem 0 0;
+}
+
+#tabs button {
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+  padding: 0.5rem 0.9rem;
+}
+
+#tabs button[aria-selected="true"] {
+  color: var(--fg);
+  border-bottom-color: var(--fg);
+  font-weight: 600;
+}
+
+.tab-panel {
+  margin-top: 0.5rem;
+}
+
+#top-bar label {
+  font-size: 0.9em;
+  color: var(--muted-strong);
+}
+
+#settings-panel {
+  font-size: 0.9em;
+}
+
+#settings-panel summary {
+  cursor: pointer;
+  color: var(--muted-strong);
+}
+
+#settings-panel .setting-toggle {
+  margin-top: 0.5rem;
+}
+
 #security-sender-list {
   list-style: none;
   padding: 0;

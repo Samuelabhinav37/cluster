@@ -25,18 +25,9 @@
         <button id="athena-connect-btn">Allow Athena connection</button>
         <span id="athena-status" role="status"></span>
       </section>
-      <section id="security-section" hidden>
-        <h2>Possible impersonation</h2>
-        <p class="hint">
-          Senders that claim a well-known brand whose real domain doesn't match, fail
-          authentication, use a lookalike domain, or appear on a known-bad domain list — common
-          phishing patterns. Mostly heuristics from headers already fetched for the declutter
-          feature, not verified facts: check before acting. Nothing here is auto-labeled, moved,
-          or deleted. Ordered by risk.
-        </p>
-        <ul id="security-sender-list"></ul>
-      </section>
-      <div id="scan-settings-bar" class="bulk-bar">
+
+      <div id="top-bar" class="bulk-bar">
+        <button id="connect-outlook">Connect Outlook</button>
         <label>
           Scan window (days):
           <input type="number" id="scan-window-input" min="1" max="3650" />
@@ -46,85 +37,141 @@
           <input type="number" id="max-messages-input" min="50" max="5000" step="50" />
         </label>
         <button id="apply-scan-settings-btn">Rescan</button>
+        <details id="settings-panel">
+          <summary>Settings</summary>
+          <label id="fast-delete-toggle-label" class="setting-toggle">
+            <input type="checkbox" id="fast-delete-toggle" />
+            Fast permanent delete for Gmail (skips Trash — cannot be undone,
+            also applies to "Clean up"; requires a one-time extra permission grant)
+          </label>
+        </details>
       </div>
-      <button id="connect-outlook">Connect Outlook</button>
+
       <p id="status" role="status">Loading your senders…</p>
 
-      <section id="digest-section" hidden>
-        <h2>Digest</h2>
-        <p class="hint">
-          A quick on-device summary of what's in your inbox right now —
-          generated locally by Chrome from the counts below, nothing sent
-          anywhere.
-        </p>
-        <div id="digest-bar" class="bulk-bar">
-          <button id="generate-digest-btn" disabled>Generate digest</button>
-          <span id="digest-status" role="status"></span>
-        </div>
-        <p id="digest-text" hidden></p>
-      </section>
+      <nav id="tabs" role="tablist">
+        <button type="button" data-tab="cleanup" role="tab">Clean up</button>
+        <button type="button" data-tab="subscriptions" role="tab">Subscriptions</button>
+        <button type="button" data-tab="security" role="tab">Security</button>
+        <button type="button" data-tab="rules" role="tab">Rules</button>
+        <button type="button" data-tab="recent" role="tab">Recently done</button>
+      </nav>
 
-      <div id="sender-bulk-bar" class="bulk-bar" hidden>
-        <button id="select-safe-senders">Select safe</button>
-        <span id="sender-selected-count">0 selected</span>
-        <span id="unsubscribe-bulk-slot">
-          <button id="bulk-unsubscribe-btn" disabled>Bulk unsubscribe selected</button>
-        </span>
-        <span id="keep-sorted-bulk-slot">
-          <button id="bulk-keep-sorted-btn" disabled>Bulk keep sorted selected</button>
-        </span>
-        <label>
-          Snooze for:
-          <select id="snooze-duration-select">
-            <option value="1">1 day</option>
-            <option value="7" selected>1 week</option>
-            <option value="30">1 month</option>
-          </select>
-        </label>
-        <span id="snooze-bulk-slot">
-          <button id="bulk-snooze-btn" disabled>Bulk snooze selected</button>
-        </span>
-      </div>
-      <div id="sender-groups" hidden></div>
+      <section class="tab-panel" data-tab="cleanup" role="tabpanel">
+        <section id="digest-section" hidden>
+          <h2>Digest</h2>
+          <p class="hint">
+            A quick on-device summary of what's in your inbox right now —
+            generated locally by Chrome from the counts below, nothing sent
+            anywhere.
+          </p>
+          <div id="digest-bar" class="bulk-bar">
+            <button id="generate-digest-btn" disabled>Generate digest</button>
+            <span id="digest-status" role="status"></span>
+          </div>
+          <p id="digest-text" hidden></p>
+        </section>
 
-      <section id="expiry-section" hidden>
-        <h2>Ready to clean up</h2>
-        <p class="hint">
-          Messages that likely served their purpose — one-time codes, old
-          shipping updates, and newsletters past their window, judged only by
-          how long ago they arrived. Starred/flagged mail is always skipped.
-          Nothing is deleted until you confirm.
-        </p>
-        <div id="expiry-bar" class="bulk-bar">
-          <span id="expiry-breakdown"></span>
-          <span id="expiry-cleanup-slot">
-            <button id="expiry-cleanup-btn">Clean up</button>
+        <div id="sender-bulk-bar" class="bulk-bar" hidden>
+          <button id="select-safe-senders">Select safe</button>
+          <span id="sender-selected-count">0 selected</span>
+          <span id="unsubscribe-bulk-slot">
+            <button id="bulk-unsubscribe-btn" disabled>Bulk unsubscribe selected</button>
+          </span>
+          <span id="keep-sorted-bulk-slot">
+            <button id="bulk-keep-sorted-btn" disabled>Bulk keep sorted selected</button>
+          </span>
+          <label>
+            Snooze for:
+            <select id="snooze-duration-select">
+              <option value="1">1 day</option>
+              <option value="7" selected>1 week</option>
+              <option value="30">1 month</option>
+            </select>
+          </label>
+          <span id="snooze-bulk-slot">
+            <button id="bulk-snooze-btn" disabled>Bulk snooze selected</button>
           </span>
         </div>
+        <div id="sender-groups" hidden></div>
+
+        <section id="expiry-section" hidden>
+          <h2>Ready to clean up</h2>
+          <p class="hint">
+            Messages that likely served their purpose — one-time codes, old
+            shipping updates, and newsletters past their window, judged only by
+            how long ago they arrived. Starred/flagged mail is always skipped.
+            Nothing is deleted until you confirm.
+          </p>
+          <div id="expiry-bar" class="bulk-bar">
+            <span id="expiry-breakdown"></span>
+            <span id="expiry-cleanup-slot">
+              <button id="expiry-cleanup-btn">Clean up</button>
+            </span>
+          </div>
+        </section>
+
+        <section id="domain-groups" hidden>
+          <h2>By domain</h2>
+          <p class="hint">
+            Senders grouped by their base domain (personal addresses at gmail.com,
+            yahoo.com, etc. are kept separate) and bucketed into categories.
+            Deleting moves mail to Trash — starred messages are always skipped.
+            "Select safe" only checks domains with zero starred/flagged mail.
+          </p>
+          <div id="domain-bulk-bar" class="bulk-bar" hidden>
+            <button id="select-safe-domains">Select safe</button>
+            <span id="domain-selected-count">0 selected</span>
+            <span id="delete-domains-bulk-slot">
+              <button id="bulk-delete-domains-btn" class="danger" disabled>Delete selected domains…</button>
+            </span>
+          </div>
+          <div id="domain-group-list"></div>
+        </section>
       </section>
 
-      <section id="domain-groups" hidden>
-        <h2>By domain</h2>
+      <section class="tab-panel" data-tab="subscriptions" role="tabpanel" hidden>
+        <h2>Subscriptions</h2>
         <p class="hint">
-          Senders grouped by their base domain (personal addresses at gmail.com,
-          yahoo.com, etc. are kept separate) and bucketed into categories.
-          Deleting moves mail to Trash — starred messages are always skipped.
-          "Select safe" only checks domains with zero starred/flagged mail.
+          Every sender you can unsubscribe from, ranked by how much they send.
+          Populated in a later build.
         </p>
-        <label id="fast-delete-toggle-label" class="setting-toggle">
-          <input type="checkbox" id="fast-delete-toggle" />
-          Fast permanent delete for Gmail (skips Trash — cannot be undone,
-          also applies to "Clean up" above; requires a one-time extra
-          permission grant)
-        </label>
-        <div id="domain-bulk-bar" class="bulk-bar" hidden>
-          <button id="select-safe-domains">Select safe</button>
-          <span id="domain-selected-count">0 selected</span>
-          <span id="delete-domains-bulk-slot">
-            <button id="bulk-delete-domains-btn" class="danger" disabled>Delete selected domains…</button>
-          </span>
-        </div>
-        <div id="domain-group-list"></div>
+        <div id="subscriptions-list"></div>
+      </section>
+
+      <section class="tab-panel" data-tab="security" role="tabpanel" hidden>
+        <section id="security-section" hidden>
+          <h2>Possible impersonation</h2>
+          <p class="hint">
+            Senders that claim a well-known brand whose real domain doesn't match, fail
+            authentication, use a lookalike domain, or appear on a known-bad domain list — common
+            phishing patterns. Mostly heuristics from headers already fetched for the declutter
+            feature, not verified facts: check before acting. Nothing here is auto-labeled, moved,
+            or deleted. Ordered by risk.
+          </p>
+          <ul id="security-sender-list"></ul>
+        </section>
+        <p id="security-empty" class="hint">No possible-impersonation signals in the current scan.</p>
+      </section>
+
+      <section class="tab-panel" data-tab="rules" role="tabpanel" hidden>
+        <h2>Rules</h2>
+        <p class="hint">
+          Standing clean-up rules — conditions on a message (sender, age, kind,
+          unread, has-unsubscribe) plus one action (label, archive, trash, mark
+          read). Applied on every scan and by the background sweep. Populated in
+          a later build.
+        </p>
+        <div id="rules-list"></div>
+      </section>
+
+      <section class="tab-panel" data-tab="recent" role="tabpanel" hidden>
+        <h2>Recently done</h2>
+        <p class="hint">
+          Everything Declutter changed, newest first, with an Undo where the
+          action can be reversed. Populated in a later build.
+        </p>
+        <div id="recent-list"></div>
       </section>
     </main>
     <script type="module" src="./dashboard.ts"></script>

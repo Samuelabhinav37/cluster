@@ -43,7 +43,7 @@ async function listCandidateMessages(token: string, maxResults: number, windowDa
 
 async function getMessageMetadata(token: string, id: string): Promise<NormalizedMessageMetadata> {
   const data = await graphFetch(
-    `/me/messages/${id}?$select=sender,subject,flag,internetMessageHeaders,receivedDateTime`,
+    `/me/messages/${id}?$select=sender,subject,flag,internetMessageHeaders,receivedDateTime,isRead,size`,
     token,
   );
   const headers: { name: string; value: string }[] = data.internetMessageHeaders ?? [];
@@ -57,6 +57,8 @@ async function getMessageMetadata(token: string, id: string): Promise<Normalized
     fromDisplayName: data.sender?.emailAddress?.name ?? "",
     subject: data.subject ?? "",
     isProtected: data.flag?.flagStatus === "flagged",
+    unread: data.isRead === false,
+    sizeBytes: Number(data.size ?? 0),
     unsubscribe: parseListUnsubscribe(find("List-Unsubscribe"), find("List-Unsubscribe-Post")),
     receivedAt: data.receivedDateTime ? new Date(data.receivedDateTime).getTime() : 0,
     authenticationResults: find("Authentication-Results"),

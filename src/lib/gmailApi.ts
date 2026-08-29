@@ -60,6 +60,8 @@ export interface RawMessageMetadata {
   labelIds: string[];
   /** Epoch ms; Gmail returns this on every message resource, metadata format included. */
   internalDate: number;
+  /** Approx RFC822 size in bytes; Gmail returns this on the metadata format too. */
+  sizeEstimate: number;
 }
 
 export async function getMessageMetadata(token: string, id: string): Promise<RawMessageMetadata> {
@@ -72,7 +74,12 @@ export async function getMessageMetadata(token: string, id: string): Promise<Raw
   for (const h of data.payload?.headers ?? []) {
     headers[h.name] = h.value;
   }
-  return { headers, labelIds: data.labelIds ?? [], internalDate: Number(data.internalDate ?? 0) };
+  return {
+    headers,
+    labelIds: data.labelIds ?? [],
+    internalDate: Number(data.internalDate ?? 0),
+    sizeEstimate: Number(data.sizeEstimate ?? 0),
+  };
 }
 
 // Batched via batchModify below rather than one call per message — trash and

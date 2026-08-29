@@ -54,7 +54,7 @@ export const gmailProvider: EmailProvider = {
   },
 
   async getMessageMetadata(token, id): Promise<NormalizedMessageMetadata> {
-    const { headers, labelIds, internalDate } = await fetchGmailMessageMetadata(token, id);
+    const { headers, labelIds, internalDate, sizeEstimate } = await fetchGmailMessageMetadata(token, id);
     const { address, displayName } = parseFrom(headers.From ?? "");
     return {
       id,
@@ -63,6 +63,8 @@ export const gmailProvider: EmailProvider = {
       fromDisplayName: displayName,
       subject: headers.Subject ?? "",
       isProtected: labelIds.includes("STARRED"),
+      unread: labelIds.includes("UNREAD"),
+      sizeBytes: sizeEstimate,
       unsubscribe: parseListUnsubscribe(headers["List-Unsubscribe"], headers["List-Unsubscribe-Post"]),
       receivedAt: internalDate,
       authenticationResults: headers["Authentication-Results"],

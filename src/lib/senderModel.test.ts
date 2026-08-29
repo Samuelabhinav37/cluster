@@ -23,6 +23,8 @@ function makeMeta(overrides: Partial<NormalizedMessageMetadata> & { id: string }
     fromDisplayName: "A",
     subject: "hi",
     isProtected: false,
+    unread: false,
+    sizeBytes: 0,
     unsubscribe: {},
     receivedAt: Date.now(),
     ...overrides,

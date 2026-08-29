@@ -11,6 +11,8 @@ function makeMessage(overrides: Partial<MessageRecord> = {}): MessageRecord {
     receivedAt: Date.now(),
     kind: "otp",
     isProtected: false,
+    unread: false,
+    sizeBytes: 0,
     ...overrides,
   };
 }

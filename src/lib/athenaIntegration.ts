@@ -1,3 +1,5 @@
+import { withStorageLock } from "./storageLock";
+
 export interface AthenaManagedConfig {
   tenantId: string;
   agentId: string;
@@ -73,16 +75,11 @@ async function getSession(config: AthenaManagedConfig): Promise<AgentSession | n
   } catch { return null; }
 }
 
-// Every read-modify-write of QUEUE_KEY runs through this chain. chrome.storage
-// has no atomic update, so a dashboard deep-scan enqueue racing the
-// background alarm's enqueue/flush would otherwise read the same array and
-// the second write would clobber the first's events.
-let queueLock: Promise<unknown> = Promise.resolve();
-function withQueueLock<T>(fn: () => Promise<T>): Promise<T> {
-  const run = queueLock.then(fn, fn);
-  queueLock = run.catch(() => {});
-  return run;
-}
+// Every read-modify-write of QUEUE_KEY runs through withStorageLock (see
+// storageLock.ts). chrome.storage has no atomic update, so a dashboard
+// deep-scan enqueue racing the background alarm's enqueue/flush would otherwise
+// read the same array and the second write would clobber the first's events.
+const withQueueLock = <T>(fn: () => Promise<T>) => withStorageLock(QUEUE_KEY, fn);
 
 async function appendToQueue(events: ClutterSecurityEvent[]): Promise<void> {
   await withQueueLock(async () => {

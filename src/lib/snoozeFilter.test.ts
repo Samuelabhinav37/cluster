@@ -3,7 +3,7 @@ import { excludeSnoozedMessages } from "./snoozeFilter";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 
 function makeMessage(overrides: Partial<MessageRecord> & { id: string }): MessageRecord {
-  return { receivedAt: Date.now(), kind: "other", isProtected: false, ...overrides };
+  return { receivedAt: Date.now(), kind: "other", isProtected: false, unread: false, sizeBytes: 0, ...overrides };
 }
 
 function makeSender(overrides: Partial<SenderSummary> & { address: string; messages: MessageRecord[] }): SenderSummary {

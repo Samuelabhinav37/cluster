@@ -13,6 +13,8 @@ export interface MessageRecord {
   receivedAt: number;
   kind: MessageKind;
   isProtected: boolean;
+  unread: boolean;
+  sizeBytes: number;
 }
 
 export interface SenderSummary {
@@ -57,6 +59,8 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     receivedAt: meta.receivedAt,
     kind: classifyMessageKind(meta.subject, hasUnsubscribe(meta.unsubscribe)),
     isProtected: meta.isProtected,
+    unread: meta.unread,
+    sizeBytes: meta.sizeBytes,
   };
   const existing = senders.get(key);
   if (existing) {

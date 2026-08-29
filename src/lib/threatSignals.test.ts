@@ -17,6 +17,8 @@ function message(overrides: Partial<NormalizedMessageMetadata>): NormalizedMessa
     fromDisplayName: "Example Notifications",
     subject: "Hello",
     isProtected: false,
+    unread: false,
+    sizeBytes: 0,
     unsubscribe: {},
     receivedAt: 0,
     ...overrides,

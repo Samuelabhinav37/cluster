@@ -16,6 +16,12 @@ export interface NormalizedMessageMetadata {
   fromDisplayName: string;
   subject: string;
   isProtected: boolean;
+  /** Still unread — Gmail UNREAD label / Graph isRead === false. Powers the
+   * "you never open these" surface and the `unread` rule condition. */
+  unread: boolean;
+  /** Provider's size estimate in bytes (Gmail sizeEstimate / Graph size).
+   * Used only by Smart Views' "Large mail" filter. */
+  sizeBytes: number;
   unsubscribe: UnsubscribeInfo;
   /** Epoch ms the message was received — never a claimed in-body date. */
   receivedAt: number;
