@@ -95,6 +95,21 @@
         </div>
         <div id="sender-groups" hidden></div>
 
+        <section id="never-read-section" hidden>
+          <h2>You never open these</h2>
+          <p class="hint">
+            Senders whose mail you consistently leave unread (every non-starred
+            message from them in this scan is still unread). Judged only from
+            the unread flag — no message contents.
+          </p>
+          <div id="never-read-bulk-bar" class="bulk-bar">
+            <span id="never-read-count"></span>
+            <span id="never-read-mute-slot"><button id="never-read-mute-btn">Mute all…</button></span>
+            <span id="never-read-trash-slot"><button id="never-read-trash-btn" class="danger">Trash all…</button></span>
+          </div>
+          <div id="never-read-list"></div>
+        </section>
+
         <section id="expiry-section" hidden>
           <h2>Ready to clean up</h2>
           <p class="hint">
@@ -133,9 +148,17 @@
       <section class="tab-panel" data-tab="subscriptions" role="tabpanel" hidden>
         <h2>Subscriptions</h2>
         <p class="hint">
-          Every sender you can unsubscribe from, ranked by how much they send.
-          Populated in a later build.
+          Every sender in this scan with an unsubscribe option, ranked by how
+          much they send. Verified one-click requests fire straight away;
+          others open the provider's page or an email. "Requested" survives a
+          reload — senders can take days to actually stop.
         </p>
+        <div id="subscriptions-bulk-bar" class="bulk-bar" hidden>
+          <span id="subs-count">0 senders</span>
+          <span id="subs-unsub-all-slot">
+            <button id="subs-unsub-all-btn">Unsubscribe all verified one-click</button>
+          </span>
+        </div>
         <div id="subscriptions-list"></div>
       </section>
 

@@ -36,6 +36,7 @@ import {
   type RuleConditions,
 } from "../lib/rules";
 import { applyRules, previewRuleMatches } from "../lib/ruleRunner";
+import { neverReadSenders } from "../lib/neverRead";
 import {
   appendActionLog,
   makeLogId,
@@ -53,6 +54,7 @@ const activeProviders: EmailProvider[] = [gmailProvider];
 
 const selectedSenderKeys = new Set<string>();
 const selectedDomainKeys = new Set<string>();
+const selectedSubKeys = new Set<string>();
 let currentSenders: SenderSummary[] = [];
 let currentDomainGroups: DomainGroup[] = [];
 let currentExpiryBuckets: ExpiryBucket[] = [];
@@ -125,6 +127,20 @@ const ruleApplySlot = document.getElementById("rule-apply-slot") as HTMLDivEleme
 const ruleApplyBtn = document.getElementById("rule-apply-btn") as HTMLButtonElement;
 
 const recentListEl = document.getElementById("recent-list") as HTMLDivElement;
+
+const subsBulkBar = document.getElementById("subscriptions-bulk-bar") as HTMLDivElement;
+const subsCountEl = document.getElementById("subs-count") as HTMLSpanElement;
+const subsUnsubAllSlot = document.getElementById("subs-unsub-all-slot") as HTMLSpanElement;
+const subsUnsubAllBtn = document.getElementById("subs-unsub-all-btn") as HTMLButtonElement;
+const subscriptionsListEl = document.getElementById("subscriptions-list") as HTMLDivElement;
+
+const neverReadSectionEl = document.getElementById("never-read-section") as HTMLElement;
+const neverReadCountEl = document.getElementById("never-read-count") as HTMLSpanElement;
+const neverReadMuteSlot = document.getElementById("never-read-mute-slot") as HTMLSpanElement;
+const neverReadMuteBtn = document.getElementById("never-read-mute-btn") as HTMLButtonElement;
+const neverReadTrashSlot = document.getElementById("never-read-trash-slot") as HTMLSpanElement;
+const neverReadTrashBtn = document.getElementById("never-read-trash-btn") as HTMLButtonElement;
+const neverReadListEl = document.getElementById("never-read-list") as HTMLDivElement;
 
 // ── Tabs ─────────────────────────────────────────────────────────────────
 function showTab(name: string) {
@@ -277,6 +293,8 @@ async function scanAndRender() {
   renderDomainGroups(senders);
   renderExpirySection(senders);
   renderSecuritySection(senders);
+  renderSubscriptionsTab(senders);
+  renderNeverReadSection(senders);
   generateDigestBtn.disabled = false;
 }
 
@@ -1364,6 +1382,175 @@ function renderRecentTab() {
   }
 }
 
+// ── Subscriptions tab ────────────────────────────────────────────────────
+function unsubMethodLabel(u: SenderSummary["unsubscribe"]): string {
+  if (u.postUrl) return "one-click";
+  if (u.httpUrl) return "page";
+  return "email";
+}
+
+function dominantKind(s: SenderSummary): string {
+  const counts = new Map<string, number>();
+  for (const m of s.messages) counts.set(m.kind, (counts.get(m.kind) ?? 0) + 1);
+  let best = "other";
+  let bestN = -1;
+  for (const [k, n] of counts) {
+    if (n > bestN) {
+      best = k;
+      bestN = n;
+    }
+  }
+  return best;
+}
+
+function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
+  const cell = document.createElement("td");
+  const u = sender.unsubscribe;
+  if (u.postUrl) {
+    const btn = document.createElement("button");
+    btn.textContent = cachedSettings.unsubscribeRequests[sender.key] ? "Request again" : "Unsubscribe";
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.textContent = "Requesting…";
+      const ok = await fireOneClickUnsubscribe(u.postUrl!);
+      if (ok) {
+        await recordUnsubscribeRequests([sender]);
+        await logAction("unsubscribe", `Unsubscribed from ${sender.address}`);
+        renderSubscriptionsTab(currentSenders);
+      } else {
+        btn.disabled = false;
+        btn.textContent = "Failed, retry";
+      }
+    };
+    cell.appendChild(btn);
+  } else if (u.mailto) {
+    const a = document.createElement("a");
+    a.href = u.mailto;
+    a.textContent = "Email";
+    a.target = "_blank";
+    cell.appendChild(a);
+  } else if (u.httpUrl) {
+    const a = document.createElement("a");
+    a.href = u.httpUrl;
+    a.textContent = "Open page";
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    cell.appendChild(a);
+  }
+  return cell;
+}
+
+function renderSubscriptionsTab(senders: SenderSummary[]) {
+  const subs = senders
+    .filter((s) => s.unsubscribe.postUrl || s.unsubscribe.httpUrl || s.unsubscribe.mailto)
+    .sort((a, b) => b.count - a.count);
+  pruneSelection(
+    selectedSubKeys,
+    subs.map((s) => s.key),
+  );
+
+  subscriptionsListEl.innerHTML = "";
+  if (subs.length === 0) {
+    subsBulkBar.hidden = true;
+    const p = document.createElement("p");
+    p.className = "hint";
+    p.textContent = "No senders with an unsubscribe option in the current scan.";
+    subscriptionsListEl.appendChild(p);
+    return;
+  }
+
+  const oneClick = subs.filter((s) => s.unsubscribe.postUrl);
+  subsBulkBar.hidden = false;
+  subsCountEl.textContent = `${subs.length} sender${subs.length === 1 ? "" : "s"}, ${oneClick.length} verified one-click`;
+  subsUnsubAllBtn.disabled = oneClick.length === 0;
+
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.appendChild(
+    headerRow(["", "Sender", `Count (${cachedSettings.scanWindowDays}d)`, "Mostly", "Method", "Status", "Action"]),
+  );
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const s of subs) {
+    const row = document.createElement("tr");
+
+    const cbCell = document.createElement("td");
+    if (s.unsubscribe.postUrl) {
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = selectedSubKeys.has(s.key);
+      cb.onchange = () => {
+        if (cb.checked) selectedSubKeys.add(s.key);
+        else selectedSubKeys.delete(s.key);
+      };
+      cbCell.appendChild(cb);
+    }
+    row.appendChild(cbCell);
+
+    const nameCell = document.createElement("td");
+    nameCell.textContent = s.displayName ? `${s.displayName} <${s.address}>` : s.address;
+    row.appendChild(nameCell);
+
+    const countCell = document.createElement("td");
+    countCell.textContent = String(s.count);
+    row.appendChild(countCell);
+
+    const kindCell = document.createElement("td");
+    kindCell.textContent = dominantKind(s);
+    row.appendChild(kindCell);
+
+    const methodCell = document.createElement("td");
+    methodCell.textContent = unsubMethodLabel(s.unsubscribe);
+    row.appendChild(methodCell);
+
+    const statusCell = document.createElement("td");
+    const tracked = cachedSettings.unsubscribeRequests[s.key];
+    statusCell.textContent = tracked ? `Requested ${formatRelativeTime(tracked.requestedAt)}` : "—";
+    statusCell.className = "hint";
+    row.appendChild(statusCell);
+
+    row.appendChild(subUnsubscribeCell(s));
+    tbody.appendChild(row);
+  }
+  table.appendChild(tbody);
+  subscriptionsListEl.appendChild(table);
+}
+
+// ── "You never open these" (Clean up tab) ────────────────────────────────
+function resetNeverReadSlots() {
+  neverReadMuteSlot.innerHTML = "";
+  neverReadMuteSlot.appendChild(neverReadMuteBtn);
+  neverReadTrashSlot.innerHTML = "";
+  neverReadTrashSlot.appendChild(neverReadTrashBtn);
+}
+
+function renderNeverReadSection(senders: SenderSummary[]) {
+  const nr = neverReadSenders(senders).filter((s) => s.provider === "gmail");
+  neverReadSectionEl.hidden = nr.length === 0;
+  if (nr.length === 0) return;
+
+  const totalMsgs = nr.reduce((n, s) => n + s.messageIds.length, 0);
+  neverReadCountEl.textContent = `${nr.length} sender${nr.length === 1 ? "" : "s"}, ${totalMsgs} unread message${totalMsgs === 1 ? "" : "s"}`;
+
+  neverReadListEl.innerHTML = "";
+  const table = document.createElement("table");
+  const tbody = document.createElement("tbody");
+  for (const s of nr) {
+    const row = document.createElement("tr");
+    const nameCell = document.createElement("td");
+    nameCell.textContent = s.displayName ? `${s.displayName} <${s.address}>` : s.address;
+    const countCell = document.createElement("td");
+    countCell.textContent = `${s.messageIds.length} unread`;
+    row.append(nameCell, countCell);
+    tbody.appendChild(row);
+  }
+  table.appendChild(tbody);
+  neverReadListEl.appendChild(table);
+
+  resetNeverReadSlots();
+}
+
 // ── Bulk action bars ─────────────────────────────────────────────────────
 function wireBulkHandlers() {
   selectSafeSendersBtn.onclick = () => {
@@ -1493,6 +1680,97 @@ function wireBulkHandlers() {
       );
       return message;
     });
+  };
+
+  // ── Subscriptions: unsubscribe all verified ──
+  const resetSubsUnsubAllSlot = () => {
+    subsUnsubAllSlot.innerHTML = "";
+    subsUnsubAllSlot.appendChild(subsUnsubAllBtn);
+  };
+
+  subsUnsubAllBtn.onclick = () => {
+    const oneClick = currentSenders.filter(
+      (s) => s.unsubscribe.postUrl && (selectedSubKeys.size === 0 || selectedSubKeys.has(s.key)),
+    );
+    if (oneClick.length === 0) return;
+    const scope = selectedSubKeys.size === 0 ? "all" : `${oneClick.length} selected`;
+    renderConfirmStep(
+      subsUnsubAllSlot,
+      resetSubsUnsubAllSlot,
+      `Send a verified one-click unsubscribe to ${scope} (${oneClick.length} sender${oneClick.length === 1 ? "" : "s"})?`,
+      false,
+      async (summary) => {
+        summary.textContent = "Requesting permission…";
+        const granted = await ensureOriginsPermission(oneClick.map((s) => s.unsubscribe.postUrl!));
+        if (!granted) return "Permission denied — nothing sent";
+        summary.textContent = "Unsubscribing…";
+        const { succeeded, failed } = await executeBulkUnsubscribe(oneClick, fireOneClickUnsubscribe);
+        await recordUnsubscribeRequests(succeeded);
+        if (succeeded.length > 0) {
+          await logAction("unsubscribe", `Bulk unsubscribed from ${succeeded.length} senders`);
+        }
+        renderSubscriptionsTab(currentSenders);
+        return `Unsubscribed ${succeeded.length}, failed ${failed.length}`;
+      },
+    );
+  };
+
+  // ── "You never open these": mute all / trash all ──
+  neverReadMuteBtn.onclick = () => {
+    const targets = neverReadSenders(currentSenders).filter(
+      (s) => s.provider === "gmail" && !cachedSettings.mutedSenders.includes(s.address),
+    );
+    if (targets.length === 0) return;
+    renderConfirmStep(
+      neverReadMuteSlot,
+      resetNeverReadSlots,
+      `Mute ${targets.length} sender${targets.length === 1 ? "" : "s"} you never open, now and in future?`,
+      false,
+      async () => {
+        const token = await gmailProvider.getAuthToken(false);
+        let done = 0;
+        for (const s of targets) {
+          try {
+            await gmailProvider.muteSender!(token, s.address, s.messageIds);
+            done += 1;
+          } catch (err) {
+            console.error(err);
+          }
+        }
+        cachedSettings = await updateSettings({
+          mutedSenders: [...cachedSettings.mutedSenders, ...targets.slice(0, done).map((s) => s.address)],
+        });
+        await logAction("mute", `Muted ${done} never-opened sender${done === 1 ? "" : "s"}`);
+        await scanAndRender();
+        return `Muted ${done}`;
+      },
+    );
+  };
+
+  neverReadTrashBtn.onclick = () => {
+    const targets = neverReadSenders(currentSenders).filter((s) => s.provider === "gmail");
+    const ids = targets.flatMap((s) => {
+      const protectedSet = new Set(s.protectedMessageIds);
+      return s.messageIds.filter((id) => !protectedSet.has(id));
+    });
+    if (ids.length === 0) return;
+    renderConfirmStep(
+      neverReadTrashSlot,
+      resetNeverReadSlots,
+      `Move ${ids.length} unread message${ids.length === 1 ? "" : "s"} from ${targets.length} sender${targets.length === 1 ? "" : "s"} to Trash?`,
+      true,
+      async () => {
+        const token = await gmailProvider.getAuthToken(false);
+        await gmailProvider.trashMessages(token, ids);
+        await logAction(
+          "trash",
+          `Trashed ${ids.length} from ${targets.length} never-opened sender${targets.length === 1 ? "" : "s"}`,
+          { provider: "gmail", ids, via: "untrash" },
+        );
+        await scanAndRender();
+        return `Moved ${ids.length} to Trash`;
+      },
+    );
   };
 }
 
