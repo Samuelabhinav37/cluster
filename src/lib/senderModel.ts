@@ -10,6 +10,7 @@ import { parseAuthenticationResults, type AuthenticationVerdicts } from "./email
 import type {
   EmailProvider,
   NormalizedMessageMetadata,
+  NormalizedMessageStub,
   ProviderId,
   ScanPurpose,
   UnsubscribeInfo,
@@ -140,29 +141,18 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
 const DEFAULT_MAX_MESSAGES = 500;
 const DEFAULT_SCAN_WINDOW_DAYS = 180;
 
-export async function buildSenderSummaries(
-  providers: EmailProvider[],
-  maxMessagesPerProvider = DEFAULT_MAX_MESSAGES,
-  scanWindowDays = DEFAULT_SCAN_WINDOW_DAYS,
+interface ProviderScanInput {
+  provider: EmailProvider;
+  token: string;
+  stubs: NormalizedMessageStub[];
+}
+
+export async function buildSenderSummariesFromStubs(
+  perProvider: ProviderScanInput[],
   onProgress?: (done: number, total: number) => void,
-  purpose: ScanPurpose = "cleanup",
 ): Promise<SenderSummary[]> {
   const senders = new Map<string, SenderSummary>();
-
-  const perProvider = await Promise.all(
-    providers.map(async (provider) => {
-      const token = await provider.getAuthToken(false);
-      const stubs = await provider.listCandidateMessages(
-        token,
-        maxMessagesPerProvider,
-        scanWindowDays,
-        purpose,
-      );
-      return { provider, token, stubs };
-    }),
-  );
-
-  const total = perProvider.reduce((sum, p) => sum + p.stubs.length, 0);
+  const total = perProvider.reduce((sum, item) => sum + item.stubs.length, 0);
   let done = 0;
 
   await Promise.all(
@@ -178,4 +168,26 @@ export async function buildSenderSummaries(
   );
 
   return [...senders.values()].sort((a, b) => b.count - a.count);
+}
+
+export async function buildSenderSummaries(
+  providers: EmailProvider[],
+  maxMessagesPerProvider = DEFAULT_MAX_MESSAGES,
+  scanWindowDays = DEFAULT_SCAN_WINDOW_DAYS,
+  onProgress?: (done: number, total: number) => void,
+  purpose: ScanPurpose = "cleanup",
+): Promise<SenderSummary[]> {
+  const perProvider = await Promise.all(
+    providers.map(async (provider) => {
+      const token = await provider.getAuthToken(false);
+      const stubs = await provider.listCandidateMessages(
+        token,
+        maxMessagesPerProvider,
+        scanWindowDays,
+        purpose,
+      );
+      return { provider, token, stubs };
+    }),
+  );
+  return buildSenderSummariesFromStubs(perProvider, onProgress);
 }

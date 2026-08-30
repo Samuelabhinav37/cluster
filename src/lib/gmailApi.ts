@@ -5,6 +5,15 @@ import { extractLinksFromHtml, type ExtractedLink } from "./linkMismatch";
 
 const API_BASE = "https://gmail.googleapis.com/gmail/v1";
 
+export class GmailApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 export async function getAuthToken(interactive = true): Promise<string> {
   return new Promise((resolve, reject) => {
     chrome.identity.getAuthToken({ interactive }, (token) => {
@@ -29,7 +38,7 @@ async function gmailFetch<T = unknown>(path: string, token: string, init: Reques
     },
   });
   if (!res.ok) {
-    throw new Error(`Gmail API ${path} failed: ${res.status} ${await res.text()}`);
+    throw new GmailApiError(res.status, `Gmail API ${path} failed: ${res.status} ${await res.text()}`);
   }
   if (res.status === 204) return null as T;
   return (await res.json()) as T;
@@ -77,6 +86,61 @@ export async function listMessageIds(
     pageToken = data.nextPageToken;
   } while (pageToken && results.length < maxResults);
   return results;
+}
+
+export async function getCurrentHistoryId(token: string): Promise<string> {
+  const profile = await gmailFetch<{ historyId?: string }>("/users/me/profile", token);
+  if (!profile.historyId) throw new Error("Gmail profile did not include a historyId");
+  return profile.historyId;
+}
+
+export interface GmailHistoryResult {
+  messageIds: string[];
+  historyId: string;
+  expired: boolean;
+}
+
+/** Lists every Inbox message added since `startHistoryId`. A stale history
+ * checkpoint returns `expired: true` so the provider can rebuild a baseline. */
+export async function listInboxMessageIdsSince(
+  token: string,
+  startHistoryId: string,
+): Promise<GmailHistoryResult> {
+  const ids = new Set<string>();
+  let pageToken: string | undefined;
+  let historyId = startHistoryId;
+  try {
+    do {
+      const params = new URLSearchParams({
+        startHistoryId,
+        historyTypes: "messageAdded",
+        labelId: "INBOX",
+        maxResults: "500",
+      });
+      if (pageToken) params.set("pageToken", pageToken);
+      const data = await gmailFetch<{
+        history?: Array<{
+          messagesAdded?: Array<{ message?: { id?: string; labelIds?: string[] } }>;
+        }>;
+        historyId?: string;
+        nextPageToken?: string;
+      }>(`/users/me/history?${params}`, token);
+      for (const entry of data.history ?? []) {
+        for (const added of entry.messagesAdded ?? []) {
+          const message = added.message;
+          if (message?.id && (message.labelIds ?? []).includes("INBOX")) ids.add(message.id);
+        }
+      }
+      if (data.historyId) historyId = data.historyId;
+      pageToken = data.nextPageToken;
+    } while (pageToken);
+  } catch (error) {
+    if (error instanceof GmailApiError && error.status === 404) {
+      return { messageIds: [], historyId: startHistoryId, expired: true };
+    }
+    throw error;
+  }
+  return { messageIds: [...ids], historyId, expired: false };
 }
 
 export interface RawMessageMetadata {

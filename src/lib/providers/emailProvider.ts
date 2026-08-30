@@ -10,6 +10,15 @@ export interface NormalizedMessageStub {
   provider: ProviderId;
 }
 
+export interface IncrementalMessageResult {
+  messages: NormalizedMessageStub[];
+  /** Provider-owned opaque checkpoint; persist only after every message above
+   * has been processed successfully. */
+  cursor: string;
+  /** True when the supplied cursor expired and this result is a fresh baseline. */
+  reset: boolean;
+}
+
 export interface NormalizedMessageMetadata {
   id: string;
   provider: ProviderId;
@@ -46,6 +55,15 @@ export interface EmailProvider {
     windowDays: number,
     purpose?: ScanPurpose,
   ): Promise<NormalizedMessageStub[]>;
+  /** Initial call (cursor undefined) returns a purpose-specific baseline plus
+   * a checkpoint. Later calls return only created/updated messages since it. */
+  listIncrementalMessages?(
+    token: string,
+    cursor: string | undefined,
+    maxResults: number,
+    windowDays: number,
+    purpose: ScanPurpose,
+  ): Promise<IncrementalMessageResult>;
   getMessageMetadata(token: string, id: string): Promise<NormalizedMessageMetadata>;
   trashMessages(token: string, ids: string[]): Promise<void>;
   keepSorted?(token: string, fromAddress: string, label: string, existingIds: string[]): Promise<void>;

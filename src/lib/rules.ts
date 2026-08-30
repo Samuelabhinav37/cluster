@@ -5,8 +5,9 @@ import type { ProviderId } from "./providers/emailProvider";
 import type { SenderSummary } from "./senderModel";
 
 // Standing user-defined rules — Cluster's answer to Clean Email's "Auto
-// Clean". A rule is a set of AND-ed conditions over a single message plus one
-// action. Evaluated against already-fetched metadata only (no body), applied by
+// Clean". Conditions are deterministic metadata predicates; Rules v2 adds
+// exceptions, priority, stop-processing, and ordered actions while retaining
+// the original single-action fields for stored-rule compatibility. Applied by
 // ruleRunner.ts from both the dashboard ("Apply now") and the background alarm.
 //
 // Hard limits, enforced by matchRule (Phase 2) and ruleRunner:
@@ -16,6 +17,12 @@ import type { SenderSummary } from "./senderModel";
 // - a rule with zero conditions matches nothing (not everything).
 
 export type RuleAction = "label" | "archive" | "trash" | "markRead";
+
+export interface RuleActionSpec {
+  action: RuleAction;
+  labelName?: string;
+  labelKeepInInbox?: boolean;
+}
 
 export interface RuleConditions {
   /** Registrable-ish domain of the From address, e.g. "example.com". */
@@ -40,6 +47,14 @@ export interface ClusterRule {
   name: string;
   enabled: boolean;
   conditions: RuleConditions;
+  /** A matching message is excluded when all populated exception fields match. */
+  exceptions?: RuleConditions;
+  /** Higher-priority rules run first. Defaults to 0. */
+  priority?: number;
+  /** Prevent later rules from processing messages successfully handled here. */
+  stopProcessing?: boolean;
+  /** Ordered Rules v2 actions. When absent, the legacy action fields below are used. */
+  actions?: RuleActionSpec[];
   action: RuleAction;
   /** Required when action === "label". Nested under "Cluster/" by convention. */
   labelName?: string;
@@ -62,6 +77,34 @@ function senderHasUnsubscribe(sender: SenderSummary): boolean {
   return Boolean(u.postUrl || u.httpUrl || u.mailto);
 }
 
+function conditionsMatch(
+  conditions: RuleConditions,
+  sender: SenderSummary,
+  message: SenderSummary["messages"][number],
+  now: number,
+): boolean {
+  if (conditions.fromAddress && sender.address !== conditions.fromAddress.toLowerCase()) return false;
+  if (conditions.fromDomain && domainOf(sender.address) !== conditions.fromDomain.toLowerCase()) return false;
+  if (
+    conditions.fromDomainCategory &&
+    categorizeDomain(domainOf(sender.address)) !== conditions.fromDomainCategory
+  ) {
+    return false;
+  }
+  if (conditions.hasUnsubscribe !== undefined && senderHasUnsubscribe(sender) !== conditions.hasUnsubscribe) {
+    return false;
+  }
+  if (conditions.kind && message.kind !== conditions.kind) return false;
+  if (conditions.unread !== undefined && message.unread !== conditions.unread) return false;
+  if (
+    conditions.olderThanDays !== undefined &&
+    now - message.receivedAt < conditions.olderThanDays * DAY_MS
+  ) {
+    return false;
+  }
+  return true;
+}
+
 /**
  * Message ids this rule would act on, grouped by provider. Sender-level
  * conditions (from address/domain, has-unsubscribe) are checked once per
@@ -75,16 +118,16 @@ export function matchRule(rule: ClusterRule, senders: SenderSummary[]): Map<Prov
   const now = Date.now();
 
   for (const sender of senders) {
-    if (c.fromAddress && sender.address !== c.fromAddress.toLowerCase()) continue;
-    if (c.fromDomain && domainOf(sender.address) !== c.fromDomain.toLowerCase()) continue;
-    if (c.fromDomainCategory && categorizeDomain(domainOf(sender.address)) !== c.fromDomainCategory) continue;
-    if (c.hasUnsubscribe !== undefined && senderHasUnsubscribe(sender) !== c.hasUnsubscribe) continue;
-
     for (const m of sender.messages) {
       if (m.isProtected) continue;
-      if (c.kind && m.kind !== c.kind) continue;
-      if (c.unread !== undefined && m.unread !== c.unread) continue;
-      if (c.olderThanDays !== undefined && now - m.receivedAt < c.olderThanDays * DAY_MS) continue;
+      if (!conditionsMatch(c, sender, m, now)) continue;
+      if (
+        rule.exceptions &&
+        ruleHasConditions(rule.exceptions) &&
+        conditionsMatch(rule.exceptions, sender, m, now)
+      ) {
+        continue;
+      }
 
       const list = out.get(sender.provider);
       if (list) list.push(m.id);
@@ -92,6 +135,56 @@ export function matchRule(rule: ClusterRule, senders: SenderSummary[]): Map<Prov
     }
   }
   return out;
+}
+
+export function ruleActions(rule: ClusterRule): RuleActionSpec[] {
+  return rule.actions?.length
+    ? rule.actions
+    : [
+        {
+          action: rule.action,
+          labelName: rule.labelName,
+          labelKeepInInbox: rule.labelKeepInInbox,
+        },
+      ];
+}
+
+export function orderedRules(rules: ClusterRule[]): ClusterRule[] {
+  return rules
+    .map((rule, index) => ({ rule, index }))
+    .sort((a, b) => (b.rule.priority ?? 0) - (a.rule.priority ?? 0) || a.index - b.index)
+    .map(({ rule }) => rule);
+}
+
+export interface RuleConflict {
+  provider: ProviderId;
+  messageId: string;
+  ruleIds: string[];
+}
+
+/** Identifies overlapping enabled rules before execution. */
+export function findRuleConflicts(rules: ClusterRule[], senders: SenderSummary[]): RuleConflict[] {
+  const owners = new Map<string, string[]>();
+  for (const rule of orderedRules(rules).filter((item) => item.enabled)) {
+    for (const [provider, ids] of matchRule(rule, senders)) {
+      for (const id of ids) {
+        const key = `${provider}:${id}`;
+        const ruleIds = owners.get(key) ?? [];
+        ruleIds.push(rule.id);
+        owners.set(key, ruleIds);
+      }
+    }
+  }
+  return [...owners.entries()]
+    .filter(([, ruleIds]) => ruleIds.length > 1)
+    .map(([key, ruleIds]) => {
+      const split = key.indexOf(":");
+      return {
+        provider: key.slice(0, split) as ProviderId,
+        messageId: key.slice(split + 1),
+        ruleIds,
+      };
+    });
 }
 
 const ACTION_PHRASE: Record<RuleAction, string> = {
@@ -113,7 +206,11 @@ export function describeRule(rule: ClusterRule): string {
   if (c.unread === true) parts.push("still unread");
   if (c.unread === false) parts.push("already read");
   if (c.olderThanDays !== undefined) parts.push(`older than ${c.olderThanDays} days`);
-  const action =
-    rule.action === "label" ? `${ACTION_PHRASE.label} "${rule.labelName ?? "?"}"` : ACTION_PHRASE[rule.action];
-  return `${parts.join(" ")} ${action}`;
+  if (rule.exceptions && ruleHasConditions(rule.exceptions)) parts.push("with exceptions");
+  const actions = ruleActions(rule).map((spec) =>
+    spec.action === "label"
+      ? `${ACTION_PHRASE.label} "${spec.labelName ?? "?"}"`
+      : ACTION_PHRASE[spec.action],
+  );
+  return `${parts.join(" ")} ${actions.join(", then ")}`;
 }

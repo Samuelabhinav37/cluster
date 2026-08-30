@@ -44,6 +44,9 @@ export interface ClusterSettings {
   knownSenders: Record<string, number>;
   /** False until the first recent-Inbox baseline has been stored. */
   knownSendersInitialized: boolean;
+  /** Opaque Gmail history / Outlook delta checkpoints. */
+  incrementalSyncCursors: Partial<Record<ProviderId, string>>;
+  lastIncrementalSyncAt: number;
   /** Opt-in: the background triage labels high-risk senders as suspicious and
    * files them out of the inbox (Gmail-only, reversible, never deletes). */
   autoQuarantineHighRisk: boolean;
@@ -63,7 +66,7 @@ export interface ClusterSettings {
 }
 
 const STORAGE_KEY = "clusterSettings";
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 1;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 2;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -86,6 +89,8 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   activeTab: "cleanup",
   knownSenders: {},
   knownSendersInitialized: false,
+  incrementalSyncCursors: {},
+  lastIncrementalSyncAt: 0,
   autoQuarantineHighRisk: false,
   autoSort: { enabledBuckets: [], fileOutByBucket: {}, keepSorting: false, expireOtp: false },
 };
@@ -106,6 +111,14 @@ function migrateSettings(value: unknown): Record<string, unknown> {
     if (version === 0) {
       stored = { ...stored, schemaVersion: 1 };
       version = 1;
+    } else if (version === 1) {
+      stored = {
+        ...stored,
+        schemaVersion: 2,
+        incrementalSyncCursors: {},
+        lastIncrementalSyncAt: 0,
+      };
+      version = 2;
     }
   }
   return stored;

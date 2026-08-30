@@ -14,6 +14,8 @@ import { getSettings, mutateSettings, updateSettings } from "./lib/settingsStore
 import { excludeSnoozedMessages } from "./lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
 import { flushAthenaSecurityEvents, queueAthenaSecurityEvents } from "./lib/athenaIntegration";
+import { buildIncrementalSenderSummaries } from "./lib/incrementalSync";
+import { resumeInterruptedJobs } from "./lib/durableJobs";
 
 chrome.action.onClicked.addListener(async () => {
   const url = chrome.runtime.getURL("src/dashboard/index.html");
@@ -31,16 +33,23 @@ chrome.action.onClicked.addListener(async () => {
 // from the dashboard's "Ready to clean up" section, behind one confirm.
 const TRIAGE_ALARM = "cluster-triage";
 const ATHENA_ALARM = "cluster-athena-flush";
+const JOBS_ALARM = "cluster-jobs";
 const SECURITY_SCAN_WINDOW_DAYS = 30;
+const providerById = new Map<ProviderId, EmailProvider>([
+  [gmailProvider.id, gmailProvider],
+  [outlookProvider.id, outlookProvider],
+]);
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 1, periodInMinutes: 360 });
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
+  chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
 });
 
 chrome.runtime.onStartup.addListener(() => {
   chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 1, periodInMinutes: 360 });
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
+  chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -49,6 +58,9 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     runBackgroundTriage();
   }
   if (alarm.name === ATHENA_ALARM) void flushAthenaSecurityEvents();
+  if (alarm.name === JOBS_ALARM) {
+    void resumeInterruptedJobs(providerById).catch((err) => log.error("Resuming durable jobs failed", err));
+  }
 });
 
 // Reports every sender threatSignals flagged (see senderModel.ts /
@@ -152,7 +164,9 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
     return ids.length;
   } catch (err) {
     log.error("Auto-quarantine failed", err);
-    return 0;
+    // Do not advance the incremental security cursor. The next alarm replays
+    // these messages and retries the opt-in protective action.
+    throw err;
   }
 }
 
@@ -171,13 +185,14 @@ async function runBackgroundTriage() {
       undefined,
       "cleanup",
     );
-    const securitySenders = await buildSenderSummaries(
+    const securitySync = await buildIncrementalSenderSummaries(
       connected,
+      settings.incrementalSyncCursors,
       settings.maxMessagesPerProvider,
       Math.min(settings.scanWindowDays, SECURITY_SCAN_WINDOW_DAYS),
-      undefined,
       "security",
     );
+    const securitySenders = securitySync.senders;
     const activeSnoozedIds = new Set(
       Object.entries(settings.snoozedMessages)
         .filter(([, v]) => v.resurfaceAt > Date.now())
@@ -201,14 +216,18 @@ async function runBackgroundTriage() {
 
     await reportThreatSignals(securitySenders);
     const quarantined = await runQuarantine(settings, securitySenders);
+    await mutateSettings((current) => ({
+      ...current,
+      incrementalSyncCursors: {
+        ...current.incrementalSyncCursors,
+        ...securitySync.cursors,
+      },
+      lastIncrementalSyncAt: Date.now(),
+    }));
 
     // Standing user rules (Auto Clean). Operates on the in-memory scan, so the
     // expiry badge below can momentarily still count a message a trash-rule
     // just removed — it self-corrects on the next 6-hourly sweep.
-    const providerById = new Map<ProviderId, EmailProvider>([
-      [gmailProvider.id, gmailProvider],
-      [outlookProvider.id, outlookProvider],
-    ]);
     const ruleResults = await applyRules(settings.rules, senders, providerById);
     const ruleMoved = ruleResults.reduce(
       (sum, r) => sum + [...r.movedByProvider.values()].reduce((a, b) => a + b, 0),
@@ -221,6 +240,8 @@ async function runBackgroundTriage() {
     await updateSettings({
       lastTriageSummary:
         `${new Date().toLocaleString()} — ${ruleMoved} actioned by rules, ${total} ready to clean up` +
+        `, ${securitySync.changedMessageCount} security change${securitySync.changedMessageCount === 1 ? "" : "s"} checked` +
+        `${securitySync.resetProviders.length > 0 ? ` (${securitySync.resetProviders.join(", ")} baseline refreshed)` : ""}` +
         `${held > 0 ? `, ${held} held by Screener` : ""}` +
         `${quarantined > 0 ? `, ${quarantined} auto-quarantined` : ""}`,
     });

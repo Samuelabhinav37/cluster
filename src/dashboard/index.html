@@ -256,15 +256,32 @@
       <section class="tab-panel" data-tab="rules" role="tabpanel" hidden>
         <h2>Rules</h2>
         <p class="hint">
-          Standing clean-up rules — conditions on a message (sender, age, kind, unread, has-unsubscribe) plus
-          one action. Applied when you click "Apply" below and on every background sweep. Starred/flagged mail
-          is always skipped; rules never permanently delete.
+          Standing clean-up rules with priorities, exceptions, and optional stop-processing. Applied when you
+          click "Apply" below and on every background sweep. Starred/flagged mail is always skipped; rules
+          never permanently delete. Cluster previews overlapping rules before it acts.
         </p>
         <div id="rules-list"></div>
+        <div class="bulk-bar">
+          <input
+            type="text"
+            id="rule-natural-language"
+            placeholder="Describe a rule, e.g. Archive unread newsletters older than 14 days"
+          />
+          <button type="button" id="rule-draft-btn">Draft rule locally</button>
+          <button type="button" id="rule-save-draft-btn" disabled>Save reviewed draft</button>
+          <span id="rule-draft-status" class="hint"></span>
+        </div>
+        <p class="hint">
+          The on-device model receives only the instruction above—not email content—and can only draft
+          constrained rule JSON. Cluster validates and previews it; nothing runs until you save and apply it.
+          A deterministic parser is used when the model is unavailable.
+        </p>
         <form id="rule-form" class="bulk-bar">
           <input type="text" id="rule-name" placeholder="Rule name" />
           <input type="text" id="rule-from-domain" placeholder="from domain, e.g. news.example.com" />
           <input type="text" id="rule-from-address" placeholder="from address (exact)" />
+          <input type="text" id="rule-except-domain" placeholder="except domain" />
+          <input type="text" id="rule-except-address" placeholder="except address" />
           <label>
             older than
             <input type="number" id="rule-older-days" min="1" max="3650" />
@@ -296,6 +313,11 @@
             <option value="label">label</option>
           </select>
           <input type="text" id="rule-label" placeholder="Cluster/Label" hidden />
+          <label>
+            priority
+            <input type="number" id="rule-priority" min="-100" max="100" value="0" />
+          </label>
+          <label><input type="checkbox" id="rule-stop-processing" /> stop later rules</label>
           <button type="submit" id="rule-add-btn">Add rule</button>
           <span id="rule-form-error" class="hint"></span>
         </form>

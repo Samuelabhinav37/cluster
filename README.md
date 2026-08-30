@@ -134,6 +134,18 @@ Also new: a **"new since Cluster started tracking"** badge, from a local
 provider-and-address ledger. The first scan seeds the baseline without claiming
 that every existing correspondent is new.
 
+Background security checks now use Gmail history checkpoints and Outlook delta
+links instead of repeatedly rebuilding the same recent-Inbox scan. Checkpoints
+advance only after changed messages have been processed. Mailbox mutations can
+run as durable, resumable local jobs with per-message success/failure receipts,
+and interrupted jobs resume while Chrome is active.
+
+Rules support priorities, exceptions, ordered actions, stop-processing, and
+overlap previews. The Rules tab can also draft a rule from natural language
+using Chrome's on-device Prompt API. Only the typed instruction reaches the
+model—never mailbox content—and constrained JSON is validated and previewed
+before the user saves it. A deterministic parser remains available without AI.
+
 Flagged senders surface in a clearly separate "Possible impersonation" dashboard section — never
 blended into the regular cleanup view — and get reported as minimized `warned` events to Athena
 (when connected; otherwise nothing happens beyond the dashboard section) via the background

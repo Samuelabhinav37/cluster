@@ -61,6 +61,7 @@ describe("settingsStore", () => {
     expect(settings.autoSort.enabledBuckets).toEqual(["shopping"]);
     expect(settings.autoSort.fileOutByBucket).toEqual({});
     expect(settings.autoSort.keepSorting).toBe(false);
+    expect(settings.incrementalSyncCursors).toEqual({});
   });
 
   it("serializes concurrent partial updates so unrelated changes are preserved", async () => {

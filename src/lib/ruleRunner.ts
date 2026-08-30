@@ -1,7 +1,14 @@
 import { log } from "./log";
 import { appendActionLog, makeLogId, type ActionLogEntry } from "./actionLog";
 import type { EmailProvider, ProviderId } from "./providers/emailProvider";
-import { describeRule, matchRule, type ClusterRule } from "./rules";
+import {
+  describeRule,
+  matchRule,
+  orderedRules,
+  ruleActions,
+  type ClusterRule,
+  type RuleActionSpec,
+} from "./rules";
 import type { SenderSummary } from "./senderModel";
 
 export interface RuleRunResult {
@@ -11,6 +18,8 @@ export interface RuleRunResult {
   /** Gmail ids this run trashed or archived — the reversible portion. */
   undoableGmailIds: string[];
   undoVia?: "untrash" | "unarchive";
+  /** Providers where at least one ordered action succeeded but a later action failed. */
+  partialProviders: ProviderId[];
 }
 
 // Returns true if the action ran, false if this provider can't do it (Outlook
@@ -18,10 +27,10 @@ export interface RuleRunResult {
 async function runAction(
   provider: EmailProvider,
   token: string,
-  rule: ClusterRule,
+  action: RuleActionSpec,
   ids: string[],
 ): Promise<boolean> {
-  switch (rule.action) {
+  switch (action.action) {
     case "trash":
       await provider.trashMessages(token, ids);
       return true;
@@ -34,8 +43,8 @@ async function runAction(
       await provider.markReadMessages(token, ids);
       return true;
     case "label":
-      if (!provider.labelMessages || !rule.labelName) return false;
-      await provider.labelMessages(token, ids, rule.labelName, rule.labelKeepInInbox);
+      if (!provider.labelMessages || !action.labelName) return false;
+      await provider.labelMessages(token, ids, action.labelName, action.labelKeepInInbox);
       return true;
   }
 }
@@ -53,45 +62,81 @@ export async function applyRules(
 ): Promise<RuleRunResult[]> {
   const results: RuleRunResult[] = [];
   const logEntries: ActionLogEntry[] = [];
+  const stoppedMessages = new Set<string>();
 
-  for (const rule of rules) {
+  for (const rule of orderedRules(rules)) {
     if (!rule.enabled) continue;
-    const matched = matchRule(rule, senders);
+    const matched = new Map(
+      [...matchRule(rule, senders)].map(([provider, ids]) => [
+        provider,
+        ids.filter((id) => !stoppedMessages.has(`${provider}:${id}`)),
+      ]),
+    );
     const moved = new Map<ProviderId, number>();
     let undoableGmailIds: string[] = [];
+    const actions = ruleActions(rule);
+    const partialProviders: ProviderId[] = [];
 
     for (const [providerId, ids] of matched) {
       if (ids.length === 0) continue;
       const provider = providerById.get(providerId);
       if (!provider) continue;
+      const token = await provider.getAuthToken(false).catch((err) => {
+        log.error(`Rule "${rule.name}" failed to authenticate for ${providerId}`, err);
+        return undefined;
+      });
+      if (!token) continue;
+      let completedActions = 0;
       try {
-        const token = await provider.getAuthToken(false);
-        if (await runAction(provider, token, rule, ids)) {
-          moved.set(providerId, ids.length);
-          if (providerId === "gmail" && (rule.action === "trash" || rule.action === "archive")) {
-            undoableGmailIds = ids;
+        for (const action of actions) {
+          if (!(await runAction(provider, token, action, ids))) {
+            break;
           }
+          completedActions += 1;
         }
       } catch (err) {
         log.error(`Rule "${rule.name}" failed for ${providerId}`, err);
       }
+      if (completedActions > 0) {
+        moved.set(providerId, ids.length);
+        if (completedActions < actions.length) partialProviders.push(providerId);
+        if (completedActions === actions.length) {
+          if (
+            actions.length === 1 &&
+            providerId === "gmail" &&
+            (actions[0].action === "trash" || actions[0].action === "archive")
+          ) {
+            undoableGmailIds = ids;
+          }
+          if (rule.stopProcessing) {
+            for (const id of ids) stoppedMessages.add(`${providerId}:${id}`);
+          }
+        }
+      }
     }
 
-    const undoVia = rule.action === "trash" ? "untrash" : rule.action === "archive" ? "unarchive" : undefined;
+    const undoVia =
+      actions.length === 1 && actions[0].action === "trash"
+        ? "untrash"
+        : actions.length === 1 && actions[0].action === "archive"
+          ? "unarchive"
+          : undefined;
     const total = [...moved.values()].reduce((a, b) => a + b, 0);
     if (total > 0) {
       logEntries.push({
         id: makeLogId("rule"),
         at: Date.now(),
         kind: "rule",
-        summary: `Rule "${rule.name}": ${describeRule(rule)} — ${total} message${total === 1 ? "" : "s"}`,
+        summary:
+          `Rule "${rule.name}": ${describeRule(rule)} — ${total} message${total === 1 ? "" : "s"}` +
+          (partialProviders.length > 0 ? `; partial action sequence for ${partialProviders.join(", ")}` : ""),
         undo:
           undoableGmailIds.length > 0 && undoVia
             ? { provider: "gmail", ids: undoableGmailIds, via: undoVia }
             : undefined,
       });
     }
-    results.push({ rule, movedByProvider: moved, undoableGmailIds, undoVia });
+    results.push({ rule, movedByProvider: moved, undoableGmailIds, undoVia, partialProviders });
   }
 
   await appendActionLog(logEntries);

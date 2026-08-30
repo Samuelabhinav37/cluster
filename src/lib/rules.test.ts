@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { describeRule, matchRule, ruleHasConditions, type ClusterRule } from "./rules";
+import {
+  describeRule,
+  findRuleConflicts,
+  matchRule,
+  orderedRules,
+  ruleHasConditions,
+  type ClusterRule,
+} from "./rules";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import type { ProviderId } from "./providers/emailProvider";
 
@@ -16,7 +23,9 @@ function msg(over: Partial<MessageRecord> & { id: string }): MessageRecord {
   };
 }
 
-function sender(over: Partial<SenderSummary> & { address: string; messages: MessageRecord[] }): SenderSummary {
+function sender(
+  over: Partial<SenderSummary> & { address: string; messages: MessageRecord[] },
+): SenderSummary {
   const provider: ProviderId = over.provider ?? "gmail";
   return {
     key: `${provider}:${over.address}`,
@@ -89,10 +98,9 @@ describe("matchRule", () => {
         msg({ id: "old-otp-unread", kind: "otp", unread: true, receivedAt: now - 40 * DAY_MS }),
       ],
     });
-    const matched = matchRule(
-      rule({ conditions: { kind: "newsletter", unread: true, olderThanDays: 30 } }),
-      [s],
-    );
+    const matched = matchRule(rule({ conditions: { kind: "newsletter", unread: true, olderThanDays: 30 } }), [
+      s,
+    ]);
     expect(matched.get("gmail")).toEqual(["old-news-unread"]);
   });
 
@@ -114,6 +122,39 @@ describe("matchRule", () => {
     const matched = matchRule(rule({ conditions: { fromDomainCategory: "shopping" } }), [shop, bank, other]);
     expect(matched.get("gmail")).toEqual(["1"]);
   });
+
+  it("excludes messages matching an exception", () => {
+    const s = sender({
+      address: "news@shop.com",
+      messages: [msg({ id: "receipt", kind: "receipt" }), msg({ id: "newsletter", kind: "newsletter" })],
+    });
+    const matched = matchRule(
+      rule({ conditions: { fromDomain: "shop.com" }, exceptions: { kind: "receipt" } }),
+      [s],
+    );
+    expect(matched.get("gmail")).toEqual(["newsletter"]);
+  });
+});
+
+describe("Rules v2 ordering and conflicts", () => {
+  it("orders higher priorities first while preserving insertion order for ties", () => {
+    const low = rule({ id: "low", priority: 1 });
+    const high = rule({ id: "high", priority: 10 });
+    const tied = rule({ id: "tied", priority: 1 });
+    expect(orderedRules([low, high, tied]).map((item) => item.id)).toEqual(["high", "low", "tied"]);
+  });
+
+  it("reports messages claimed by more than one enabled rule", () => {
+    const s = sender({ address: "a@x.com", messages: [msg({ id: "1" })] });
+    const conflicts = findRuleConflicts(
+      [
+        rule({ id: "one", conditions: { fromDomain: "x.com" } }),
+        rule({ id: "two", conditions: { fromAddress: "a@x.com" } }),
+      ],
+      [s],
+    );
+    expect(conflicts).toEqual([{ provider: "gmail", messageId: "1", ruleIds: ["one", "two"] }]);
+  });
 });
 
 describe("describeRule", () => {
@@ -129,7 +170,24 @@ describe("describeRule", () => {
   });
   it("describes a domain-category condition", () => {
     expect(
-      describeRule(rule({ conditions: { fromDomainCategory: "shopping" }, action: "label", labelName: "Cluster/Shopping" })),
+      describeRule(
+        rule({
+          conditions: { fromDomainCategory: "shopping" },
+          action: "label",
+          labelName: "Cluster/Shopping",
+        }),
+      ),
     ).toBe('messages from Shopping senders → label "Cluster/Shopping"');
+  });
+  it("describes ordered actions and exceptions", () => {
+    expect(
+      describeRule(
+        rule({
+          conditions: { fromDomain: "x.com" },
+          exceptions: { kind: "receipt" },
+          actions: [{ action: "label", labelName: "Cluster/News" }, { action: "archive" }],
+        }),
+      ),
+    ).toBe('messages from @x.com with exceptions → label "Cluster/News", then → archive');
   });
 });

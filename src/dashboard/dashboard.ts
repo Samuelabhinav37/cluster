@@ -35,6 +35,7 @@ import { isBlockedDomain } from "../lib/blocklist";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import {
   describeRule,
+  findRuleConflicts,
   ruleHasConditions,
   type ClusterRule,
   type RuleAction,
@@ -74,6 +75,8 @@ import {
 } from "../lib/actionLog";
 import type { MessageKind } from "../lib/messageKind";
 import { buildSenderCleanupPlan } from "../lib/protectionPolicy";
+import { createDurableJob, runDurableJob } from "../lib/durableJobs";
+import { draftRuleFromNaturalLanguage } from "../lib/aiRuleDraft";
 
 const providerById = new Map<ProviderId, EmailProvider>([
   [gmailProvider.id, gmailProvider],
@@ -147,15 +150,24 @@ const ruleForm = document.getElementById("rule-form") as HTMLFormElement;
 const ruleNameInput = document.getElementById("rule-name") as HTMLInputElement;
 const ruleFromDomainInput = document.getElementById("rule-from-domain") as HTMLInputElement;
 const ruleFromAddressInput = document.getElementById("rule-from-address") as HTMLInputElement;
+const ruleExceptDomainInput = document.getElementById("rule-except-domain") as HTMLInputElement;
+const ruleExceptAddressInput = document.getElementById("rule-except-address") as HTMLInputElement;
 const ruleOlderDaysInput = document.getElementById("rule-older-days") as HTMLInputElement;
 const ruleKindSel = document.getElementById("rule-kind") as HTMLSelectElement;
 const ruleUnsubSel = document.getElementById("rule-unsub") as HTMLSelectElement;
 const ruleUnreadSel = document.getElementById("rule-unread") as HTMLSelectElement;
 const ruleActionSel = document.getElementById("rule-action") as HTMLSelectElement;
 const ruleLabelInput = document.getElementById("rule-label") as HTMLInputElement;
+const rulePriorityInput = document.getElementById("rule-priority") as HTMLInputElement;
+const ruleStopProcessingInput = document.getElementById("rule-stop-processing") as HTMLInputElement;
 const ruleFormError = document.getElementById("rule-form-error") as HTMLSpanElement;
 const ruleApplySlot = document.getElementById("rule-apply-slot") as HTMLDivElement;
 const ruleApplyBtn = document.getElementById("rule-apply-btn") as HTMLButtonElement;
+const ruleNaturalLanguageInput = document.getElementById("rule-natural-language") as HTMLInputElement;
+const ruleDraftBtn = document.getElementById("rule-draft-btn") as HTMLButtonElement;
+const ruleSaveDraftBtn = document.getElementById("rule-save-draft-btn") as HTMLButtonElement;
+const ruleDraftStatus = document.getElementById("rule-draft-status") as HTMLSpanElement;
+let pendingRuleDraft: ClusterRule | undefined;
 
 const recentListEl = document.getElementById("recent-list") as HTMLDivElement;
 
@@ -1271,7 +1283,8 @@ function renderRulesTab() {
 
     const desc = document.createElement("span");
     desc.className = "hint";
-    desc.textContent = describeRule(rule);
+    const policy = `${rule.priority ?? 0}${rule.stopProcessing ? ", stops later rules" : ""}`;
+    desc.textContent = `[priority ${policy}] ${describeRule(rule)}`;
 
     const del = document.createElement("button");
     del.textContent = "Delete";
@@ -1296,6 +1309,17 @@ function collectRuleConditions(): RuleConditions {
   if (ruleUnsubSel.value) c.hasUnsubscribe = ruleUnsubSel.value === "yes";
   if (ruleUnreadSel.value) c.unread = ruleUnreadSel.value === "yes";
   return c;
+}
+
+function collectRuleExceptions(): RuleConditions | undefined {
+  const exceptions: RuleConditions = {};
+  if (ruleExceptDomainInput.value.trim()) {
+    exceptions.fromDomain = ruleExceptDomainInput.value.trim().toLowerCase();
+  }
+  if (ruleExceptAddressInput.value.trim()) {
+    exceptions.fromAddress = ruleExceptAddressInput.value.trim().toLowerCase();
+  }
+  return ruleHasConditions(exceptions) ? exceptions : undefined;
 }
 
 function resetRuleApplySlot() {
@@ -1327,12 +1351,51 @@ function wireRulesTab() {
       name: ruleNameInput.value.trim() || "Untitled rule",
       enabled: true,
       conditions,
+      exceptions: collectRuleExceptions(),
+      priority: Math.max(-100, Math.min(100, Number(rulePriorityInput.value) || 0)),
+      stopProcessing: ruleStopProcessingInput.checked,
       action,
       labelName,
     };
     cachedSettings = await updateSettings({ rules: [...cachedSettings.rules, rule] });
     ruleForm.reset();
+    rulePriorityInput.value = "0";
     ruleLabelInput.hidden = true;
+    renderRulesTab();
+  };
+
+  ruleDraftBtn.onclick = async () => {
+    ruleDraftBtn.disabled = true;
+    ruleSaveDraftBtn.disabled = true;
+    ruleDraftStatus.textContent = "Drafting locally…";
+    pendingRuleDraft = undefined;
+    try {
+      const draft = await draftRuleFromNaturalLanguage(ruleNaturalLanguageInput.value);
+      pendingRuleDraft = draft.rule;
+      const reviewRule = { ...draft.rule, enabled: true };
+      const matches = previewRuleMatches([reviewRule], currentSenders);
+      const conflicts = findRuleConflicts([...cachedSettings.rules, reviewRule], currentSenders).filter(
+        (conflict) => conflict.ruleIds.includes(reviewRule.id),
+      ).length;
+      ruleDraftStatus.textContent = `${draft.source === "on-device-ai" ? "On-device AI" : "Deterministic fallback"}: ${describeRule(reviewRule)}. Current preview: ${matches} match${matches === 1 ? "" : "es"}${conflicts > 0 ? `, ${conflicts} overlap${conflicts === 1 ? "" : "s"}` : ""}.`;
+      ruleSaveDraftBtn.disabled = false;
+    } catch (error) {
+      ruleDraftStatus.textContent = error instanceof Error ? error.message : "Could not draft that rule";
+    } finally {
+      ruleDraftBtn.disabled = false;
+    }
+  };
+
+  ruleSaveDraftBtn.onclick = async () => {
+    if (!pendingRuleDraft) return;
+    cachedSettings = await updateSettings({
+      rules: [...cachedSettings.rules, { ...pendingRuleDraft, enabled: true }],
+    });
+    pendingRuleDraft = undefined;
+    ruleSaveDraftBtn.disabled = true;
+    ruleNaturalLanguageInput.value = "";
+    ruleDraftStatus.textContent =
+      "Reviewed draft saved and enabled. It can run when you apply rules or during the background sweep.";
     renderRulesTab();
   };
 
@@ -1343,10 +1406,11 @@ function wireRulesTab() {
       return;
     }
     const count = previewRuleMatches(cachedSettings.rules, currentSenders);
+    const conflicts = findRuleConflicts(cachedSettings.rules, currentSenders).length;
     renderConfirmStep(
       ruleApplySlot,
       resetRuleApplySlot,
-      `Apply ${enabled.length} rule${enabled.length === 1 ? "" : "s"} to ${count} message${count === 1 ? "" : "s"}?`,
+      `Apply ${enabled.length} rule${enabled.length === 1 ? "" : "s"} across ${count} matches?${conflicts > 0 ? ` ${conflicts} message${conflicts === 1 ? " matches" : "s match"} multiple rules; priority and stop-processing decide the order.` : ""}`,
       false,
       async () => {
         const results = await applyRules(cachedSettings.rules, currentSenders, providerById);
@@ -1527,17 +1591,25 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
             if (!ok) return "Unsubscribe failed — no mail was moved";
             const provider = providerById.get(sender.provider);
             if (!provider) return "Provider unavailable — no mail was moved";
-            const token = await provider.getAuthToken(false);
-            await provider.trashMessages(token, cleanup.trashIds);
+            const job = await createDurableJob({
+              provider: sender.provider,
+              operation: "trash",
+              targetIds: cleanup.trashIds,
+            });
+            const result = await runDurableJob(job.id, providerById);
             await recordUnsubscribeRequests([sender]);
-            await logAction(
-              "trash",
-              `Unsubscribed from ${sender.address} and moved ${cleanup.trashIds.length} newsletter message${cleanup.trashIds.length === 1 ? "" : "s"} to Trash`,
-              provider.untrashMessages
-                ? { provider: sender.provider, ids: cleanup.trashIds, via: "untrash" }
-                : undefined,
-            );
-            return `Unsubscribed and moved ${cleanup.trashIds.length} to Trash; kept ${kept}`;
+            if (result.succeededIds.length > 0) {
+              await logAction(
+                "trash",
+                `Unsubscribed from ${sender.address} and moved ${result.succeededIds.length} newsletter message${result.succeededIds.length === 1 ? "" : "s"} to Trash`,
+                provider.untrashMessages
+                  ? { provider: sender.provider, ids: result.succeededIds, via: "untrash" }
+                  : undefined,
+              );
+            }
+            return result.failures.length > 0
+              ? `Unsubscribed; moved ${result.succeededIds.length}, failed ${result.failures.length}, kept ${kept}`
+              : `Unsubscribed and moved ${result.succeededIds.length} to Trash; kept ${kept}`;
           },
         );
       };

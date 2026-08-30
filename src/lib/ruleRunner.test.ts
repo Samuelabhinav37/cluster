@@ -12,7 +12,14 @@ vi.mock("./actionLog", async (orig) => ({
 import { applyRules, previewRuleMatches } from "./ruleRunner";
 
 function msg(over: Partial<MessageRecord> & { id: string }): MessageRecord {
-  return { receivedAt: Date.now(), kind: "newsletter", isProtected: false, unread: false, sizeBytes: 0, ...over };
+  return {
+    receivedAt: Date.now(),
+    kind: "newsletter",
+    isProtected: false,
+    unread: false,
+    sizeBytes: 0,
+    ...over,
+  };
 }
 
 function sender(address: string, provider: ProviderId, messages: MessageRecord[]): SenderSummary {
@@ -128,6 +135,70 @@ describe("applyRules", () => {
     appendActionLog.mockClear();
     await applyRules([{ ...archiveRule, action: "markRead" }], [s], new Map([["gmail", gmail]]));
     expect(appendActionLog.mock.calls.at(-1)![0][0].undo).toBeUndefined();
+  });
+
+  it("runs higher-priority rules first and honors stopProcessing", async () => {
+    const archiveMessages = vi.fn(async () => {});
+    const trashMessages = vi.fn(async () => {});
+    const gmail = fakeProvider("gmail", { archiveMessages, trashMessages });
+    const s = sender("a@news.com", "gmail", [msg({ id: "1" })]);
+    await applyRules(
+      [
+        { ...archiveRule, id: "low", priority: 0, action: "trash" },
+        { ...archiveRule, id: "high", priority: 10, stopProcessing: true, action: "archive" },
+      ],
+      [s],
+      new Map([["gmail", gmail]]),
+    );
+    expect(archiveMessages).toHaveBeenCalledWith("gmail-token", ["1"]);
+    expect(trashMessages).not.toHaveBeenCalled();
+  });
+
+  it("runs multiple actions in their declared order", async () => {
+    const calls: string[] = [];
+    const gmail = fakeProvider("gmail", {
+      labelMessages: vi.fn(async () => {
+        calls.push("label");
+      }),
+      archiveMessages: vi.fn(async () => {
+        calls.push("archive");
+      }),
+    });
+    const s = sender("a@news.com", "gmail", [msg({ id: "1" })]);
+    await applyRules(
+      [
+        {
+          ...archiveRule,
+          actions: [{ action: "label", labelName: "Cluster/News" }, { action: "archive" }],
+        },
+      ],
+      [s],
+      new Map([["gmail", gmail]]),
+    );
+    expect(calls).toEqual(["label", "archive"]);
+  });
+
+  it("reports a partially completed action sequence instead of hiding it", async () => {
+    const gmail = fakeProvider("gmail", {
+      labelMessages: vi.fn(async () => {}),
+      archiveMessages: vi.fn(async () => {
+        throw new Error("archive failed");
+      }),
+    });
+    const s = sender("a@news.com", "gmail", [msg({ id: "1" })]);
+    const [result] = await applyRules(
+      [
+        {
+          ...archiveRule,
+          actions: [{ action: "label", labelName: "Cluster/News" }, { action: "archive" }],
+        },
+      ],
+      [s],
+      new Map([["gmail", gmail]]),
+    );
+    expect(result.movedByProvider.get("gmail")).toBe(1);
+    expect(result.partialProviders).toEqual(["gmail"]);
+    expect(appendActionLog.mock.calls.at(-1)![0][0].summary).toContain("partial action sequence");
   });
 });
 

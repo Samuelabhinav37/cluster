@@ -72,3 +72,28 @@ describe("Outlook JSON batching", () => {
     expect(patchBody.requests[0].headers.Prefer).toBe('IdType="ImmutableId"');
   });
 });
+
+describe("Outlook delta synchronization", () => {
+  it("follows delta pages, skips removed messages, and returns the opaque checkpoint", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        json({
+          value: [{ id: "a" }, { id: "gone", "@removed": { reason: "deleted" } }],
+          "@odata.nextLink": "https://graph.microsoft.com/v1.0/next-page",
+        }),
+      )
+      .mockResolvedValueOnce(
+        json({
+          value: [{ id: "b" }],
+          "@odata.deltaLink": "https://graph.microsoft.com/v1.0/delta-checkpoint",
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await outlookProvider.listIncrementalMessages!("token", undefined, 500, 30, "security");
+    expect(result.messages.map((message) => message.id)).toEqual(["a", "b"]);
+    expect(result.cursor).toContain("delta-checkpoint");
+    expect(result.reset).toBe(true);
+  });
+});

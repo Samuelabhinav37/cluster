@@ -77,6 +77,46 @@ async function listCandidateMessages(token: string, maxResults: number, windowDa
   return ids.slice(0, maxResults).map((id) => ({ id, provider: "outlook" as const }));
 }
 
+async function listIncrementalMessages(
+  token: string,
+  cursor: string | undefined,
+  maxResults: number,
+  windowDays: number,
+) {
+  const messages = new Map<string, { id: string; provider: "outlook" }>();
+  const initial = !cursor;
+  const filter = encodeURIComponent(`receivedDateTime ge ${isoDaysAgo(windowDays)}`);
+  let url =
+    cursor ??
+    `/me/mailFolders/inbox/messages/delta?$select=id&$filter=${filter}&$top=${Math.min(100, maxResults)}`;
+  let deltaLink = "";
+
+  try {
+    while (url) {
+      const data = await graphFetch<{
+        value?: Array<{ id?: string; "@removed"?: unknown }>;
+        "@odata.nextLink"?: string;
+        "@odata.deltaLink"?: string;
+      }>(url, token);
+      for (const message of data.value ?? []) {
+        if (message.id && !message["@removed"]) {
+          messages.set(message.id, { id: message.id, provider: "outlook" });
+        }
+      }
+      if (data["@odata.deltaLink"]) deltaLink = data["@odata.deltaLink"];
+      url = data["@odata.nextLink"] ?? "";
+    }
+  } catch (error) {
+    if (cursor && error instanceof GraphApiError && error.status === 410) {
+      return listIncrementalMessages(token, undefined, maxResults, windowDays);
+    }
+    throw error;
+  }
+
+  if (!deltaLink) throw new Error("Outlook delta response did not include a deltaLink");
+  return { messages: [...messages.values()], cursor: deltaLink, reset: initial };
+}
+
 async function getMessageMetadata(token: string, id: string): Promise<NormalizedMessageMetadata> {
   const data = await graphFetch<GraphMessage>(
     `/me/messages/${id}?$select=sender,subject,flag,internetMessageHeaders,receivedDateTime,isRead,size`,
@@ -305,6 +345,7 @@ export const outlookProvider: EmailProvider = {
   isConnected: isOutlookConnected,
   getAuthToken: getOutlookToken,
   listCandidateMessages,
+  listIncrementalMessages,
   getMessageMetadata,
   trashMessages,
   untrashMessages,

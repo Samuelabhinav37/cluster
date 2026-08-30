@@ -6,11 +6,13 @@ import {
   getAuthToken as gmailGetAuthToken,
   getMessageLinks as fetchGmailMessageLinks,
   getMessageMetadata as fetchGmailMessageMetadata,
+  getCurrentHistoryId,
   getOrCreateLabel,
   labelMessages as apiLabelMessages,
   unlabelMessages as apiUnlabelMessages,
   allowSenderThrough as apiAllowSenderThrough,
   listMessageIds,
+  listInboxMessageIdsSince,
   listSentCorrespondents as apiListSentCorrespondents,
   markReadMessages as apiMarkReadMessages,
   muteSender as apiMuteSender,
@@ -67,6 +69,35 @@ export const gmailProvider: EmailProvider = {
     const query = gmailQueryForPurpose(purpose, windowDays);
     const stubs = await listMessageIds(token, query, maxResults);
     return stubs.map((s) => ({ id: s.id, provider: "gmail" as const }));
+  },
+
+  async listIncrementalMessages(token, cursor, maxResults, windowDays, purpose) {
+    // Cleanup/rule scans still need the full purpose-specific population;
+    // incremental history is currently used for the recent-Inbox security lane.
+    if (purpose !== "security") {
+      const messages = await this.listCandidateMessages(token, maxResults, windowDays, purpose);
+      return { messages, cursor: cursor ?? "", reset: false };
+    }
+
+    if (!cursor) {
+      // Capture the checkpoint before the baseline so mail arriving during the
+      // scan is replayed next time (duplicates are safe; missed mail is not).
+      const historyId = await getCurrentHistoryId(token);
+      const messages = await this.listCandidateMessages(token, maxResults, windowDays, "security");
+      return { messages, cursor: historyId, reset: true };
+    }
+
+    const changes = await listInboxMessageIdsSince(token, cursor);
+    if (changes.expired) {
+      const historyId = await getCurrentHistoryId(token);
+      const messages = await this.listCandidateMessages(token, maxResults, windowDays, "security");
+      return { messages, cursor: historyId, reset: true };
+    }
+    return {
+      messages: changes.messageIds.map((id) => ({ id, provider: "gmail" as const })),
+      cursor: changes.historyId,
+      reset: false,
+    };
   },
 
   async getMessageMetadata(token, id): Promise<NormalizedMessageMetadata> {
