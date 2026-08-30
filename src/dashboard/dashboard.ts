@@ -83,6 +83,7 @@ import type { MessageKind } from "../lib/messageKind";
 import { buildSenderCleanupPlan } from "../lib/protectionPolicy";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import { draftRuleFromNaturalLanguage } from "../lib/aiRuleDraft";
+import { buildRuleDryRunReport, describeActionSupport } from "../lib/ruleDryRun";
 import {
   evaluateUnsubscribeOutcome,
   unsubscribeOutcomeRank,
@@ -158,6 +159,7 @@ const tabPanels = Array.from(document.querySelectorAll<HTMLElement>("section.tab
 const securityEmptyEl = document.getElementById("security-empty") as HTMLParagraphElement;
 
 const rulesListEl = document.getElementById("rules-list") as HTMLDivElement;
+const rulePreviewEl = document.getElementById("rule-preview") as HTMLDivElement;
 const ruleForm = document.getElementById("rule-form") as HTMLFormElement;
 const ruleNameInput = document.getElementById("rule-name") as HTMLInputElement;
 const ruleFromDomainInput = document.getElementById("rule-from-domain") as HTMLInputElement;
@@ -419,6 +421,7 @@ async function scanAndRender() {
   domainSectionEl.hidden = false;
 
   render(senders);
+  renderRulesTab();
   renderDomainGroups(senders);
   renderExpirySection(senders);
   renderSecuritySection(securitySenders);
@@ -1305,6 +1308,7 @@ function appendUndoButton(container: HTMLElement, gmailIds: string[]) {
 // ── Rules tab (Auto Clean) ───────────────────────────────────────────────
 function renderRulesTab() {
   rulesListEl.innerHTML = "";
+  renderRuleDryRun();
   if (cachedSettings.rules.length === 0) {
     const p = document.createElement("p");
     p.className = "hint";
@@ -1323,6 +1327,7 @@ function renderRulesTab() {
       cachedSettings = await updateSettings({
         rules: cachedSettings.rules.map((r) => (r.id === rule.id ? { ...r, enabled: toggle.checked } : r)),
       });
+      renderRulesTab();
     };
 
     const label = document.createElement("label");
@@ -1344,6 +1349,81 @@ function renderRulesTab() {
 
     row.append(label, desc, del);
     rulesListEl.appendChild(row);
+  }
+}
+
+function renderRuleDryRun() {
+  rulePreviewEl.innerHTML = "";
+  const enabledRules = cachedSettings.rules.filter((rule) => rule.enabled);
+  if (enabledRules.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "hint";
+    empty.textContent = "Enable a rule to see its dry run.";
+    rulePreviewEl.appendChild(empty);
+    return;
+  }
+  if (currentSenders.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "hint";
+    empty.textContent = "The dry run will appear after the current metadata scan finishes.";
+    rulePreviewEl.appendChild(empty);
+    return;
+  }
+
+  const report = buildRuleDryRunReport(cachedSettings.rules, currentSenders, providerById);
+  const heading = document.createElement("h3");
+  heading.textContent = "Current dry run";
+  const summary = document.createElement("p");
+  summary.className = "hint";
+  summary.textContent = `${report.predictedRuleApplicationCount} predicted rule application${report.predictedRuleApplicationCount === 1 ? "" : "s"} touching ${report.uniqueMatchedMessageCount} unique message${report.uniqueMatchedMessageCount === 1 ? "" : "s"}; ${report.overlapMessageCount} overlap${report.overlapMessageCount === 1 ? "" : "s"}, ${report.protectedExclusionCount} protected exclusion${report.protectedExclusionCount === 1 ? "" : "s"}, ${report.exceptionExclusionCount} rule-exception exclusion${report.exceptionExclusionCount === 1 ? "" : "s"}. Assumes supported provider calls succeed; no API call is made by this preview.`;
+  rulePreviewEl.append(heading, summary);
+
+  for (const impact of report.impacts) {
+    const details = document.createElement("details");
+    details.className = "rule-preview-row";
+    const title = document.createElement("summary");
+    title.textContent = `${impact.rule.name} — ${impact.actionableMessageCount} predicted action${impact.actionableMessageCount === 1 ? "" : "s"} across ${impact.senders.length} sender${impact.senders.length === 1 ? "" : "s"}`;
+    details.appendChild(title);
+
+    const explanation = document.createElement("p");
+    explanation.className = "hint";
+    const notes: string[] = [];
+    if (impact.overlapCount > 0) notes.push(`${impact.overlapCount} also match an earlier-priority rule`);
+    if (impact.stoppedByEarlierRuleCount > 0) {
+      notes.push(`${impact.stoppedByEarlierRuleCount} stopped by an earlier rule`);
+    }
+    if (impact.protectedExcludedCount > 0) {
+      notes.push(`${impact.protectedExcludedCount} starred/flagged excluded`);
+    }
+    if (impact.exceptionExcludedCount > 0) notes.push(`${impact.exceptionExcludedCount} exception excluded`);
+    explanation.textContent = notes.length > 0 ? notes.join(" · ") : "No overlaps or safety exclusions.";
+    details.appendChild(explanation);
+
+    const providerList = document.createElement("ul");
+    for (const provider of impact.providers) {
+      const item = document.createElement("li");
+      const support = provider.actions.map(describeActionSupport).join(" → ");
+      item.textContent = `${provider.provider}: ${provider.eligibleMessageCount} eligible · ${support} · ${provider.completion}`;
+      providerList.appendChild(item);
+    }
+    if (impact.providers.length === 0) {
+      const item = document.createElement("li");
+      item.textContent = "No effective matches after priority and stop-processing.";
+      providerList.appendChild(item);
+    }
+    details.appendChild(providerList);
+
+    const senderList = document.createElement("p");
+    senderList.className = "hint";
+    const shown = impact.senders.slice(0, 10).map((sender) => {
+      const name = sender.displayName ? `${sender.displayName} <${sender.address}>` : sender.address;
+      return `${name} (${sender.eligibleMessageCount})`;
+    });
+    senderList.textContent = shown.length
+      ? `Senders: ${shown.join(", ")}${impact.senders.length > shown.length ? `, +${impact.senders.length - shown.length} more` : ""}`
+      : "No sender remains eligible for this rule.";
+    details.appendChild(senderList);
+    rulePreviewEl.appendChild(details);
   }
 }
 
@@ -1452,12 +1532,11 @@ function wireRulesTab() {
       ruleFormError.textContent = "No enabled rules to apply.";
       return;
     }
-    const count = previewRuleMatches(cachedSettings.rules, currentSenders);
-    const conflicts = findRuleConflicts(cachedSettings.rules, currentSenders).length;
+    const dryRun = buildRuleDryRunReport(cachedSettings.rules, currentSenders, providerById);
     renderConfirmStep(
       ruleApplySlot,
       resetRuleApplySlot,
-      `Apply ${enabled.length} rule${enabled.length === 1 ? "" : "s"} across ${count} matches?${conflicts > 0 ? ` ${conflicts} message${conflicts === 1 ? " matches" : "s match"} multiple rules; priority and stop-processing decide the order.` : ""}`,
+      `Apply ${enabled.length} rule${enabled.length === 1 ? "" : "s"} for ${dryRun.predictedRuleApplicationCount} predicted rule application${dryRun.predictedRuleApplicationCount === 1 ? "" : "s"} touching ${dryRun.uniqueMatchedMessageCount} unique message${dryRun.uniqueMatchedMessageCount === 1 ? "" : "s"}?${dryRun.overlapMessageCount > 0 ? ` ${dryRun.overlapMessageCount} message${dryRun.overlapMessageCount === 1 ? " matches" : "s match"} multiple rules; priority and stop-processing decide the order.` : ""}`,
       false,
       async () => {
         const results = await applyRules(cachedSettings.rules, currentSenders, providerById);

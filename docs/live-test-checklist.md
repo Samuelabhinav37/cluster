@@ -31,6 +31,11 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
       filed-out buckets left the inbox, "keep in inbox" buckets did not.
 - [ ] Rules tab now lists an `Auto-sort: <bucket>` rule per chosen bucket (+
       `Auto-sort: expire one-time codes`).
+- [ ] Rules → **Current dry run** updates when a rule is enabled, disabled, added, or deleted. Expand
+      each rule and verify sender counts, provider action support, overlap/stop-processing notes, and
+      protected/exception exclusions. Viewing the preview must not change any mail.
+- [ ] The Apply confirmation uses predicted rule applications and unique eligible messages from the
+      same dry run; execution results appear in Recently done afterward.
 - [ ] Recently done shows one entry per bucket with a working **Undo** (label
       removed, filed-out mail back in the inbox).
 - [ ] Existing sections still work: category groups, "Ready to clean up",
@@ -55,7 +60,7 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
 - [ ] "Label as suspicious" and "Deep scan" still work per sender.
 - [ ] Turn auto-quarantine **on**, then trigger the background alarm (or wait 6h
       / reload a few times): HIGH-tier Gmail senders get `Cluster/Possible
-    Phishing` and leave the inbox; Recently done shows an "Auto-quarantined …"
+      Phishing` and leave the inbox; Recently done shows an "Auto-quarantined …"
       entry with a working Undo.
 
 ## Sender table

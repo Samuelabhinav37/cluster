@@ -40,7 +40,10 @@ Open with the toolbar icon.
 - **Rules** — standing Auto-Clean rules: AND-ed conditions (from domain/address,
   older-than, kind, unread, has-unsubscribe) → one action (label / archive /
   trash / mark read). Applied on demand and by the 6-hourly background sweep.
-  Starred mail is always excluded; rules never permanently delete.
+  A no-side-effect dry run simulates priority, stop-processing, provider
+  support, overlaps, protected/exception exclusions, and sender-level impact
+  before execution. Starred mail is always excluded; rules never permanently
+  delete.
 - **Screener** — opt-in. Holds mail from senders you've never emailed under a
   `Cluster/Screener` label, out of the inbox, until you **Allow** (adds to the
   allow-list, restores the mail) or **Block** (mutes). Your Sent mail is the
@@ -145,8 +148,12 @@ advance only after changed messages have been processed. Mailbox mutations can
 run as durable, resumable local jobs with per-message success/failure receipts,
 and interrupted jobs resume while Chrome is active.
 
-Rules support priorities, exceptions, ordered actions, stop-processing, and
-overlap previews. The Rules tab can also draft a rule from natural language
+Rules support priorities, exceptions, ordered actions, stop-processing, and a
+detailed deterministic dry run. The preview reports raw versus effective
+matches, sender counts, overlaps, starred/flagged and explicit-exception
+exclusions, and full/partial/unsupported action sequences for each provider. It
+assumes supported calls succeed but makes no provider API calls itself. The
+Rules tab can also draft a rule from natural language
 using Chrome's on-device Prompt API. Only the typed instruction reaches the
 model—never mailbox content—and constrained JSON is validated and previewed
 before the user saves it. A deterministic parser remains available without AI.

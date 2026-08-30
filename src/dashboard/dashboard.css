@@ -25,7 +25,10 @@
 }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
   max-width: 900px;
   margin: 2rem auto;
   padding: 0 1rem;
@@ -269,6 +272,23 @@ select {
   background: var(--panel-bg);
   border-radius: 6px;
   margin-bottom: 0.5rem;
+}
+
+.rule-preview-row {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.rule-preview-row summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.rule-preview-row p,
+.rule-preview-row ul {
+  margin: 0.5rem 0 0;
 }
 
 #rule-form {

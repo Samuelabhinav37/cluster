@@ -105,29 +105,45 @@ function conditionsMatch(
   return true;
 }
 
+export type RuleMessageDecision = "matched" | "protected" | "exception" | "conditions-miss";
+
+/** Explain why one message is or is not eligible for a rule. */
+export function evaluateRuleMessage(
+  rule: ClusterRule,
+  sender: SenderSummary,
+  message: SenderSummary["messages"][number],
+  now = Date.now(),
+): RuleMessageDecision {
+  if (!ruleHasConditions(rule.conditions) || !conditionsMatch(rule.conditions, sender, message, now)) {
+    return "conditions-miss";
+  }
+  if (message.isProtected) return "protected";
+  if (
+    rule.exceptions &&
+    ruleHasConditions(rule.exceptions) &&
+    conditionsMatch(rule.exceptions, sender, message, now)
+  ) {
+    return "exception";
+  }
+  return "matched";
+}
+
 /**
  * Message ids this rule would act on, grouped by provider. Sender-level
  * conditions (from address/domain, has-unsubscribe) are checked once per
  * sender; message-level ones (age, kind, unread) per message. Starred/flagged
  * mail is always excluded regardless of the rule.
  */
-export function matchRule(rule: ClusterRule, senders: SenderSummary[]): Map<ProviderId, string[]> {
+export function matchRule(
+  rule: ClusterRule,
+  senders: SenderSummary[],
+  now = Date.now(),
+): Map<ProviderId, string[]> {
   const out = new Map<ProviderId, string[]>();
-  const c = rule.conditions;
-  if (!ruleHasConditions(c)) return out;
-  const now = Date.now();
 
   for (const sender of senders) {
     for (const m of sender.messages) {
-      if (m.isProtected) continue;
-      if (!conditionsMatch(c, sender, m, now)) continue;
-      if (
-        rule.exceptions &&
-        ruleHasConditions(rule.exceptions) &&
-        conditionsMatch(rule.exceptions, sender, m, now)
-      ) {
-        continue;
-      }
+      if (evaluateRuleMessage(rule, sender, m, now) !== "matched") continue;
 
       const list = out.get(sender.provider);
       if (list) list.push(m.id);
