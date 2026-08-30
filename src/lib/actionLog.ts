@@ -1,6 +1,5 @@
 import type { ProviderId } from "./providers/emailProvider";
-import { getSettings, updateSettings } from "./settingsStore";
-import { withStorageLock } from "./storageLock";
+import { mutateSettings } from "./settingsStore";
 
 // A rolling record of everything Cluster did to your mail — the "here's what
 // I moved, catch my mistakes" loop (SaneBox's Daily Digest, done locally).
@@ -51,10 +50,10 @@ export const MAX_LOG_ENTRIES = 200;
 // (chrome.storage has no atomic update). Keeps only the newest MAX_LOG_ENTRIES.
 export async function appendActionLog(entries: ActionLogEntry[]): Promise<void> {
   if (entries.length === 0) return;
-  await withStorageLock("clusterSettings", async () => {
-    const { actionLog } = await getSettings();
-    await updateSettings({ actionLog: [...actionLog, ...entries].slice(-MAX_LOG_ENTRIES) });
-  });
+  await mutateSettings((settings) => ({
+    ...settings,
+    actionLog: [...settings.actionLog, ...entries].slice(-MAX_LOG_ENTRIES),
+  }));
 }
 
 export function makeLogId(kind: ActionLogKind): string {

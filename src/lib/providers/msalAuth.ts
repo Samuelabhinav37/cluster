@@ -2,13 +2,22 @@ import { OUTLOOK_CLIENT_ID, OUTLOOK_TENANT } from "./outlookConfig";
 
 const AUTH_BASE = `https://login.microsoftonline.com/${OUTLOOK_TENANT}/oauth2/v2.0`;
 const SCOPES = "offline_access Mail.ReadBasic Mail.ReadWrite";
-const STORAGE_KEY = "outlookTokens";
+const LEGACY_STORAGE_KEY = "outlookTokens";
+const REFRESH_STORAGE_KEY = "outlookRefreshToken";
+const ACCESS_STORAGE_KEY = "outlookAccessToken";
 const EXPIRY_SKEW_MS = 60_000;
 
 interface OutlookTokenState {
   accessToken: string;
   refreshToken: string;
   expiresAt: number;
+}
+
+// Keep extension storage unavailable to content scripts if one is added in a
+// future release. Dashboard and service-worker pages remain trusted contexts.
+if (typeof chrome !== "undefined") {
+  void chrome.storage.local.setAccessLevel?.({ accessLevel: "TRUSTED_CONTEXTS" });
+  void chrome.storage.session.setAccessLevel?.({ accessLevel: "TRUSTED_CONTEXTS" });
 }
 
 function base64UrlEncode(bytes: Uint8Array): string {
@@ -29,17 +38,38 @@ async function generateCodeChallenge(verifier: string): Promise<string> {
 }
 
 async function loadTokens(): Promise<OutlookTokenState | null> {
-  const data = await chrome.storage.local.get(STORAGE_KEY);
-  return (data[STORAGE_KEY] as OutlookTokenState) ?? null;
+  const [local, session] = await Promise.all([
+    chrome.storage.local.get([REFRESH_STORAGE_KEY, LEGACY_STORAGE_KEY]),
+    chrome.storage.session.get(ACCESS_STORAGE_KEY),
+  ]);
+  const legacy = local[LEGACY_STORAGE_KEY] as OutlookTokenState | undefined;
+  const refresh = local[REFRESH_STORAGE_KEY] as { refreshToken?: string } | undefined;
+  const access = session[ACCESS_STORAGE_KEY] as { accessToken?: string; expiresAt?: number } | undefined;
+  const refreshToken = refresh?.refreshToken ?? legacy?.refreshToken;
+  if (!refreshToken) return null;
+  return {
+    accessToken: access?.accessToken ?? "",
+    expiresAt: access?.expiresAt ?? 0,
+    refreshToken,
+  };
 }
 
-// Deliberate tradeoff: the access + refresh tokens sit unencrypted in
-// chrome.storage.local. MV3 has no better primitive — chrome.storage.session
-// is memory-only and would drop the refresh token on every browser restart,
-// defeating "stay connected". Same posture every MV3 OAuth extension takes;
-// the Gmail side is custodied by chrome.identity instead.
+// Access tokens are short-lived and stay in memory-backed session storage.
+// Only the refresh token persists locally so Outlook remains connected after
+// a browser restart; both areas are restricted to trusted extension contexts.
 async function saveTokens(tokens: OutlookTokenState): Promise<void> {
-  await chrome.storage.local.set({ [STORAGE_KEY]: tokens });
+  await Promise.all([
+    chrome.storage.session.set({
+      [ACCESS_STORAGE_KEY]: {
+        accessToken: tokens.accessToken,
+        expiresAt: tokens.expiresAt,
+      },
+    }),
+    chrome.storage.local.set({
+      [REFRESH_STORAGE_KEY]: { refreshToken: tokens.refreshToken },
+    }),
+    chrome.storage.local.remove(LEGACY_STORAGE_KEY),
+  ]);
 }
 
 function launchWebAuthFlow(url: string, interactive: boolean): Promise<string> {
@@ -54,7 +84,10 @@ function launchWebAuthFlow(url: string, interactive: boolean): Promise<string> {
   });
 }
 
-async function requestTokens(body: URLSearchParams): Promise<OutlookTokenState> {
+async function requestTokens(
+  body: URLSearchParams,
+  existingRefreshToken?: string,
+): Promise<OutlookTokenState> {
   const res = await fetch(`${AUTH_BASE}/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -64,9 +97,11 @@ async function requestTokens(body: URLSearchParams): Promise<OutlookTokenState> 
     throw new Error(`Outlook token request failed: ${res.status} ${await res.text()}`);
   }
   const data = await res.json();
+  const refreshToken = data.refresh_token ?? existingRefreshToken;
+  if (!refreshToken) throw new Error("Outlook token response did not include a refresh token");
   const tokens: OutlookTokenState = {
     accessToken: data.access_token,
-    refreshToken: data.refresh_token,
+    refreshToken,
     expiresAt: Date.now() + data.expires_in * 1000,
   };
   await saveTokens(tokens);
@@ -122,6 +157,7 @@ async function refreshTokens(refreshToken: string): Promise<OutlookTokenState> {
       refresh_token: refreshToken,
       scope: SCOPES,
     }),
+    refreshToken,
   );
 }
 

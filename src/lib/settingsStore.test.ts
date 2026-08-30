@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { getSettings, updateSettings } from "./settingsStore";
+import { CURRENT_SETTINGS_SCHEMA_VERSION, getSettings, updateSettings } from "./settingsStore";
 
 function makeFakeChromeStorage() {
   let store: Record<string, unknown> = {};
@@ -27,6 +27,7 @@ describe("settingsStore", () => {
     expect(settings.fastPermanentDeleteEnabled).toBe(false);
     expect(settings.unsubscribeRequests).toEqual({});
     expect(settings.onboardingDismissed).toBe(false);
+    expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
   });
 
   it("updateSettings merges a partial change on top of current values and persists it", async () => {
@@ -44,5 +45,31 @@ describe("settingsStore", () => {
     const settings = await getSettings();
     expect(settings.fastPermanentDeleteEnabled).toBe(true);
     expect(settings.collapsedDomainCategories).toEqual(["shopping"]);
+  });
+
+  it("migrates legacy settings and deep-merges nested defaults", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: {
+        scanWindowDays: 30,
+        autoSort: { enabledBuckets: ["shopping"] },
+      },
+    });
+
+    const settings = await getSettings();
+    expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(settings.scanWindowDays).toBe(30);
+    expect(settings.autoSort.enabledBuckets).toEqual(["shopping"]);
+    expect(settings.autoSort.fileOutByBucket).toEqual({});
+    expect(settings.autoSort.keepSorting).toBe(false);
+  });
+
+  it("serializes concurrent partial updates so unrelated changes are preserved", async () => {
+    await Promise.all([
+      updateSettings({ scanWindowDays: 14 }),
+      updateSettings({ collapsedDomainCategories: ["finance"] }),
+    ]);
+    const settings = await getSettings();
+    expect(settings.scanWindowDays).toBe(14);
+    expect(settings.collapsedDomainCategories).toEqual(["finance"]);
   });
 });

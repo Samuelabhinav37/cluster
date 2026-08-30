@@ -19,18 +19,19 @@
       </h1>
       <div id="onboarding-banner" class="onboarding-banner" hidden>
         <p>
-          Cluster sorts and cleans up mail using only what your inbox
-          already tells it — subjects, senders, dates, and starred/flagged
-          status, never message bodies. Nothing is deleted without you
-          confirming first, and everything runs from your own sign-in — no
-          data leaves your browser except through provider APIs and optional features you explicitly enable.
+          Cluster sorts and cleans up mail using only what your inbox already tells it — subjects, senders,
+          dates, and starred/flagged status, never message bodies. Nothing is deleted without you confirming
+          first, and everything runs from your own sign-in — no data leaves your browser except through
+          provider APIs and optional features you explicitly enable.
         </p>
         <button id="onboarding-dismiss-btn">Got it</button>
       </div>
       <section id="athena-section" class="onboarding-banner" hidden>
-        <p><strong>Athena email security is available for this managed installation.</strong>
-          Enabling the connection sends only minimized security evidence to your organization's
-          Athena server. Mailbox cleanup stays local and suspicious mail is never auto-deleted.</p>
+        <p>
+          <strong>Athena email security is available for this managed installation.</strong> Enabling the
+          connection sends only minimized security evidence to your organization's Athena server. Mailbox
+          cleanup stays local and suspicious mail is never auto-deleted.
+        </p>
         <button id="athena-connect-btn">Allow Athena connection</button>
         <span id="athena-status" role="status"></span>
       </section>
@@ -50,8 +51,8 @@
           <summary>Settings</summary>
           <label id="fast-delete-toggle-label" class="setting-toggle">
             <input type="checkbox" id="fast-delete-toggle" />
-            Fast permanent delete for Gmail (skips Trash — cannot be undone,
-            also applies to "Clean up"; requires a one-time extra permission grant)
+            Fast permanent delete for Gmail (skips Trash — cannot be undone, also applies to "Clean up";
+            requires a one-time extra permission grant)
           </label>
         </details>
       </div>
@@ -72,9 +73,8 @@
           <h2>Sort my inbox</h2>
           <p class="hint">
             One pass: file every scanned message under a <code>Cluster/…</code>
-            label by what it is (one-time codes, receipts, shipping) or who sent
-            it (Shopping, Finance, Travel, …). Starred mail is left alone.
-            Nothing happens until you confirm.
+            label by what it is (one-time codes, receipts, shipping) or who sent it (Shopping, Finance,
+            Travel, …). Starred mail is left alone. Nothing happens until you confirm.
           </p>
           <div id="sort-inbox-bar" class="bulk-bar">
             <span id="sort-inbox-slot"><button id="sort-inbox-btn">Sort my inbox…</button></span>
@@ -97,9 +97,8 @@
         <section id="digest-section" hidden>
           <h2>Digest</h2>
           <p class="hint">
-            A quick on-device summary of what's in your inbox right now —
-            generated locally by Chrome from the counts below, nothing sent
-            anywhere.
+            A quick on-device summary of what's in your inbox right now — generated locally by Chrome from the
+            counts below, nothing sent anywhere.
           </p>
           <div id="digest-bar" class="bulk-bar">
             <button id="generate-digest-btn" disabled>Generate digest</button>
@@ -148,14 +147,15 @@
         <section id="never-read-section" hidden>
           <h2>You never open these</h2>
           <p class="hint">
-            Senders whose mail you consistently leave unread (every non-starred
-            message from them in this scan is still unread). Judged only from
-            the unread flag — no message contents.
+            Senders whose mail you consistently leave unread (every non-starred message from them in this scan
+            is still unread). Judged only from the unread flag — no message contents.
           </p>
           <div id="never-read-bulk-bar" class="bulk-bar">
             <span id="never-read-count"></span>
             <span id="never-read-mute-slot"><button id="never-read-mute-btn">Mute all…</button></span>
-            <span id="never-read-trash-slot"><button id="never-read-trash-btn" class="danger">Trash all…</button></span>
+            <span id="never-read-trash-slot"
+              ><button id="never-read-trash-btn" class="danger">Trash all…</button></span
+            >
           </div>
           <div id="never-read-list"></div>
         </section>
@@ -163,16 +163,17 @@
         <section id="spam-section" hidden>
           <h2>Suggested spam</h2>
           <p class="hint">
-            Senders whose domain is on a public spam or throwaway-email list
-            (disposable-email-domains, StopForumSpam) or the extension's own
-            known-bad list. Usually safe to delete — but it's your call, and
-            nothing moves to Trash until you confirm. Anything with a starred
-            message is left out. <span id="spam-list-size" class="hint"></span>
+            Senders whose domain is on a public spam or throwaway-email list (disposable-email-domains,
+            StopForumSpam) or the extension's own known-bad list. Usually safe to delete — but it's your call,
+            and nothing moves to Trash until you confirm. Anything with a starred message is left out.
+            <span id="spam-list-size" class="hint"></span>
           </p>
           <div id="spam-bulk-bar" class="bulk-bar">
             <label><input type="checkbox" id="spam-select-all" checked /> Select all</label>
             <span id="spam-count"></span>
-            <span id="spam-trash-slot"><button id="spam-trash-btn" class="danger">Trash selected…</button></span>
+            <span id="spam-trash-slot"
+              ><button id="spam-trash-btn" class="danger">Trash selected…</button></span
+            >
           </div>
           <div id="spam-list"></div>
         </section>
@@ -180,10 +181,9 @@
         <section id="expiry-section" hidden>
           <h2>Ready to clean up</h2>
           <p class="hint">
-            Messages that likely served their purpose — one-time codes, old
-            shipping updates, and newsletters past their window, judged only by
-            how long ago they arrived. Starred/flagged mail is always skipped.
-            Nothing is deleted until you confirm.
+            Messages that likely served their purpose — one-time codes, old shipping updates, and newsletters
+            past their window, judged only by how long ago they arrived. Starred/flagged mail is always
+            skipped. Nothing is deleted until you confirm.
           </p>
           <div id="expiry-bar" class="bulk-bar">
             <span id="expiry-breakdown"></span>
@@ -196,10 +196,9 @@
         <section id="domain-groups" hidden>
           <h2>By domain</h2>
           <p class="hint">
-            Senders grouped by their base domain (personal addresses at gmail.com,
-            yahoo.com, etc. are kept separate) and bucketed into categories.
-            Deleting moves mail to Trash — starred messages are always skipped.
-            "Select safe" only checks domains with zero starred/flagged mail.
+            Senders grouped by their base domain (personal addresses at gmail.com, yahoo.com, etc. are kept
+            separate) and bucketed into categories. Deleting moves mail to Trash — starred messages are always
+            skipped. "Select safe" only checks domains with zero starred/flagged mail.
           </p>
           <div id="domain-bulk-bar" class="bulk-bar" hidden>
             <button id="select-safe-domains">Select safe</button>
@@ -215,10 +214,11 @@
       <section class="tab-panel" data-tab="subscriptions" role="tabpanel" hidden>
         <h2>Subscriptions</h2>
         <p class="hint">
-          Every sender in this scan with an unsubscribe option, ranked by how
-          much they send. Verified one-click requests fire straight away;
-          others open the provider's page or an email. "Requested" survives a
-          reload — senders can take days to actually stop.
+          Every sender in this scan with an unsubscribe option, ranked by how much they send. Verified
+          one-click requests fire straight away; others open the provider's page or an email. "Requested"
+          survives a reload — senders can take days to actually stop. “Unsubscribe + clean” moves only
+          newsletter-classified messages to Trash and keeps transactional, sensitive, starred, and ambiguous
+          mail.
         </p>
         <div id="subscriptions-bulk-bar" class="bulk-bar" hidden>
           <span id="subs-count">0 senders</span>
@@ -235,19 +235,18 @@
           Auto-quarantine high-risk senders in the background
         </label>
         <p class="hint">
-          When on, the 6-hourly background pass labels mail from HIGH-risk senders
-          "Cluster/Possible Phishing" and files it out of your inbox. Gmail only,
-          never deleted, and every batch is reversible from Recently done. Off by
-          default.
+          When on, the 6-hourly background pass labels mail from HIGH-risk senders "Cluster/Possible Phishing"
+          and files it out of your inbox. Gmail only, never deleted, and every batch is reversible from
+          Recently done. Off by default.
         </p>
         <section id="security-section" hidden>
           <h2>Possible impersonation</h2>
           <p class="hint">
-            Senders that claim a well-known brand whose real domain doesn't match, fail
-            authentication, use a lookalike domain, or appear on a known-bad domain list — common
-            phishing patterns. Mostly heuristics from headers already fetched for the cleanup
-            feature, not verified facts: check before acting. Nothing here is auto-labeled, moved,
-            or deleted. Ordered by risk.
+            Senders that claim a well-known brand whose real domain doesn't match, fail authentication, use a
+            lookalike domain, or appear on a known-bad domain list — common phishing patterns. Cluster scans
+            recent Inbox mail separately from cleanup and uses provider-trusted authentication headers, but
+            these are still risk signals rather than verified facts. Auto-quarantine acts only when the switch
+            above is enabled; otherwise nothing here is moved or deleted. Ordered by risk.
           </p>
           <ul id="security-sender-list"></ul>
         </section>
@@ -257,10 +256,9 @@
       <section class="tab-panel" data-tab="rules" role="tabpanel" hidden>
         <h2>Rules</h2>
         <p class="hint">
-          Standing clean-up rules — conditions on a message (sender, age, kind,
-          unread, has-unsubscribe) plus one action. Applied when you click
-          "Apply" below and on every background sweep. Starred/flagged mail is
-          always skipped; rules never permanently delete.
+          Standing clean-up rules — conditions on a message (sender, age, kind, unread, has-unsubscribe) plus
+          one action. Applied when you click "Apply" below and on every background sweep. Starred/flagged mail
+          is always skipped; rules never permanently delete.
         </p>
         <div id="rules-list"></div>
         <form id="rule-form" class="bulk-bar">
@@ -309,11 +307,9 @@
       <section class="tab-panel" data-tab="screener" role="tabpanel" hidden>
         <h2>Screener</h2>
         <p class="hint">
-          Hold mail from senders you've never emailed until you decide about
-          them. When on, the background sweep moves unknown senders' mail into a
-          "Cluster/Screener" label and out of your inbox. Your sent mail (who
-          you've written to) is the automatic allow-list; nothing here is ever
-          deleted.
+          Hold mail from senders you've never emailed until you decide about them. When on, the background
+          sweep moves unknown senders' mail into a "Cluster/Screener" label and out of your inbox. Your sent
+          mail (who you've written to) is the automatic allow-list; nothing here is ever deleted.
         </p>
         <label class="setting-toggle">
           <input type="checkbox" id="screener-toggle" />
@@ -327,8 +323,8 @@
       <section class="tab-panel" data-tab="recent" role="tabpanel" hidden>
         <h2>Recently done</h2>
         <p class="hint">
-          Everything Cluster changed, newest first, with an Undo where the
-          action can be reversed. Populated in a later build.
+          Everything Cluster changed, newest first, with an Undo where the action can be reversed. Populated
+          in a later build.
         </p>
         <div id="recent-list"></div>
       </section>

@@ -23,12 +23,18 @@ import {
   untrashMessages as apiUntrashMessages,
 } from "../gmailApi";
 import { parseListUnsubscribe } from "../unsubscribe";
-import type { EmailProvider, NormalizedMessageMetadata } from "./emailProvider";
+import { selectTrustedAuthenticationResults } from "../emailAuth";
+import type { EmailProvider, NormalizedMessageMetadata, ScanPurpose } from "./emailProvider";
 
 // Same "Cluster/X" nesting convention as gmailApi.ts's own
 // SNOOZE_LABEL_NAME, so both show up under one parent label in Gmail's
 // sidebar rather than as unrelated top-level labels.
 const SUSPICIOUS_LABEL_NAME = "Cluster/Possible Phishing";
+
+export function gmailQueryForPurpose(purpose: ScanPurpose, windowDays: number): string {
+  const age = `newer_than:${windowDays}d`;
+  return purpose === "security" ? `in:inbox ${age}` : `(category:promotions OR category:updates) ${age}`;
+}
 
 function parseFrom(from: string): { address: string; displayName: string } {
   const match = from.match(/^(.*?)<(.+)>$/);
@@ -57,15 +63,17 @@ export const gmailProvider: EmailProvider = {
     return gmailGetAuthToken(interactive);
   },
 
-  async listCandidateMessages(token, maxResults, windowDays) {
-    const query = `category:promotions OR category:updates newer_than:${windowDays}d`;
+  async listCandidateMessages(token, maxResults, windowDays, purpose = "cleanup") {
+    const query = gmailQueryForPurpose(purpose, windowDays);
     const stubs = await listMessageIds(token, query, maxResults);
     return stubs.map((s) => ({ id: s.id, provider: "gmail" as const }));
   },
 
   async getMessageMetadata(token, id): Promise<NormalizedMessageMetadata> {
-    const { headers, labelIds, internalDate, sizeEstimate } = await fetchGmailMessageMetadata(token, id);
+    const { headers, authenticationResultsHeaders, dkimSignatures, labelIds, internalDate, sizeEstimate } =
+      await fetchGmailMessageMetadata(token, id);
     const { address, displayName } = parseFrom(headers.From ?? "");
+    const authenticationResults = selectTrustedAuthenticationResults("gmail", authenticationResultsHeaders);
     return {
       id,
       provider: "gmail",
@@ -76,9 +84,14 @@ export const gmailProvider: EmailProvider = {
       isProtected: labelIds.includes("STARRED"),
       unread: labelIds.includes("UNREAD"),
       sizeBytes: sizeEstimate,
-      unsubscribe: parseListUnsubscribe(headers["List-Unsubscribe"], headers["List-Unsubscribe-Post"]),
+      unsubscribe: parseListUnsubscribe(headers["List-Unsubscribe"], headers["List-Unsubscribe-Post"], {
+        provider: "gmail",
+        fromAddress: address,
+        authenticationResults: authenticationResultsHeaders,
+        dkimSignatures,
+      }),
       receivedAt: internalDate,
-      authenticationResults: headers["Authentication-Results"],
+      authenticationResults,
     };
   },
 

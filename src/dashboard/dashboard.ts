@@ -14,13 +14,18 @@ import {
 import { buildDigestInput, checkDigestAvailability, generateDigest } from "../lib/aiDigest";
 import { categorizeDomain, DOMAIN_CATEGORY_LABELS, type DomainCategory } from "../lib/domainCategories";
 import { buildDomainGroups, domainOf, type DomainGroup } from "../lib/domainGrouping";
-import { buildExpiryBuckets, mergeExpiryBuckets, totalExpiryCount, type ExpiryBucket } from "../lib/expiryTriage";
+import {
+  buildExpiryBuckets,
+  mergeExpiryBuckets,
+  totalExpiryCount,
+  type ExpiryBucket,
+} from "../lib/expiryTriage";
 import { getElevatedAuthToken } from "../lib/gmailApi";
 import type { EmailProvider, ProviderId } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { outlookProvider } from "../lib/providers/outlookProvider";
 import { buildSenderSummaries, type SenderSummary } from "../lib/senderModel";
-import { getSettings, updateSettings, type ClusterSettings } from "../lib/settingsStore";
+import { getSettings, mutateSettings, updateSettings, type ClusterSettings } from "../lib/settingsStore";
 import { excludeSnoozedMessages } from "../lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "../lib/snoozeResurface";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
@@ -68,6 +73,7 @@ import {
   type ActionLogUndo,
 } from "../lib/actionLog";
 import type { MessageKind } from "../lib/messageKind";
+import { buildSenderCleanupPlan } from "../lib/protectionPolicy";
 
 const providerById = new Map<ProviderId, EmailProvider>([
   [gmailProvider.id, gmailProvider],
@@ -82,6 +88,7 @@ let currentSenders: SenderSummary[] = [];
 let currentDomainGroups: DomainGroup[] = [];
 let currentExpiryBuckets: ExpiryBucket[] = [];
 let cachedSettings: ClusterSettings;
+const SECURITY_SCAN_WINDOW_DAYS = 30;
 
 const statusEl = document.getElementById("status") as HTMLParagraphElement;
 const senderGroupsEl = document.getElementById("sender-groups") as HTMLDivElement;
@@ -214,7 +221,9 @@ async function wireAthenaConnection() {
   athenaSectionEl.hidden = false;
   const origins = athenaOriginPatterns(config);
   const granted = await chrome.permissions.contains({ origins });
-  athenaStatusEl.textContent = granted ? "Connected to your organization's Athena origin." : "Permission required.";
+  athenaStatusEl.textContent = granted
+    ? "Connected to your organization's Athena origin."
+    : "Permission required.";
   athenaConnectBtn.hidden = granted;
   athenaConnectBtn.onclick = async () => {
     const allowed = await chrome.permissions.request({ origins });
@@ -319,14 +328,30 @@ async function scanAndRender() {
   statusEl.textContent = "Scanning recent mail…";
 
   let senders: SenderSummary[];
+  let securitySenders: SenderSummary[];
   try {
     senders = await buildSenderSummaries(
       activeProviders,
       cachedSettings.maxMessagesPerProvider,
       cachedSettings.scanWindowDays,
       (done, total) => {
-        statusEl.textContent = total > 0 ? `Scanning recent mail… ${done}/${total} messages` : "Scanning recent mail…";
+        statusEl.textContent =
+          total > 0 ? `Scanning recent mail… ${done}/${total} messages` : "Scanning recent mail…";
       },
+      "cleanup",
+    );
+    statusEl.textContent = "Scanning recent Inbox mail for security…";
+    securitySenders = await buildSenderSummaries(
+      activeProviders,
+      cachedSettings.maxMessagesPerProvider,
+      Math.min(cachedSettings.scanWindowDays, SECURITY_SCAN_WINDOW_DAYS),
+      (done, total) => {
+        statusEl.textContent =
+          total > 0
+            ? `Scanning recent Inbox mail for security… ${done}/${total} messages`
+            : "Scanning recent Inbox mail for security…";
+      },
+      "security",
     );
   } catch (err) {
     showScanError(err);
@@ -340,9 +365,22 @@ async function scanAndRender() {
   );
   senders = excludeSnoozedMessages(senders, activeSnoozedIds);
 
-  const firstContact = markFirstContact(senders, cachedSettings.knownSenders);
-  if (firstContact.firstContactCount > 0) {
-    cachedSettings = await updateSettings({ knownSenders: firstContact.updatedKnownSenders });
+  const firstContact = markFirstContact(
+    securitySenders,
+    cachedSettings.knownSenders,
+    Date.now(),
+    cachedSettings.knownSendersInitialized,
+  );
+  const newlySeenKeys = new Set(
+    securitySenders.filter((sender) => sender.firstContact).map((sender) => sender.key),
+  );
+  for (const sender of senders) sender.firstContact = newlySeenKeys.has(sender.key);
+  if (!cachedSettings.knownSendersInitialized || firstContact.firstContactCount > 0) {
+    cachedSettings = await mutateSettings((current) => ({
+      ...current,
+      knownSenders: { ...current.knownSenders, ...firstContact.updatedKnownSenders },
+      knownSendersInitialized: true,
+    }));
   }
 
   statusEl.hidden = true;
@@ -352,7 +390,7 @@ async function scanAndRender() {
   render(senders);
   renderDomainGroups(senders);
   renderExpirySection(senders);
-  renderSecuritySection(senders);
+  renderSecuritySection(securitySenders);
   renderSubscriptionsTab(senders);
   renderNeverReadSection(senders);
   renderSpamSection(senders);
@@ -452,7 +490,16 @@ function render(senders: SenderSummary[]) {
   renderCategoryGroups(
     senderGroupsEl,
     groups,
-    ["", "Provider", "Sender", `Count (${cachedSettings.scanWindowDays}d)`, "Unsubscribe", "Keep sorted", "Mute", "Snooze"],
+    [
+      "",
+      "Provider",
+      "Sender",
+      `Count (${cachedSettings.scanWindowDays}d)`,
+      "Unsubscribe",
+      "Keep sorted",
+      "Mute",
+      "Snooze",
+    ],
     buildSenderRow,
     "senders",
     "collapsedSenderCategories",
@@ -483,13 +530,11 @@ function buildSenderRow(sender: SenderSummary): HTMLTableRowElement {
   row.appendChild(providerCell);
 
   const nameCell = document.createElement("td");
-  nameCell.textContent = sender.displayName
-    ? `${sender.displayName} <${sender.address}>`
-    : sender.address;
+  nameCell.textContent = sender.displayName ? `${sender.displayName} <${sender.address}>` : sender.address;
   if (sender.firstContact) {
     const badge = document.createElement("span");
     badge.className = "hint";
-    badge.textContent = " · new sender";
+    badge.textContent = " · new since Cluster started tracking";
     nameCell.appendChild(badge);
   }
   row.appendChild(nameCell);
@@ -608,7 +653,9 @@ function buildUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
         applyState();
       } else {
         statusEl.textContent = "Request failed, try again";
-        btn.textContent = cachedSettings.unsubscribeRequests[sender.key] ? "Request again" : "Unsubscribe (verified one-click)";
+        btn.textContent = cachedSettings.unsubscribeRequests[sender.key]
+          ? "Request again"
+          : "Unsubscribe (verified one-click)";
       }
       btn.disabled = false;
     };
@@ -957,7 +1004,7 @@ function renderSecuritySection(senders: SenderSummary[]) {
       const tierEl = document.createElement("strong");
       tierEl.textContent = `${riskTier(score).toUpperCase()} risk`;
       const text = document.createElement("span");
-      const firstContact = sender.firstContact ? " · first email from this sender" : "";
+      const firstContact = sender.firstContact ? " · new since Cluster started tracking" : "";
       text.textContent = ` — ${sender.displayName || sender.address} <${sender.address}> — ${label} `;
       const meta = document.createElement("span");
       meta.className = "hint";
@@ -1057,7 +1104,10 @@ function wireFastDeleteToggle() {
 
 function wireScanSettings() {
   applyScanSettingsBtn.onclick = async () => {
-    const scanWindowDays = Math.min(3650, Math.max(1, Number(scanWindowInput.value) || cachedSettings.scanWindowDays));
+    const scanWindowDays = Math.min(
+      3650,
+      Math.max(1, Number(scanWindowInput.value) || cachedSettings.scanWindowDays),
+    );
     const maxMessagesPerProvider = Math.min(
       5000,
       Math.max(50, Number(maxMessagesInput.value) || cachedSettings.maxMessagesPerProvider),
@@ -1090,7 +1140,8 @@ async function wireDigest() {
   generateDigestBtn.onclick = async () => {
     generateDigestBtn.disabled = true;
     digestTextEl.hidden = true;
-    digestStatusEl.textContent = availability === "available" ? "Generating…" : "Downloading on-device model…";
+    digestStatusEl.textContent =
+      availability === "available" ? "Generating…" : "Downloading on-device model…";
     try {
       const input = buildDigestInput(currentSenders, currentExpiryBuckets);
       const summary = await generateDigest(input, (fraction) => {
@@ -1114,7 +1165,9 @@ function planDelete(merged: Map<ProviderId, string[]>) {
     .filter(([provider]) => provider !== "gmail")
     .reduce((sum, [, ids]) => sum + ids.length, 0);
   const willUsePermanent =
-    cachedSettings.fastPermanentDeleteEnabled && gmailCount > 0 && Boolean(gmailProvider.permanentlyDeleteMessages);
+    cachedSettings.fastPermanentDeleteEnabled &&
+    gmailCount > 0 &&
+    Boolean(gmailProvider.permanentlyDeleteMessages);
   return { gmailCount, otherCount, willUsePermanent };
 }
 
@@ -1138,7 +1191,10 @@ async function executeSmartDelete(merged: Map<ProviderId, string[]>): Promise<Sm
   const { gmailCount, otherCount, willUsePermanent } = planDelete(merged);
   if (!willUsePermanent) {
     await executeBulkDeleteDomains(merged, providerById);
-    return { message: `Moved ${gmailCount + otherCount} to Trash ✓`, undoableGmailIds: merged.get("gmail") ?? [] };
+    return {
+      message: `Moved ${gmailCount + otherCount} to Trash ✓`,
+      undoableGmailIds: merged.get("gmail") ?? [],
+    };
   }
 
   try {
@@ -1331,7 +1387,12 @@ async function undoEntry(entry: ActionLogEntry) {
   } else if (entry.undo.via === "unlabel-suspicious") {
     await gmailProvider.unlabelSuspicious!(token, entry.undo.ids);
   } else if (entry.undo.via === "unsort" && entry.undo.labelName) {
-    await gmailProvider.unlabelMessages!(token, entry.undo.ids, entry.undo.labelName, entry.undo.wasFiledOut ?? false);
+    await gmailProvider.unlabelMessages!(
+      token,
+      entry.undo.ids,
+      entry.undo.labelName,
+      entry.undo.wasFiledOut ?? false,
+    );
   }
   cachedSettings = await updateSettings({
     actionLog: cachedSettings.actionLog.map((e) => (e.id === entry.id ? { ...e, undone: true } : e)),
@@ -1444,6 +1505,45 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
       }
     };
     cell.appendChild(btn);
+
+    const cleanup = buildSenderCleanupPlan(sender);
+    if (cleanup.trashIds.length > 0) {
+      const cleanSlot = document.createElement("span");
+      const cleanBtn = document.createElement("button");
+      cleanBtn.className = "danger";
+      cleanBtn.textContent = "Unsubscribe + clean…";
+      const reset = () => {
+        cleanSlot.replaceChildren(cleanBtn);
+      };
+      cleanBtn.onclick = () => {
+        const kept = cleanup.protectedIds.length + cleanup.retainedOtherIds.length;
+        renderConfirmStep(
+          cleanSlot,
+          reset,
+          `Unsubscribe from ${sender.address} and move ${cleanup.trashIds.length} newsletter message${cleanup.trashIds.length === 1 ? "" : "s"} to Trash? ${kept} transactional, sensitive, starred, or ambiguous message${kept === 1 ? " stays" : "s stay"}.`,
+          true,
+          async () => {
+            const ok = await fireOneClickUnsubscribe(u.postUrl!);
+            if (!ok) return "Unsubscribe failed — no mail was moved";
+            const provider = providerById.get(sender.provider);
+            if (!provider) return "Provider unavailable — no mail was moved";
+            const token = await provider.getAuthToken(false);
+            await provider.trashMessages(token, cleanup.trashIds);
+            await recordUnsubscribeRequests([sender]);
+            await logAction(
+              "trash",
+              `Unsubscribed from ${sender.address} and moved ${cleanup.trashIds.length} newsletter message${cleanup.trashIds.length === 1 ? "" : "s"} to Trash`,
+              provider.untrashMessages
+                ? { provider: sender.provider, ids: cleanup.trashIds, via: "untrash" }
+                : undefined,
+            );
+            return `Unsubscribed and moved ${cleanup.trashIds.length} to Trash; kept ${kept}`;
+          },
+        );
+      };
+      reset();
+      cell.append(" ", cleanSlot);
+    }
   } else if (u.mailto) {
     const a = document.createElement("a");
     a.href = u.mailto;
@@ -1488,7 +1588,15 @@ function renderSubscriptionsTab(senders: SenderSummary[]) {
   const table = document.createElement("table");
   const thead = document.createElement("thead");
   thead.appendChild(
-    headerRow(["", "Sender", `Count (${cachedSettings.scanWindowDays}d)`, "Mostly", "Method", "Status", "Action"]),
+    headerRow([
+      "",
+      "Sender",
+      `Count (${cachedSettings.scanWindowDays}d)`,
+      "Mostly",
+      "Method",
+      "Status",
+      "Action",
+    ]),
   );
   table.appendChild(thead);
 
@@ -1585,7 +1693,11 @@ function spamCheckboxes(): HTMLInputElement[] {
 }
 
 function updateSpamCount() {
-  const selectedKeys = new Set(spamCheckboxes().filter((c) => c.checked).map((c) => c.dataset.key));
+  const selectedKeys = new Set(
+    spamCheckboxes()
+      .filter((c) => c.checked)
+      .map((c) => c.dataset.key),
+  );
   const chosen = spamSuggestions.filter((s) => selectedKeys.has(s.sender.key));
   const msgs = chosen.reduce((n, s) => n + s.messageCount, 0);
   spamCountEl.textContent = `${chosen.length} of ${spamSuggestions.length} sender${
@@ -1653,14 +1765,20 @@ function resetSortInboxSlot() {
 
 function sortBucketChoices(): { bucket: SortBucket; include: boolean; keepInInbox: boolean }[] {
   return ALL_SORT_BUCKETS.filter((b) => sortPlan.some((e) => e.bucket === b)).map((bucket) => {
-    const include = (document.getElementById(`sort-inc-${bucket}`) as HTMLInputElement | null)?.checked ?? false;
-    const keepInInbox = (document.getElementById(`sort-keep-${bucket}`) as HTMLInputElement | null)?.checked ?? false;
+    const include =
+      (document.getElementById(`sort-inc-${bucket}`) as HTMLInputElement | null)?.checked ?? false;
+    const keepInInbox =
+      (document.getElementById(`sort-keep-${bucket}`) as HTMLInputElement | null)?.checked ?? false;
     return { bucket, include, keepInInbox };
   });
 }
 
 function updateSortInboxCount() {
-  const chosen = new Set(sortBucketChoices().filter((c) => c.include).map((c) => c.bucket));
+  const chosen = new Set(
+    sortBucketChoices()
+      .filter((c) => c.include)
+      .map((c) => c.bucket),
+  );
   const entries = sortPlan.filter((e) => chosen.has(e.bucket));
   const msgs = totalPlanCount(entries);
   sortInboxCountEl.textContent = entries.length
@@ -1748,7 +1866,13 @@ function wireSortInbox() {
             "sort",
             `Sorted ${entry.count} into "${entry.label}"`,
             gmailIds.length > 0
-              ? { provider: "gmail", ids: gmailIds, via: "unsort", labelName: entry.label, wasFiledOut: entry.fileOut }
+              ? {
+                  provider: "gmail",
+                  ids: gmailIds,
+                  via: "unsort",
+                  labelName: entry.label,
+                  wasFiledOut: entry.fileOut,
+                }
               : undefined,
           );
         }
@@ -1874,7 +1998,13 @@ function wireKeepNewest() {
     const gmailIds = merged.get("gmail") ?? [];
     const total = [...merged.values()].reduce((a, b) => a + b.length, 0);
     if (total === 0) {
-      renderConfirmStep(keepNewestSlot, resetKeepNewestSlot, `Nothing to trim — no sender has more than ${n}.`, false, async () => "");
+      renderConfirmStep(
+        keepNewestSlot,
+        resetKeepNewestSlot,
+        `Nothing to trim — no sender has more than ${n}.`,
+        false,
+        async () => "",
+      );
       return;
     }
     renderConfirmStep(
@@ -1935,7 +2065,10 @@ async function screenPending(senders: SenderSummary[]) {
     cachedSettings = await updateSettings({
       screenedSenders: [...cachedSettings.screenedSenders, ...screened],
     });
-    await logAction("screener", `Screener held ${screened.length} unknown sender${screened.length === 1 ? "" : "s"}`);
+    await logAction(
+      "screener",
+      `Screener held ${screened.length} unknown sender${screened.length === 1 ? "" : "s"}`,
+    );
   }
 }
 
@@ -2108,7 +2241,8 @@ function wireBulkHandlers() {
       summary.textContent = "Unsubscribing…";
       const { succeeded, failed } = await executeBulkUnsubscribe(automatable, fireOneClickUnsubscribe);
       await recordUnsubscribeRequests(succeeded);
-      if (succeeded.length > 0) await logAction("unsubscribe", `Bulk unsubscribed from ${succeeded.length} senders`);
+      if (succeeded.length > 0)
+        await logAction("unsubscribe", `Bulk unsubscribed from ${succeeded.length} senders`);
       render(currentSenders);
       return `Unsubscribed ${succeeded.length}, failed ${failed.length}, skipped ${manual.length} (no verified link)`;
     });
@@ -2126,7 +2260,8 @@ function wireBulkHandlers() {
 
     renderConfirmStep(keepSortedBulkSlot, resetKeepSortedBulkSlot, summaryText, false, async () => {
       const { succeeded, failed } = await executeBulkKeepSorted(eligible, providerById);
-      if (succeeded > 0) await logAction("keepSorted", `Kept ${succeeded} sender${succeeded === 1 ? "" : "s"} sorted`);
+      if (succeeded > 0)
+        await logAction("keepSorted", `Kept ${succeeded} sender${succeeded === 1 ? "" : "s"} sorted`);
       return `Sorted ${succeeded}, failed ${failed}, skipped ${unsupported.length}`;
     });
   };
@@ -2147,7 +2282,10 @@ function wireBulkHandlers() {
       const { succeeded, failed } = await executeBulkSnooze(eligible, providerById);
       for (const s of succeeded) await recordSnoozedMessages(s.messageIds, s.provider, resurfaceAt);
       if (succeeded.length > 0) {
-        await logAction("snooze", `Snoozed ${succeeded.length} sender${succeeded.length === 1 ? "" : "s"} until ${new Date(resurfaceAt).toLocaleDateString()}`);
+        await logAction(
+          "snooze",
+          `Snoozed ${succeeded.length} sender${succeeded.length === 1 ? "" : "s"} until ${new Date(resurfaceAt).toLocaleDateString()}`,
+        );
       }
       const message = `Snoozed ${succeeded.length}, failed ${failed.length}, skipped ${unsupported.length}`;
       await scanAndRender();
@@ -2179,7 +2317,9 @@ function wireBulkHandlers() {
       await logAction(
         "trash",
         `Cleared ${deletable} across ${selected.length} domain${selected.length === 1 ? "" : "s"}`,
-        undoableGmailIds.length > 0 ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" } : undefined,
+        undoableGmailIds.length > 0
+          ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" }
+          : undefined,
       );
       return message;
     });
@@ -2197,7 +2337,9 @@ function wireBulkHandlers() {
       await logAction(
         "trash",
         `Cleaned up ${total} expired message${total === 1 ? "" : "s"}`,
-        undoableGmailIds.length > 0 ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" } : undefined,
+        undoableGmailIds.length > 0
+          ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" }
+          : undefined,
       );
       return message;
     });
@@ -2301,7 +2443,11 @@ function wireBulkHandlers() {
   };
 
   spamTrashBtn.onclick = () => {
-    const selectedKeys = new Set(spamCheckboxes().filter((c) => c.checked).map((c) => c.dataset.key));
+    const selectedKeys = new Set(
+      spamCheckboxes()
+        .filter((c) => c.checked)
+        .map((c) => c.dataset.key),
+    );
     const chosen = spamSuggestions.filter((s) => selectedKeys.has(s.sender.key));
     if (chosen.length === 0) return;
 

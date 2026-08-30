@@ -10,7 +10,7 @@ import { riskTier, senderRiskScore } from "./lib/threatSignals";
 import { appendActionLog, makeLogId } from "./lib/actionLog";
 import { buildSenderSummaries, type SenderSummary } from "./lib/senderModel";
 import type { ClusterSettings } from "./lib/settingsStore";
-import { getSettings, updateSettings } from "./lib/settingsStore";
+import { getSettings, mutateSettings, updateSettings } from "./lib/settingsStore";
 import { excludeSnoozedMessages } from "./lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
 import { flushAthenaSecurityEvents, queueAthenaSecurityEvents } from "./lib/athenaIntegration";
@@ -31,6 +31,7 @@ chrome.action.onClicked.addListener(async () => {
 // from the dashboard's "Ready to clean up" section, behind one confirm.
 const TRIAGE_ALARM = "cluster-triage";
 const ATHENA_ALARM = "cluster-athena-flush";
+const SECURITY_SCAN_WINDOW_DAYS = 30;
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 1, periodInMinutes: 360 });
@@ -96,7 +97,9 @@ async function runScreener(settings: ClusterSettings, senders: SenderSummary[]):
   }
 
   const known = knownSenderSet({ ...settings, sentCorrespondents: sent });
-  const excluded = new Set([...settings.mutedSenders, ...settings.screenedSenders].map((a) => a.toLowerCase()));
+  const excluded = new Set(
+    [...settings.mutedSenders, ...settings.screenedSenders].map((a) => a.toLowerCase()),
+  );
   const pending = pendingScreenerSenders(senders, known, excluded);
 
   const screened: string[] = [];
@@ -161,7 +164,20 @@ async function runBackgroundTriage() {
     if (connected.length === 0) return;
 
     const settings = await getSettings();
-    let senders = await buildSenderSummaries(connected, settings.maxMessagesPerProvider, settings.scanWindowDays);
+    let senders = await buildSenderSummaries(
+      connected,
+      settings.maxMessagesPerProvider,
+      settings.scanWindowDays,
+      undefined,
+      "cleanup",
+    );
+    const securitySenders = await buildSenderSummaries(
+      connected,
+      settings.maxMessagesPerProvider,
+      Math.min(settings.scanWindowDays, SECURITY_SCAN_WINDOW_DAYS),
+      undefined,
+      "security",
+    );
     const activeSnoozedIds = new Set(
       Object.entries(settings.snoozedMessages)
         .filter(([, v]) => v.resurfaceAt > Date.now())
@@ -169,13 +185,22 @@ async function runBackgroundTriage() {
     );
     senders = excludeSnoozedMessages(senders, activeSnoozedIds);
 
-    const firstContact = markFirstContact(senders, settings.knownSenders);
-    if (firstContact.firstContactCount > 0) {
-      await updateSettings({ knownSenders: firstContact.updatedKnownSenders });
+    const firstContact = markFirstContact(
+      securitySenders,
+      settings.knownSenders,
+      Date.now(),
+      settings.knownSendersInitialized,
+    );
+    if (!settings.knownSendersInitialized || firstContact.firstContactCount > 0) {
+      await mutateSettings((current) => ({
+        ...current,
+        knownSenders: { ...current.knownSenders, ...firstContact.updatedKnownSenders },
+        knownSendersInitialized: true,
+      }));
     }
 
-    await reportThreatSignals(senders);
-    const quarantined = await runQuarantine(settings, senders);
+    await reportThreatSignals(securitySenders);
+    const quarantined = await runQuarantine(settings, securitySenders);
 
     // Standing user rules (Auto Clean). Operates on the in-memory scan, so the
     // expiry badge below can momentarily still count a message a trash-rule

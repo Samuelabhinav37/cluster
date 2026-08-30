@@ -130,7 +130,9 @@ fetched for the cleanup feature (sender address, display name, and now `Authenti
 Optional protective action: **"Auto-quarantine high-risk senders"** (Security tab, off by
 default) lets the 6-hourly background pass label HIGH-tier mail `Cluster/Possible Phishing` and
 file it out of the inbox. Gmail-only, never deletes, every batch reversible from Recently done.
-Also new: a **"first email from this sender"** badge, from a local address ledger.
+Also new: a **"new since Cluster started tracking"** badge, from a local
+provider-and-address ledger. The first scan seeds the baseline without claiming
+that every existing correspondent is new.
 
 Flagged senders surface in a clearly separate "Possible impersonation" dashboard section — never
 blended into the regular cleanup view — and get reported as minimized `warned` events to Athena

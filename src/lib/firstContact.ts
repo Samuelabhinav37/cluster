@@ -1,9 +1,5 @@
-// "First email from this sender" — the consumer version of the enterprise
-// "new sender" banner. A persisted ledger (settingsStore.knownSenders) maps
-// every address ever seen to when it was first seen; a sender absent from it
-// on this scan is flagged. Metadata only (the From address), no body, no
-// network. Pairs with the Screener, which acts on the same "never seen this
-// person" idea.
+// "New since Cluster started tracking" banner. The first scan seeds a baseline
+// without claiming that every existing correspondent is new.
 import type { SenderSummary } from "./senderModel";
 
 export interface FirstContactResult {
@@ -22,16 +18,19 @@ export function markFirstContact(
   senders: SenderSummary[],
   knownSenders: Record<string, number>,
   now: number = Date.now(),
+  flagUnknown = true,
 ): FirstContactResult {
   const updated: Record<string, number> = { ...knownSenders };
   let firstContactCount = 0;
   for (const sender of senders) {
     const address = sender.address.toLowerCase();
     if (!address) continue;
-    if (!(address in updated)) {
-      updated[address] = now;
-      sender.firstContact = true;
-      firstContactCount += 1;
+    const key = `${sender.provider}:${address}`;
+    // Bare-address entries are accepted as a migration path from schema 0.
+    if (!(key in updated) && !(address in updated)) {
+      updated[key] = now;
+      sender.firstContact = flagUnknown;
+      if (flagUnknown) firstContactCount += 1;
     }
   }
   return { updatedKnownSenders: updated, firstContactCount };

@@ -1,8 +1,10 @@
 import type { ProviderId } from "./providers/emailProvider";
 import type { ClusterRule } from "./rules";
 import type { ActionLogEntry } from "./actionLog";
+import { withStorageLock } from "./storageLock";
 
 export interface ClusterSettings {
+  schemaVersion: number;
   scanWindowDays: number;
   maxMessagesPerProvider: number;
   collapsedSenderCategories: string[];
@@ -37,9 +39,11 @@ export interface ClusterSettings {
   activeTab: string;
 
   // ── Security (Phase 2) ──────────────────────────────────────────────────
-  /** Every sender address ever seen → epoch ms first seen. A sender absent
-   * from this map is flagged "first contact" (see firstContact.ts). */
+  /** Provider + sender address → epoch ms first seen. After the initial
+   * baseline, an absent key is shown as new since tracking began. */
   knownSenders: Record<string, number>;
+  /** False until the first recent-Inbox baseline has been stored. */
+  knownSendersInitialized: boolean;
   /** Opt-in: the background triage labels high-risk senders as suspicious and
    * files them out of the inbox (Gmail-only, reversible, never deletes). */
   autoQuarantineHighRisk: boolean;
@@ -59,8 +63,10 @@ export interface ClusterSettings {
 }
 
 const STORAGE_KEY = "clusterSettings";
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 1;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
+  schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
   scanWindowDays: 180,
   maxMessagesPerProvider: 500,
   collapsedSenderCategories: [],
@@ -79,18 +85,88 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   lastTriageSummary: "",
   activeTab: "cleanup",
   knownSenders: {},
+  knownSendersInitialized: false,
   autoQuarantineHighRisk: false,
   autoSort: { enabledBuckets: [], fileOutByBucket: {}, keepSorting: false, expireOtp: false },
 };
 
-export async function getSettings(): Promise<ClusterSettings> {
-  const data = await chrome.storage.local.get(STORAGE_KEY);
-  const stored = data[STORAGE_KEY] as Partial<ClusterSettings> | undefined;
-  return { ...DEFAULT_SETTINGS, ...stored };
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export async function updateSettings(partial: Partial<ClusterSettings>): Promise<ClusterSettings> {
-  const next = { ...(await getSettings()), ...partial };
-  await chrome.storage.local.set({ [STORAGE_KEY]: next });
-  return next;
+function migrateSettings(value: unknown): Record<string, unknown> {
+  let stored = isRecord(value) ? { ...value } : {};
+  let version = typeof stored.schemaVersion === "number" ? stored.schemaVersion : 0;
+  if (version > CURRENT_SETTINGS_SCHEMA_VERSION) {
+    throw new Error(
+      `Settings schema ${version} is newer than this Cluster build supports (${CURRENT_SETTINGS_SCHEMA_VERSION})`,
+    );
+  }
+  while (version < CURRENT_SETTINGS_SCHEMA_VERSION) {
+    if (version === 0) {
+      stored = { ...stored, schemaVersion: 1 };
+      version = 1;
+    }
+  }
+  return stored;
+}
+
+function normalizeSettings(value: unknown): ClusterSettings {
+  const stored = migrateSettings(value);
+  const sentCorrespondents = isRecord(stored.sentCorrespondents) ? stored.sentCorrespondents : {};
+  const autoSort = isRecord(stored.autoSort) ? stored.autoSort : {};
+  return {
+    ...DEFAULT_SETTINGS,
+    ...stored,
+    schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
+    sentCorrespondents: {
+      ...DEFAULT_SETTINGS.sentCorrespondents,
+      ...sentCorrespondents,
+    } as ClusterSettings["sentCorrespondents"],
+    autoSort: {
+      ...DEFAULT_SETTINGS.autoSort,
+      ...autoSort,
+      fileOutByBucket: {
+        ...DEFAULT_SETTINGS.autoSort.fileOutByBucket,
+        ...(isRecord(autoSort.fileOutByBucket) ? autoSort.fileOutByBucket : {}),
+      },
+    } as ClusterSettings["autoSort"],
+  };
+}
+
+async function readSettings(): Promise<{ settings: ClusterSettings; needsMigration: boolean }> {
+  const data = await chrome.storage.local.get(STORAGE_KEY);
+  const raw = data[STORAGE_KEY];
+  const rawVersion = isRecord(raw) && typeof raw.schemaVersion === "number" ? raw.schemaVersion : 0;
+  return {
+    settings: normalizeSettings(raw),
+    needsMigration: rawVersion !== CURRENT_SETTINGS_SCHEMA_VERSION,
+  };
+}
+
+export async function getSettings(): Promise<ClusterSettings> {
+  const read = await readSettings();
+  if (!read.needsMigration) return read.settings;
+  return withStorageLock(STORAGE_KEY, async () => {
+    const latest = await readSettings();
+    if (latest.needsMigration) {
+      await chrome.storage.local.set({ [STORAGE_KEY]: latest.settings });
+    }
+    return latest.settings;
+  });
+}
+
+export async function mutateSettings(
+  mutate: (current: ClusterSettings) => ClusterSettings,
+): Promise<ClusterSettings> {
+  return withStorageLock(STORAGE_KEY, async () => {
+    const current = (await readSettings()).settings;
+    const next = normalizeSettings(mutate(current));
+    await chrome.storage.local.set({ [STORAGE_KEY]: next });
+    return next;
+  });
+}
+
+export function updateSettings(partial: Partial<ClusterSettings>): Promise<ClusterSettings> {
+  return mutateSettings((current) => ({ ...current, ...partial }));
 }

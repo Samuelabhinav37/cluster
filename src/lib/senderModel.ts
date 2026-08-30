@@ -11,11 +11,14 @@ import type {
   EmailProvider,
   NormalizedMessageMetadata,
   ProviderId,
+  ScanPurpose,
   UnsubscribeInfo,
 } from "./providers/emailProvider";
 
 export interface MessageRecord {
   id: string;
+  /** Subject is retained in memory for explainable protection decisions. */
+  subject?: string;
   receivedAt: number;
   kind: MessageKind;
   isProtected: boolean;
@@ -45,9 +48,8 @@ export interface SenderSummary {
    * sender's messages -- surfaced in the Security tab as a plain-language
    * "is this really from who it says" indicator. */
   authVerdicts: AuthenticationVerdicts;
-  /** True when this scan is the first time this address has ever been seen
-   * (set by firstContact.ts against the persisted knownSenders ledger, not
-   * by buildSenderSummaries itself -- defaults false). */
+  /** True when this sender is new since Cluster initialized its local ledger
+   * (set by firstContact.ts, not by buildSenderSummaries). */
   firstContact: boolean;
 }
 
@@ -78,6 +80,7 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
   const key = `${meta.provider}:${meta.fromAddress}`;
   const record: MessageRecord = {
     id: meta.id,
+    subject: meta.subject,
     receivedAt: meta.receivedAt,
     kind: classifyMessageKind(meta.subject, hasUnsubscribe(meta.unsubscribe)),
     isProtected: meta.isProtected,
@@ -142,13 +145,19 @@ export async function buildSenderSummaries(
   maxMessagesPerProvider = DEFAULT_MAX_MESSAGES,
   scanWindowDays = DEFAULT_SCAN_WINDOW_DAYS,
   onProgress?: (done: number, total: number) => void,
+  purpose: ScanPurpose = "cleanup",
 ): Promise<SenderSummary[]> {
   const senders = new Map<string, SenderSummary>();
 
   const perProvider = await Promise.all(
     providers.map(async (provider) => {
       const token = await provider.getAuthToken(false);
-      const stubs = await provider.listCandidateMessages(token, maxMessagesPerProvider, scanWindowDays);
+      const stubs = await provider.listCandidateMessages(
+        token,
+        maxMessagesPerProvider,
+        scanWindowDays,
+        purpose,
+      );
       return { provider, token, stubs };
     }),
   );

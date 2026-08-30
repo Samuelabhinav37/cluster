@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchWithRetry } from "./httpRetry";
+import { fetchWithRetry, parseRetryAfterMs } from "./httpRetry";
 
 function makeResponse(status: number, headers: Record<string, string> = {}): Response {
   return new Response(null, { status, headers });
@@ -44,6 +44,13 @@ describe("fetchWithRetry", () => {
     const res = await promise;
     expect(res.status).toBe(200);
     vi.useRealTimers();
+  });
+
+  it("parses both Retry-After seconds and HTTP dates", () => {
+    const now = Date.parse("2026-08-30T12:00:00Z");
+    expect(parseRetryAfterMs("2", now)).toBe(2000);
+    expect(parseRetryAfterMs("Sun, 30 Aug 2026 12:00:03 GMT", now)).toBe(3000);
+    expect(parseRetryAfterMs("invalid", now)).toBeUndefined();
   });
 
   it("retries transient 5xx errors up to maxRetries, then returns the failing response", async () => {

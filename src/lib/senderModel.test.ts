@@ -2,10 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { buildSenderSummaries } from "./senderModel";
 import type { EmailProvider, NormalizedMessageMetadata } from "./providers/emailProvider";
 
-function makeProvider(
-  id: "gmail" | "outlook",
-  metas: NormalizedMessageMetadata[],
-): EmailProvider {
+function makeProvider(id: "gmail" | "outlook", metas: NormalizedMessageMetadata[]): EmailProvider {
   return {
     id,
     isConnected: vi.fn(async () => true),
@@ -39,7 +36,9 @@ describe("buildSenderSummaries", () => {
       makeMeta({ id: "g2", fromAddress: "a@x.com" }),
       makeMeta({ id: "g3", fromAddress: "b@x.com" }),
     ]);
-    const outlook = makeProvider("outlook", [makeMeta({ id: "o1", provider: "outlook", fromAddress: "c@y.com" })]);
+    const outlook = makeProvider("outlook", [
+      makeMeta({ id: "o1", provider: "outlook", fromAddress: "c@y.com" }),
+    ]);
 
     const senders = await buildSenderSummaries([gmail, outlook]);
 
@@ -62,7 +61,13 @@ describe("buildSenderSummaries", () => {
   it("passes maxMessagesPerProvider and scanWindowDays through to each provider", async () => {
     const gmail = makeProvider("gmail", []);
     await buildSenderSummaries([gmail], 250, 30);
-    expect(gmail.listCandidateMessages).toHaveBeenCalledWith("gmail-token", 250, 30);
+    expect(gmail.listCandidateMessages).toHaveBeenCalledWith("gmail-token", 250, 30, "cleanup");
+  });
+
+  it("passes a purpose-specific scan lane through to the provider", async () => {
+    const gmail = makeProvider("gmail", []);
+    await buildSenderSummaries([gmail], 250, 30, undefined, "security");
+    expect(gmail.listCandidateMessages).toHaveBeenCalledWith("gmail-token", 250, 30, "security");
   });
 
   it("flags failed-authentication from any of a sender's messages, not just the first one seen", async () => {
@@ -70,8 +75,16 @@ describe("buildSenderSummaries", () => {
     // DMARC (the spoofed copy). The old code only scored the first message,
     // so this signal was silently missed.
     const gmail = makeProvider("gmail", [
-      makeMeta({ id: "g1", fromAddress: "alerts@bank.example", authenticationResults: "mx.google.com; spf=pass; dkim=pass; dmarc=pass" }),
-      makeMeta({ id: "g2", fromAddress: "alerts@bank.example", authenticationResults: "mx.google.com; dmarc=fail (p=REJECT)" }),
+      makeMeta({
+        id: "g1",
+        fromAddress: "alerts@bank.example",
+        authenticationResults: "mx.google.com; spf=pass; dkim=pass; dmarc=pass",
+      }),
+      makeMeta({
+        id: "g2",
+        fromAddress: "alerts@bank.example",
+        authenticationResults: "mx.google.com; dmarc=fail (p=REJECT)",
+      }),
     ]);
 
     const senders = await buildSenderSummaries([gmail]);
@@ -143,13 +156,19 @@ describe("buildSenderSummaries", () => {
   it("computes threatSignals per sender from scoreMessageForThreats", async () => {
     const gmail = makeProvider("gmail", [
       makeMeta({ id: "g1", fromAddress: "paypal-support@gmail.com", fromDisplayName: "PayPal Support" }),
-      makeMeta({ id: "g2", fromAddress: "hello@ordinary-newsletter.example", fromDisplayName: "Ordinary Newsletter" }),
+      makeMeta({
+        id: "g2",
+        fromAddress: "hello@ordinary-newsletter.example",
+        fromDisplayName: "Ordinary Newsletter",
+      }),
     ]);
 
     const senders = await buildSenderSummaries([gmail]);
 
     const flagged = senders.find((s) => s.address === "paypal-support@gmail.com")!;
-    expect(flagged.threatSignals).toEqual([{ kind: "freemail-brand-claim", brand: "paypal", confidence: "high" }]);
+    expect(flagged.threatSignals).toEqual([
+      { kind: "freemail-brand-claim", brand: "paypal", confidence: "high" },
+    ]);
     const clean = senders.find((s) => s.address === "hello@ordinary-newsletter.example")!;
     expect(clean.threatSignals).toEqual([]);
   });

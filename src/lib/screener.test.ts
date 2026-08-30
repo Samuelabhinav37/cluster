@@ -5,6 +5,7 @@ import type { ClusterSettings } from "./settingsStore";
 
 function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
   return {
+    schemaVersion: 1,
     scanWindowDays: 180,
     maxMessagesPerProvider: 500,
     collapsedSenderCategories: [],
@@ -23,6 +24,7 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
     lastTriageSummary: "",
     activeTab: "cleanup",
     knownSenders: {},
+    knownSendersInitialized: false,
     autoQuarantineHighRisk: false,
     autoSort: { enabledBuckets: [], fileOutByBucket: {}, keepSorting: false, expireOtp: false },
     ...over,
@@ -88,8 +90,8 @@ describe("pendingScreenerSenders", () => {
 
   it("excludes addresses in the excluded set (muted / already screened)", () => {
     const senders = [sender({ address: "a@x.com" }), sender({ address: "b@x.com" })];
-    expect(
-      pendingScreenerSenders(senders, known, new Set(["a@x.com"])).map((s) => s.address),
-    ).toEqual(["b@x.com"]);
+    expect(pendingScreenerSenders(senders, known, new Set(["a@x.com"])).map((s) => s.address)).toEqual([
+      "b@x.com",
+    ]);
   });
 });

@@ -12,7 +12,8 @@ to send it to.
 | Message headers (see below) | Gmail / Microsoft Graph API | not persisted — held in memory for the current scan only | nowhere |
 | Message labels / flags, received date, size estimate | same | same | nowhere |
 | Your settings, rules, action log | you, in the dashboard | `chrome.storage.local` (this browser only) | nowhere |
-| Outlook OAuth tokens | Microsoft sign-in | `chrome.storage.local` (this browser only) | only back to `login.microsoftonline.com` to refresh |
+| Outlook access token | Microsoft sign-in | `chrome.storage.session` (memory-backed; trusted extension contexts only) | Microsoft Graph |
+| Outlook refresh token | Microsoft sign-in | `chrome.storage.local` (trusted extension contexts only) | only to `login.microsoftonline.com` to refresh |
 | Gmail OAuth token | Chrome | custodied by Chrome's `chrome.identity`, not by us | only to `gmail.googleapis.com` |
 
 ### Headers the scan reads
@@ -24,6 +25,7 @@ Only these, via the API's metadata format — **never the message body**:
 - `Subject`
 - `List-Unsubscribe`, `List-Unsubscribe-Post`
 - `Authentication-Results`
+- `DKIM-Signature` (only to verify RFC 8058 one-click header coverage)
 
 Plus non-header metadata the same API call returns: label IDs (e.g. `STARRED`,
 `UNREAD`, `INBOX`), the internal received timestamp, and the size estimate.
@@ -40,15 +42,20 @@ stored and never transmitted.
 
 | Scope | Why | Restricted? |
 |---|---|---|
-| `https://www.googleapis.com/auth/gmail.modify` | read message metadata; add/remove labels; trash/untrash; create filters; snooze | no |
-| `https://www.googleapis.com/auth/gmail.settings.basic` | create the filters behind "Keep sorted" / "Mute" | no |
-| `https://mail.google.com/` | **opt-in only.** Requested at the moment you enable "Fast permanent delete", never at install. Powers `batchDelete` (skip Trash). Declining it falls back to Trash. | **yes** — triggers Google CASA review if the project is ever published beyond OAuth "Testing" |
+| `https://www.googleapis.com/auth/gmail.modify` | read message metadata; add/remove labels; trash/untrash; snooze | **yes — restricted** |
+| `https://www.googleapis.com/auth/gmail.settings.basic` | create the filters behind "Keep sorted" / "Mute" | **yes — restricted** |
+| `https://mail.google.com/` | **opt-in only.** Requested at the moment you enable "Fast permanent delete", never at install. Powers `batchDelete` (skip Trash). Declining it falls back to Trash. | **yes — restricted**; request only when bypassing Trash is essential |
 | Microsoft Graph `Mail.ReadBasic`, `Mail.ReadWrite`, `offline_access` | read Outlook message metadata; move to Deleted Items; refresh the token | n/a |
 
 Host permissions at install are limited to the three API hosts above. Access to
 an unsubscribe link's own domain is requested **per origin, at the moment you
 click unsubscribe** (`optional_host_permissions` + `chrome.permissions.request`),
 and only for HTTPS.
+
+Public distribution using Gmail restricted scopes requires Google's OAuth
+verification. A third-party security assessment is additionally required when
+restricted Gmail data is stored on or transmitted through a server; Cluster's
+default no-server architecture avoids that server-data path but not verification.
 
 ## Optional enterprise telemetry ("Athena")
 
@@ -78,8 +85,13 @@ recipient addresses. The endpoint must be HTTPS. See `src/lib/athenaIntegration.
   default**) is the one background protective action: it labels HIGH-tier mail
   `Cluster/Possible Phishing` and files it out of the inbox, Gmail-only, never
   deletes, and every batch is reversible from Recently done.
-- "First email from this sender" is judged against a local address ledger
-  (`settingsStore.knownSenders`) — a list of addresses seen, nothing more.
+- Authentication results are used only when their `authserv-id` belongs to the
+  connected provider; sender-injected copies are ignored. Automatic one-click
+  unsubscribe additionally requires a passing aligned DKIM signature covering
+  both RFC 8058 headers, uses a credential-free POST, and rejects redirects.
+- "New since Cluster started tracking" is judged against a local provider +
+  address ledger (`settingsStore.knownSenders`). The first scan seeds the
+  baseline without labeling every existing sender as new.
 
 ## Reporting a vulnerability
 

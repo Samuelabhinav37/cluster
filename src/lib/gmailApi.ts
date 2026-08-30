@@ -69,7 +69,10 @@ export async function listMessageIds(
       maxResults: String(Math.min(500, maxResults - results.length)),
     });
     if (pageToken) params.set("pageToken", pageToken);
-    const data = await gmailFetch<{ messages?: GmailMessageStub[]; nextPageToken?: string }>(`/users/me/messages?${params}`, token);
+    const data = await gmailFetch<{ messages?: GmailMessageStub[]; nextPageToken?: string }>(
+      `/users/me/messages?${params}`,
+      token,
+    );
     results.push(...(data.messages ?? []));
     pageToken = data.nextPageToken;
   } while (pageToken && results.length < maxResults);
@@ -78,6 +81,12 @@ export async function listMessageIds(
 
 export interface RawMessageMetadata {
   headers: Record<string, string>;
+  /** All duplicates are retained so a forged sender-added header cannot hide
+   * the provider-owned Authentication-Results value. */
+  authenticationResultsHeaders: string[];
+  /** All DKIM signatures are needed to find the one that both passed and
+   * covered the RFC 8058 unsubscribe headers. */
+  dkimSignatures: string[];
   labelIds: string[];
   /** Epoch ms; Gmail returns this on every message resource, metadata format included. */
   internalDate: number;
@@ -87,16 +96,32 @@ export interface RawMessageMetadata {
 
 export async function getMessageMetadata(token: string, id: string): Promise<RawMessageMetadata> {
   const params = new URLSearchParams({ format: "metadata" });
-  for (const header of ["From", "Reply-To", "List-Unsubscribe", "List-Unsubscribe-Post", "Subject", "Authentication-Results"]) {
+  for (const header of [
+    "From",
+    "Reply-To",
+    "List-Unsubscribe",
+    "List-Unsubscribe-Post",
+    "Subject",
+    "Authentication-Results",
+    "DKIM-Signature",
+  ]) {
     params.append("metadataHeaders", header);
   }
   const data = await gmailFetch<GmailMessageResource>(`/users/me/messages/${id}?${params}`, token);
   const headers: Record<string, string> = {};
+  const authenticationResultsHeaders: string[] = [];
+  const dkimSignatures: string[] = [];
   for (const h of data.payload?.headers ?? []) {
     headers[h.name] = h.value;
+    if (h.name.toLowerCase() === "authentication-results") {
+      authenticationResultsHeaders.push(h.value);
+    }
+    if (h.name.toLowerCase() === "dkim-signature") dkimSignatures.push(h.value);
   }
   return {
     headers,
+    authenticationResultsHeaders,
+    dkimSignatures,
     labelIds: data.labelIds ?? [],
     internalDate: Number(data.internalDate ?? 0),
     sizeEstimate: Number(data.sizeEstimate ?? 0),
@@ -165,7 +190,11 @@ export async function screenSender(token: string, fromAddress: string, existingI
   if (existingIds.length > 0) await batchModify(token, existingIds, [labelId], ["INBOX"]);
 }
 
-export async function allowSenderThrough(token: string, fromAddress: string, screenedIds: string[]): Promise<void> {
+export async function allowSenderThrough(
+  token: string,
+  fromAddress: string,
+  screenedIds: string[],
+): Promise<void> {
   await deleteSenderFilters(token, fromAddress);
   if (screenedIds.length > 0) {
     const labelId = await getOrCreateLabel(token, SCREENER_LABEL_NAME);
@@ -312,11 +341,7 @@ export async function resurfaceMessages(token: string, ids: string[]): Promise<v
   await batchModify(token, ids, ["INBOX"], [labelId]);
 }
 
-export async function createSenderFilter(
-  token: string,
-  fromAddress: string,
-  labelId: string,
-): Promise<void> {
+export async function createSenderFilter(token: string, fromAddress: string, labelId: string): Promise<void> {
   await gmailFetch("/users/me/settings/filters", token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

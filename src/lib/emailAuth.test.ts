@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { parseAuthenticationResults } from "./emailAuth";
+import {
+  isTrustedAuthenticationResults,
+  parseAuthenticationResults,
+  selectTrustedAuthenticationResults,
+} from "./emailAuth";
 
 describe("parseAuthenticationResults", () => {
   it("parses a fully-passing header (Gmail-shaped)", () => {
@@ -11,12 +15,17 @@ describe("parseAuthenticationResults", () => {
   });
 
   it("parses a failing dmarc verdict independent of the others", () => {
-    const header = "mx.google.com; spf=pass smtp.mailfrom=x@evil.example; dkim=none; dmarc=fail (p=REJECT) header.from=paypal.com";
+    const header =
+      "mx.google.com; spf=pass smtp.mailfrom=x@evil.example; dkim=none; dmarc=fail (p=REJECT) header.from=paypal.com";
     expect(parseAuthenticationResults(header)).toEqual({ spf: "pass", dkim: "none", dmarc: "fail" });
   });
 
   it("returns unknown for every mechanism when there is no header at all", () => {
-    expect(parseAuthenticationResults(undefined)).toEqual({ spf: "unknown", dkim: "unknown", dmarc: "unknown" });
+    expect(parseAuthenticationResults(undefined)).toEqual({
+      spf: "unknown",
+      dkim: "unknown",
+      dmarc: "unknown",
+    });
   });
 
   it("returns unknown for every mechanism when the header text has none of the three tokens", () => {
@@ -41,5 +50,21 @@ describe("parseAuthenticationResults", () => {
       dkim: "neutral",
       dmarc: "unknown",
     });
+  });
+});
+
+describe("Authentication-Results trust boundary", () => {
+  it("accepts provider-owned Gmail and Outlook authserv-ids", () => {
+    expect(isTrustedAuthenticationResults("gmail", "mx.google.com; dkim=pass")).toBe(true);
+    expect(
+      isTrustedAuthenticationResults("outlook", "NAM12-BN8-obe.outbound.protection.outlook.com; dkim=pass"),
+    ).toBe(true);
+  });
+
+  it("rejects a sender-injected header and selects the trusted duplicate", () => {
+    const forged = "attacker.example; dkim=pass; dmarc=pass";
+    const trusted = "mx.google.com; dkim=fail; dmarc=fail";
+    expect(isTrustedAuthenticationResults("gmail", forged)).toBe(false);
+    expect(selectTrustedAuthenticationResults("gmail", [forged, trusted])).toBe(trusted);
   });
 });

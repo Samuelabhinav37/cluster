@@ -12,7 +12,40 @@ export interface AuthenticationVerdicts {
   dmarc: AuthVerdict;
 }
 
+export type AuthenticationProvider = "gmail" | "outlook";
+
 const KNOWN_VERDICTS = new Set<AuthVerdict>(["pass", "fail", "softfail", "neutral", "none"]);
+
+function authenticationServiceId(headerValue: string): string {
+  return headerValue.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+}
+
+/**
+ * Authentication-Results is only trustworthy when the consumer trusts the
+ * service that inserted it (RFC 8601). Messages can contain forged copies of
+ * this header, so provider adapters must select a provider-owned result before
+ * threat scoring or RFC 8058 verification uses it.
+ */
+export function isTrustedAuthenticationResults(
+  provider: AuthenticationProvider,
+  headerValue: string,
+): boolean {
+  const serviceId = authenticationServiceId(headerValue);
+  if (provider === "gmail") return serviceId === "mx.google.com";
+  return (
+    serviceId === "outlook.com" ||
+    serviceId.endsWith(".outlook.com") ||
+    serviceId === "protection.outlook.com" ||
+    serviceId.endsWith(".protection.outlook.com")
+  );
+}
+
+export function selectTrustedAuthenticationResults(
+  provider: AuthenticationProvider,
+  headerValues: string[],
+): string | undefined {
+  return headerValues.find((value) => isTrustedAuthenticationResults(provider, value));
+}
 
 function extractVerdict(headerValue: string, mechanism: "spf" | "dkim" | "dmarc"): AuthVerdict {
   const match = new RegExp(`\\b${mechanism}=([a-z]+)`, "i").exec(headerValue);

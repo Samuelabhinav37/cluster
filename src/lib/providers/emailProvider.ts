@@ -1,6 +1,7 @@
 import type { UnsubscribeInfo } from "../unsubscribe";
 
 export type ProviderId = "gmail" | "outlook";
+export type ScanPurpose = "cleanup" | "security";
 
 export type { UnsubscribeInfo };
 
@@ -43,15 +44,11 @@ export interface EmailProvider {
     token: string,
     maxResults: number,
     windowDays: number,
+    purpose?: ScanPurpose,
   ): Promise<NormalizedMessageStub[]>;
   getMessageMetadata(token: string, id: string): Promise<NormalizedMessageMetadata>;
   trashMessages(token: string, ids: string[]): Promise<void>;
-  keepSorted?(
-    token: string,
-    fromAddress: string,
-    label: string,
-    existingIds: string[],
-  ): Promise<void>;
+  keepSorted?(token: string, fromAddress: string, label: string, existingIds: string[]): Promise<void>;
   /**
    * Permanent delete — no Trash recovery, unlike trashMessages. Gmail-only,
    * opt-in; requires a token obtained with an elevated scope (see
