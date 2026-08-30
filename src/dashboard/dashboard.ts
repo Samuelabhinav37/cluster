@@ -37,6 +37,7 @@ import {
 } from "../lib/rules";
 import { applyRules, previewRuleMatches } from "../lib/ruleRunner";
 import { neverReadSenders } from "../lib/neverRead";
+import { reasonLabel, suggestSpamSenders, type SpamSuggestion } from "../lib/spamSuggestions";
 import {
   SMART_VIEWS,
   evaluateSmartView,
@@ -150,6 +151,13 @@ const neverReadMuteBtn = document.getElementById("never-read-mute-btn") as HTMLB
 const neverReadTrashSlot = document.getElementById("never-read-trash-slot") as HTMLSpanElement;
 const neverReadTrashBtn = document.getElementById("never-read-trash-btn") as HTMLButtonElement;
 const neverReadListEl = document.getElementById("never-read-list") as HTMLDivElement;
+
+const spamSectionEl = document.getElementById("spam-section") as HTMLElement;
+const spamCountEl = document.getElementById("spam-count") as HTMLSpanElement;
+const spamSelectAllEl = document.getElementById("spam-select-all") as HTMLInputElement;
+const spamTrashSlot = document.getElementById("spam-trash-slot") as HTMLSpanElement;
+const spamTrashBtn = document.getElementById("spam-trash-btn") as HTMLButtonElement;
+const spamListEl = document.getElementById("spam-list") as HTMLDivElement;
 
 const smartViewChipsEl = document.getElementById("smart-view-chips") as HTMLSpanElement;
 const smartViewResultSlot = document.getElementById("smart-view-result-slot") as HTMLDivElement;
@@ -316,6 +324,7 @@ async function scanAndRender() {
   renderSecuritySection(senders);
   renderSubscriptionsTab(senders);
   renderNeverReadSection(senders);
+  renderSpamSection(senders);
   renderSmartViews(senders);
   renderScreenerTab(senders);
   generateDigestBtn.disabled = false;
@@ -1592,6 +1601,70 @@ function renderNeverReadSection(senders: SenderSummary[]) {
   resetNeverReadSlots();
 }
 
+// ── "Suggested spam" (Clean up tab) ─────────────────────────────────────
+let spamSuggestions: SpamSuggestion[] = [];
+
+function resetSpamSlot() {
+  spamTrashSlot.innerHTML = "";
+  spamTrashSlot.appendChild(spamTrashBtn);
+}
+
+function spamCheckboxes(): HTMLInputElement[] {
+  return Array.from(spamListEl.querySelectorAll<HTMLInputElement>("input[type=checkbox][data-key]"));
+}
+
+function updateSpamCount() {
+  const selectedKeys = new Set(spamCheckboxes().filter((c) => c.checked).map((c) => c.dataset.key));
+  const chosen = spamSuggestions.filter((s) => selectedKeys.has(s.sender.key));
+  const msgs = chosen.reduce((n, s) => n + s.messageCount, 0);
+  spamCountEl.textContent = `${chosen.length} of ${spamSuggestions.length} sender${
+    spamSuggestions.length === 1 ? "" : "s"
+  } selected · ${msgs} message${msgs === 1 ? "" : "s"}`;
+  spamTrashBtn.disabled = chosen.length === 0;
+  const boxes = spamCheckboxes();
+  spamSelectAllEl.checked = boxes.length > 0 && boxes.every((b) => b.checked);
+}
+
+function renderSpamSection(senders: SenderSummary[]) {
+  spamSuggestions = suggestSpamSenders(senders);
+  spamSectionEl.hidden = spamSuggestions.length === 0;
+  resetSpamSlot();
+  if (spamSuggestions.length === 0) return;
+
+  spamListEl.innerHTML = "";
+  const table = document.createElement("table");
+  const tbody = document.createElement("tbody");
+  for (const sug of spamSuggestions) {
+    const row = document.createElement("tr");
+
+    const pickCell = document.createElement("td");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = true;
+    box.dataset.key = sug.sender.key;
+    box.onchange = updateSpamCount;
+    pickCell.appendChild(box);
+
+    const nameCell = document.createElement("td");
+    nameCell.textContent = sug.sender.displayName
+      ? `${sug.sender.displayName} <${sug.sender.address}>`
+      : sug.sender.address;
+
+    const countCell = document.createElement("td");
+    countCell.textContent = `${sug.messageCount} message${sug.messageCount === 1 ? "" : "s"}`;
+
+    const reasonCell = document.createElement("td");
+    reasonCell.className = "hint";
+    reasonCell.textContent = `${reasonLabel(sug.reason)} · ${sug.sender.provider}`;
+
+    row.append(pickCell, nameCell, countCell, reasonCell);
+    tbody.appendChild(row);
+  }
+  table.appendChild(tbody);
+  spamListEl.appendChild(table);
+  updateSpamCount();
+}
+
 // ── Smart Views + Keep-newest (Clean up tab) ─────────────────────────────
 async function applySmartView(view: SmartView, action: "archive" | "trash"): Promise<string> {
   const merged = evaluateSmartView(view, currentSenders);
@@ -2095,6 +2168,46 @@ function wireBulkHandlers() {
         );
         await scanAndRender();
         return `Moved ${ids.length} to Trash`;
+      },
+    );
+  };
+
+  // ── "Suggested spam": select-all + trash selected ──
+  spamSelectAllEl.onchange = () => {
+    for (const box of spamCheckboxes()) box.checked = spamSelectAllEl.checked;
+    updateSpamCount();
+  };
+
+  spamTrashBtn.onclick = () => {
+    const selectedKeys = new Set(spamCheckboxes().filter((c) => c.checked).map((c) => c.dataset.key));
+    const chosen = spamSuggestions.filter((s) => selectedKeys.has(s.sender.key));
+    if (chosen.length === 0) return;
+
+    const idsByProvider = new Map<ProviderId, string[]>();
+    for (const { sender } of chosen) {
+      const list = idsByProvider.get(sender.provider) ?? [];
+      list.push(...sender.messageIds);
+      idsByProvider.set(sender.provider, list);
+    }
+    const total = [...idsByProvider.values()].reduce((n, ids) => n + ids.length, 0);
+    const gmailIds = idsByProvider.get("gmail") ?? [];
+
+    renderConfirmStep(
+      spamTrashSlot,
+      resetSpamSlot,
+      `Move ${total} message${total === 1 ? "" : "s"} from ${chosen.length} suggested-spam sender${
+        chosen.length === 1 ? "" : "s"
+      } to Trash?`,
+      true,
+      async () => {
+        await executeBulkDeleteDomains(idsByProvider, providerById);
+        await logAction(
+          "trash",
+          `Trashed ${total} from ${chosen.length} suggested-spam sender${chosen.length === 1 ? "" : "s"}`,
+          gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "untrash" } : undefined,
+        );
+        await scanAndRender();
+        return `Moved ${total} to Trash`;
       },
     );
   };

@@ -134,6 +134,23 @@
           <div id="never-read-list"></div>
         </section>
 
+        <section id="spam-section" hidden>
+          <h2>Suggested spam</h2>
+          <p class="hint">
+            Senders whose domain is on a public spam or throwaway-email list
+            (disposable-email-domains, StopForumSpam) or the extension's own
+            known-bad list. Usually safe to delete — but it's your call, and
+            nothing moves to Trash until you confirm. Anything with a starred
+            message is left out.
+          </p>
+          <div id="spam-bulk-bar" class="bulk-bar">
+            <label><input type="checkbox" id="spam-select-all" checked /> Select all</label>
+            <span id="spam-count"></span>
+            <span id="spam-trash-slot"><button id="spam-trash-btn" class="danger">Trash selected…</button></span>
+          </div>
+          <div id="spam-list"></div>
+        </section>
+
         <section id="expiry-section" hidden>
           <h2>Ready to clean up</h2>
           <p class="hint">

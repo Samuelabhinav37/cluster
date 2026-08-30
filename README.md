@@ -17,8 +17,11 @@ Open with the toolbar icon.
   clean up" bucket (one-time codes, stale shipping, old newsletters, judged only
   by age); **Smart Views** (older-than-1-year, large mail, promotions, OTPs,
   shipping) that archive or trash the whole matched set behind one confirm;
-  **Trim to newest N per sender**; and **"You never open these"** (senders whose
-  every non-starred message is still unread) with Mute-all / Trash-all. Per-row:
+  **Trim to newest N per sender**; **"You never open these"** (senders whose
+  every non-starred message is still unread) with Mute-all / Trash-all; and
+  **"Suggested spam"** — senders whose domain is on a public spam/throwaway list
+  or the known-bad list, shown with per-row checkboxes + select-all and trashed
+  only on confirm (see the spam-list section below). Per-row:
   verified unsubscribe, Keep sorted (label + filter), **Mute** (a local
   BlackHole — a standing `from:` filter into `Cluster/Muted`), Snooze.
 - **Subscriptions** — every unsubscribe-capable sender in the scan, ranked by
@@ -135,6 +138,16 @@ no-server-calls stance. A sender whose domain (or a parent of it) is on the list
 high-confidence `blocklisted-domain` signal in the normal triage; Deep scan additionally checks
 every link target against the same list. Refreshing the URLhaus slice is a manual dev step — review
 the diff before committing; abuse.ch may require a free account's `URLHAUS_AUTH_KEY`.
+
+**Spam / throwaway domain list** (Clean up → "Suggested spam"): a second static, in-repo set,
+separate from the malware list above. A hand-maintained seed (`src/lib/spamSeed.ts`) unioned with a
+build-time-vendored slice of two public lists — `disposable-email-domains` (CC0, kept in full) and
+an evenly-sampled slice of StopForumSpam's toxic-domains file — in `src/lib/data/spamDomains.generated.json`,
+refreshed by `npm run refresh:spam`. No runtime fetch. `suggestSpamSenders` (`spamSuggestions.ts`)
+flags any scanned sender whose address domain (or a parent) is on this list or the malware list,
+**excluding any sender with a starred/flagged message entirely**. The dashboard shows them with
+per-row checkboxes + select-all; nothing is trashed until the user confirms, and the Gmail trash is
+reversible from the Recently-done tab. It never runs in the background and never permanently deletes.
 
 The "Possible impersonation" section is ordered by a combined risk score (`senderRiskScore` in
 `threatSignals.ts`): a confirmed blocklist hit outranks a freemail brand claim, which outranks a

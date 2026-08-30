@@ -65,6 +65,11 @@ recipient addresses. The endpoint must be HTTPS. See `src/lib/athenaIntegration.
 - Every destructive action is behind a confirm step; starred/flagged mail is
   always excluded; rules and the Screener label/archive/trash only — never
   permanent-delete — and are always reviewable and reversible.
+- "Suggested spam" matches scanned senders against two bundled, in-repo domain
+  lists (`src/lib/data/spamDomains.generated.json` from disposable-email-domains
+  + StopForumSpam, plus `src/lib/blocklist.ts`) — no runtime fetch. It only
+  surfaces suggestions; deletion is user-selected, confirm-gated, Trash-only,
+  and undoable, and it never runs in the background.
 
 ## Reporting a vulnerability
 
