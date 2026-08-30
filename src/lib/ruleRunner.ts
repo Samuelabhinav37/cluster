@@ -1,10 +1,10 @@
 import { appendActionLog, makeLogId, type ActionLogEntry } from "./actionLog";
 import type { EmailProvider, ProviderId } from "./providers/emailProvider";
-import { describeRule, matchRule, type ClutterRule, type RuleAction } from "./rules";
+import { describeRule, matchRule, type ClusterRule, type RuleAction } from "./rules";
 import type { SenderSummary } from "./senderModel";
 
 export interface RuleRunResult {
-  rule: ClutterRule;
+  rule: ClusterRule;
   /** How many messages were actioned, per provider. */
   movedByProvider: Map<ProviderId, number>;
   /** Gmail ids this run trashed or archived — the reversible portion. */
@@ -47,7 +47,7 @@ async function runAction(
  * Writes one action-log entry per rule that actioned anything.
  */
 export async function applyRules(
-  rules: ClutterRule[],
+  rules: ClusterRule[],
   senders: SenderSummary[],
   providerById: Map<ProviderId, EmailProvider>,
 ): Promise<RuleRunResult[]> {
@@ -100,7 +100,7 @@ export async function applyRules(
 
 /** Total messages the enabled rules would act on right now — for the confirm
  * prompt, before anything runs. */
-export function previewRuleMatches(rules: ClutterRule[], senders: SenderSummary[]): number {
+export function previewRuleMatches(rules: ClusterRule[], senders: SenderSummary[]): number {
   let total = 0;
   for (const rule of rules) {
     if (!rule.enabled) continue;

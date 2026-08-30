@@ -1,5 +1,5 @@
 import type { SenderSummary } from "./senderModel";
-import type { ClutterSettings } from "./settingsStore";
+import type { ClusterSettings } from "./settingsStore";
 
 // The Screener (Clean Email's headline feature): hold mail from senders you've
 // never corresponded with until you decide. "Known" = anyone on your explicit
@@ -8,11 +8,11 @@ import type { ClutterSettings } from "./settingsStore";
 
 export const SENT_CORRESPONDENTS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-export function sentCorrespondentsStale(settings: ClutterSettings): boolean {
+export function sentCorrespondentsStale(settings: ClusterSettings): boolean {
   return Date.now() - settings.sentCorrespondents.fetchedAt > SENT_CORRESPONDENTS_TTL_MS;
 }
 
-export function knownSenderSet(settings: ClutterSettings): Set<string> {
+export function knownSenderSet(settings: ClusterSettings): Set<string> {
   return new Set(
     [...settings.screenerAllowlist, ...settings.sentCorrespondents.addresses].map((a) => a.toLowerCase()),
   );

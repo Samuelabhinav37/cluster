@@ -1,8 +1,8 @@
 import type { ProviderId } from "./providers/emailProvider";
-import type { ClutterRule } from "./rules";
+import type { ClusterRule } from "./rules";
 import type { ActionLogEntry } from "./actionLog";
 
-export interface ClutterSettings {
+export interface ClusterSettings {
   scanWindowDays: number;
   maxMessagesPerProvider: number;
   collapsedSenderCategories: string[];
@@ -16,7 +16,7 @@ export interface ClutterSettings {
 
   // ── Power features (Phases 2–6) ──────────────────────────────────────────
   /** Standing user rules — Auto Clean equivalent (see rules.ts / ruleRunner.ts). */
-  rules: ClutterRule[];
+  rules: ClusterRule[];
   /** Rolling "here's what I did" log (see actionLog.ts). Capped at MAX_LOG_ENTRIES. */
   actionLog: ActionLogEntry[];
   /** From-addresses the user has muted via the local BlackHole. */
@@ -25,7 +25,7 @@ export interface ClutterSettings {
   screenerEnabled: boolean;
   /** Addresses the user has explicitly let through the Screener. */
   screenerAllowlist: string[];
-  /** Addresses currently held in the Clutter/Screener label, awaiting a
+  /** Addresses currently held in the Cluster/Screener label, awaiting a
    * decision — so the background sweep doesn't re-screen them and the tab can
    * tell "held" from "trusted". */
   screenedSenders: string[];
@@ -39,9 +39,9 @@ export interface ClutterSettings {
   collapsedSmartViews: string[];
 }
 
-const STORAGE_KEY = "clutterSettings";
+const STORAGE_KEY = "clusterSettings";
 
-const DEFAULT_SETTINGS: ClutterSettings = {
+const DEFAULT_SETTINGS: ClusterSettings = {
   scanWindowDays: 180,
   maxMessagesPerProvider: 500,
   collapsedSenderCategories: [],
@@ -62,13 +62,13 @@ const DEFAULT_SETTINGS: ClutterSettings = {
   collapsedSmartViews: [],
 };
 
-export async function getSettings(): Promise<ClutterSettings> {
+export async function getSettings(): Promise<ClusterSettings> {
   const data = await chrome.storage.local.get(STORAGE_KEY);
-  const stored = data[STORAGE_KEY] as Partial<ClutterSettings> | undefined;
+  const stored = data[STORAGE_KEY] as Partial<ClusterSettings> | undefined;
   return { ...DEFAULT_SETTINGS, ...stored };
 }
 
-export async function updateSettings(partial: Partial<ClutterSettings>): Promise<ClutterSettings> {
+export async function updateSettings(partial: Partial<ClusterSettings>): Promise<ClusterSettings> {
   const next = { ...(await getSettings()), ...partial };
   await chrome.storage.local.set({ [STORAGE_KEY]: next });
   return next;

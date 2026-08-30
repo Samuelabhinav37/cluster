@@ -1,4 +1,4 @@
-# Clutter
+# Cluster
 
 Chrome (MV3) extension for Gmail + Outlook. Scans your Promotions/Updates mail
 using only message **metadata** — sender, subject, date, size, read/starred
@@ -18,7 +18,7 @@ Open with the toolbar icon.
   **Trim to newest N per sender**; and **"You never open these"** (senders whose
   every non-starred message is still unread) with Mute-all / Trash-all. Per-row:
   verified unsubscribe, Keep sorted (label + filter), **Mute** (a local
-  BlackHole — a standing `from:` filter into `Clutter/Muted`), Snooze.
+  BlackHole — a standing `from:` filter into `Cluster/Muted`), Snooze.
 - **Subscriptions** — every unsubscribe-capable sender in the scan, ranked by
   volume, with per-row and bulk "unsubscribe all verified one-click". Request
   status ("Requested 3d ago") survives reloads.
@@ -28,10 +28,10 @@ Open with the toolbar icon.
   trash / mark read). Applied on demand and by the 6-hourly background sweep.
   Starred mail is always excluded; rules never permanently delete.
 - **Screener** — opt-in. Holds mail from senders you've never emailed under a
-  `Clutter/Screener` label, out of the inbox, until you **Allow** (adds to the
+  `Cluster/Screener` label, out of the inbox, until you **Allow** (adds to the
   allow-list, restores the mail) or **Block** (mutes). Your Sent mail is the
   automatic allow-list.
-- **Recently done** — every action Clutter took, newest first, with **Undo**
+- **Recently done** — every action Cluster took, newest first, with **Undo**
   where reversible (Gmail untrash / unarchive / unmute).
 
 Every destructive action is behind a confirm; starred/flagged mail is always
@@ -79,7 +79,7 @@ Click the toolbar icon to open the dashboard tab.
   "Testing". Everything else uses non-restricted scopes.
 ## Optional Athena integration
 
-Clutter contains a dormant enterprise connection to Athena. It activates only when Chrome managed
+Cluster contains a dormant enterprise connection to Athena. It activates only when Chrome managed
 policy provides the `athena` object declared by `managed_schema.json`; normal consumer installs do
 not send Athena telemetry. The connection exchanges an enrollment credential for a short-lived
 token held in `chrome.storage.session`, keeps at most 200 minimized events in memory, and retries
@@ -109,7 +109,7 @@ blended into the regular cleanup view — and get reported as minimized `warned`
 triage's existing 6-hourly alarm, deduplicated server-side by a deterministic per-sender-per-signal
 id so repeat triage runs don't re-alert.
 
-**One manual action, Gmail only: "Label as suspicious."** Applies a `Clutter/Possible Phishing`
+**One manual action, Gmail only: "Label as suspicious."** Applies a `Cluster/Possible Phishing`
 label and archives the currently-flagged messages out of the inbox — never deletes. Deliberately a
 one-click, per-occurrence action rather than a standing filter: a signal that fires today (a
 lookalike domain, a DMARC fail) isn't guaranteed to still apply to whatever this sender sends next,

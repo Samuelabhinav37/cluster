@@ -8,7 +8,7 @@ export interface AthenaManagedConfig {
   enrollmentSecret: string;
 }
 
-export interface ClutterSecurityEvent {
+export interface ClusterSecurityEvent {
   sourceEventId: string;
   occurredAt: string;
   action: "warned" | "quarantined" | "allowed_override";
@@ -81,22 +81,22 @@ async function getSession(config: AthenaManagedConfig): Promise<AgentSession | n
 // read the same array and the second write would clobber the first's events.
 const withQueueLock = <T>(fn: () => Promise<T>) => withStorageLock(QUEUE_KEY, fn);
 
-async function appendToQueue(events: ClutterSecurityEvent[]): Promise<void> {
+async function appendToQueue(events: ClusterSecurityEvent[]): Promise<void> {
   await withQueueLock(async () => {
     const stored = await chrome.storage.session.get(QUEUE_KEY);
-    const queue = Array.isArray(stored[QUEUE_KEY]) ? stored[QUEUE_KEY] as ClutterSecurityEvent[] : [];
+    const queue = Array.isArray(stored[QUEUE_KEY]) ? stored[QUEUE_KEY] as ClusterSecurityEvent[] : [];
     queue.push(...events);
     await chrome.storage.session.set({ [QUEUE_KEY]: queue.slice(-MAX_QUEUE_LENGTH) });
   });
 }
 
-export async function queueAthenaSecurityEvent(event: ClutterSecurityEvent): Promise<void> {
+export async function queueAthenaSecurityEvent(event: ClusterSecurityEvent): Promise<void> {
   return queueAthenaSecurityEvents([event]);
 }
 
 /** Batched enqueue -- one config check, one locked read-modify-write for the
  * whole set, instead of that round-trip per event. */
-export async function queueAthenaSecurityEvents(events: ClutterSecurityEvent[]): Promise<void> {
+export async function queueAthenaSecurityEvents(events: ClusterSecurityEvent[]): Promise<void> {
   if (events.length === 0) return;
   if (!(await getAthenaConfig())) return;
   await appendToQueue(events);
@@ -106,7 +106,7 @@ export async function flushAthenaSecurityEvents(): Promise<void> {
   const config = await getAthenaConfig();
   if (!config) return;
   const stored = await chrome.storage.session.get(QUEUE_KEY);
-  const queue = Array.isArray(stored[QUEUE_KEY]) ? stored[QUEUE_KEY] as ClutterSecurityEvent[] : [];
+  const queue = Array.isArray(stored[QUEUE_KEY]) ? stored[QUEUE_KEY] as ClusterSecurityEvent[] : [];
   if (queue.length === 0) return;
   const session = await getSession(config);
   if (!session) return;
@@ -132,7 +132,7 @@ export async function flushAthenaSecurityEvents(): Promise<void> {
   // re-send of an already-delivered event harmless.
   await withQueueLock(async () => {
     const current = await chrome.storage.session.get(QUEUE_KEY);
-    const currentQueue = Array.isArray(current[QUEUE_KEY]) ? current[QUEUE_KEY] as ClutterSecurityEvent[] : [];
+    const currentQueue = Array.isArray(current[QUEUE_KEY]) ? current[QUEUE_KEY] as ClusterSecurityEvent[] : [];
     await chrome.storage.session.set({ [QUEUE_KEY]: currentQueue.slice(sent) });
   });
 }

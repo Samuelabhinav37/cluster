@@ -3,7 +3,7 @@ import type { MessageKind } from "./messageKind";
 import type { ProviderId } from "./providers/emailProvider";
 import type { SenderSummary } from "./senderModel";
 
-// Standing user-defined rules — Clutter's answer to Clean Email's "Auto
+// Standing user-defined rules — Cluster's answer to Clean Email's "Auto
 // Clean". A rule is a set of AND-ed conditions over a single message plus one
 // action. Evaluated against already-fetched metadata only (no body), applied by
 // ruleRunner.ts from both the dashboard ("Apply now") and the background alarm.
@@ -31,13 +31,13 @@ export interface RuleConditions {
   unread?: boolean;
 }
 
-export interface ClutterRule {
+export interface ClusterRule {
   id: string;
   name: string;
   enabled: boolean;
   conditions: RuleConditions;
   action: RuleAction;
-  /** Required when action === "label". Nested under "Clutter/" by convention. */
+  /** Required when action === "label". Nested under "Cluster/" by convention. */
   labelName?: string;
 }
 
@@ -60,7 +60,7 @@ function senderHasUnsubscribe(sender: SenderSummary): boolean {
  * sender; message-level ones (age, kind, unread) per message. Starred/flagged
  * mail is always excluded regardless of the rule.
  */
-export function matchRule(rule: ClutterRule, senders: SenderSummary[]): Map<ProviderId, string[]> {
+export function matchRule(rule: ClusterRule, senders: SenderSummary[]): Map<ProviderId, string[]> {
   const out = new Map<ProviderId, string[]>();
   const c = rule.conditions;
   if (!ruleHasConditions(c)) return out;
@@ -93,7 +93,7 @@ const ACTION_PHRASE: Record<RuleAction, string> = {
 };
 
 /** Human-readable one-liner for the rules list. */
-export function describeRule(rule: ClutterRule): string {
+export function describeRule(rule: ClusterRule): string {
   const c = rule.conditions;
   const parts: string[] = [c.kind ? `${c.kind} messages` : "messages"];
   if (c.fromAddress) parts.push(`from ${c.fromAddress}`);

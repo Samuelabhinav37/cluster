@@ -24,10 +24,10 @@ import {
 import { parseListUnsubscribe } from "../unsubscribe";
 import type { EmailProvider, NormalizedMessageMetadata } from "./emailProvider";
 
-// Same "Clutter/X" nesting convention as gmailApi.ts's own
+// Same "Cluster/X" nesting convention as gmailApi.ts's own
 // SNOOZE_LABEL_NAME, so both show up under one parent label in Gmail's
 // sidebar rather than as unrelated top-level labels.
-const SUSPICIOUS_LABEL_NAME = "Clutter/Possible Phishing";
+const SUSPICIOUS_LABEL_NAME = "Cluster/Possible Phishing";
 
 function parseFrom(from: string): { address: string; displayName: string } {
   const match = from.match(/^(.*?)<(.+)>$/);

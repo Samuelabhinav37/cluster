@@ -5,7 +5,7 @@ import type { EmailProvider, ProviderId } from "./lib/providers/emailProvider";
 import { applyRules } from "./lib/ruleRunner";
 import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "./lib/screener";
 import { buildSenderSummaries, type SenderSummary } from "./lib/senderModel";
-import type { ClutterSettings } from "./lib/settingsStore";
+import type { ClusterSettings } from "./lib/settingsStore";
 import { getSettings, updateSettings } from "./lib/settingsStore";
 import { excludeSnoozedMessages } from "./lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
@@ -25,8 +25,8 @@ chrome.action.onClicked.addListener(async () => {
 // retention window (see retentionPolicy.ts) and surfaces the count as a
 // badge — never deletes anything itself. Actual deletion always happens
 // from the dashboard's "Ready to clean up" section, behind one confirm.
-const TRIAGE_ALARM = "clutter-triage";
-const ATHENA_ALARM = "clutter-athena-flush";
+const TRIAGE_ALARM = "cluster-triage";
+const ATHENA_ALARM = "cluster-athena-flush";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 1, periodInMinutes: 360 });
@@ -73,10 +73,10 @@ async function reportThreatSignals(senders: SenderSummary[]) {
 
 // Screener: hold mail from senders the user has never corresponded with. Opt-in
 // (settings.screenerEnabled). Refreshes the sent-correspondent allowlist on a
-// TTL, then moves each newly-unknown sender's mail under Clutter/Screener and
+// TTL, then moves each newly-unknown sender's mail under Cluster/Screener and
 // records it in screenedSenders so it isn't re-screened. Returns how many
 // senders are currently held, for the badge.
-async function runScreener(settings: ClutterSettings, senders: SenderSummary[]): Promise<number> {
+async function runScreener(settings: ClusterSettings, senders: SenderSummary[]): Promise<number> {
   if (!settings.screenerEnabled || !gmailProvider.screenSender) return 0;
   const token = await gmailProvider.getAuthToken(false).catch(() => null);
   if (!token) return 0;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeRule, matchRule, ruleHasConditions, type ClutterRule } from "./rules";
+import { describeRule, matchRule, ruleHasConditions, type ClusterRule } from "./rules";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import type { ProviderId } from "./providers/emailProvider";
 
@@ -32,7 +32,7 @@ function sender(over: Partial<SenderSummary> & { address: string; messages: Mess
   };
 }
 
-function rule(over: Partial<ClutterRule> = {}): ClutterRule {
+function rule(over: Partial<ClusterRule> = {}): ClusterRule {
   return {
     id: "r1",
     name: "Test rule",
@@ -114,7 +114,7 @@ describe("describeRule", () => {
   });
   it("names the label for a label action", () => {
     expect(
-      describeRule(rule({ conditions: { fromDomain: "x.com" }, action: "label", labelName: "Clutter/News" })),
-    ).toBe('messages from @x.com → label "Clutter/News"');
+      describeRule(rule({ conditions: { fromDomain: "x.com" }, action: "label", labelName: "Cluster/News" })),
+    ).toBe('messages from @x.com → label "Cluster/News"');
   });
 });

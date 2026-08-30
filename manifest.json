@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "Clutter",
+  "name": "Cluster",
   "version": "0.1.0",
   "description": "Metadata-only inbox cleanup, rules, a screener, verified unsubscribe, and header-based phishing checks — all in your browser.",
   "action": {
-    "default_title": "Clutter"
+    "default_title": "Cluster"
   },
   "background": {
     "service_worker": "src/background.ts",
