@@ -62,6 +62,18 @@ describe("settingsStore", () => {
     expect(settings.autoSort.fileOutByBucket).toEqual({});
     expect(settings.autoSort.keepSorting).toBe(false);
     expect(settings.incrementalSyncCursors).toEqual({});
+    expect(settings.senderEngagement).toEqual({});
+  });
+
+  it("migrates schema 2 settings with an empty private engagement model", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: { schemaVersion: 2, scanWindowDays: 60, incrementalSyncCursors: {} },
+    });
+
+    const settings = await getSettings();
+    expect(settings.schemaVersion).toBe(3);
+    expect(settings.scanWindowDays).toBe(60);
+    expect(settings.senderEngagement).toEqual({});
   });
 
   it("serializes concurrent partial updates so unrelated changes are preserved", async () => {

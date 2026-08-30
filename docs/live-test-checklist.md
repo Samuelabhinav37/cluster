@@ -34,9 +34,14 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
 - [ ] Recently done shows one entry per bucket with a working **Undo** (label
       removed, filed-out mail back in the inbox).
 - [ ] Existing sections still work: category groups, "Ready to clean up",
-      Smart Views, Trim-to-newest-N, "You never open these", **Suggested spam**
+      Smart Views, Trim-to-newest-N, **Personalized cleanup suggestions**, **Suggested spam**
       (shows "Matched against N known domains", per-row checkboxes + select-all,
       Trash selected → confirm → Undo).
+- [ ] Personalized suggestions show a fit score, confidence, and concrete unread-pattern reasons;
+      no sender with starred/flagged mail appears. Reloading an unchanged scan does not increase
+      the changed-snapshot count.
+- [ ] Click **Not useful** → that row disappears. Confirm a suggestion-backed Trash action, then
+      use Recently done → **Undo**; restored mail does not immediately reappear as a suggestion.
 
 ## Security tab
 
@@ -50,7 +55,7 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
 - [ ] "Label as suspicious" and "Deep scan" still work per sender.
 - [ ] Turn auto-quarantine **on**, then trigger the background alarm (or wait 6h
       / reload a few times): HIGH-tier Gmail senders get `Cluster/Possible
-      Phishing` and leave the inbox; Recently done shows an "Auto-quarantined …"
+    Phishing` and leave the inbox; Recently done shows an "Auto-quarantined …"
       entry with a working Undo.
 
 ## Sender table

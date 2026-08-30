@@ -30,6 +30,8 @@ export interface ActionLogUndo {
    * were also filed out of the inbox (so undo can put them back). */
   labelName?: string;
   wasFiledOut?: boolean;
+  /** Sender keys whose accepted suggestion should be corrected if undone. */
+  senderKeys?: string[];
 }
 
 export interface ActionLogEntry {

@@ -1,6 +1,7 @@
 import type { ProviderId } from "./providers/emailProvider";
 import type { ClusterRule } from "./rules";
 import type { ActionLogEntry } from "./actionLog";
+import type { SenderEngagementMap } from "./engagementModel";
 import { withStorageLock } from "./storageLock";
 
 export interface ClusterSettings {
@@ -47,6 +48,8 @@ export interface ClusterSettings {
   /** Opaque Gmail history / Outlook delta checkpoints. */
   incrementalSyncCursors: Partial<Record<ProviderId, string>>;
   lastIncrementalSyncAt: number;
+  /** Aggregate-only local learning state. Never contains message ids, subjects, or bodies. */
+  senderEngagement: SenderEngagementMap;
   /** Opt-in: the background triage labels high-risk senders as suspicious and
    * files them out of the inbox (Gmail-only, reversible, never deletes). */
   autoQuarantineHighRisk: boolean;
@@ -66,7 +69,7 @@ export interface ClusterSettings {
 }
 
 const STORAGE_KEY = "clusterSettings";
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 2;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 3;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -91,6 +94,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   knownSendersInitialized: false,
   incrementalSyncCursors: {},
   lastIncrementalSyncAt: 0,
+  senderEngagement: {},
   autoQuarantineHighRisk: false,
   autoSort: { enabledBuckets: [], fileOutByBucket: {}, keepSorting: false, expireOtp: false },
 };
@@ -119,6 +123,13 @@ function migrateSettings(value: unknown): Record<string, unknown> {
         lastIncrementalSyncAt: 0,
       };
       version = 2;
+    } else if (version === 2) {
+      stored = {
+        ...stored,
+        schemaVersion: 3,
+        senderEngagement: {},
+      };
+      version = 3;
     }
   }
   return stored;

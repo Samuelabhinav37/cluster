@@ -23,8 +23,9 @@ Open with the toolbar icon.
   clean up" bucket (one-time codes, stale shipping, old newsletters, judged only
   by age); **Smart Views** (older-than-1-year, large mail, promotions, OTPs,
   shipping) that archive or trash the whole matched set behind one confirm;
-  **Trim to newest N per sender**; **"You never open these"** (senders whose
-  every non-starred message is still unread) with Mute-all / Trash-all; and
+  **Trim to newest N per sender**; **personalized cleanup suggestions** learned
+  locally from changed unread-pattern snapshots and explicit corrections, with
+  explainable fit scores plus confirmed Mute / Trash actions; and
   **"Suggested spam"** — senders whose domain is on a public spam/throwaway list
   or the known-bad list, shown with per-row checkboxes + select-all and trashed
   only on confirm (see the spam-list section below). Per-row:
@@ -43,7 +44,7 @@ Open with the toolbar icon.
   allow-list, restores the mail) or **Block** (mutes). Your Sent mail is the
   automatic allow-list.
 - **Recently done** — every action Cluster took, newest first, with **Undo**
-  where reversible (Gmail untrash / unarchive / unmute).
+  wherever the recorded provider exposes the matching reversal.
 
 Every destructive action is behind a confirm; starred/flagged mail is always
 skipped.
@@ -92,6 +93,7 @@ Click the toolbar icon to open the dashboard tab.
 - **The `mail.google.com` restricted scope** (opt-in "Fast permanent delete")
   would trigger Google CASA review if the project is ever published past OAuth
   "Testing". Everything else uses non-restricted scopes.
+
 ## Optional Athena integration
 
 Cluster contains a dormant enterprise connection to Athena. It activates only when Chrome managed
@@ -113,17 +115,17 @@ fetched for the cleanup feature (sender address, display name, and now `Authenti
   `arnazon.com`) from a brand's real domain, fired independently of whether the display name names
   the brand at all — classic typosquatting.
 - **Failed authentication** — the message's own `Authentication-Results` header shows a DMARC
-  fail (high), or SPF *and* DKIM both explicitly failing with no DMARC pass (medium — DMARC fail
+  fail (high), or SPF _and_ DKIM both explicitly failing with no DMARC pass (medium — DMARC fail
   is usually spam-foldered before it reaches the Promotions/Updates mail this scans). Applies to
-  *any* sender, not just the curated brand list. Gmail already sent this header back for free once
+  _any_ sender, not just the curated brand list. Gmail already sent this header back for free once
   added to the `metadataHeaders` allowlist; Outlook fetches it via `internetMessageHeaders`.
-- **Reply-To mismatch** — the `Reply-To` domain differs from the `From` domain *and* points at a
+- **Reply-To mismatch** — the `Reply-To` domain differs from the `From` domain _and_ points at a
   consumer free-mail account: replies to a "vendor" message would land in someone's personal
   Gmail. Classic BEC / invoice-fraud shape; a bare domain difference (two of a company's own
   domains) is not enough to fire.
 - **Punycode domain** — the sender's domain has an `xn--` label. Legitimate bulk mail almost
   never does; it's the wrapper for an IDN homograph.
-- **Lure language** — the *subject* (a header, still never the body) uses account-suspension /
+- **Lure language** — the _subject_ (a header, still never the body) uses account-suspension /
   "verify within 24 hours" / payment-failed urgency phrasing. Low weight — it can't reach the
   "elevated" tier alone, only corroborate.
 
@@ -150,6 +152,17 @@ Subscription rows also offer a reversible **Read Later** action. It uses the
 same central protection policy as “Unsubscribe + clean,” files only safely
 classified newsletters into `Cluster/Read Later`, and preserves transactional,
 sensitive, starred, and ambiguous mail.
+
+Personalized cleanup uses a bounded on-device engagement model
+(`engagementModel.ts`). Per sender it stores only the sender key, aggregate
+counts/ratios, observation timestamps, and feedback counters—never message IDs,
+subjects, or bodies. Reopening an unchanged scan does not raise confidence.
+Suggestions require a strong current and rolling unread pattern, exclude the
+entire sender if any scanned message is starred/flagged, and show their reasons
+and a deterministic fit score (not a probability). “Not useful” suppresses a
+sender for 30 days and lowers later scores; undoing a suggestion-backed action
+is a stronger negative correction. Records expire after a year and are capped
+at 1,000 senders.
 
 Flagged senders surface in a clearly separate "Possible impersonation" dashboard section — never
 blended into the regular cleanup view — and get reported as minimized `warned` events to Athena

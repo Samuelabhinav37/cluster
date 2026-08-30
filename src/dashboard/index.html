@@ -145,16 +145,19 @@
         <div id="sender-groups" hidden></div>
 
         <section id="never-read-section" hidden>
-          <h2>You never open these</h2>
+          <h2>Personalized cleanup suggestions</h2>
           <p class="hint">
-            Senders whose mail you consistently leave unread (every non-starred message from them in this scan
-            is still unread). Judged only from the unread flag — no message contents.
+            Cluster learns from changed unread patterns and your corrections, entirely on this device. It
+            stores only bounded sender-level counts and ratios — never message IDs, subjects, or bodies. The
+            displayed fit score explains why a suggestion appeared; it is not a probability. Starred or
+            flagged senders are excluded, nothing moves until you confirm, and “Not useful” hides a suggestion
+            for 30 days.
           </p>
           <div id="never-read-bulk-bar" class="bulk-bar">
             <span id="never-read-count"></span>
-            <span id="never-read-mute-slot"><button id="never-read-mute-btn">Mute all…</button></span>
+            <span id="never-read-mute-slot"><button id="never-read-mute-btn">Mute suggested…</button></span>
             <span id="never-read-trash-slot"
-              ><button id="never-read-trash-btn" class="danger">Trash all…</button></span
+              ><button id="never-read-trash-btn" class="danger">Trash suggested…</button></span
             >
           </div>
           <div id="never-read-list"></div>

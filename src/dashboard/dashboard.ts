@@ -42,7 +42,13 @@ import {
   type RuleConditions,
 } from "../lib/rules";
 import { applyRules, previewRuleMatches } from "../lib/ruleRunner";
-import { neverReadSenders } from "../lib/neverRead";
+import {
+  buildEngagementSuggestions,
+  recordEngagementFeedback,
+  updateEngagementObservations,
+  type EngagementFeedback,
+  type EngagementSuggestion,
+} from "../lib/engagementModel";
 import { markFirstContact } from "../lib/firstContact";
 import { buildSortPlan, totalPlanCount, type SortPlanEntry } from "../lib/autoSort";
 import { ALL_SORT_BUCKETS, SORT_BUCKET_LABELS, type SortBucket } from "../lib/sortTaxonomy";
@@ -90,6 +96,7 @@ const selectedSubKeys = new Set<string>();
 let currentSenders: SenderSummary[] = [];
 let currentDomainGroups: DomainGroup[] = [];
 let currentExpiryBuckets: ExpiryBucket[] = [];
+let engagementSuggestions: EngagementSuggestion[] = [];
 let cachedSettings: ClusterSettings;
 const SECURITY_SCAN_WINDOW_DAYS = 30;
 
@@ -377,6 +384,11 @@ async function scanAndRender() {
   );
   senders = excludeSnoozedMessages(senders, activeSnoozedIds);
 
+  cachedSettings = await mutateSettings((current) => ({
+    ...current,
+    senderEngagement: updateEngagementObservations(current.senderEngagement, senders),
+  }));
+
   const firstContact = markFirstContact(
     securitySenders,
     cachedSettings.knownSenders,
@@ -593,14 +605,17 @@ function buildMuteCell(sender: SenderSummary): HTMLTableCellElement {
       async () => {
         const token = await provider.getAuthToken(false);
         await provider.muteSender!(token, sender.address, sender.messageIds);
-        cachedSettings = await updateSettings({
-          mutedSenders: [...cachedSettings.mutedSenders, sender.address],
-        });
+        cachedSettings = await mutateSettings((current) => ({
+          ...current,
+          mutedSenders: [...new Set([...current.mutedSenders, sender.address])],
+          senderEngagement: recordEngagementFeedback(current.senderEngagement, [sender.key], "accept"),
+        }));
         await logAction("mute", `Muted ${sender.address}`, {
-          provider: "gmail",
+          provider: sender.provider,
           ids: sender.messageIds,
           via: "unmute",
           fromAddress: sender.address,
+          senderKeys: [sender.key],
         });
         return "Muted ✓";
       },
@@ -630,10 +645,29 @@ function updateSenderBulkBar() {
 // to 10 business days to stop, so re-requesting isn't blocked, just labeled.
 async function recordUnsubscribeRequests(senders: SenderSummary[]) {
   if (senders.length === 0) return;
-  const requests = { ...cachedSettings.unsubscribeRequests };
   const now = Date.now();
-  for (const s of senders) requests[s.key] = { requestedAt: now, provider: s.provider };
-  cachedSettings = await updateSettings({ unsubscribeRequests: requests });
+  cachedSettings = await mutateSettings((current) => {
+    const requests = { ...current.unsubscribeRequests };
+    for (const sender of senders) requests[sender.key] = { requestedAt: now, provider: sender.provider };
+    return {
+      ...current,
+      unsubscribeRequests: requests,
+      senderEngagement: recordEngagementFeedback(
+        current.senderEngagement,
+        senders.map((sender) => sender.key),
+        "accept",
+        now,
+      ),
+    };
+  });
+}
+
+async function saveEngagementFeedback(senderKeys: string[], feedback: EngagementFeedback) {
+  if (senderKeys.length === 0) return;
+  cachedSettings = await mutateSettings((current) => ({
+    ...current,
+    senderEngagement: recordEngagementFeedback(current.senderEngagement, senderKeys, feedback),
+  }));
 }
 
 function buildUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
@@ -1429,7 +1463,7 @@ function wireRulesTab() {
 
 // ── Recently done (review loop) ──────────────────────────────────────────
 // Every action path calls logAction; the tab shows them newest-first with an
-// Undo where the change is reversible (Gmail trash/archive/mute only).
+// Undo where the provider exposes the matching reversal.
 async function logAction(kind: ActionLogKind, summary: string, undo?: ActionLogUndo) {
   await appendActionLog([{ id: makeLogId(kind), at: Date.now(), kind, summary, undo }]);
   cachedSettings = await getSettings();
@@ -1438,29 +1472,41 @@ async function logAction(kind: ActionLogKind, summary: string, undo?: ActionLogU
 
 async function undoEntry(entry: ActionLogEntry) {
   if (!entry.undo) return;
-  const token = await gmailProvider.getAuthToken(false);
+  const provider = providerById.get(entry.undo.provider);
+  if (!provider) throw new Error(`Provider ${entry.undo.provider} is unavailable`);
+  const token = await provider.getAuthToken(false);
   if (entry.undo.via === "untrash") {
-    await gmailProvider.untrashMessages!(token, entry.undo.ids);
+    if (!provider.untrashMessages) throw new Error("This provider cannot restore trashed messages");
+    await provider.untrashMessages(token, entry.undo.ids);
   } else if (entry.undo.via === "unarchive") {
-    await gmailProvider.unarchiveMessages!(token, entry.undo.ids);
+    if (!provider.unarchiveMessages) throw new Error("This provider cannot restore archived messages");
+    await provider.unarchiveMessages(token, entry.undo.ids);
   } else if (entry.undo.via === "unmute" && entry.undo.fromAddress) {
-    await gmailProvider.unmuteSender!(token, entry.undo.fromAddress, entry.undo.ids);
-    cachedSettings = await updateSettings({
-      mutedSenders: cachedSettings.mutedSenders.filter((a) => a !== entry.undo!.fromAddress),
-    });
+    if (!provider.unmuteSender) throw new Error("This provider cannot unmute senders");
+    await provider.unmuteSender(token, entry.undo.fromAddress, entry.undo.ids);
   } else if (entry.undo.via === "unlabel-suspicious") {
-    await gmailProvider.unlabelSuspicious!(token, entry.undo.ids);
+    if (!provider.unlabelSuspicious) throw new Error("This provider cannot remove security labels");
+    await provider.unlabelSuspicious(token, entry.undo.ids);
   } else if (entry.undo.via === "unsort" && entry.undo.labelName) {
-    await gmailProvider.unlabelMessages!(
+    if (!provider.unlabelMessages) throw new Error("This provider cannot remove labels");
+    await provider.unlabelMessages(
       token,
       entry.undo.ids,
       entry.undo.labelName,
       entry.undo.wasFiledOut ?? false,
     );
   }
-  cachedSettings = await updateSettings({
-    actionLog: cachedSettings.actionLog.map((e) => (e.id === entry.id ? { ...e, undone: true } : e)),
-  });
+  cachedSettings = await mutateSettings((current) => ({
+    ...current,
+    mutedSenders:
+      entry.undo?.via === "unmute" && entry.undo.fromAddress
+        ? current.mutedSenders.filter((address) => address !== entry.undo!.fromAddress)
+        : current.mutedSenders,
+    actionLog: current.actionLog.map((item) => (item.id === entry.id ? { ...item, undone: true } : item)),
+    senderEngagement: entry.undo?.senderKeys
+      ? recordEngagementFeedback(current.senderEngagement, entry.undo.senderKeys, "undo")
+      : current.senderEngagement,
+  }));
   renderRecentTab();
   await scanAndRender();
 }
@@ -1764,7 +1810,7 @@ function renderSubscriptionsTab(senders: SenderSummary[]) {
   subscriptionsListEl.appendChild(table);
 }
 
-// ── "You never open these" (Clean up tab) ────────────────────────────────
+// ── Local engagement suggestions (Clean up tab) ──────────────────────────
 function resetNeverReadSlots() {
   neverReadMuteSlot.innerHTML = "";
   neverReadMuteSlot.appendChild(neverReadMuteBtn);
@@ -1773,29 +1819,54 @@ function resetNeverReadSlots() {
 }
 
 function renderNeverReadSection(senders: SenderSummary[]) {
-  const nr = neverReadSenders(senders).filter((s) => s.provider === "gmail");
-  neverReadSectionEl.hidden = nr.length === 0;
-  if (nr.length === 0) return;
+  engagementSuggestions = buildEngagementSuggestions(senders, cachedSettings.senderEngagement);
+  neverReadSectionEl.hidden = engagementSuggestions.length === 0;
+  if (engagementSuggestions.length === 0) return;
 
-  const totalMsgs = nr.reduce((n, s) => n + s.messageIds.length, 0);
-  neverReadCountEl.textContent = `${nr.length} sender${nr.length === 1 ? "" : "s"}, ${totalMsgs} unread message${totalMsgs === 1 ? "" : "s"}`;
+  const totalMsgs = engagementSuggestions.reduce((count, item) => count + item.safeMessageIds.length, 0);
+  neverReadCountEl.textContent = `${engagementSuggestions.length} suggestion${engagementSuggestions.length === 1 ? "" : "s"}, ${totalMsgs} safe message${totalMsgs === 1 ? "" : "s"}`;
 
   neverReadListEl.innerHTML = "";
   const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.appendChild(headerRow(["Sender", "Fit", "Why", "Suggested", "Feedback"]));
+  table.appendChild(thead);
   const tbody = document.createElement("tbody");
-  for (const s of nr) {
+  for (const suggestion of engagementSuggestions) {
+    const { sender } = suggestion;
     const row = document.createElement("tr");
     const nameCell = document.createElement("td");
-    nameCell.textContent = s.displayName ? `${s.displayName} <${s.address}>` : s.address;
-    const countCell = document.createElement("td");
-    countCell.textContent = `${s.messageIds.length} unread`;
-    row.append(nameCell, countCell);
+    nameCell.textContent = sender.displayName ? `${sender.displayName} <${sender.address}>` : sender.address;
+    const fitCell = document.createElement("td");
+    fitCell.textContent = `${suggestion.score}/100 · ${suggestion.confidence}`;
+    fitCell.title = "Deterministic fit score, not a probability";
+    const reasonCell = document.createElement("td");
+    reasonCell.textContent = suggestion.reasons.join("; ");
+    const actionCell = document.createElement("td");
+    actionCell.textContent = suggestion.suggestedAction;
+    const feedbackCell = document.createElement("td");
+    const dismissBtn = document.createElement("button");
+    dismissBtn.textContent = "Not useful";
+    dismissBtn.title = "Hide this suggestion for 30 days and use that correction in future scoring";
+    dismissBtn.onclick = async () => {
+      dismissBtn.disabled = true;
+      await saveEngagementFeedback([sender.key], "dismiss");
+      renderNeverReadSection(currentSenders);
+    };
+    feedbackCell.appendChild(dismissBtn);
+    row.append(nameCell, fitCell, reasonCell, actionCell, feedbackCell);
     tbody.appendChild(row);
   }
   table.appendChild(tbody);
   neverReadListEl.appendChild(table);
 
   resetNeverReadSlots();
+  neverReadMuteBtn.disabled = !engagementSuggestions.some(
+    ({ sender }) => sender.provider === "gmail" && !cachedSettings.mutedSenders.includes(sender.address),
+  );
+  neverReadTrashBtn.disabled = !engagementSuggestions.some(
+    ({ sender, safeMessageIds }) => sender.provider === "gmail" && safeMessageIds.length > 0,
+  );
 }
 
 // ── "Suggested spam" (Clean up tab) ─────────────────────────────────────
@@ -2496,60 +2567,77 @@ function wireBulkHandlers() {
     );
   };
 
-  // ── "You never open these": mute all / trash all ──
+  // ── Local engagement suggestions: mute all / trash all ──
   neverReadMuteBtn.onclick = () => {
-    const targets = neverReadSenders(currentSenders).filter(
-      (s) => s.provider === "gmail" && !cachedSettings.mutedSenders.includes(s.address),
+    const targets = engagementSuggestions.filter(
+      ({ sender }) => sender.provider === "gmail" && !cachedSettings.mutedSenders.includes(sender.address),
     );
     if (targets.length === 0) return;
     renderConfirmStep(
       neverReadMuteSlot,
       resetNeverReadSlots,
-      `Mute ${targets.length} sender${targets.length === 1 ? "" : "s"} you never open, now and in future?`,
+      `Mute ${targets.length} locally suggested sender${targets.length === 1 ? "" : "s"}, now and in future?`,
       false,
       async () => {
         const token = await gmailProvider.getAuthToken(false);
-        let done = 0;
-        for (const s of targets) {
+        const succeeded: EngagementSuggestion[] = [];
+        for (const target of targets) {
           try {
-            await gmailProvider.muteSender!(token, s.address, s.messageIds);
-            done += 1;
+            await gmailProvider.muteSender!(token, target.sender.address, target.safeMessageIds);
+            succeeded.push(target);
           } catch (err) {
             log.error(err);
           }
         }
-        cachedSettings = await updateSettings({
-          mutedSenders: [...cachedSettings.mutedSenders, ...targets.slice(0, done).map((s) => s.address)],
-        });
-        await logAction("mute", `Muted ${done} never-opened sender${done === 1 ? "" : "s"}`);
+        cachedSettings = await mutateSettings((current) => ({
+          ...current,
+          mutedSenders: [
+            ...new Set([...current.mutedSenders, ...succeeded.map(({ sender }) => sender.address)]),
+          ],
+          senderEngagement: recordEngagementFeedback(
+            current.senderEngagement,
+            succeeded.map(({ sender }) => sender.key),
+            "accept",
+          ),
+        }));
+        await logAction(
+          "mute",
+          `Muted ${succeeded.length} personalized suggestion${succeeded.length === 1 ? "" : "s"}`,
+        );
         await scanAndRender();
-        return `Muted ${done}`;
+        return `Muted ${succeeded.length}`;
       },
     );
   };
 
   neverReadTrashBtn.onclick = () => {
-    const targets = neverReadSenders(currentSenders).filter((s) => s.provider === "gmail");
-    const ids = targets.flatMap((s) => {
-      const protectedSet = new Set(s.protectedMessageIds);
-      return s.messageIds.filter((id) => !protectedSet.has(id));
-    });
+    const targets = engagementSuggestions.filter(({ sender }) => sender.provider === "gmail");
+    const ids = targets.flatMap(({ safeMessageIds }) => safeMessageIds);
     if (ids.length === 0) return;
     renderConfirmStep(
       neverReadTrashSlot,
       resetNeverReadSlots,
-      `Move ${ids.length} unread message${ids.length === 1 ? "" : "s"} from ${targets.length} sender${targets.length === 1 ? "" : "s"} to Trash?`,
+      `Move ${ids.length} safe message${ids.length === 1 ? "" : "s"} from ${targets.length} suggested sender${targets.length === 1 ? "" : "s"} to Trash? Starred and flagged mail is excluded.`,
       true,
       async () => {
-        const token = await gmailProvider.getAuthToken(false);
-        await gmailProvider.trashMessages(token, ids);
+        const job = await createDurableJob({ provider: "gmail", operation: "trash", targetIds: ids });
+        const result = await runDurableJob(job.id, providerById);
+        const succeededIds = new Set(result.succeededIds);
+        const acceptedKeys = targets
+          .filter(({ safeMessageIds }) => safeMessageIds.some((id) => succeededIds.has(id)))
+          .map(({ sender }) => sender.key);
+        await saveEngagementFeedback(acceptedKeys, "accept");
         await logAction(
           "trash",
-          `Trashed ${ids.length} from ${targets.length} never-opened sender${targets.length === 1 ? "" : "s"}`,
-          { provider: "gmail", ids, via: "untrash" },
+          `Trashed ${result.succeededIds.length} message${result.succeededIds.length === 1 ? "" : "s"} from personalized suggestions`,
+          result.succeededIds.length > 0
+            ? { provider: "gmail", ids: result.succeededIds, via: "untrash", senderKeys: acceptedKeys }
+            : undefined,
         );
         await scanAndRender();
-        return `Moved ${ids.length} to Trash`;
+        return result.failures.length > 0
+          ? `Moved ${result.succeededIds.length}; failed ${result.failures.length}`
+          : `Moved ${result.succeededIds.length} to Trash`;
       },
     );
   };

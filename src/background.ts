@@ -16,6 +16,7 @@ import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
 import { flushAthenaSecurityEvents, queueAthenaSecurityEvents } from "./lib/athenaIntegration";
 import { buildIncrementalSenderSummaries } from "./lib/incrementalSync";
 import { resumeInterruptedJobs } from "./lib/durableJobs";
+import { updateEngagementObservations } from "./lib/engagementModel";
 
 chrome.action.onClicked.addListener(async () => {
   const url = chrome.runtime.getURL("src/dashboard/index.html");
@@ -199,6 +200,11 @@ async function runBackgroundTriage() {
         .map(([id]) => id),
     );
     senders = excludeSnoozedMessages(senders, activeSnoozedIds);
+
+    await mutateSettings((current) => ({
+      ...current,
+      senderEngagement: updateEngagementObservations(current.senderEngagement, senders),
+    }));
 
     const firstContact = markFirstContact(
       securitySenders,
