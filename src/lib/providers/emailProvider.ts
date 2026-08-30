@@ -14,6 +14,9 @@ export interface NormalizedMessageMetadata {
   provider: ProviderId;
   fromAddress: string;
   fromDisplayName: string;
+  /** Lowercased Reply-To address if the message set one, else "". Used only
+   * for the reply-to-mismatch threat signal (see threatSignals.ts). */
+  replyToAddress: string;
   subject: string;
   isProtected: boolean;
   /** Still unread — Gmail UNREAD label / Graph isRead === false. Powers the
@@ -102,6 +105,10 @@ export interface EmailProvider {
    * deletes — same "label/quarantine, never delete" rule as keepSorted.
    */
   labelSuspicious?(token: string, ids: string[]): Promise<void>;
+  /** Reverses labelSuspicious: drops the Cluster/Possible Phishing label and
+   * files the messages back into the inbox. Gmail-only, used by the
+   * Recently-done Undo for auto-quarantine. */
+  unlabelSuspicious?(token: string, ids: string[]): Promise<void>;
   /**
    * Fetches one message's full HTML body and returns its links -- Gmail
    * only, deliberately manual (see the dashboard's "Deep scan" button, the

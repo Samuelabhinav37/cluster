@@ -27,6 +27,8 @@ function sender(address: string, provider: ProviderId, messages: MessageRecord[]
     unsubscribe: {},
     messages,
     threatSignals: [],
+    authVerdicts: { spf: "unknown", dkim: "unknown", dmarc: "unknown" },
+    firstContact: false,
   };
 }
 

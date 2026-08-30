@@ -22,6 +22,8 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
     sentCorrespondents: { addresses: [], fetchedAt: 0 },
     lastTriageSummary: "",
     activeTab: "cleanup",
+    knownSenders: {},
+    autoQuarantineHighRisk: false,
     ...over,
   };
 }
@@ -43,6 +45,8 @@ function sender(over: {
     unsubscribe: {},
     messages: [],
     threatSignals: [],
+    authVerdicts: { spf: "unknown", dkim: "unknown", dmarc: "unknown" },
+    firstContact: false,
   };
 }
 

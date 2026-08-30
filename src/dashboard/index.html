@@ -204,6 +204,16 @@
       </section>
 
       <section class="tab-panel" data-tab="security" role="tabpanel" hidden>
+        <label class="setting-toggle">
+          <input type="checkbox" id="auto-quarantine-toggle" />
+          Auto-quarantine high-risk senders in the background
+        </label>
+        <p class="hint">
+          When on, the 6-hourly background pass labels mail from HIGH-risk senders
+          "Cluster/Possible Phishing" and files it out of your inbox. Gmail only,
+          never deleted, and every batch is reversible from Recently done. Off by
+          default.
+        </p>
         <section id="security-section" hidden>
           <h2>Possible impersonation</h2>
           <p class="hint">

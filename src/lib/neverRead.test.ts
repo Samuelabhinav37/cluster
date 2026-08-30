@@ -18,6 +18,8 @@ function sender(address: string, messages: MessageRecord[]): SenderSummary {
     unsubscribe: {},
     messages,
     threatSignals: [],
+    authVerdicts: { spf: "unknown", dkim: "unknown", dmarc: "unknown" },
+    firstContact: false,
   };
 }
 

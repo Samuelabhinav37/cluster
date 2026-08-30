@@ -29,6 +29,8 @@ function makeSender(provider: ProviderId, messages: MessageRecord[]): SenderSumm
     unsubscribe: {},
     messages,
     threatSignals: [],
+    authVerdicts: { spf: "unknown", dkim: "unknown", dmarc: "unknown" },
+    firstContact: false,
   };
 }
 

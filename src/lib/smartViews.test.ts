@@ -21,6 +21,8 @@ function sender(provider: "gmail" | "outlook", address: string, messages: Messag
     unsubscribe: {},
     messages,
     threatSignals: [],
+    authVerdicts: { spf: "unknown", dkim: "unknown", dmarc: "unknown" },
+    firstContact: false,
   };
 }
 

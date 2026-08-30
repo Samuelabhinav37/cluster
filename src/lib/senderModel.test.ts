@@ -21,6 +21,7 @@ function makeMeta(overrides: Partial<NormalizedMessageMetadata> & { id: string }
     provider: "gmail",
     fromAddress: "a@x.com",
     fromDisplayName: "A",
+    replyToAddress: "",
     subject: "hi",
     isProtected: false,
     unread: false,

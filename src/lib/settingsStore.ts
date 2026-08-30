@@ -35,6 +35,14 @@ export interface ClusterSettings {
   lastTriageSummary: string;
   /** Which dashboard tab was last open. */
   activeTab: string;
+
+  // ── Security (Phase 2) ──────────────────────────────────────────────────
+  /** Every sender address ever seen → epoch ms first seen. A sender absent
+   * from this map is flagged "first contact" (see firstContact.ts). */
+  knownSenders: Record<string, number>;
+  /** Opt-in: the background triage labels high-risk senders as suspicious and
+   * files them out of the inbox (Gmail-only, reversible, never deletes). */
+  autoQuarantineHighRisk: boolean;
 }
 
 const STORAGE_KEY = "clusterSettings";
@@ -57,6 +65,8 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   sentCorrespondents: { addresses: [], fetchedAt: 0 },
   lastTriageSummary: "",
   activeTab: "cleanup",
+  knownSenders: {},
+  autoQuarantineHighRisk: false,
 };
 
 export async function getSettings(): Promise<ClusterSettings> {

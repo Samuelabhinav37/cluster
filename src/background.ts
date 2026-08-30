@@ -5,6 +5,9 @@ import { outlookProvider } from "./lib/providers/outlookProvider";
 import type { EmailProvider, ProviderId } from "./lib/providers/emailProvider";
 import { applyRules } from "./lib/ruleRunner";
 import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "./lib/screener";
+import { markFirstContact } from "./lib/firstContact";
+import { riskTier, senderRiskScore } from "./lib/threatSignals";
+import { appendActionLog, makeLogId } from "./lib/actionLog";
 import { buildSenderSummaries, type SenderSummary } from "./lib/senderModel";
 import type { ClusterSettings } from "./lib/settingsStore";
 import { getSettings, updateSettings } from "./lib/settingsStore";
@@ -111,6 +114,45 @@ async function runScreener(settings: ClusterSettings, senders: SenderSummary[]):
   return settings.screenedSenders.length + screened.length;
 }
 
+// Opt-in protective action (settings.autoQuarantineHighRisk). For senders the
+// threat scorer puts in the "high" tier, label their mail Cluster/Possible
+// Phishing and file it out of the inbox -- Gmail-only, never deletes, and
+// reversible from the Recently-done tab (label-removal undo). Off by default.
+async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]): Promise<number> {
+  if (!settings.autoQuarantineHighRisk || !gmailProvider.labelSuspicious) return 0;
+  const targets = senders.filter(
+    (s) => s.provider === "gmail" && riskTier(senderRiskScore(s.threatSignals)) === "high",
+  );
+  if (targets.length === 0) return 0;
+
+  const token = await gmailProvider.getAuthToken(false).catch(() => null);
+  if (!token) return 0;
+
+  const ids: string[] = [];
+  for (const sender of targets) {
+    const protectedSet = new Set(sender.protectedMessageIds);
+    ids.push(...sender.messageIds.filter((id) => !protectedSet.has(id)));
+  }
+  if (ids.length === 0) return 0;
+
+  try {
+    await gmailProvider.labelSuspicious(token, ids);
+    await appendActionLog([
+      {
+        id: makeLogId("labelSuspicious"),
+        at: Date.now(),
+        kind: "labelSuspicious",
+        summary: `Auto-quarantined ${ids.length} message${ids.length === 1 ? "" : "s"} from ${targets.length} high-risk sender${targets.length === 1 ? "" : "s"}`,
+        undo: { provider: "gmail", ids, via: "unlabel-suspicious" },
+      },
+    ]);
+    return ids.length;
+  } catch (err) {
+    log.error("Auto-quarantine failed", err);
+    return 0;
+  }
+}
+
 async function runBackgroundTriage() {
   try {
     const candidates = [gmailProvider, outlookProvider];
@@ -126,7 +168,14 @@ async function runBackgroundTriage() {
         .map(([id]) => id),
     );
     senders = excludeSnoozedMessages(senders, activeSnoozedIds);
+
+    const firstContact = markFirstContact(senders, settings.knownSenders);
+    if (firstContact.firstContactCount > 0) {
+      await updateSettings({ knownSenders: firstContact.updatedKnownSenders });
+    }
+
     await reportThreatSignals(senders);
+    const quarantined = await runQuarantine(settings, senders);
 
     // Standing user rules (Auto Clean). Operates on the in-memory scan, so the
     // expiry badge below can momentarily still count a message a trash-rule
@@ -145,7 +194,10 @@ async function runBackgroundTriage() {
     const total = totalExpiryCount(buildExpiryBuckets(senders));
 
     await updateSettings({
-      lastTriageSummary: `${new Date().toLocaleString()} — ${ruleMoved} actioned by rules, ${total} ready to clean up${held > 0 ? `, ${held} held by Screener` : ""}`,
+      lastTriageSummary:
+        `${new Date().toLocaleString()} — ${ruleMoved} actioned by rules, ${total} ready to clean up` +
+        `${held > 0 ? `, ${held} held by Screener` : ""}` +
+        `${quarantined > 0 ? `, ${quarantined} auto-quarantined` : ""}`,
     });
 
     const badgeCount = total + held;

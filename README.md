@@ -103,10 +103,24 @@ fetched for the cleanup feature (sender address, display name, and now `Authenti
   `arnazon.com`) from a brand's real domain, fired independently of whether the display name names
   the brand at all — classic typosquatting.
 - **Failed authentication** — the message's own `Authentication-Results` header shows a DMARC
-  fail. This one applies to *any* sender, not just the curated brand list, since a forged sender
-  doesn't have to impersonate a name on that list to be forged. Gmail already sent this header back
-  for free once added to the existing `metadataHeaders` allowlist; Outlook was already fetching it
-  in full via `internetMessageHeaders`, just unread until now.
+  fail (high), or SPF *and* DKIM both explicitly failing with no DMARC pass (medium — DMARC fail
+  is usually spam-foldered before it reaches the Promotions/Updates mail this scans). Applies to
+  *any* sender, not just the curated brand list. Gmail already sent this header back for free once
+  added to the `metadataHeaders` allowlist; Outlook fetches it via `internetMessageHeaders`.
+- **Reply-To mismatch** — the `Reply-To` domain differs from the `From` domain *and* points at a
+  consumer free-mail account: replies to a "vendor" message would land in someone's personal
+  Gmail. Classic BEC / invoice-fraud shape; a bare domain difference (two of a company's own
+  domains) is not enough to fire.
+- **Punycode domain** — the sender's domain has an `xn--` label. Legitimate bulk mail almost
+  never does; it's the wrapper for an IDN homograph.
+- **Lure language** — the *subject* (a header, still never the body) uses account-suspension /
+  "verify within 24 hours" / payment-failed urgency phrasing. Low weight — it can't reach the
+  "elevated" tier alone, only corroborate.
+
+Optional protective action: **"Auto-quarantine high-risk senders"** (Security tab, off by
+default) lets the 6-hourly background pass label HIGH-tier mail `Cluster/Possible Phishing` and
+file it out of the inbox. Gmail-only, never deletes, every batch reversible from Recently done.
+Also new: a **"first email from this sender"** badge, from a local address ledger.
 
 Flagged senders surface in a clearly separate "Possible impersonation" dashboard section — never
 blended into the regular cleanup view — and get reported as minimized `warned` events to Athena

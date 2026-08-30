@@ -70,6 +70,7 @@ export const gmailProvider: EmailProvider = {
       provider: "gmail",
       fromAddress: address,
       fromDisplayName: displayName,
+      replyToAddress: headers["Reply-To"] ? parseFrom(headers["Reply-To"]).address : "",
       subject: headers.Subject ?? "",
       isProtected: labelIds.includes("STARRED"),
       unread: labelIds.includes("UNREAD"),
@@ -145,6 +146,11 @@ export const gmailProvider: EmailProvider = {
   async labelSuspicious(token, ids) {
     const labelId = await getOrCreateLabel(token, SUSPICIOUS_LABEL_NAME);
     await batchModify(token, ids, [labelId], ["INBOX"]);
+  },
+
+  async unlabelSuspicious(token, ids) {
+    const labelId = await getOrCreateLabel(token, SUSPICIOUS_LABEL_NAME);
+    await batchModify(token, ids, ["INBOX"], [labelId]);
   },
 
   async getMessageLinks(token, id) {

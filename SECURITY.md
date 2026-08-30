@@ -20,6 +20,7 @@ to send it to.
 Only these, via the API's metadata format — **never the message body**:
 
 - `From`
+- `Reply-To`
 - `Subject`
 - `List-Unsubscribe`, `List-Unsubscribe-Post`
 - `Authentication-Results`
@@ -70,6 +71,15 @@ recipient addresses. The endpoint must be HTTPS. See `src/lib/athenaIntegration.
   + StopForumSpam, plus `src/lib/blocklist.ts`) — no runtime fetch. It only
   surfaces suggestions; deletion is user-selected, confirm-gated, Trash-only,
   and undoable, and it never runs in the background.
+- Threat detection is header-only (`threatSignals.ts`): brand / lookalike /
+  punycode sender domains, DMARC fail (or SPF+DKIM both failing), a redirected
+  Reply-To, and an urgency-lure lexicon over the **subject line only** — never
+  the body. "Auto-quarantine high-risk senders" (Security tab, **off by
+  default**) is the one background protective action: it labels HIGH-tier mail
+  `Cluster/Possible Phishing` and files it out of the inbox, Gmail-only, never
+  deletes, and every batch is reversible from Recently done.
+- "First email from this sender" is judged against a local address ledger
+  (`settingsStore.knownSenders`) — a list of addresses seen, nothing more.
 
 ## Reporting a vulnerability
 

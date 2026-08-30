@@ -13,6 +13,8 @@ function makeSender(overrides: Partial<SenderSummary> & { address: string; messa
     displayName: "",
     unsubscribe: {},
     threatSignals: [],
+    authVerdicts: { spf: "unknown", dkim: "unknown", dmarc: "unknown" },
+    firstContact: false,
     ...overrides,
     count: overrides.messages.length,
     messageIds: overrides.messages.map((m) => m.id),

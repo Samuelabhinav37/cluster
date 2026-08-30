@@ -29,6 +29,8 @@ function sender(over: Partial<SenderSummary> & { address: string; messages: Mess
     unsubscribe: over.unsubscribe ?? {},
     messages: over.messages,
     threatSignals: [],
+    authVerdicts: { spf: "unknown", dkim: "unknown", dmarc: "unknown" },
+    firstContact: false,
   };
 }
 

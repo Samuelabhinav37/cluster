@@ -2,9 +2,9 @@
 // connection" (athenaIntegration.ts) has been wired up since the last pass,
 // but nothing generated a real event until this module existed. Same
 // constraint as messageKind.ts: only headers already fetched for the
-// existing cleanup feature (fromAddress, fromDisplayName, subject,
-// authenticationResults) -- never the message body, never a new OAuth
-// scope, never a network call of its own.
+// existing cleanup feature (fromAddress, fromDisplayName, replyToAddress,
+// subject, authenticationResults) -- never the message body, never a new
+// OAuth scope, never a network call of its own.
 //
 // Signal kinds, in order of how much they need to already know about a
 // brand:
@@ -40,6 +40,9 @@ export type ThreatSignalKind =
   | "lookalike-domain"
   | "failed-authentication"
   | "blocklisted-domain"
+  | "reply-to-mismatch"
+  | "punycode-domain"
+  | "lure-language"
   | "link-mismatch";
 
 export interface ThreatSignal {
@@ -249,16 +252,55 @@ function lookalikeSignal(message: NormalizedMessageMetadata): ThreatSignal | nul
 }
 
 function authenticationSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
-  const { dmarc } = parseAuthenticationResults(message.authenticationResults);
-  // DMARC specifically, not SPF/DKIM alone: SPF and DKIM can legitimately
-  // fail on their own (mailing-list relays, forwarding) without the message
-  // being forged, which is exactly the false-positive DMARC's own
-  // alignment check exists to avoid -- a DMARC "fail" means the domain the
-  // recipient actually sees in From: specifically failed its own published
-  // policy, a much stronger signal than either mechanism alone.
-  if (dmarc !== "fail") return null;
+  const { spf, dkim, dmarc } = parseAuthenticationResults(message.authenticationResults);
   const senderDomain = domainOf(message.fromAddress) || "unknown sender";
-  return { kind: "failed-authentication", brand: senderDomain, confidence: "high" };
+  // DMARC "fail" is the strongest single verdict: the domain the recipient
+  // actually sees in From: failed its own published policy. But providers
+  // usually spam-folder those before they reach the Promotions/Updates mail
+  // this tool scans, so it rarely fires in practice -- hence the second case.
+  if (dmarc === "fail") {
+    return { kind: "failed-authentication", brand: senderDomain, confidence: "high" };
+  }
+  // SPF and DKIM each fail benignly on their own (list relays, forwarding),
+  // which is why DMARC alignment exists -- but BOTH explicitly failing, with
+  // no DMARC pass to vouch for the message, is close to the same signal and
+  // survives to the inbox more often. Medium, not high.
+  if (spf === "fail" && dkim === "fail" && dmarc !== "pass") {
+    return { kind: "failed-authentication", brand: senderDomain, confidence: "medium" };
+  }
+  return null;
+}
+
+// Classic credential-harvesting / urgency lures. Subject line only -- a
+// header this tool already fetches, never the body. Word-boundary anchored,
+// deliberately small: this is a low-weight corroborating signal (it can't
+// reach "elevated" on its own), not a spam classifier.
+const LURE_RE =
+  /\b(account (has been )?(suspended|locked|disabled|compromised|on hold)|verify (your )?(account|identity|payment|information)( within| in the next)? \d+ ?(hours?|days?)|unusual (sign[- ]?in|login|activity)|password (will )?expir|confirm your (identity|account) (now|immediately)|payment (was )?(declined|failed)|update your (billing|payment) (details|information) (to avoid|or)|final (notice|warning)|your (account|access) will be (closed|terminated|deleted))\b/i;
+
+function lureLanguageSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
+  if (!LURE_RE.test(message.subject || "")) return null;
+  return { kind: "lure-language", brand: domainOf(message.fromAddress) || "unknown sender", confidence: "medium" };
+}
+
+function replyToMismatchSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
+  const replyTo = domainOf(message.replyToAddress ?? "");
+  if (!replyTo) return null;
+  const from = domainOf(message.fromAddress);
+  if (!from || replyTo === from || isSameOrSubdomain(replyTo, from) || isSameOrSubdomain(from, replyTo)) {
+    return null;
+  }
+  // Only the high-signal shape: replies redirected to a consumer free-mail
+  // account. A vendor whose From and Reply-To are two of its own corporate
+  // domains is common and benign, so a bare domain difference isn't enough.
+  if (!FREEMAIL_DOMAINS.has(replyTo)) return null;
+  return { kind: "reply-to-mismatch", brand: replyTo, confidence: "medium" };
+}
+
+function punycodeSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
+  const domain = domainOf(message.fromAddress);
+  if (!domain.split(".").some((label) => label.startsWith("xn--"))) return null;
+  return { kind: "punycode-domain", brand: domain, confidence: "medium" };
 }
 
 /** Signals that come purely from sender identity -- the from-address and
@@ -275,6 +317,9 @@ export function scoreSenderIdentity(message: NormalizedMessageMetadata): ThreatS
   if (senderDomain && isBlockedDomain(senderDomain)) {
     signals.push({ kind: "blocklisted-domain", brand: senderDomain, confidence: "high" });
   }
+
+  const punycode = punycodeSignal(message);
+  if (punycode) signals.push(punycode);
 
   const brand = brandSignal(message);
   if (brand) {
@@ -299,14 +344,28 @@ export function scoreMessageAuthentication(message: NormalizedMessageMetadata): 
   return authenticationSignal(message);
 }
 
+/** Per-message signals that aren't authentication: they vary message to
+ * message (a lure subject, a redirected Reply-To) rather than being fixed by
+ * the sender's identity. senderModel merges these across a sender's messages,
+ * same as the authentication signal. Pure, already-fetched-headers only. */
+export function scoreMessageContext(message: NormalizedMessageMetadata): ThreatSignal[] {
+  const signals: ThreatSignal[] = [];
+  const replyTo = replyToMismatchSignal(message);
+  if (replyTo) signals.push(replyTo);
+  const lure = lureLanguageSignal(message);
+  if (lure) signals.push(lure);
+  return signals;
+}
+
 /** Full per-message score: the sender-identity signals plus this one
- * message's own authentication result. Returns every signal that fired, not
- * just the first; callers decide what an empty array (nothing suspicious)
- * versus one or more signals means. */
+ * message's own authentication result and context signals. Returns every
+ * signal that fired, not just the first; callers decide what an empty array
+ * (nothing suspicious) versus one or more signals means. */
 export function scoreMessageForThreats(message: NormalizedMessageMetadata): ThreatSignal[] {
   const auth = scoreMessageAuthentication(message);
   const identity = scoreSenderIdentity(message);
-  return auth ? [...identity, auth] : identity;
+  const context = scoreMessageContext(message);
+  return [...identity, ...(auth ? [auth] : []), ...context];
 }
 
 // Relative weights for turning a sender's set of signals into one number the
@@ -320,6 +379,9 @@ const SIGNAL_WEIGHTS: Record<ThreatSignalKind, number> = {
   "link-mismatch": 4,
   "failed-authentication": 3,
   "brand-impersonation": 3,
+  "reply-to-mismatch": 3, // replies redirected to a personal free-mail account
+  "punycode-domain": 2, // xn-- sender domain; rare for legitimate bulk mail
+  "lure-language": 2, // corroborating only -- can't reach "elevated" alone
 };
 
 export type RiskTier = "high" | "elevated" | "low";

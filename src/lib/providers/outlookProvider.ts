@@ -69,6 +69,7 @@ async function getMessageMetadata(token: string, id: string): Promise<Normalized
     provider: "outlook",
     fromAddress: (data.sender?.emailAddress?.address ?? "").toLowerCase(),
     fromDisplayName: data.sender?.emailAddress?.name ?? "",
+    replyToAddress: (find("Reply-To")?.match(/<([^>]+)>/)?.[1] ?? find("Reply-To") ?? "").trim().toLowerCase(),
     subject: data.subject ?? "",
     isProtected: data.flag?.flagStatus === "flagged",
     unread: data.isRead === false,

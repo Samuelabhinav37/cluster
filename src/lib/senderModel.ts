@@ -1,6 +1,12 @@
 import { mapWithConcurrency } from "./concurrency";
 import { classifyMessageKind, type MessageKind } from "./messageKind";
-import { scoreMessageAuthentication, scoreSenderIdentity, type ThreatSignal } from "./threatSignals";
+import {
+  scoreMessageAuthentication,
+  scoreMessageContext,
+  scoreSenderIdentity,
+  type ThreatSignal,
+} from "./threatSignals";
+import { parseAuthenticationResults, type AuthenticationVerdicts } from "./emailAuth";
 import type {
   EmailProvider,
   NormalizedMessageMetadata,
@@ -30,11 +36,19 @@ export interface SenderSummary {
   /**
    * Brand-impersonation and lookalike-domain signals are computed once from
    * the sender's own address/display name -- identical across every message
-   * from one sender key. The failed-authentication signal is different:
-   * DMARC alignment is per-message, so buildSenderSummaries keeps checking
-   * every message from the sender and adds it if any one of them fails.
+   * from one sender key. The failed-authentication and context signals are
+   * different: they're per-message, so buildSenderSummaries keeps checking
+   * every message from the sender and unions anything new.
    */
   threatSignals: ThreatSignal[];
+  /** Best (last non-"unknown") SPF / DKIM / DMARC verdict seen across this
+   * sender's messages -- surfaced in the Security tab as a plain-language
+   * "is this really from who it says" indicator. */
+  authVerdicts: AuthenticationVerdicts;
+  /** True when this scan is the first time this address has ever been seen
+   * (set by firstContact.ts against the persisted knownSenders ledger, not
+   * by buildSenderSummaries itself -- defaults false). */
+  firstContact: boolean;
 }
 
 function hasUnsubscribe(info: UnsubscribeInfo): boolean {
@@ -48,6 +62,14 @@ function mergeSignals(existing: ThreatSignal[], incoming: ThreatSignal[]) {
     if (!existing.some((s) => s.kind === signal.kind && s.brand === signal.brand)) {
       existing.push(signal);
     }
+  }
+}
+
+// Keep the most informative verdict per mechanism: anything the header
+// actually stated ("pass"/"fail"/…) beats "unknown" (no such header seen).
+function mergeVerdicts(into: AuthenticationVerdicts, next: AuthenticationVerdicts) {
+  for (const m of ["spf", "dkim", "dmarc"] as const) {
+    if (into[m] === "unknown" && next[m] !== "unknown") into[m] = next[m];
   }
 }
 
@@ -85,6 +107,10 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
       const authSignal = scoreMessageAuthentication(meta);
       if (authSignal) existing.threatSignals.push(authSignal);
     }
+    // Per-message context signals (lure subject, redirected Reply-To) -- union
+    // anything new, deduped by kind+brand.
+    mergeSignals(existing.threatSignals, scoreMessageContext(meta));
+    mergeVerdicts(existing.authVerdicts, parseAuthenticationResults(meta.authenticationResults));
   } else {
     const authSignal = scoreMessageAuthentication(meta);
     senders.set(key, {
@@ -93,7 +119,13 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
       address: meta.fromAddress,
       displayName: meta.fromDisplayName,
       count: 1,
-      threatSignals: authSignal ? [...scoreSenderIdentity(meta), authSignal] : scoreSenderIdentity(meta),
+      threatSignals: [
+        ...scoreSenderIdentity(meta),
+        ...(authSignal ? [authSignal] : []),
+        ...scoreMessageContext(meta),
+      ],
+      authVerdicts: parseAuthenticationResults(meta.authenticationResults),
+      firstContact: false,
       messageIds: [meta.id],
       protectedMessageIds: meta.isProtected ? [meta.id] : [],
       unsubscribe: meta.unsubscribe,

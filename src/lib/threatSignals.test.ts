@@ -15,6 +15,7 @@ function message(overrides: Partial<NormalizedMessageMetadata>): NormalizedMessa
     provider: "gmail",
     fromAddress: "notifications@example.com",
     fromDisplayName: "Example Notifications",
+    replyToAddress: "",
     subject: "Hello",
     isProtected: false,
     unread: false,
@@ -236,5 +237,74 @@ describe("senderRiskScore / riskTier", () => {
     expect(riskTier(2)).toBe("low");
     expect(riskTier(3)).toBe("elevated");
     expect(riskTier(6)).toBe("high");
+  });
+});
+
+describe("scoreMessageForThreats: Phase 2 context signals", () => {
+  it("flags reply-to redirected to a personal free-mail account", () => {
+    expect(
+      scoreMessageForThreats(
+        message({
+          fromAddress: "billing@vendor-corp.example",
+          replyToAddress: "vendor.person1987@gmail.com",
+        }),
+      ),
+    ).toEqual([{ kind: "reply-to-mismatch", brand: "gmail.com", confidence: "medium" }]);
+  });
+
+  it("does not flag reply-to on the same registrable domain or a subdomain", () => {
+    expect(
+      scoreMessageForThreats(
+        message({ fromAddress: "no-reply@vendor.example", replyToAddress: "support@mail.vendor.example" }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("does not flag a reply-to on another corporate (non-free-mail) domain", () => {
+    expect(
+      scoreMessageForThreats(
+        message({ fromAddress: "no-reply@vendor.example", replyToAddress: "help@vendor-support.example" }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("flags a punycode sender domain", () => {
+    const result = scoreMessageForThreats(message({ fromAddress: "security@xn--80ak6aa92e.com" }));
+    expect(result).toContainEqual({ kind: "punycode-domain", brand: "xn--80ak6aa92e.com", confidence: "medium" });
+  });
+
+  it("flags urgency / credential-request language in the subject", () => {
+    const result = scoreMessageForThreats(
+      message({ subject: "Your account has been suspended — verify your identity within 24 hours" }),
+    );
+    expect(result).toContainEqual({ kind: "lure-language", brand: "example.com", confidence: "medium" });
+  });
+
+  it("does not flag an ordinary subject as lure language", () => {
+    expect(scoreMessageForThreats(message({ subject: "Your March newsletter is here" }))).toEqual([]);
+  });
+
+  it("lure-language alone stays below the elevated tier", () => {
+    const result = scoreMessageForThreats(message({ subject: "unusual sign-in activity detected" }));
+    expect(riskTier(senderRiskScore(result))).toBe("low");
+  });
+});
+
+describe("scoreMessageForThreats: broadened authentication", () => {
+  it("flags SPF and DKIM both explicitly failing with no DMARC pass, at medium", () => {
+    expect(
+      scoreMessageForThreats(
+        message({
+          fromAddress: "x@spoofed.example",
+          authenticationResults: "mx.google.com; spf=fail; dkim=fail; dmarc=none",
+        }),
+      ),
+    ).toEqual([{ kind: "failed-authentication", brand: "spoofed.example", confidence: "medium" }]);
+  });
+
+  it("still does not flag SPF-only failure", () => {
+    expect(
+      scoreMessageForThreats(message({ authenticationResults: "mx.google.com; spf=fail; dkim=pass; dmarc=none" })),
+    ).toEqual([]);
   });
 });

@@ -37,6 +37,7 @@ import {
 } from "../lib/rules";
 import { applyRules, previewRuleMatches } from "../lib/ruleRunner";
 import { neverReadSenders } from "../lib/neverRead";
+import { markFirstContact } from "../lib/firstContact";
 import { log } from "../lib/log";
 import {
   formatRelativeTime,
@@ -111,6 +112,7 @@ const expiryCleanupSlot = document.getElementById("expiry-cleanup-slot") as HTML
 const expiryCleanupBtn = document.getElementById("expiry-cleanup-btn") as HTMLButtonElement;
 
 const fastDeleteToggle = document.getElementById("fast-delete-toggle") as HTMLInputElement;
+const autoQuarantineToggle = document.getElementById("auto-quarantine-toggle") as HTMLInputElement;
 
 const scanWindowInput = document.getElementById("scan-window-input") as HTMLInputElement;
 const maxMessagesInput = document.getElementById("max-messages-input") as HTMLInputElement;
@@ -218,6 +220,10 @@ async function main() {
   wireTabs();
   fastDeleteToggle.checked = cachedSettings.fastPermanentDeleteEnabled;
   wireFastDeleteToggle();
+  autoQuarantineToggle.checked = cachedSettings.autoQuarantineHighRisk;
+  autoQuarantineToggle.onchange = async () => {
+    cachedSettings = await updateSettings({ autoQuarantineHighRisk: autoQuarantineToggle.checked });
+  };
   scanWindowInput.value = String(cachedSettings.scanWindowDays);
   maxMessagesInput.value = String(cachedSettings.maxMessagesPerProvider);
   wireScanSettings();
@@ -323,6 +329,11 @@ async function scanAndRender() {
       .map(([id]) => id),
   );
   senders = excludeSnoozedMessages(senders, activeSnoozedIds);
+
+  const firstContact = markFirstContact(senders, cachedSettings.knownSenders);
+  if (firstContact.firstContactCount > 0) {
+    cachedSettings = await updateSettings({ knownSenders: firstContact.updatedKnownSenders });
+  }
 
   statusEl.hidden = true;
   senderGroupsEl.hidden = false;
@@ -464,6 +475,12 @@ function buildSenderRow(sender: SenderSummary): HTMLTableRowElement {
   nameCell.textContent = sender.displayName
     ? `${sender.displayName} <${sender.address}>`
     : sender.address;
+  if (sender.firstContact) {
+    const badge = document.createElement("span");
+    badge.className = "hint";
+    badge.textContent = " · new sender";
+    nameCell.appendChild(badge);
+  }
   row.appendChild(nameCell);
 
   const countCell = document.createElement("td");
@@ -828,6 +845,12 @@ function describeSignal(s: SenderSummary["threatSignals"][number]): string {
       return `failed DMARC authentication (claimed domain: ${s.brand})`;
     case "blocklisted-domain":
       return `sending domain (${s.brand}) is on a known-bad domain list`;
+    case "reply-to-mismatch":
+      return `replies would go to a personal address (${s.brand}), not the sender's domain`;
+    case "punycode-domain":
+      return `sender domain (${s.brand}) uses punycode — a common homograph trick`;
+    case "lure-language":
+      return `subject uses urgency / credential-request language`;
     case "link-mismatch":
       return `a link's visible text doesn't match where it actually goes`;
     default: {
@@ -835,6 +858,13 @@ function describeSignal(s: SenderSummary["threatSignals"][number]): string {
       return unreachable;
     }
   }
+}
+
+// "SPF ✓ · DKIM ✓ · DMARC —" — a plain-language read on what the mail
+// provider's Authentication-Results header actually said about this sender.
+function authChip(v: SenderSummary["authVerdicts"]): string {
+  const mark = (verdict: string) => (verdict === "pass" ? "✓" : verdict === "fail" ? "✗" : "—");
+  return `SPF ${mark(v.spf)} · DKIM ${mark(v.dkim)} · DMARC ${mark(v.dmarc)}`;
 }
 
 // messageIds is in fetch order, not date order -- pick the genuinely most
@@ -916,8 +946,12 @@ function renderSecuritySection(senders: SenderSummary[]) {
       const tierEl = document.createElement("strong");
       tierEl.textContent = `${riskTier(score).toUpperCase()} risk`;
       const text = document.createElement("span");
+      const firstContact = sender.firstContact ? " · first email from this sender" : "";
       text.textContent = ` — ${sender.displayName || sender.address} <${sender.address}> — ${label} `;
-      li.append(tierEl, text);
+      const meta = document.createElement("span");
+      meta.className = "hint";
+      meta.textContent = `[${authChip(sender.authVerdicts)}]${firstContact} `;
+      li.append(tierEl, text, meta);
 
       const provider = providerById.get(sender.provider);
       if (provider?.labelSuspicious) {
@@ -1283,6 +1317,8 @@ async function undoEntry(entry: ActionLogEntry) {
     cachedSettings = await updateSettings({
       mutedSenders: cachedSettings.mutedSenders.filter((a) => a !== entry.undo!.fromAddress),
     });
+  } else if (entry.undo.via === "unlabel-suspicious") {
+    await gmailProvider.unlabelSuspicious!(token, entry.undo.ids);
   }
   cachedSettings = await updateSettings({
     actionLog: cachedSettings.actionLog.map((e) => (e.id === entry.id ? { ...e, undone: true } : e)),

@@ -15,6 +15,8 @@ function makeSender(overrides: Partial<SenderSummary> & { address: string }): Se
     unsubscribe: {},
     messages: [],
     threatSignals: [],
+    authVerdicts: { spf: "unknown", dkim: "unknown", dmarc: "unknown" },
+    firstContact: false,
     ...overrides,
   };
 }

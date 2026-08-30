@@ -23,7 +23,7 @@ export type ActionLogKind =
 export interface ActionLogUndo {
   provider: ProviderId;
   ids: string[];
-  via: "untrash" | "unarchive" | "unmute";
+  via: "untrash" | "unarchive" | "unmute" | "unlabel-suspicious";
   /** Only for via: "unmute" — the address whose standing filter to remove. */
   fromAddress?: string;
 }
