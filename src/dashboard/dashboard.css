@@ -40,8 +40,8 @@ h1 {
 }
 
 .app-logo {
-  border-radius: 7px;
   flex: none;
+  color: var(--fg);
 }
 
 table {

@@ -4,12 +4,15 @@
 //   node scripts/gen-logo.mjs
 //
 // Outputs:
-//   icons/cluster-logo.svg          white mark, transparent background
-//   public/icons/icon-{16,32,48,128}.png   mark on a dark rounded tile (toolbar)
+//   icons/cluster-logo.svg   full mark, single-colour (currentColor), transparent
+//   icons/cluster-mark.svg   reduced mark (one hexagon + envelope), for tiny sizes
+//   public/icons/icon-{16,32,48,128}.png   transparent, mark in a neutral dark ink
 //
-// The mark: six rounded hexagon nodes in a ring (lock, folder, shield, G,
-// shield, G), connected around the ring and inward to a central envelope with
-// a sync arc. Derived from the blueprint concept art, stripped to clean vector.
+// The mark: six rounded hexagon nodes in a ring linked around the perimeter and
+// inward to a central envelope (flap cut out with fill-rule evenodd). One flat
+// colour, transparent background, so it works on any surface in either theme.
+// Distilled from the concept art — the tiny per-node glyphs in the source don't
+// survive to 16px, so the ring itself carries the "cluster" idea.
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -21,12 +24,20 @@ const S = 256;
 const CX = S / 2;
 const CY = S / 2;
 const R_RING = 84; // node-centre distance from canvas centre
-const R_NODE = 30; // node centre to vertex (pointy-top hexagon)
+const R_NODE = 27; // node centre to vertex (pointy-top hexagon)
 const NODE_ROUND = 6; // corner rounding on the hexagons
 const BAR = 9; // connector stroke width
-const STUB = 12; // length of the inward nub poking from each node
+const STUB = 10; // length of the inward nub poking from each node
+const PNG_INK = "#202124"; // neutral dark ink for the rasterised toolbar icons
 
 const deg = (d) => (d * Math.PI) / 180;
+const round2 = (n) => Math.round(n * 100) / 100;
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+const norm = (v) => {
+  const m = Math.hypot(v[0], v[1]) || 1;
+  return [v[0] / m, v[1] / m];
+};
+const fmt = (p) => `${round2(p[0])},${round2(p[1])}`;
 
 // Node centres, clockwise from top.
 const ANGLES = [-90, -30, 30, 90, 150, 210];
@@ -36,7 +47,6 @@ const nodes = ANGLES.map((a) => ({
 }));
 
 function roundedHexPath(cx, cy, r, round) {
-  // Pointy-top hexagon, vertices every 60deg starting at -90.
   const verts = [];
   for (let i = 0; i < 6; i++) {
     const a = deg(-90 + i * 60);
@@ -57,60 +67,33 @@ function roundedHexPath(cx, cy, r, round) {
   return d + "Z";
 }
 
-const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
-const norm = (v) => {
-  const m = Math.hypot(v[0], v[1]) || 1;
-  return [v[0] / m, v[1] / m];
-};
-const fmt = (p) => `${round2(p[0])},${round2(p[1])}`;
-const round2 = (n) => Math.round(n * 100) / 100;
-
-// --- glyphs, each drawn inside a node, ~26px box, as chunky white shapes ---
-function glyph(kind, cx, cy) {
-  const g = (inner) => `<g transform="translate(${round2(cx)} ${round2(cy)})" fill="#0d0d0f">${inner}</g>`;
-  switch (kind) {
-    case "lock":
-      return g(
-        `<rect x="-9" y="-1" width="18" height="14" rx="3"/>` +
-          `<path d="M -6 -1 v -5 a 6 6 0 0 1 12 0 v 5" fill="none" stroke="#0d0d0f" stroke-width="3.4"/>`,
-      );
-    case "folder":
-      return g(
-        `<path d="M -11 -8 h 7 l 3 3 h 12 a 2.5 2.5 0 0 1 2.5 2.5 v 10 a 2.5 2.5 0 0 1 -2.5 2.5 h -22 a 2.5 2.5 0 0 1 -2.5 -2.5 v -13 a 2.5 2.5 0 0 1 2.5 -2.5 z"/>`,
-      );
-    case "shield":
-      return g(`<path d="M 0 -11 l 10 4 v 8 c 0 7 -5 11 -10 13 c -5 -2 -10 -6 -10 -13 v -8 z"/>`);
-    case "g":
-      return g(
-        `<path d="M 11 -3 a 12 12 0 1 0 1 9 h -9 v -5.4 h 14.4" fill="none" stroke="#0d0d0f" stroke-width="4.2"/>`,
-      );
-    default:
-      return "";
-  }
+function rrect(x, y, w, h, r) {
+  return (
+    `M ${round2(x + r)} ${round2(y)} h ${round2(w - 2 * r)} a ${r} ${r} 0 0 1 ${r} ${r} ` +
+    `v ${round2(h - 2 * r)} a ${r} ${r} 0 0 1 ${-r} ${r} h ${round2(-(w - 2 * r))} ` +
+    `a ${r} ${r} 0 0 1 ${-r} ${-r} v ${round2(-(h - 2 * r))} a ${r} ${r} 0 0 1 ${r} ${-r} Z`
+  );
 }
 
-const NODE_KINDS = ["lock", "folder", "shield", "g", "shield", "g"];
-
-// --- central envelope ---
+// --- central envelope: body + flap notch, one evenodd path ---
 const ENV_W = 84;
 const ENV_H = 56;
-const envelope = () => {
+function envelopePath() {
   const x = CX - ENV_W / 2;
   const y = CY - ENV_H / 2 + 2;
-  return (
-    `<g>` +
-    // dark "moat" so the white body separates from the connector nubs behind it
-    `<rect x="${x - 6}" y="${y - 6}" width="${ENV_W + 12}" height="${ENV_H + 12}" rx="12" fill="#0d0d0f"/>` +
-    // envelope body
-    `<rect x="${x}" y="${y}" width="${ENV_W}" height="${ENV_H}" rx="8" fill="#fff"/>` +
-    // flap, cut as a dark hole
-    `<path d="M ${x + 4} ${y + 4} L ${CX} ${y + ENV_H / 2 + 2} L ${x + ENV_W - 4} ${y + 4}" fill="none" stroke="#0d0d0f" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>` +
-    `</g>`
-  );
-};
+  // V-notch cut from the top edge inward: reads as the open flap
+  const flap =
+    `M ${round2(x + 5)} ${round2(y - 4)} ` +
+    `L ${CX} ${round2(y + ENV_H * 0.46)} ` +
+    `L ${round2(x + ENV_W - 5)} ${round2(y - 4)} ` +
+    `L ${round2(x + ENV_W - 5)} ${round2(y + 6)} ` +
+    `L ${CX} ${round2(y + ENV_H * 0.46 + 12)} ` +
+    `L ${round2(x + 5)} ${round2(y + 6)} Z`;
+  return rrect(x, y, ENV_W, ENV_H, 8) + flap;
+}
 
-// --- connectors: ring edges + short inward nubs, behind the nodes ---
-function connectors() {
+// --- connectors: ring edges + short inward nubs ---
+function connectors(color) {
   let ring = "";
   let stubs = "";
   for (let i = 0; i < 6; i++) {
@@ -122,65 +105,46 @@ function connectors() {
     const sy = a.y + dir[1] * (R_NODE - 4);
     stubs += `M ${round2(sx)} ${round2(sy)} L ${round2(sx + dir[0] * STUB)} ${round2(sy + dir[1] * STUB)} `;
   }
-  return (
-    `<path d="${ring}" stroke="#fff" stroke-width="${BAR}" stroke-linecap="round"/>` +
-    `<path d="${stubs}" stroke="#fff" stroke-width="${BAR}" stroke-linecap="round"/>`
-  );
+  return `<path d="${ring}${stubs}" stroke="${color}" stroke-width="${BAR}" stroke-linecap="round" fill="none"/>`;
 }
 
-function buildSvg({ tile }) {
-  const marks =
-    connectors() +
-    nodes
-      .map(
-        (n, i) =>
-          `<path d="${roundedHexPath(n.x, n.y, R_NODE, NODE_ROUND)}" fill="#fff" stroke="#0d0d0f" stroke-width="2.5"/>` +
-          glyph(NODE_KINDS[i], n.x, n.y),
-      )
-      .join("") +
-    envelope();
-
-  const bg = tile
-    ? `<rect width="${S}" height="${S}" rx="56" fill="#0d0d0f"/>`
-    : "";
-  const pad = tile ? `<g transform="translate(${S * 0.09} ${S * 0.09}) scale(0.82)">${marks}</g>` : marks;
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" width="${S}" height="${S}">${bg}${pad}</svg>`;
+function buildSvg(color) {
+  const hexes = nodes
+    .map((n) => `<path d="${roundedHexPath(n.x, n.y, R_NODE, NODE_ROUND)}"/>`)
+    .join("");
+  const ns =
+    connectors(color) +
+    `<g fill="${color}">${hexes}</g>` +
+    `<path d="${envelopePath()}" fill="${color}" fill-rule="evenodd"/>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" width="${S}" height="${S}">${ns}</svg>`;
 }
 
-// A reduced mark for tiny sizes: one rounded hexagon holding an envelope.
-// The full six-node ring turns to mush below ~32px.
-function buildSimpleSvg({ tile }) {
-  const r = 108;
-  const hex = roundedHexPath(CX, CY, r, 18);
-  const w = 96;
-  const h = 66;
+// Reduced mark for tiny sizes: one hexagon with the envelope cut out of it.
+function buildMarkSvg(color) {
+  const r = 112;
+  const w = 118;
+  const h = 80;
   const x = CX - w / 2;
   const y = CY - h / 2;
-  // dark envelope, solid body + a wedge flap cut back to white, well inside the hex
-  const env =
-    `<path d="M ${x} ${y + 10} a 10 10 0 0 1 10 -10 h ${w - 20} a 10 10 0 0 1 10 10 v ${h - 20} a 10 10 0 0 1 -10 10 h ${-(w - 20)} a 10 10 0 0 1 -10 -10 z" fill="#0d0d0f"/>` +
-    `<path d="M ${x + 4} ${y + 6} L ${CX} ${y + h / 2 - 2} L ${x + w - 4} ${y + 6} L ${x + w - 4} ${y - 4} L ${x + 4} ${y - 4} Z" fill="#fff"/>` +
-    `<path d="M ${x + 4} ${y + 6} L ${CX} ${y + h / 2 - 2} L ${x + w - 4} ${y + 6}" fill="none" stroke="#0d0d0f" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>`;
-  const bg = tile ? `<rect width="${S}" height="${S}" rx="56" fill="#0d0d0f"/>` : "";
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" width="${S}" height="${S}">${bg}<path d="${hex}" fill="#fff"/>${env}</svg>`;
+  const flap = `M ${x + 6} ${y + 8} L ${CX} ${round2(y + h * 0.52)} L ${x + w - 6} ${y + 8} L ${x + w - 6} ${y - 6} L ${x + 6} ${y - 6} Z`;
+  const d = `${roundedHexPath(CX, CY, r, 20)} ${rrect(x, y, w, h, 12)} ${flap}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" width="${S}" height="${S}"><path d="${d}" fill="${color}" fill-rule="evenodd"/></svg>`;
 }
 
 mkdirSync(resolve(root, "icons"), { recursive: true });
-writeFileSync(resolve(root, "icons/cluster-logo.svg"), buildSvg({ tile: false }) + "\n");
-writeFileSync(resolve(root, "icons/cluster-mark.svg"), buildSimpleSvg({ tile: false }) + "\n");
+writeFileSync(resolve(root, "icons/cluster-logo.svg"), buildSvg("currentColor") + "\n");
+writeFileSync(resolve(root, "icons/cluster-mark.svg"), buildMarkSvg("currentColor") + "\n");
 console.log("wrote icons/cluster-logo.svg, icons/cluster-mark.svg");
 
-// rasterize the dark-tile icons: full mark at 48/128, reduced mark at 16/32
 const sharp = (await import("sharp")).default;
-const fullTile = Buffer.from(buildSvg({ tile: true }));
-const simpleTile = Buffer.from(buildSimpleSvg({ tile: true }));
+const fullPng = Buffer.from(buildSvg(PNG_INK));
+const markPng = Buffer.from(buildMarkSvg(PNG_INK));
 mkdirSync(resolve(root, "public/icons"), { recursive: true });
 for (const [size, src] of [
-  [16, simpleTile],
-  [32, simpleTile],
-  [48, fullTile],
-  [128, fullTile],
+  [16, markPng],
+  [32, markPng],
+  [48, fullPng],
+  [128, fullPng],
 ]) {
   await sharp(src, { density: 512 })
     .resize(size, size)
