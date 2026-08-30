@@ -1571,7 +1571,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
     cell.appendChild(btn);
 
     const cleanup = buildSenderCleanupPlan(sender);
-    if (cleanup.trashIds.length > 0) {
+    if (cleanup.safeNewsletterIds.length > 0) {
       const cleanSlot = document.createElement("span");
       const cleanBtn = document.createElement("button");
       cleanBtn.className = "danger";
@@ -1584,7 +1584,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
         renderConfirmStep(
           cleanSlot,
           reset,
-          `Unsubscribe from ${sender.address} and move ${cleanup.trashIds.length} newsletter message${cleanup.trashIds.length === 1 ? "" : "s"} to Trash? ${kept} transactional, sensitive, starred, or ambiguous message${kept === 1 ? " stays" : "s stay"}.`,
+          `Unsubscribe from ${sender.address} and move ${cleanup.safeNewsletterIds.length} newsletter message${cleanup.safeNewsletterIds.length === 1 ? "" : "s"} to Trash? ${kept} transactional, sensitive, starred, or ambiguous message${kept === 1 ? " stays" : "s stay"}.`,
           true,
           async () => {
             const ok = await fireOneClickUnsubscribe(u.postUrl!);
@@ -1594,7 +1594,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
             const job = await createDurableJob({
               provider: sender.provider,
               operation: "trash",
-              targetIds: cleanup.trashIds,
+              targetIds: cleanup.safeNewsletterIds,
             });
             const result = await runDurableJob(job.id, providerById);
             await recordUnsubscribeRequests([sender]);
@@ -1629,6 +1629,52 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
     a.target = "_blank";
     a.rel = "noopener noreferrer";
     cell.appendChild(a);
+  }
+
+  const readLaterPlan = buildSenderCleanupPlan(sender);
+  const provider = providerById.get(sender.provider);
+  if (readLaterPlan.safeNewsletterIds.length > 0 && provider?.labelMessages && provider.unlabelMessages) {
+    const slot = document.createElement("span");
+    const button = document.createElement("button");
+    button.textContent = "Read later…";
+    const reset = () => slot.replaceChildren(button);
+    button.onclick = () => {
+      const kept = readLaterPlan.protectedIds.length + readLaterPlan.retainedOtherIds.length;
+      renderConfirmStep(
+        slot,
+        reset,
+        `Move ${readLaterPlan.safeNewsletterIds.length} newsletter message${readLaterPlan.safeNewsletterIds.length === 1 ? "" : "s"} from ${sender.address} to Cluster/Read Later? ${kept} protected or ambiguous message${kept === 1 ? " stays" : "s stay"}.`,
+        false,
+        async () => {
+          const job = await createDurableJob({
+            provider: sender.provider,
+            operation: "label",
+            targetIds: readLaterPlan.safeNewsletterIds,
+            labelName: "Cluster/Read Later",
+            keepInInbox: false,
+          });
+          const result = await runDurableJob(job.id, providerById);
+          if (result.succeededIds.length > 0) {
+            await logAction(
+              "sort",
+              `Moved ${result.succeededIds.length} newsletter message${result.succeededIds.length === 1 ? "" : "s"} from ${sender.address} to Read Later`,
+              {
+                provider: sender.provider,
+                ids: result.succeededIds,
+                via: "unsort",
+                labelName: "Cluster/Read Later",
+                wasFiledOut: true,
+              },
+            );
+          }
+          return result.failures.length > 0
+            ? `Moved ${result.succeededIds.length}; failed ${result.failures.length}; kept ${kept}`
+            : `Moved ${result.succeededIds.length} to Read Later; kept ${kept}`;
+        },
+      );
+    };
+    reset();
+    cell.append(" ", slot);
   }
   return cell;
 }

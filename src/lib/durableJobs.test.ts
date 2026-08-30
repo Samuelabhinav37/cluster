@@ -82,4 +82,20 @@ describe("durable jobs", () => {
     expect(result.status).toBe("cancelled");
     expect(trash).not.toHaveBeenCalled();
   });
+
+  it("runs a resumable label job with its label policy intact", async () => {
+    const labelMessages = vi.fn(async () => {});
+    const gmail = provider();
+    gmail.labelMessages = labelMessages;
+    const job = await createDurableJob({
+      provider: "gmail",
+      operation: "label",
+      targetIds: ["a", "b"],
+      labelName: "Cluster/Read Later",
+      keepInInbox: false,
+    });
+    const result = await runDurableJob(job.id, new Map([["gmail", gmail]]));
+    expect(result.status).toBe("complete");
+    expect(labelMessages).toHaveBeenCalledWith("token", ["a", "b"], "Cluster/Read Later", false);
+  });
 });

@@ -146,6 +146,11 @@ using Chrome's on-device Prompt API. Only the typed instruction reaches the
 model—never mailbox content—and constrained JSON is validated and previewed
 before the user saves it. A deterministic parser remains available without AI.
 
+Subscription rows also offer a reversible **Read Later** action. It uses the
+same central protection policy as “Unsubscribe + clean,” files only safely
+classified newsletters into `Cluster/Read Later`, and preserves transactional,
+sensitive, starred, and ambiguous mail.
+
 Flagged senders surface in a clearly separate "Possible impersonation" dashboard section — never
 blended into the regular cleanup view — and get reported as minimized `warned` events to Athena
 (when connected; otherwise nothing happens beyond the dashboard section) via the background

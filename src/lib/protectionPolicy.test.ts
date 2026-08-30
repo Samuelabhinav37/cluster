@@ -51,7 +51,7 @@ describe("buildSenderCleanupPlan", () => {
         message({ id: "other", kind: "other", subject: "Hello" }),
       ]),
     );
-    expect(plan.trashIds).toEqual(["newsletter"]);
+    expect(plan.safeNewsletterIds).toEqual(["newsletter"]);
     expect(plan.protectedIds).toEqual(["receipt", "star"]);
     expect(plan.retainedOtherIds).toEqual(["other"]);
     expect(plan.protectionReasons.transactional).toBe(1);

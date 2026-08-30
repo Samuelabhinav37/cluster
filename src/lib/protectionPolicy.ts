@@ -23,7 +23,7 @@ export function protectionDecision(message: MessageRecord): ProtectionDecision {
 }
 
 export interface SenderCleanupPlan {
-  trashIds: string[];
+  safeNewsletterIds: string[];
   protectedIds: string[];
   retainedOtherIds: string[];
   protectionReasons: Record<ProtectionReason, number>;
@@ -36,7 +36,7 @@ export interface SenderCleanupPlan {
  */
 export function buildSenderCleanupPlan(sender: SenderSummary): SenderCleanupPlan {
   const plan: SenderCleanupPlan = {
-    trashIds: [],
+    safeNewsletterIds: [],
     protectedIds: [],
     retainedOtherIds: [],
     protectionReasons: {
@@ -51,7 +51,7 @@ export function buildSenderCleanupPlan(sender: SenderSummary): SenderCleanupPlan
       plan.protectedIds.push(message.id);
       plan.protectionReasons[decision.reason!] += 1;
     } else if (message.kind === "newsletter") {
-      plan.trashIds.push(message.id);
+      plan.safeNewsletterIds.push(message.id);
     } else {
       plan.retainedOtherIds.push(message.id);
     }
