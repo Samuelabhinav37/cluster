@@ -217,18 +217,29 @@
       <section class="tab-panel" data-tab="subscriptions" role="tabpanel" hidden>
         <h2>Subscriptions</h2>
         <p class="hint">
-          Every sender in this scan with an unsubscribe option, ranked by how much they send. Verified
-          one-click requests fire straight away; others open the provider's page or an email. "Requested"
-          survives a reload — senders can take days to actually stop. “Unsubscribe + clean” moves only
-          newsletter-classified messages to Trash and keeps transactional, sensitive, starred, and ambiguous
-          mail. “Read later” files the same safely classified newsletters into a reversible Cluster label
-          instead of deleting them.
+          Every sender in this scan with an unsubscribe option, with problem outcomes shown first. Verified
+          one-click requests fire straight away; others open the provider's page or an email. Requests are
+          monitored locally and sorted into pending, quiet in the current scan, or still sending after a
+          14-day observation window; “quiet” is scan-limited evidence, not a claim that all delivery stopped.
+          “Unsubscribe + clean” moves only newsletter-classified messages to Trash and keeps transactional,
+          sensitive, starred, and ambiguous mail. “Read later” files the same safely classified newsletters
+          into a reversible Cluster label instead of deleting them.
         </p>
         <div id="subscriptions-bulk-bar" class="bulk-bar" hidden>
           <span id="subs-count">0 senders</span>
           <span id="subs-unsub-all-slot">
             <button id="subs-unsub-all-btn">Unsubscribe all verified one-click</button>
           </span>
+          <label>
+            Outcome
+            <select id="subs-outcome-filter">
+              <option value="all">all</option>
+              <option value="still-sending">still sending</option>
+              <option value="pending">pending</option>
+              <option value="quiet">quiet in scan</option>
+              <option value="untracked">not requested</option>
+            </select>
+          </label>
         </div>
         <div id="subscriptions-list"></div>
       </section>

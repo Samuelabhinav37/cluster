@@ -63,6 +63,14 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
 - [ ] "· new sender" appears next to first-contact senders. On a second scan the
       same senders are no longer marked new (ledger persisted).
 
+## Subscriptions tab
+
+- [ ] Send a verified one-click request. Its outcome becomes **Pending** and survives reload.
+- [ ] Outcome filters show only the selected state. A request older than 14 days with a later
+      scanned arrival appears first as **Still sending** with **Retry unsubscribe**.
+- [ ] A tracked sender absent from the current unsubscribe list remains visible in tracked request
+      history. **Quiet in current scan** includes the scan-limit caveat and never claims certainty.
+
 ## Outlook (if connected)
 
 - [ ] "Connect Outlook" completes; Outlook senders appear tagged `outlook`.

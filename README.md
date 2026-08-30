@@ -31,9 +31,11 @@ Open with the toolbar icon.
   only on confirm (see the spam-list section below). Per-row:
   verified unsubscribe, Keep sorted (label + filter), **Mute** (a local
   BlackHole — a standing `from:` filter into `Cluster/Muted`), Snooze.
-- **Subscriptions** — every unsubscribe-capable sender in the scan, ranked by
-  volume, with per-row and bulk "unsubscribe all verified one-click". Request
-  status ("Requested 3d ago") survives reloads.
+- **Subscriptions** — every unsubscribe-capable sender in the scan, with
+  per-row and bulk "unsubscribe all verified one-click". Verified requests are
+  monitored locally through a 14-day observation window and sorted into
+  pending, quiet in the current scan, or still sending, with outcome filters
+  and retry guidance. Request history survives reloads.
 - **Security** — "Possible impersonation" (see the detection section below).
 - **Rules** — standing Auto-Clean rules: AND-ed conditions (from domain/address,
   older-than, kind, unread, has-unsubscribe) → one action (label / archive /
@@ -88,8 +90,9 @@ Click the toolbar icon to open the dashboard tab.
   Graph has no primitive for: keep-sorted, mute, the Screener, snooze,
   auto-quarantine, "Label as suspicious", and Deep scan. Outlook rows show
   "Not supported for this provider" for those.
-- **No confirmed-stopped tracking** — unsubscribe status shows "Requested Nd
-  ago", not whether the sender actually stopped.
+- **Unsubscribe outcomes are scan-scoped.** “Quiet” means no later message was
+  visible inside the configured categories/window/limit; it does not prove that
+  every possible delivery stopped.
 - **The `mail.google.com` restricted scope** (opt-in "Fast permanent delete")
   would trigger Google CASA review if the project is ever published past OAuth
   "Testing". Everything else uses non-restricted scopes.

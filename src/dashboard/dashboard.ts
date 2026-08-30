@@ -83,6 +83,11 @@ import type { MessageKind } from "../lib/messageKind";
 import { buildSenderCleanupPlan } from "../lib/protectionPolicy";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import { draftRuleFromNaturalLanguage } from "../lib/aiRuleDraft";
+import {
+  evaluateUnsubscribeOutcome,
+  unsubscribeOutcomeRank,
+  type UnsubscribeOutcomeState,
+} from "../lib/unsubscribeOutcome";
 
 const providerById = new Map<ProviderId, EmailProvider>([
   [gmailProvider.id, gmailProvider],
@@ -182,6 +187,7 @@ const subsBulkBar = document.getElementById("subscriptions-bulk-bar") as HTMLDiv
 const subsCountEl = document.getElementById("subs-count") as HTMLSpanElement;
 const subsUnsubAllSlot = document.getElementById("subs-unsub-all-slot") as HTMLSpanElement;
 const subsUnsubAllBtn = document.getElementById("subs-unsub-all-btn") as HTMLButtonElement;
+const subsOutcomeFilter = document.getElementById("subs-outcome-filter") as HTMLSelectElement;
 const subscriptionsListEl = document.getElementById("subscriptions-list") as HTMLDivElement;
 
 const neverReadSectionEl = document.getElementById("never-read-section") as HTMLElement;
@@ -296,6 +302,7 @@ async function main() {
   };
 
   wireBulkHandlers();
+  subsOutcomeFilter.onchange = () => renderSubscriptionsTab(currentSenders);
   wireKeepNewest();
   wireSortInbox();
   wireScreenerTab();
@@ -681,10 +688,13 @@ function buildUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
     const applyState = () => {
       const tracked = cachedSettings.unsubscribeRequests[sender.key];
       if (tracked) {
-        statusEl.textContent = `Requested ${formatRelativeTime(tracked.requestedAt)}`;
-        btn.textContent = "Request again";
+        const outcome = evaluateUnsubscribeOutcome(sender, tracked);
+        statusEl.textContent = `${outcome.label} · requested ${formatRelativeTime(tracked.requestedAt)}`;
+        statusEl.title = outcome.detail;
+        btn.textContent = outcome.state === "still-sending" ? "Retry unsubscribe" : "Request again";
       } else {
         statusEl.textContent = "";
+        statusEl.title = "";
         btn.textContent = "Unsubscribe (verified one-click)";
       }
     };
@@ -699,8 +709,11 @@ function buildUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
         applyState();
       } else {
         statusEl.textContent = "Request failed, try again";
-        btn.textContent = cachedSettings.unsubscribeRequests[sender.key]
-          ? "Request again"
+        const tracked = cachedSettings.unsubscribeRequests[sender.key];
+        btn.textContent = tracked
+          ? evaluateUnsubscribeOutcome(sender, tracked).state === "still-sending"
+            ? "Retry unsubscribe"
+            : "Request again"
           : "Unsubscribe (verified one-click)";
       }
       btn.disabled = false;
@@ -1600,7 +1613,12 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
   const u = sender.unsubscribe;
   if (u.postUrl) {
     const btn = document.createElement("button");
-    btn.textContent = cachedSettings.unsubscribeRequests[sender.key] ? "Request again" : "Unsubscribe";
+    const tracked = cachedSettings.unsubscribeRequests[sender.key];
+    btn.textContent = tracked
+      ? evaluateUnsubscribeOutcome(sender, tracked).state === "still-sending"
+        ? "Retry unsubscribe"
+        : "Request again"
+      : "Unsubscribe";
     btn.onclick = async () => {
       btn.disabled = true;
       btn.textContent = "Requesting…";
@@ -1725,89 +1743,179 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
   return cell;
 }
 
+function selectedUnsubscribeOutcome(): "all" | UnsubscribeOutcomeState {
+  const value = subsOutcomeFilter.value;
+  return value === "pending" || value === "quiet" || value === "still-sending" || value === "untracked"
+    ? value
+    : "all";
+}
+
+function senderAddressFromKey(key: string): string {
+  const separator = key.indexOf(":");
+  return separator >= 0 ? key.slice(separator + 1) : key;
+}
+
 function renderSubscriptionsTab(senders: SenderSummary[]) {
-  const subs = senders
-    .filter((s) => s.unsubscribe.postUrl || s.unsubscribe.httpUrl || s.unsubscribe.mailto)
-    .sort((a, b) => b.count - a.count);
+  const senderByKey = new Map(senders.map((sender) => [sender.key, sender]));
+  const available = senders.filter(
+    (sender) => sender.unsubscribe.postUrl || sender.unsubscribe.httpUrl || sender.unsubscribe.mailto,
+  );
   pruneSelection(
     selectedSubKeys,
-    subs.map((s) => s.key),
+    available.map((sender) => sender.key),
   );
 
+  const currentRows = available
+    .map((sender) => ({
+      sender,
+      outcome: evaluateUnsubscribeOutcome(sender, cachedSettings.unsubscribeRequests[sender.key]),
+    }))
+    .sort(
+      (a, b) =>
+        unsubscribeOutcomeRank(a.outcome.state) - unsubscribeOutcomeRank(b.outcome.state) ||
+        b.sender.count - a.sender.count,
+    );
+  const availableKeys = new Set(available.map((sender) => sender.key));
+  const trackedOnlyRows = Object.entries(cachedSettings.unsubscribeRequests)
+    .filter(([key]) => !availableKeys.has(key))
+    .map(([key, request]) => ({
+      key,
+      request,
+      sender: senderByKey.get(key),
+      outcome: evaluateUnsubscribeOutcome(senderByKey.get(key), request),
+    }))
+    .sort(
+      (a, b) =>
+        unsubscribeOutcomeRank(a.outcome.state) - unsubscribeOutcomeRank(b.outcome.state) ||
+        b.request.requestedAt - a.request.requestedAt,
+    );
+  const selectedOutcome = selectedUnsubscribeOutcome();
+  const matchesFilter = (state: UnsubscribeOutcomeState) =>
+    selectedOutcome === "all" || state === selectedOutcome;
+  const visibleCurrentRows = currentRows.filter(({ outcome }) => matchesFilter(outcome.state));
+  const visibleTrackedOnlyRows = trackedOnlyRows.filter(({ outcome }) => matchesFilter(outcome.state));
+  const allOutcomes = [...currentRows, ...trackedOnlyRows].map(({ outcome }) => outcome);
+  const stillSendingCount = allOutcomes.filter(({ state }) => state === "still-sending").length;
+  const trackedCount = Object.keys(cachedSettings.unsubscribeRequests).length;
+  const oneClick = available.filter((sender) => sender.unsubscribe.postUrl);
+
   subscriptionsListEl.innerHTML = "";
-  if (subs.length === 0) {
-    subsBulkBar.hidden = true;
-    const p = document.createElement("p");
-    p.className = "hint";
-    p.textContent = "No senders with an unsubscribe option in the current scan.";
-    subscriptionsListEl.appendChild(p);
+  subsBulkBar.hidden = available.length === 0 && trackedCount === 0;
+  subsCountEl.textContent = `${available.length} available · ${trackedCount} tracked${stillSendingCount > 0 ? ` · ${stillSendingCount} still sending` : ""}`;
+  subsUnsubAllBtn.disabled = oneClick.length === 0;
+
+  if (available.length === 0 && trackedCount === 0) {
+    const empty = document.createElement("p");
+    empty.className = "hint";
+    empty.textContent = "No senders with an unsubscribe option or tracked request in the current scan.";
+    subscriptionsListEl.appendChild(empty);
     return;
   }
 
-  const oneClick = subs.filter((s) => s.unsubscribe.postUrl);
-  subsBulkBar.hidden = false;
-  subsCountEl.textContent = `${subs.length} sender${subs.length === 1 ? "" : "s"}, ${oneClick.length} verified one-click`;
-  subsUnsubAllBtn.disabled = oneClick.length === 0;
+  if (visibleCurrentRows.length > 0) {
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    thead.appendChild(
+      headerRow([
+        "",
+        "Sender",
+        `Count (${cachedSettings.scanWindowDays}d)`,
+        "Mostly",
+        "Method",
+        "Outcome",
+        "Action",
+      ]),
+    );
+    table.appendChild(thead);
 
-  const table = document.createElement("table");
-  const thead = document.createElement("thead");
-  thead.appendChild(
-    headerRow([
-      "",
-      "Sender",
-      `Count (${cachedSettings.scanWindowDays}d)`,
-      "Mostly",
-      "Method",
-      "Status",
-      "Action",
-    ]),
-  );
-  table.appendChild(thead);
+    const tbody = document.createElement("tbody");
+    for (const { sender, outcome } of visibleCurrentRows) {
+      const row = document.createElement("tr");
 
-  const tbody = document.createElement("tbody");
-  for (const s of subs) {
-    const row = document.createElement("tr");
+      const cbCell = document.createElement("td");
+      if (sender.unsubscribe.postUrl) {
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = selectedSubKeys.has(sender.key);
+        cb.onchange = () => {
+          if (cb.checked) selectedSubKeys.add(sender.key);
+          else selectedSubKeys.delete(sender.key);
+        };
+        cbCell.appendChild(cb);
+      }
+      row.appendChild(cbCell);
 
-    const cbCell = document.createElement("td");
-    if (s.unsubscribe.postUrl) {
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.checked = selectedSubKeys.has(s.key);
-      cb.onchange = () => {
-        if (cb.checked) selectedSubKeys.add(s.key);
-        else selectedSubKeys.delete(s.key);
-      };
-      cbCell.appendChild(cb);
+      const nameCell = document.createElement("td");
+      nameCell.textContent = sender.displayName
+        ? `${sender.displayName} <${sender.address}>`
+        : sender.address;
+      row.appendChild(nameCell);
+
+      const countCell = document.createElement("td");
+      countCell.textContent = String(sender.count);
+      row.appendChild(countCell);
+
+      const kindCell = document.createElement("td");
+      kindCell.textContent = dominantKind(sender);
+      row.appendChild(kindCell);
+
+      const methodCell = document.createElement("td");
+      methodCell.textContent = unsubMethodLabel(sender.unsubscribe);
+      row.appendChild(methodCell);
+
+      const statusCell = document.createElement("td");
+      const outcomeLabel = document.createElement("div");
+      outcomeLabel.textContent = outcome.requestAt
+        ? `${outcome.label} · requested ${formatRelativeTime(outcome.requestAt)}`
+        : outcome.label;
+      const evidence = document.createElement("div");
+      evidence.className = "hint";
+      evidence.textContent = outcome.detail;
+      statusCell.append(outcomeLabel, evidence);
+      row.appendChild(statusCell);
+
+      row.appendChild(subUnsubscribeCell(sender));
+      tbody.appendChild(row);
     }
-    row.appendChild(cbCell);
-
-    const nameCell = document.createElement("td");
-    nameCell.textContent = s.displayName ? `${s.displayName} <${s.address}>` : s.address;
-    row.appendChild(nameCell);
-
-    const countCell = document.createElement("td");
-    countCell.textContent = String(s.count);
-    row.appendChild(countCell);
-
-    const kindCell = document.createElement("td");
-    kindCell.textContent = dominantKind(s);
-    row.appendChild(kindCell);
-
-    const methodCell = document.createElement("td");
-    methodCell.textContent = unsubMethodLabel(s.unsubscribe);
-    row.appendChild(methodCell);
-
-    const statusCell = document.createElement("td");
-    const tracked = cachedSettings.unsubscribeRequests[s.key];
-    statusCell.textContent = tracked ? `Requested ${formatRelativeTime(tracked.requestedAt)}` : "—";
-    statusCell.className = "hint";
-    row.appendChild(statusCell);
-
-    row.appendChild(subUnsubscribeCell(s));
-    tbody.appendChild(row);
+    table.appendChild(tbody);
+    subscriptionsListEl.appendChild(table);
   }
-  table.appendChild(tbody);
-  subscriptionsListEl.appendChild(table);
+
+  if (visibleTrackedOnlyRows.length > 0) {
+    const heading = document.createElement("h3");
+    heading.textContent = "Tracked requests without a current unsubscribe option";
+    subscriptionsListEl.appendChild(heading);
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    thead.appendChild(headerRow(["Sender", "Provider", "Requested", "Outcome", "Evidence"]));
+    table.appendChild(thead);
+    const tbody = document.createElement("tbody");
+    for (const { key, request, outcome } of visibleTrackedOnlyRows) {
+      const row = document.createElement("tr");
+      const addressCell = document.createElement("td");
+      addressCell.textContent = senderAddressFromKey(key);
+      const providerCell = document.createElement("td");
+      providerCell.textContent = request.provider;
+      const requestedCell = document.createElement("td");
+      requestedCell.textContent = formatRelativeTime(request.requestedAt);
+      const outcomeCell = document.createElement("td");
+      outcomeCell.textContent = outcome.label;
+      const evidenceCell = document.createElement("td");
+      evidenceCell.className = "hint";
+      evidenceCell.textContent = outcome.detail;
+      row.append(addressCell, providerCell, requestedCell, outcomeCell, evidenceCell);
+      tbody.appendChild(row);
+    }
+    table.appendChild(tbody);
+    subscriptionsListEl.appendChild(table);
+  }
+
+  if (visibleCurrentRows.length === 0 && visibleTrackedOnlyRows.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "hint";
+    empty.textContent = "No subscriptions match this outcome filter.";
+    subscriptionsListEl.appendChild(empty);
+  }
 }
 
 // ── Local engagement suggestions (Clean up tab) ──────────────────────────
