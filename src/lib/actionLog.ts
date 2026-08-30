@@ -17,15 +17,20 @@ export type ActionLogKind =
   | "snooze"
   | "labelSuspicious"
   | "keepSorted"
+  | "sort"
   | "screener"
   | "rule";
 
 export interface ActionLogUndo {
   provider: ProviderId;
   ids: string[];
-  via: "untrash" | "unarchive" | "unmute" | "unlabel-suspicious";
+  via: "untrash" | "unarchive" | "unmute" | "unlabel-suspicious" | "unsort";
   /** Only for via: "unmute" — the address whose standing filter to remove. */
   fromAddress?: string;
+  /** Only for via: "unsort" — the label to strip, and whether the messages
+   * were also filed out of the inbox (so undo can put them back). */
+  labelName?: string;
+  wasFiledOut?: boolean;
 }
 
 export interface ActionLogEntry {

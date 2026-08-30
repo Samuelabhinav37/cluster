@@ -1,7 +1,7 @@
 import { log } from "./log";
 import { appendActionLog, makeLogId, type ActionLogEntry } from "./actionLog";
 import type { EmailProvider, ProviderId } from "./providers/emailProvider";
-import { describeRule, matchRule, type ClusterRule, type RuleAction } from "./rules";
+import { describeRule, matchRule, type ClusterRule } from "./rules";
 import type { SenderSummary } from "./senderModel";
 
 export interface RuleRunResult {
@@ -18,11 +18,10 @@ export interface RuleRunResult {
 async function runAction(
   provider: EmailProvider,
   token: string,
-  action: RuleAction,
-  labelName: string | undefined,
+  rule: ClusterRule,
   ids: string[],
 ): Promise<boolean> {
-  switch (action) {
+  switch (rule.action) {
     case "trash":
       await provider.trashMessages(token, ids);
       return true;
@@ -35,8 +34,8 @@ async function runAction(
       await provider.markReadMessages(token, ids);
       return true;
     case "label":
-      if (!provider.labelMessages || !labelName) return false;
-      await provider.labelMessages(token, ids, labelName);
+      if (!provider.labelMessages || !rule.labelName) return false;
+      await provider.labelMessages(token, ids, rule.labelName, rule.labelKeepInInbox);
       return true;
   }
 }
@@ -67,7 +66,7 @@ export async function applyRules(
       if (!provider) continue;
       try {
         const token = await provider.getAuthToken(false);
-        if (await runAction(provider, token, rule.action, rule.labelName, ids)) {
+        if (await runAction(provider, token, rule, ids)) {
           moved.set(providerId, ids.length);
           if (providerId === "gmail" && (rule.action === "trash" || rule.action === "archive")) {
             undoableGmailIds = ids;

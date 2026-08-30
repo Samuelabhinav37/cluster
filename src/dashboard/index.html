@@ -68,6 +68,32 @@
       </nav>
 
       <section class="tab-panel" data-tab="cleanup" role="tabpanel">
+        <section id="sort-inbox-section">
+          <h2>Sort my inbox</h2>
+          <p class="hint">
+            One pass: file every scanned message under a <code>Cluster/…</code>
+            label by what it is (one-time codes, receipts, shipping) or who sent
+            it (Shopping, Finance, Travel, …). Starred mail is left alone.
+            Nothing happens until you confirm.
+          </p>
+          <div id="sort-inbox-bar" class="bulk-bar">
+            <span id="sort-inbox-slot"><button id="sort-inbox-btn">Sort my inbox…</button></span>
+            <span id="sort-inbox-count" class="hint"></span>
+          </div>
+          <details id="sort-inbox-config">
+            <summary>Which buckets, and where they go</summary>
+            <div id="sort-inbox-buckets"></div>
+            <label class="setting-toggle">
+              <input type="checkbox" id="sort-keep-sorting" />
+              Keep sorting new mail (save a rule per bucket for the background sweep)
+            </label>
+            <label class="setting-toggle">
+              <input type="checkbox" id="sort-expire-otp" />
+              Also auto-trash one-time codes older than 2 days
+            </label>
+          </details>
+        </section>
+
         <section id="digest-section" hidden>
           <h2>Digest</h2>
           <p class="hint">

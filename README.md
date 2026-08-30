@@ -13,7 +13,13 @@ scope breakdown.
 
 Open with the toolbar icon.
 
-- **Clean up** — senders and domains grouped by category; a retention "Ready to
+- **Clean up** — **"Sort my inbox"**: one confirm files every scanned message
+  under a `Cluster/<Category>` label by what it is (one-time codes, receipts,
+  shipping) or who sent it (Shopping, Finance, Travel, …) — transactional kind
+  wins over domain category. Per-bucket choice of filed-out vs. labelled-in-
+  place; optionally saves a standing rule per bucket so the background sweep
+  keeps sorting, plus an opt-in "auto-trash one-time codes older than 2 days".
+  Also: senders and domains grouped by category; a retention "Ready to
   clean up" bucket (one-time codes, stale shipping, old newsletters, judged only
   by age); **Smart Views** (older-than-1-year, large mail, promotions, OTPs,
   shipping) that archive or trash the whole matched set behind one confirm;

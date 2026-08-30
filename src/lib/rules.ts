@@ -1,3 +1,4 @@
+import { categorizeDomain, DOMAIN_CATEGORY_LABELS, type DomainCategory } from "./domainCategories";
 import { domainOf } from "./domainGrouping";
 import type { MessageKind } from "./messageKind";
 import type { ProviderId } from "./providers/emailProvider";
@@ -19,6 +20,9 @@ export type RuleAction = "label" | "archive" | "trash" | "markRead";
 export interface RuleConditions {
   /** Registrable-ish domain of the From address, e.g. "example.com". */
   fromDomain?: string;
+  /** Curated domain category of the From address (see domainCategories.ts).
+   * Powers the "keep sorting" rules that "Sort my inbox" offers to save. */
+  fromDomainCategory?: DomainCategory;
   /** Exact From address, lowercased. */
   fromAddress?: string;
   /** Message received at least this many days ago. */
@@ -39,6 +43,10 @@ export interface ClusterRule {
   action: RuleAction;
   /** Required when action === "label". Nested under "Cluster/" by convention. */
   labelName?: string;
+  /** For action === "label": leave the message in the inbox instead of filing
+   * it out. Set by the "keep sorting" rules "Sort my inbox" saves for
+   * label-in-place buckets (Shopping, Finance, …). */
+  labelKeepInInbox?: boolean;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -69,6 +77,7 @@ export function matchRule(rule: ClusterRule, senders: SenderSummary[]): Map<Prov
   for (const sender of senders) {
     if (c.fromAddress && sender.address !== c.fromAddress.toLowerCase()) continue;
     if (c.fromDomain && domainOf(sender.address) !== c.fromDomain.toLowerCase()) continue;
+    if (c.fromDomainCategory && categorizeDomain(domainOf(sender.address)) !== c.fromDomainCategory) continue;
     if (c.hasUnsubscribe !== undefined && senderHasUnsubscribe(sender) !== c.hasUnsubscribe) continue;
 
     for (const m of sender.messages) {
@@ -98,6 +107,7 @@ export function describeRule(rule: ClusterRule): string {
   const parts: string[] = [c.kind ? `${c.kind} messages` : "messages"];
   if (c.fromAddress) parts.push(`from ${c.fromAddress}`);
   else if (c.fromDomain) parts.push(`from @${c.fromDomain}`);
+  else if (c.fromDomainCategory) parts.push(`from ${DOMAIN_CATEGORY_LABELS[c.fromDomainCategory]} senders`);
   if (c.hasUnsubscribe === true) parts.push("with an unsubscribe link");
   if (c.hasUnsubscribe === false) parts.push("with no unsubscribe link");
   if (c.unread === true) parts.push("still unread");

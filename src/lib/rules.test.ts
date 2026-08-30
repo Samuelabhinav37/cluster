@@ -106,6 +106,14 @@ describe("matchRule", () => {
     const matched = matchRule(rule({ conditions: { hasUnsubscribe: true } }), [withUnsub, withoutUnsub]);
     expect(matched.get("gmail")).toEqual(["1"]);
   });
+
+  it("matches on the sender's domain category", () => {
+    const shop = sender({ address: "orders@amazon.com", messages: [msg({ id: "1" })] });
+    const bank = sender({ address: "alerts@chase.com", messages: [msg({ id: "2" })] });
+    const other = sender({ address: "hi@nowhere.example", messages: [msg({ id: "3" })] });
+    const matched = matchRule(rule({ conditions: { fromDomainCategory: "shopping" } }), [shop, bank, other]);
+    expect(matched.get("gmail")).toEqual(["1"]);
+  });
 });
 
 describe("describeRule", () => {
@@ -118,5 +126,10 @@ describe("describeRule", () => {
     expect(
       describeRule(rule({ conditions: { fromDomain: "x.com" }, action: "label", labelName: "Cluster/News" })),
     ).toBe('messages from @x.com → label "Cluster/News"');
+  });
+  it("describes a domain-category condition", () => {
+    expect(
+      describeRule(rule({ conditions: { fromDomainCategory: "shopping" }, action: "label", labelName: "Cluster/Shopping" })),
+    ).toBe('messages from Shopping senders → label "Cluster/Shopping"');
   });
 });

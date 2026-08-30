@@ -128,12 +128,30 @@ export async function markReadMessages(token: string, ids: string[]): Promise<vo
   await batchModify(token, ids, [], ["UNREAD"]);
 }
 
-// Rule action "label": apply a (nested) label and file the mail out of the
-// inbox — same "tag + skip inbox" shape as keepSorted, minus the standing
-// filter, since a rule re-runs on every scan anyway.
-export async function labelMessages(token: string, ids: string[], labelName: string): Promise<void> {
+// Apply a (nested) label. By default also files the mail out of the inbox --
+// same "tag + skip inbox" shape as keepSorted, minus the standing filter,
+// since a rule re-runs on every scan anyway. "Sort my inbox" passes
+// keepInInbox for buckets the user wants labelled but left visible.
+export async function labelMessages(
+  token: string,
+  ids: string[],
+  labelName: string,
+  keepInInbox = false,
+): Promise<void> {
   const labelId = await getOrCreateLabel(token, labelName);
-  await batchModify(token, ids, [labelId], ["INBOX"]);
+  await batchModify(token, ids, [labelId], keepInInbox ? [] : ["INBOX"]);
+}
+
+// Reverses labelMessages for the "Sort my inbox" undo: drop the label and, if
+// it was filed out, put the messages back in the inbox.
+export async function unlabelMessages(
+  token: string,
+  ids: string[],
+  labelName: string,
+  wasFiledOut: boolean,
+): Promise<void> {
+  const labelId = await getOrCreateLabel(token, labelName);
+  await batchModify(token, ids, wasFiledOut ? ["INBOX"] : [], [labelId]);
 }
 
 const SCREENER_LABEL_NAME = "Cluster/Screener";

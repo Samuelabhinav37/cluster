@@ -8,6 +8,7 @@ import {
   getMessageMetadata as fetchGmailMessageMetadata,
   getOrCreateLabel,
   labelMessages as apiLabelMessages,
+  unlabelMessages as apiUnlabelMessages,
   allowSenderThrough as apiAllowSenderThrough,
   listMessageIds,
   listSentCorrespondents as apiListSentCorrespondents,
@@ -101,8 +102,12 @@ export const gmailProvider: EmailProvider = {
     await apiMarkReadMessages(token, ids);
   },
 
-  async labelMessages(token, ids, labelName) {
-    await apiLabelMessages(token, ids, labelName);
+  async labelMessages(token, ids, labelName, keepInInbox) {
+    await apiLabelMessages(token, ids, labelName, keepInInbox);
+  },
+
+  async unlabelMessages(token, ids, labelName, wasFiledOut) {
+    await apiUnlabelMessages(token, ids, labelName, wasFiledOut);
   },
 
   async muteSender(token, fromAddress, existingIds) {

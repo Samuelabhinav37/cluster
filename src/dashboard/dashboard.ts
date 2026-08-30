@@ -38,6 +38,8 @@ import {
 import { applyRules, previewRuleMatches } from "../lib/ruleRunner";
 import { neverReadSenders } from "../lib/neverRead";
 import { markFirstContact } from "../lib/firstContact";
+import { buildSortPlan, totalPlanCount, type SortPlanEntry } from "../lib/autoSort";
+import { ALL_SORT_BUCKETS, SORT_BUCKET_LABELS, type SortBucket } from "../lib/sortTaxonomy";
 import { log } from "../lib/log";
 import {
   formatRelativeTime,
@@ -171,6 +173,13 @@ const spamTrashSlot = document.getElementById("spam-trash-slot") as HTMLSpanElem
 const spamTrashBtn = document.getElementById("spam-trash-btn") as HTMLButtonElement;
 const spamListEl = document.getElementById("spam-list") as HTMLDivElement;
 
+const sortInboxBtn = document.getElementById("sort-inbox-btn") as HTMLButtonElement;
+const sortInboxSlot = document.getElementById("sort-inbox-slot") as HTMLSpanElement;
+const sortInboxCountEl = document.getElementById("sort-inbox-count") as HTMLSpanElement;
+const sortInboxBucketsEl = document.getElementById("sort-inbox-buckets") as HTMLDivElement;
+const sortKeepSortingEl = document.getElementById("sort-keep-sorting") as HTMLInputElement;
+const sortExpireOtpEl = document.getElementById("sort-expire-otp") as HTMLInputElement;
+
 const smartViewChipsEl = document.getElementById("smart-view-chips") as HTMLSpanElement;
 const smartViewResultSlot = document.getElementById("smart-view-result-slot") as HTMLDivElement;
 const keepNewestNInput = document.getElementById("keep-newest-n") as HTMLInputElement;
@@ -260,6 +269,7 @@ async function main() {
 
   wireBulkHandlers();
   wireKeepNewest();
+  wireSortInbox();
   wireScreenerTab();
   wireOfflineHandling();
   wireRulesTab();
@@ -346,6 +356,7 @@ async function scanAndRender() {
   renderSubscriptionsTab(senders);
   renderNeverReadSection(senders);
   renderSpamSection(senders);
+  renderSortInbox(senders);
   renderSmartViews(senders);
   renderScreenerTab(senders);
   generateDigestBtn.disabled = false;
@@ -1319,6 +1330,8 @@ async function undoEntry(entry: ActionLogEntry) {
     });
   } else if (entry.undo.via === "unlabel-suspicious") {
     await gmailProvider.unlabelSuspicious!(token, entry.undo.ids);
+  } else if (entry.undo.via === "unsort" && entry.undo.labelName) {
+    await gmailProvider.unlabelMessages!(token, entry.undo.ids, entry.undo.labelName, entry.undo.wasFiledOut ?? false);
   }
   cachedSettings = await updateSettings({
     actionLog: cachedSettings.actionLog.map((e) => (e.id === entry.id ? { ...e, undone: true } : e)),
@@ -1623,6 +1636,155 @@ function renderSpamSection(senders: SenderSummary[]) {
   table.appendChild(tbody);
   spamListEl.appendChild(table);
   updateSpamCount();
+}
+
+// ── "Sort my inbox" (Clean up tab) ──────────────────────────────────────
+// Buckets that come from the message kind (subject) rather than the sender's
+// domain category -- they need a `kind` rule condition, the rest need
+// `fromDomainCategory`.
+const KIND_SORT_BUCKETS = new Set<SortBucket>(["otp", "receipt", "shipping", "newsletter", "social"]);
+
+let sortPlan: SortPlanEntry[] = [];
+
+function resetSortInboxSlot() {
+  sortInboxSlot.innerHTML = "";
+  sortInboxSlot.appendChild(sortInboxBtn);
+}
+
+function sortBucketChoices(): { bucket: SortBucket; include: boolean; keepInInbox: boolean }[] {
+  return ALL_SORT_BUCKETS.filter((b) => sortPlan.some((e) => e.bucket === b)).map((bucket) => {
+    const include = (document.getElementById(`sort-inc-${bucket}`) as HTMLInputElement | null)?.checked ?? false;
+    const keepInInbox = (document.getElementById(`sort-keep-${bucket}`) as HTMLInputElement | null)?.checked ?? false;
+    return { bucket, include, keepInInbox };
+  });
+}
+
+function updateSortInboxCount() {
+  const chosen = new Set(sortBucketChoices().filter((c) => c.include).map((c) => c.bucket));
+  const entries = sortPlan.filter((e) => chosen.has(e.bucket));
+  const msgs = totalPlanCount(entries);
+  sortInboxCountEl.textContent = entries.length
+    ? `${msgs} message${msgs === 1 ? "" : "s"} → ${entries.length} label${entries.length === 1 ? "" : "s"}`
+    : "nothing to sort";
+  sortInboxBtn.disabled = entries.length === 0;
+}
+
+function renderSortInbox(senders: SenderSummary[]) {
+  const cfg = cachedSettings.autoSort;
+  sortPlan = buildSortPlan(senders, cfg.fileOutByBucket);
+  resetSortInboxSlot();
+  sortKeepSortingEl.checked = cfg.keepSorting;
+  sortExpireOtpEl.checked = cfg.expireOtp;
+
+  sortInboxBucketsEl.innerHTML = "";
+  const neverConfigured = cfg.enabledBuckets.length === 0;
+  for (const entry of sortPlan) {
+    const row = document.createElement("label");
+    row.className = "setting-toggle";
+    const inc = document.createElement("input");
+    inc.type = "checkbox";
+    inc.id = `sort-inc-${entry.bucket}`;
+    inc.checked = neverConfigured || cfg.enabledBuckets.includes(entry.bucket);
+    inc.onchange = updateSortInboxCount;
+
+    const text = document.createElement("span");
+    text.textContent = ` ${SORT_BUCKET_LABELS[entry.bucket]} — ${entry.count} `;
+
+    const keep = document.createElement("label");
+    keep.className = "hint";
+    const keepBox = document.createElement("input");
+    keepBox.type = "checkbox";
+    keepBox.id = `sort-keep-${entry.bucket}`;
+    keepBox.checked = !entry.fileOut;
+    keep.append(keepBox, document.createTextNode(" keep in inbox"));
+
+    row.append(inc, text, keep);
+    sortInboxBucketsEl.appendChild(row);
+  }
+  updateSortInboxCount();
+}
+
+function upsertRule(rules: ClusterRule[], rule: ClusterRule): ClusterRule[] {
+  const without = rules.filter((r) => r.name !== rule.name);
+  return [...without, rule];
+}
+
+function wireSortInbox() {
+  sortInboxBtn.onclick = () => {
+    const choices = sortBucketChoices().filter((c) => c.include);
+    const chosen = choices
+      .map((c) => {
+        const entry = sortPlan.find((e) => e.bucket === c.bucket)!;
+        return { ...entry, fileOut: !c.keepInInbox };
+      })
+      .filter((e) => e.count > 0);
+    if (chosen.length === 0) return;
+
+    const total = totalPlanCount(chosen);
+    renderConfirmStep(
+      sortInboxSlot,
+      resetSortInboxSlot,
+      `Sort ${total} message${total === 1 ? "" : "s"} into ${chosen.length} label${chosen.length === 1 ? "" : "s"}?`,
+      false,
+      async () => {
+        cachedSettings = await updateSettings({
+          autoSort: {
+            enabledBuckets: chosen.map((e) => e.bucket),
+            fileOutByBucket: Object.fromEntries(chosen.map((e) => [e.bucket, e.fileOut])),
+            keepSorting: sortKeepSortingEl.checked,
+            expireOtp: sortExpireOtpEl.checked,
+          },
+        });
+
+        for (const entry of chosen) {
+          for (const [pid, ids] of entry.idsByProvider) {
+            const provider = providerById.get(pid);
+            if (!provider?.labelMessages || ids.length === 0) continue;
+            const token = await provider.getAuthToken(false);
+            await provider.labelMessages(token, ids, entry.label, !entry.fileOut);
+          }
+          const gmailIds = entry.idsByProvider.get("gmail") ?? [];
+          await logAction(
+            "sort",
+            `Sorted ${entry.count} into "${entry.label}"`,
+            gmailIds.length > 0
+              ? { provider: "gmail", ids: gmailIds, via: "unsort", labelName: entry.label, wasFiledOut: entry.fileOut }
+              : undefined,
+          );
+        }
+
+        if (sortKeepSortingEl.checked) {
+          let rules = cachedSettings.rules;
+          for (const entry of chosen) {
+            rules = upsertRule(rules, {
+              id: crypto.randomUUID(),
+              name: `Auto-sort: ${SORT_BUCKET_LABELS[entry.bucket]}`,
+              enabled: true,
+              conditions: KIND_SORT_BUCKETS.has(entry.bucket)
+                ? { kind: entry.bucket as MessageKind }
+                : { fromDomainCategory: entry.bucket as DomainCategory },
+              action: "label",
+              labelName: entry.label,
+              labelKeepInInbox: !entry.fileOut,
+            });
+          }
+          if (sortExpireOtpEl.checked) {
+            rules = upsertRule(rules, {
+              id: crypto.randomUUID(),
+              name: "Auto-sort: expire one-time codes",
+              enabled: true,
+              conditions: { kind: "otp", olderThanDays: 2 },
+              action: "trash",
+            });
+          }
+          cachedSettings = await updateSettings({ rules });
+        }
+
+        await scanAndRender();
+        return `Sorted ${total} into ${chosen.length} label${chosen.length === 1 ? "" : "s"}`;
+      },
+    );
+  };
 }
 
 // ── Smart Views + Keep-newest (Clean up tab) ─────────────────────────────

@@ -24,6 +24,7 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
     activeTab: "cleanup",
     knownSenders: {},
     autoQuarantineHighRisk: false,
+    autoSort: { enabledBuckets: [], fileOutByBucket: {}, keepSorting: false, expireOtp: false },
     ...over,
   };
 }

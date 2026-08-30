@@ -43,6 +43,19 @@ export interface ClusterSettings {
   /** Opt-in: the background triage labels high-risk senders as suspicious and
    * files them out of the inbox (Gmail-only, reversible, never deletes). */
   autoQuarantineHighRisk: boolean;
+
+  // ── Sort my inbox (Phase 3) ─────────────────────────────────────────────
+  autoSort: {
+    /** Bucket ids (see sortTaxonomy.ts) the user has enabled for sorting. */
+    enabledBuckets: string[];
+    /** Per-bucket override of the "file out of inbox" default. */
+    fileOutByBucket: Record<string, boolean>;
+    /** Save a standing rule per enabled bucket so the 6-hourly sweep keeps
+     * sorting new mail. */
+    keepSorting: boolean;
+    /** Also auto-trash one-time codes older than 2 days (standing rule). */
+    expireOtp: boolean;
+  };
 }
 
 const STORAGE_KEY = "clusterSettings";
@@ -67,6 +80,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   activeTab: "cleanup",
   knownSenders: {},
   autoQuarantineHighRisk: false,
+  autoSort: { enabledBuckets: [], fileOutByBucket: {}, keepSorting: false, expireOtp: false },
 };
 
 export async function getSettings(): Promise<ClusterSettings> {

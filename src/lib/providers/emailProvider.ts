@@ -72,7 +72,11 @@ export interface EmailProvider {
   archiveMessages?(token: string, ids: string[]): Promise<void>;
   unarchiveMessages?(token: string, ids: string[]): Promise<void>;
   markReadMessages?(token: string, ids: string[]): Promise<void>;
-  labelMessages?(token: string, ids: string[], labelName: string): Promise<void>;
+  /** Apply a label. `keepInInbox` (default false) leaves the mail in the
+   * inbox instead of filing it out -- used by "Sort my inbox" per bucket. */
+  labelMessages?(token: string, ids: string[], labelName: string, keepInInbox?: boolean): Promise<void>;
+  /** Reverses labelMessages for the "Sort my inbox" undo. */
+  unlabelMessages?(token: string, ids: string[], labelName: string, wasFiledOut: boolean): Promise<void>;
   /**
    * Local BlackHole — a standing filter hiding all mail from an address, now
    * and future (see gmailApi.muteSender). Gmail-only: needs the filters API.
