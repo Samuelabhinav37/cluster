@@ -1,3 +1,4 @@
+import { log } from "./lib/log";
 import { buildExpiryBuckets, totalExpiryCount } from "./lib/expiryTriage";
 import { gmailProvider } from "./lib/providers/gmailProvider";
 import { outlookProvider } from "./lib/providers/outlookProvider";
@@ -40,7 +41,7 @@ chrome.runtime.onStartup.addListener(() => {
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === TRIAGE_ALARM) {
-    resurfaceDueSnoozed(gmailProvider).catch((err) => console.error("Resurfacing snoozed mail failed", err));
+    resurfaceDueSnoozed(gmailProvider).catch((err) => log.error("Resurfacing snoozed mail failed", err));
     runBackgroundTriage();
   }
   if (alarm.name === ATHENA_ALARM) void flushAthenaSecurityEvents();
@@ -87,7 +88,7 @@ async function runScreener(settings: ClusterSettings, senders: SenderSummary[]):
       sent = { addresses: await gmailProvider.listSentCorrespondents(token), fetchedAt: Date.now() };
       await updateSettings({ sentCorrespondents: sent });
     } catch (err) {
-      console.error("Screener: sent-correspondent refresh failed", err);
+      log.error("Screener: sent-correspondent refresh failed", err);
     }
   }
 
@@ -101,7 +102,7 @@ async function runScreener(settings: ClusterSettings, senders: SenderSummary[]):
       await gmailProvider.screenSender(token, s.address, s.messageIds);
       screened.push(s.address);
     } catch (err) {
-      console.error("Screener: failed to hold", s.address, err);
+      log.error("Screener: failed to hold", s.address, err);
     }
   }
   if (screened.length > 0) {
@@ -155,6 +156,6 @@ async function runBackgroundTriage() {
       await chrome.action.setBadgeText({ text: "" });
     }
   } catch (err) {
-    console.error("Background triage failed", err);
+    log.error("Background triage failed", err);
   }
 }

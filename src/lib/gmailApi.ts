@@ -1,3 +1,4 @@
+import { log } from "./log";
 import { mapWithConcurrency } from "./concurrency";
 import { fetchWithRetry } from "./httpRetry";
 import { extractLinksFromHtml, type ExtractedLink } from "./linkMismatch";
@@ -16,7 +17,10 @@ export async function getAuthToken(interactive = true): Promise<string> {
   });
 }
 
-async function gmailFetch(path: string, token: string, init: RequestInit = {}): Promise<any> {
+// Thin JSON wrapper. Callers pass the response shape they read as `T`; the
+// Gmail API's own schema is the source of truth, so this doesn't try to model
+// it exhaustively — just the handful of fields each call site touches.
+async function gmailFetch<T = unknown>(path: string, token: string, init: RequestInit = {}): Promise<T> {
   const res = await fetchWithRetry(`${API_BASE}${path}`, {
     ...init,
     headers: {
@@ -27,8 +31,24 @@ async function gmailFetch(path: string, token: string, init: RequestInit = {}): 
   if (!res.ok) {
     throw new Error(`Gmail API ${path} failed: ${res.status} ${await res.text()}`);
   }
-  if (res.status === 204) return null;
-  return res.json();
+  if (res.status === 204) return null as T;
+  return (await res.json()) as T;
+}
+
+interface GmailHeader {
+  name: string;
+  value: string;
+}
+interface GmailMessageResource {
+  id?: string;
+  labelIds?: string[];
+  internalDate?: string;
+  sizeEstimate?: number;
+  payload?: GmailMessagePart & { headers?: GmailHeader[] };
+}
+interface GmailFilterResource {
+  id: string;
+  criteria?: { from?: string };
 }
 
 export interface GmailMessageStub {
@@ -49,7 +69,7 @@ export async function listMessageIds(
       maxResults: String(Math.min(500, maxResults - results.length)),
     });
     if (pageToken) params.set("pageToken", pageToken);
-    const data = await gmailFetch(`/users/me/messages?${params}`, token);
+    const data = await gmailFetch<{ messages?: GmailMessageStub[]; nextPageToken?: string }>(`/users/me/messages?${params}`, token);
     results.push(...(data.messages ?? []));
     pageToken = data.nextPageToken;
   } while (pageToken && results.length < maxResults);
@@ -70,7 +90,7 @@ export async function getMessageMetadata(token: string, id: string): Promise<Raw
   for (const header of ["From", "List-Unsubscribe", "List-Unsubscribe-Post", "Subject", "Authentication-Results"]) {
     params.append("metadataHeaders", header);
   }
-  const data = await gmailFetch(`/users/me/messages/${id}?${params}`, token);
+  const data = await gmailFetch<GmailMessageResource>(`/users/me/messages/${id}?${params}`, token);
   const headers: Record<string, string> = {};
   for (const h of data.payload?.headers ?? []) {
     headers[h.name] = h.value;
@@ -156,12 +176,12 @@ export async function listSentCorrespondents(token: string, maxMessages = 300): 
       const params = new URLSearchParams({ format: "metadata" });
       params.append("metadataHeaders", "To");
       params.append("metadataHeaders", "Cc");
-      const data = await gmailFetch(`/users/me/messages/${stub.id}?${params}`, token);
+      const data = await gmailFetch<GmailMessageResource>(`/users/me/messages/${stub.id}?${params}`, token);
       for (const h of data.payload?.headers ?? []) {
         for (const addr of parseAddressList(h.value ?? "")) addresses.add(addr);
       }
     } catch (err) {
-      console.error("listSentCorrespondents: skipping a message", err);
+      log.error("listSentCorrespondents: skipping a message", err);
     }
   });
   return [...addresses].slice(0, 1000);
@@ -189,12 +209,10 @@ export async function unmuteSender(token: string, fromAddress: string, mutedIds:
 // Deletes every filter whose `from` criterion is exactly this address — used to
 // reverse a mute and (Phase 6) to let a sender back through the Screener.
 export async function deleteSenderFilters(token: string, fromAddress: string): Promise<void> {
-  const data = await gmailFetch("/users/me/settings/filters", token);
+  const data = await gmailFetch<{ filter?: GmailFilterResource[] }>("/users/me/settings/filters", token);
   const target = fromAddress.toLowerCase();
-  const matches = (data.filter ?? []).filter(
-    (f: { criteria?: { from?: string } }) => (f.criteria?.from ?? "").toLowerCase() === target,
-  );
-  for (const f of matches as { id: string }[]) {
+  const matches = (data.filter ?? []).filter((f) => (f.criteria?.from ?? "").toLowerCase() === target);
+  for (const f of matches) {
     await gmailFetch(`/users/me/settings/filters/${f.id}`, token, { method: "DELETE" });
   }
 }
@@ -237,8 +255,8 @@ export async function batchDeleteMessages(token: string, ids: string[]): Promise
   }
 }
 
-export async function createLabel(token: string, name: string): Promise<string> {
-  const data = await gmailFetch("/users/me/labels", token, {
+async function createLabel(token: string, name: string): Promise<string> {
+  const data = await gmailFetch<{ id: string }>("/users/me/labels", token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -254,8 +272,8 @@ export async function createLabel(token: string, name: string): Promise<string> 
 // might run more than once per label name (across sessions, not just one
 // button click) should use this instead of createLabel directly.
 export async function getOrCreateLabel(token: string, name: string): Promise<string> {
-  const data = await gmailFetch("/users/me/labels", token);
-  const existing = (data.labels ?? []).find((l: { id: string; name: string }) => l.name === name);
+  const data = await gmailFetch<{ labels?: { id: string; name: string }[] }>("/users/me/labels", token);
+  const existing = (data.labels ?? []).find((l) => l.name === name);
   if (existing) return existing.id;
   return createLabel(token, name);
 }
@@ -338,7 +356,7 @@ function decodeBase64Url(data: string): string {
  * the background triage's normal scan -- see linkMismatch.ts's own header
  * and the dashboard's "Deep scan" action, which is the only caller. */
 export async function getMessageLinks(token: string, id: string): Promise<ExtractedLink[]> {
-  const data = await gmailFetch(`/users/me/messages/${id}?format=full`, token);
+  const data = await gmailFetch<GmailMessageResource>(`/users/me/messages/${id}?format=full`, token);
   const htmlData = data.payload ? findHtmlPartData(data.payload) : null;
   if (!htmlData) return [];
   return extractLinksFromHtml(decodeBase64Url(htmlData));

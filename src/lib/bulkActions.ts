@@ -1,3 +1,4 @@
+import { log } from "./log";
 import { mapWithConcurrency } from "./concurrency";
 import type { DomainGroup } from "./domainGrouping";
 import type { EmailProvider, ProviderId } from "./providers/emailProvider";
@@ -64,7 +65,7 @@ export async function executeBulkKeepSorted(
       await provider.keepSorted(token, s.address, labelName, s.messageIds);
       return true;
     } catch (err) {
-      console.error(err);
+      log.error(err);
       return false;
     }
   });
@@ -101,7 +102,7 @@ export async function executeBulkSnooze(
       await provider.snoozeMessages(token, s.messageIds);
       return true;
     } catch (err) {
-      console.error(err);
+      log.error(err);
       return false;
     }
   });

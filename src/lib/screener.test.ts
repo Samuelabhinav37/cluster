@@ -22,7 +22,6 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
     sentCorrespondents: { addresses: [], fetchedAt: 0 },
     lastTriageSummary: "",
     activeTab: "cleanup",
-    collapsedSmartViews: [],
     ...over,
   };
 }

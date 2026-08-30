@@ -7,7 +7,10 @@ import { getOutlookToken, isOutlookConnected } from "./msalAuth";
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 const TRASH_BATCH_SIZE = 20;
 
-async function graphFetch(path: string, token: string, init: RequestInit = {}): Promise<any> {
+// Thin JSON wrapper. Callers pass the response shape they read as `T`; Graph's
+// schema is the source of truth, so this only models the fields each call site
+// touches.
+async function graphFetch<T = unknown>(path: string, token: string, init: RequestInit = {}): Promise<T> {
   const url = path.startsWith("http") ? path : `${GRAPH_BASE}${path}`;
   const res = await fetchWithRetry(url, {
     ...init,
@@ -19,8 +22,19 @@ async function graphFetch(path: string, token: string, init: RequestInit = {}): 
   if (!res.ok) {
     throw new Error(`Graph API ${path} failed: ${res.status} ${await res.text()}`);
   }
-  if (res.status === 204) return null;
-  return res.json();
+  if (res.status === 204) return null as T;
+  return (await res.json()) as T;
+}
+
+interface GraphMessage {
+  id: string;
+  sender?: { emailAddress?: { address?: string; name?: string } };
+  subject?: string;
+  flag?: { flagStatus?: string };
+  internetMessageHeaders?: { name: string; value: string }[];
+  isRead?: boolean;
+  size?: number;
+  receivedDateTime?: string;
 }
 
 function isoDaysAgo(days: number): string {
@@ -33,7 +47,7 @@ async function listCandidateMessages(token: string, maxResults: number, windowDa
   let url = `/me/mailFolders/inbox/messages?$select=id&$filter=${filter}&$top=${Math.min(999, maxResults)}&$orderby=receivedDateTime desc`;
 
   while (url && ids.length < maxResults) {
-    const data = await graphFetch(url, token);
+    const data = await graphFetch<{ value?: { id: string }[]; "@odata.nextLink"?: string }>(url, token);
     for (const m of data.value ?? []) ids.push(m.id);
     url = data["@odata.nextLink"] ?? "";
   }
@@ -42,7 +56,7 @@ async function listCandidateMessages(token: string, maxResults: number, windowDa
 }
 
 async function getMessageMetadata(token: string, id: string): Promise<NormalizedMessageMetadata> {
-  const data = await graphFetch(
+  const data = await graphFetch<GraphMessage>(
     `/me/messages/${id}?$select=sender,subject,flag,internetMessageHeaders,receivedDateTime,isRead,size`,
     token,
   );

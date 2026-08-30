@@ -35,8 +35,6 @@ export interface ClusterSettings {
   lastTriageSummary: string;
   /** Which dashboard tab was last open. */
   activeTab: string;
-  /** Collapsed Smart View chips (Phase 5). */
-  collapsedSmartViews: string[];
 }
 
 const STORAGE_KEY = "clusterSettings";
@@ -59,7 +57,6 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   sentCorrespondents: { addresses: [], fetchedAt: 0 },
   lastTriageSummary: "",
   activeTab: "cleanup",
-  collapsedSmartViews: [],
 };
 
 export async function getSettings(): Promise<ClusterSettings> {

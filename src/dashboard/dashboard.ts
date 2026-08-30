@@ -37,7 +37,17 @@ import {
 } from "../lib/rules";
 import { applyRules, previewRuleMatches } from "../lib/ruleRunner";
 import { neverReadSenders } from "../lib/neverRead";
+import { log } from "../lib/log";
+import {
+  formatRelativeTime,
+  groupByCategory,
+  headerRow,
+  pruneSelection,
+  renderConfirmStep,
+  type CategoryGroup,
+} from "./ui";
 import { reasonLabel, suggestSpamSenders, type SpamSuggestion } from "../lib/spamSuggestions";
+import { spamListSize } from "../lib/spamList";
 import {
   SMART_VIEWS,
   evaluateSmartView,
@@ -220,7 +230,7 @@ async function main() {
   };
 
   await gmailProvider.getAuthToken(true);
-  resurfaceDueSnoozed(gmailProvider).catch((err) => console.error("Resurfacing snoozed mail failed", err));
+  resurfaceDueSnoozed(gmailProvider).catch((err) => log.error("Resurfacing snoozed mail failed", err));
 
   if (await outlookProvider.isConnected()) {
     activeProviders.push(outlookProvider);
@@ -238,7 +248,7 @@ async function main() {
     } catch (err) {
       connectOutlookBtn.disabled = false;
       connectOutlookBtn.textContent = "Connect Outlook";
-      console.error(err);
+      log.error(err);
     }
   };
 
@@ -331,7 +341,7 @@ async function scanAndRender() {
 }
 
 function showScanError(err: unknown) {
-  console.error(err);
+  log.error(err);
   const message = err instanceof Error ? err.message : "unknown error";
   statusEl.hidden = false;
   statusEl.innerHTML = "";
@@ -341,85 +351,6 @@ function showScanError(err: unknown) {
   retryBtn.textContent = "Retry";
   retryBtn.onclick = () => scanAndRender();
   statusEl.append(text, retryBtn);
-}
-
-function pruneSelection(selection: Set<string>, validKeys: string[]) {
-  const valid = new Set(validKeys);
-  for (const key of selection) {
-    if (!valid.has(key)) selection.delete(key);
-  }
-}
-
-// ── Shared two-step confirm UI (used by single-row and bulk actions alike) ──
-function renderConfirmStep(
-  container: HTMLElement,
-  resetContent: () => void,
-  summaryText: string,
-  danger: boolean,
-  onConfirm: (summary: HTMLElement) => Promise<string>,
-) {
-  container.innerHTML = "";
-
-  const summary = document.createElement("span");
-  summary.textContent = summaryText;
-  container.appendChild(summary);
-
-  const confirmBtn = document.createElement("button");
-  if (danger) confirmBtn.className = "danger";
-  confirmBtn.textContent = "Confirm";
-
-  const cancelBtn = document.createElement("button");
-  cancelBtn.textContent = "Cancel";
-  cancelBtn.onclick = resetContent;
-
-  confirmBtn.onclick = async () => {
-    confirmBtn.disabled = true;
-    cancelBtn.disabled = true;
-    try {
-      summary.textContent = await onConfirm(summary);
-    } catch (err) {
-      summary.textContent = "Action failed, try again";
-      console.error(err);
-    }
-  };
-
-  container.append(confirmBtn, cancelBtn);
-}
-
-// ── Shared collapsible-by-category rendering (sender table + domain table) ──
-interface CategoryGroup<T> {
-  category: DomainCategory;
-  items: T[];
-  total: number;
-}
-
-function groupByCategory<T>(
-  items: T[],
-  categoryOf: (item: T) => DomainCategory,
-  countOf: (item: T) => number,
-): CategoryGroup<T>[] {
-  const map = new Map<DomainCategory, CategoryGroup<T>>();
-  for (const item of items) {
-    const category = categoryOf(item);
-    let group = map.get(category);
-    if (!group) {
-      group = { category, items: [], total: 0 };
-      map.set(category, group);
-    }
-    group.items.push(item);
-    group.total += countOf(item);
-  }
-  return [...map.values()].sort((a, b) => b.total - a.total);
-}
-
-function headerRow(labels: string[]): HTMLTableRowElement {
-  const row = document.createElement("tr");
-  for (const label of labels) {
-    const th = document.createElement("th");
-    th.textContent = label;
-    row.appendChild(th);
-  }
-  return row;
 }
 
 type CollapseSettingsKey = "collapsedSenderCategories" | "collapsedDomainCategories";
@@ -612,15 +543,6 @@ function updateSenderBulkBar() {
 // ── Confirmed-unsubscribe tracking ───────────────────────────────────────
 // Persisted so "already requested" survives a reload — senders can take up
 // to 10 business days to stop, so re-requesting isn't blocked, just labeled.
-function formatRelativeTime(epochMs: number): string {
-  const minutes = Math.floor((Date.now() - epochMs) / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
 async function recordUnsubscribeRequests(senders: SenderSummary[]) {
   if (senders.length === 0) return;
   const requests = { ...cachedSettings.unsubscribeRequests };
@@ -706,7 +628,7 @@ function buildKeepSortedCell(sender: SenderSummary): HTMLTableCellElement {
     } catch (err) {
       btn.textContent = "Failed, try again";
       btn.disabled = false;
-      console.error(err);
+      log.error(err);
     }
   };
   cell.appendChild(btn);
@@ -769,7 +691,7 @@ function buildSnoozeCell(sender: SenderSummary): HTMLTableCellElement {
       btn.textContent = "Failed, try again";
       btn.disabled = false;
       select.disabled = false;
-      console.error(err);
+      log.error(err);
     }
   };
 
@@ -972,7 +894,7 @@ async function runDeepScan(sender: SenderSummary, resultEl: HTMLElement): Promis
     }
   } catch (err) {
     resultEl.textContent = "Scan failed, try again.";
-    console.error(err);
+    log.error(err);
   }
 }
 
@@ -1078,7 +1000,7 @@ function wireFastDeleteToggle() {
         cachedSettings = await updateSettings({ fastPermanentDeleteEnabled: true });
       } catch (err) {
         fastDeleteToggle.checked = false;
-        console.error(err);
+        log.error(err);
       } finally {
         fastDeleteToggle.disabled = false;
       }
@@ -1134,7 +1056,7 @@ async function wireDigest() {
       digestTextEl.hidden = false;
     } catch (err) {
       digestStatusEl.textContent = "Couldn't generate a digest right now.";
-      console.error(err);
+      log.error(err);
     } finally {
       generateDigestBtn.disabled = false;
     }
@@ -1186,7 +1108,7 @@ async function executeSmartDelete(merged: Map<ProviderId, string[]>): Promise<Sm
         : `Permanently deleted ${gmailCount} from Gmail ✓`;
     return { message, undoableGmailIds: [] };
   } catch (err) {
-    console.error("Elevated permanent-delete failed, falling back to Trash", err);
+    log.error("Elevated permanent-delete failed, falling back to Trash", err);
     await executeBulkDeleteDomains(merged, providerById);
     return {
       message: `Fast delete unavailable — moved ${gmailCount + otherCount} to Trash instead ✓`,
@@ -1214,7 +1136,7 @@ function appendUndoButton(container: HTMLElement, gmailIds: string[]) {
     } catch (err) {
       undoBtn.disabled = false;
       undoBtn.textContent = "Undo failed, try again";
-      console.error(err);
+      log.error(err);
     }
   };
   container.appendChild(undoBtn);
@@ -1422,7 +1344,7 @@ function renderRecentTab() {
         } catch (err) {
           undoBtn.disabled = false;
           undoBtn.textContent = "Undo failed, try again";
-          console.error(err);
+          log.error(err);
         }
       };
       row.appendChild(undoBtn);
@@ -1626,6 +1548,8 @@ function updateSpamCount() {
 }
 
 function renderSpamSection(senders: SenderSummary[]) {
+  const sizeEl = document.getElementById("spam-list-size");
+  if (sizeEl) sizeEl.textContent = `Matched against ${spamListSize().toLocaleString()} known domains.`;
   spamSuggestions = suggestSpamSenders(senders);
   spamSectionEl.hidden = spamSuggestions.length === 0;
   resetSpamSlot();
@@ -1791,7 +1715,7 @@ async function screenPending(senders: SenderSummary[]) {
       const addresses = await gmailProvider.listSentCorrespondents(token);
       cachedSettings = await updateSettings({ sentCorrespondents: { addresses, fetchedAt: Date.now() } });
     } catch (err) {
-      console.error("Screener: sent-correspondent refresh failed", err);
+      log.error("Screener: sent-correspondent refresh failed", err);
     }
   }
 
@@ -1806,7 +1730,7 @@ async function screenPending(senders: SenderSummary[]) {
       await gmailProvider.screenSender(token, s.address, s.messageIds);
       screened.push(s.address);
     } catch (err) {
-      console.error("Screener: failed to hold", s.address, err);
+      log.error("Screener: failed to hold", s.address, err);
     }
   }
   if (screened.length > 0) {
@@ -1879,7 +1803,7 @@ function renderScreenerTab(senders: SenderSummary[]) {
             await releaseHeldSender(s.address, s.messageIds, "allow");
           } catch (err) {
             allow.disabled = false;
-            console.error(err);
+            log.error(err);
           }
         };
         const block = document.createElement("button");
@@ -1891,7 +1815,7 @@ function renderScreenerTab(senders: SenderSummary[]) {
             await releaseHeldSender(s.address, s.messageIds, "block");
           } catch (err) {
             block.disabled = false;
-            console.error(err);
+            log.error(err);
           }
         };
         actionCell.append(allow, block);
@@ -1940,7 +1864,7 @@ function wireScreenerTab() {
         await screenPending(currentSenders);
         await scanAndRender();
       } catch (err) {
-        console.error(err);
+        log.error(err);
       } finally {
         screenerToggle.disabled = false;
       }
@@ -2133,7 +2057,7 @@ function wireBulkHandlers() {
             await gmailProvider.muteSender!(token, s.address, s.messageIds);
             done += 1;
           } catch (err) {
-            console.error(err);
+            log.error(err);
           }
         }
         cachedSettings = await updateSettings({
@@ -2214,7 +2138,7 @@ function wireBulkHandlers() {
 }
 
 main().catch((err) => {
-  console.error(err);
+  log.error(err);
   const message = err instanceof Error ? err.message : "unknown error";
   statusEl.hidden = false;
   statusEl.innerHTML = "";

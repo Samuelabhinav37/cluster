@@ -1,3 +1,4 @@
+import { log } from "./log";
 import { appendActionLog, makeLogId, type ActionLogEntry } from "./actionLog";
 import type { EmailProvider, ProviderId } from "./providers/emailProvider";
 import { describeRule, matchRule, type ClusterRule, type RuleAction } from "./rules";
@@ -73,7 +74,7 @@ export async function applyRules(
           }
         }
       } catch (err) {
-        console.error(`Rule "${rule.name}" failed for ${providerId}`, err);
+        log.error(`Rule "${rule.name}" failed for ${providerId}`, err);
       }
     }
 

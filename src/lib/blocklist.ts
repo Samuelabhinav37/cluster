@@ -51,7 +51,3 @@ const defaultBlocklist = createBlocklist([
 export function isBlockedDomain(domain: string): boolean {
   return defaultBlocklist.isBlockedDomain(domain);
 }
-
-export function blocklistSize(): number {
-  return defaultBlocklist.size;
-}
