@@ -1,5 +1,7 @@
 # Cluster
 
+![Cluster](assets/banner.jpg)
+
 Chrome (MV3) extension for Gmail + Outlook. Scans your Promotions/Updates mail
 using only message **metadata** — sender, subject, date, size, read/starred
 state, and a handful of headers — never the message body (one opt-in exception,
