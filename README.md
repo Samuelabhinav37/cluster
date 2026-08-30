@@ -79,10 +79,14 @@ Click the toolbar icon to open the dashboard tab.
 - **One account per provider.** `ProviderId` is a closed two-value union
   threaded through every data structure; multi-account is a large, independent
   change.
-- **Outlook is scan + trash + unsubscribe only.** Keep-sorted, mute, rules
-  (archive/label/mark-read), snooze, undo, and the Screener are Gmail-only —
-  they need Gmail's filters/labels API. Outlook rows show "Not supported for
-  this provider".
+- **Provider parity.** Gmail supports everything. Outlook (via Microsoft
+  Graph) supports scan, trash/untrash, archive/unarchive, mark-read, unsubscribe,
+  the rule engine's label/archive/mark-read/trash actions, and "Sort my inbox"
+  (Cluster/… mapped to a flat Outlook category, moved to Archive when filed
+  out). Still Gmail-only, because they need Gmail's filters API or bookkeeping
+  Graph has no primitive for: keep-sorted, mute, the Screener, snooze,
+  auto-quarantine, "Label as suspicious", and Deep scan. Outlook rows show
+  "Not supported for this provider" for those.
 - **No confirmed-stopped tracking** — unsubscribe status shows "Requested Nd
   ago", not whether the sender actually stopped.
 - **The `mail.google.com` restricted scope** (opt-in "Fast permanent delete")

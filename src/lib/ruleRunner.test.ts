@@ -100,6 +100,20 @@ describe("applyRules", () => {
     expect(trashMessages).toHaveBeenCalledWith("outlook-token", ["1"]);
   });
 
+  it("a label rule now runs for Outlook and passes labelKeepInInbox through", async () => {
+    const labelMessages = vi.fn(async () => {});
+    const outlook = fakeProvider("outlook", { labelMessages });
+    const s = sender("a@news.com", "outlook", [msg({ id: "1" })]);
+
+    await applyRules(
+      [{ ...archiveRule, action: "label", labelName: "Cluster/Newsletters", labelKeepInInbox: true }],
+      [s],
+      new Map([["outlook", outlook]]),
+    );
+
+    expect(labelMessages).toHaveBeenCalledWith("outlook-token", ["1"], "Cluster/Newsletters", true);
+  });
+
   it("attaches an undo to the log entry for a Gmail trash/archive rule, not for markRead", async () => {
     const gmail = fakeProvider("gmail", {
       archiveMessages: vi.fn(async () => {}),

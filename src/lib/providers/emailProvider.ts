@@ -58,16 +58,13 @@ export interface EmailProvider {
    * gmailApi.getElevatedAuthToken / settingsStore.fastPermanentDeleteEnabled).
    */
   permanentlyDeleteMessages?(token: string, ids: string[]): Promise<void>;
-  /**
-   * Undo for trashMessages — Gmail-only. Outlook's equivalent (moving back
-   * out of Deleted Items) isn't implemented, so undo only ever covers the
-   * Gmail portion of a mixed-provider delete.
-   */
+  /** Undo for trashMessages. Gmail removes the TRASH label; Outlook moves the
+   * message from Deleted Items back to the inbox. */
   untrashMessages?(token: string, ids: string[]): Promise<void>;
   /**
-   * Rule-engine actions (see ruleRunner.ts) — Gmail-only for now, same
-   * optional-method pattern as keepSorted. archive/unarchive toggle INBOX;
-   * markRead clears UNREAD; labelMessages tags + files out of the inbox.
+   * Rule-engine actions (see ruleRunner.ts). Implemented for both providers:
+   * Gmail toggles INBOX / UNREAD labels; Outlook moves folders (Archive) and
+   * PATCHes isRead / categories via Graph. `keepInInbox` labels in place.
    */
   archiveMessages?(token: string, ids: string[]): Promise<void>;
   unarchiveMessages?(token: string, ids: string[]): Promise<void>;
