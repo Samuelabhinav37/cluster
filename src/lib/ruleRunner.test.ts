@@ -200,6 +200,83 @@ describe("applyRules", () => {
     expect(result.partialProviders).toEqual(["gmail"]);
     expect(appendActionLog.mock.calls.at(-1)![0][0].summary).toContain("partial action sequence");
   });
+
+  it("enforces the per-rule ceiling and reports deferred matches", async () => {
+    const archiveMessages = vi.fn(async () => {});
+    const gmail = fakeProvider("gmail", { archiveMessages });
+    const current = sender("a@news.com", "gmail", [msg({ id: "1" }), msg({ id: "2" }), msg({ id: "3" })]);
+
+    const [result] = await applyRules(
+      [{ ...archiveRule, maxMessagesPerRun: 2 }],
+      [current],
+      new Map([["gmail", gmail]]),
+    );
+
+    expect(archiveMessages).toHaveBeenCalledWith("gmail-token", ["1", "2"]);
+    expect(result.deferredByLimitCount).toBe(1);
+    expect(appendActionLog.mock.calls.at(-1)![0][0].summary).toContain("1 deferred by safety limit");
+  });
+
+  it("applies the ceiling in sender traversal order instead of grouping one provider first", async () => {
+    const gmailArchive = vi.fn(async () => {});
+    const outlookArchive = vi.fn(async () => {});
+    const gmail = fakeProvider("gmail", { archiveMessages: gmailArchive });
+    const outlook = fakeProvider("outlook", { archiveMessages: outlookArchive });
+    const senders = [
+      sender("first@news.com", "gmail", [msg({ id: "g1" })]),
+      sender("second@news.com", "outlook", [msg({ id: "o1" })]),
+      sender("third@news.com", "gmail", [msg({ id: "g2" })]),
+    ];
+
+    await applyRules(
+      [{ ...archiveRule, maxMessagesPerRun: 2 }],
+      senders,
+      new Map([
+        ["gmail", gmail],
+        ["outlook", outlook],
+      ]),
+    );
+
+    expect(gmailArchive).toHaveBeenCalledWith("gmail-token", ["g1"]);
+    expect(outlookArchive).toHaveBeenCalledWith("outlook-token", ["o1"]);
+  });
+
+  it("does not let a later overlapping rule act on matches deferred by an earlier limit", async () => {
+    const archiveMessages = vi.fn(async () => {});
+    const trashMessages = vi.fn(async () => {});
+    const gmail = fakeProvider("gmail", { archiveMessages, trashMessages });
+    const current = sender("a@news.com", "gmail", [msg({ id: "1" }), msg({ id: "2" })]);
+
+    await applyRules(
+      [
+        { ...archiveRule, id: "limited", priority: 10, maxMessagesPerRun: 1 },
+        { ...archiveRule, id: "later", priority: 0, action: "trash" },
+      ],
+      [current],
+      new Map([["gmail", gmail]]),
+    );
+
+    expect(archiveMessages).toHaveBeenCalledWith("gmail-token", ["1"]);
+    expect(trashMessages).toHaveBeenCalledWith("gmail-token", ["1"]);
+    expect(trashMessages).not.toHaveBeenCalledWith("gmail-token", ["2"]);
+  });
+
+  it("audits a tripped limit even when the selected action is unsupported", async () => {
+    const outlook = fakeProvider("outlook");
+    const current = sender("a@news.com", "outlook", [msg({ id: "1" }), msg({ id: "2" })]);
+
+    const [result] = await applyRules(
+      [{ ...archiveRule, maxMessagesPerRun: 1 }],
+      [current],
+      new Map([["outlook", outlook]]),
+    );
+
+    expect(result.movedByProvider.size).toBe(0);
+    expect(result.deferredByLimitCount).toBe(1);
+    expect(appendActionLog.mock.calls.at(-1)![0][0].summary).toContain(
+      "0 messages actioned; 1 deferred by safety limit",
+    );
+  });
 });
 
 describe("previewRuleMatches", () => {

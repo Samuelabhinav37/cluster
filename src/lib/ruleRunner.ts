@@ -2,8 +2,10 @@ import { log } from "./log";
 import { appendActionLog, makeLogId, type ActionLogEntry } from "./actionLog";
 import type { EmailProvider, ProviderId } from "./providers/emailProvider";
 import {
+  applyRuleRunLimit,
   describeRule,
   matchRule,
+  matchRuleMessages,
   orderedRules,
   ruleActions,
   type ClusterRule,
@@ -20,6 +22,8 @@ export interface RuleRunResult {
   undoVia?: "untrash" | "unarchive";
   /** Providers where at least one ordered action succeeded but a later action failed. */
   partialProviders: ProviderId[];
+  /** Eligible messages left untouched because this rule reached its per-run ceiling. */
+  deferredByLimitCount: number;
 }
 
 // Returns true if the action ran, false if this provider can't do it (Outlook
@@ -63,15 +67,22 @@ export async function applyRules(
   const results: RuleRunResult[] = [];
   const logEntries: ActionLogEntry[] = [];
   const stoppedMessages = new Set<string>();
+  const limitBlockedMessages = new Set<string>();
 
   for (const rule of orderedRules(rules)) {
     if (!rule.enabled) continue;
-    const matched = new Map(
-      [...matchRule(rule, senders)].map(([provider, ids]) => [
-        provider,
-        ids.filter((id) => !stoppedMessages.has(`${provider}:${id}`)),
-      ]),
+    const eligible = matchRuleMessages(rule, senders).filter(
+      ({ provider, id }) =>
+        !stoppedMessages.has(`${provider}:${id}`) && !limitBlockedMessages.has(`${provider}:${id}`),
     );
+    const { selected, deferred, deferredCount: deferredByLimitCount } = applyRuleRunLimit(rule, eligible);
+    for (const { provider, id } of deferred) limitBlockedMessages.add(`${provider}:${id}`);
+    const matched = new Map<ProviderId, string[]>();
+    for (const { provider, id } of selected) {
+      const ids = matched.get(provider) ?? [];
+      ids.push(id);
+      matched.set(provider, ids);
+    }
     const moved = new Map<ProviderId, number>();
     let undoableGmailIds: string[] = [];
     const actions = ruleActions(rule);
@@ -122,21 +133,31 @@ export async function applyRules(
           ? "unarchive"
           : undefined;
     const total = [...moved.values()].reduce((a, b) => a + b, 0);
-    if (total > 0) {
+    if (total > 0 || deferredByLimitCount > 0) {
       logEntries.push({
         id: makeLogId("rule"),
         at: Date.now(),
         kind: "rule",
         summary:
-          `Rule "${rule.name}": ${describeRule(rule)} — ${total} message${total === 1 ? "" : "s"}` +
-          (partialProviders.length > 0 ? `; partial action sequence for ${partialProviders.join(", ")}` : ""),
+          `Rule "${rule.name}": ${describeRule(rule)} — ${total} message${total === 1 ? "" : "s"} actioned` +
+          (partialProviders.length > 0
+            ? `; partial action sequence for ${partialProviders.join(", ")}`
+            : "") +
+          (deferredByLimitCount > 0 ? `; ${deferredByLimitCount} deferred by safety limit` : ""),
         undo:
           undoableGmailIds.length > 0 && undoVia
             ? { provider: "gmail", ids: undoableGmailIds, via: undoVia }
             : undefined,
       });
     }
-    results.push({ rule, movedByProvider: moved, undoableGmailIds, undoVia, partialProviders });
+    results.push({
+      rule,
+      movedByProvider: moved,
+      undoableGmailIds,
+      undoVia,
+      partialProviders,
+      deferredByLimitCount,
+    });
   }
 
   await appendActionLog(logEntries);

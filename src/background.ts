@@ -239,13 +239,14 @@ async function runBackgroundTriage() {
       (sum, r) => sum + [...r.movedByProvider.values()].reduce((a, b) => a + b, 0),
       0,
     );
+    const ruleDeferred = ruleResults.reduce((sum, result) => sum + result.deferredByLimitCount, 0);
 
     const held = await runScreener(settings, senders);
     const total = totalExpiryCount(buildExpiryBuckets(senders));
 
     await updateSettings({
       lastTriageSummary:
-        `${new Date().toLocaleString()} — ${ruleMoved} actioned by rules, ${total} ready to clean up` +
+        `${new Date().toLocaleString()} — ${ruleMoved} actioned by rules${ruleDeferred > 0 ? `, ${ruleDeferred} deferred by safety limits` : ""}, ${total} ready to clean up` +
         `, ${securitySync.changedMessageCount} security change${securitySync.changedMessageCount === 1 ? "" : "s"} checked` +
         `${securitySync.resetProviders.length > 0 ? ` (${securitySync.resetProviders.join(", ")} baseline refreshed)` : ""}` +
         `${held > 0 ? `, ${held} held by Screener` : ""}` +

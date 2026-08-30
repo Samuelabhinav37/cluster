@@ -36,6 +36,10 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
       protected/exception exclusions. Viewing the preview must not change any mail.
 - [ ] The Apply confirmation uses predicted rule applications and unique eligible messages from the
       same dry run; execution results appear in Recently done afterward.
+- [ ] Create a rule with **max per run = 1** that matches at least two messages. The dry run reports
+      one predicted application and the remainder deferred. Apply it and verify only one message changes;
+      Recently done and the completion text both report the deferred count. Add a lower-priority overlapping
+      rule and verify it cannot act on the message blocked by the earlier rule's safety limit.
 - [ ] Recently done shows one entry per bucket with a working **Undo** (label
       removed, filed-out mail back in the inbox).
 - [ ] Existing sections still work: category groups, "Ready to clean up",

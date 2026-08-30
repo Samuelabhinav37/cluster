@@ -53,6 +53,9 @@ export interface ClusterRule {
   priority?: number;
   /** Prevent later rules from processing messages successfully handled here. */
   stopProcessing?: boolean;
+  /** Hard ceiling for one execution. Excess matches remain untouched and are
+   * reported as deferred. Legacy rules use DEFAULT_RULE_MAX_MESSAGES_PER_RUN. */
+  maxMessagesPerRun?: number;
   /** Ordered Rules v2 actions. When absent, the legacy action fields below are used. */
   actions?: RuleActionSpec[];
   action: RuleAction;
@@ -65,6 +68,25 @@ export interface ClusterRule {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+export const DEFAULT_RULE_MAX_MESSAGES_PER_RUN = 100;
+export const MAX_RULE_MAX_MESSAGES_PER_RUN = 500;
+
+export function ruleRunLimit(rule: ClusterRule): number {
+  const configured = Number.isFinite(rule.maxMessagesPerRun)
+    ? Math.floor(rule.maxMessagesPerRun!)
+    : DEFAULT_RULE_MAX_MESSAGES_PER_RUN;
+  return Math.max(1, Math.min(MAX_RULE_MAX_MESSAGES_PER_RUN, configured));
+}
+
+export function applyRuleRunLimit<T>(
+  rule: ClusterRule,
+  items: T[],
+): { selected: T[]; deferred: T[]; deferredCount: number } {
+  const limit = ruleRunLimit(rule);
+  const selected = items.slice(0, limit);
+  const deferred = items.slice(limit);
+  return { selected, deferred, deferredCount: deferred.length };
+}
 
 /** A rule needs at least one condition — an all-empty rule matches nothing, so
  * a mis-saved rule can never sweep an entire inbox. */
@@ -107,6 +129,11 @@ function conditionsMatch(
 
 export type RuleMessageDecision = "matched" | "protected" | "exception" | "conditions-miss";
 
+export interface RuleMessageMatch {
+  provider: ProviderId;
+  id: string;
+}
+
 /** Explain why one message is or is not eligible for a rule. */
 export function evaluateRuleMessage(
   rule: ClusterRule,
@@ -140,17 +167,29 @@ export function matchRule(
   now = Date.now(),
 ): Map<ProviderId, string[]> {
   const out = new Map<ProviderId, string[]>();
-
-  for (const sender of senders) {
-    for (const m of sender.messages) {
-      if (evaluateRuleMessage(rule, sender, m, now) !== "matched") continue;
-
-      const list = out.get(sender.provider);
-      if (list) list.push(m.id);
-      else out.set(sender.provider, [m.id]);
-    }
+  for (const match of matchRuleMessages(rule, senders, now)) {
+    const list = out.get(match.provider);
+    if (list) list.push(match.id);
+    else out.set(match.provider, [match.id]);
   }
   return out;
+}
+
+/** Flat matches in the original sender/message traversal order. */
+export function matchRuleMessages(
+  rule: ClusterRule,
+  senders: SenderSummary[],
+  now = Date.now(),
+): RuleMessageMatch[] {
+  const matches: RuleMessageMatch[] = [];
+  for (const sender of senders) {
+    for (const message of sender.messages) {
+      if (evaluateRuleMessage(rule, sender, message, now) === "matched") {
+        matches.push({ provider: sender.provider, id: message.id });
+      }
+    }
+  }
+  return matches;
 }
 
 export function ruleActions(rule: ClusterRule): RuleActionSpec[] {

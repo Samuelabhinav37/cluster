@@ -35,8 +35,11 @@ import { isBlockedDomain } from "../lib/blocklist";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import {
   describeRule,
+  DEFAULT_RULE_MAX_MESSAGES_PER_RUN,
   findRuleConflicts,
+  MAX_RULE_MAX_MESSAGES_PER_RUN,
   ruleHasConditions,
+  ruleRunLimit,
   type ClusterRule,
   type RuleAction,
   type RuleConditions,
@@ -173,6 +176,7 @@ const ruleUnreadSel = document.getElementById("rule-unread") as HTMLSelectElemen
 const ruleActionSel = document.getElementById("rule-action") as HTMLSelectElement;
 const ruleLabelInput = document.getElementById("rule-label") as HTMLInputElement;
 const rulePriorityInput = document.getElementById("rule-priority") as HTMLInputElement;
+const ruleLimitInput = document.getElementById("rule-limit") as HTMLInputElement;
 const ruleStopProcessingInput = document.getElementById("rule-stop-processing") as HTMLInputElement;
 const ruleFormError = document.getElementById("rule-form-error") as HTMLSpanElement;
 const ruleApplySlot = document.getElementById("rule-apply-slot") as HTMLDivElement;
@@ -1335,7 +1339,7 @@ function renderRulesTab() {
 
     const desc = document.createElement("span");
     desc.className = "hint";
-    const policy = `${rule.priority ?? 0}${rule.stopProcessing ? ", stops later rules" : ""}`;
+    const policy = `${rule.priority ?? 0}, limit ${ruleRunLimit(rule)}/run${rule.stopProcessing ? ", stops later rules" : ""}`;
     desc.textContent = `[priority ${policy}] ${describeRule(rule)}`;
 
     const del = document.createElement("button");
@@ -1375,7 +1379,7 @@ function renderRuleDryRun() {
   heading.textContent = "Current dry run";
   const summary = document.createElement("p");
   summary.className = "hint";
-  summary.textContent = `${report.predictedRuleApplicationCount} predicted rule application${report.predictedRuleApplicationCount === 1 ? "" : "s"} touching ${report.uniqueMatchedMessageCount} unique message${report.uniqueMatchedMessageCount === 1 ? "" : "s"}; ${report.overlapMessageCount} overlap${report.overlapMessageCount === 1 ? "" : "s"}, ${report.protectedExclusionCount} protected exclusion${report.protectedExclusionCount === 1 ? "" : "s"}, ${report.exceptionExclusionCount} rule-exception exclusion${report.exceptionExclusionCount === 1 ? "" : "s"}. Assumes supported provider calls succeed; no API call is made by this preview.`;
+  summary.textContent = `${report.predictedRuleApplicationCount} predicted rule application${report.predictedRuleApplicationCount === 1 ? "" : "s"} touching ${report.uniqueMatchedMessageCount} unique message${report.uniqueMatchedMessageCount === 1 ? "" : "s"}; ${report.deferredByLimitCount} deferred by per-rule limits, ${report.overlapMessageCount} overlap${report.overlapMessageCount === 1 ? "" : "s"}, ${report.protectedExclusionCount} protected exclusion${report.protectedExclusionCount === 1 ? "" : "s"}, ${report.exceptionExclusionCount} rule-exception exclusion${report.exceptionExclusionCount === 1 ? "" : "s"}. Assumes supported provider calls succeed; no API call is made by this preview.`;
   rulePreviewEl.append(heading, summary);
 
   for (const impact of report.impacts) {
@@ -1391,6 +1395,14 @@ function renderRuleDryRun() {
     if (impact.overlapCount > 0) notes.push(`${impact.overlapCount} also match an earlier-priority rule`);
     if (impact.stoppedByEarlierRuleCount > 0) {
       notes.push(`${impact.stoppedByEarlierRuleCount} stopped by an earlier rule`);
+    }
+    if (impact.blockedByEarlierLimitCount > 0) {
+      notes.push(`${impact.blockedByEarlierLimitCount} blocked by an earlier safety limit`);
+    }
+    if (impact.deferredByLimitCount > 0) {
+      notes.push(
+        `${impact.deferredByLimitCount} deferred at the ${ruleRunLimit(impact.rule)}-message safety limit`,
+      );
     }
     if (impact.protectedExcludedCount > 0) {
       notes.push(`${impact.protectedExcludedCount} starred/flagged excluded`);
@@ -1480,6 +1492,13 @@ function wireRulesTab() {
       conditions,
       exceptions: collectRuleExceptions(),
       priority: Math.max(-100, Math.min(100, Number(rulePriorityInput.value) || 0)),
+      maxMessagesPerRun: Math.max(
+        1,
+        Math.min(
+          MAX_RULE_MAX_MESSAGES_PER_RUN,
+          Number(ruleLimitInput.value) || DEFAULT_RULE_MAX_MESSAGES_PER_RUN,
+        ),
+      ),
       stopProcessing: ruleStopProcessingInput.checked,
       action,
       labelName,
@@ -1487,6 +1506,7 @@ function wireRulesTab() {
     cachedSettings = await updateSettings({ rules: [...cachedSettings.rules, rule] });
     ruleForm.reset();
     rulePriorityInput.value = "0";
+    ruleLimitInput.value = String(DEFAULT_RULE_MAX_MESSAGES_PER_RUN);
     ruleLabelInput.hidden = true;
     renderRulesTab();
   };
@@ -1546,8 +1566,9 @@ function wireRulesTab() {
           (sum, r) => sum + [...r.movedByProvider.values()].reduce((a, b) => a + b, 0),
           0,
         );
+        const deferred = results.reduce((sum, result) => sum + result.deferredByLimitCount, 0);
         await scanAndRender();
-        return `Applied — ${moved} message${moved === 1 ? "" : "s"} actioned`;
+        return `Applied — ${moved} message${moved === 1 ? "" : "s"} actioned${deferred > 0 ? `, ${deferred} deferred by safety limits` : ""}`;
       },
     );
   };

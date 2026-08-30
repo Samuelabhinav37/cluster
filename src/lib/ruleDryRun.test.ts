@@ -112,4 +112,41 @@ describe("buildRuleDryRunReport", () => {
       actionableMessageCount: 1,
     });
   });
+
+  it("uses the same per-rule ceiling and exposes deferred work", () => {
+    const current = sender([message("one"), message("two"), message("three")]);
+    const report = buildRuleDryRunReport(
+      [rule({ maxMessagesPerRun: 2 })],
+      [current],
+      new Map([["gmail", provider("gmail", { archiveMessages: vi.fn() })]]),
+      2,
+    );
+
+    expect(report).toMatchObject({ predictedRuleApplicationCount: 2, deferredByLimitCount: 1 });
+    expect(report.impacts[0]).toMatchObject({
+      rawMatchCount: 3,
+      effectiveMatchCount: 2,
+      deferredByLimitCount: 1,
+    });
+  });
+
+  it("prevents a later overlapping rule from bypassing an earlier safety limit", () => {
+    const current = sender([message("one"), message("two")]);
+    const report = buildRuleDryRunReport(
+      [
+        rule({ id: "limited", priority: 10, maxMessagesPerRun: 1 }),
+        rule({ id: "later", priority: 0, action: "trash" }),
+      ],
+      [current],
+      new Map([["gmail", provider("gmail", { archiveMessages: vi.fn() })]]),
+      2,
+    );
+
+    expect(report.impacts[0]).toMatchObject({ effectiveMatchCount: 1, deferredByLimitCount: 1 });
+    expect(report.impacts[1]).toMatchObject({
+      rawMatchCount: 2,
+      effectiveMatchCount: 1,
+      blockedByEarlierLimitCount: 1,
+    });
+  });
 });

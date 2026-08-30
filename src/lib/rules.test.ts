@@ -1,16 +1,33 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyRuleRunLimit,
+  DEFAULT_RULE_MAX_MESSAGES_PER_RUN,
   describeRule,
   findRuleConflicts,
   matchRule,
   orderedRules,
   ruleHasConditions,
+  ruleRunLimit,
   type ClusterRule,
 } from "./rules";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import type { ProviderId } from "./providers/emailProvider";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+describe("rule execution limits", () => {
+  it("uses a conservative default and clamps configured values", () => {
+    const base = rule();
+    expect(ruleRunLimit(base)).toBe(DEFAULT_RULE_MAX_MESSAGES_PER_RUN);
+    expect(ruleRunLimit({ ...base, maxMessagesPerRun: 0 })).toBe(1);
+    expect(ruleRunLimit({ ...base, maxMessagesPerRun: 9_999 })).toBe(500);
+  });
+
+  it("selects a deterministic prefix and reports deferred matches", () => {
+    const result = applyRuleRunLimit({ ...rule(), maxMessagesPerRun: 2 }, ["a", "b", "c"]);
+    expect(result).toEqual({ selected: ["a", "b"], deferred: ["c"], deferredCount: 1 });
+  });
+});
 
 function msg(over: Partial<MessageRecord> & { id: string }): MessageRecord {
   return {

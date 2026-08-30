@@ -18,6 +18,15 @@ describe("natural-language rule drafting", () => {
     });
     expect(result.rule.action).toBe("archive");
     expect(result.rule.enabled).toBe(false);
+    expect(result.rule.maxMessagesPerRun).toBe(100);
+  });
+
+  it("parses and clamps an explicit per-run safety limit", async () => {
+    const result = await draftRuleFromNaturalLanguage(
+      "Archive unread newsletters, at most 25 messages per run",
+      undefined,
+    );
+    expect(result.rule.maxMessagesPerRun).toBe(25);
   });
 
   it("passes a schema constraint and validates the model output", async () => {

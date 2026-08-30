@@ -1,4 +1,10 @@
-import { ruleHasConditions, type ClusterRule, type RuleAction } from "./rules";
+import {
+  DEFAULT_RULE_MAX_MESSAGES_PER_RUN,
+  MAX_RULE_MAX_MESSAGES_PER_RUN,
+  ruleHasConditions,
+  type ClusterRule,
+  type RuleAction,
+} from "./rules";
 import type { MessageKind } from "./messageKind";
 
 interface PromptSession {
@@ -50,6 +56,7 @@ export const RULE_DRAFT_SCHEMA = {
     labelName: { type: "string" },
     priority: { type: "integer", minimum: -100, maximum: 100 },
     stopProcessing: { type: "boolean" },
+    maxMessagesPerRun: { type: "integer", minimum: 1, maximum: MAX_RULE_MAX_MESSAGES_PER_RUN },
   },
 } as const;
 
@@ -115,6 +122,10 @@ function validateDraft(value: unknown): ClusterRule {
     labelName,
     priority: Number.isInteger(raw.priority) ? Math.max(-100, Math.min(100, Number(raw.priority))) : 0,
     stopProcessing: raw.stopProcessing === true,
+    maxMessagesPerRun:
+      Number.isInteger(raw.maxMessagesPerRun) && Number(raw.maxMessagesPerRun) >= 1
+        ? Math.min(MAX_RULE_MAX_MESSAGES_PER_RUN, Number(raw.maxMessagesPerRun))
+        : DEFAULT_RULE_MAX_MESSAGES_PER_RUN,
   };
 }
 
@@ -162,6 +173,9 @@ function deterministicDraft(instruction: string): ClusterRule {
     labelName,
     priority: 0,
     stopProcessing: /stop (processing|later rules)/.test(lower),
+    maxMessagesPerRun:
+      Number(/\b(?:at most|up to|max(?:imum)?)\s+(\d+)\s+messages?(?:\s+per\s+run)?\b/i.exec(text)?.[1]) ||
+      DEFAULT_RULE_MAX_MESSAGES_PER_RUN,
   });
 }
 

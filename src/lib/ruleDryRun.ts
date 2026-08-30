@@ -1,5 +1,6 @@
 import type { EmailProvider, ProviderId } from "./providers/emailProvider";
 import {
+  applyRuleRunLimit,
   evaluateRuleMessage,
   orderedRules,
   ruleActions,
@@ -39,6 +40,8 @@ export interface RuleDryRunImpact {
   exceptionExcludedCount: number;
   overlapCount: number;
   stoppedByEarlierRuleCount: number;
+  blockedByEarlierLimitCount: number;
+  deferredByLimitCount: number;
   providers: RuleDryRunProviderImpact[];
   senders: RuleDryRunSenderImpact[];
 }
@@ -50,6 +53,7 @@ export interface RuleDryRunReport {
   overlapMessageCount: number;
   protectedExclusionCount: number;
   exceptionExclusionCount: number;
+  deferredByLimitCount: number;
   impacts: RuleDryRunImpact[];
 }
 
@@ -106,6 +110,7 @@ export function buildRuleDryRunReport(
   const enabledRules = orderedRules(rules).filter((rule) => rule.enabled);
   const owners = new Map<string, number>();
   const stoppedMessages = new Set<string>();
+  const limitBlockedMessages = new Set<string>();
   const impacts: RuleDryRunImpact[] = [];
 
   for (const rule of enabledRules) {
@@ -129,8 +134,17 @@ export function buildRuleDryRunReport(
 
     const overlapCount = rawMatches.filter(({ key }) => (owners.get(key) ?? 0) > 0).length;
     for (const { key } of rawMatches) owners.set(key, (owners.get(key) ?? 0) + 1);
-    const effectiveMatches = rawMatches.filter(({ key }) => !stoppedMessages.has(key));
-    const stoppedByEarlierRuleCount = rawMatches.length - effectiveMatches.length;
+    const stoppedByEarlierRuleCount = rawMatches.filter(({ key }) => stoppedMessages.has(key)).length;
+    const blockedByEarlierLimitCount = rawMatches.filter(({ key }) => limitBlockedMessages.has(key)).length;
+    const eligibleAfterStops = rawMatches.filter(
+      ({ key }) => !stoppedMessages.has(key) && !limitBlockedMessages.has(key),
+    );
+    const {
+      selected: effectiveMatches,
+      deferred,
+      deferredCount: deferredByLimitCount,
+    } = applyRuleRunLimit(rule, eligibleAfterStops);
+    for (const { key } of deferred) limitBlockedMessages.add(key);
     const actions = ruleActions(rule);
 
     const matchesByProvider = new Map<ProviderId, RawMatch[]>();
@@ -176,6 +190,8 @@ export function buildRuleDryRunReport(
       exceptionExcludedCount,
       overlapCount,
       stoppedByEarlierRuleCount,
+      blockedByEarlierLimitCount,
+      deferredByLimitCount,
       providers,
       senders: [...senderCounts.values()].sort(
         (a, b) => b.eligibleMessageCount - a.eligibleMessageCount || a.address.localeCompare(b.address),
@@ -190,6 +206,7 @@ export function buildRuleDryRunReport(
     overlapMessageCount: [...owners.values()].filter((count) => count > 1).length,
     protectedExclusionCount: impacts.reduce((sum, impact) => sum + impact.protectedExcludedCount, 0),
     exceptionExclusionCount: impacts.reduce((sum, impact) => sum + impact.exceptionExcludedCount, 0),
+    deferredByLimitCount: impacts.reduce((sum, impact) => sum + impact.deferredByLimitCount, 0),
     impacts,
   };
 }

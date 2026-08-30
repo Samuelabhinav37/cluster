@@ -42,8 +42,9 @@ Open with the toolbar icon.
   trash / mark read). Applied on demand and by the 6-hourly background sweep.
   A no-side-effect dry run simulates priority, stop-processing, provider
   support, overlaps, protected/exception exclusions, and sender-level impact
-  before execution. Starred mail is always excluded; rules never permanently
-  delete.
+  before execution. Every rule also has a hard 1–500 message per-run safety
+  ceiling (100 by default); excess matches stay untouched and are reported as
+  deferred. Starred mail is always excluded; rules never permanently delete.
 - **Screener** — opt-in. Holds mail from senders you've never emailed under a
   `Cluster/Screener` label, out of the inbox, until you **Allow** (adds to the
   allow-list, restores the mail) or **Block** (mutes). Your Sent mail is the
@@ -153,7 +154,12 @@ detailed deterministic dry run. The preview reports raw versus effective
 matches, sender counts, overlaps, starred/flagged and explicit-exception
 exclusions, and full/partial/unsupported action sequences for each provider. It
 assumes supported calls succeed but makes no provider API calls itself. The
-Rules tab can also draft a rule from natural language
+same deterministic match order and per-rule ceiling are enforced by manual and
+background execution. Deferred matches are not silently queued: they remain
+untouched, cannot fall through to a later overlapping rule in the same run,
+appear in the dry run, action log, and background summary, and let the user
+narrow the rule or deliberately raise its limit after review. The Rules tab can
+also draft a rule from natural language
 using Chrome's on-device Prompt API. Only the typed instruction reaches the
 model—never mailbox content—and constrained JSON is validated and previewed
 before the user saves it. A deterministic parser remains available without AI.

@@ -333,6 +333,10 @@
             priority
             <input type="number" id="rule-priority" min="-100" max="100" value="0" />
           </label>
+          <label>
+            max per run
+            <input type="number" id="rule-limit" min="1" max="500" value="100" />
+          </label>
           <label><input type="checkbox" id="rule-stop-processing" /> stop later rules</label>
           <button type="submit" id="rule-add-btn">Add rule</button>
           <span id="rule-form-error" class="hint"></span>
