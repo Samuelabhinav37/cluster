@@ -8,6 +8,7 @@ import {
   orderedRules,
   ruleHasConditions,
   ruleRunLimit,
+  upsertRuleByName,
   type ClusterRule,
 } from "./rules";
 import type { MessageRecord, SenderSummary } from "./senderModel";
@@ -26,6 +27,20 @@ describe("rule execution limits", () => {
   it("selects a deterministic prefix and reports deferred matches", () => {
     const result = applyRuleRunLimit({ ...rule(), maxMessagesPerRun: 2 }, ["a", "b", "c"]);
     expect(result).toEqual({ selected: ["a", "b"], deferred: ["c"], deferredCount: 1 });
+  });
+});
+
+describe("upsertRuleByName", () => {
+  it("preserves the stable id while replacing generated rule behavior", () => {
+    const existing = rule({ id: "stable", name: "Auto-sort: Shopping", action: "archive" });
+    const replacement = rule({
+      id: "new-random-id",
+      name: "Auto-sort: Shopping",
+      action: "label",
+      labelName: "Cluster/Shopping",
+    });
+    const [updated] = upsertRuleByName([existing], replacement);
+    expect(updated).toMatchObject({ id: "stable", action: "label", labelName: "Cluster/Shopping" });
   });
 });
 

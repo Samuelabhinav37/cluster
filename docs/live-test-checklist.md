@@ -31,7 +31,7 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
       filed-out buckets left the inbox, "keep in inbox" buckets did not.
 - [ ] Rules tab now lists an `Auto-sort: <bucket>` rule per chosen bucket (+
       `Auto-sort: expire one-time codes`).
-- [ ] Rules → **Current dry run** updates when a rule is enabled, disabled, added, or deleted. Expand
+- [ ] Rules → **Current manual dry run** updates when a rule is enabled, disabled, added, or deleted. Expand
       each rule and verify sender counts, provider action support, overlap/stop-processing notes, and
       protected/exception exclusions. Viewing the preview must not change any mail.
 - [ ] The Apply confirmation uses predicted rule applications and unique eligible messages from the
@@ -40,6 +40,12 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
       one predicted application and the remainder deferred. Apply it and verify only one message changes;
       Recently done and the completion text both report the deferred count. Add a lower-priority overlapping
       rule and verify it cannot act on the message blocked by the earlier rule's safety limit.
+- [ ] Trigger two background sweeps over an idempotent label/archive rule. The second sweep reports the
+      first message as already completed instead of calling the provider again, and a capped rule advances
+      to the next uncompleted message. A deliberately confirmed manual Apply can still run it again.
+- [ ] For a multi-action rule, force the later action to fail. No full-completion receipt is written; the
+      next background sweep retries that message. Undo a completed Gmail archive rule and verify the next
+      background sweep respects the correction rather than immediately archiving it again.
 - [ ] Recently done shows one entry per bucket with a working **Undo** (label
       removed, filed-out mail back in the inbox).
 - [ ] Existing sections still work: category groups, "Ready to clean up",

@@ -164,6 +164,17 @@ using Chrome's on-device Prompt API. Only the typed instruction reaches the
 model—never mailbox content—and constrained JSON is validated and previewed
 before the user saves it. A deterministic parser remains available without AI.
 
+Background rules keep a bounded local completion ledger so label/archive rules
+do not call the provider again for the same message every six hours. A receipt
+is written only after the rule's entire ordered action sequence succeeds and is
+keyed by rule behavior, provider, and opaque message ID. Partial failures remain
+eligible for retry. Receipts let capped rules advance through the next part of
+their backlog on later sweeps, expire after 180 days, and are capped at 10,000.
+Manual **Apply** remains an explicit override; successful manual runs and the
+initial “Sort my inbox” action seed receipts so the next background sweep does
+not immediately repeat them. Undo does not clear a receipt, preventing the
+background worker from instantly reversing the user's correction.
+
 Subscription rows also offer a reversible **Read Later** action. It uses the
 same central protection policy as “Unsubscribe + clean,” files only safely
 classified newsletters into `Cluster/Read Later`, and preserves transactional,

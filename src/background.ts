@@ -17,6 +17,7 @@ import { flushAthenaSecurityEvents, queueAthenaSecurityEvents } from "./lib/athe
 import { buildIncrementalSenderSummaries } from "./lib/incrementalSync";
 import { resumeInterruptedJobs } from "./lib/durableJobs";
 import { updateEngagementObservations } from "./lib/engagementModel";
+import { getRuleCompletionKeys, recordRuleCompletions } from "./lib/ruleCompletionLedger";
 
 chrome.action.onClicked.addListener(async () => {
   const url = chrome.runtime.getURL("src/dashboard/index.html");
@@ -234,19 +235,32 @@ async function runBackgroundTriage() {
     // Standing user rules (Auto Clean). Operates on the in-memory scan, so the
     // expiry badge below can momentarily still count a message a trash-rule
     // just removed — it self-corrects on the next 6-hourly sweep.
-    const ruleResults = await applyRules(settings.rules, senders, providerById);
+    const completedRuleKeys = await getRuleCompletionKeys().catch((error) => {
+      log.error("Could not read rule completion ledger", error);
+      return new Set<string>();
+    });
+    const ruleResults = await applyRules(settings.rules, senders, providerById, {
+      previouslyCompletedKeys: completedRuleKeys,
+    });
+    await recordRuleCompletions(
+      ruleResults.map((result) => ({
+        rule: result.rule,
+        idsByProvider: result.completedIdsByProvider,
+      })),
+    ).catch((error) => log.error("Could not record rule completions", error));
     const ruleMoved = ruleResults.reduce(
       (sum, r) => sum + [...r.movedByProvider.values()].reduce((a, b) => a + b, 0),
       0,
     );
     const ruleDeferred = ruleResults.reduce((sum, result) => sum + result.deferredByLimitCount, 0);
+    const ruleSkipped = ruleResults.reduce((sum, result) => sum + result.previouslyCompletedCount, 0);
 
     const held = await runScreener(settings, senders);
     const total = totalExpiryCount(buildExpiryBuckets(senders));
 
     await updateSettings({
       lastTriageSummary:
-        `${new Date().toLocaleString()} — ${ruleMoved} actioned by rules${ruleDeferred > 0 ? `, ${ruleDeferred} deferred by safety limits` : ""}, ${total} ready to clean up` +
+        `${new Date().toLocaleString()} — ${ruleMoved} actioned by rules${ruleSkipped > 0 ? `, ${ruleSkipped} already completed` : ""}${ruleDeferred > 0 ? `, ${ruleDeferred} deferred by safety limits` : ""}, ${total} ready to clean up` +
         `, ${securitySync.changedMessageCount} security change${securitySync.changedMessageCount === 1 ? "" : "s"} checked` +
         `${securitySync.resetProviders.length > 0 ? ` (${securitySync.resetProviders.join(", ")} baseline refreshed)` : ""}` +
         `${held > 0 ? `, ${held} held by Screener` : ""}` +

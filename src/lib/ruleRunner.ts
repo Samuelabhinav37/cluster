@@ -12,6 +12,12 @@ import {
   type RuleActionSpec,
 } from "./rules";
 import type { SenderSummary } from "./senderModel";
+import { ruleCompletionKey } from "./ruleCompletionLedger";
+
+export interface RuleRunOptions {
+  /** Background-only idempotency receipts. Omit for an explicitly confirmed manual override. */
+  previouslyCompletedKeys?: ReadonlySet<string>;
+}
 
 export interface RuleRunResult {
   rule: ClusterRule;
@@ -24,6 +30,10 @@ export interface RuleRunResult {
   partialProviders: ProviderId[];
   /** Eligible messages left untouched because this rule reached its per-run ceiling. */
   deferredByLimitCount: number;
+  /** Matching messages skipped because this exact rule behavior already completed successfully. */
+  previouslyCompletedCount: number;
+  /** Only ids whose entire ordered action sequence completed successfully. */
+  completedIdsByProvider: Map<ProviderId, string[]>;
 }
 
 // Returns true if the action ran, false if this provider can't do it (Outlook
@@ -57,12 +67,14 @@ async function runAction(
  * Apply every enabled rule to the current scan. Called from the dashboard
  * ("Apply enabled rules now") and the background triage alarm. Never touches
  * starred/flagged mail (matchRule excludes it) and never permanently deletes.
- * Writes one action-log entry per rule that actioned anything.
+ * Writes one action-log entry per rule that actioned anything or tripped its
+ * per-run safety limit.
  */
 export async function applyRules(
   rules: ClusterRule[],
   senders: SenderSummary[],
   providerById: Map<ProviderId, EmailProvider>,
+  options: RuleRunOptions = {},
 ): Promise<RuleRunResult[]> {
   const results: RuleRunResult[] = [];
   const logEntries: ActionLogEntry[] = [];
@@ -71,10 +83,16 @@ export async function applyRules(
 
   for (const rule of orderedRules(rules)) {
     if (!rule.enabled) continue;
-    const eligible = matchRuleMessages(rule, senders).filter(
-      ({ provider, id }) =>
-        !stoppedMessages.has(`${provider}:${id}`) && !limitBlockedMessages.has(`${provider}:${id}`),
-    );
+    let previouslyCompletedCount = 0;
+    const eligible = matchRuleMessages(rule, senders).filter(({ provider, id }) => {
+      const messageKey = `${provider}:${id}`;
+      if (options.previouslyCompletedKeys?.has(ruleCompletionKey(rule, provider, id))) {
+        previouslyCompletedCount += 1;
+        if (rule.stopProcessing) stoppedMessages.add(messageKey);
+        return false;
+      }
+      return !stoppedMessages.has(messageKey) && !limitBlockedMessages.has(messageKey);
+    });
     const { selected, deferred, deferredCount: deferredByLimitCount } = applyRuleRunLimit(rule, eligible);
     for (const { provider, id } of deferred) limitBlockedMessages.add(`${provider}:${id}`);
     const matched = new Map<ProviderId, string[]>();
@@ -87,6 +105,7 @@ export async function applyRules(
     let undoableGmailIds: string[] = [];
     const actions = ruleActions(rule);
     const partialProviders: ProviderId[] = [];
+    const completedIdsByProvider = new Map<ProviderId, string[]>();
 
     for (const [providerId, ids] of matched) {
       if (ids.length === 0) continue;
@@ -112,6 +131,7 @@ export async function applyRules(
         moved.set(providerId, ids.length);
         if (completedActions < actions.length) partialProviders.push(providerId);
         if (completedActions === actions.length) {
+          completedIdsByProvider.set(providerId, [...ids]);
           if (
             actions.length === 1 &&
             providerId === "gmail" &&
@@ -157,6 +177,8 @@ export async function applyRules(
       undoVia,
       partialProviders,
       deferredByLimitCount,
+      previouslyCompletedCount,
+      completedIdsByProvider,
     });
   }
 

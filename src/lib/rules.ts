@@ -211,6 +211,12 @@ export function orderedRules(rules: ClusterRule[]): ClusterRule[] {
     .map(({ rule }) => rule);
 }
 
+/** Replace a generated rule by stable name while preserving its receipt identity. */
+export function upsertRuleByName(rules: ClusterRule[], rule: ClusterRule): ClusterRule[] {
+  const existing = rules.find((item) => item.name === rule.name);
+  return [...rules.filter((item) => item.name !== rule.name), { ...rule, id: existing?.id ?? rule.id }];
+}
+
 export interface RuleConflict {
   provider: ProviderId;
   messageId: string;

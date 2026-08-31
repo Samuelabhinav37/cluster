@@ -40,6 +40,7 @@ import {
   MAX_RULE_MAX_MESSAGES_PER_RUN,
   ruleHasConditions,
   ruleRunLimit,
+  upsertRuleByName,
   type ClusterRule,
   type RuleAction,
   type RuleConditions,
@@ -87,6 +88,7 @@ import { buildSenderCleanupPlan } from "../lib/protectionPolicy";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import { draftRuleFromNaturalLanguage } from "../lib/aiRuleDraft";
 import { buildRuleDryRunReport, describeActionSupport } from "../lib/ruleDryRun";
+import { recordRuleCompletions } from "../lib/ruleCompletionLedger";
 import {
   evaluateUnsubscribeOutcome,
   unsubscribeOutcomeRank,
@@ -1376,10 +1378,10 @@ function renderRuleDryRun() {
 
   const report = buildRuleDryRunReport(cachedSettings.rules, currentSenders, providerById);
   const heading = document.createElement("h3");
-  heading.textContent = "Current dry run";
+  heading.textContent = "Current manual dry run";
   const summary = document.createElement("p");
   summary.className = "hint";
-  summary.textContent = `${report.predictedRuleApplicationCount} predicted rule application${report.predictedRuleApplicationCount === 1 ? "" : "s"} touching ${report.uniqueMatchedMessageCount} unique message${report.uniqueMatchedMessageCount === 1 ? "" : "s"}; ${report.deferredByLimitCount} deferred by per-rule limits, ${report.overlapMessageCount} overlap${report.overlapMessageCount === 1 ? "" : "s"}, ${report.protectedExclusionCount} protected exclusion${report.protectedExclusionCount === 1 ? "" : "s"}, ${report.exceptionExclusionCount} rule-exception exclusion${report.exceptionExclusionCount === 1 ? "" : "s"}. Assumes supported provider calls succeed; no API call is made by this preview.`;
+  summary.textContent = `${report.predictedRuleApplicationCount} predicted rule application${report.predictedRuleApplicationCount === 1 ? "" : "s"} touching ${report.uniqueMatchedMessageCount} unique message${report.uniqueMatchedMessageCount === 1 ? "" : "s"}; ${report.deferredByLimitCount} deferred by per-rule limits, ${report.overlapMessageCount} overlap${report.overlapMessageCount === 1 ? "" : "s"}, ${report.protectedExclusionCount} protected exclusion${report.protectedExclusionCount === 1 ? "" : "s"}, ${report.exceptionExclusionCount} rule-exception exclusion${report.exceptionExclusionCount === 1 ? "" : "s"}. Assumes supported provider calls succeed; no API call is made. This previews the confirmed manual override, so background completion receipts do not reduce these counts.`;
   rulePreviewEl.append(heading, summary);
 
   for (const impact of report.impacts) {
@@ -1560,6 +1562,12 @@ function wireRulesTab() {
       false,
       async () => {
         const results = await applyRules(cachedSettings.rules, currentSenders, providerById);
+        await recordRuleCompletions(
+          results.map((result) => ({
+            rule: result.rule,
+            idsByProvider: result.completedIdsByProvider,
+          })),
+        ).catch((error) => log.error("Could not record manual rule completions", error));
         cachedSettings = await getSettings();
         renderRecentTab();
         const moved = results.reduce(
@@ -2219,11 +2227,6 @@ function renderSortInbox(senders: SenderSummary[]) {
   updateSortInboxCount();
 }
 
-function upsertRule(rules: ClusterRule[], rule: ClusterRule): ClusterRule[] {
-  const without = rules.filter((r) => r.name !== rule.name);
-  return [...without, rule];
-}
-
 function wireSortInbox() {
   sortInboxBtn.onclick = () => {
     const choices = sortBucketChoices().filter((c) => c.include);
@@ -2276,8 +2279,12 @@ function wireSortInbox() {
 
         if (sortKeepSortingEl.checked) {
           let rules = cachedSettings.rules;
+          const sortCompletions: Array<{
+            rule: ClusterRule;
+            idsByProvider: Map<ProviderId, string[]>;
+          }> = [];
           for (const entry of chosen) {
-            rules = upsertRule(rules, {
+            const nextRule: ClusterRule = {
               id: crypto.randomUUID(),
               name: `Auto-sort: ${SORT_BUCKET_LABELS[entry.bucket]}`,
               enabled: true,
@@ -2287,10 +2294,19 @@ function wireSortInbox() {
               action: "label",
               labelName: entry.label,
               labelKeepInInbox: !entry.fileOut,
+            };
+            rules = upsertRuleByName(rules, nextRule);
+            sortCompletions.push({
+              rule: rules.find((rule) => rule.name === nextRule.name)!,
+              idsByProvider: new Map(
+                [...entry.idsByProvider].filter(
+                  ([providerId, ids]) => ids.length > 0 && providerById.get(providerId)?.labelMessages,
+                ),
+              ),
             });
           }
           if (sortExpireOtpEl.checked) {
-            rules = upsertRule(rules, {
+            rules = upsertRuleByName(rules, {
               id: crypto.randomUUID(),
               name: "Auto-sort: expire one-time codes",
               enabled: true,
@@ -2299,6 +2315,9 @@ function wireSortInbox() {
             });
           }
           cachedSettings = await updateSettings({ rules });
+          await recordRuleCompletions(sortCompletions).catch((error) =>
+            log.error("Could not seed auto-sort completion receipts", error),
+          );
         }
 
         await scanAndRender();

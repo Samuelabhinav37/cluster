@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import type { EmailProvider, ProviderId } from "./providers/emailProvider";
 import type { ClusterRule } from "./rules";
+import { ruleCompletionKey } from "./ruleCompletionLedger";
 
 const { appendActionLog } = vi.hoisted(() => ({ appendActionLog: vi.fn() }));
 vi.mock("./actionLog", async (orig) => ({
@@ -71,6 +72,7 @@ describe("applyRules", () => {
 
     expect(archiveMessages).toHaveBeenCalledWith("gmail-token", ["1", "2"]);
     expect(results[0].movedByProvider.get("gmail")).toBe(2);
+    expect(results[0].completedIdsByProvider.get("gmail")).toEqual(["1", "2"]);
     expect(appendActionLog).toHaveBeenCalledTimes(1);
     expect(appendActionLog.mock.calls[0][0]).toHaveLength(1);
   });
@@ -198,6 +200,7 @@ describe("applyRules", () => {
     );
     expect(result.movedByProvider.get("gmail")).toBe(1);
     expect(result.partialProviders).toEqual(["gmail"]);
+    expect(result.completedIdsByProvider.size).toBe(0);
     expect(appendActionLog.mock.calls.at(-1)![0][0].summary).toContain("partial action sequence");
   });
 
@@ -276,6 +279,39 @@ describe("applyRules", () => {
     expect(appendActionLog.mock.calls.at(-1)![0][0].summary).toContain(
       "0 messages actioned; 1 deferred by safety limit",
     );
+  });
+
+  it("skips prior full completions but advances into the remaining capped backlog", async () => {
+    const archiveMessages = vi.fn(async () => {});
+    const gmail = fakeProvider("gmail", { archiveMessages });
+    const current = sender("a@news.com", "gmail", [msg({ id: "1" }), msg({ id: "2" }), msg({ id: "3" })]);
+    const limited = { ...archiveRule, maxMessagesPerRun: 1 };
+
+    const [result] = await applyRules([limited], [current], new Map([["gmail", gmail]]), {
+      previouslyCompletedKeys: new Set([ruleCompletionKey(limited, "gmail", "1")]),
+    });
+
+    expect(archiveMessages).toHaveBeenCalledWith("gmail-token", ["2"]);
+    expect(result.previouslyCompletedCount).toBe(1);
+    expect(result.deferredByLimitCount).toBe(1);
+    expect(result.completedIdsByProvider.get("gmail")).toEqual(["2"]);
+  });
+
+  it("preserves stop-processing for a message completed on an earlier background run", async () => {
+    const archiveMessages = vi.fn(async () => {});
+    const trashMessages = vi.fn(async () => {});
+    const gmail = fakeProvider("gmail", { archiveMessages, trashMessages });
+    const current = sender("a@news.com", "gmail", [msg({ id: "1" })]);
+    const high = { ...archiveRule, id: "high", priority: 10, stopProcessing: true };
+    const low = { ...archiveRule, id: "low", priority: 0, action: "trash" as const };
+
+    const results = await applyRules([high, low], [current], new Map([["gmail", gmail]]), {
+      previouslyCompletedKeys: new Set([ruleCompletionKey(high, "gmail", "1")]),
+    });
+
+    expect(archiveMessages).not.toHaveBeenCalled();
+    expect(trashMessages).not.toHaveBeenCalled();
+    expect(results[0].previouslyCompletedCount).toBe(1);
   });
 });
 
