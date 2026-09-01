@@ -28,10 +28,9 @@ import { parseListUnsubscribe } from "../unsubscribe";
 import { selectTrustedAuthenticationResults } from "../emailAuth";
 import type { EmailProvider, NormalizedMessageMetadata, ScanPurpose } from "./emailProvider";
 
-// Same "Cluster/X" nesting convention as gmailApi.ts's own
-// SNOOZE_LABEL_NAME, so both show up under one parent label in Gmail's
-// sidebar rather than as unrelated top-level labels.
-const SUSPICIOUS_LABEL_NAME = "Cluster/Possible Phishing";
+// Flat label name, matching gmailApi.ts's other labels (Muted, Snoozed, …) --
+// no "Cluster/" parent; it sits alongside the user's own labels.
+const SUSPICIOUS_LABEL_NAME = "Possible Phishing";
 
 export function gmailQueryForPurpose(purpose: ScanPurpose, windowDays: number): string {
   const age = `newer_than:${windowDays}d`;

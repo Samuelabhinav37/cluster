@@ -37,10 +37,10 @@ describe("upsertRuleByName", () => {
       id: "new-random-id",
       name: "Auto-sort: Shopping",
       action: "label",
-      labelName: "Cluster/Shopping",
+      labelName: "Shopping",
     });
     const [updated] = upsertRuleByName([existing], replacement);
-    expect(updated).toMatchObject({ id: "stable", action: "label", labelName: "Cluster/Shopping" });
+    expect(updated).toMatchObject({ id: "stable", action: "label", labelName: "Shopping" });
   });
 });
 
@@ -197,8 +197,8 @@ describe("describeRule", () => {
   });
   it("names the label for a label action", () => {
     expect(
-      describeRule(rule({ conditions: { fromDomain: "x.com" }, action: "label", labelName: "Cluster/News" })),
-    ).toBe('messages from @x.com → label "Cluster/News"');
+      describeRule(rule({ conditions: { fromDomain: "x.com" }, action: "label", labelName: "News" })),
+    ).toBe('messages from @x.com → label "News"');
   });
   it("describes a domain-category condition", () => {
     expect(
@@ -206,10 +206,10 @@ describe("describeRule", () => {
         rule({
           conditions: { fromDomainCategory: "shopping" },
           action: "label",
-          labelName: "Cluster/Shopping",
+          labelName: "Shopping",
         }),
       ),
-    ).toBe('messages from Shopping senders → label "Cluster/Shopping"');
+    ).toBe('messages from Shopping senders → label "Shopping"');
   });
   it("describes ordered actions and exceptions", () => {
     expect(
@@ -217,9 +217,9 @@ describe("describeRule", () => {
         rule({
           conditions: { fromDomain: "x.com" },
           exceptions: { kind: "receipt" },
-          actions: [{ action: "label", labelName: "Cluster/News" }, { action: "archive" }],
+          actions: [{ action: "label", labelName: "News" }, { action: "archive" }],
         }),
       ),
-    ).toBe('messages from @x.com with exceptions → label "Cluster/News", then → archive');
+    ).toBe('messages from @x.com with exceptions → label "News", then → archive');
   });
 });

@@ -31,9 +31,13 @@ export const SORT_BUCKET_LABELS: Record<SortBucket, string> = {
   education: "Education",
 };
 
-/** The Gmail / Outlook label a bucket's mail is filed under. */
+/**
+ * The Gmail / Outlook label a bucket's mail is filed under. Flat, no prefix --
+ * the label a user sees is just "Shopping", "Newsletters", etc., sitting
+ * alongside their own labels rather than nested under a "Cluster/" parent.
+ */
 export function bucketLabelName(bucket: SortBucket): string {
-  return `Cluster/${SORT_BUCKET_LABELS[bucket]}`;
+  return SORT_BUCKET_LABELS[bucket];
 }
 
 // Buckets that are noise in the inbox once filed (default: filed out of the

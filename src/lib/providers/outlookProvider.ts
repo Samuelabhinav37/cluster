@@ -278,7 +278,11 @@ async function markReadMessages(token: string, ids: string[]): Promise<void> {
 }
 
 // Ensure the Outlook "master category" exists so the colour shows in the UI.
-// 409s if it's already there -- treat that as success.
+// 409s if it's already there -- treat that as success. Unlike the Gmail side
+// (labelResolver.ts), this doesn't distinguish a category the user already had
+// from one Cluster made -- reusing an existing same-named category is harmless
+// for Outlook (categories are just tags; applying one doesn't move mail), so
+// the flat-label collision guard isn't mirrored here.
 async function ensureCategory(token: string, name: string): Promise<void> {
   const existing = await graphFetch<{ value?: { displayName: string }[] }>(
     "/me/outlook/masterCategories",
@@ -306,8 +310,8 @@ async function categoriesByMessage(token: string, ids: string[]): Promise<Map<st
   );
 }
 
-// Graph has no nested labels; the whole "Cluster/Shopping" string becomes one
-// flat category. Graph replaces the categories array, so read and merge first
+// The label name ("Shopping", "Newsletters", …) becomes an Outlook category
+// verbatim. Graph replaces the categories array, so read and merge first
 // to preserve the user's existing organization.
 async function labelMessages(
   token: string,

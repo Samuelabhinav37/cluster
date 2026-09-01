@@ -61,7 +61,7 @@ export async function executeBulkKeepSorted(
     if (!provider?.keepSorted) return false;
     try {
       const token = await provider.getAuthToken(false);
-      const labelName = `Cluster/${s.displayName || s.address}`;
+      const labelName = s.displayName || s.address;
       await provider.keepSorted(token, s.address, labelName, s.messageIds);
       return true;
     } catch (err) {

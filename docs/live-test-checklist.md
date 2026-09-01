@@ -26,9 +26,14 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
       OTP/shipping/receipts/newsletters/social).
 - [ ] Untick a bucket → the count drops. Tick "keep sorting new mail" and
       "auto-trash one-time codes older than 2 days".
-- [ ] Click "Sort my inbox…" → one confirm → Confirm. In Gmail: the
-      `Cluster/<Category>` labels now exist and matching mail carries them;
-      filed-out buckets left the inbox, "keep in inbox" buckets did not.
+- [ ] Click "Sort my inbox…" → one confirm → Confirm. In Gmail: the flat
+      category labels (`Shopping`, `Newsletters`, …) now exist at top level (no
+      `Cluster/` parent) and matching mail carries them; filed-out buckets left
+      the inbox, "keep in inbox" buckets did not.
+- [ ] Pre-create a Gmail label matching a bucket (e.g. `Shopping`), then sort:
+      Cluster asks "Use my Shopping / Keep separate as Shopping (Cluster)". The
+      choice sticks on a re-run. Picking "Use my" files into your own label;
+      picking "Keep separate" creates `Shopping (Cluster)` and leaves yours alone.
 - [ ] Rules tab now lists an `Auto-sort: <bucket>` rule per chosen bucket (+
       `Auto-sort: expire one-time codes`).
 - [ ] Rules → **Current manual dry run** updates when a rule is enabled, disabled, added, or deleted. Expand
@@ -69,8 +74,8 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
       punycode-domain, lure-language.
 - [ ] "Label as suspicious" and "Deep scan" still work per sender.
 - [ ] Turn auto-quarantine **on**, then trigger the background alarm (or wait 6h
-      / reload a few times): HIGH-tier Gmail senders get `Cluster/Possible
-      Phishing` and leave the inbox; Recently done shows an "Auto-quarantined …"
+      / reload a few times): HIGH-tier Gmail senders get a `Possible Phishing`
+      label and leave the inbox; Recently done shows an "Auto-quarantined …"
       entry with a working Undo.
 
 ## Sender table
@@ -91,7 +96,7 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
 - [ ] "Connect Outlook" completes; Outlook senders appear tagged `outlook`.
 - [ ] A rule with a label/archive/mark-read/trash action **acts on Outlook
       mail** (previously no-op): check the Outlook web client for the
-      `Cluster/<Category>` category / Archive move / read state.
+      category (`Shopping`, `Newsletters`, …) / Archive move / read state.
 - [ ] "Sort my inbox" applies categories to Outlook mail and moves filed-out
       buckets to Archive.
 - [ ] Keep-sorted / Mute / Snooze / Screener rows still say "Not supported for

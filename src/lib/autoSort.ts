@@ -3,6 +3,7 @@
 // metadata-only -- it reads each message's already-computed kind and the
 // sender's domain, nothing else. Starred/flagged mail is never included.
 import { domainOf } from "./domainGrouping";
+import { resolveLabelName } from "./labelResolver";
 import type { ProviderId } from "./providers/emailProvider";
 import type { SenderSummary } from "./senderModel";
 import {
@@ -14,7 +15,7 @@ import {
 
 export interface SortPlanEntry {
   bucket: SortBucket;
-  /** The label to apply, e.g. "Cluster/Shopping". */
+  /** The label to apply, e.g. "Shopping". */
   label: string;
   /** Also remove INBOX when applying (vs. label in place). */
   fileOut: boolean;
@@ -63,4 +64,40 @@ export function buildSortPlan(
 
 export function totalPlanCount(plan: SortPlanEntry[]): number {
   return plan.reduce((sum, e) => sum + e.count, 0);
+}
+
+export interface PlanLabelConflict {
+  bucket: SortBucket;
+  /** The flat name Cluster wants (e.g. "Shopping"). */
+  desired: string;
+  /** The user's own label that already has that name. */
+  existingUserLabel: string;
+}
+
+/**
+ * Rewrite each entry's `label` to the name Cluster should actually use, given
+ * the labels already in the mailbox and the user's past collision choices.
+ * Entries whose name still clashes with a user-made label are left with the
+ * desired name and reported in `conflicts` for the UI to resolve.
+ */
+export function resolvePlanLabels(
+  plan: SortPlanEntry[],
+  existingLabelNames: string[],
+  ownedLabels: string[],
+  labelChoices: Record<string, string>,
+): { plan: SortPlanEntry[]; conflicts: PlanLabelConflict[] } {
+  const conflicts: PlanLabelConflict[] = [];
+  const resolved = plan.map((entry) => {
+    const res = resolveLabelName(entry.label, existingLabelNames, ownedLabels, labelChoices);
+    if ("conflict" in res) {
+      conflicts.push({
+        bucket: entry.bucket,
+        desired: res.conflict.desired,
+        existingUserLabel: res.conflict.existingUserLabel,
+      });
+      return entry;
+    }
+    return { ...entry, label: res.name };
+  });
+  return { plan: resolved, conflicts };
 }

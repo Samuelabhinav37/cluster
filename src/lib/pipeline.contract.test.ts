@@ -120,7 +120,7 @@ describe("pipeline contract", () => {
       enabled: true,
       conditions: { fromDomainCategory: "shopping" },
       action: "label",
-      labelName: "Cluster/Shopping",
+      labelName: "Shopping",
     };
     expect(previewRuleMatches([rule], senders)).toBeGreaterThan(0);
 

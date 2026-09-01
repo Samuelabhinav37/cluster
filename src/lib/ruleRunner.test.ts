@@ -115,12 +115,12 @@ describe("applyRules", () => {
     const s = sender("a@news.com", "outlook", [msg({ id: "1" })]);
 
     await applyRules(
-      [{ ...archiveRule, action: "label", labelName: "Cluster/Newsletters", labelKeepInInbox: true }],
+      [{ ...archiveRule, action: "label", labelName: "Newsletters", labelKeepInInbox: true }],
       [s],
       new Map([["outlook", outlook]]),
     );
 
-    expect(labelMessages).toHaveBeenCalledWith("outlook-token", ["1"], "Cluster/Newsletters", true);
+    expect(labelMessages).toHaveBeenCalledWith("outlook-token", ["1"], "Newsletters", true);
   });
 
   it("attaches an undo to the log entry for a Gmail trash/archive rule, not for markRead", async () => {
@@ -171,7 +171,7 @@ describe("applyRules", () => {
       [
         {
           ...archiveRule,
-          actions: [{ action: "label", labelName: "Cluster/News" }, { action: "archive" }],
+          actions: [{ action: "label", labelName: "News" }, { action: "archive" }],
         },
       ],
       [s],
@@ -192,7 +192,7 @@ describe("applyRules", () => {
       [
         {
           ...archiveRule,
-          actions: [{ action: "label", labelName: "Cluster/News" }, { action: "archive" }],
+          actions: [{ action: "label", labelName: "News" }, { action: "archive" }],
         },
       ],
       [s],

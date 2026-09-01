@@ -92,7 +92,7 @@ async function reportThreatSignals(senders: SenderSummary[]) {
 
 // Screener: hold mail from senders the user has never corresponded with. Opt-in
 // (settings.screenerEnabled). Refreshes the sent-correspondent allowlist on a
-// TTL, then moves each newly-unknown sender's mail under Cluster/Screener and
+// TTL, then moves each newly-unknown sender's mail under the Screener label and
 // records it in screenedSenders so it isn't re-screened. Returns how many
 // senders are currently held, for the badge.
 async function runScreener(settings: ClusterSettings, senders: SenderSummary[]): Promise<number> {
@@ -132,8 +132,8 @@ async function runScreener(settings: ClusterSettings, senders: SenderSummary[]):
 }
 
 // Opt-in protective action (settings.autoQuarantineHighRisk). For senders the
-// threat scorer puts in the "high" tier, label their mail Cluster/Possible
-// Phishing and file it out of the inbox -- Gmail-only, never deletes, and
+// threat scorer puts in the "high" tier, label their mail "Possible Phishing"
+// and file it out of the inbox -- Gmail-only, never deletes, and
 // reversible from the Recently-done tab (label-removal undo). Off by default.
 async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]): Promise<number> {
   if (!settings.autoQuarantineHighRisk || !gmailProvider.labelSuspicious) return 0;

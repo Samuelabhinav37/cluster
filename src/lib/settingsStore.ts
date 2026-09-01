@@ -28,7 +28,7 @@ export interface ClusterSettings {
   screenerEnabled: boolean;
   /** Addresses the user has explicitly let through the Screener. */
   screenerAllowlist: string[];
-  /** Addresses currently held in the Cluster/Screener label, awaiting a
+  /** Addresses currently held in the Screener label, awaiting a
    * decision — so the background sweep doesn't re-screen them and the tab can
    * tell "held" from "trusted". */
   screenedSenders: string[];
@@ -66,10 +66,20 @@ export interface ClusterSettings {
     /** Also auto-trash one-time codes older than 2 days (standing rule). */
     expireOtp: boolean;
   };
+
+  // ── Flat-label collision guard ─────────────────────────────────────────
+  /** Canonical names of Gmail labels Cluster itself created. Lets us tell
+   * "this is our label, reuse it" from "the user already had a label with
+   * this name" (see labelResolver.ts). */
+  clusterOwnedLabels: string[];
+  /** Desired label name → the name to actually use, once the user has
+   * resolved a clash with one of their own labels. `"Shopping"` maps to
+   * either `"Shopping"` (reuse theirs) or `"Shopping (Cluster)"` (keep separate). */
+  labelChoices: Record<string, string>;
 }
 
 const STORAGE_KEY = "clusterSettings";
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 3;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 4;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -97,6 +107,8 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   senderEngagement: {},
   autoQuarantineHighRisk: false,
   autoSort: { enabledBuckets: [], fileOutByBucket: {}, keepSorting: false, expireOtp: false },
+  clusterOwnedLabels: [],
+  labelChoices: {},
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -130,6 +142,14 @@ function migrateSettings(value: unknown): Record<string, unknown> {
         senderEngagement: {},
       };
       version = 3;
+    } else if (version === 3) {
+      stored = {
+        ...stored,
+        schemaVersion: 4,
+        clusterOwnedLabels: [],
+        labelChoices: {},
+      };
+      version = 4;
     }
   }
   return stored;

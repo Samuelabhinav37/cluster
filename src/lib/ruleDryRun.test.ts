@@ -102,7 +102,7 @@ describe("buildRuleDryRunReport", () => {
     expect(none.impacts[0].providers[0]).toMatchObject({ completion: "none", actionableMessageCount: 0 });
 
     const partial = buildRuleDryRunReport(
-      [rule({ actions: [{ action: "label", labelName: "Cluster/News" }, { action: "archive" }] })],
+      [rule({ actions: [{ action: "label", labelName: "News" }, { action: "archive" }] })],
       [current],
       new Map([["outlook", outlook]]),
       2,

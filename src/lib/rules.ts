@@ -59,7 +59,7 @@ export interface ClusterRule {
   /** Ordered Rules v2 actions. When absent, the legacy action fields below are used. */
   actions?: RuleActionSpec[];
   action: RuleAction;
-  /** Required when action === "label". Nested under "Cluster/" by convention. */
+  /** Required when action === "label". A flat label name, e.g. "Newsletters". */
   labelName?: string;
   /** For action === "label": leave the message in the inbox instead of filing
    * it out. Set by the "keep sorting" rules "Sort my inbox" saves for

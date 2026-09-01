@@ -97,7 +97,7 @@ export interface EmailProvider {
   unmuteSender?(token: string, fromAddress: string, mutedIds: string[]): Promise<void>;
   /**
    * Screener (Phase 6) — Gmail-only. screenSender holds a sender's mail under
-   * Cluster/Screener; allowSenderThrough reverses it; listSentCorrespondents
+   * the Screener label; allowSenderThrough reverses it; listSentCorrespondents
    * returns everyone the user has emailed (the implicit allowlist).
    */
   screenSender?(token: string, fromAddress: string, existingIds: string[]): Promise<void>;
@@ -121,7 +121,7 @@ export interface EmailProvider {
    * deletes — same "label/quarantine, never delete" rule as keepSorted.
    */
   labelSuspicious?(token: string, ids: string[]): Promise<void>;
-  /** Reverses labelSuspicious: drops the Cluster/Possible Phishing label and
+  /** Reverses labelSuspicious: drops the "Possible Phishing" label and
    * files the messages back into the inbox. Gmail-only, used by the
    * Recently-done Undo for auto-quarantine. */
   unlabelSuspicious?(token: string, ids: string[]): Promise<void>;

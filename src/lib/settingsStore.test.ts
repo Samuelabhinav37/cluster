@@ -28,6 +28,8 @@ describe("settingsStore", () => {
     expect(settings.unsubscribeRequests).toEqual({});
     expect(settings.onboardingDismissed).toBe(false);
     expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(settings.clusterOwnedLabels).toEqual([]);
+    expect(settings.labelChoices).toEqual({});
   });
 
   it("updateSettings merges a partial change on top of current values and persists it", async () => {
@@ -71,9 +73,21 @@ describe("settingsStore", () => {
     });
 
     const settings = await getSettings();
-    expect(settings.schemaVersion).toBe(3);
+    expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
     expect(settings.scanWindowDays).toBe(60);
     expect(settings.senderEngagement).toEqual({});
+  });
+
+  it("migrates schema 3 settings with an empty flat-label collision state", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: { schemaVersion: 3, scanWindowDays: 45, senderEngagement: {} },
+    });
+
+    const settings = await getSettings();
+    expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(settings.scanWindowDays).toBe(45);
+    expect(settings.clusterOwnedLabels).toEqual([]);
+    expect(settings.labelChoices).toEqual({});
   });
 
   it("serializes concurrent partial updates so unrelated changes are preserved", async () => {

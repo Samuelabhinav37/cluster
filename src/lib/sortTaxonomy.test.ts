@@ -30,9 +30,9 @@ describe("classifySortBucket", () => {
 });
 
 describe("bucketLabelName / defaults", () => {
-  it("nests every label under Cluster/", () => {
-    expect(bucketLabelName("shopping")).toBe("Cluster/Shopping");
-    expect(bucketLabelName("otp")).toBe("Cluster/One-time codes");
+  it("uses a flat label name with no prefix", () => {
+    expect(bucketLabelName("shopping")).toBe("Shopping");
+    expect(bucketLabelName("otp")).toBe("One-time codes");
   });
 
   it("defaults transactional buckets to filing out of the inbox, category buckets to in-place", () => {

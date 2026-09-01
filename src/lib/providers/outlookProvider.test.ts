@@ -58,17 +58,17 @@ describe("Outlook JSON batching", () => {
   it("merges a Cluster category without replacing existing Outlook categories", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(json({ value: [{ displayName: "Cluster/Shopping" }] }))
+      .mockResolvedValueOnce(json({ value: [{ displayName: "Shopping" }] }))
       .mockResolvedValueOnce(
         json({ responses: [{ id: "0", status: 200, body: { categories: ["Important"] } }] }),
       )
       .mockResolvedValueOnce(json({ responses: [{ id: "0", status: 200, body: {} }] }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await outlookProvider.labelMessages!("token", ["message-a"], "Cluster/Shopping", true);
+    await outlookProvider.labelMessages!("token", ["message-a"], "Shopping", true);
 
     const patchBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
-    expect(patchBody.requests[0].body.categories).toEqual(["Important", "Cluster/Shopping"]);
+    expect(patchBody.requests[0].body.categories).toEqual(["Important", "Shopping"]);
     expect(patchBody.requests[0].headers.Prefer).toBe('IdType="ImmutableId"');
   });
 });

@@ -20,7 +20,8 @@ import {
   totalExpiryCount,
   type ExpiryBucket,
 } from "../lib/expiryTriage";
-import { getElevatedAuthToken } from "../lib/gmailApi";
+import { getElevatedAuthToken, listLabelNames } from "../lib/gmailApi";
+import { applyLabelChoice, type LabelChoice } from "../lib/labelResolver";
 import type { EmailProvider, ProviderId } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { outlookProvider } from "../lib/providers/outlookProvider";
@@ -54,7 +55,13 @@ import {
   type EngagementSuggestion,
 } from "../lib/engagementModel";
 import { markFirstContact } from "../lib/firstContact";
-import { buildSortPlan, totalPlanCount, type SortPlanEntry } from "../lib/autoSort";
+import {
+  buildSortPlan,
+  resolvePlanLabels,
+  totalPlanCount,
+  type PlanLabelConflict,
+  type SortPlanEntry,
+} from "../lib/autoSort";
 import { ALL_SORT_BUCKETS, SORT_BUCKET_LABELS, type SortBucket } from "../lib/sortTaxonomy";
 import { log } from "../lib/log";
 import {
@@ -764,7 +771,7 @@ function buildKeepSortedCell(sender: SenderSummary): HTMLTableCellElement {
     btn.textContent = "Setting up…";
     try {
       const token = await provider.getAuthToken(false);
-      const labelName = `Cluster/${sender.displayName || sender.address}`;
+      const labelName = sender.displayName || sender.address;
       await provider.keepSorted(token, sender.address, labelName, sender.messageIds);
       await logAction("keepSorted", `Kept ${sender.address} sorted into "${labelName}"`);
       btn.textContent = "Sorted ✓";
@@ -1815,14 +1822,14 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
       renderConfirmStep(
         slot,
         reset,
-        `Move ${readLaterPlan.safeNewsletterIds.length} newsletter message${readLaterPlan.safeNewsletterIds.length === 1 ? "" : "s"} from ${sender.address} to Cluster/Read Later? ${kept} protected or ambiguous message${kept === 1 ? " stays" : "s stay"}.`,
+        `Move ${readLaterPlan.safeNewsletterIds.length} newsletter message${readLaterPlan.safeNewsletterIds.length === 1 ? "" : "s"} from ${sender.address} to a "Read Later" label? ${kept} protected or ambiguous message${kept === 1 ? " stays" : "s stay"}.`,
         false,
         async () => {
           const job = await createDurableJob({
             provider: sender.provider,
             operation: "label",
             targetIds: readLaterPlan.safeNewsletterIds,
-            labelName: "Cluster/Read Later",
+            labelName: "Read Later",
             keepInInbox: false,
           });
           const result = await runDurableJob(job.id, providerById);
@@ -1834,7 +1841,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
                 provider: sender.provider,
                 ids: result.succeededIds,
                 via: "unsort",
-                labelName: "Cluster/Read Later",
+                labelName: "Read Later",
                 wasFiledOut: true,
               },
             );
@@ -2227,16 +2234,77 @@ function renderSortInbox(senders: SenderSummary[]) {
   updateSortInboxCount();
 }
 
+// Cluster's sort-bucket labels are flat ("Shopping", …). Before applying, we
+// check them against the mailbox's existing labels: a clash with a label the
+// user made themselves is surfaced here so they can choose to reuse it or keep
+// Cluster's separate as "<name> (Cluster)". The choice persists
+// (settings.labelChoices) so this only asks once.
+function renderSortLabelConflicts(conflicts: PlanLabelConflict[], retry: () => void) {
+  sortInboxSlot.innerHTML = "";
+
+  const intro = document.createElement("span");
+  intro.textContent =
+    conflicts.length === 1
+      ? "You already have a label with this name — reuse it, or keep Cluster's separate? "
+      : "You already have labels with these names — reuse them, or keep Cluster's separate? ";
+  sortInboxSlot.appendChild(intro);
+
+  for (const c of conflicts) {
+    const reuseBtn = document.createElement("button");
+    reuseBtn.textContent = `Use my "${c.existingUserLabel}"`;
+    reuseBtn.onclick = () => resolveSortLabelConflict(c.desired, "reuse", retry);
+
+    const suffixBtn = document.createElement("button");
+    suffixBtn.textContent = `Keep separate: "${c.desired} (Cluster)"`;
+    suffixBtn.onclick = () => resolveSortLabelConflict(c.desired, "suffix", retry);
+
+    sortInboxSlot.append(reuseBtn, suffixBtn);
+  }
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.onclick = resetSortInboxSlot;
+  sortInboxSlot.appendChild(cancelBtn);
+}
+
+async function resolveSortLabelConflict(desired: string, choice: LabelChoice, retry: () => void) {
+  cachedSettings = await updateSettings({
+    labelChoices: { ...cachedSettings.labelChoices, [desired]: applyLabelChoice(desired, choice) },
+  });
+  retry();
+}
+
 function wireSortInbox() {
-  sortInboxBtn.onclick = () => {
+  const startSortFlow = async () => {
     const choices = sortBucketChoices().filter((c) => c.include);
-    const chosen = choices
+    const rawChosen = choices
       .map((c) => {
         const entry = sortPlan.find((e) => e.bucket === c.bucket)!;
         return { ...entry, fileOut: !c.keepInInbox };
       })
       .filter((e) => e.count > 0);
-    if (chosen.length === 0) return;
+    if (rawChosen.length === 0) return;
+
+    // Resolve flat label names against the mailbox before doing anything.
+    let existingLabelNames: string[] = [];
+    try {
+      const token = await gmailProvider.getAuthToken(false);
+      existingLabelNames = await listLabelNames(token);
+    } catch (err) {
+      log.error("Couldn't list Gmail labels for the collision check", err);
+    }
+    const { plan: chosen, conflicts } = resolvePlanLabels(
+      rawChosen,
+      existingLabelNames,
+      cachedSettings.clusterOwnedLabels,
+      cachedSettings.labelChoices,
+    );
+    if (conflicts.length > 0) {
+      renderSortLabelConflicts(conflicts, () => void startSortFlow());
+      return;
+    }
+
+    const knownLower = new Set(existingLabelNames.map((n) => n.toLowerCase()));
 
     const total = totalPlanCount(chosen);
     renderConfirmStep(
@@ -2275,6 +2343,26 @@ function wireSortInbox() {
                 }
               : undefined,
           );
+        }
+
+        // Any bucket label that didn't already exist was just created by
+        // getOrCreateLabel — record it as Cluster's so a later run reuses it
+        // silently instead of re-prompting.
+        const created = [
+          ...new Set(
+            chosen
+              .map((e) => e.label)
+              .filter(
+                (name) =>
+                  !knownLower.has(name.toLowerCase()) &&
+                  !cachedSettings.clusterOwnedLabels.some((o) => o.toLowerCase() === name.toLowerCase()),
+              ),
+          ),
+        ];
+        if (created.length > 0) {
+          cachedSettings = await updateSettings({
+            clusterOwnedLabels: [...cachedSettings.clusterOwnedLabels, ...created],
+          });
         }
 
         if (sortKeepSortingEl.checked) {
@@ -2325,6 +2413,8 @@ function wireSortInbox() {
       },
     );
   };
+
+  sortInboxBtn.onclick = () => void startSortFlow();
 }
 
 // ── Smart Views + Keep-newest (Clean up tab) ─────────────────────────────
@@ -2517,7 +2607,7 @@ function renderScreenerTab(senders: SenderSummary[]) {
     p.className = "hint";
     p.textContent =
       cachedSettings.screenedSenders.length > 0
-        ? `Screener is off. ${cachedSettings.screenedSenders.length} sender(s) are still held — turn it back on to review them, or find them under the Cluster/Screener label in Gmail.`
+        ? `Screener is off. ${cachedSettings.screenedSenders.length} sender(s) are still held — turn it back on to review them, or find them under the Screener label in Gmail.`
         : "Screener is off.";
     screenerQueueEl.appendChild(p);
   } else {

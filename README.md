@@ -14,9 +14,10 @@ scope breakdown.
 Open with the toolbar icon.
 
 - **Clean up** — **"Sort my inbox"**: one confirm files every scanned message
-  under a `Cluster/<Category>` label by what it is (one-time codes, receipts,
-  shipping) or who sent it (Shopping, Finance, Travel, …) — transactional kind
-  wins over domain category. Per-bucket choice of filed-out vs. labelled-in-
+  under a flat category label (`Shopping`, `Newsletters`, `One-time codes`, …)
+  by what it is (one-time codes, receipts, shipping) or who sent it (Shopping,
+  Finance, Travel, …) — transactional kind wins over domain category. If you
+  already have a label with that name, Cluster asks before reusing it. Per-bucket choice of filed-out vs. labelled-in-
   place; optionally saves a standing rule per bucket so the background sweep
   keeps sorting, plus an opt-in "auto-trash one-time codes older than 2 days".
   Also: senders and domains grouped by category; a retention "Ready to
@@ -30,7 +31,7 @@ Open with the toolbar icon.
   or the known-bad list, shown with per-row checkboxes + select-all and trashed
   only on confirm (see the spam-list section below). Per-row:
   verified unsubscribe, Keep sorted (label + filter), **Mute** (a local
-  BlackHole — a standing `from:` filter into `Cluster/Muted`), Snooze.
+  BlackHole — a standing `from:` filter into a `Muted` label), Snooze.
 - **Subscriptions** — every unsubscribe-capable sender in the scan, with
   per-row and bulk "unsubscribe all verified one-click". Verified requests are
   monitored locally through a 14-day observation window and sorted into
@@ -46,7 +47,7 @@ Open with the toolbar icon.
   ceiling (100 by default); excess matches stay untouched and are reported as
   deferred. Starred mail is always excluded; rules never permanently delete.
 - **Screener** — opt-in. Holds mail from senders you've never emailed under a
-  `Cluster/Screener` label, out of the inbox, until you **Allow** (adds to the
+  `Screener` label, out of the inbox, until you **Allow** (adds to the
   allow-list, restores the mail) or **Block** (mutes). Your Sent mail is the
   automatic allow-list.
 - **Recently done** — every action Cluster took, newest first, with **Undo**
@@ -89,8 +90,8 @@ Click the toolbar icon to open the dashboard tab.
 - **Provider parity.** Gmail supports everything. Outlook (via Microsoft
   Graph) supports scan, trash/untrash, archive/unarchive, mark-read, unsubscribe,
   the rule engine's label/archive/mark-read/trash actions, and "Sort my inbox"
-  (Cluster/… mapped to a flat Outlook category, moved to Archive when filed
-  out). Still Gmail-only, because they need Gmail's filters API or bookkeeping
+  (the category label mapped to a flat Outlook category, moved to Archive when
+  filed out). Still Gmail-only, because they need Gmail's filters API or bookkeeping
   Graph has no primitive for: keep-sorted, mute, the Screener, snooze,
   auto-quarantine, "Label as suspicious", and Deep scan. Outlook rows show
   "Not supported for this provider" for those.
@@ -137,7 +138,7 @@ fetched for the cleanup feature (sender address, display name, and now `Authenti
   "elevated" tier alone, only corroborate.
 
 Optional protective action: **"Auto-quarantine high-risk senders"** (Security tab, off by
-default) lets the 6-hourly background pass label HIGH-tier mail `Cluster/Possible Phishing` and
+default) lets the 6-hourly background pass label HIGH-tier mail `Possible Phishing` and
 file it out of the inbox. Gmail-only, never deletes, every batch reversible from Recently done.
 Also new: a **"new since Cluster started tracking"** badge, from a local
 provider-and-address ledger. The first scan seeds the baseline without claiming
@@ -177,7 +178,7 @@ background worker from instantly reversing the user's correction.
 
 Subscription rows also offer a reversible **Read Later** action. It uses the
 same central protection policy as “Unsubscribe + clean,” files only safely
-classified newsletters into `Cluster/Read Later`, and preserves transactional,
+classified newsletters into a `Read Later` label, and preserves transactional,
 sensitive, starred, and ambiguous mail.
 
 Personalized cleanup uses a bounded on-device engagement model
@@ -197,7 +198,7 @@ blended into the regular cleanup view — and get reported as minimized `warned`
 triage's existing 6-hourly alarm, deduplicated server-side by a deterministic per-sender-per-signal
 id so repeat triage runs don't re-alert.
 
-**One manual action, Gmail only: "Label as suspicious."** Applies a `Cluster/Possible Phishing`
+**One manual action, Gmail only: "Label as suspicious."** Applies a `Possible Phishing`
 label and archives the currently-flagged messages out of the inbox — never deletes. Deliberately a
 one-click, per-occurrence action rather than a standing filter: a signal that fires today (a
 lookalike domain, a DMARC fail) isn't guaranteed to still apply to whatever this sender sends next,

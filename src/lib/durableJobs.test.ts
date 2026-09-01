@@ -91,11 +91,11 @@ describe("durable jobs", () => {
       provider: "gmail",
       operation: "label",
       targetIds: ["a", "b"],
-      labelName: "Cluster/Read Later",
+      labelName: "Read Later",
       keepInInbox: false,
     });
     const result = await runDurableJob(job.id, new Map([["gmail", gmail]]));
     expect(result.status).toBe("complete");
-    expect(labelMessages).toHaveBeenCalledWith("token", ["a", "b"], "Cluster/Read Later", false);
+    expect(labelMessages).toHaveBeenCalledWith("token", ["a", "b"], "Read Later", false);
   });
 });
