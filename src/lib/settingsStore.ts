@@ -113,7 +113,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   screenedSenders: [],
   sentCorrespondents: { addresses: [], fetchedAt: 0 },
   lastTriageSummary: "",
-  activeTab: "cleanup",
+  activeTab: "overview",
   knownSenders: {},
   knownSendersInitialized: false,
   incrementalSyncCursors: {},

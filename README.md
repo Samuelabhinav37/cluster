@@ -13,6 +13,11 @@ scope breakdown.
 
 Open with the toolbar icon.
 
+- **Overview** — the default tab: a deterministic, metadata-only read of the
+  current scan and saved state (ready-to-clean-up count, senders you never open,
+  suspected spam, old/large mail, flagged senders, snoozed-due, unsubscribe-
+  capable senders, Screener queue, actions in the last 7 days). Each tile jumps
+  to its section. No AI.
 - **Clean up** — **"Sort my inbox"**: opens a preview (bucket → sender →
   message; tick to include, per-sender "wrong bucket?" menu) then files every
   ticked message under a flat category label (`Shopping`, `Newsletters`,

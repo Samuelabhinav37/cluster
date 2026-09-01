@@ -16,6 +16,18 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
 5. Click it → the dashboard opens in a new tab. Header shows the inline SVG
    logo next to "Cluster", themed to light/dark.
 
+## Overview tab
+
+- [ ] **Overview** is the first tab and opens by default on a fresh install
+      (existing installs keep their last tab).
+- [ ] Headline reads "Scanned N senders · M messages".
+- [ ] A tile grid: Ready to clean up, Senders you never open, Suspected spam,
+      Old & large mail, Flagged senders, Snoozed due now, Unsubscribe-capable
+      senders, Held by the Screener, Done in the last 7 days. Tiles with a
+      non-zero actionable count get a darker left border.
+- [ ] Clicking a tile switches to its tab and scrolls to the matching section;
+      the number on the tile matches that section's own count.
+
 ## Clean up tab
 
 - [ ] **Sort my inbox** section is pinned at the top. "Sort my inbox…" button +

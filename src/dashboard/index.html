@@ -60,6 +60,7 @@
       <p id="status" role="status">Loading your senders…</p>
 
       <nav id="tabs" role="tablist">
+        <button type="button" data-tab="overview" role="tab">Overview</button>
         <button type="button" data-tab="cleanup" role="tab">Clean up</button>
         <button type="button" data-tab="subscriptions" role="tab">Subscriptions</button>
         <button type="button" data-tab="security" role="tab">Security</button>
@@ -67,6 +68,12 @@
         <button type="button" data-tab="screener" role="tab">Screener</button>
         <button type="button" data-tab="recent" role="tab">Recently done</button>
       </nav>
+
+      <section class="tab-panel" data-tab="overview" role="tabpanel">
+        <h2>Overview</h2>
+        <p class="hint" id="overview-headline"></p>
+        <div id="overview-content"></div>
+      </section>
 
       <section class="tab-panel" data-tab="cleanup" role="tabpanel">
         <section id="sort-inbox-section">

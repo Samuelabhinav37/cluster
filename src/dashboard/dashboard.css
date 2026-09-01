@@ -430,3 +430,54 @@ select {
 .sort-preview-row input {
   margin-top: 0.2em;
 }
+
+/* Overview tab */
+#overview-headline {
+  margin-top: 0;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.overview-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  text-align: left;
+  padding: 0.75rem 0.9rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.overview-tile:hover {
+  border-color: var(--muted-strong);
+}
+
+.overview-tile.attention {
+  border-left-color: var(--fg);
+}
+
+.overview-tile .value {
+  font-size: 1.6rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.overview-tile .label {
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+.overview-tile .hint {
+  color: var(--muted);
+  font-size: 0.8em;
+}

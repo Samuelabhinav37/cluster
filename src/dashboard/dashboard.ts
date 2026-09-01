@@ -120,6 +120,7 @@ import {
   type ActionLogUndo,
 } from "../lib/actionLog";
 import type { MessageKind } from "../lib/messageKind";
+import { buildInboxHealth } from "../lib/inboxHealth";
 import { buildSenderCleanupPlan } from "../lib/protectionPolicy";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import { draftRuleFromNaturalLanguage } from "../lib/aiRuleDraft";
@@ -148,6 +149,8 @@ let cachedSettings: ClusterSettings;
 const SECURITY_SCAN_WINDOW_DAYS = 30;
 
 const statusEl = document.getElementById("status") as HTMLParagraphElement;
+const overviewContentEl = document.getElementById("overview-content") as HTMLDivElement;
+const overviewHeadlineEl = document.getElementById("overview-headline") as HTMLParagraphElement;
 const senderGroupsEl = document.getElementById("sender-groups") as HTMLDivElement;
 const domainSectionEl = document.getElementById("domain-groups") as HTMLElement;
 const domainGroupListEl = document.getElementById("domain-group-list") as HTMLDivElement;
@@ -270,7 +273,7 @@ const screenerAllowlistEl = document.getElementById("screener-allowlist") as HTM
 
 // ── Tabs ─────────────────────────────────────────────────────────────────
 function showTab(name: string) {
-  const target = tabButtons.some((b) => b.dataset.tab === name) ? name : "cleanup";
+  const target = tabButtons.some((b) => b.dataset.tab === name) ? name : "overview";
   for (const panel of tabPanels) panel.hidden = panel.dataset.tab !== target;
   for (const btn of tabButtons) btn.setAttribute("aria-selected", String(btn.dataset.tab === target));
 }
@@ -465,6 +468,7 @@ async function scanAndRender() {
   senderGroupsEl.hidden = false;
   domainSectionEl.hidden = false;
 
+  renderOverview(senders, securitySenders);
   render(senders);
   renderRulesTab();
   renderDomainGroups(senders);
@@ -477,6 +481,58 @@ async function scanAndRender() {
   renderSmartViews(senders);
   renderScreenerTab(senders);
   generateDigestBtn.disabled = false;
+}
+
+// Metric id → the section to scroll to after switching tabs. Missing entries
+// just switch tab.
+const OVERVIEW_SECTION_BY_METRIC: Record<string, string> = {
+  "ready-to-clean-up": "expiry-section",
+  "never-opened": "never-read-section",
+  "suspected-spam": "spam-section",
+  "old-and-large": "smart-views-bar",
+  "flagged-senders": "security-section",
+  "unsubscribe-capable": "subscriptions-list",
+  "screener-queue": "screener-queue",
+  "done-last-7-days": "recent-list",
+};
+
+function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary[]) {
+  const health = buildInboxHealth({ senders, securitySenders, settings: cachedSettings });
+  overviewHeadlineEl.textContent = `Scanned ${health.scannedSenders} sender${
+    health.scannedSenders === 1 ? "" : "s"
+  } · ${health.scannedMessages} message${health.scannedMessages === 1 ? "" : "s"}`;
+
+  overviewContentEl.innerHTML = "";
+  const grid = document.createElement("div");
+  grid.className = "overview-grid";
+  for (const metric of health.metrics) {
+    const tile = document.createElement("button");
+    tile.type = "button";
+    tile.className = metric.tone === "attention" ? "overview-tile attention" : "overview-tile";
+    tile.onclick = () => {
+      showTab(metric.tab);
+      cachedSettings = { ...cachedSettings, activeTab: metric.tab };
+      void updateSettings({ activeTab: metric.tab });
+      const target = OVERVIEW_SECTION_BY_METRIC[metric.id];
+      if (target) document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+
+    const value = document.createElement("span");
+    value.className = "value";
+    value.textContent = String(metric.value);
+
+    const label = document.createElement("span");
+    label.className = "label";
+    label.textContent = metric.label;
+
+    const hint = document.createElement("span");
+    hint.className = "hint";
+    hint.textContent = metric.hint;
+
+    tile.append(value, label, hint);
+    grid.appendChild(tile);
+  }
+  overviewContentEl.appendChild(grid);
 }
 
 function showScanError(err: unknown) {
