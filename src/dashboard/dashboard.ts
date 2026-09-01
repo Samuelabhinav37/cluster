@@ -20,8 +20,15 @@ import {
   totalExpiryCount,
   type ExpiryBucket,
 } from "../lib/expiryTriage";
-import { getElevatedAuthToken, listLabelNames } from "../lib/gmailApi";
+import {
+  createFilter,
+  deleteFilter,
+  getElevatedAuthToken,
+  getOrCreateLabel,
+  listLabelNames,
+} from "../lib/gmailApi";
 import { applyLabelChoice, type LabelChoice } from "../lib/labelResolver";
+import { buildBucketFilter, bucketMatchTerms, isServerSortBucket } from "../lib/serverSort";
 import type { EmailProvider, ProviderId } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { outlookProvider } from "../lib/providers/outlookProvider";
@@ -2243,6 +2250,17 @@ function renderSortBucketToggles() {
     row.append(inc, text, keep);
     sortInboxBucketsEl.appendChild(row);
   }
+
+  const filterCount = Object.values(cfg.filterIdsByBucket).reduce((n, ids) => n + ids.length, 0);
+  if (filterCount > 0) {
+    const note = document.createElement("p");
+    note.className = "hint";
+    note.textContent = `${filterCount} Gmail filter${filterCount === 1 ? "" : "s"} keep${
+      filterCount === 1 ? "s" : ""
+    } these buckets sorted at delivery — manage them in Gmail Settings → Filters.`;
+    sortInboxBucketsEl.appendChild(note);
+  }
+
   updateSortInboxCount();
 }
 
@@ -2484,16 +2502,9 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
   if (effective.length === 0) return "Nothing selected";
 
   const total = effective.reduce((sum, e) => sum + e.count, 0);
+  const keepOn = sortKeepSortingEl.checked;
 
-  cachedSettings = await updateSettings({
-    autoSort: {
-      enabledBuckets: effective.map((e) => e.bucket),
-      fileOutByBucket: Object.fromEntries(effective.map((e) => [e.bucket, e.fileOut])),
-      keepSorting: sortKeepSortingEl.checked,
-      expireOtp: sortExpireOtpEl.checked,
-    },
-  });
-
+  // Apply the one-time backlog.
   for (const entry of effective) {
     for (const [pid, ids] of entry.idsByProvider) {
       const provider = providerById.get(pid);
@@ -2535,30 +2546,78 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
     });
   }
 
-  if (sortKeepSortingEl.checked) {
+  // ── Keep sorting ───────────────────────────────────────────────────────
+  // Domain-category buckets → a real Gmail filter (files new mail at delivery,
+  // browser shut). Subject-kind buckets → a client rule for the 6-hourly sweep.
+  // A server bucket that also has Outlook mail gets both (the rule covers
+  // Outlook; on Gmail it's a near-noop via the completion ledger).
+  const gmailToken = await gmailProvider.getAuthToken(false).catch((err) => {
+    log.error("keep-sorting: no Gmail token", err);
+    return null;
+  });
+  const filterIds: Record<string, string[]> = { ...cachedSettings.autoSort.filterIdsByBucket };
+  const keptServerBuckets = new Set(
+    keepOn ? effective.filter((e) => isServerSortBucket(e.bucket)).map((e) => e.bucket) : [],
+  );
+
+  // Tear down filters for buckets that are no longer server-kept.
+  for (const bucket of Object.keys(filterIds)) {
+    if (keptServerBuckets.has(bucket as SortBucket)) continue;
+    if (gmailToken) {
+      for (const id of filterIds[bucket]) {
+        await deleteFilter(gmailToken, id).catch((err) => log.error("keep-sorting: delete filter", err));
+      }
+    }
+    delete filterIds[bucket];
+  }
+
+  if (keepOn) {
     let rules = cachedSettings.rules;
     const sortCompletions: Array<{ rule: ClusterRule; idsByProvider: Map<ProviderId, string[]> }> = [];
+
     for (const entry of effective) {
-      const nextRule: ClusterRule = {
-        id: crypto.randomUUID(),
-        name: `Auto-sort: ${SORT_BUCKET_LABELS[entry.bucket]}`,
-        enabled: true,
-        conditions: KIND_SORT_BUCKETS.has(entry.bucket)
-          ? { kind: entry.bucket as MessageKind }
-          : { fromDomainCategory: entry.bucket as DomainCategory },
-        action: "label",
-        labelName: entry.label,
-        labelKeepInInbox: !entry.fileOut,
-      };
-      rules = upsertRuleByName(rules, nextRule);
-      sortCompletions.push({
-        rule: rules.find((rule) => rule.name === nextRule.name)!,
-        idsByProvider: new Map(
-          [...entry.idsByProvider].filter(
-            ([providerId, ids]) => ids.length > 0 && providerById.get(providerId)?.labelMessages,
+      const server = isServerSortBucket(entry.bucket);
+      const hasOutlook = (entry.idsByProvider.get("outlook") ?? []).length > 0;
+
+      if (server && gmailToken) {
+        const labelId = await getOrCreateLabel(gmailToken, entry.label);
+        for (const id of filterIds[entry.bucket] ?? []) {
+          await deleteFilter(gmailToken, id).catch((err) => log.error("keep-sorting: replace filter", err));
+        }
+        const spec = buildBucketFilter(
+          labelId,
+          entry.fileOut,
+          bucketMatchTerms(entry.bucket, cachedSettings.sortOverrides),
+        );
+        filterIds[entry.bucket] = spec
+          ? [await createFilter(gmailToken, spec.criteria, spec.action)]
+          : [];
+      }
+
+      // Client rule: always for kind buckets; for server buckets only when
+      // there's Outlook mail to cover.
+      if (!server || hasOutlook) {
+        const nextRule: ClusterRule = {
+          id: crypto.randomUUID(),
+          name: `Auto-sort: ${SORT_BUCKET_LABELS[entry.bucket]}`,
+          enabled: true,
+          conditions: KIND_SORT_BUCKETS.has(entry.bucket)
+            ? { kind: entry.bucket as MessageKind }
+            : { fromDomainCategory: entry.bucket as DomainCategory },
+          action: "label",
+          labelName: entry.label,
+          labelKeepInInbox: !entry.fileOut,
+        };
+        rules = upsertRuleByName(rules, nextRule);
+        sortCompletions.push({
+          rule: rules.find((rule) => rule.name === nextRule.name)!,
+          idsByProvider: new Map(
+            [...entry.idsByProvider].filter(
+              ([providerId, ids]) => ids.length > 0 && providerById.get(providerId)?.labelMessages,
+            ),
           ),
-        ),
-      });
+        });
+      }
     }
     if (sortExpireOtpEl.checked) {
       rules = upsertRuleByName(rules, {
@@ -2575,9 +2634,21 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
     );
   }
 
+  cachedSettings = await updateSettings({
+    autoSort: {
+      enabledBuckets: effective.map((e) => e.bucket),
+      fileOutByBucket: Object.fromEntries(effective.map((e) => [e.bucket, e.fileOut])),
+      keepSorting: keepOn,
+      expireOtp: sortExpireOtpEl.checked,
+      filterIdsByBucket: filterIds,
+    },
+  });
+
   excludedSortIds.clear();
   await scanAndRender();
-  return `Sorted ${total} into ${effective.length} label${effective.length === 1 ? "" : "s"}`;
+  const filterCount = Object.values(filterIds).reduce((n, ids) => n + ids.length, 0);
+  const suffix = filterCount > 0 ? ` · ${filterCount} Gmail filter${filterCount === 1 ? "" : "s"}` : "";
+  return `Sorted ${total} into ${effective.length} label${effective.length === 1 ? "" : "s"}${suffix}`;
 }
 
 function wireSortInbox() {

@@ -66,6 +66,10 @@ export interface ClusterSettings {
     keepSorting: boolean;
     /** Also auto-trash one-time codes older than 2 days (standing rule). */
     expireOtp: boolean;
+    /** Ids of the Gmail filters Cluster created for server-side "keep sorting",
+     * per domain-category bucket (see serverSort.ts). Deleted/recreated when the
+     * bucket's config changes; cleared when keep-sorting is turned off. */
+    filterIdsByBucket: Record<string, string[]>;
   };
   /** Per-sender "wrong bucket?" corrections from the sort preview, keyed by
    * lowercased from-address → a bucket to force, or "never" to skip. Consulted
@@ -84,7 +88,7 @@ export interface ClusterSettings {
 }
 
 const STORAGE_KEY = "clusterSettings";
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 5;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 6;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -111,7 +115,13 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   lastIncrementalSyncAt: 0,
   senderEngagement: {},
   autoQuarantineHighRisk: false,
-  autoSort: { enabledBuckets: [], fileOutByBucket: {}, keepSorting: false, expireOtp: false },
+  autoSort: {
+    enabledBuckets: [],
+    fileOutByBucket: {},
+    keepSorting: false,
+    expireOtp: false,
+    filterIdsByBucket: {},
+  },
   sortOverrides: {},
   clusterOwnedLabels: [],
   labelChoices: {},
@@ -163,6 +173,14 @@ function migrateSettings(value: unknown): Record<string, unknown> {
         sortOverrides: {},
       };
       version = 5;
+    } else if (version === 5) {
+      const autoSort = isRecord(stored.autoSort) ? stored.autoSort : {};
+      stored = {
+        ...stored,
+        schemaVersion: 6,
+        autoSort: { ...autoSort, filterIdsByBucket: {} },
+      };
+      version = 6;
     }
   }
   return stored;
@@ -186,6 +204,10 @@ function normalizeSettings(value: unknown): ClusterSettings {
       fileOutByBucket: {
         ...DEFAULT_SETTINGS.autoSort.fileOutByBucket,
         ...(isRecord(autoSort.fileOutByBucket) ? autoSort.fileOutByBucket : {}),
+      },
+      filterIdsByBucket: {
+        ...DEFAULT_SETTINGS.autoSort.filterIdsByBucket,
+        ...(isRecord(autoSort.filterIdsByBucket) ? autoSort.filterIdsByBucket : {}),
       },
     } as ClusterSettings["autoSort"],
   };

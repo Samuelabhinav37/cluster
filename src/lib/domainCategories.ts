@@ -71,3 +71,9 @@ for (const [category, domains] of Object.entries(CATEGORY_DOMAINS) as [DomainCat
 export function categorizeDomain(domain: string): DomainCategory {
   return DOMAIN_TO_CATEGORY.get(domain.toLowerCase()) ?? "other";
 }
+
+/** The curated domains that map to a category — the source list for the
+ * server-side "keep sorting" Gmail filter (`from:(d1 OR d2 …)`). */
+export function domainsForCategory(category: DomainCategory): string[] {
+  return category === "other" ? [] : [...CATEGORY_DOMAINS[category]];
+}

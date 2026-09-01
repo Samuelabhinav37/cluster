@@ -31,6 +31,7 @@ describe("settingsStore", () => {
     expect(settings.clusterOwnedLabels).toEqual([]);
     expect(settings.labelChoices).toEqual({});
     expect(settings.sortOverrides).toEqual({});
+    expect(settings.autoSort.filterIdsByBucket).toEqual({});
   });
 
   it("updateSettings merges a partial change on top of current values and persists it", async () => {
@@ -102,6 +103,21 @@ describe("settingsStore", () => {
     expect(settings.scanWindowDays).toBe(20);
     expect(settings.clusterOwnedLabels).toEqual(["Shopping"]);
     expect(settings.sortOverrides).toEqual({});
+  });
+
+  it("migrates schema 5 settings with an empty server-sort filter map, keeping other autoSort fields", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: {
+        schemaVersion: 5,
+        autoSort: { enabledBuckets: ["shopping"], keepSorting: true },
+      },
+    });
+
+    const settings = await getSettings();
+    expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(settings.autoSort.enabledBuckets).toEqual(["shopping"]);
+    expect(settings.autoSort.keepSorting).toBe(true);
+    expect(settings.autoSort.filterIdsByBucket).toEqual({});
   });
 
   it("serializes concurrent partial updates so unrelated changes are preserved", async () => {

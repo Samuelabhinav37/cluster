@@ -55,9 +55,22 @@ interface GmailMessageResource {
   sizeEstimate?: number;
   payload?: GmailMessagePart & { headers?: GmailHeader[] };
 }
-interface GmailFilterResource {
+export interface GmailFilterCriteria {
+  from?: string;
+  to?: string;
+  subject?: string;
+  query?: string;
+  negatedQuery?: string;
+}
+export interface GmailFilterAction {
+  addLabelIds?: string[];
+  removeLabelIds?: string[];
+  forward?: string;
+}
+export interface GmailFilterResource {
   id: string;
-  criteria?: { from?: string };
+  criteria?: GmailFilterCriteria;
+  action?: GmailFilterAction;
 }
 
 export interface GmailMessageStub {
@@ -326,6 +339,32 @@ export async function deleteSenderFilters(token: string, fromAddress: string): P
   for (const f of matches) {
     await gmailFetch(`/users/me/settings/filters/${f.id}`, token, { method: "DELETE" });
   }
+}
+
+// ── General filter CRUD (server-side "keep sorting", see serverSort.ts) ──────
+// Gmail caps an account at 1,000 filters; Cluster only ever creates one per
+// domain-category bucket (≤7), so the cap isn't a concern here.
+
+export async function listFilters(token: string): Promise<GmailFilterResource[]> {
+  const data = await gmailFetch<{ filter?: GmailFilterResource[] }>("/users/me/settings/filters", token);
+  return data.filter ?? [];
+}
+
+export async function createFilter(
+  token: string,
+  criteria: GmailFilterCriteria,
+  action: GmailFilterAction,
+): Promise<string> {
+  const data = await gmailFetch<GmailFilterResource>("/users/me/settings/filters", token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ criteria, action }),
+  });
+  return data.id;
+}
+
+export async function deleteFilter(token: string, id: string): Promise<void> {
+  await gmailFetch(`/users/me/settings/filters/${id}`, token, { method: "DELETE" });
 }
 
 // https://mail.google.com/ is a Google-classified *restricted* scope — not in

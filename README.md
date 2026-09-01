@@ -13,13 +13,17 @@ scope breakdown.
 
 Open with the toolbar icon.
 
-- **Clean up** — **"Sort my inbox"**: one confirm files every scanned message
-  under a flat category label (`Shopping`, `Newsletters`, `One-time codes`, …)
-  by what it is (one-time codes, receipts, shipping) or who sent it (Shopping,
-  Finance, Travel, …) — transactional kind wins over domain category. If you
-  already have a label with that name, Cluster asks before reusing it. Per-bucket choice of filed-out vs. labelled-in-
-  place; optionally saves a standing rule per bucket so the background sweep
-  keeps sorting, plus an opt-in "auto-trash one-time codes older than 2 days".
+- **Clean up** — **"Sort my inbox"**: opens a preview (bucket → sender →
+  message; tick to include, per-sender "wrong bucket?" menu) then files every
+  ticked message under a flat category label (`Shopping`, `Newsletters`,
+  `One-time codes`, …) by what it is (one-time codes, receipts, shipping) or
+  who sent it (Shopping, Finance, Travel, …) — transactional kind wins over
+  domain category. If you already have a label with that name, Cluster asks
+  before reusing it; "wrong bucket?" corrections persist per sender. Per-bucket
+  choice of filed-out vs. labelled-in-place. "Keep sorting new mail" pushes a
+  real **Gmail filter** per domain-category bucket (files at delivery, browser
+  shut) and a client rule for the subject-kind buckets; opt-in "auto-trash
+  one-time codes older than 2 days".
   Also: senders and domains grouped by category; a retention "Ready to
   clean up" bucket (one-time codes, stale shipping, old newsletters, judged only
   by age); **Smart Views** (older-than-1-year, large mail, promotions, OTPs,

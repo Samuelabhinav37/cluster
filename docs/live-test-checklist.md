@@ -43,8 +43,23 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
       Cluster asks "Use my Shopping / Keep separate as Shopping (Cluster)". The
       choice sticks on a re-run. Picking "Use my" files into your own label;
       picking "Keep separate" creates `Shopping (Cluster)` and leaves yours alone.
-- [ ] Rules tab now lists an `Auto-sort: <bucket>` rule per chosen bucket (+
-      `Auto-sort: expire one-time codes`).
+- [ ] Tick "keep sorting new mail" before Apply. Afterwards:
+      - **Gmail Settings → Filters** has one filter per domain-category bucket
+        (Shopping/Finance/Travel/Social/Newsletters/Productivity/Education) with
+        `from:(domain OR domain …)` → apply label, skip inbox when filed out.
+      - The config `<details>` shows "N Gmail filters keep these buckets sorted…".
+      - Rules tab lists an `Auto-sort: <bucket>` rule only for the **subject-kind**
+        buckets (One-time codes / shipping / receipts / newsletters / social) and
+        for any domain-category bucket that also had **Outlook** mail — not for a
+        Gmail-only domain-category bucket.
+      - `Auto-sort: expire one-time codes` rule present if that box was ticked.
+- [ ] Send yourself (or self-label) new mail from a domain in a kept bucket's
+      list, with the dashboard **closed** → Gmail files it under the label /
+      out of the inbox on its own.
+- [ ] Re-run "Sort my inbox…" with "keep sorting" **unticked** → the bucket
+      filters are deleted from Gmail Settings and the "N Gmail filters" note
+      disappears. Confirm the `from:(a OR b …)` query length was accepted by
+      Gmail (note if a long list is rejected).
 - [ ] Rules → **Current manual dry run** updates when a rule is enabled, disabled, added, or deleted. Expand
       each rule and verify sender counts, provider action support, overlap/stop-processing notes, and
       protected/exception exclusions. Viewing the preview must not change any mail.
