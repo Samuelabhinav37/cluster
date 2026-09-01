@@ -26,10 +26,19 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
       OTP/shipping/receipts/newsletters/social).
 - [ ] Untick a bucket → the count drops. Tick "keep sorting new mail" and
       "auto-trash one-time codes older than 2 days".
-- [ ] Click "Sort my inbox…" → one confirm → Confirm. In Gmail: the flat
-      category labels (`Shopping`, `Newsletters`, …) now exist at top level (no
-      `Cluster/` parent) and matching mail carries them; filed-out buckets left
-      the inbox, "keep in inbox" buckets did not.
+- [ ] Click "Sort my inbox…" → a **preview tree** appears below the config:
+      bucket → sender → message, every message ticked. Expand a bucket, expand a
+      sender. The Apply button shows the live included count.
+- [ ] Untick a message → the Apply count drops. Apply → in Gmail that message
+      stays in the inbox / unlabelled; the rest are filed. Flat labels
+      (`Shopping`, `Newsletters`, …) exist at top level (no `Cluster/` parent);
+      filed-out buckets left the inbox, "keep in inbox" buckets did not.
+- [ ] In the preview, a sensitive-looking subject in a filed-out bucket shows a
+      "· sensitive?" hint on its row.
+- [ ] Use a sender's "wrong bucket?" menu → "move to Finance": the preview
+      re-renders with that sender under Finance. Pick "never sort this sender":
+      the sender disappears from the preview and stays gone on the next scan
+      (persisted in `settings.sortOverrides`).
 - [ ] Pre-create a Gmail label matching a bucket (e.g. `Shopping`), then sort:
       Cluster asks "Use my Shopping / Keep separate as Shopping (Cluster)". The
       choice sticks on a re-run. Picking "Use my" files into your own label;

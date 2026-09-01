@@ -2,6 +2,7 @@ import type { ProviderId } from "./providers/emailProvider";
 import type { ClusterRule } from "./rules";
 import type { ActionLogEntry } from "./actionLog";
 import type { SenderEngagementMap } from "./engagementModel";
+import type { SortOverride } from "./sortTaxonomy";
 import { withStorageLock } from "./storageLock";
 
 export interface ClusterSettings {
@@ -66,6 +67,10 @@ export interface ClusterSettings {
     /** Also auto-trash one-time codes older than 2 days (standing rule). */
     expireOtp: boolean;
   };
+  /** Per-sender "wrong bucket?" corrections from the sort preview, keyed by
+   * lowercased from-address → a bucket to force, or "never" to skip. Consulted
+   * by buildSortPlan (see sortTaxonomy.effectiveBucket). */
+  sortOverrides: Record<string, SortOverride>;
 
   // ── Flat-label collision guard ─────────────────────────────────────────
   /** Canonical names of Gmail labels Cluster itself created. Lets us tell
@@ -79,7 +84,7 @@ export interface ClusterSettings {
 }
 
 const STORAGE_KEY = "clusterSettings";
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 4;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 5;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -107,6 +112,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   senderEngagement: {},
   autoQuarantineHighRisk: false,
   autoSort: { enabledBuckets: [], fileOutByBucket: {}, keepSorting: false, expireOtp: false },
+  sortOverrides: {},
   clusterOwnedLabels: [],
   labelChoices: {},
 };
@@ -150,6 +156,13 @@ function migrateSettings(value: unknown): Record<string, unknown> {
         labelChoices: {},
       };
       version = 4;
+    } else if (version === 4) {
+      stored = {
+        ...stored,
+        schemaVersion: 5,
+        sortOverrides: {},
+      };
+      version = 5;
     }
   }
   return stored;

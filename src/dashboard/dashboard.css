@@ -382,3 +382,51 @@ select {
   border-radius: 6px;
   margin-bottom: 0.5rem;
 }
+
+/* "Sort my inbox" preview tree */
+#sort-inbox-preview:not(:empty) {
+  margin-top: 1rem;
+}
+
+.sort-preview-bucket {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.sort-preview-bucket > summary {
+  cursor: pointer;
+  padding: 0.6rem 0.25rem;
+  font-weight: 600;
+}
+
+.sort-preview-sender {
+  margin: 0.25rem 0 0.25rem 1rem;
+}
+
+.sort-preview-sender > summary {
+  cursor: pointer;
+  padding: 0.3rem 0.25rem;
+  color: var(--muted-strong);
+  font-size: 0.9em;
+}
+
+.sort-preview-sender > summary select {
+  margin-left: 0.4rem;
+  font-size: 0.9em;
+}
+
+.sort-preview-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.15rem 0 0.15rem 1.75rem;
+  color: var(--muted-strong);
+  font-size: 0.85em;
+  cursor: pointer;
+}
+
+.sort-preview-row input {
+  margin-top: 0.2em;
+}

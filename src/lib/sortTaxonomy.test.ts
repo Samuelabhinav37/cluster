@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { bucketLabelName, classifySortBucket, DEFAULT_FILE_OUT_OF_INBOX } from "./sortTaxonomy";
+import {
+  bucketLabelName,
+  classifySortBucket,
+  DEFAULT_FILE_OUT_OF_INBOX,
+  effectiveBucket,
+} from "./sortTaxonomy";
 
 describe("classifySortBucket", () => {
   it("uses the message kind when it's a transactional one", () => {
@@ -26,6 +31,23 @@ describe("classifySortBucket", () => {
   it("maps kind newsletter/social straight through", () => {
     expect(classifySortBucket("newsletter", "x.example")).toBe("newsletter");
     expect(classifySortBucket("social", "x.example")).toBe("social");
+  });
+});
+
+describe("effectiveBucket", () => {
+  it("falls back to classifySortBucket when there's no override", () => {
+    expect(effectiveBucket("other", "amazon.com", "deals@amazon.com", {})).toBe("shopping");
+    expect(effectiveBucket("other", "nowhere.example", "hi@nowhere.example", {})).toBeNull();
+  });
+
+  it("a 'never' override drops the sender", () => {
+    expect(effectiveBucket("shipping", "amazon.com", "orders@amazon.com", { "orders@amazon.com": "never" })).toBeNull();
+  });
+
+  it("a bucket override forces that bucket, case-insensitively on the address", () => {
+    expect(
+      effectiveBucket("other", "nowhere.example", "Bills@Nowhere.example", { "bills@nowhere.example": "finance" }),
+    ).toBe("finance");
   });
 });
 

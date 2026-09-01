@@ -61,8 +61,14 @@ import {
   totalPlanCount,
   type PlanLabelConflict,
   type SortPlanEntry,
+  type SortPlanMessage,
 } from "../lib/autoSort";
-import { ALL_SORT_BUCKETS, SORT_BUCKET_LABELS, type SortBucket } from "../lib/sortTaxonomy";
+import {
+  ALL_SORT_BUCKETS,
+  SORT_BUCKET_LABELS,
+  type SortBucket,
+  type SortOverride,
+} from "../lib/sortTaxonomy";
 import { log } from "../lib/log";
 import {
   formatRelativeTime,
@@ -226,6 +232,7 @@ const sortInboxCountEl = document.getElementById("sort-inbox-count") as HTMLSpan
 const sortInboxBucketsEl = document.getElementById("sort-inbox-buckets") as HTMLDivElement;
 const sortKeepSortingEl = document.getElementById("sort-keep-sorting") as HTMLInputElement;
 const sortExpireOtpEl = document.getElementById("sort-expire-otp") as HTMLInputElement;
+const sortInboxPreviewEl = document.getElementById("sort-inbox-preview") as HTMLDivElement;
 
 const smartViewChipsEl = document.getElementById("smart-view-chips") as HTMLSpanElement;
 const smartViewResultSlot = document.getElementById("smart-view-result-slot") as HTMLDivElement;
@@ -2169,10 +2176,17 @@ function renderSpamSection(senders: SenderSummary[]) {
 const KIND_SORT_BUCKETS = new Set<SortBucket>(["otp", "receipt", "shipping", "newsletter", "social"]);
 
 let sortPlan: SortPlanEntry[] = [];
+// Message ids the user unticked in the preview — skipped when Apply runs.
+// Cleared on every rescan and after a successful sort.
+const excludedSortIds = new Set<string>();
 
 function resetSortInboxSlot() {
   sortInboxSlot.innerHTML = "";
   sortInboxSlot.appendChild(sortInboxBtn);
+}
+
+function clearSortPreview() {
+  sortInboxPreviewEl.innerHTML = "";
 }
 
 function sortBucketChoices(): { bucket: SortBucket; include: boolean; keepInInbox: boolean }[] {
@@ -2199,15 +2213,13 @@ function updateSortInboxCount() {
   sortInboxBtn.disabled = entries.length === 0;
 }
 
-function renderSortInbox(senders: SenderSummary[]) {
+// The config <details> checkbox rows — one per bucket in the current plan.
+// Rebuilt whenever the plan changes (a fresh scan, or a "wrong bucket?"
+// override that adds/removes a bucket).
+function renderSortBucketToggles() {
   const cfg = cachedSettings.autoSort;
-  sortPlan = buildSortPlan(senders, cfg.fileOutByBucket);
-  resetSortInboxSlot();
-  sortKeepSortingEl.checked = cfg.keepSorting;
-  sortExpireOtpEl.checked = cfg.expireOtp;
-
-  sortInboxBucketsEl.innerHTML = "";
   const neverConfigured = cfg.enabledBuckets.length === 0;
+  sortInboxBucketsEl.innerHTML = "";
   for (const entry of sortPlan) {
     const row = document.createElement("label");
     row.className = "setting-toggle";
@@ -2232,6 +2244,20 @@ function renderSortInbox(senders: SenderSummary[]) {
     sortInboxBucketsEl.appendChild(row);
   }
   updateSortInboxCount();
+}
+
+function renderSortInbox(senders: SenderSummary[]) {
+  const cfg = cachedSettings.autoSort;
+  sortPlan = buildSortPlan(senders, cfg.fileOutByBucket, cachedSettings.sortOverrides);
+  resetSortInboxSlot();
+  clearSortPreview();
+  pruneSelection(
+    excludedSortIds,
+    sortPlan.flatMap((e) => e.messages.map((m) => m.id)),
+  );
+  sortKeepSortingEl.checked = cfg.keepSorting;
+  sortExpireOtpEl.checked = cfg.expireOtp;
+  renderSortBucketToggles();
 }
 
 // Cluster's sort-bucket labels are flat ("Shopping", …). Before applying, we
@@ -2274,146 +2300,287 @@ async function resolveSortLabelConflict(desired: string, choice: LabelChoice, re
   retry();
 }
 
-function wireSortInbox() {
-  const startSortFlow = async () => {
-    const choices = sortBucketChoices().filter((c) => c.include);
-    const rawChosen = choices
-      .map((c) => {
-        const entry = sortPlan.find((e) => e.bucket === c.bucket)!;
-        return { ...entry, fileOut: !c.keepInInbox };
-      })
-      .filter((e) => e.count > 0);
-    if (rawChosen.length === 0) return;
+// Labels the mailbox already has, captured on the "Sort my inbox…" click so a
+// "wrong bucket?" correction can re-resolve names without another fetch.
+let lastKnownLabelNames: string[] = [];
 
-    // Resolve flat label names against the mailbox before doing anything.
-    let existingLabelNames: string[] = [];
-    try {
-      const token = await gmailProvider.getAuthToken(false);
-      existingLabelNames = await listLabelNames(token);
-    } catch (err) {
-      log.error("Couldn't list Gmail labels for the collision check", err);
-    }
-    const { plan: chosen, conflicts } = resolvePlanLabels(
-      rawChosen,
-      existingLabelNames,
-      cachedSettings.clusterOwnedLabels,
-      cachedSettings.labelChoices,
-    );
-    if (conflicts.length > 0) {
-      renderSortLabelConflicts(conflicts, () => void startSortFlow());
-      return;
-    }
+// Re-derive the plan with the current per-sender overrides, refresh the config
+// toggles, resolve label names, and show either the collision prompt or the
+// preview. Called by the button and after every override change.
+function rebuildSortPreview() {
+  sortPlan = buildSortPlan(
+    currentSenders,
+    cachedSettings.autoSort.fileOutByBucket,
+    cachedSettings.sortOverrides,
+  );
+  renderSortBucketToggles();
+  pruneSelection(
+    excludedSortIds,
+    sortPlan.flatMap((e) => e.messages.map((m) => m.id)),
+  );
 
-    const knownLower = new Set(existingLabelNames.map((n) => n.toLowerCase()));
+  const rawChosen = sortBucketChoices()
+    .filter((c) => c.include)
+    .map((c) => {
+      const entry = sortPlan.find((e) => e.bucket === c.bucket)!;
+      return { ...entry, fileOut: !c.keepInInbox };
+    })
+    .filter((e) => e.count > 0);
+  if (rawChosen.length === 0) {
+    clearSortPreview();
+    return;
+  }
 
-    const total = totalPlanCount(chosen);
-    renderConfirmStep(
-      sortInboxSlot,
-      resetSortInboxSlot,
-      `Sort ${total} message${total === 1 ? "" : "s"} into ${chosen.length} label${chosen.length === 1 ? "" : "s"}?`,
-      false,
-      async () => {
-        cachedSettings = await updateSettings({
-          autoSort: {
-            enabledBuckets: chosen.map((e) => e.bucket),
-            fileOutByBucket: Object.fromEntries(chosen.map((e) => [e.bucket, e.fileOut])),
-            keepSorting: sortKeepSortingEl.checked,
-            expireOtp: sortExpireOtpEl.checked,
-          },
-        });
+  const { plan: chosen, conflicts } = resolvePlanLabels(
+    rawChosen,
+    lastKnownLabelNames,
+    cachedSettings.clusterOwnedLabels,
+    cachedSettings.labelChoices,
+  );
+  if (conflicts.length > 0) {
+    clearSortPreview();
+    renderSortLabelConflicts(conflicts, rebuildSortPreview);
+    return;
+  }
 
-        for (const entry of chosen) {
-          for (const [pid, ids] of entry.idsByProvider) {
-            const provider = providerById.get(pid);
-            if (!provider?.labelMessages || ids.length === 0) continue;
-            const token = await provider.getAuthToken(false);
-            await provider.labelMessages(token, ids, entry.label, !entry.fileOut);
-          }
-          const gmailIds = entry.idsByProvider.get("gmail") ?? [];
-          await logAction(
-            "sort",
-            `Sorted ${entry.count} into "${entry.label}"`,
-            gmailIds.length > 0
-              ? {
-                  provider: "gmail",
-                  ids: gmailIds,
-                  via: "unsort",
-                  labelName: entry.label,
-                  wasFiledOut: entry.fileOut,
-                }
-              : undefined,
-          );
-        }
+  renderSortPreview(chosen, new Set(lastKnownLabelNames.map((n) => n.toLowerCase())));
+}
 
-        // Any bucket label that didn't already exist was just created by
-        // getOrCreateLabel — record it as Cluster's so a later run reuses it
-        // silently instead of re-prompting.
-        const created = [
-          ...new Set(
-            chosen
-              .map((e) => e.label)
-              .filter(
-                (name) =>
-                  !knownLower.has(name.toLowerCase()) &&
-                  !cachedSettings.clusterOwnedLabels.some((o) => o.toLowerCase() === name.toLowerCase()),
-              ),
-          ),
-        ];
-        if (created.length > 0) {
-          cachedSettings = await updateSettings({
-            clusterOwnedLabels: [...cachedSettings.clusterOwnedLabels, ...created],
-          });
-        }
+async function startSortFlow() {
+  try {
+    const token = await gmailProvider.getAuthToken(false);
+    lastKnownLabelNames = await listLabelNames(token);
+  } catch (err) {
+    log.error("Couldn't list Gmail labels for the collision check", err);
+    lastKnownLabelNames = [];
+  }
+  rebuildSortPreview();
+}
 
-        if (sortKeepSortingEl.checked) {
-          let rules = cachedSettings.rules;
-          const sortCompletions: Array<{
-            rule: ClusterRule;
-            idsByProvider: Map<ProviderId, string[]>;
-          }> = [];
-          for (const entry of chosen) {
-            const nextRule: ClusterRule = {
-              id: crypto.randomUUID(),
-              name: `Auto-sort: ${SORT_BUCKET_LABELS[entry.bucket]}`,
-              enabled: true,
-              conditions: KIND_SORT_BUCKETS.has(entry.bucket)
-                ? { kind: entry.bucket as MessageKind }
-                : { fromDomainCategory: entry.bucket as DomainCategory },
-              action: "label",
-              labelName: entry.label,
-              labelKeepInInbox: !entry.fileOut,
-            };
-            rules = upsertRuleByName(rules, nextRule);
-            sortCompletions.push({
-              rule: rules.find((rule) => rule.name === nextRule.name)!,
-              idsByProvider: new Map(
-                [...entry.idsByProvider].filter(
-                  ([providerId, ids]) => ids.length > 0 && providerById.get(providerId)?.labelMessages,
-                ),
-              ),
-            });
-          }
-          if (sortExpireOtpEl.checked) {
-            rules = upsertRuleByName(rules, {
-              id: crypto.randomUUID(),
-              name: "Auto-sort: expire one-time codes",
-              enabled: true,
-              conditions: { kind: "otp", olderThanDays: 2 },
-              action: "trash",
-            });
-          }
-          cachedSettings = await updateSettings({ rules });
-          await recordRuleCompletions(sortCompletions).catch((error) =>
-            log.error("Could not seed auto-sort completion receipts", error),
-          );
-        }
+async function changeSortOverride(address: string, value: "" | SortOverride) {
+  const key = address.toLowerCase();
+  const next = { ...cachedSettings.sortOverrides };
+  if (value === "") delete next[key];
+  else next[key] = value;
+  cachedSettings = await updateSettings({ sortOverrides: next });
+  rebuildSortPreview();
+}
 
-        await scanAndRender();
-        return `Sorted ${total} into ${chosen.length} label${chosen.length === 1 ? "" : "s"}`;
-      },
-    );
+// The dry-run: bucket → sender → message. Each message ticks to include, each
+// sender carries a "wrong bucket?" menu. Nothing is touched until Apply.
+function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
+  clearSortPreview();
+  resetSortInboxSlot();
+
+  const applyBtn = document.createElement("button");
+  const cancelBtn = document.createElement("button");
+  const status = document.createElement("span");
+  status.className = "hint";
+
+  const includedCount = () =>
+    chosen.flatMap((e) => e.messages).filter((m) => !excludedSortIds.has(m.id)).length;
+  const refreshApplyLabel = () => {
+    const n = includedCount();
+    applyBtn.textContent = `Apply — ${n} message${n === 1 ? "" : "s"}`;
+    applyBtn.disabled = n === 0;
   };
 
+  for (const entry of chosen) {
+    const bucketEl = document.createElement("details");
+    bucketEl.className = "sort-preview-bucket";
+    bucketEl.open = true;
+    const summary = document.createElement("summary");
+    summary.textContent = `${entry.label} — ${entry.count} · ${
+      entry.fileOut ? "filed out of the inbox" : "labelled in place"
+    }`;
+    bucketEl.appendChild(summary);
+
+    const bySender = new Map<string, SortPlanMessage[]>();
+    for (const m of entry.messages) {
+      const list = bySender.get(m.address) ?? [];
+      list.push(m);
+      bySender.set(m.address, list);
+    }
+
+    for (const [address, msgs] of bySender) {
+      const senderEl = document.createElement("details");
+      senderEl.className = "sort-preview-sender";
+      const sSummary = document.createElement("summary");
+      sSummary.append(document.createTextNode(`${msgs[0].displayName || address} — ${msgs.length} `));
+
+      const select = document.createElement("select");
+      select.title = "Sort this sender differently";
+      select.add(new Option(`keep as ${SORT_BUCKET_LABELS[entry.bucket]}`, ""));
+      for (const b of ALL_SORT_BUCKETS) {
+        if (b !== entry.bucket) select.add(new Option(`move to ${SORT_BUCKET_LABELS[b]}`, b));
+      }
+      select.add(new Option("never sort this sender", "never"));
+      select.value = cachedSettings.sortOverrides[address.toLowerCase()] ?? "";
+      select.onchange = () => void changeSortOverride(address, select.value as "" | SortOverride);
+      // A <select> inside a <summary> would also toggle the <details>; don't.
+      select.onclick = (e) => e.stopPropagation();
+      sSummary.appendChild(select);
+      senderEl.appendChild(sSummary);
+
+      for (const m of msgs) {
+        const row = document.createElement("label");
+        row.className = "sort-preview-row";
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = !excludedSortIds.has(m.id);
+        cb.onchange = () => {
+          if (cb.checked) excludedSortIds.delete(m.id);
+          else excludedSortIds.add(m.id);
+          refreshApplyLabel();
+        };
+        const text = document.createElement("span");
+        const sensitive = entry.fileOut && m.sensitiveWhenFiled ? " · sensitive?" : "";
+        text.textContent = ` ${m.subject || "(no subject)"} · ${formatRelativeTime(m.receivedAt)}${sensitive}`;
+        row.append(cb, text);
+        senderEl.appendChild(row);
+      }
+      bucketEl.appendChild(senderEl);
+    }
+    sortInboxPreviewEl.appendChild(bucketEl);
+  }
+
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.onclick = clearSortPreview;
+  applyBtn.onclick = async () => {
+    applyBtn.disabled = true;
+    cancelBtn.disabled = true;
+    status.textContent = "Sorting…";
+    try {
+      status.textContent = await applySortPlan(chosen, knownLower);
+    } catch (err) {
+      log.error(err);
+      status.textContent = "Sort failed, try again";
+      applyBtn.disabled = false;
+      cancelBtn.disabled = false;
+    }
+  };
+
+  const bar = document.createElement("div");
+  bar.className = "bulk-bar";
+  bar.append(applyBtn, cancelBtn, status);
+  sortInboxPreviewEl.appendChild(bar);
+  refreshApplyLabel();
+}
+
+async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): Promise<string> {
+  // Drop unticked messages, then any bucket that's now empty.
+  const effective = chosen
+    .map((entry) => {
+      const messages = entry.messages.filter((m) => !excludedSortIds.has(m.id));
+      const idsByProvider = new Map<ProviderId, string[]>();
+      for (const m of messages) {
+        const list = idsByProvider.get(m.provider) ?? [];
+        list.push(m.id);
+        idsByProvider.set(m.provider, list);
+      }
+      return { ...entry, messages, idsByProvider, count: messages.length };
+    })
+    .filter((e) => e.count > 0);
+  if (effective.length === 0) return "Nothing selected";
+
+  const total = effective.reduce((sum, e) => sum + e.count, 0);
+
+  cachedSettings = await updateSettings({
+    autoSort: {
+      enabledBuckets: effective.map((e) => e.bucket),
+      fileOutByBucket: Object.fromEntries(effective.map((e) => [e.bucket, e.fileOut])),
+      keepSorting: sortKeepSortingEl.checked,
+      expireOtp: sortExpireOtpEl.checked,
+    },
+  });
+
+  for (const entry of effective) {
+    for (const [pid, ids] of entry.idsByProvider) {
+      const provider = providerById.get(pid);
+      if (!provider?.labelMessages || ids.length === 0) continue;
+      const token = await provider.getAuthToken(false);
+      await provider.labelMessages(token, ids, entry.label, !entry.fileOut);
+    }
+    const gmailIds = entry.idsByProvider.get("gmail") ?? [];
+    await logAction(
+      "sort",
+      `Sorted ${entry.count} into "${entry.label}"`,
+      gmailIds.length > 0
+        ? {
+            provider: "gmail",
+            ids: gmailIds,
+            via: "unsort",
+            labelName: entry.label,
+            wasFiledOut: entry.fileOut,
+          }
+        : undefined,
+    );
+  }
+
+  // Record any label we just created so a later run reuses it without asking.
+  const created = [
+    ...new Set(
+      effective
+        .map((e) => e.label)
+        .filter(
+          (name) =>
+            !knownLower.has(name.toLowerCase()) &&
+            !cachedSettings.clusterOwnedLabels.some((o) => o.toLowerCase() === name.toLowerCase()),
+        ),
+    ),
+  ];
+  if (created.length > 0) {
+    cachedSettings = await updateSettings({
+      clusterOwnedLabels: [...cachedSettings.clusterOwnedLabels, ...created],
+    });
+  }
+
+  if (sortKeepSortingEl.checked) {
+    let rules = cachedSettings.rules;
+    const sortCompletions: Array<{ rule: ClusterRule; idsByProvider: Map<ProviderId, string[]> }> = [];
+    for (const entry of effective) {
+      const nextRule: ClusterRule = {
+        id: crypto.randomUUID(),
+        name: `Auto-sort: ${SORT_BUCKET_LABELS[entry.bucket]}`,
+        enabled: true,
+        conditions: KIND_SORT_BUCKETS.has(entry.bucket)
+          ? { kind: entry.bucket as MessageKind }
+          : { fromDomainCategory: entry.bucket as DomainCategory },
+        action: "label",
+        labelName: entry.label,
+        labelKeepInInbox: !entry.fileOut,
+      };
+      rules = upsertRuleByName(rules, nextRule);
+      sortCompletions.push({
+        rule: rules.find((rule) => rule.name === nextRule.name)!,
+        idsByProvider: new Map(
+          [...entry.idsByProvider].filter(
+            ([providerId, ids]) => ids.length > 0 && providerById.get(providerId)?.labelMessages,
+          ),
+        ),
+      });
+    }
+    if (sortExpireOtpEl.checked) {
+      rules = upsertRuleByName(rules, {
+        id: crypto.randomUUID(),
+        name: "Auto-sort: expire one-time codes",
+        enabled: true,
+        conditions: { kind: "otp", olderThanDays: 2 },
+        action: "trash",
+      });
+    }
+    cachedSettings = await updateSettings({ rules });
+    await recordRuleCompletions(sortCompletions).catch((error) =>
+      log.error("Could not seed auto-sort completion receipts", error),
+    );
+  }
+
+  excludedSortIds.clear();
+  await scanAndRender();
+  return `Sorted ${total} into ${effective.length} label${effective.length === 1 ? "" : "s"}`;
+}
+
+function wireSortInbox() {
   sortInboxBtn.onclick = () => void startSortFlow();
 }
 

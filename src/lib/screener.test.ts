@@ -5,7 +5,7 @@ import type { ClusterSettings } from "./settingsStore";
 
 function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     scanWindowDays: 180,
     maxMessagesPerProvider: 500,
     collapsedSenderCategories: [],
@@ -30,6 +30,7 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
     senderEngagement: {},
     autoQuarantineHighRisk: false,
     autoSort: { enabledBuckets: [], fileOutByBucket: {}, keepSorting: false, expireOtp: false },
+    sortOverrides: {},
     clusterOwnedLabels: [],
     labelChoices: {},
     ...over,

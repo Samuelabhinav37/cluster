@@ -86,3 +86,24 @@ export function classifySortBucket(kind: MessageKind, senderDomain: string): Sor
   if (byKind) return byKind;
   return CATEGORY_BUCKET[categorizeDomain(senderDomain)] ?? null;
 }
+
+/** A user's correction for one sender: force a bucket, or never sort them. */
+export type SortOverride = "never" | SortBucket;
+
+/**
+ * classifySortBucket, but a per-sender override (from a "wrong bucket?"
+ * correction in the preview) wins first: `"never"` drops the sender from
+ * sorting entirely, a bucket name forces that bucket. Keyed by lowercased
+ * from-address.
+ */
+export function effectiveBucket(
+  kind: MessageKind,
+  senderDomain: string,
+  senderAddress: string,
+  overrides: Record<string, SortOverride>,
+): SortBucket | null {
+  const override = overrides[senderAddress.toLowerCase()];
+  if (override === "never") return null;
+  if (override) return override;
+  return classifySortBucket(kind, senderDomain);
+}
