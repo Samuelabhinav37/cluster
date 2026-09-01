@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildBucketFilter, bucketMatchTerms, isServerSortBucket } from "./serverSort";
+import {
+  buildBucketFilter,
+  buildBucketRule,
+  bucketMatchTerms,
+  isServerSortBucket,
+} from "./serverSort";
 
 describe("isServerSortBucket", () => {
   it("is true for the domain-category buckets, false for the subject-kind ones", () => {
@@ -55,5 +60,37 @@ describe("buildBucketFilter", () => {
     });
     expect(spec?.criteria.from).toBe("(amazon.com OR walmart.com) -promos@amazon.com");
     expect(spec?.action.removeLabelIds).toEqual([]);
+  });
+});
+
+describe("buildBucketRule (Outlook)", () => {
+  it("returns null with nothing to match", () => {
+    expect(buildBucketRule("Cluster: Shopping", "Shopping", true, "arch", { include: [], exclude: [] }, 1)).toBeNull();
+  });
+
+  it("moves to the archive folder when filing out and carries excludes as exceptions", () => {
+    const rule = buildBucketRule(
+      "Cluster: Shopping",
+      "Shopping",
+      true,
+      "archive-id",
+      { include: ["amazon.com"], exclude: ["promos@amazon.com"] },
+      3,
+    );
+    expect(rule).toMatchObject({
+      displayName: "Cluster: Shopping",
+      sequence: 3,
+      isEnabled: true,
+      conditions: { senderContains: ["amazon.com"] },
+      exceptions: { senderContains: ["promos@amazon.com"] },
+      actions: { assignCategories: ["Shopping"], moveToFolder: "archive-id", stopProcessingRules: true },
+    });
+  });
+
+  it("omits moveToFolder when labelling in place or no archive id", () => {
+    const inPlace = buildBucketRule("Cluster: Finance", "Finance", false, "arch", { include: ["chase.com"], exclude: [] }, 1);
+    expect(inPlace?.actions).not.toHaveProperty("moveToFolder");
+    const noArchive = buildBucketRule("Cluster: Finance", "Finance", true, null, { include: ["chase.com"], exclude: [] }, 1);
+    expect(noArchive?.actions).not.toHaveProperty("moveToFolder");
   });
 });

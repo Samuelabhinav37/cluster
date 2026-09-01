@@ -344,6 +344,54 @@ async function unlabelMessages(
   if (wasFiledOut) await unarchiveMessages(token, ids);
 }
 
+// ── Inbox message rules — the Outlook equivalent of Gmail filters, used by
+// server-side "keep sorting" (see serverSort.ts / dashboard applySortPlan).
+// NOTE: unexercised against a real mailbox yet — flagged in the live-test
+// checklist. The dashboard keeps a client ClusterRule fallback so keep-sorting
+// still works if rule creation fails.
+
+/** The user's Archive folder id, or null if Graph won't resolve it. */
+export async function getArchiveFolderId(token: string): Promise<string | null> {
+  try {
+    const data = await graphFetch<{ id?: string }>("/me/mailFolders/archive?$select=id", token);
+    return data.id ?? null;
+  } catch (error) {
+    if (error instanceof GraphApiError) return null;
+    throw error;
+  }
+}
+
+export async function listInboxRules(token: string): Promise<{ id: string; displayName: string }[]> {
+  const data = await graphFetch<{ value?: { id: string; displayName: string }[] }>(
+    "/me/mailFolders/inbox/messageRules",
+    token,
+  );
+  return data.value ?? [];
+}
+
+export async function createInboxRule(token: string, body: unknown): Promise<string> {
+  await ensureCategoryFromRuleBody(token, body);
+  const data = await graphFetch<{ id: string }>("/me/mailFolders/inbox/messageRules", token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return data.id;
+}
+
+export async function deleteInboxRule(token: string, id: string): Promise<void> {
+  await graphFetch(`/me/mailFolders/inbox/messageRules/${id}`, token, { method: "DELETE" });
+}
+
+// The category a rule assigns has to exist as a master category first (same as
+// labelMessages does before a PATCH).
+async function ensureCategoryFromRuleBody(token: string, body: unknown): Promise<void> {
+  const cats = (body as { actions?: { assignCategories?: unknown } })?.actions?.assignCategories;
+  if (Array.isArray(cats)) {
+    for (const c of cats) if (typeof c === "string") await ensureCategory(token, c);
+  }
+}
+
 export const outlookProvider: EmailProvider = {
   id: "outlook",
   isConnected: isOutlookConnected,

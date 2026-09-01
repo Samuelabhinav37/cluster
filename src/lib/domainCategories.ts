@@ -69,7 +69,19 @@ for (const [category, domains] of Object.entries(CATEGORY_DOMAINS) as [DomainCat
 }
 
 export function categorizeDomain(domain: string): DomainCategory {
-  return DOMAIN_TO_CATEGORY.get(domain.toLowerCase()) ?? "other";
+  const normalized = domain.trim().toLowerCase().replace(/^www\./, "").replace(/\.$/, "");
+  if (!normalized) return "other";
+  const exact = DOMAIN_TO_CATEGORY.get(normalized);
+  if (exact) return exact;
+  // Walk parent labels so a sending subdomain matches the registrable domain:
+  // email.amazon.com -> amazon.com, e.delta.com -> delta.com. Stops before the
+  // final single label so a bare TLD could never match.
+  const labels = normalized.split(".");
+  for (let i = 1; i < labels.length - 1; i++) {
+    const parent = DOMAIN_TO_CATEGORY.get(labels.slice(i).join("."));
+    if (parent) return parent;
+  }
+  return "other";
 }
 
 /** The curated domains that map to a category — the source list for the

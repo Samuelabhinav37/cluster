@@ -70,11 +70,16 @@ export interface ClusterSettings {
      * per domain-category bucket (see serverSort.ts). Deleted/recreated when the
      * bucket's config changes; cleared when keep-sorting is turned off. */
     filterIdsByBucket: Record<string, string[]>;
+    /** Same, for Outlook inbox messageRules. */
+    ruleIdsByBucket: Record<string, string[]>;
   };
   /** Per-sender "wrong bucket?" corrections from the sort preview, keyed by
    * lowercased from-address → a bucket to force, or "never" to skip. Consulted
    * by buildSortPlan (see sortTaxonomy.effectiveBucket). */
   sortOverrides: Record<string, SortOverride>;
+  /** True once the first-run "reuse your existing labels/filters" card has been
+   * shown and dismissed (see seedFromExisting.ts). */
+  seededFromExisting: boolean;
 
   // ── Flat-label collision guard ─────────────────────────────────────────
   /** Canonical names of Gmail labels Cluster itself created. Lets us tell
@@ -88,7 +93,7 @@ export interface ClusterSettings {
 }
 
 const STORAGE_KEY = "clusterSettings";
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 6;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 8;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -121,8 +126,10 @@ const DEFAULT_SETTINGS: ClusterSettings = {
     keepSorting: false,
     expireOtp: false,
     filterIdsByBucket: {},
+    ruleIdsByBucket: {},
   },
   sortOverrides: {},
+  seededFromExisting: false,
   clusterOwnedLabels: [],
   labelChoices: {},
 };
@@ -181,6 +188,17 @@ function migrateSettings(value: unknown): Record<string, unknown> {
         autoSort: { ...autoSort, filterIdsByBucket: {} },
       };
       version = 6;
+    } else if (version === 6) {
+      const autoSort = isRecord(stored.autoSort) ? stored.autoSort : {};
+      stored = {
+        ...stored,
+        schemaVersion: 7,
+        autoSort: { ...autoSort, ruleIdsByBucket: {} },
+      };
+      version = 7;
+    } else if (version === 7) {
+      stored = { ...stored, schemaVersion: 8, seededFromExisting: false };
+      version = 8;
     }
   }
   return stored;
@@ -208,6 +226,10 @@ function normalizeSettings(value: unknown): ClusterSettings {
       filterIdsByBucket: {
         ...DEFAULT_SETTINGS.autoSort.filterIdsByBucket,
         ...(isRecord(autoSort.filterIdsByBucket) ? autoSort.filterIdsByBucket : {}),
+      },
+      ruleIdsByBucket: {
+        ...DEFAULT_SETTINGS.autoSort.ruleIdsByBucket,
+        ...(isRecord(autoSort.ruleIdsByBucket) ? autoSort.ruleIdsByBucket : {}),
       },
     } as ClusterSettings["autoSort"],
   };

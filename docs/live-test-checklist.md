@@ -123,11 +123,28 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
       category (`Shopping`, `Newsletters`, …) / Archive move / read state.
 - [ ] "Sort my inbox" applies categories to Outlook mail and moves filed-out
       buckets to Archive.
+- [ ] With Outlook connected, tick "keep sorting" and Apply with a
+      domain-category bucket → **Outlook web → Settings → Rules** has a
+      `Cluster: <Bucket>` rule (senderContains list → assign category, move to
+      Archive if filed out, stop processing). The config note reads
+      "N Gmail filters + M Outlook rules". Untick keep-sorting → the rule is
+      gone.
 - [ ] Keep-sorted / Mute / Snooze / Screener rows still say "Not supported for
       this provider" for Outlook.
 
+## First-run "seed from existing" card
+
+- [ ] On a fresh install with a Gmail label named like a bucket (e.g. `Finance`)
+      and/or a `from:` filter, the Sort section shows a one-time card offering
+      "Reuse your label(s) …" and "Skip the N senders you already filter".
+      Accepting sets `labelChoices` / `sortOverrides`; "Done" dismisses it for
+      good (`settings.seededFromExisting`). No card when there's nothing to offer.
+
 ## Open questions to answer while testing
 
+- Does Gmail accept `criteria.from = "(a OR b …) -c@x.com"` and how long a list?
+- Do the Graph `messageRules` create/delete calls actually work against a live
+  mailbox (senderContains, moveToFolder by archive id, assignCategories)?
 - Does `dmarc=fail` ever actually appear on delivered Promotions/Updates mail,
   or only the broadened `spf=fail && dkim=fail` case? (If neither fires,
   loosen further.)

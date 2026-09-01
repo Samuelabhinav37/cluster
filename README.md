@@ -93,12 +93,14 @@ Click the toolbar icon to open the dashboard tab.
   change.
 - **Provider parity.** Gmail supports everything. Outlook (via Microsoft
   Graph) supports scan, trash/untrash, archive/unarchive, mark-read, unsubscribe,
-  the rule engine's label/archive/mark-read/trash actions, and "Sort my inbox"
+  the rule engine's label/archive/mark-read/trash actions, "Sort my inbox"
   (the category label mapped to a flat Outlook category, moved to Archive when
-  filed out). Still Gmail-only, because they need Gmail's filters API or bookkeeping
-  Graph has no primitive for: keep-sorted, mute, the Screener, snooze,
-  auto-quarantine, "Label as suspicious", and Deep scan. Outlook rows show
-  "Not supported for this provider" for those.
+  filed out), and server-side "keep sorting" for domain-category buckets (an
+  inbox `messageRule` per bucket, mirroring the Gmail filter). Still Gmail-only,
+  because they need Gmail's filters API or bookkeeping Graph has no primitive
+  for: per-sender keep-sorted, mute, the Screener, snooze, auto-quarantine,
+  "Label as suspicious", and Deep scan. Outlook rows show "Not supported for
+  this provider" for those.
 - **Unsubscribe outcomes are scan-scoped.** “Quiet” means no later message was
   visible inside the configured categories/window/limit; it does not prove that
   every possible delivery stopped.

@@ -79,3 +79,42 @@ export function buildBucketFilter(
     },
   };
 }
+
+// ── Outlook side: the equivalent inbox messageRule ─────────────────────────
+export interface GraphMessageRuleBody {
+  displayName: string;
+  sequence: number;
+  isEnabled: true;
+  conditions: { senderContains: string[] };
+  exceptions?: { senderContains: string[] };
+  actions: {
+    assignCategories: string[];
+    moveToFolder?: string;
+    stopProcessingRules: true;
+  };
+}
+
+/** The Graph inbox rule for one domain-category bucket, or null when there's
+ * nothing to match. Filing out = move to the Archive folder. */
+export function buildBucketRule(
+  displayName: string,
+  categoryName: string,
+  fileOut: boolean,
+  archiveFolderId: string | null,
+  terms: BucketMatchTerms,
+  sequence: number,
+): GraphMessageRuleBody | null {
+  if (terms.include.length === 0) return null;
+  return {
+    displayName,
+    sequence,
+    isEnabled: true,
+    conditions: { senderContains: terms.include },
+    ...(terms.exclude.length > 0 ? { exceptions: { senderContains: terms.exclude } } : {}),
+    actions: {
+      assignCategories: [categoryName],
+      ...(fileOut && archiveFolderId ? { moveToFolder: archiveFolderId } : {}),
+      stopProcessingRules: true,
+    },
+  };
+}

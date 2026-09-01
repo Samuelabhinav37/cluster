@@ -25,13 +25,29 @@ import {
   deleteFilter,
   getElevatedAuthToken,
   getOrCreateLabel,
+  listFilters,
   listLabelNames,
 } from "../lib/gmailApi";
 import { applyLabelChoice, type LabelChoice } from "../lib/labelResolver";
-import { buildBucketFilter, bucketMatchTerms, isServerSortBucket } from "../lib/serverSort";
+import {
+  filteredFromTargets,
+  findLabelReuseCandidates,
+  skipOverridesFor,
+} from "../lib/seedFromExisting";
+import {
+  buildBucketFilter,
+  buildBucketRule,
+  bucketMatchTerms,
+  isServerSortBucket,
+} from "../lib/serverSort";
 import type { EmailProvider, ProviderId } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
-import { outlookProvider } from "../lib/providers/outlookProvider";
+import {
+  createInboxRule,
+  deleteInboxRule,
+  getArchiveFolderId,
+  outlookProvider,
+} from "../lib/providers/outlookProvider";
 import { buildSenderSummaries, type SenderSummary } from "../lib/senderModel";
 import { getSettings, mutateSettings, updateSettings, type ClusterSettings } from "../lib/settingsStore";
 import { excludeSnoozedMessages } from "../lib/snoozeFilter";
@@ -240,6 +256,7 @@ const sortInboxBucketsEl = document.getElementById("sort-inbox-buckets") as HTML
 const sortKeepSortingEl = document.getElementById("sort-keep-sorting") as HTMLInputElement;
 const sortExpireOtpEl = document.getElementById("sort-expire-otp") as HTMLInputElement;
 const sortInboxPreviewEl = document.getElementById("sort-inbox-preview") as HTMLDivElement;
+const sortSeedCardEl = document.getElementById("sort-seed-card") as HTMLElement;
 
 const smartViewChipsEl = document.getElementById("smart-view-chips") as HTMLSpanElement;
 const smartViewResultSlot = document.getElementById("smart-view-result-slot") as HTMLDivElement;
@@ -340,6 +357,7 @@ async function main() {
   renderRulesTab();
   renderRecentTab();
   await wireDigest();
+  maybeShowSeedCard().catch((err) => log.error("seed-from-existing card failed", err));
   await scanAndRender();
 }
 
@@ -2252,12 +2270,14 @@ function renderSortBucketToggles() {
   }
 
   const filterCount = Object.values(cfg.filterIdsByBucket).reduce((n, ids) => n + ids.length, 0);
-  if (filterCount > 0) {
+  const ruleCount = Object.values(cfg.ruleIdsByBucket).reduce((n, ids) => n + ids.length, 0);
+  if (filterCount + ruleCount > 0) {
+    const parts: string[] = [];
+    if (filterCount > 0) parts.push(`${filterCount} Gmail filter${filterCount === 1 ? "" : "s"}`);
+    if (ruleCount > 0) parts.push(`${ruleCount} Outlook rule${ruleCount === 1 ? "" : "s"}`);
     const note = document.createElement("p");
     note.className = "hint";
-    note.textContent = `${filterCount} Gmail filter${filterCount === 1 ? "" : "s"} keep${
-      filterCount === 1 ? "s" : ""
-    } these buckets sorted at delivery — manage them in Gmail Settings → Filters.`;
+    note.textContent = `${parts.join(" + ")} keep these buckets sorted at delivery — manage them in your provider's settings.`;
     sortInboxBucketsEl.appendChild(note);
   }
 
@@ -2547,28 +2567,45 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
   }
 
   // ── Keep sorting ───────────────────────────────────────────────────────
-  // Domain-category buckets → a real Gmail filter (files new mail at delivery,
-  // browser shut). Subject-kind buckets → a client rule for the 6-hourly sweep.
-  // A server bucket that also has Outlook mail gets both (the rule covers
-  // Outlook; on Gmail it's a near-noop via the completion ledger).
+  // Domain-category buckets → a real Gmail filter + (if Outlook is connected)
+  // an Outlook inbox rule, so new mail is filed at delivery with the browser
+  // shut. Subject-kind buckets → a client rule for the 6-hourly sweep. Server
+  // buckets also keep a client rule as a fallback (the Graph rule path is not
+  // yet battle-tested; on Gmail it's a near-noop via the completion ledger).
   const gmailToken = await gmailProvider.getAuthToken(false).catch((err) => {
     log.error("keep-sorting: no Gmail token", err);
     return null;
   });
+  const outlookOn = activeProviders.some((p) => p.id === "outlook");
+  const outlookToken = outlookOn
+    ? await outlookProvider.getAuthToken(false).catch((err) => {
+        log.error("keep-sorting: no Outlook token", err);
+        return null;
+      })
+    : null;
+  const archiveFolderId = outlookToken ? await getArchiveFolderId(outlookToken).catch(() => null) : null;
+
   const filterIds: Record<string, string[]> = { ...cachedSettings.autoSort.filterIdsByBucket };
+  const ruleIds: Record<string, string[]> = { ...cachedSettings.autoSort.ruleIdsByBucket };
   const keptServerBuckets = new Set(
     keepOn ? effective.filter((e) => isServerSortBucket(e.bucket)).map((e) => e.bucket) : [],
   );
 
-  // Tear down filters for buckets that are no longer server-kept.
-  for (const bucket of Object.keys(filterIds)) {
+  // Tear down server-side filters/rules for buckets that are no longer kept.
+  for (const bucket of new Set([...Object.keys(filterIds), ...Object.keys(ruleIds)])) {
     if (keptServerBuckets.has(bucket as SortBucket)) continue;
     if (gmailToken) {
-      for (const id of filterIds[bucket]) {
+      for (const id of filterIds[bucket] ?? []) {
         await deleteFilter(gmailToken, id).catch((err) => log.error("keep-sorting: delete filter", err));
       }
     }
+    if (outlookToken) {
+      for (const id of ruleIds[bucket] ?? []) {
+        await deleteInboxRule(outlookToken, id).catch((err) => log.error("keep-sorting: delete rule", err));
+      }
+    }
     delete filterIds[bucket];
+    delete ruleIds[bucket];
   }
 
   if (keepOn) {
@@ -2578,24 +2615,41 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
     for (const entry of effective) {
       const server = isServerSortBucket(entry.bucket);
       const hasOutlook = (entry.idsByProvider.get("outlook") ?? []).length > 0;
+      const terms = server ? bucketMatchTerms(entry.bucket, cachedSettings.sortOverrides) : null;
 
-      if (server && gmailToken) {
+      if (server && terms && gmailToken) {
         const labelId = await getOrCreateLabel(gmailToken, entry.label);
         for (const id of filterIds[entry.bucket] ?? []) {
           await deleteFilter(gmailToken, id).catch((err) => log.error("keep-sorting: replace filter", err));
         }
-        const spec = buildBucketFilter(
-          labelId,
-          entry.fileOut,
-          bucketMatchTerms(entry.bucket, cachedSettings.sortOverrides),
-        );
+        const spec = buildBucketFilter(labelId, entry.fileOut, terms);
         filterIds[entry.bucket] = spec
           ? [await createFilter(gmailToken, spec.criteria, spec.action)]
           : [];
       }
 
+      if (server && terms && outlookToken) {
+        for (const id of ruleIds[entry.bucket] ?? []) {
+          await deleteInboxRule(outlookToken, id).catch((err) => log.error("keep-sorting: replace rule", err));
+        }
+        const ruleBody = buildBucketRule(
+          `Cluster: ${SORT_BUCKET_LABELS[entry.bucket]}`,
+          entry.label,
+          entry.fileOut,
+          archiveFolderId,
+          terms,
+          20,
+        );
+        try {
+          ruleIds[entry.bucket] = ruleBody ? [await createInboxRule(outlookToken, ruleBody)] : [];
+        } catch (err) {
+          log.error("keep-sorting: create Outlook rule", err);
+          ruleIds[entry.bucket] = [];
+        }
+      }
+
       // Client rule: always for kind buckets; for server buckets only when
-      // there's Outlook mail to cover.
+      // there's Outlook mail to cover (fallback for the Graph rule path).
       if (!server || hasOutlook) {
         const nextRule: ClusterRule = {
           id: crypto.randomUUID(),
@@ -2641,14 +2695,100 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
       keepSorting: keepOn,
       expireOtp: sortExpireOtpEl.checked,
       filterIdsByBucket: filterIds,
+      ruleIdsByBucket: ruleIds,
     },
   });
 
   excludedSortIds.clear();
   await scanAndRender();
-  const filterCount = Object.values(filterIds).reduce((n, ids) => n + ids.length, 0);
-  const suffix = filterCount > 0 ? ` · ${filterCount} Gmail filter${filterCount === 1 ? "" : "s"}` : "";
+  const serverCount =
+    Object.values(filterIds).reduce((n, ids) => n + ids.length, 0) +
+    Object.values(ruleIds).reduce((n, ids) => n + ids.length, 0);
+  const suffix = serverCount > 0 ? ` · ${serverCount} standing filter${serverCount === 1 ? "" : "s"}` : "";
   return `Sorted ${total} into ${effective.length} label${effective.length === 1 ? "" : "s"}${suffix}`;
+}
+
+// First run only: offer to reuse a label the user already made that matches a
+// bucket name, and to leave alone senders they already filter themselves.
+async function maybeShowSeedCard() {
+  if (cachedSettings.seededFromExisting) return;
+
+  let labelNames: string[];
+  let filterTargets: string[];
+  try {
+    const token = await gmailProvider.getAuthToken(false);
+    const [names, filters] = await Promise.all([listLabelNames(token), listFilters(token)]);
+    labelNames = names;
+    filterTargets = filteredFromTargets(filters);
+  } catch (err) {
+    log.error("seed-from-existing: Gmail read failed", err);
+    return;
+  }
+
+  const bucketLabels = ALL_SORT_BUCKETS.map((b) => SORT_BUCKET_LABELS[b]);
+  const labelCandidates = findLabelReuseCandidates(
+    bucketLabels,
+    labelNames,
+    cachedSettings.clusterOwnedLabels,
+  );
+  // Don't badger the user if there's nothing useful to offer.
+  if (labelCandidates.length === 0 && filterTargets.length === 0) {
+    cachedSettings = await updateSettings({ seededFromExisting: true });
+    return;
+  }
+
+  const dismiss = async () => {
+    sortSeedCardEl.hidden = true;
+    cachedSettings = await updateSettings({ seededFromExisting: true });
+  };
+
+  sortSeedCardEl.innerHTML = "";
+  const intro = document.createElement("p");
+  intro.textContent =
+    "Cluster noticed some of your existing Gmail setup. Reuse it so “Sort my inbox” works with your organisation, not against it:";
+  sortSeedCardEl.appendChild(intro);
+
+  if (labelCandidates.length > 0) {
+    const row = document.createElement("p");
+    row.textContent = `Reuse your own label${labelCandidates.length === 1 ? "" : "s"} ${labelCandidates
+      .map((c) => `“${c.existing}”`)
+      .join(", ")} for the matching bucket${labelCandidates.length === 1 ? "" : "s"}? `;
+    const yes = document.createElement("button");
+    yes.textContent = "Reuse";
+    yes.onclick = async () => {
+      const labelChoices = { ...cachedSettings.labelChoices };
+      for (const c of labelCandidates) labelChoices[c.bucketLabel] = c.existing;
+      cachedSettings = await updateSettings({ labelChoices });
+      yes.textContent = "Reusing ✓";
+      yes.disabled = true;
+    };
+    row.appendChild(yes);
+    sortSeedCardEl.appendChild(row);
+  }
+
+  if (filterTargets.length > 0) {
+    const row = document.createElement("p");
+    row.textContent = `Leave the ${filterTargets.length} sender${
+      filterTargets.length === 1 ? "" : "s"
+    } you already filter yourself out of sorting? `;
+    const yes = document.createElement("button");
+    yes.textContent = "Skip them";
+    yes.onclick = async () => {
+      cachedSettings = await updateSettings({
+        sortOverrides: { ...cachedSettings.sortOverrides, ...skipOverridesFor(filterTargets) },
+      });
+      yes.textContent = "Skipping ✓";
+      yes.disabled = true;
+    };
+    row.appendChild(yes);
+    sortSeedCardEl.appendChild(row);
+  }
+
+  const dismissBtn = document.createElement("button");
+  dismissBtn.textContent = "Done";
+  dismissBtn.onclick = dismiss;
+  sortSeedCardEl.appendChild(dismissBtn);
+  sortSeedCardEl.hidden = false;
 }
 
 function wireSortInbox() {

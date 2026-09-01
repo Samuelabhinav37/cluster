@@ -32,6 +32,8 @@ describe("settingsStore", () => {
     expect(settings.labelChoices).toEqual({});
     expect(settings.sortOverrides).toEqual({});
     expect(settings.autoSort.filterIdsByBucket).toEqual({});
+    expect(settings.autoSort.ruleIdsByBucket).toEqual({});
+    expect(settings.seededFromExisting).toBe(false);
   });
 
   it("updateSettings merges a partial change on top of current values and persists it", async () => {
@@ -118,6 +120,32 @@ describe("settingsStore", () => {
     expect(settings.autoSort.enabledBuckets).toEqual(["shopping"]);
     expect(settings.autoSort.keepSorting).toBe(true);
     expect(settings.autoSort.filterIdsByBucket).toEqual({});
+    expect(settings.autoSort.ruleIdsByBucket).toEqual({});
+  });
+
+  it("migrates schema 6 settings with an empty Outlook rule map", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: {
+        schemaVersion: 6,
+        autoSort: { keepSorting: true, filterIdsByBucket: { shopping: ["f1"] } },
+      },
+    });
+
+    const settings = await getSettings();
+    expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(settings.autoSort.filterIdsByBucket).toEqual({ shopping: ["f1"] });
+    expect(settings.autoSort.ruleIdsByBucket).toEqual({});
+  });
+
+  it("migrates schema 7 settings with seededFromExisting defaulted false", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: { schemaVersion: 7, scanWindowDays: 12 },
+    });
+
+    const settings = await getSettings();
+    expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(settings.scanWindowDays).toBe(12);
+    expect(settings.seededFromExisting).toBe(false);
   });
 
   it("serializes concurrent partial updates so unrelated changes are preserved", async () => {

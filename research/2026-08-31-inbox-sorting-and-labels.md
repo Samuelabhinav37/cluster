@@ -347,3 +347,35 @@ MV3 constraints.
 - Notion Mail — organise your inbox with Notion AI auto-labeling: https://www.notion.com/help/guides/organize-your-inbox-with-notion-ai-auto-labeling
 - **[secondary]** Shortwave vs Superhuman (label/bundle detail): https://zapier.com/blog/shortwave-vs-superhuman/
 - **[secondary]** SaneBox accuracy / training-window figures: https://geekflare.com/software/sanebox-review/ , https://www.fahimai.com/how-to-use-sanebox
+
+---
+
+## What was built from this doc (2026-09-01)
+
+Plan `~/.claude/plans/indexed-chasing-rabbit.md`, phases committed to `master`:
+
+- **Flat labels + collision guard** (`ad10ae6`) — dropped the `Cluster/` prefix
+  everywhere; `labelResolver.ts` + `settings.clusterOwnedLabels`/`labelChoices`
+  ask once before touching a same-named label the user already made
+  (recommendation B: flat, but not blind). `getOrCreateLabel` now
+  case-insensitive.
+- **Preview + per-sender corrections** (`82fa793`) — "Sort my inbox…" opens a
+  bucket→sender→message tree (recommendation D, "non-destructive preview");
+  `settings.sortOverrides` (address → bucket | "never"), consulted first by
+  `sortTaxonomy.effectiveBucket` (recommendation "learn from corrections", the
+  local map form).
+- **Server-side keep sorting** (`5627728`, `+Phase 4`) — one real Gmail filter
+  (`serverSort.buildBucketFilter`, `gmailApi` filter CRUD) and one Outlook
+  `messageRule` (`buildBucketRule`, Graph helpers in `outlookProvider`) per
+  domain-category bucket (recommendation C / §C). Subject-kind buckets stay on
+  the client sweep. `settings.autoSort.filterIdsByBucket` / `ruleIdsByBucket`.
+- **Parent-domain fallback** in `categorizeDomain` (from the 2026-09-01
+  state-of-Cluster review, rec #1) — `email.amazon.com` → `amazon.com` now
+  resolves.
+- **Seed from existing** (`seedFromExisting.ts`) — first-run card offers to
+  reuse a matching user label and to skip senders they already filter
+  (recommendation 4 / §D).
+
+Not built: renameable buckets / editable `SORT_BUCKET_LABELS`, colored label
+group, on-device-AI kind classification (see the 2026-09-01 review's Chrome
+built-in AI verdict), bundled-inbox read view.
