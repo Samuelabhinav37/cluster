@@ -3,6 +3,11 @@
 Everything below is verified only in a real browser against a real inbox. The
 unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
 
+> The "Sort my inbox" feature now lives in `src/dashboard/sortInbox.ts` (moved
+> out of `dashboard.ts` behind the `src/dashboard/state.ts` seam). Behaviour is
+> meant to be identical — re-run the whole Sort flow below and watch the
+> console for load-order / undefined errors.
+
 ## Load
 
 1. `npm run build` (not `npm run dev` — crxjs dev server gives an unstable
