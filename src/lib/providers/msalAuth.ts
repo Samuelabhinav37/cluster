@@ -13,6 +13,17 @@ interface OutlookTokenState {
   expiresAt: number;
 }
 
+/** Outlook is no longer usable without the user signing in again — the
+ * refresh token is missing, revoked, expired, or the token endpoint
+ * returned something unusable. Carries a stable `name` so callers
+ * (graphFetch, the dashboard) can branch on it without importing the class. */
+export class OutlookReauthRequired extends Error {
+  constructor(message = "Outlook needs to be reconnected") {
+    super(message);
+    this.name = "OutlookReauthRequired";
+  }
+}
+
 // Keep extension storage unavailable to content scripts if one is added in a
 // future release. Dashboard and service-worker pages remain trusted contexts.
 if (typeof chrome !== "undefined") {
@@ -94,11 +105,25 @@ async function requestTokens(
     body,
   });
   if (!res.ok) {
-    throw new Error(`Outlook token request failed: ${res.status} ${await res.text()}`);
+    throw new OutlookReauthRequired(`Outlook token request failed: ${res.status} ${await res.text()}`);
   }
-  const data = await res.json();
-  const refreshToken = data.refresh_token ?? existingRefreshToken;
-  if (!refreshToken) throw new Error("Outlook token response did not include a refresh token");
+  // The token endpoint's response is untrusted input — a proxy error page, a
+  // truncated body, or an OAuth error object can all come back 200. Validate
+  // the fields we're about to persist and act on rather than writing
+  // `undefined` into chrome.storage.
+  const data = (await res.json().catch(() => null)) as {
+    access_token?: unknown;
+    refresh_token?: unknown;
+    expires_in?: unknown;
+  } | null;
+  if (!data || typeof data.access_token !== "string" || typeof data.expires_in !== "number") {
+    throw new OutlookReauthRequired("Outlook token response was missing an access token");
+  }
+  const refreshToken =
+    typeof data.refresh_token === "string" && data.refresh_token ? data.refresh_token : existingRefreshToken;
+  if (!refreshToken) {
+    throw new OutlookReauthRequired("Outlook token response did not include a refresh token");
+  }
   const tokens: OutlookTokenState = {
     accessToken: data.access_token,
     refreshToken,
@@ -164,6 +189,23 @@ async function refreshTokens(refreshToken: string): Promise<OutlookTokenState> {
 export async function isOutlookConnected(): Promise<boolean> {
   const tokens = await loadTokens();
   return Boolean(tokens?.refreshToken);
+}
+
+/** Refresh the access token regardless of the cached copy's stated expiry.
+ * `getOutlookToken` trusts `expiresAt` and hands back a not-yet-expired token
+ * even when Microsoft has invalidated it server-side (revocation, password
+ * change, clock skew) — the case a 401 recovery needs to break out of.
+ * Throws `OutlookReauthRequired` when the refresh token itself is gone or
+ * rejected. */
+export async function forceRefreshOutlookToken(): Promise<string> {
+  const tokens = await loadTokens();
+  if (!tokens?.refreshToken) throw new OutlookReauthRequired();
+  try {
+    const refreshed = await refreshTokens(tokens.refreshToken);
+    return refreshed.accessToken;
+  } catch (err) {
+    throw err instanceof OutlookReauthRequired ? err : new OutlookReauthRequired();
+  }
 }
 
 export async function getOutlookToken(interactive: boolean): Promise<string> {

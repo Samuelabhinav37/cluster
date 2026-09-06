@@ -49,6 +49,14 @@
         <button id="apply-scan-settings-btn">Rescan</button>
         <details id="settings-panel">
           <summary>Settings</summary>
+          <label class="setting-toggle">
+            Theme
+            <select id="theme-select">
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
           <label id="fast-delete-toggle-label" class="setting-toggle">
             <input type="checkbox" id="fast-delete-toggle" />
             Fast permanent delete for Gmail (skips Trash — cannot be undone, also applies to "Clean up";
@@ -376,8 +384,8 @@
       <section class="tab-panel" data-tab="recent" role="tabpanel" hidden>
         <h2>Recently done</h2>
         <p class="hint">
-          Everything Cluster changed, newest first, with an Undo where the action can be reversed. Populated
-          in a later build.
+          Everything Cluster changed, newest first, with an Undo where the action can be reversed. The most
+          recent background sweep is summarised at the top.
         </p>
         <div id="recent-list"></div>
       </section>

@@ -21,32 +21,23 @@ import {
   type ExpiryBucket,
 } from "../lib/expiryTriage";
 import { getElevatedAuthToken } from "../lib/gmailApi";
-import type { ProviderId } from "../lib/providers/emailProvider";
+import type { NormalizedMessageMetadata, ProviderId } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { outlookProvider } from "../lib/providers/outlookProvider";
+import { OutlookReauthRequired } from "../lib/providers/msalAuth";
 import { buildSenderSummaries, type SenderSummary } from "../lib/senderModel";
-import { getSettings, mutateSettings, updateSettings } from "../lib/settingsStore";
+import {
+  getSettings,
+  mutateSettings,
+  updateSettings,
+  type ClusterSettings,
+} from "../lib/settingsStore";
 import { activeProviders, ctx, providerById, setBridge } from "./state";
 import { maybeShowSeedCard, renderSortInbox, wireSortInbox } from "./sortInbox";
 import { excludeSnoozedMessages } from "../lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "../lib/snoozeResurface";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
-import { athenaOriginPatterns, getAthenaConfig, queueAthenaSecurityEvent } from "../lib/athenaIntegration";
-import { findBlocklistedLinkTargets, findMismatchedLinks } from "../lib/linkMismatch";
-import { isBlockedDomain } from "../lib/blocklist";
-import { riskTier, senderRiskScore } from "../lib/threatSignals";
-import {
-  describeRule,
-  DEFAULT_RULE_MAX_MESSAGES_PER_RUN,
-  findRuleConflicts,
-  MAX_RULE_MAX_MESSAGES_PER_RUN,
-  ruleHasConditions,
-  ruleRunLimit,
-  type ClusterRule,
-  type RuleAction,
-  type RuleConditions,
-} from "../lib/rules";
-import { applyRules, previewRuleMatches } from "../lib/ruleRunner";
+import { athenaOriginPatterns, getAthenaConfig } from "../lib/athenaIntegration";
 import {
   buildEngagementSuggestions,
   recordEngagementFeedback,
@@ -74,30 +65,21 @@ import {
   type SmartView,
 } from "../lib/smartViews";
 import { keepNewestExcess } from "../lib/keepNewest";
-import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "../lib/screener";
+import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
+import { renderRulesTab, wireRulesTab } from "./rulesTab";
+import { renderSecuritySection } from "./securityTab";
+import { renderScreenerTab, wireScreenerTab } from "./screenerTab";
 import {
-  appendActionLog,
-  makeLogId,
-  type ActionLogEntry,
-  type ActionLogKind,
-  type ActionLogUndo,
-} from "../lib/actionLog";
-import type { MessageKind } from "../lib/messageKind";
+  recordUnsubscribeRequests,
+  renderSubscriptionsTab,
+  wireSubscriptionsTab,
+} from "./subscriptionsTab";
 import { buildInboxHealth } from "../lib/inboxHealth";
-import { buildSenderCleanupPlan } from "../lib/protectionPolicy";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
-import { draftRuleFromNaturalLanguage } from "../lib/aiRuleDraft";
-import { buildRuleDryRunReport, describeActionSupport } from "../lib/ruleDryRun";
-import { recordRuleCompletions } from "../lib/ruleCompletionLedger";
-import {
-  evaluateUnsubscribeOutcome,
-  unsubscribeOutcomeRank,
-  type UnsubscribeOutcomeState,
-} from "../lib/unsubscribeOutcome";
+import { evaluateUnsubscribeOutcome } from "../lib/unsubscribeOutcome";
 
 const selectedSenderKeys = new Set<string>();
 const selectedDomainKeys = new Set<string>();
-const selectedSubKeys = new Set<string>();
 let currentDomainGroups: DomainGroup[] = [];
 let currentExpiryBuckets: ExpiryBucket[] = [];
 let engagementSuggestions: EngagementSuggestion[] = [];
@@ -129,13 +111,12 @@ const deleteDomainsBulkSlot = document.getElementById("delete-domains-bulk-slot"
 const bulkDeleteDomainsBtn = document.getElementById("bulk-delete-domains-btn") as HTMLButtonElement;
 
 const expirySectionEl = document.getElementById("expiry-section") as HTMLElement;
-const securitySectionEl = document.getElementById("security-section") as HTMLElement;
-const securitySenderListEl = document.getElementById("security-sender-list") as HTMLUListElement;
 const expiryBreakdownEl = document.getElementById("expiry-breakdown") as HTMLSpanElement;
 const expiryCleanupSlot = document.getElementById("expiry-cleanup-slot") as HTMLSpanElement;
 const expiryCleanupBtn = document.getElementById("expiry-cleanup-btn") as HTMLButtonElement;
 
 const fastDeleteToggle = document.getElementById("fast-delete-toggle") as HTMLInputElement;
+const themeSelect = document.getElementById("theme-select") as HTMLSelectElement;
 const autoQuarantineToggle = document.getElementById("auto-quarantine-toggle") as HTMLInputElement;
 
 const scanWindowInput = document.getElementById("scan-window-input") as HTMLInputElement;
@@ -155,42 +136,8 @@ const athenaStatusEl = document.getElementById("athena-status") as HTMLSpanEleme
 
 const tabButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("#tabs button[data-tab]"));
 const tabPanels = Array.from(document.querySelectorAll<HTMLElement>("section.tab-panel[data-tab]"));
-const securityEmptyEl = document.getElementById("security-empty") as HTMLParagraphElement;
 
-const rulesListEl = document.getElementById("rules-list") as HTMLDivElement;
-const rulePreviewEl = document.getElementById("rule-preview") as HTMLDivElement;
-const ruleForm = document.getElementById("rule-form") as HTMLFormElement;
-const ruleNameInput = document.getElementById("rule-name") as HTMLInputElement;
-const ruleFromDomainInput = document.getElementById("rule-from-domain") as HTMLInputElement;
-const ruleFromAddressInput = document.getElementById("rule-from-address") as HTMLInputElement;
-const ruleExceptDomainInput = document.getElementById("rule-except-domain") as HTMLInputElement;
-const ruleExceptAddressInput = document.getElementById("rule-except-address") as HTMLInputElement;
-const ruleOlderDaysInput = document.getElementById("rule-older-days") as HTMLInputElement;
-const ruleKindSel = document.getElementById("rule-kind") as HTMLSelectElement;
-const ruleUnsubSel = document.getElementById("rule-unsub") as HTMLSelectElement;
-const ruleUnreadSel = document.getElementById("rule-unread") as HTMLSelectElement;
-const ruleActionSel = document.getElementById("rule-action") as HTMLSelectElement;
-const ruleLabelInput = document.getElementById("rule-label") as HTMLInputElement;
-const rulePriorityInput = document.getElementById("rule-priority") as HTMLInputElement;
-const ruleLimitInput = document.getElementById("rule-limit") as HTMLInputElement;
-const ruleStopProcessingInput = document.getElementById("rule-stop-processing") as HTMLInputElement;
-const ruleFormError = document.getElementById("rule-form-error") as HTMLSpanElement;
-const ruleApplySlot = document.getElementById("rule-apply-slot") as HTMLDivElement;
-const ruleApplyBtn = document.getElementById("rule-apply-btn") as HTMLButtonElement;
-const ruleNaturalLanguageInput = document.getElementById("rule-natural-language") as HTMLInputElement;
-const ruleDraftBtn = document.getElementById("rule-draft-btn") as HTMLButtonElement;
-const ruleSaveDraftBtn = document.getElementById("rule-save-draft-btn") as HTMLButtonElement;
-const ruleDraftStatus = document.getElementById("rule-draft-status") as HTMLSpanElement;
-let pendingRuleDraft: ClusterRule | undefined;
 
-const recentListEl = document.getElementById("recent-list") as HTMLDivElement;
-
-const subsBulkBar = document.getElementById("subscriptions-bulk-bar") as HTMLDivElement;
-const subsCountEl = document.getElementById("subs-count") as HTMLSpanElement;
-const subsUnsubAllSlot = document.getElementById("subs-unsub-all-slot") as HTMLSpanElement;
-const subsUnsubAllBtn = document.getElementById("subs-unsub-all-btn") as HTMLButtonElement;
-const subsOutcomeFilter = document.getElementById("subs-outcome-filter") as HTMLSelectElement;
-const subscriptionsListEl = document.getElementById("subscriptions-list") as HTMLDivElement;
 
 const neverReadSectionEl = document.getElementById("never-read-section") as HTMLElement;
 const neverReadCountEl = document.getElementById("never-read-count") as HTMLSpanElement;
@@ -214,26 +161,69 @@ const keepNewestNInput = document.getElementById("keep-newest-n") as HTMLInputEl
 const keepNewestSlot = document.getElementById("keep-newest-slot") as HTMLSpanElement;
 const keepNewestBtn = document.getElementById("keep-newest-btn") as HTMLButtonElement;
 
-const screenerToggle = document.getElementById("screener-toggle") as HTMLInputElement;
-const screenerQueueEl = document.getElementById("screener-queue") as HTMLDivElement;
-const screenerAllowlistEl = document.getElementById("screener-allowlist") as HTMLDivElement;
 
-// ── Tabs ─────────────────────────────────────────────────────────────────
+// ── Tabs (WAI-ARIA tabs pattern) ─────────────────────────────────────────
 function showTab(name: string) {
   const target = tabButtons.some((b) => b.dataset.tab === name) ? name : "overview";
-  for (const panel of tabPanels) panel.hidden = panel.dataset.tab !== target;
-  for (const btn of tabButtons) btn.setAttribute("aria-selected", String(btn.dataset.tab === target));
+  for (const panel of tabPanels) {
+    const active = panel.dataset.tab === target;
+    panel.hidden = !active;
+    panel.tabIndex = active ? 0 : -1;
+  }
+  for (const btn of tabButtons) {
+    const active = btn.dataset.tab === target;
+    btn.setAttribute("aria-selected", String(active));
+    // Roving tabindex: only the selected tab is in the Tab order; arrows move
+    // between the rest.
+    btn.tabIndex = active ? 0 : -1;
+  }
+}
+
+async function selectTab(name: string) {
+  showTab(name);
+  ctx.settings = await updateSettings({ activeTab: name });
 }
 
 function wireTabs() {
-  showTab(ctx.settings.activeTab);
+  // Link each tab to its panel for assistive tech.
   for (const btn of tabButtons) {
-    btn.onclick = async () => {
-      const name = btn.dataset.tab!;
-      showTab(name);
-      ctx.settings = await updateSettings({ activeTab: name });
-    };
+    const name = btn.dataset.tab!;
+    const panel = tabPanels.find((p) => p.dataset.tab === name);
+    if (!panel) continue;
+    btn.id ||= `tab-${name}`;
+    panel.id ||= `tabpanel-${name}`;
+    btn.setAttribute("aria-controls", panel.id);
+    panel.setAttribute("aria-labelledby", btn.id);
+    btn.onclick = () => void selectTab(name);
   }
+
+  // Arrow / Home / End move focus within the tablist and activate, per the
+  // ARIA tabs keyboard spec.
+  document.getElementById("tabs")?.addEventListener("keydown", (event) => {
+    const keyed = event as KeyboardEvent;
+    const delta =
+      keyed.key === "ArrowRight" || keyed.key === "ArrowDown"
+        ? 1
+        : keyed.key === "ArrowLeft" || keyed.key === "ArrowUp"
+          ? -1
+          : 0;
+    let next: number | undefined;
+    if (delta !== 0) {
+      const current = tabButtons.findIndex((b) => b.getAttribute("aria-selected") === "true");
+      next = (current + delta + tabButtons.length) % tabButtons.length;
+    } else if (keyed.key === "Home") {
+      next = 0;
+    } else if (keyed.key === "End") {
+      next = tabButtons.length - 1;
+    }
+    if (next === undefined) return;
+    keyed.preventDefault();
+    const btn = tabButtons[next];
+    btn.focus();
+    void selectTab(btn.dataset.tab!);
+  });
+
+  showTab(ctx.settings.activeTab);
 }
 
 async function wireAthenaConnection() {
@@ -253,9 +243,27 @@ async function wireAthenaConnection() {
   };
 }
 
+// "system" leaves prefers-color-scheme in charge (no data-theme attribute);
+// "light"/"dark" force the palette via :root[data-theme=…] in dashboard.css.
+function applyTheme(theme: ClusterSettings["theme"]) {
+  if (theme === "system") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme;
+}
+
+function wireThemeSelect() {
+  themeSelect.value = ctx.settings.theme;
+  themeSelect.onchange = async () => {
+    const theme = themeSelect.value as ClusterSettings["theme"];
+    applyTheme(theme);
+    ctx.settings = await updateSettings({ theme });
+  };
+}
+
 async function main() {
   statusEl.textContent = "Connecting…";
   ctx.settings = await getSettings();
+  applyTheme(ctx.settings.theme);
+  wireThemeSelect();
   wireTabs();
   fastDeleteToggle.checked = ctx.settings.fastPermanentDeleteEnabled;
   wireFastDeleteToggle();
@@ -298,13 +306,14 @@ async function main() {
   };
 
   wireBulkHandlers();
-  subsOutcomeFilter.onchange = () => renderSubscriptionsTab(ctx.senders);
+  wireSubscriptionsTab();
   wireKeepNewest();
   wireSortInbox();
   wireScreenerTab();
   wireOfflineHandling();
   wireRulesTab();
-  renderRulesTab();
+  // Rules render from settings, but the dry-run inside needs a scan; let
+  // scanAndRender() below do the render so it isn't done twice on load.
   renderRecentTab();
   await wireDigest();
   maybeShowSeedCard().catch((err) => log.error("seed-from-existing card failed", err));
@@ -352,6 +361,11 @@ async function scanAndRender() {
 
   let senders: SenderSummary[];
   let securitySenders: SenderSummary[];
+  // One cache spanning both scans below. The cleanup query
+  // (category:promotions OR updates, 180d) and the security query
+  // (in:inbox, 30d) overlap on recent promotional mail still in the inbox —
+  // this fetches each such message's metadata once instead of twice.
+  const scanCache = new Map<string, NormalizedMessageMetadata>();
   try {
     senders = await buildSenderSummaries(
       activeProviders,
@@ -362,6 +376,7 @@ async function scanAndRender() {
           total > 0 ? `Scanning recent mail… ${done}/${total} messages` : "Scanning recent mail…";
       },
       "cleanup",
+      scanCache,
     );
     statusEl.textContent = "Scanning recent Inbox mail for security…";
     securitySenders = await buildSenderSummaries(
@@ -375,6 +390,7 @@ async function scanAndRender() {
             : "Scanning recent Inbox mail for security…";
       },
       "security",
+      scanCache,
     );
   } catch (err) {
     showScanError(err);
@@ -484,9 +500,34 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
 
 function showScanError(err: unknown) {
   log.error(err);
-  const message = err instanceof Error ? err.message : "unknown error";
+  // Settings-derived tabs don't need scan data — keep them populated even
+  // when the scan itself failed.
+  renderRulesTab();
   statusEl.hidden = false;
   statusEl.innerHTML = "";
+
+  // Outlook's refresh token is dead — a plain Retry would just 401 again.
+  // Offer an interactive reconnect instead.
+  if (err instanceof OutlookReauthRequired) {
+    const text = document.createElement("span");
+    text.textContent = "Your Outlook sign-in expired. ";
+    const reconnectBtn = document.createElement("button");
+    reconnectBtn.textContent = "Reconnect Outlook";
+    reconnectBtn.onclick = async () => {
+      reconnectBtn.disabled = true;
+      reconnectBtn.textContent = "Connecting…";
+      try {
+        await outlookProvider.getAuthToken(true);
+        await scanAndRender();
+      } catch (reconnectErr) {
+        showScanError(reconnectErr);
+      }
+    };
+    statusEl.append(text, reconnectBtn);
+    return;
+  }
+
+  const message = err instanceof Error ? err.message : "unknown error";
   const text = document.createElement("span");
   text.textContent = `Couldn't load your mail (${message}). `;
   const retryBtn = document.createElement("button");
@@ -531,6 +572,10 @@ function renderCategoryGroups<T>(
     details.appendChild(summary);
 
     const table = document.createElement("table");
+    const caption = document.createElement("caption");
+    caption.className = "sr-only";
+    caption.textContent = `${DOMAIN_CATEGORY_LABELS[group.category]} — ${group.items.length} ${itemNoun}, ${group.total} messages`;
+    table.appendChild(caption);
     const thead = document.createElement("thead");
     thead.appendChild(headerRow(headers));
     table.appendChild(thead);
@@ -696,28 +741,6 @@ function updateSenderBulkBar() {
   bulkUnsubscribeBtn.disabled = selectedSenderKeys.size === 0;
   bulkKeepSortedBtn.disabled = selectedSenderKeys.size === 0;
   bulkSnoozeBtn.disabled = selectedSenderKeys.size === 0;
-}
-
-// ── Confirmed-unsubscribe tracking ───────────────────────────────────────
-// Persisted so "already requested" survives a reload — senders can take up
-// to 10 business days to stop, so re-requesting isn't blocked, just labeled.
-async function recordUnsubscribeRequests(senders: SenderSummary[]) {
-  if (senders.length === 0) return;
-  const now = Date.now();
-  ctx.settings = await mutateSettings((current) => {
-    const requests = { ...current.unsubscribeRequests };
-    for (const sender of senders) requests[sender.key] = { requestedAt: now, provider: sender.provider };
-    return {
-      ...current,
-      unsubscribeRequests: requests,
-      senderEngagement: recordEngagementFeedback(
-        current.senderEngagement,
-        senders.map((sender) => sender.key),
-        "accept",
-        now,
-      ),
-    };
-  });
 }
 
 async function saveEngagementFeedback(senderKeys: string[], feedback: EngagementFeedback) {
@@ -997,177 +1020,6 @@ function buildDeleteDomainCell(group: DomainGroup): HTMLTableCellElement {
   return cell;
 }
 
-// ── Possible-impersonation (threatSignals) section ──────────────────────
-// Read-only detail plus one manual, per-sender action (labelSuspicious) --
-// never automatic, never a standing filter. See threatSignals.ts and
-// emailProvider.ts's labelSuspicious doc comment for the reasoning.
-function describeSignal(s: SenderSummary["threatSignals"][number]): string {
-  switch (s.kind) {
-    case "freemail-brand-claim":
-      return `claims to be ${s.brand}, sent from a free-mail address`;
-    case "brand-impersonation":
-      return `claims to be ${s.brand}, domain doesn't match`;
-    case "lookalike-domain":
-      return `domain closely resembles ${s.brand}'s real domain`;
-    case "failed-authentication":
-      return `failed DMARC authentication (claimed domain: ${s.brand})`;
-    case "blocklisted-domain":
-      return `sending domain (${s.brand}) is on a known-bad domain list`;
-    case "reply-to-mismatch":
-      return `replies would go to a personal address (${s.brand}), not the sender's domain`;
-    case "punycode-domain":
-      return `sender domain (${s.brand}) uses punycode — a common homograph trick`;
-    case "lure-language":
-      return `subject uses urgency / credential-request language`;
-    case "link-mismatch":
-      return `a link's visible text doesn't match where it actually goes`;
-    default: {
-      const unreachable: never = s.kind;
-      return unreachable;
-    }
-  }
-}
-
-// "SPF ✓ · DKIM ✓ · DMARC —" — a plain-language read on what the mail
-// provider's Authentication-Results header actually said about this sender.
-function authChip(v: SenderSummary["authVerdicts"]): string {
-  const mark = (verdict: string) => (verdict === "pass" ? "✓" : verdict === "fail" ? "✗" : "—");
-  return `SPF ${mark(v.spf)} · DKIM ${mark(v.dkim)} · DMARC ${mark(v.dmarc)}`;
-}
-
-// messageIds is in fetch order, not date order -- pick the genuinely most
-// recent message so "checks the most recent message" is true.
-function newestMessageId(sender: SenderSummary): string | undefined {
-  if (sender.messages.length === 0) return sender.messageIds[0];
-  return [...sender.messages].sort((a, b) => b.receivedAt - a.receivedAt)[0].id;
-}
-
-// Deep scan is the one place this dashboard fetches a message body
-// (format=full, via getMessageLinks) -- deliberately manual, one message
-// at a time, never part of the automatic triage. See linkMismatch.ts.
-async function runDeepScan(sender: SenderSummary, resultEl: HTMLElement): Promise<void> {
-  const provider = providerById.get(sender.provider);
-  const targetId = newestMessageId(sender);
-  if (!provider?.getMessageLinks || !targetId) return;
-  resultEl.textContent = "Scanning…";
-  try {
-    const token = await provider.getAuthToken(false);
-    const links = await provider.getMessageLinks(token, targetId);
-    const suspicious = findMismatchedLinks(links);
-    const blocked = findBlocklistedLinkTargets(links, isBlockedDomain);
-
-    const findings = [
-      ...suspicious.map((link) => `"${link.displayedDomain}" actually points to ${link.actualDomain}`),
-      ...blocked.map((host) => `links to ${host}, a known-bad domain`),
-    ];
-    if (findings.length === 0) {
-      resultEl.textContent = "No mismatched or known-bad links found in the most recent message.";
-      return;
-    }
-    resultEl.textContent = findings.join("; ");
-
-    const domain = sender.address.slice(sender.address.lastIndexOf("@") + 1);
-    const now = new Date().toISOString();
-    if (suspicious.length > 0) {
-      void queueAthenaSecurityEvent({
-        sourceEventId: `${sender.key}:link-mismatch:${targetId}`,
-        occurredAt: now,
-        action: "warned",
-        severity: "high",
-        ruleId: "threat-signal:link-mismatch",
-        targetIndicator: domain,
-        evidence: { kind: "link-mismatch", count: suspicious.length },
-      });
-    }
-    if (blocked.length > 0) {
-      void queueAthenaSecurityEvent({
-        sourceEventId: `${sender.key}:blocklisted-link:${targetId}`,
-        occurredAt: now,
-        action: "warned",
-        severity: "high",
-        ruleId: "threat-signal:blocklisted-link",
-        targetIndicator: domain,
-        evidence: { kind: "blocklisted-link", hosts: blocked },
-      });
-    }
-  } catch (err) {
-    resultEl.textContent = "Scan failed, try again.";
-    log.error(err);
-  }
-}
-
-function renderSecuritySection(senders: SenderSummary[]) {
-  // Rank by combined risk so a sender tripping several signals (or a
-  // freemail brand claim) sorts above one with a lone medium signal.
-  const flagged = senders
-    .filter((s) => s.threatSignals.length > 0)
-    .map((sender) => ({ sender, score: senderRiskScore(sender.threatSignals) }))
-    .sort((a, b) => b.score - a.score);
-  securitySectionEl.hidden = flagged.length === 0;
-  securityEmptyEl.hidden = flagged.length > 0;
-  if (flagged.length === 0) return;
-
-  securitySenderListEl.replaceChildren(
-    ...flagged.map(({ sender, score }) => {
-      const li = document.createElement("li");
-      const label = sender.threatSignals.map(describeSignal).join("; ");
-      const tierEl = document.createElement("strong");
-      tierEl.textContent = `${riskTier(score).toUpperCase()} risk`;
-      const text = document.createElement("span");
-      const firstContact = sender.firstContact ? " · new since Cluster started tracking" : "";
-      text.textContent = ` — ${sender.displayName || sender.address} <${sender.address}> — ${label} `;
-      const meta = document.createElement("span");
-      meta.className = "hint";
-      meta.textContent = `[${authChip(sender.authVerdicts)}]${firstContact} `;
-      li.append(tierEl, text, meta);
-
-      const provider = providerById.get(sender.provider);
-      if (provider?.labelSuspicious) {
-        const slot = document.createElement("span");
-        const btn = document.createElement("button");
-        btn.textContent = "Label as suspicious";
-        const reset = () => {
-          slot.innerHTML = "";
-          slot.appendChild(btn);
-        };
-        btn.onclick = () => {
-          renderConfirmStep(
-            slot,
-            reset,
-            `Move ${sender.messageIds.length} message${sender.messageIds.length === 1 ? "" : "s"} from ${sender.address} to a "Possible Phishing" label, out of the inbox?`,
-            false,
-            async () => {
-              const token = await provider.getAuthToken(false);
-              await provider.labelSuspicious!(token, sender.messageIds);
-              await logAction(
-                "labelSuspicious",
-                `Labelled ${sender.messageIds.length} from ${sender.address} as suspicious`,
-              );
-              return "Labeled ✓";
-            },
-          );
-        };
-        slot.appendChild(btn);
-        li.appendChild(slot);
-      }
-
-      if (provider?.getMessageLinks) {
-        const scanResult = document.createElement("span");
-        scanResult.className = "hint";
-        const scanBtn = document.createElement("button");
-        scanBtn.textContent = "Deep scan (checks links in the most recent message)";
-        scanBtn.onclick = async () => {
-          scanBtn.disabled = true;
-          await runDeepScan(sender, scanResult);
-          scanBtn.disabled = false;
-        };
-        li.append(scanBtn, scanResult);
-      }
-      return li;
-    }),
-  );
-}
-
 // ── Ready-to-clean-up (retention expiry) section ────────────────────────
 function renderExpirySection(senders: SenderSummary[]) {
   currentExpiryBuckets = buildExpiryBuckets(senders);
@@ -1328,749 +1180,9 @@ async function executeSmartDelete(merged: Map<ProviderId, string[]>): Promise<Sm
   }
 }
 
-// ── Undo (Gmail-first) ────────────────────────────────────────────────────
-// Only ever offered for ids that were moved to Trash, never permanently
-// deleted. Outlook's move-to-Deleted-Items has no undo wired up, so a
-// mixed-provider delete only restores its Gmail portion.
-function appendUndoButton(container: HTMLElement, gmailIds: string[]) {
-  if (gmailIds.length === 0 || !gmailProvider.untrashMessages) return;
-  const undoBtn = document.createElement("button");
-  undoBtn.textContent = "Undo";
-  undoBtn.onclick = async () => {
-    undoBtn.disabled = true;
-    undoBtn.textContent = "Undoing…";
-    try {
-      const token = await gmailProvider.getAuthToken(false);
-      await gmailProvider.untrashMessages!(token, gmailIds);
-      undoBtn.textContent = "Restored ✓";
-      await scanAndRender();
-    } catch (err) {
-      undoBtn.disabled = false;
-      undoBtn.textContent = "Undo failed, try again";
-      log.error(err);
-    }
-  };
-  container.appendChild(undoBtn);
-}
-
-// ── Rules tab (Auto Clean) ───────────────────────────────────────────────
-function renderRulesTab() {
-  rulesListEl.innerHTML = "";
-  renderRuleDryRun();
-  if (ctx.settings.rules.length === 0) {
-    const p = document.createElement("p");
-    p.className = "hint";
-    p.textContent = "No rules yet — add one below.";
-    rulesListEl.appendChild(p);
-    return;
-  }
-  for (const rule of ctx.settings.rules) {
-    const row = document.createElement("div");
-    row.className = "rule-row";
-
-    const toggle = document.createElement("input");
-    toggle.type = "checkbox";
-    toggle.checked = rule.enabled;
-    toggle.onchange = async () => {
-      ctx.settings = await updateSettings({
-        rules: ctx.settings.rules.map((r) => (r.id === rule.id ? { ...r, enabled: toggle.checked } : r)),
-      });
-      renderRulesTab();
-    };
-
-    const label = document.createElement("label");
-    label.append(toggle, document.createTextNode(` ${rule.name} `));
-
-    const desc = document.createElement("span");
-    desc.className = "hint";
-    const policy = `${rule.priority ?? 0}, limit ${ruleRunLimit(rule)}/run${rule.stopProcessing ? ", stops later rules" : ""}`;
-    desc.textContent = `[priority ${policy}] ${describeRule(rule)}`;
-
-    const del = document.createElement("button");
-    del.textContent = "Delete";
-    del.onclick = async () => {
-      ctx.settings = await updateSettings({
-        rules: ctx.settings.rules.filter((r) => r.id !== rule.id),
-      });
-      renderRulesTab();
-    };
-
-    row.append(label, desc, del);
-    rulesListEl.appendChild(row);
-  }
-}
-
-function renderRuleDryRun() {
-  rulePreviewEl.innerHTML = "";
-  const enabledRules = ctx.settings.rules.filter((rule) => rule.enabled);
-  if (enabledRules.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "hint";
-    empty.textContent = "Enable a rule to see its dry run.";
-    rulePreviewEl.appendChild(empty);
-    return;
-  }
-  if (ctx.senders.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "hint";
-    empty.textContent = "The dry run will appear after the current metadata scan finishes.";
-    rulePreviewEl.appendChild(empty);
-    return;
-  }
-
-  const report = buildRuleDryRunReport(ctx.settings.rules, ctx.senders, providerById);
-  const heading = document.createElement("h3");
-  heading.textContent = "Current manual dry run";
-  const summary = document.createElement("p");
-  summary.className = "hint";
-  summary.textContent = `${report.predictedRuleApplicationCount} predicted rule application${report.predictedRuleApplicationCount === 1 ? "" : "s"} touching ${report.uniqueMatchedMessageCount} unique message${report.uniqueMatchedMessageCount === 1 ? "" : "s"}; ${report.deferredByLimitCount} deferred by per-rule limits, ${report.overlapMessageCount} overlap${report.overlapMessageCount === 1 ? "" : "s"}, ${report.protectedExclusionCount} protected exclusion${report.protectedExclusionCount === 1 ? "" : "s"}, ${report.exceptionExclusionCount} rule-exception exclusion${report.exceptionExclusionCount === 1 ? "" : "s"}. Assumes supported provider calls succeed; no API call is made. This previews the confirmed manual override, so background completion receipts do not reduce these counts.`;
-  rulePreviewEl.append(heading, summary);
-
-  for (const impact of report.impacts) {
-    const details = document.createElement("details");
-    details.className = "rule-preview-row";
-    const title = document.createElement("summary");
-    title.textContent = `${impact.rule.name} — ${impact.actionableMessageCount} predicted action${impact.actionableMessageCount === 1 ? "" : "s"} across ${impact.senders.length} sender${impact.senders.length === 1 ? "" : "s"}`;
-    details.appendChild(title);
-
-    const explanation = document.createElement("p");
-    explanation.className = "hint";
-    const notes: string[] = [];
-    if (impact.overlapCount > 0) notes.push(`${impact.overlapCount} also match an earlier-priority rule`);
-    if (impact.stoppedByEarlierRuleCount > 0) {
-      notes.push(`${impact.stoppedByEarlierRuleCount} stopped by an earlier rule`);
-    }
-    if (impact.blockedByEarlierLimitCount > 0) {
-      notes.push(`${impact.blockedByEarlierLimitCount} blocked by an earlier safety limit`);
-    }
-    if (impact.deferredByLimitCount > 0) {
-      notes.push(
-        `${impact.deferredByLimitCount} deferred at the ${ruleRunLimit(impact.rule)}-message safety limit`,
-      );
-    }
-    if (impact.protectedExcludedCount > 0) {
-      notes.push(`${impact.protectedExcludedCount} starred/flagged excluded`);
-    }
-    if (impact.exceptionExcludedCount > 0) notes.push(`${impact.exceptionExcludedCount} exception excluded`);
-    explanation.textContent = notes.length > 0 ? notes.join(" · ") : "No overlaps or safety exclusions.";
-    details.appendChild(explanation);
-
-    const providerList = document.createElement("ul");
-    for (const provider of impact.providers) {
-      const item = document.createElement("li");
-      const support = provider.actions.map(describeActionSupport).join(" → ");
-      item.textContent = `${provider.provider}: ${provider.eligibleMessageCount} eligible · ${support} · ${provider.completion}`;
-      providerList.appendChild(item);
-    }
-    if (impact.providers.length === 0) {
-      const item = document.createElement("li");
-      item.textContent = "No effective matches after priority and stop-processing.";
-      providerList.appendChild(item);
-    }
-    details.appendChild(providerList);
-
-    const senderList = document.createElement("p");
-    senderList.className = "hint";
-    const shown = impact.senders.slice(0, 10).map((sender) => {
-      const name = sender.displayName ? `${sender.displayName} <${sender.address}>` : sender.address;
-      return `${name} (${sender.eligibleMessageCount})`;
-    });
-    senderList.textContent = shown.length
-      ? `Senders: ${shown.join(", ")}${impact.senders.length > shown.length ? `, +${impact.senders.length - shown.length} more` : ""}`
-      : "No sender remains eligible for this rule.";
-    details.appendChild(senderList);
-    rulePreviewEl.appendChild(details);
-  }
-}
-
-function collectRuleConditions(): RuleConditions {
-  const c: RuleConditions = {};
-  if (ruleFromDomainInput.value.trim()) c.fromDomain = ruleFromDomainInput.value.trim().toLowerCase();
-  if (ruleFromAddressInput.value.trim()) c.fromAddress = ruleFromAddressInput.value.trim().toLowerCase();
-  if (ruleOlderDaysInput.value) c.olderThanDays = Math.max(1, Number(ruleOlderDaysInput.value));
-  if (ruleKindSel.value) c.kind = ruleKindSel.value as MessageKind;
-  if (ruleUnsubSel.value) c.hasUnsubscribe = ruleUnsubSel.value === "yes";
-  if (ruleUnreadSel.value) c.unread = ruleUnreadSel.value === "yes";
-  return c;
-}
-
-function collectRuleExceptions(): RuleConditions | undefined {
-  const exceptions: RuleConditions = {};
-  if (ruleExceptDomainInput.value.trim()) {
-    exceptions.fromDomain = ruleExceptDomainInput.value.trim().toLowerCase();
-  }
-  if (ruleExceptAddressInput.value.trim()) {
-    exceptions.fromAddress = ruleExceptAddressInput.value.trim().toLowerCase();
-  }
-  return ruleHasConditions(exceptions) ? exceptions : undefined;
-}
-
-function resetRuleApplySlot() {
-  ruleApplySlot.innerHTML = "";
-  ruleApplySlot.appendChild(ruleApplyBtn);
-}
-
-function wireRulesTab() {
-  ruleActionSel.onchange = () => {
-    ruleLabelInput.hidden = ruleActionSel.value !== "label";
-  };
-
-  ruleForm.onsubmit = async (e) => {
-    e.preventDefault();
-    ruleFormError.textContent = "";
-    const conditions = collectRuleConditions();
-    if (!ruleHasConditions(conditions)) {
-      ruleFormError.textContent = "Add at least one condition.";
-      return;
-    }
-    const action = ruleActionSel.value as RuleAction;
-    const labelName = action === "label" ? ruleLabelInput.value.trim() : undefined;
-    if (action === "label" && !labelName) {
-      ruleFormError.textContent = "A label action needs a label name.";
-      return;
-    }
-    const rule: ClusterRule = {
-      id: crypto.randomUUID(),
-      name: ruleNameInput.value.trim() || "Untitled rule",
-      enabled: true,
-      conditions,
-      exceptions: collectRuleExceptions(),
-      priority: Math.max(-100, Math.min(100, Number(rulePriorityInput.value) || 0)),
-      maxMessagesPerRun: Math.max(
-        1,
-        Math.min(
-          MAX_RULE_MAX_MESSAGES_PER_RUN,
-          Number(ruleLimitInput.value) || DEFAULT_RULE_MAX_MESSAGES_PER_RUN,
-        ),
-      ),
-      stopProcessing: ruleStopProcessingInput.checked,
-      action,
-      labelName,
-    };
-    ctx.settings = await updateSettings({ rules: [...ctx.settings.rules, rule] });
-    ruleForm.reset();
-    rulePriorityInput.value = "0";
-    ruleLimitInput.value = String(DEFAULT_RULE_MAX_MESSAGES_PER_RUN);
-    ruleLabelInput.hidden = true;
-    renderRulesTab();
-  };
-
-  ruleDraftBtn.onclick = async () => {
-    ruleDraftBtn.disabled = true;
-    ruleSaveDraftBtn.disabled = true;
-    ruleDraftStatus.textContent = "Drafting locally…";
-    pendingRuleDraft = undefined;
-    try {
-      const draft = await draftRuleFromNaturalLanguage(ruleNaturalLanguageInput.value);
-      pendingRuleDraft = draft.rule;
-      const reviewRule = { ...draft.rule, enabled: true };
-      const matches = previewRuleMatches([reviewRule], ctx.senders);
-      const conflicts = findRuleConflicts([...ctx.settings.rules, reviewRule], ctx.senders).filter(
-        (conflict) => conflict.ruleIds.includes(reviewRule.id),
-      ).length;
-      ruleDraftStatus.textContent = `${draft.source === "on-device-ai" ? "On-device AI" : "Deterministic fallback"}: ${describeRule(reviewRule)}. Current preview: ${matches} match${matches === 1 ? "" : "es"}${conflicts > 0 ? `, ${conflicts} overlap${conflicts === 1 ? "" : "s"}` : ""}.`;
-      ruleSaveDraftBtn.disabled = false;
-    } catch (error) {
-      ruleDraftStatus.textContent = error instanceof Error ? error.message : "Could not draft that rule";
-    } finally {
-      ruleDraftBtn.disabled = false;
-    }
-  };
-
-  ruleSaveDraftBtn.onclick = async () => {
-    if (!pendingRuleDraft) return;
-    ctx.settings = await updateSettings({
-      rules: [...ctx.settings.rules, { ...pendingRuleDraft, enabled: true }],
-    });
-    pendingRuleDraft = undefined;
-    ruleSaveDraftBtn.disabled = true;
-    ruleNaturalLanguageInput.value = "";
-    ruleDraftStatus.textContent =
-      "Reviewed draft saved and enabled. It can run when you apply rules or during the background sweep.";
-    renderRulesTab();
-  };
-
-  ruleApplyBtn.onclick = () => {
-    const enabled = ctx.settings.rules.filter((r) => r.enabled);
-    if (enabled.length === 0) {
-      ruleFormError.textContent = "No enabled rules to apply.";
-      return;
-    }
-    const dryRun = buildRuleDryRunReport(ctx.settings.rules, ctx.senders, providerById);
-    renderConfirmStep(
-      ruleApplySlot,
-      resetRuleApplySlot,
-      `Apply ${enabled.length} rule${enabled.length === 1 ? "" : "s"} for ${dryRun.predictedRuleApplicationCount} predicted rule application${dryRun.predictedRuleApplicationCount === 1 ? "" : "s"} touching ${dryRun.uniqueMatchedMessageCount} unique message${dryRun.uniqueMatchedMessageCount === 1 ? "" : "s"}?${dryRun.overlapMessageCount > 0 ? ` ${dryRun.overlapMessageCount} message${dryRun.overlapMessageCount === 1 ? " matches" : "s match"} multiple rules; priority and stop-processing decide the order.` : ""}`,
-      false,
-      async () => {
-        const results = await applyRules(ctx.settings.rules, ctx.senders, providerById);
-        await recordRuleCompletions(
-          results.map((result) => ({
-            rule: result.rule,
-            idsByProvider: result.completedIdsByProvider,
-          })),
-        ).catch((error) => log.error("Could not record manual rule completions", error));
-        ctx.settings = await getSettings();
-        renderRecentTab();
-        const moved = results.reduce(
-          (sum, r) => sum + [...r.movedByProvider.values()].reduce((a, b) => a + b, 0),
-          0,
-        );
-        const deferred = results.reduce((sum, result) => sum + result.deferredByLimitCount, 0);
-        await scanAndRender();
-        return `Applied — ${moved} message${moved === 1 ? "" : "s"} actioned${deferred > 0 ? `, ${deferred} deferred by safety limits` : ""}`;
-      },
-    );
-  };
-}
-
-// ── Recently done (review loop) ──────────────────────────────────────────
-// Every action path calls logAction; the tab shows them newest-first with an
-// Undo where the provider exposes the matching reversal.
-async function logAction(kind: ActionLogKind, summary: string, undo?: ActionLogUndo) {
-  await appendActionLog([{ id: makeLogId(kind), at: Date.now(), kind, summary, undo }]);
-  ctx.settings = await getSettings();
-  renderRecentTab();
-}
-
-// Let sortInbox.ts (and later, other extracted tabs) trigger a rescan / write
-// the log without a circular import back into this shell.
+// sortInbox.ts and the extracted tab modules trigger a rescan through this
+// bridge; logAction lives in recentTab.ts (with the log view and undo).
 setBridge({ rescan: scanAndRender, logAction });
-
-async function undoEntry(entry: ActionLogEntry) {
-  if (!entry.undo) return;
-  const provider = providerById.get(entry.undo.provider);
-  if (!provider) throw new Error(`Provider ${entry.undo.provider} is unavailable`);
-  const token = await provider.getAuthToken(false);
-  if (entry.undo.via === "untrash") {
-    if (!provider.untrashMessages) throw new Error("This provider cannot restore trashed messages");
-    await provider.untrashMessages(token, entry.undo.ids);
-  } else if (entry.undo.via === "unarchive") {
-    if (!provider.unarchiveMessages) throw new Error("This provider cannot restore archived messages");
-    await provider.unarchiveMessages(token, entry.undo.ids);
-  } else if (entry.undo.via === "unmute" && entry.undo.fromAddress) {
-    if (!provider.unmuteSender) throw new Error("This provider cannot unmute senders");
-    await provider.unmuteSender(token, entry.undo.fromAddress, entry.undo.ids);
-  } else if (entry.undo.via === "unlabel-suspicious") {
-    if (!provider.unlabelSuspicious) throw new Error("This provider cannot remove security labels");
-    await provider.unlabelSuspicious(token, entry.undo.ids);
-  } else if (entry.undo.via === "unsort" && entry.undo.labelName) {
-    if (!provider.unlabelMessages) throw new Error("This provider cannot remove labels");
-    await provider.unlabelMessages(
-      token,
-      entry.undo.ids,
-      entry.undo.labelName,
-      entry.undo.wasFiledOut ?? false,
-    );
-  }
-  ctx.settings = await mutateSettings((current) => ({
-    ...current,
-    mutedSenders:
-      entry.undo?.via === "unmute" && entry.undo.fromAddress
-        ? current.mutedSenders.filter((address) => address !== entry.undo!.fromAddress)
-        : current.mutedSenders,
-    actionLog: current.actionLog.map((item) => (item.id === entry.id ? { ...item, undone: true } : item)),
-    senderEngagement: entry.undo?.senderKeys
-      ? recordEngagementFeedback(current.senderEngagement, entry.undo.senderKeys, "undo")
-      : current.senderEngagement,
-  }));
-  renderRecentTab();
-  await scanAndRender();
-}
-
-function renderRecentTab() {
-  recentListEl.innerHTML = "";
-
-  if (ctx.settings.lastTriageSummary) {
-    const p = document.createElement("p");
-    p.className = "hint";
-    p.textContent = `Last background sweep: ${ctx.settings.lastTriageSummary}`;
-    recentListEl.appendChild(p);
-  }
-
-  const entries = [...ctx.settings.actionLog].reverse();
-  if (entries.length === 0) {
-    const p = document.createElement("p");
-    p.className = "hint";
-    p.textContent = "Nothing done yet.";
-    recentListEl.appendChild(p);
-    return;
-  }
-
-  let lastDay = "";
-  for (const entry of entries) {
-    const day = new Date(entry.at).toLocaleDateString();
-    if (day !== lastDay) {
-      const h = document.createElement("h3");
-      h.textContent = day;
-      recentListEl.appendChild(h);
-      lastDay = day;
-    }
-
-    const row = document.createElement("div");
-    row.className = "recent-row";
-
-    const text = document.createElement("span");
-    const time = new Date(entry.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    text.textContent = `${time} — ${entry.summary}`;
-    row.appendChild(text);
-
-    if (entry.undone) {
-      const done = document.createElement("span");
-      done.className = "hint";
-      done.textContent = "undone";
-      row.appendChild(done);
-    } else if (entry.undo) {
-      const undoBtn = document.createElement("button");
-      undoBtn.textContent = "Undo";
-      undoBtn.onclick = async () => {
-        undoBtn.disabled = true;
-        undoBtn.textContent = "Undoing…";
-        try {
-          await undoEntry(entry);
-        } catch (err) {
-          undoBtn.disabled = false;
-          undoBtn.textContent = "Undo failed, try again";
-          log.error(err);
-        }
-      };
-      row.appendChild(undoBtn);
-    }
-
-    recentListEl.appendChild(row);
-  }
-}
-
-// ── Subscriptions tab ────────────────────────────────────────────────────
-function unsubMethodLabel(u: SenderSummary["unsubscribe"]): string {
-  if (u.postUrl) return "one-click";
-  if (u.httpUrl) return "page";
-  return "email";
-}
-
-function dominantKind(s: SenderSummary): string {
-  const counts = new Map<string, number>();
-  for (const m of s.messages) counts.set(m.kind, (counts.get(m.kind) ?? 0) + 1);
-  let best = "other";
-  let bestN = -1;
-  for (const [k, n] of counts) {
-    if (n > bestN) {
-      best = k;
-      bestN = n;
-    }
-  }
-  return best;
-}
-
-function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
-  const cell = document.createElement("td");
-  const u = sender.unsubscribe;
-  if (u.postUrl) {
-    const btn = document.createElement("button");
-    const tracked = ctx.settings.unsubscribeRequests[sender.key];
-    btn.textContent = tracked
-      ? evaluateUnsubscribeOutcome(sender, tracked).state === "still-sending"
-        ? "Retry unsubscribe"
-        : "Request again"
-      : "Unsubscribe";
-    btn.onclick = async () => {
-      btn.disabled = true;
-      btn.textContent = "Requesting…";
-      const ok = await fireOneClickUnsubscribe(u.postUrl!);
-      if (ok) {
-        await recordUnsubscribeRequests([sender]);
-        await logAction("unsubscribe", `Unsubscribed from ${sender.address}`);
-        renderSubscriptionsTab(ctx.senders);
-      } else {
-        btn.disabled = false;
-        btn.textContent = "Failed, retry";
-      }
-    };
-    cell.appendChild(btn);
-
-    const cleanup = buildSenderCleanupPlan(sender);
-    if (cleanup.safeNewsletterIds.length > 0) {
-      const cleanSlot = document.createElement("span");
-      const cleanBtn = document.createElement("button");
-      cleanBtn.className = "danger";
-      cleanBtn.textContent = "Unsubscribe + clean…";
-      const reset = () => {
-        cleanSlot.replaceChildren(cleanBtn);
-      };
-      cleanBtn.onclick = () => {
-        const kept = cleanup.protectedIds.length + cleanup.retainedOtherIds.length;
-        renderConfirmStep(
-          cleanSlot,
-          reset,
-          `Unsubscribe from ${sender.address} and move ${cleanup.safeNewsletterIds.length} newsletter message${cleanup.safeNewsletterIds.length === 1 ? "" : "s"} to Trash? ${kept} transactional, sensitive, starred, or ambiguous message${kept === 1 ? " stays" : "s stay"}.`,
-          true,
-          async () => {
-            const ok = await fireOneClickUnsubscribe(u.postUrl!);
-            if (!ok) return "Unsubscribe failed — no mail was moved";
-            const provider = providerById.get(sender.provider);
-            if (!provider) return "Provider unavailable — no mail was moved";
-            const job = await createDurableJob({
-              provider: sender.provider,
-              operation: "trash",
-              targetIds: cleanup.safeNewsletterIds,
-            });
-            const result = await runDurableJob(job.id, providerById);
-            await recordUnsubscribeRequests([sender]);
-            if (result.succeededIds.length > 0) {
-              await logAction(
-                "trash",
-                `Unsubscribed from ${sender.address} and moved ${result.succeededIds.length} newsletter message${result.succeededIds.length === 1 ? "" : "s"} to Trash`,
-                provider.untrashMessages
-                  ? { provider: sender.provider, ids: result.succeededIds, via: "untrash" }
-                  : undefined,
-              );
-            }
-            return result.failures.length > 0
-              ? `Unsubscribed; moved ${result.succeededIds.length}, failed ${result.failures.length}, kept ${kept}`
-              : `Unsubscribed and moved ${result.succeededIds.length} to Trash; kept ${kept}`;
-          },
-        );
-      };
-      reset();
-      cell.append(" ", cleanSlot);
-    }
-  } else if (u.mailto) {
-    const a = document.createElement("a");
-    a.href = u.mailto;
-    a.textContent = "Email";
-    a.target = "_blank";
-    cell.appendChild(a);
-  } else if (u.httpUrl) {
-    const a = document.createElement("a");
-    a.href = u.httpUrl;
-    a.textContent = "Open page";
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    cell.appendChild(a);
-  }
-
-  const readLaterPlan = buildSenderCleanupPlan(sender);
-  const provider = providerById.get(sender.provider);
-  if (readLaterPlan.safeNewsletterIds.length > 0 && provider?.labelMessages && provider.unlabelMessages) {
-    const slot = document.createElement("span");
-    const button = document.createElement("button");
-    button.textContent = "Read later…";
-    const reset = () => slot.replaceChildren(button);
-    button.onclick = () => {
-      const kept = readLaterPlan.protectedIds.length + readLaterPlan.retainedOtherIds.length;
-      renderConfirmStep(
-        slot,
-        reset,
-        `Move ${readLaterPlan.safeNewsletterIds.length} newsletter message${readLaterPlan.safeNewsletterIds.length === 1 ? "" : "s"} from ${sender.address} to a "Read Later" label? ${kept} protected or ambiguous message${kept === 1 ? " stays" : "s stay"}.`,
-        false,
-        async () => {
-          const job = await createDurableJob({
-            provider: sender.provider,
-            operation: "label",
-            targetIds: readLaterPlan.safeNewsletterIds,
-            labelName: "Read Later",
-            keepInInbox: false,
-          });
-          const result = await runDurableJob(job.id, providerById);
-          if (result.succeededIds.length > 0) {
-            await logAction(
-              "sort",
-              `Moved ${result.succeededIds.length} newsletter message${result.succeededIds.length === 1 ? "" : "s"} from ${sender.address} to Read Later`,
-              {
-                provider: sender.provider,
-                ids: result.succeededIds,
-                via: "unsort",
-                labelName: "Read Later",
-                wasFiledOut: true,
-              },
-            );
-          }
-          return result.failures.length > 0
-            ? `Moved ${result.succeededIds.length}; failed ${result.failures.length}; kept ${kept}`
-            : `Moved ${result.succeededIds.length} to Read Later; kept ${kept}`;
-        },
-      );
-    };
-    reset();
-    cell.append(" ", slot);
-  }
-  return cell;
-}
-
-function selectedUnsubscribeOutcome(): "all" | UnsubscribeOutcomeState {
-  const value = subsOutcomeFilter.value;
-  return value === "pending" || value === "quiet" || value === "still-sending" || value === "untracked"
-    ? value
-    : "all";
-}
-
-function senderAddressFromKey(key: string): string {
-  const separator = key.indexOf(":");
-  return separator >= 0 ? key.slice(separator + 1) : key;
-}
-
-function renderSubscriptionsTab(senders: SenderSummary[]) {
-  const senderByKey = new Map(senders.map((sender) => [sender.key, sender]));
-  const available = senders.filter(
-    (sender) => sender.unsubscribe.postUrl || sender.unsubscribe.httpUrl || sender.unsubscribe.mailto,
-  );
-  pruneSelection(
-    selectedSubKeys,
-    available.map((sender) => sender.key),
-  );
-
-  const currentRows = available
-    .map((sender) => ({
-      sender,
-      outcome: evaluateUnsubscribeOutcome(sender, ctx.settings.unsubscribeRequests[sender.key]),
-    }))
-    .sort(
-      (a, b) =>
-        unsubscribeOutcomeRank(a.outcome.state) - unsubscribeOutcomeRank(b.outcome.state) ||
-        b.sender.count - a.sender.count,
-    );
-  const availableKeys = new Set(available.map((sender) => sender.key));
-  const trackedOnlyRows = Object.entries(ctx.settings.unsubscribeRequests)
-    .filter(([key]) => !availableKeys.has(key))
-    .map(([key, request]) => ({
-      key,
-      request,
-      sender: senderByKey.get(key),
-      outcome: evaluateUnsubscribeOutcome(senderByKey.get(key), request),
-    }))
-    .sort(
-      (a, b) =>
-        unsubscribeOutcomeRank(a.outcome.state) - unsubscribeOutcomeRank(b.outcome.state) ||
-        b.request.requestedAt - a.request.requestedAt,
-    );
-  const selectedOutcome = selectedUnsubscribeOutcome();
-  const matchesFilter = (state: UnsubscribeOutcomeState) =>
-    selectedOutcome === "all" || state === selectedOutcome;
-  const visibleCurrentRows = currentRows.filter(({ outcome }) => matchesFilter(outcome.state));
-  const visibleTrackedOnlyRows = trackedOnlyRows.filter(({ outcome }) => matchesFilter(outcome.state));
-  const allOutcomes = [...currentRows, ...trackedOnlyRows].map(({ outcome }) => outcome);
-  const stillSendingCount = allOutcomes.filter(({ state }) => state === "still-sending").length;
-  const trackedCount = Object.keys(ctx.settings.unsubscribeRequests).length;
-  const oneClick = available.filter((sender) => sender.unsubscribe.postUrl);
-
-  subscriptionsListEl.innerHTML = "";
-  subsBulkBar.hidden = available.length === 0 && trackedCount === 0;
-  subsCountEl.textContent = `${available.length} available · ${trackedCount} tracked${stillSendingCount > 0 ? ` · ${stillSendingCount} still sending` : ""}`;
-  subsUnsubAllBtn.disabled = oneClick.length === 0;
-
-  if (available.length === 0 && trackedCount === 0) {
-    const empty = document.createElement("p");
-    empty.className = "hint";
-    empty.textContent = "No senders with an unsubscribe option or tracked request in the current scan.";
-    subscriptionsListEl.appendChild(empty);
-    return;
-  }
-
-  if (visibleCurrentRows.length > 0) {
-    const table = document.createElement("table");
-    const thead = document.createElement("thead");
-    thead.appendChild(
-      headerRow([
-        "",
-        "Sender",
-        `Count (${ctx.settings.scanWindowDays}d)`,
-        "Mostly",
-        "Method",
-        "Outcome",
-        "Action",
-      ]),
-    );
-    table.appendChild(thead);
-
-    const tbody = document.createElement("tbody");
-    for (const { sender, outcome } of visibleCurrentRows) {
-      const row = document.createElement("tr");
-
-      const cbCell = document.createElement("td");
-      if (sender.unsubscribe.postUrl) {
-        const cb = document.createElement("input");
-        cb.type = "checkbox";
-        cb.checked = selectedSubKeys.has(sender.key);
-        cb.onchange = () => {
-          if (cb.checked) selectedSubKeys.add(sender.key);
-          else selectedSubKeys.delete(sender.key);
-        };
-        cbCell.appendChild(cb);
-      }
-      row.appendChild(cbCell);
-
-      const nameCell = document.createElement("td");
-      nameCell.textContent = sender.displayName
-        ? `${sender.displayName} <${sender.address}>`
-        : sender.address;
-      row.appendChild(nameCell);
-
-      const countCell = document.createElement("td");
-      countCell.textContent = String(sender.count);
-      row.appendChild(countCell);
-
-      const kindCell = document.createElement("td");
-      kindCell.textContent = dominantKind(sender);
-      row.appendChild(kindCell);
-
-      const methodCell = document.createElement("td");
-      methodCell.textContent = unsubMethodLabel(sender.unsubscribe);
-      row.appendChild(methodCell);
-
-      const statusCell = document.createElement("td");
-      const outcomeLabel = document.createElement("div");
-      outcomeLabel.textContent = outcome.requestAt
-        ? `${outcome.label} · requested ${formatRelativeTime(outcome.requestAt)}`
-        : outcome.label;
-      const evidence = document.createElement("div");
-      evidence.className = "hint";
-      evidence.textContent = outcome.detail;
-      statusCell.append(outcomeLabel, evidence);
-      row.appendChild(statusCell);
-
-      row.appendChild(subUnsubscribeCell(sender));
-      tbody.appendChild(row);
-    }
-    table.appendChild(tbody);
-    subscriptionsListEl.appendChild(table);
-  }
-
-  if (visibleTrackedOnlyRows.length > 0) {
-    const heading = document.createElement("h3");
-    heading.textContent = "Tracked requests without a current unsubscribe option";
-    subscriptionsListEl.appendChild(heading);
-    const table = document.createElement("table");
-    const thead = document.createElement("thead");
-    thead.appendChild(headerRow(["Sender", "Provider", "Requested", "Outcome", "Evidence"]));
-    table.appendChild(thead);
-    const tbody = document.createElement("tbody");
-    for (const { key, request, outcome } of visibleTrackedOnlyRows) {
-      const row = document.createElement("tr");
-      const addressCell = document.createElement("td");
-      addressCell.textContent = senderAddressFromKey(key);
-      const providerCell = document.createElement("td");
-      providerCell.textContent = request.provider;
-      const requestedCell = document.createElement("td");
-      requestedCell.textContent = formatRelativeTime(request.requestedAt);
-      const outcomeCell = document.createElement("td");
-      outcomeCell.textContent = outcome.label;
-      const evidenceCell = document.createElement("td");
-      evidenceCell.className = "hint";
-      evidenceCell.textContent = outcome.detail;
-      row.append(addressCell, providerCell, requestedCell, outcomeCell, evidenceCell);
-      tbody.appendChild(row);
-    }
-    table.appendChild(tbody);
-    subscriptionsListEl.appendChild(table);
-  }
-
-  if (visibleCurrentRows.length === 0 && visibleTrackedOnlyRows.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "hint";
-    empty.textContent = "No subscriptions match this outcome filter.";
-    subscriptionsListEl.appendChild(empty);
-  }
-}
 
 // ── Local engagement suggestions (Clean up tab) ──────────────────────────
 function resetNeverReadSlots() {
@@ -2322,180 +1434,6 @@ function wireKeepNewest() {
   };
 }
 
-// ── Screener tab ─────────────────────────────────────────────────────────
-// Foreground mirror of background.ts's runScreener — used when the user turns
-// the Screener on so held mail moves right away rather than at the next sweep.
-async function screenPending(senders: SenderSummary[]) {
-  if (!gmailProvider.screenSender) return;
-  const token = await gmailProvider.getAuthToken(false);
-
-  if (sentCorrespondentsStale(ctx.settings) && gmailProvider.listSentCorrespondents) {
-    try {
-      const addresses = await gmailProvider.listSentCorrespondents(token);
-      ctx.settings = await updateSettings({ sentCorrespondents: { addresses, fetchedAt: Date.now() } });
-    } catch (err) {
-      log.error("Screener: sent-correspondent refresh failed", err);
-    }
-  }
-
-  const known = knownSenderSet(ctx.settings);
-  const excluded = new Set(
-    [...ctx.settings.mutedSenders, ...ctx.settings.screenedSenders].map((a) => a.toLowerCase()),
-  );
-  const pending = pendingScreenerSenders(senders, known, excluded);
-  const screened: string[] = [];
-  for (const s of pending) {
-    try {
-      await gmailProvider.screenSender(token, s.address, s.messageIds);
-      screened.push(s.address);
-    } catch (err) {
-      log.error("Screener: failed to hold", s.address, err);
-    }
-  }
-  if (screened.length > 0) {
-    ctx.settings = await updateSettings({
-      screenedSenders: [...ctx.settings.screenedSenders, ...screened],
-    });
-    await logAction(
-      "screener",
-      `Screener held ${screened.length} unknown sender${screened.length === 1 ? "" : "s"}`,
-    );
-  }
-}
-
-async function releaseHeldSender(address: string, ids: string[], decision: "allow" | "block") {
-  const token = await gmailProvider.getAuthToken(false);
-  if (decision === "allow") {
-    await gmailProvider.allowSenderThrough!(token, address, ids);
-    ctx.settings = await updateSettings({
-      screenerAllowlist: [...new Set([...ctx.settings.screenerAllowlist, address])],
-      screenedSenders: ctx.settings.screenedSenders.filter((a) => a !== address),
-    });
-    await logAction("screener", `Allowed ${address} through the Screener`);
-  } else {
-    await gmailProvider.muteSender!(token, address, ids);
-    ctx.settings = await updateSettings({
-      mutedSenders: [...new Set([...ctx.settings.mutedSenders, address])],
-      screenedSenders: ctx.settings.screenedSenders.filter((a) => a !== address),
-    });
-    await logAction("mute", `Blocked ${address} from the Screener`);
-  }
-  await scanAndRender();
-}
-
-function renderScreenerTab(senders: SenderSummary[]) {
-  screenerToggle.checked = ctx.settings.screenerEnabled;
-
-  screenerQueueEl.innerHTML = "";
-  if (!ctx.settings.screenerEnabled) {
-    const p = document.createElement("p");
-    p.className = "hint";
-    p.textContent =
-      ctx.settings.screenedSenders.length > 0
-        ? `Screener is off. ${ctx.settings.screenedSenders.length} sender(s) are still held — turn it back on to review them, or find them under the Screener label in Gmail.`
-        : "Screener is off.";
-    screenerQueueEl.appendChild(p);
-  } else {
-    const known = knownSenderSet(ctx.settings);
-    const muted = new Set(ctx.settings.mutedSenders.map((a) => a.toLowerCase()));
-    const queue = pendingScreenerSenders(senders, known, muted);
-
-    if (queue.length === 0) {
-      const p = document.createElement("p");
-      p.className = "hint";
-      p.textContent = "Nothing waiting — every sender in this scan is someone you've emailed or allowed.";
-      screenerQueueEl.appendChild(p);
-    } else {
-      const table = document.createElement("table");
-      const tbody = document.createElement("tbody");
-      for (const s of queue) {
-        const row = document.createElement("tr");
-
-        const nameCell = document.createElement("td");
-        nameCell.textContent = s.displayName ? `${s.displayName} <${s.address}>` : s.address;
-        const countCell = document.createElement("td");
-        countCell.textContent = `${s.messageIds.length} message${s.messageIds.length === 1 ? "" : "s"}`;
-
-        const actionCell = document.createElement("td");
-        const allow = document.createElement("button");
-        allow.textContent = "Allow";
-        allow.onclick = async () => {
-          allow.disabled = true;
-          try {
-            await releaseHeldSender(s.address, s.messageIds, "allow");
-          } catch (err) {
-            allow.disabled = false;
-            log.error(err);
-          }
-        };
-        const block = document.createElement("button");
-        block.className = "danger";
-        block.textContent = "Block";
-        block.onclick = async () => {
-          block.disabled = true;
-          try {
-            await releaseHeldSender(s.address, s.messageIds, "block");
-          } catch (err) {
-            block.disabled = false;
-            log.error(err);
-          }
-        };
-        actionCell.append(allow, block);
-
-        row.append(nameCell, countCell, actionCell);
-        tbody.appendChild(row);
-      }
-      table.appendChild(tbody);
-      screenerQueueEl.appendChild(table);
-    }
-  }
-
-  // Allow-list management
-  screenerAllowlistEl.innerHTML = "";
-  if (ctx.settings.screenerAllowlist.length === 0) {
-    const p = document.createElement("p");
-    p.className = "hint";
-    p.textContent = "No addresses added by hand yet (your sent mail already counts as allowed).";
-    screenerAllowlistEl.appendChild(p);
-  } else {
-    for (const address of ctx.settings.screenerAllowlist) {
-      const row = document.createElement("div");
-      row.className = "recent-row";
-      const label = document.createElement("span");
-      label.textContent = address;
-      const remove = document.createElement("button");
-      remove.textContent = "Remove";
-      remove.onclick = async () => {
-        ctx.settings = await updateSettings({
-          screenerAllowlist: ctx.settings.screenerAllowlist.filter((a) => a !== address),
-        });
-        renderScreenerTab(ctx.senders);
-      };
-      row.append(label, remove);
-      screenerAllowlistEl.appendChild(row);
-    }
-  }
-}
-
-function wireScreenerTab() {
-  screenerToggle.onchange = async () => {
-    ctx.settings = await updateSettings({ screenerEnabled: screenerToggle.checked });
-    if (screenerToggle.checked) {
-      screenerToggle.disabled = true;
-      try {
-        await screenPending(ctx.senders);
-        await scanAndRender();
-      } catch (err) {
-        log.error(err);
-      } finally {
-        screenerToggle.disabled = false;
-      }
-    } else {
-      renderScreenerTab(ctx.senders);
-    }
-  };
-}
-
 // ── Bulk action bars ─────────────────────────────────────────────────────
 function wireBulkHandlers() {
   selectSafeSendersBtn.onclick = () => {
@@ -2636,38 +1574,6 @@ function wireBulkHandlers() {
     });
   };
 
-  // ── Subscriptions: unsubscribe all verified ──
-  const resetSubsUnsubAllSlot = () => {
-    subsUnsubAllSlot.innerHTML = "";
-    subsUnsubAllSlot.appendChild(subsUnsubAllBtn);
-  };
-
-  subsUnsubAllBtn.onclick = () => {
-    const oneClick = ctx.senders.filter(
-      (s) => s.unsubscribe.postUrl && (selectedSubKeys.size === 0 || selectedSubKeys.has(s.key)),
-    );
-    if (oneClick.length === 0) return;
-    const scope = selectedSubKeys.size === 0 ? "all" : `${oneClick.length} selected`;
-    renderConfirmStep(
-      subsUnsubAllSlot,
-      resetSubsUnsubAllSlot,
-      `Send a verified one-click unsubscribe to ${scope} (${oneClick.length} sender${oneClick.length === 1 ? "" : "s"})?`,
-      false,
-      async (summary) => {
-        summary.textContent = "Requesting permission…";
-        const granted = await ensureOriginsPermission(oneClick.map((s) => s.unsubscribe.postUrl!));
-        if (!granted) return "Permission denied — nothing sent";
-        summary.textContent = "Unsubscribing…";
-        const { succeeded, failed } = await executeBulkUnsubscribe(oneClick, fireOneClickUnsubscribe);
-        await recordUnsubscribeRequests(succeeded);
-        if (succeeded.length > 0) {
-          await logAction("unsubscribe", `Bulk unsubscribed from ${succeeded.length} senders`);
-        }
-        renderSubscriptionsTab(ctx.senders);
-        return `Unsubscribed ${succeeded.length}, failed ${failed.length}`;
-      },
-    );
-  };
 
   // ── Local engagement suggestions: mute all / trash all ──
   neverReadMuteBtn.onclick = () => {

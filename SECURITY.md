@@ -68,6 +68,68 @@ verification. A third-party security assessment is additionally required when
 restricted Gmail data is stored on or transmitted through a server; Cluster's
 default no-server architecture avoids that server-data path but not verification.
 
+Per-scope justification — the features each scope powers and why nothing
+narrower works — is in [`docs/oauth-scope-justification.md`](docs/oauth-scope-justification.md).
+
+## Host permissions
+
+At install, host access is limited to the three API hosts the extension talks
+to: `gmail.googleapis.com`, `graph.microsoft.com`, and `login.microsoftonline.com`.
+
+`optional_host_permissions` lists `https://*/*`. This is **not** granted at
+install and is never requested wholesale. When the user fires a verified
+one-click unsubscribe, the extension requests access to that **one** sender's
+origin (`chrome.permissions.request({ origins: ["https://that-host/*"] })`),
+HTTPS only, at the moment of the click. The wildcard is unavoidable because an
+unsubscribe endpoint can be on any domain and MV3 requires the pattern to be
+declared in the manifest before it can be requested; the effective grant is
+always a single concrete origin the user just acted on. `src/lib/netGuard.ts`
+additionally rejects loopback, link-local, and private-range hosts before any
+such request is made.
+
+## Content Security Policy
+
+`manifest.json` sets an explicit `content_security_policy.extension_pages` of
+`script-src 'self'; object-src 'self'; base-uri 'none'`. All scripts are bundled
+and same-origin; there is no remote script, no `eval`, and no inline event
+handlers. The dashboard renders exclusively via `createElement` +
+`textContent` — every `innerHTML` write in the codebase clears an element
+(`= ""`), never injects markup.
+
+## Data retention, deletion, and revocation
+
+- **Message metadata** from a scan is held in memory only and discarded when the
+  scan completes. It is never written to disk.
+- **Settings, rules, action log, sync checkpoints, engagement counts** persist in
+  `chrome.storage.local` for this browser only. Uninstalling the extension, or
+  clearing its site data in `chrome://extensions`, removes all of it. There is
+  nothing to delete server-side because nothing is stored server-side.
+- **Gmail access** can be revoked at any time at
+  <https://myaccount.google.com/permissions>; the extension then simply stops
+  working until re-authorized.
+- **Outlook access** can be revoked at
+  <https://account.microsoft.com/privacy/app-access>. The refresh token in
+  `chrome.storage.local` becomes inert once revoked.
+- **Filters and labels** Cluster created in the user's mailbox are removed when
+  the user disables the corresponding feature, and can also be deleted by hand
+  in Gmail/Outlook like any other filter or label.
+
+### Token storage tradeoff
+
+The Outlook refresh token sits unencrypted in `chrome.storage.local`, restricted
+to trusted extension contexts (`setAccessLevel("TRUSTED_CONTEXTS")`). This is
+the standard MV3 pattern — there is no extension-local key store to encrypt it
+with that wouldn't itself live in the same place — and it is the same trust
+boundary Chrome applies to the Gmail token it custodies via `chrome.identity`.
+The access token stays in memory-backed `chrome.storage.session`.
+
+## Sub-processors
+
+None. Cluster operates no servers and uses no analytics, error-reporting, or
+third-party SDKs. The only network destinations are the Gmail API, the Microsoft
+Graph / sign-in endpoints, a per-click user-approved unsubscribe origin, and —
+only under enterprise managed policy — the organization's own Athena endpoint.
+
 ## Optional enterprise telemetry ("Athena")
 
 Dormant unless an administrator provisions it through Chrome **managed policy**
@@ -106,6 +168,12 @@ recipient addresses. The endpoint must be HTTPS. See `src/lib/athenaIntegration.
 
 ## Reporting a vulnerability
 
-Open a GitHub security advisory on
-<https://github.com/Samuelabhinav37/cluster>, or a private issue. Please
-describe the class of problem rather than posting a working exploit.
+Open a private GitHub security advisory on
+<https://github.com/Samuelabhinav37/cluster/security/advisories/new>. If that
+is not available to you, open a regular issue that describes the **class** of
+problem only, and a maintainer will follow up privately. Please do not post a
+working exploit or a step-by-step extraction path in a public issue.
+
+Expect an initial acknowledgement within a few days. Because Cluster runs
+entirely client-side with no server to patch, a fix ships as a new extension
+version through the normal release channel.

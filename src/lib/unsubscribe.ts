@@ -1,3 +1,5 @@
+import { isPublicHttpsUrl } from "./netGuard";
+
 export interface UnsubscribeInfo {
   /** RFC 8058 one-click POST endpoint with provider-trusted DKIM evidence. */
   postUrl?: string;
@@ -115,50 +117,10 @@ export function originPattern(url: string): string {
   return `${u.protocol}//${u.hostname}/*`;
 }
 
-function isPrivateIpv4(hostname: string): boolean {
-  const parts = hostname.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
-    return false;
-  }
-  const [a, b] = parts;
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    (a === 100 && b >= 64 && b <= 127) ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    a >= 224
-  );
-}
-
+// One-click unsubscribe endpoints are always public :443 web servers — the
+// strict form of the shared guard (no non-standard port, no private hosts).
 export function isAllowedOneClickUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443")) {
-      return false;
-    }
-    const hostname = url.hostname
-      .toLowerCase()
-      .replace(/^\[|\]$/g, "")
-      .replace(/\.$/, "");
-    if (!hostname || hostname === "localhost" || hostname.endsWith(".localhost")) return false;
-    if (isPrivateIpv4(hostname)) return false;
-    if (
-      hostname === "::" ||
-      hostname === "::1" ||
-      hostname.startsWith("fc") ||
-      hostname.startsWith("fd") ||
-      /^fe[89ab]/.test(hostname) ||
-      hostname.startsWith("::ffff:")
-    ) {
-      return false;
-    }
-    return true;
-  } catch {
-    return false;
-  }
+  return isPublicHttpsUrl(value);
 }
 
 // Extension declares no broad host access up front (see manifest.json's

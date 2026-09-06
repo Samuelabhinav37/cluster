@@ -153,6 +153,69 @@ describe("buildSenderSummaries", () => {
     expect(senders[0].threatSignals.filter((s) => s.kind === "brand-impersonation")).toHaveLength(1);
   });
 
+  it("fetches each message's metadata once when a cache is shared across scans", async () => {
+    // The cleanup scan sees g1,g2,g3; the security scan sees g2,g3,g4 — g2 and
+    // g3 overlap. With one shared cache, getMessageMetadata should run once per
+    // unique id (4), not once per stub across both scans (6).
+    const metas = ["g1", "g2", "g3", "g4"].map((id) => makeMeta({ id, fromAddress: `${id}@x.com` }));
+    const provider = makeProvider("gmail", metas);
+    const stubsFor = (ids: string[]) => ids.map((id) => ({ id, provider: "gmail" as const }));
+    (provider.listCandidateMessages as ReturnType<typeof vi.fn>)
+      .mockImplementationOnce(async () => stubsFor(["g1", "g2", "g3"]))
+      .mockImplementationOnce(async () => stubsFor(["g2", "g3", "g4"]));
+
+    const cache = new Map();
+    await buildSenderSummaries([provider], 500, 180, undefined, "cleanup", cache);
+    await buildSenderSummaries([provider], 500, 30, undefined, "security", cache);
+
+    expect(provider.getMessageMetadata).toHaveBeenCalledTimes(4);
+    expect(cache.size).toBe(4);
+  });
+
+  it("still fetches every message when no cache is passed", async () => {
+    const metas = ["g1", "g2"].map((id) => makeMeta({ id }));
+    const provider = makeProvider("gmail", metas);
+    await buildSenderSummaries([provider]);
+    await buildSenderSummaries([provider]);
+    expect(provider.getMessageMetadata).toHaveBeenCalledTimes(4);
+  });
+
+  it("surfaces the most alarming auth verdict across a sender's messages", async () => {
+    // Message 1 authenticates cleanly; message 2 fails DKIM and DMARC. The
+    // chip should reflect the failure, not the earlier pass.
+    const gmail = makeProvider("gmail", [
+      makeMeta({
+        id: "g1",
+        fromAddress: "s@vendor.example",
+        authenticationResults: "mx.google.com; spf=pass; dkim=pass; dmarc=pass",
+      }),
+      makeMeta({
+        id: "g2",
+        fromAddress: "s@vendor.example",
+        authenticationResults: "mx.google.com; spf=pass; dkim=fail; dmarc=fail",
+      }),
+    ]);
+
+    const senders = await buildSenderSummaries([gmail]);
+
+    expect(senders[0].authVerdicts).toEqual({ spf: "pass", dkim: "fail", dmarc: "fail" });
+  });
+
+  it("does not let a later benign softfail downgrade an earlier pass", async () => {
+    const gmail = makeProvider("gmail", [
+      makeMeta({ id: "g1", fromAddress: "s@list.example", authenticationResults: "mx.google.com; spf=pass" }),
+      makeMeta({
+        id: "g2",
+        fromAddress: "s@list.example",
+        authenticationResults: "mx.google.com; spf=softfail",
+      }),
+    ]);
+
+    const senders = await buildSenderSummaries([gmail]);
+
+    expect(senders[0].authVerdicts.spf).toBe("pass");
+  });
+
   it("computes threatSignals per sender from scoreMessageForThreats", async () => {
     const gmail = makeProvider("gmail", [
       makeMeta({ id: "g1", fromAddress: "paypal-support@gmail.com", fromDisplayName: "PayPal Support" }),

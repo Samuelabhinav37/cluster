@@ -6,7 +6,7 @@ import {
   scoreSenderIdentity,
   type ThreatSignal,
 } from "./threatSignals";
-import { parseAuthenticationResults, type AuthenticationVerdicts } from "./emailAuth";
+import { parseAuthenticationResults, type AuthenticationVerdicts, type AuthVerdict } from "./emailAuth";
 import type {
   EmailProvider,
   NormalizedMessageMetadata,
@@ -45,9 +45,10 @@ export interface SenderSummary {
    * every message from the sender and unions anything new.
    */
   threatSignals: ThreatSignal[];
-  /** Best (last non-"unknown") SPF / DKIM / DMARC verdict seen across this
-   * sender's messages -- surfaced in the Security tab as a plain-language
-   * "is this really from who it says" indicator. */
+  /** Most alarming SPF / DKIM / DMARC verdict seen across this sender's
+   * messages (fail > pass > softfail/neutral/none > unknown) -- surfaced in
+   * the Security tab as a plain-language "is this really from who it says"
+   * indicator. */
   authVerdicts: AuthenticationVerdicts;
   /** True when this sender is new since Cluster initialized its local ledger
    * (set by firstContact.ts, not by buildSenderSummaries). */
@@ -68,11 +69,22 @@ function mergeSignals(existing: ThreatSignal[], incoming: ThreatSignal[]) {
   }
 }
 
-// Keep the most informative verdict per mechanism: anything the header
-// actually stated ("pass"/"fail"/…) beats "unknown" (no such header seen).
+// Keep the most alarming verdict per mechanism across all of a sender's
+// messages: a "fail" on any one message is what a user needs to see, even if
+// an earlier message passed. Only "fail" is treated as a real negative signal
+// (see emailAuth.ts); a "pass" anywhere still beats a benign softfail/neutral
+// on a forwarded copy, and any stated verdict beats "unknown" (no header).
+const VERDICT_RANK: Record<AuthVerdict, number> = {
+  fail: 3,
+  pass: 2,
+  softfail: 1,
+  neutral: 1,
+  none: 1,
+  unknown: 0,
+};
 function mergeVerdicts(into: AuthenticationVerdicts, next: AuthenticationVerdicts) {
   for (const m of ["spf", "dkim", "dmarc"] as const) {
-    if (into[m] === "unknown" && next[m] !== "unknown") into[m] = next[m];
+    if (VERDICT_RANK[next[m]] > VERDICT_RANK[into[m]]) into[m] = next[m];
   }
 }
 
@@ -150,6 +162,11 @@ interface ProviderScanInput {
 export async function buildSenderSummariesFromStubs(
   perProvider: ProviderScanInput[],
   onProgress?: (done: number, total: number) => void,
+  // Optional cross-scan dedupe. The dashboard runs a cleanup scan and a
+  // security scan back to back; their message sets overlap (recent
+  // promotional mail still in the inbox). Passing one shared Map across both
+  // calls fetches each message's metadata once. Key: `${providerId}:${id}`.
+  metadataCache?: Map<string, NormalizedMessageMetadata>,
 ): Promise<SenderSummary[]> {
   const senders = new Map<string, SenderSummary>();
   const total = perProvider.reduce((sum, item) => sum + item.stubs.length, 0);
@@ -158,7 +175,10 @@ export async function buildSenderSummariesFromStubs(
   await Promise.all(
     perProvider.map(async ({ provider, token, stubs }) => {
       const metadatas = await mapWithConcurrency(stubs, 10, async (stub) => {
-        const meta = await provider.getMessageMetadata(token, stub.id);
+        const cacheKey = `${provider.id}:${stub.id}`;
+        const cached = metadataCache?.get(cacheKey);
+        const meta = cached ?? (await provider.getMessageMetadata(token, stub.id));
+        if (!cached) metadataCache?.set(cacheKey, meta);
         done += 1;
         onProgress?.(done, total);
         return meta;
@@ -176,6 +196,7 @@ export async function buildSenderSummaries(
   scanWindowDays = DEFAULT_SCAN_WINDOW_DAYS,
   onProgress?: (done: number, total: number) => void,
   purpose: ScanPurpose = "cleanup",
+  metadataCache?: Map<string, NormalizedMessageMetadata>,
 ): Promise<SenderSummary[]> {
   const perProvider = await Promise.all(
     providers.map(async (provider) => {
@@ -189,5 +210,5 @@ export async function buildSenderSummaries(
       return { provider, token, stubs };
     }),
   );
-  return buildSenderSummariesFromStubs(perProvider, onProgress);
+  return buildSenderSummariesFromStubs(perProvider, onProgress, metadataCache);
 }

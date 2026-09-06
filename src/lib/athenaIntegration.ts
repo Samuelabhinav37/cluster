@@ -1,4 +1,5 @@
 import { withStorageLock } from "./storageLock";
+import { isPublicHttpsUrl } from "./netGuard";
 
 export interface AthenaManagedConfig {
   tenantId: string;
@@ -27,18 +28,18 @@ const QUEUE_KEY = "athenaSecurityEventQueue";
 const MAX_QUEUE_LENGTH = 200;
 const EXPIRY_BUFFER_MS = 60_000;
 
-function isHttpsUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" && !url.username && !url.password;
-  } catch { return false; }
+// A managed policy can carry a custom port (an enterprise Athena on :8443),
+// but never a loopback / link-local / RFC 1918 literal — that's the SSRF
+// shape the shared guard rejects. Internal DNS names still pass.
+function isAthenaEndpoint(value: string): boolean {
+  return isPublicHttpsUrl(value, { allowNonStandardPort: true });
 }
 
 export function isAthenaConfigured(value: unknown): value is AthenaManagedConfig {
   if (typeof value !== "object" || value === null) return false;
   const config = value as Partial<AthenaManagedConfig>;
   return Boolean(config.tenantId && config.agentId && config.enrollmentSecret &&
-    config.tokenUrl && config.eventsUrl && isHttpsUrl(config.tokenUrl) && isHttpsUrl(config.eventsUrl));
+    config.tokenUrl && config.eventsUrl && isAthenaEndpoint(config.tokenUrl) && isAthenaEndpoint(config.eventsUrl));
 }
 
 export async function getAthenaConfig(): Promise<AthenaManagedConfig | null> {

@@ -39,6 +39,8 @@ export interface ClusterSettings {
   lastTriageSummary: string;
   /** Which dashboard tab was last open. */
   activeTab: string;
+  /** Dashboard colour theme. "system" follows prefers-color-scheme. */
+  theme: "system" | "light" | "dark";
 
   // ── Security (Phase 2) ──────────────────────────────────────────────────
   /** Provider + sender address → epoch ms first seen. After the initial
@@ -93,7 +95,7 @@ export interface ClusterSettings {
 }
 
 const STORAGE_KEY = "clusterSettings";
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 8;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 9;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -114,6 +116,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   sentCorrespondents: { addresses: [], fetchedAt: 0 },
   lastTriageSummary: "",
   activeTab: "overview",
+  theme: "system",
   knownSenders: {},
   knownSendersInitialized: false,
   incrementalSyncCursors: {},
@@ -199,6 +202,9 @@ function migrateSettings(value: unknown): Record<string, unknown> {
     } else if (version === 7) {
       stored = { ...stored, schemaVersion: 8, seededFromExisting: false };
       version = 8;
+    } else if (version === 8) {
+      stored = { ...stored, schemaVersion: 9, theme: "system" };
+      version = 9;
     }
   }
   return stored;

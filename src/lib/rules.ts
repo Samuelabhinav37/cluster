@@ -204,6 +204,22 @@ export function ruleActions(rule: ClusterRule): RuleActionSpec[] {
       ];
 }
 
+/**
+ * A human-readable warning if `rule` is dangerously broad, else null. A Trash
+ * rule with no targeting condition (sender, domain, category, or kind) would
+ * sweep every message matching only its age / read-state / unsubscribe filter
+ * to Trash on every background pass — almost never what someone means. The
+ * per-run cap limits one sweep's blast radius but the rule keeps chewing.
+ * Label / archive / mark-read rules are reversible and low-stakes, so they're
+ * not guarded.
+ */
+export function ruleGuardWarning(rule: ClusterRule): string | null {
+  if (!ruleActions(rule).some((spec) => spec.action === "trash")) return null;
+  const c = rule.conditions;
+  if (c.fromAddress || c.fromDomain || c.fromDomainCategory || c.kind) return null;
+  return "A Trash rule needs a targeting condition — a specific sender, domain, category, or message kind. As written it would move everything matching only its age / read-state / unsubscribe filter to Trash, and keep doing it on every sweep.";
+}
+
 export function orderedRules(rules: ClusterRule[]): ClusterRule[] {
   return rules
     .map((rule, index) => ({ rule, index }))

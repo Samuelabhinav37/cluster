@@ -3,7 +3,7 @@ import { fetchWithRetry } from "../httpRetry";
 import { parseListUnsubscribe } from "../unsubscribe";
 import { selectTrustedAuthenticationResults } from "../emailAuth";
 import type { EmailProvider, NormalizedMessageMetadata } from "./emailProvider";
-import { getOutlookToken, isOutlookConnected } from "./msalAuth";
+import { forceRefreshOutlookToken, getOutlookToken, isOutlookConnected } from "./msalAuth";
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 // Graph's JSON batch endpoint caps a single request at 20 sub-requests.
@@ -33,18 +33,30 @@ export class GraphBatchError extends Error {
 // touches.
 async function graphFetch<T = unknown>(path: string, token: string, init: RequestInit = {}): Promise<T> {
   const url = path.startsWith("http") ? path : `${GRAPH_BASE}${path}`;
-  const headers = new Headers(init.headers);
-  headers.set("Authorization", `Bearer ${token}`);
-  if (!headers.has("Prefer")) headers.set("Prefer", 'IdType="ImmutableId"');
-  const res = await fetchWithRetry(url, {
-    ...init,
-    headers,
-  });
-  if (!res.ok) {
-    throw new GraphApiError(res.status, `Graph API ${path} failed: ${res.status} ${await res.text()}`);
+  let bearer = token;
+  for (let attempt = 0; ; attempt++) {
+    const headers = new Headers(init.headers);
+    headers.set("Authorization", `Bearer ${bearer}`);
+    if (!headers.has("Prefer")) headers.set("Prefer", 'IdType="ImmutableId"');
+    const res = await fetchWithRetry(url, {
+      ...init,
+      headers,
+    });
+    // The stored access token can still be inside its stated lifetime yet
+    // already rejected by Microsoft (revoked grant, password change, skew).
+    // Force one refresh past the expiry check and retry; a second 401 means
+    // the refresh token is dead too and forceRefreshOutlookToken throws
+    // OutlookReauthRequired.
+    if (res.status === 401 && attempt === 0) {
+      bearer = await forceRefreshOutlookToken();
+      continue;
+    }
+    if (!res.ok) {
+      throw new GraphApiError(res.status, `Graph API ${path} failed: ${res.status} ${await res.text()}`);
+    }
+    if (res.status === 204) return null as T;
+    return (await res.json()) as T;
   }
-  if (res.status === 204) return null as T;
-  return (await res.json()) as T;
 }
 
 interface GraphMessage {

@@ -26,22 +26,56 @@ export async function getAuthToken(interactive = true): Promise<string> {
   });
 }
 
+// Drop a token from Chrome's in-memory cache so the next getAuthToken()
+// re-fetches from Google instead of handing back the same dead string.
+// Never rejects — a failure here just means the retry uses whatever
+// getAuthToken returns next.
+function removeCachedAuthToken(token: string): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      chrome.identity.removeCachedAuthToken({ token }, () => resolve());
+    } catch {
+      resolve();
+    }
+  });
+}
+
 // Thin JSON wrapper. Callers pass the response shape they read as `T`; the
 // Gmail API's own schema is the source of truth, so this doesn't try to model
 // it exhaustively — just the handful of fields each call site touches.
-async function gmailFetch<T = unknown>(path: string, token: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetchWithRetry(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      ...(init.headers ?? {}),
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  if (!res.ok) {
-    throw new GmailApiError(res.status, `Gmail API ${path} failed: ${res.status} ${await res.text()}`);
+async function gmailFetch<T = unknown>(
+  path: string,
+  token: string,
+  init: RequestInit = {},
+  // How to obtain a fresh token if `token` turns out to be stale. Defaults to
+  // the normal interactive-free path; the opt-in permanent-delete flow passes
+  // its elevated-scope getter so recovery keeps the mail.google.com scope.
+  refreshToken: () => Promise<string> = () => getAuthToken(false),
+): Promise<T> {
+  let bearer = token;
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetchWithRetry(`${API_BASE}${path}`, {
+      ...init,
+      headers: {
+        ...(init.headers ?? {}),
+        Authorization: `Bearer ${bearer}`,
+      },
+    });
+    // A Chrome-cached OAuth token that Google has since rotated or revoked
+    // comes back as 401 — fetchWithRetry deliberately doesn't retry 4xx.
+    // Evict it, get a fresh one, and retry exactly once. A second 401 is a
+    // real auth failure (grant revoked, wrong scopes) and propagates.
+    if (res.status === 401 && attempt === 0) {
+      await removeCachedAuthToken(bearer);
+      bearer = await refreshToken();
+      continue;
+    }
+    if (!res.ok) {
+      throw new GmailApiError(res.status, `Gmail API ${path} failed: ${res.status} ${await res.text()}`);
+    }
+    if (res.status === 204) return null as T;
+    return (await res.json()) as T;
   }
-  if (res.status === 204) return null as T;
-  return (await res.json()) as T;
 }
 
 interface GmailHeader {
@@ -397,11 +431,16 @@ const BATCH_DELETE_CHUNK_SIZE = 1000;
 export async function batchDeleteMessages(token: string, ids: string[]): Promise<void> {
   for (let i = 0; i < ids.length; i += BATCH_DELETE_CHUNK_SIZE) {
     const chunk = ids.slice(i, i + BATCH_DELETE_CHUNK_SIZE);
-    await gmailFetch("/users/me/messages/batchDelete", token, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: chunk }),
-    });
+    await gmailFetch(
+      "/users/me/messages/batchDelete",
+      token,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: chunk }),
+      },
+      () => getElevatedAuthToken(false),
+    );
   }
 }
 
