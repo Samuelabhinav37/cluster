@@ -28,6 +28,25 @@ const nonTestFiles = Object.entries(sources).filter(
   ([path]) => !path.endsWith(".test.ts") && !path.endsWith(".d.ts"),
 );
 
+// Markup / stylesheet sources, scanned for asset references that would pull
+// bytes from somewhere other than the extension's own origin at page load.
+const markupFiles: Record<string, string> = import.meta.glob("../**/*.{html,css}", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
+
+// Ways to reach the network that aren't `fetch(` — none of these should appear
+// anywhere under src/. Kept as source substrings so the check is greppable and
+// doesn't depend on a DOM/runtime being present.
+const FORBIDDEN_EGRESS_APIS = [
+  "XMLHttpRequest",
+  "sendBeacon",
+  "new WebSocket",
+  "new EventSource",
+  "new Image(", // an <img> src is an uncredentialed GET to anywhere — pixel tracking
+];
+
 // Every non-test file under src/ that contains a direct `fetch(` call. Adding a
 // file here is the conscious act: a reviewer has to agree the new call site is
 // legitimate and points somewhere allowed. gmailApi.ts / outlookProvider.ts are
@@ -79,5 +98,40 @@ describe("network egress invariant", () => {
     }
     // Guard against a path-convention change silently turning this into a no-op.
     expect([...seen].sort()).toEqual([...fixedEndpointFiles].sort());
+  });
+
+  it("uses no network API other than fetch()", () => {
+    const offenders: string[] = [];
+    for (const [path, text] of nonTestFiles) {
+      for (const api of FORBIDDEN_EGRESS_APIS) {
+        if (text.includes(api)) offenders.push(`${rel(path)} uses ${api}`);
+      }
+      // Dynamic import() can pull a remote module; static `import x from` and
+      // `import.meta` are fine. Match `import(` not preceded by a word char.
+      if (/(^|[^.\w])import\s*\(/.test(text)) offenders.push(`${rel(path)} uses dynamic import()`);
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("loads no markup or stylesheet asset from off-origin", () => {
+    const offenders: string[] = [];
+    for (const [path, text] of Object.entries(markupFiles)) {
+      if (/\b(?:src|href)\s*=\s*["'](?:https?:)?\/\//i.test(text)) {
+        offenders.push(`${rel(path)} has an absolute src/href`);
+      }
+      if (/@import|url\(\s*["']?(?:https?:)?\/\//i.test(text)) {
+        offenders.push(`${rel(path)} has an off-origin @import or url()`);
+      }
+    }
+    // Sanity-check the glob actually matched the dashboard files.
+    expect(Object.keys(markupFiles).length).toBeGreaterThan(0);
+    expect(offenders).toEqual([]);
+  });
+
+  it("would catch a newly introduced off-origin reference (red-case fixture)", () => {
+    const badHtml = '<img src="https://tracker.example/pixel.gif" />';
+    const badCss = '@import url("https://fonts.evil.example/x.css");';
+    expect(/\b(?:src|href)\s*=\s*["'](?:https?:)?\/\//i.test(badHtml)).toBe(true);
+    expect(/@import|url\(\s*["']?(?:https?:)?\/\//i.test(badCss)).toBe(true);
   });
 });

@@ -25,6 +25,9 @@
   "storage": {
     "managed_schema": "managed_schema.json"
   },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; base-uri 'none'"
+  },
   "permissions": ["identity", "storage", "tabs", "alarms"],
   "host_permissions": [
     "https://gmail.googleapis.com/*",

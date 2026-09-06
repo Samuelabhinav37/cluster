@@ -75,4 +75,31 @@ describe("forceRefreshOutlookToken", () => {
     );
     await expect(forceRefreshOutlookToken()).rejects.toBeInstanceOf(OutlookReauthRequired);
   });
+
+  it("rejects a 200 response that carries no access token", async () => {
+    await local.set({ [REFRESH_KEY]: { refreshToken: "rt-1" } });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, _init?: RequestInit) =>
+        Promise.resolve(tokenResponse({ token_type: "Bearer", expires_in: 3600 })),
+      ),
+    );
+    await expect(forceRefreshOutlookToken()).rejects.toBeInstanceOf(OutlookReauthRequired);
+  });
+
+  it("rejects a 200 response whose body is not JSON", async () => {
+    await local.set({ [REFRESH_KEY]: { refreshToken: "rt-1" } });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, _init?: RequestInit) =>
+        Promise.resolve(
+          new Response("<html>gateway error</html>", {
+            status: 200,
+            headers: { "Content-Type": "text/html" },
+          }),
+        ),
+      ),
+    );
+    await expect(forceRefreshOutlookToken()).rejects.toBeInstanceOf(OutlookReauthRequired);
+  });
 });
