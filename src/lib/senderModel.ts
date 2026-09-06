@@ -152,6 +152,10 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
 
 const DEFAULT_MAX_MESSAGES = 500;
 const DEFAULT_SCAN_WINDOW_DAYS = 180;
+// Each messages.get costs 5 Gmail quota units and the per-user limit is
+// per-minute, so a burst of parallel fetches is what trips the 403 rate
+// limit. 5-wide keeps the scan reasonably fast while spreading the cost.
+const METADATA_FETCH_CONCURRENCY = 5;
 
 interface ProviderScanInput {
   provider: EmailProvider;
@@ -174,7 +178,7 @@ export async function buildSenderSummariesFromStubs(
 
   await Promise.all(
     perProvider.map(async ({ provider, token, stubs }) => {
-      const metadatas = await mapWithConcurrency(stubs, 10, async (stub) => {
+      const metadatas = await mapWithConcurrency(stubs, METADATA_FETCH_CONCURRENCY, async (stub) => {
         const cacheKey = `${provider.id}:${stub.id}`;
         const cached = metadataCache?.get(cacheKey);
         const meta = cached ?? (await provider.getMessageMetadata(token, stub.id));

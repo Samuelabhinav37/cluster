@@ -41,6 +41,7 @@ const TRIAGE_ALARM = "cluster-triage";
 const ATHENA_ALARM = "cluster-athena-flush";
 const JOBS_ALARM = "cluster-jobs";
 const SECURITY_SCAN_WINDOW_DAYS = 30;
+const SECURITY_SCAN_MAX_MESSAGES = 250;
 const providerById = new Map<ProviderId, EmailProvider>([
   [gmailProvider.id, gmailProvider],
   [outlookProvider.id, outlookProvider],
@@ -199,7 +200,7 @@ async function runBackgroundTriage() {
     const securitySync = await buildIncrementalSenderSummaries(
       connected,
       settings.incrementalSyncCursors,
-      settings.maxMessagesPerProvider,
+      Math.min(settings.maxMessagesPerProvider, SECURITY_SCAN_MAX_MESSAGES),
       Math.min(settings.scanWindowDays, SECURITY_SCAN_WINDOW_DAYS),
       "security",
       undefined,

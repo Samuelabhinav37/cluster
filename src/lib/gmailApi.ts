@@ -329,7 +329,9 @@ function parseAddressList(value: string): string[] {
 export async function listSentCorrespondents(token: string, maxMessages = 300): Promise<string[]> {
   const stubs = await listMessageIds(token, "in:sent newer_than:2y", maxMessages);
   const addresses = new Set<string>();
-  await mapWithConcurrency(stubs, 10, async (stub) => {
+  // 5-wide, same rationale as senderModel's metadata fetch — this runs right
+  // after a full scan, so it adds to the same per-minute quota window.
+  await mapWithConcurrency(stubs, 5, async (stub) => {
     try {
       const params = new URLSearchParams({ format: "metadata" });
       params.append("metadataHeaders", "To");
