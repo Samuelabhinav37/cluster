@@ -12,8 +12,10 @@
   --focus-ring: #1a5fd6;
 }
 
+/* Dark palette. Applied when the OS asks for dark AND the user hasn't forced
+   light, or when the user explicitly picks dark in Settings. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #1a1a1a;
     --fg: #e8e8e8;
     --muted: #a0a0a0;
@@ -26,6 +28,20 @@
     --disabled-fg: #6f6f6f;
     --focus-ring: #6ea8ff;
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #1a1a1a;
+  --fg: #e8e8e8;
+  --muted: #a0a0a0;
+  --muted-strong: #bcbcbc;
+  --border: #3a3a3a;
+  --danger: #ff6b5b;
+  --panel-bg: #262626;
+  --input-bg: #262626;
+  --input-border: #4a4a4a;
+  --disabled-fg: #6f6f6f;
+  --focus-ring: #6ea8ff;
 }
 
 .sr-only {

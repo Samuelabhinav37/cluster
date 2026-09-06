@@ -148,6 +148,18 @@ describe("settingsStore", () => {
     expect(settings.seededFromExisting).toBe(false);
   });
 
+  it("migrates schema 8 settings with theme defaulted to system", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: { schemaVersion: 8, scanWindowDays: 9, seededFromExisting: true },
+    });
+
+    const settings = await getSettings();
+    expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(settings.scanWindowDays).toBe(9);
+    expect(settings.seededFromExisting).toBe(true);
+    expect(settings.theme).toBe("system");
+  });
+
   it("serializes concurrent partial updates so unrelated changes are preserved", async () => {
     await Promise.all([
       updateSettings({ scanWindowDays: 14 }),

@@ -201,6 +201,20 @@ describe("dashboard boot smoke", () => {
     ).toBe(false);
   });
 
+  it("applies and clears the forced theme from the Settings select", () => {
+    const select = document.getElementById("theme-select") as HTMLSelectElement;
+    expect(select.value).toBe("system");
+    expect(document.documentElement.dataset.theme).toBeUndefined();
+
+    select.value = "dark";
+    select.dispatchEvent(new Event("change"));
+    expect(document.documentElement.dataset.theme).toBe("dark");
+
+    select.value = "system";
+    select.dispatchEvent(new Event("change"));
+    expect(document.documentElement.dataset.theme).toBeUndefined();
+  });
+
   it("gives the category-group tables a screen-reader caption", () => {
     document.querySelector<HTMLButtonElement>('#tabs button[data-tab="cleanup"]')!.click();
     const caption = document.querySelector("#sender-groups table caption");

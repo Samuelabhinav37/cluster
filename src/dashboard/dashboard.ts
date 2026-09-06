@@ -26,7 +26,12 @@ import { gmailProvider } from "../lib/providers/gmailProvider";
 import { outlookProvider } from "../lib/providers/outlookProvider";
 import { OutlookReauthRequired } from "../lib/providers/msalAuth";
 import { buildSenderSummaries, type SenderSummary } from "../lib/senderModel";
-import { getSettings, mutateSettings, updateSettings } from "../lib/settingsStore";
+import {
+  getSettings,
+  mutateSettings,
+  updateSettings,
+  type ClusterSettings,
+} from "../lib/settingsStore";
 import { activeProviders, ctx, providerById, setBridge } from "./state";
 import { maybeShowSeedCard, renderSortInbox, wireSortInbox } from "./sortInbox";
 import { excludeSnoozedMessages } from "../lib/snoozeFilter";
@@ -111,6 +116,7 @@ const expiryCleanupSlot = document.getElementById("expiry-cleanup-slot") as HTML
 const expiryCleanupBtn = document.getElementById("expiry-cleanup-btn") as HTMLButtonElement;
 
 const fastDeleteToggle = document.getElementById("fast-delete-toggle") as HTMLInputElement;
+const themeSelect = document.getElementById("theme-select") as HTMLSelectElement;
 const autoQuarantineToggle = document.getElementById("auto-quarantine-toggle") as HTMLInputElement;
 
 const scanWindowInput = document.getElementById("scan-window-input") as HTMLInputElement;
@@ -237,9 +243,27 @@ async function wireAthenaConnection() {
   };
 }
 
+// "system" leaves prefers-color-scheme in charge (no data-theme attribute);
+// "light"/"dark" force the palette via :root[data-theme=…] in dashboard.css.
+function applyTheme(theme: ClusterSettings["theme"]) {
+  if (theme === "system") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme;
+}
+
+function wireThemeSelect() {
+  themeSelect.value = ctx.settings.theme;
+  themeSelect.onchange = async () => {
+    const theme = themeSelect.value as ClusterSettings["theme"];
+    applyTheme(theme);
+    ctx.settings = await updateSettings({ theme });
+  };
+}
+
 async function main() {
   statusEl.textContent = "Connecting…";
   ctx.settings = await getSettings();
+  applyTheme(ctx.settings.theme);
+  wireThemeSelect();
   wireTabs();
   fastDeleteToggle.checked = ctx.settings.fastPermanentDeleteEnabled;
   wireFastDeleteToggle();
