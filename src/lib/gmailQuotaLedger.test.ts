@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   _internals,
   clearGmailQuotaLedger,
+  gmailQuotaHeadroom,
   penalizeGmailQuota,
   reserveGmailQuota,
 } from "./gmailQuotaLedger";
@@ -37,8 +38,9 @@ function makeClock() {
 
 const { BUDGET } = _internals;
 
-beforeEach(() => {
+beforeEach(async () => {
   (globalThis as any).chrome = { storage: fakeChromeStorage() };
+  await clearGmailQuotaLedger(); // reset module state (storageOk, mem mirror)
 });
 
 describe("gmailQuotaLedger", () => {
@@ -52,19 +54,15 @@ describe("gmailQuotaLedger", () => {
 
   it("blocks once the trailing-60s spend would exceed the budget", async () => {
     const clock = makeClock();
-    // Fill the window right up to the budget.
     await reserveGmailQuota(BUDGET, clock);
     const waited = await reserveGmailQuota(20, clock);
     expect(waited).toBeGreaterThanOrEqual(60_000);
-    // After waiting out the window, the big spend has aged off.
     expect(await reserveGmailQuota(20, clock)).toBe(0);
   });
 
   it("remembers spend across separate calls — a reload can't reset it", async () => {
     const clock = makeClock();
-    // Simulates one context spending most of the budget...
     await reserveGmailQuota(BUDGET - 10, clock);
-    // ...then a "reloaded" context (same storage) trying to spend more.
     const waited = await reserveGmailQuota(100, clock);
     expect(waited).toBeGreaterThanOrEqual(60_000);
   });
@@ -88,16 +86,28 @@ describe("gmailQuotaLedger", () => {
     expect(await reserveGmailQuota(20, clock)).toBe(0);
   });
 
-  it("treats a storage read failure as an empty ledger", async () => {
+  it("reports remaining headroom in the current window", async () => {
+    const clock = makeClock();
+    expect(await gmailQuotaHeadroom(clock)).toBe(BUDGET);
+    await reserveGmailQuota(1000, clock);
+    expect(await gmailQuotaHeadroom(clock)).toBe(BUDGET - 1000);
+  });
+
+  it("keeps pacing (at half budget) when storage is unavailable instead of failing open", async () => {
     (globalThis as any).chrome = {
       storage: {
         local: {
           get: () => Promise.reject(new Error("unavailable")),
-          set: () => Promise.resolve(),
+          set: () => Promise.reject(new Error("unavailable")),
           remove: () => Promise.resolve(),
         },
       },
     };
-    expect(await reserveGmailQuota(20, makeClock())).toBe(0);
+    const clock = makeClock();
+    // First call trips the storage failure and still records in memory.
+    expect(await reserveGmailQuota(BUDGET / 2, clock)).toBe(0);
+    // Budget is halved now, so this must wait.
+    const waited = await reserveGmailQuota(20, clock);
+    expect(waited).toBeGreaterThanOrEqual(60_000);
   });
 });

@@ -68,19 +68,19 @@ describe("metadataCache", () => {
   });
 
   it("keeps only the most-recently-inserted entries past the cap", async () => {
-    // Cap is 4000; insert 4100 stale entries and confirm the oldest 100 fall off.
+    // Cap is 400; insert 450 stale entries and confirm the oldest 50 fall off.
     const cache = new Map<string, NormalizedMessageMetadata>();
-    for (let i = 0; i < 4100; i++) {
+    for (let i = 0; i < 450; i++) {
       cache.set(`gmail:m${i}`, meta(`m${i}`, NOW - FRESH_WINDOW_MS - 1));
     }
     await saveMetadataCache(cache);
 
     const loaded = await loadMetadataCache(NOW);
-    expect(loaded.size).toBe(4000);
+    expect(loaded.size).toBe(400);
     expect(loaded.has("gmail:m0")).toBe(false);
-    expect(loaded.has("gmail:m99")).toBe(false);
-    expect(loaded.has("gmail:m100")).toBe(true);
-    expect(loaded.has("gmail:m4099")).toBe(true);
+    expect(loaded.has("gmail:m49")).toBe(false);
+    expect(loaded.has("gmail:m50")).toBe(true);
+    expect(loaded.has("gmail:m449")).toBe(true);
   });
 
   it("clears the stored cache", async () => {

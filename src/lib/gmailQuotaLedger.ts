@@ -6,11 +6,13 @@ import { log } from "./log";
 // including a reloaded dashboard tab and the background service worker, which
 // are separate JS contexts with no shared memory.
 //
-// An in-memory limiter therefore can't work: each page load starts believing
-// it has a full budget and immediately fires a scan's worth of calls, and the
-// service worker double-spends alongside it. This ledger records every spend
-// in chrome.storage.local (shared by all contexts) behind a Web Lock (shared
-// too), so the trailing-60s total is real regardless of reloads or contexts.
+// An in-memory limiter therefore can't work on its own: each page load starts
+// believing it has a full budget and immediately fires a scan's worth of
+// calls, and the service worker double-spends alongside it. This ledger
+// records every spend in chrome.storage.local (shared by all contexts) behind
+// a Web Lock (shared too), so the trailing-60s total is real across reloads
+// and contexts. If storage is unavailable it degrades to a per-context
+// in-memory ledger at half budget rather than failing open (unpaced).
 
 const STORAGE_KEY = "clusterGmailQuotaLedger";
 const LOCK_KEY = "gmail-quota";
@@ -32,23 +34,39 @@ export interface LedgerDeps {
   sleep?: (ms: number) => Promise<void>;
 }
 
+// Fallback used when chrome.storage.local can't be read or written. Kept as a
+// live mirror of the last-written ledger so a mid-session storage failure
+// doesn't lose the running total.
+let memSpends: Spend[] = [];
+let storageOk = true;
+
+function currentBudget(): number {
+  // Storage down → contexts can't coordinate; be twice as cautious so two
+  // uncoordinated contexts still sum to under the real ceiling.
+  return storageOk ? BUDGET : BUDGET / 2;
+}
+
 async function readLedger(): Promise<Ledger> {
+  if (!storageOk) return { spends: [...memSpends] };
   try {
     const stored = await chrome.storage.local.get(STORAGE_KEY);
     const raw = stored[STORAGE_KEY] as Ledger | undefined;
     return raw && Array.isArray(raw.spends) ? raw : { spends: [] };
   } catch (error) {
-    log.error("gmailQuotaLedger: read failed, assuming empty", error);
-    return { spends: [] };
+    log.error("gmailQuotaLedger: read failed — degrading to in-memory pacing", error);
+    storageOk = false;
+    return { spends: [...memSpends] };
   }
 }
 
 async function writeLedger(ledger: Ledger): Promise<void> {
+  memSpends = [...ledger.spends]; // always keep the mirror current
+  if (!storageOk) return;
   try {
     await chrome.storage.local.set({ [STORAGE_KEY]: ledger });
   } catch (error) {
-    // Non-fatal: the worst case is a slightly optimistic budget next call.
-    log.error("gmailQuotaLedger: write failed", error);
+    log.error("gmailQuotaLedger: write failed — degrading to in-memory pacing", error);
+    storageOk = false;
   }
 }
 
@@ -78,7 +96,7 @@ export async function reserveGmailQuota(cost: number, deps: LedgerDeps = {}): Pr
       const t = now();
       const ledger = await readLedger();
       prune(ledger, t);
-      if (usedUnits(ledger) + cost <= BUDGET || ledger.spends.length === 0) {
+      if (usedUnits(ledger) + cost <= currentBudget() || ledger.spends.length === 0) {
         ledger.spends.push([t, cost]);
         await writeLedger(ledger);
         return { ok: true as const };
@@ -106,8 +124,24 @@ export async function penalizeGmailQuota(deps: LedgerDeps = {}): Promise<void> {
   });
 }
 
+/**
+ * How many units are still free in the current window (>= 0). Lets the
+ * background triage skip a cycle instead of adding to a scan that's already
+ * pushing the limit.
+ */
+export async function gmailQuotaHeadroom(deps: LedgerDeps = {}): Promise<number> {
+  const now = deps.now ?? Date.now;
+  return withStorageLock(LOCK_KEY, async () => {
+    const ledger = await readLedger();
+    prune(ledger, now());
+    return Math.max(0, currentBudget() - usedUnits(ledger));
+  });
+}
+
 /** Wipe the ledger. Test seam, and the manual recovery path. */
 export async function clearGmailQuotaLedger(): Promise<void> {
+  memSpends = [];
+  storageOk = true;
   try {
     await chrome.storage.local.remove(STORAGE_KEY);
   } catch (error) {

@@ -15,6 +15,7 @@ import { excludeSnoozedMessages } from "./lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
 import { flushAthenaSecurityEvents, queueAthenaSecurityEvents } from "./lib/athenaIntegration";
 import { buildIncrementalSenderSummaries } from "./lib/incrementalSync";
+import { gmailQuotaHeadroom } from "./lib/gmailQuotaLedger";
 import { loadMetadataCache, saveMetadataCache } from "./lib/metadataCache";
 import { resumeInterruptedJobs } from "./lib/durableJobs";
 import { updateEngagementObservations } from "./lib/engagementModel";
@@ -45,13 +46,13 @@ const providerById = new Map<ProviderId, EmailProvider>([
 ]);
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 1, periodInMinutes: 360 });
+  chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 5, periodInMinutes: 360 });
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 1, periodInMinutes: 360 });
+  chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 5, periodInMinutes: 360 });
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
 });
@@ -180,6 +181,14 @@ async function runBackgroundTriage() {
     const connectedFlags = await Promise.all(candidates.map((p) => p.isConnected()));
     const connected: EmailProvider[] = candidates.filter((_, i) => connectedFlags[i]);
     if (connected.length === 0) return;
+
+    // Don't pile a full background scan on top of a dashboard scan that's
+    // already near Gmail's per-minute ceiling — skip this cycle and let the
+    // 6-hourly alarm try again later.
+    if ((await gmailQuotaHeadroom()) < 1500) {
+      log.error("Background triage skipped: Gmail quota headroom low");
+      return;
+    }
 
     const settings = await getSettings();
     // Shared across the cleanup scan and the security lane so a message that

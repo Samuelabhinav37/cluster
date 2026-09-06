@@ -14,9 +14,11 @@ import type { NormalizedMessageMetadata } from "./providers/emailProvider";
 // couple of weeks, and an "Rescan" bypasses the cache entirely.
 
 const STORAGE_KEY = "clusterMetadataCache";
-// Cap the stored map. ~2 KB per entry → ~12 MB at the cap, well within the
-// unlimitedStorage-less 10 MB… so keep it conservative.
-const MAX_ENTRIES = 4000;
+// Cap the stored map conservatively. At ~1.5 KB per entry this is well under
+// 1 MB even alongside everything else in chrome.storage.local — a bloated
+// cache that fails to write would also knock out the quota ledger, which
+// shares that storage area.
+const MAX_ENTRIES = 400;
 // Mail newer than this is always re-fetched, so a freshly starred or newly
 // read message can't be served with stale label state into a bulk action.
 export const FRESH_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
