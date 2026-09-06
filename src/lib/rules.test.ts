@@ -6,6 +6,7 @@ import {
   findRuleConflicts,
   matchRule,
   orderedRules,
+  ruleGuardWarning,
   ruleHasConditions,
   ruleRunLimit,
   upsertRuleByName,
@@ -85,6 +86,44 @@ function rule(over: Partial<ClusterRule> = {}): ClusterRule {
     ...over,
   };
 }
+
+describe("ruleGuardWarning", () => {
+  it("blocks a Trash rule that only filters by age / read-state / unsubscribe", () => {
+    expect(
+      ruleGuardWarning(rule({ action: "trash", conditions: { olderThanDays: 30 } })),
+    ).toMatch(/targeting condition/);
+    expect(
+      ruleGuardWarning(rule({ action: "trash", conditions: { unread: true, hasUnsubscribe: true } })),
+    ).toMatch(/targeting condition/);
+  });
+
+  it("allows a Trash rule that targets a sender, domain, category, or kind", () => {
+    expect(ruleGuardWarning(rule({ action: "trash", conditions: { fromDomain: "x.example" } }))).toBeNull();
+    expect(ruleGuardWarning(rule({ action: "trash", conditions: { kind: "newsletter" } }))).toBeNull();
+    expect(
+      ruleGuardWarning(rule({ action: "trash", conditions: { fromDomainCategory: "shopping" } })),
+    ).toBeNull();
+  });
+
+  it("never guards reversible actions", () => {
+    expect(ruleGuardWarning(rule({ action: "archive", conditions: { olderThanDays: 7 } }))).toBeNull();
+    expect(ruleGuardWarning(rule({ action: "markRead", conditions: { unread: true } }))).toBeNull();
+    expect(
+      ruleGuardWarning(rule({ action: "label", labelName: "Old", conditions: { olderThanDays: 7 } })),
+    ).toBeNull();
+  });
+
+  it("guards a Trash action buried in an ordered actions[] list", () => {
+    expect(
+      ruleGuardWarning(
+        rule({
+          conditions: { olderThanDays: 30 },
+          actions: [{ action: "markRead" }, { action: "trash" }],
+        }),
+      ),
+    ).toMatch(/targeting condition/);
+  });
+});
 
 describe("ruleHasConditions", () => {
   it("is false for an all-empty conditions object", () => {

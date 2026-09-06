@@ -7,6 +7,7 @@ import {
   DEFAULT_RULE_MAX_MESSAGES_PER_RUN,
   findRuleConflicts,
   MAX_RULE_MAX_MESSAGES_PER_RUN,
+  ruleGuardWarning,
   ruleHasConditions,
   ruleRunLimit,
   type ClusterRule,
@@ -241,6 +242,11 @@ export function wireRulesTab() {
       action,
       labelName,
     };
+    const broad = ruleGuardWarning(rule);
+    if (broad) {
+      ruleFormError.textContent = broad;
+      return;
+    }
     ctx.settings = await updateSettings({ rules: [...ctx.settings.rules, rule] });
     ruleForm.reset();
     rulePriorityInput.value = "0";
@@ -273,6 +279,11 @@ export function wireRulesTab() {
 
   ruleSaveDraftBtn.onclick = async () => {
     if (!pendingRuleDraft) return;
+    const broad = ruleGuardWarning({ ...pendingRuleDraft, enabled: true });
+    if (broad) {
+      ruleDraftStatus.textContent = broad;
+      return;
+    }
     ctx.settings = await updateSettings({
       rules: [...ctx.settings.rules, { ...pendingRuleDraft, enabled: true }],
     });

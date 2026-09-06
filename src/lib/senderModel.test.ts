@@ -180,6 +180,42 @@ describe("buildSenderSummaries", () => {
     expect(provider.getMessageMetadata).toHaveBeenCalledTimes(4);
   });
 
+  it("surfaces the most alarming auth verdict across a sender's messages", async () => {
+    // Message 1 authenticates cleanly; message 2 fails DKIM and DMARC. The
+    // chip should reflect the failure, not the earlier pass.
+    const gmail = makeProvider("gmail", [
+      makeMeta({
+        id: "g1",
+        fromAddress: "s@vendor.example",
+        authenticationResults: "mx.google.com; spf=pass; dkim=pass; dmarc=pass",
+      }),
+      makeMeta({
+        id: "g2",
+        fromAddress: "s@vendor.example",
+        authenticationResults: "mx.google.com; spf=pass; dkim=fail; dmarc=fail",
+      }),
+    ]);
+
+    const senders = await buildSenderSummaries([gmail]);
+
+    expect(senders[0].authVerdicts).toEqual({ spf: "pass", dkim: "fail", dmarc: "fail" });
+  });
+
+  it("does not let a later benign softfail downgrade an earlier pass", async () => {
+    const gmail = makeProvider("gmail", [
+      makeMeta({ id: "g1", fromAddress: "s@list.example", authenticationResults: "mx.google.com; spf=pass" }),
+      makeMeta({
+        id: "g2",
+        fromAddress: "s@list.example",
+        authenticationResults: "mx.google.com; spf=softfail",
+      }),
+    ]);
+
+    const senders = await buildSenderSummaries([gmail]);
+
+    expect(senders[0].authVerdicts.spf).toBe("pass");
+  });
+
   it("computes threatSignals per sender from scoreMessageForThreats", async () => {
     const gmail = makeProvider("gmail", [
       makeMeta({ id: "g1", fromAddress: "paypal-support@gmail.com", fromDisplayName: "PayPal Support" }),
