@@ -17,11 +17,11 @@ import { log } from "./log";
 const STORAGE_KEY = "clusterGmailQuotaLedger";
 const LOCK_KEY = "gmail-quota";
 const WINDOW_MS = 60_000;
-// Sit well under Gmail's 6,000: the lock closes the cross-context race, but a
-// rate-limit 403 can still slip through on a retry (fetchWithRetry re-hits
-// Gmail without re-reserving), and Google's own window need not align with
-// ours. The ~1,500-unit gap absorbs both.
-const BUDGET = 4500;
+// Sit under Gmail's 6,000: the lock closes the cross-context race, so the gap
+// only needs to cover retry double-spend (fetchWithRetry re-hits Gmail without
+// re-reserving, a few ×20 units) and Google's window not aligning with ours.
+// 500 units is plenty for that; going lower just slows every scan down.
+const BUDGET = 5500;
 
 /** [epoch ms, cost in quota units] */
 type Spend = [number, number];

@@ -21,7 +21,9 @@ const STORAGE_KEY = "clusterMetadataCache";
 const MAX_ENTRIES = 400;
 // Mail newer than this is always re-fetched, so a freshly starred or newly
 // read message can't be served with stale label state into a bulk action.
-export const FRESH_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+// A week keeps the bulk of an older mailbox warm while still re-reading
+// everything the user has plausibly touched since the last scan.
+export const FRESH_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 type StoredCache = Record<string, NormalizedMessageMetadata>;
 
