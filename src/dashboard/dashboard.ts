@@ -24,6 +24,7 @@ import { getElevatedAuthToken } from "../lib/gmailApi";
 import type { ProviderId } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { outlookProvider } from "../lib/providers/outlookProvider";
+import { OutlookReauthRequired } from "../lib/providers/msalAuth";
 import { buildSenderSummaries, type SenderSummary } from "../lib/senderModel";
 import { getSettings, mutateSettings, updateSettings } from "../lib/settingsStore";
 import { activeProviders, ctx, providerById, setBridge } from "./state";
@@ -484,9 +485,31 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
 
 function showScanError(err: unknown) {
   log.error(err);
-  const message = err instanceof Error ? err.message : "unknown error";
   statusEl.hidden = false;
   statusEl.innerHTML = "";
+
+  // Outlook's refresh token is dead — a plain Retry would just 401 again.
+  // Offer an interactive reconnect instead.
+  if (err instanceof OutlookReauthRequired) {
+    const text = document.createElement("span");
+    text.textContent = "Your Outlook sign-in expired. ";
+    const reconnectBtn = document.createElement("button");
+    reconnectBtn.textContent = "Reconnect Outlook";
+    reconnectBtn.onclick = async () => {
+      reconnectBtn.disabled = true;
+      reconnectBtn.textContent = "Connecting…";
+      try {
+        await outlookProvider.getAuthToken(true);
+        await scanAndRender();
+      } catch (reconnectErr) {
+        showScanError(reconnectErr);
+      }
+    };
+    statusEl.append(text, reconnectBtn);
+    return;
+  }
+
+  const message = err instanceof Error ? err.message : "unknown error";
   const text = document.createElement("span");
   text.textContent = `Couldn't load your mail (${message}). `;
   const retryBtn = document.createElement("button");

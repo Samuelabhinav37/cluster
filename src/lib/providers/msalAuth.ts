@@ -166,6 +166,34 @@ export async function isOutlookConnected(): Promise<boolean> {
   return Boolean(tokens?.refreshToken);
 }
 
+/** Outlook is no longer usable without the user signing in again — the
+ * refresh token is missing, revoked, or expired. Carries a stable `name`
+ * so callers (graphFetch, the dashboard) can branch on it without importing
+ * the class. */
+export class OutlookReauthRequired extends Error {
+  constructor(message = "Outlook needs to be reconnected") {
+    super(message);
+    this.name = "OutlookReauthRequired";
+  }
+}
+
+/** Refresh the access token regardless of the cached copy's stated expiry.
+ * `getOutlookToken` trusts `expiresAt` and hands back a not-yet-expired token
+ * even when Microsoft has invalidated it server-side (revocation, password
+ * change, clock skew) — the case a 401 recovery needs to break out of.
+ * Throws `OutlookReauthRequired` when the refresh token itself is gone or
+ * rejected. */
+export async function forceRefreshOutlookToken(): Promise<string> {
+  const tokens = await loadTokens();
+  if (!tokens?.refreshToken) throw new OutlookReauthRequired();
+  try {
+    const refreshed = await refreshTokens(tokens.refreshToken);
+    return refreshed.accessToken;
+  } catch {
+    throw new OutlookReauthRequired();
+  }
+}
+
 export async function getOutlookToken(interactive: boolean): Promise<string> {
   let tokens = await loadTokens();
 

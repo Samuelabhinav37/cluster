@@ -1,5 +1,15 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { batchPerId, GraphBatchError, outlookProvider } from "./outlookProvider";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("./msalAuth", () => ({
+  forceRefreshOutlookToken: vi.fn(async () => "refreshed-token"),
+  getOutlookToken: vi.fn(async () => "token"),
+  isOutlookConnected: vi.fn(async () => true),
+}));
+
+import { batchPerId, GraphBatchError, getArchiveFolderId, listInboxRules, outlookProvider } from "./outlookProvider";
+import { forceRefreshOutlookToken } from "./msalAuth";
+
+const forceRefreshMock = vi.mocked(forceRefreshOutlookToken);
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -70,6 +80,49 @@ describe("Outlook JSON batching", () => {
     const patchBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
     expect(patchBody.requests[0].body.categories).toEqual(["Important", "Shopping"]);
     expect(patchBody.requests[0].headers.Prefer).toBe('IdType="ImmutableId"');
+  });
+});
+
+describe("Graph stale-token recovery", () => {
+  beforeEach(() => {
+    forceRefreshMock.mockClear();
+    forceRefreshMock.mockResolvedValue("refreshed-token");
+  });
+
+  it("force-refreshes once on a 401 and retries with the new token", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ error: "token expired" }, 401))
+      .mockResolvedValueOnce(json({ value: [{ id: "r1", displayName: "Shopping" }] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listInboxRules("stale-token")).resolves.toEqual([{ id: "r1", displayName: "Shopping" }]);
+
+    expect(forceRefreshMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect((fetchMock.mock.calls[1][1] as { headers: Headers }).headers.get("Authorization")).toBe(
+      "Bearer refreshed-token",
+    );
+  });
+
+  it("propagates a second consecutive 401 as a Graph error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => json({ error: "revoked" }, 401)),
+    );
+    await expect(listInboxRules("stale-token")).rejects.toMatchObject({ status: 401 });
+    expect(forceRefreshMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("recovers inside a helper that swallows Graph errors", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ error: "token expired" }, 401))
+      .mockResolvedValueOnce(json({ id: "archive-folder" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getArchiveFolderId("stale-token")).resolves.toBe("archive-folder");
+    expect(forceRefreshMock).toHaveBeenCalledTimes(1);
   });
 });
 
