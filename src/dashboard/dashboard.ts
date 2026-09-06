@@ -76,13 +76,7 @@ import {
 } from "../lib/smartViews";
 import { keepNewestExcess } from "../lib/keepNewest";
 import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "../lib/screener";
-import {
-  appendActionLog,
-  makeLogId,
-  type ActionLogEntry,
-  type ActionLogKind,
-  type ActionLogUndo,
-} from "../lib/actionLog";
+import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
 import type { MessageKind } from "../lib/messageKind";
 import { buildInboxHealth } from "../lib/inboxHealth";
 import { buildSenderCleanupPlan } from "../lib/protectionPolicy";
@@ -184,7 +178,6 @@ const ruleSaveDraftBtn = document.getElementById("rule-save-draft-btn") as HTMLB
 const ruleDraftStatus = document.getElementById("rule-draft-status") as HTMLSpanElement;
 let pendingRuleDraft: ClusterRule | undefined;
 
-const recentListEl = document.getElementById("recent-list") as HTMLDivElement;
 
 const subsBulkBar = document.getElementById("subscriptions-bulk-bar") as HTMLDivElement;
 const subsCountEl = document.getElementById("subs-count") as HTMLSpanElement;
@@ -1362,31 +1355,6 @@ async function executeSmartDelete(merged: Map<ProviderId, string[]>): Promise<Sm
   }
 }
 
-// ── Undo (Gmail-first) ────────────────────────────────────────────────────
-// Only ever offered for ids that were moved to Trash, never permanently
-// deleted. Outlook's move-to-Deleted-Items has no undo wired up, so a
-// mixed-provider delete only restores its Gmail portion.
-function appendUndoButton(container: HTMLElement, gmailIds: string[]) {
-  if (gmailIds.length === 0 || !gmailProvider.untrashMessages) return;
-  const undoBtn = document.createElement("button");
-  undoBtn.textContent = "Undo";
-  undoBtn.onclick = async () => {
-    undoBtn.disabled = true;
-    undoBtn.textContent = "Undoing…";
-    try {
-      const token = await gmailProvider.getAuthToken(false);
-      await gmailProvider.untrashMessages!(token, gmailIds);
-      undoBtn.textContent = "Restored ✓";
-      await scanAndRender();
-    } catch (err) {
-      undoBtn.disabled = false;
-      undoBtn.textContent = "Undo failed, try again";
-      log.error(err);
-    }
-  };
-  container.appendChild(undoBtn);
-}
-
 // ── Rules tab (Auto Clean) ───────────────────────────────────────────────
 function renderRulesTab() {
   rulesListEl.innerHTML = "";
@@ -1658,122 +1626,9 @@ function wireRulesTab() {
   };
 }
 
-// ── Recently done (review loop) ──────────────────────────────────────────
-// Every action path calls logAction; the tab shows them newest-first with an
-// Undo where the provider exposes the matching reversal.
-async function logAction(kind: ActionLogKind, summary: string, undo?: ActionLogUndo) {
-  await appendActionLog([{ id: makeLogId(kind), at: Date.now(), kind, summary, undo }]);
-  ctx.settings = await getSettings();
-  renderRecentTab();
-}
-
-// Let sortInbox.ts (and later, other extracted tabs) trigger a rescan / write
-// the log without a circular import back into this shell.
+// sortInbox.ts and the extracted tab modules trigger a rescan through this
+// bridge; logAction lives in recentTab.ts (with the log view and undo).
 setBridge({ rescan: scanAndRender, logAction });
-
-async function undoEntry(entry: ActionLogEntry) {
-  if (!entry.undo) return;
-  const provider = providerById.get(entry.undo.provider);
-  if (!provider) throw new Error(`Provider ${entry.undo.provider} is unavailable`);
-  const token = await provider.getAuthToken(false);
-  if (entry.undo.via === "untrash") {
-    if (!provider.untrashMessages) throw new Error("This provider cannot restore trashed messages");
-    await provider.untrashMessages(token, entry.undo.ids);
-  } else if (entry.undo.via === "unarchive") {
-    if (!provider.unarchiveMessages) throw new Error("This provider cannot restore archived messages");
-    await provider.unarchiveMessages(token, entry.undo.ids);
-  } else if (entry.undo.via === "unmute" && entry.undo.fromAddress) {
-    if (!provider.unmuteSender) throw new Error("This provider cannot unmute senders");
-    await provider.unmuteSender(token, entry.undo.fromAddress, entry.undo.ids);
-  } else if (entry.undo.via === "unlabel-suspicious") {
-    if (!provider.unlabelSuspicious) throw new Error("This provider cannot remove security labels");
-    await provider.unlabelSuspicious(token, entry.undo.ids);
-  } else if (entry.undo.via === "unsort" && entry.undo.labelName) {
-    if (!provider.unlabelMessages) throw new Error("This provider cannot remove labels");
-    await provider.unlabelMessages(
-      token,
-      entry.undo.ids,
-      entry.undo.labelName,
-      entry.undo.wasFiledOut ?? false,
-    );
-  }
-  ctx.settings = await mutateSettings((current) => ({
-    ...current,
-    mutedSenders:
-      entry.undo?.via === "unmute" && entry.undo.fromAddress
-        ? current.mutedSenders.filter((address) => address !== entry.undo!.fromAddress)
-        : current.mutedSenders,
-    actionLog: current.actionLog.map((item) => (item.id === entry.id ? { ...item, undone: true } : item)),
-    senderEngagement: entry.undo?.senderKeys
-      ? recordEngagementFeedback(current.senderEngagement, entry.undo.senderKeys, "undo")
-      : current.senderEngagement,
-  }));
-  renderRecentTab();
-  await scanAndRender();
-}
-
-function renderRecentTab() {
-  recentListEl.innerHTML = "";
-
-  if (ctx.settings.lastTriageSummary) {
-    const p = document.createElement("p");
-    p.className = "hint";
-    p.textContent = `Last background sweep: ${ctx.settings.lastTriageSummary}`;
-    recentListEl.appendChild(p);
-  }
-
-  const entries = [...ctx.settings.actionLog].reverse();
-  if (entries.length === 0) {
-    const p = document.createElement("p");
-    p.className = "hint";
-    p.textContent = "Nothing done yet.";
-    recentListEl.appendChild(p);
-    return;
-  }
-
-  let lastDay = "";
-  for (const entry of entries) {
-    const day = new Date(entry.at).toLocaleDateString();
-    if (day !== lastDay) {
-      const h = document.createElement("h3");
-      h.textContent = day;
-      recentListEl.appendChild(h);
-      lastDay = day;
-    }
-
-    const row = document.createElement("div");
-    row.className = "recent-row";
-
-    const text = document.createElement("span");
-    const time = new Date(entry.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    text.textContent = `${time} — ${entry.summary}`;
-    row.appendChild(text);
-
-    if (entry.undone) {
-      const done = document.createElement("span");
-      done.className = "hint";
-      done.textContent = "undone";
-      row.appendChild(done);
-    } else if (entry.undo) {
-      const undoBtn = document.createElement("button");
-      undoBtn.textContent = "Undo";
-      undoBtn.onclick = async () => {
-        undoBtn.disabled = true;
-        undoBtn.textContent = "Undoing…";
-        try {
-          await undoEntry(entry);
-        } catch (err) {
-          undoBtn.disabled = false;
-          undoBtn.textContent = "Undo failed, try again";
-          log.error(err);
-        }
-      };
-      row.appendChild(undoBtn);
-    }
-
-    recentListEl.appendChild(row);
-  }
-}
 
 // ── Subscriptions tab ────────────────────────────────────────────────────
 function unsubMethodLabel(u: SenderSummary["unsubscribe"]): string {
