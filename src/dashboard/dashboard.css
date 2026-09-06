@@ -184,7 +184,7 @@ table td:first-child {
   margin-bottom: 0.2rem;
 }
 
-#scan-settings-bar input[type="number"] {
+#top-bar input[type="number"] {
   width: 5em;
   margin-left: 0.35em;
   padding: 0.25rem;
