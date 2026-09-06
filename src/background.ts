@@ -2,7 +2,11 @@ import { log } from "./lib/log";
 import { buildExpiryBuckets, totalExpiryCount } from "./lib/expiryTriage";
 import { gmailProvider } from "./lib/providers/gmailProvider";
 import { outlookProvider } from "./lib/providers/outlookProvider";
-import type { EmailProvider, ProviderId } from "./lib/providers/emailProvider";
+import type {
+  EmailProvider,
+  NormalizedMessageMetadata,
+  ProviderId,
+} from "./lib/providers/emailProvider";
 import { applyRules } from "./lib/ruleRunner";
 import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "./lib/screener";
 import { markFirstContact } from "./lib/firstContact";
@@ -180,12 +184,17 @@ async function runBackgroundTriage() {
     if (connected.length === 0) return;
 
     const settings = await getSettings();
+    // Shared across the cleanup scan and the security lane so a message that
+    // shows up in both (recent inbox promo mail, or a full security-baseline
+    // rebuild) is fetched once.
+    const scanCache = new Map<string, NormalizedMessageMetadata>();
     let senders = await buildSenderSummaries(
       connected,
       settings.maxMessagesPerProvider,
       settings.scanWindowDays,
       undefined,
       "cleanup",
+      scanCache,
     );
     const securitySync = await buildIncrementalSenderSummaries(
       connected,
@@ -193,6 +202,8 @@ async function runBackgroundTriage() {
       settings.maxMessagesPerProvider,
       Math.min(settings.scanWindowDays, SECURITY_SCAN_WINDOW_DAYS),
       "security",
+      undefined,
+      scanCache,
     );
     const securitySenders = securitySync.senders;
     const activeSnoozedIds = new Set(

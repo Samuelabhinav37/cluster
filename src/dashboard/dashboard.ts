@@ -21,7 +21,7 @@ import {
   type ExpiryBucket,
 } from "../lib/expiryTriage";
 import { getElevatedAuthToken } from "../lib/gmailApi";
-import type { ProviderId } from "../lib/providers/emailProvider";
+import type { NormalizedMessageMetadata, ProviderId } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { outlookProvider } from "../lib/providers/outlookProvider";
 import { OutlookReauthRequired } from "../lib/providers/msalAuth";
@@ -305,7 +305,8 @@ async function main() {
   wireScreenerTab();
   wireOfflineHandling();
   wireRulesTab();
-  renderRulesTab();
+  // Rules render from settings, but the dry-run inside needs a scan; let
+  // scanAndRender() below do the render so it isn't done twice on load.
   renderRecentTab();
   await wireDigest();
   maybeShowSeedCard().catch((err) => log.error("seed-from-existing card failed", err));
@@ -353,6 +354,11 @@ async function scanAndRender() {
 
   let senders: SenderSummary[];
   let securitySenders: SenderSummary[];
+  // One cache spanning both scans below. The cleanup query
+  // (category:promotions OR updates, 180d) and the security query
+  // (in:inbox, 30d) overlap on recent promotional mail still in the inbox —
+  // this fetches each such message's metadata once instead of twice.
+  const scanCache = new Map<string, NormalizedMessageMetadata>();
   try {
     senders = await buildSenderSummaries(
       activeProviders,
@@ -363,6 +369,7 @@ async function scanAndRender() {
           total > 0 ? `Scanning recent mail… ${done}/${total} messages` : "Scanning recent mail…";
       },
       "cleanup",
+      scanCache,
     );
     statusEl.textContent = "Scanning recent Inbox mail for security…";
     securitySenders = await buildSenderSummaries(
@@ -376,6 +383,7 @@ async function scanAndRender() {
             : "Scanning recent Inbox mail for security…";
       },
       "security",
+      scanCache,
     );
   } catch (err) {
     showScanError(err);
@@ -485,6 +493,9 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
 
 function showScanError(err: unknown) {
   log.error(err);
+  // Settings-derived tabs don't need scan data — keep them populated even
+  // when the scan itself failed.
+  renderRulesTab();
   statusEl.hidden = false;
   statusEl.innerHTML = "";
 

@@ -150,6 +150,11 @@ interface ProviderScanInput {
 export async function buildSenderSummariesFromStubs(
   perProvider: ProviderScanInput[],
   onProgress?: (done: number, total: number) => void,
+  // Optional cross-scan dedupe. The dashboard runs a cleanup scan and a
+  // security scan back to back; their message sets overlap (recent
+  // promotional mail still in the inbox). Passing one shared Map across both
+  // calls fetches each message's metadata once. Key: `${providerId}:${id}`.
+  metadataCache?: Map<string, NormalizedMessageMetadata>,
 ): Promise<SenderSummary[]> {
   const senders = new Map<string, SenderSummary>();
   const total = perProvider.reduce((sum, item) => sum + item.stubs.length, 0);
@@ -158,7 +163,10 @@ export async function buildSenderSummariesFromStubs(
   await Promise.all(
     perProvider.map(async ({ provider, token, stubs }) => {
       const metadatas = await mapWithConcurrency(stubs, 10, async (stub) => {
-        const meta = await provider.getMessageMetadata(token, stub.id);
+        const cacheKey = `${provider.id}:${stub.id}`;
+        const cached = metadataCache?.get(cacheKey);
+        const meta = cached ?? (await provider.getMessageMetadata(token, stub.id));
+        if (!cached) metadataCache?.set(cacheKey, meta);
         done += 1;
         onProgress?.(done, total);
         return meta;
@@ -176,6 +184,7 @@ export async function buildSenderSummaries(
   scanWindowDays = DEFAULT_SCAN_WINDOW_DAYS,
   onProgress?: (done: number, total: number) => void,
   purpose: ScanPurpose = "cleanup",
+  metadataCache?: Map<string, NormalizedMessageMetadata>,
 ): Promise<SenderSummary[]> {
   const perProvider = await Promise.all(
     providers.map(async (provider) => {
@@ -189,5 +198,5 @@ export async function buildSenderSummaries(
       return { provider, token, stubs };
     }),
   );
-  return buildSenderSummariesFromStubs(perProvider, onProgress);
+  return buildSenderSummariesFromStubs(perProvider, onProgress, metadataCache);
 }

@@ -1,4 +1,9 @@
-import type { EmailProvider, ProviderId, ScanPurpose } from "./providers/emailProvider";
+import type {
+  EmailProvider,
+  NormalizedMessageMetadata,
+  ProviderId,
+  ScanPurpose,
+} from "./providers/emailProvider";
 import { buildSenderSummariesFromStubs, type SenderSummary } from "./senderModel";
 
 export interface IncrementalSyncResult {
@@ -19,6 +24,7 @@ export async function buildIncrementalSenderSummaries(
   windowDays: number,
   purpose: ScanPurpose,
   onProgress?: (done: number, total: number) => void,
+  metadataCache?: Map<string, NormalizedMessageMetadata>,
 ): Promise<IncrementalSyncResult> {
   const cursors: Partial<Record<ProviderId, string>> = { ...existingCursors };
   const resetProviders: ProviderId[] = [];
@@ -49,6 +55,6 @@ export async function buildIncrementalSenderSummaries(
   );
 
   const changedMessageCount = inputs.reduce((sum, input) => sum + input.stubs.length, 0);
-  const senders = await buildSenderSummariesFromStubs(inputs, onProgress);
+  const senders = await buildSenderSummariesFromStubs(inputs, onProgress, metadataCache);
   return { senders, cursors, resetProviders, changedMessageCount };
 }
