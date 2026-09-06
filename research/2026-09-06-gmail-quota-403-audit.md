@@ -176,8 +176,32 @@ Steps 1–3 are the fix. 4–5 are polish / contingency.
    150; `listSentCorrespondents` default 300 → 150. Misleading "5 units" comments corrected in
    `gmailApi.ts`, `senderModel.ts`, `settingsStore.ts`.
 
-typecheck + lint + 386 tests + build green. **Not yet live-tested in-browser.**
-Steps 4 (terminal auto-resume) and 5 (dashboard `history.list`) not done — contingency only.
+typecheck + lint + 386 tests + build green.
+
+### 2026-09-06 (cont.) — live test still 403'd; in-memory limiter was the gap
+
+First reload-unpacked test **still hit `403 rateLimitExceeded` on the very first
+`messages.list`** — `quota_limit_value: "6000"`, reason `RATE_LIMIT_EXCEEDED`. Cause: the
+`QuotaLimiter` was **in-memory and per-context**. Every dashboard page reload started with an
+empty ledger and immediately fired a scan's worth of calls; the background service worker kept a
+*separate* limiter; and repeated "Retry" clicks each began from "zero spent" while Google's real
+per-minute counter stayed maxed.
+
+Fix (replaces `quotaLimiter.ts`, which is deleted):
+- **`src/lib/gmailQuotaLedger.ts`** — the rolling-60s spend ledger now lives in
+  `chrome.storage.local` (shared across the dashboard tab *and* the service worker) behind a
+  Web Lock (`withStorageLock`, also cross-context). `reserveGmailQuota(cost)` is called before
+  every `gmailFetch`; budget **4,500/min** (bigger gap under 6,000 to absorb retry double-spend
+  + Gmail-window misalignment). A page reload or second context can no longer reset the count.
+- **`penalizeGmailQuota()`** — when a rate-limit 403 outlives `httpRetry`'s backoff, `gmailFetch`
+  front-loads the ledger with a full window of spend, so a reload / Retry holds off ~60s instead
+  of marching straight back into the limit.
+- First-scan defaults cut so a cold scan fits ~one quota window: `maxMessagesPerProvider`
+  250 → **150**, security lane 150 → **100**.
+
+387 tests (−6 old limiter, +7 ledger). typecheck + lint + build green. **Re-test pending.**
+Steps 4 (visible "pausing for rate limit" progress state) and 5 (dashboard `history.list`) not
+done — contingency only.
 
 ## 4. Loose ends found while auditing
 

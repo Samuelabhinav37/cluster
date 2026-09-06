@@ -101,10 +101,11 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
   scanWindowDays: 180,
   // Each message is a 20-unit Gmail messages.get against a 6,000-unit/min
-  // per-user ceiling. gmailFetch's limiter paces the calls so a bigger value
-  // just makes the first scan take longer rather than 403; 250 keeps that
-  // first run to a minute or two. Raise it in Settings for a deeper scan.
-  maxMessagesPerProvider: 250,
+  // per-user ceiling (the ledger paces to 4,500). 150 here + the 100-message
+  // security lane keeps a cold first scan inside roughly one quota window, so
+  // it finishes in under a minute instead of stalling mid-scan for the window
+  // to clear. Raise it in Settings for a deeper (and slower, paced) scan.
+  maxMessagesPerProvider: 150,
   collapsedSenderCategories: [],
   collapsedDomainCategories: [],
   unsubscribeRequests: {},

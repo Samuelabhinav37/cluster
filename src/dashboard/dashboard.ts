@@ -85,7 +85,7 @@ let currentDomainGroups: DomainGroup[] = [];
 let currentExpiryBuckets: ExpiryBucket[] = [];
 let engagementSuggestions: EngagementSuggestion[] = [];
 const SECURITY_SCAN_WINDOW_DAYS = 30;
-const SECURITY_SCAN_MAX_MESSAGES = 150;
+const SECURITY_SCAN_MAX_MESSAGES = 100;
 
 const statusEl = document.getElementById("status") as HTMLParagraphElement;
 const overviewContentEl = document.getElementById("overview-content") as HTMLDivElement;

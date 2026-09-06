@@ -38,7 +38,7 @@ const TRIAGE_ALARM = "cluster-triage";
 const ATHENA_ALARM = "cluster-athena-flush";
 const JOBS_ALARM = "cluster-jobs";
 const SECURITY_SCAN_WINDOW_DAYS = 30;
-const SECURITY_SCAN_MAX_MESSAGES = 150;
+const SECURITY_SCAN_MAX_MESSAGES = 100;
 const providerById = new Map<ProviderId, EmailProvider>([
   [gmailProvider.id, gmailProvider],
   [outlookProvider.id, outlookProvider],

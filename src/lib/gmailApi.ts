@@ -1,7 +1,7 @@
 import { log } from "./log";
 import { mapWithConcurrency } from "./concurrency";
 import { fetchWithRetry } from "./httpRetry";
-import { QuotaLimiter } from "./quotaLimiter";
+import { penalizeGmailQuota, reserveGmailQuota } from "./gmailQuotaLedger";
 import { extractLinksFromHtml, type ExtractedLink } from "./linkMismatch";
 
 const API_BASE = "https://gmail.googleapis.com/gmail/v1";
@@ -10,23 +10,20 @@ const API_BASE = "https://gmail.googleapis.com/gmail/v1";
 // Cloud projects (older ones were grandfathered at 15,000; this one isn't).
 // Each method has a fixed cost — messages.get is 20, and a scan is mostly
 // messages.get, so ~300 of them exhausts the window and Gmail returns 403
-// `rateLimitExceeded`. Every call is paced through one rolling-window limiter
-// kept just under the ceiling, so a large scan self-throttles to a couple of
-// minutes instead of failing outright.
+// `rateLimitExceeded`. Every call reserves its cost from a persistent,
+// cross-context ledger (gmailQuotaLedger.ts) first, so a large scan
+// self-throttles to a couple of minutes instead of failing — and a reloaded
+// tab or the background worker can't blow the budget by starting fresh.
 // Costs: developers.google.com/gmail/api/reference/quota
-const GMAIL_QUOTA_BUDGET_PER_MIN = 5000; // ~17% headroom under 6,000
 const DEFAULT_CALL_COST = 5;
-let gmailQuota = new QuotaLimiter(GMAIL_QUOTA_BUDGET_PER_MIN);
 
-/** Test seam: swap in a limiter with injected clock/sleep. */
-export function _setGmailQuotaLimiter(limiter: QuotaLimiter): void {
-  gmailQuota = limiter;
-}
+// Rate-limit reason strings in a 403 body (mirrors httpRetry's own regex).
+const RATE_LIMIT_403_RE = /rateLimitExceeded|userRateLimitExceeded|RATE_LIMIT_EXCEEDED/i;
 
-/** Quota-unit cost of a Gmail REST call, by path shape + method. The limiter
- * reserves this much before the request goes out. An unrecognised path falls
- * back to a cheap default — costs only ever err on the side of over-reserving,
- * which just paces the scan slightly more. */
+/** Quota-unit cost of a Gmail REST call, by path shape + method. Reserved from
+ * the ledger before the request goes out. An unrecognised path falls back to a
+ * cheap default — costs only ever err on the side of over-reserving, which
+ * just paces the scan slightly more. */
 export function gmailQuotaCost(path: string, method: string): number {
   const p = path.split("?")[0];
   // Order matters: batchModify/batchDelete have no id segment, so they'd match
@@ -94,7 +91,7 @@ async function gmailFetch<T = unknown>(
   let bearer = token;
   const cost = gmailQuotaCost(path, (init.method ?? "GET").toUpperCase());
   for (let attempt = 0; ; attempt++) {
-    await gmailQuota.take(cost);
+    await reserveGmailQuota(cost);
     const res = await fetchWithRetry(`${API_BASE}${path}`, {
       ...init,
       headers: {
@@ -112,7 +109,14 @@ async function gmailFetch<T = unknown>(
       continue;
     }
     if (!res.ok) {
-      throw new GmailApiError(res.status, `Gmail API ${path} failed: ${res.status} ${await res.text()}`);
+      const body = await res.text();
+      // A rate-limit 403 that outlived httpRetry's backoff means Gmail's own
+      // window is exhausted. Park the ledger for a full window so a reload or
+      // a "Retry" click doesn't march straight back into the limit.
+      if (res.status === 403 && RATE_LIMIT_403_RE.test(body)) {
+        await penalizeGmailQuota();
+      }
+      throw new GmailApiError(res.status, `Gmail API ${path} failed: ${res.status} ${body}`);
     }
     if (res.status === 204) return null as T;
     return (await res.json()) as T;
