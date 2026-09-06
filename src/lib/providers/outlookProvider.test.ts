@@ -6,7 +6,15 @@ vi.mock("./msalAuth", () => ({
   isOutlookConnected: vi.fn(async () => true),
 }));
 
-import { batchPerId, GraphBatchError, getArchiveFolderId, listInboxRules, outlookProvider } from "./outlookProvider";
+import {
+  batchPerId,
+  createInboxRule,
+  deleteInboxRule,
+  GraphBatchError,
+  getArchiveFolderId,
+  listInboxRules,
+  outlookProvider,
+} from "./outlookProvider";
 import { forceRefreshOutlookToken } from "./msalAuth";
 
 const forceRefreshMock = vi.mocked(forceRefreshOutlookToken);
@@ -16,6 +24,17 @@ function json(data: unknown, status = 200): Response {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+const noContent = () => new Response(null, { status: 204 });
+
+function call(fetchMock: ReturnType<typeof vi.fn>, n: number) {
+  const [url, init] = fetchMock.mock.calls[n] as [string, RequestInit | undefined];
+  return {
+    url,
+    method: init?.method ?? "GET",
+    body: init?.body ? JSON.parse(String(init.body)) : undefined,
+  };
 }
 
 afterEach(() => {
@@ -80,6 +99,82 @@ describe("Outlook JSON batching", () => {
     const patchBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
     expect(patchBody.requests[0].body.categories).toEqual(["Important", "Shopping"]);
     expect(patchBody.requests[0].headers.Prefer).toBe('IdType="ImmutableId"');
+  });
+});
+
+describe("Graph inbox-rule request shape", () => {
+  it("lists inbox rules, tolerating an empty response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => json({ value: [{ id: "r1", displayName: "Shopping" }] })),
+    );
+    await expect(listInboxRules("t")).resolves.toEqual([{ id: "r1", displayName: "Shopping" }]);
+
+    vi.stubGlobal("fetch", vi.fn(async () => json({})));
+    await expect(listInboxRules("t")).resolves.toEqual([]);
+  });
+
+  it("creates a rule, reusing an existing master category", async () => {
+    const body = {
+      displayName: "Cluster: Shopping",
+      sequence: 1,
+      isEnabled: true,
+      conditions: { senderContains: ["amazon.com"] },
+      actions: { assignCategories: ["Shopping"], stopProcessingRules: true },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ value: [{ displayName: "Shopping" }] })) // masterCategories GET
+      .mockResolvedValueOnce(json({ id: "rule-1" })); // messageRules POST
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(createInboxRule("t", body)).resolves.toBe("rule-1");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const post = call(fetchMock, 1);
+    expect(post.url).toBe("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules");
+    expect(post.method).toBe("POST");
+    expect(post.body).toEqual(body);
+  });
+
+  it("creates the master category first when it does not exist", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ value: [] })) // masterCategories GET — absent
+      .mockResolvedValueOnce(json({})) // masterCategories POST
+      .mockResolvedValueOnce(json({ id: "rule-2" })); // messageRules POST
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createInboxRule("t", {
+      displayName: "Cluster: Travel",
+      actions: { assignCategories: ["Travel"] },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const catPost = call(fetchMock, 1);
+    expect(catPost.url).toBe("https://graph.microsoft.com/v1.0/me/outlook/masterCategories");
+    expect(catPost.method).toBe("POST");
+    expect(catPost.body).toMatchObject({ displayName: "Travel" });
+  });
+
+  it("deletes an inbox rule by id", async () => {
+    const fetchMock = vi.fn(noContent);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await deleteInboxRule("t", "r9");
+
+    expect(call(fetchMock, 0).url).toBe(
+      "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules/r9",
+    );
+    expect(call(fetchMock, 0).method).toBe("DELETE");
+  });
+
+  it("resolves the archive folder id, and returns null when Graph errors", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => json({ id: "AAMk-archive" })));
+    await expect(getArchiveFolderId("t")).resolves.toBe("AAMk-archive");
+
+    vi.stubGlobal("fetch", vi.fn(async () => json({ error: "not found" }, 404)));
+    await expect(getArchiveFolderId("t")).resolves.toBeNull();
   });
 });
 
