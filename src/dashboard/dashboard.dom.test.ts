@@ -176,6 +176,38 @@ describe("dashboard boot smoke", () => {
     }
   });
 
+  it("wires the ARIA tabs pattern: aria-controls, roving tabindex, arrow keys", () => {
+    const buttons = Array.from(
+      document.querySelectorAll<HTMLButtonElement>("#tabs button[data-tab]"),
+    );
+    // each tab points at its panel and back
+    for (const btn of buttons) {
+      const panelId = btn.getAttribute("aria-controls")!;
+      const panel = document.getElementById(panelId)!;
+      expect(panel.dataset.tab).toBe(btn.dataset.tab);
+      expect(panel.getAttribute("aria-labelledby")).toBe(btn.id);
+    }
+    // exactly one tab in the Tab order
+    buttons[0].click();
+    expect(buttons.filter((b) => b.tabIndex === 0).map((b) => b.dataset.tab)).toEqual(["overview"]);
+    expect(buttons.filter((b) => b.tabIndex === -1)).toHaveLength(6);
+    // ArrowRight from the first tab activates the second
+    document
+      .getElementById("tabs")!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    expect(buttons[1].getAttribute("aria-selected")).toBe("true");
+    expect(
+      document.querySelector<HTMLElement>("section.tab-panel[data-tab='cleanup']")!.hidden,
+    ).toBe(false);
+  });
+
+  it("gives the category-group tables a screen-reader caption", () => {
+    document.querySelector<HTMLButtonElement>('#tabs button[data-tab="cleanup"]')!.click();
+    const caption = document.querySelector("#sender-groups table caption");
+    expect(caption?.classList.contains("sr-only")).toBe(true);
+    expect(caption?.textContent).toMatch(/\d+ senders?, \d+ messages/);
+  });
+
   it("opens a confirm step from a sender-row action", () => {
     document.querySelector<HTMLButtonElement>('#tabs button[data-tab="cleanup"]')!.click();
     const muteBtn = Array.from(

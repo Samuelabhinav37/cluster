@@ -156,22 +156,68 @@ const keepNewestSlot = document.getElementById("keep-newest-slot") as HTMLSpanEl
 const keepNewestBtn = document.getElementById("keep-newest-btn") as HTMLButtonElement;
 
 
-// ── Tabs ─────────────────────────────────────────────────────────────────
+// ── Tabs (WAI-ARIA tabs pattern) ─────────────────────────────────────────
 function showTab(name: string) {
   const target = tabButtons.some((b) => b.dataset.tab === name) ? name : "overview";
-  for (const panel of tabPanels) panel.hidden = panel.dataset.tab !== target;
-  for (const btn of tabButtons) btn.setAttribute("aria-selected", String(btn.dataset.tab === target));
+  for (const panel of tabPanels) {
+    const active = panel.dataset.tab === target;
+    panel.hidden = !active;
+    panel.tabIndex = active ? 0 : -1;
+  }
+  for (const btn of tabButtons) {
+    const active = btn.dataset.tab === target;
+    btn.setAttribute("aria-selected", String(active));
+    // Roving tabindex: only the selected tab is in the Tab order; arrows move
+    // between the rest.
+    btn.tabIndex = active ? 0 : -1;
+  }
+}
+
+async function selectTab(name: string) {
+  showTab(name);
+  ctx.settings = await updateSettings({ activeTab: name });
 }
 
 function wireTabs() {
-  showTab(ctx.settings.activeTab);
+  // Link each tab to its panel for assistive tech.
   for (const btn of tabButtons) {
-    btn.onclick = async () => {
-      const name = btn.dataset.tab!;
-      showTab(name);
-      ctx.settings = await updateSettings({ activeTab: name });
-    };
+    const name = btn.dataset.tab!;
+    const panel = tabPanels.find((p) => p.dataset.tab === name);
+    if (!panel) continue;
+    btn.id ||= `tab-${name}`;
+    panel.id ||= `tabpanel-${name}`;
+    btn.setAttribute("aria-controls", panel.id);
+    panel.setAttribute("aria-labelledby", btn.id);
+    btn.onclick = () => void selectTab(name);
   }
+
+  // Arrow / Home / End move focus within the tablist and activate, per the
+  // ARIA tabs keyboard spec.
+  document.getElementById("tabs")?.addEventListener("keydown", (event) => {
+    const keyed = event as KeyboardEvent;
+    const delta =
+      keyed.key === "ArrowRight" || keyed.key === "ArrowDown"
+        ? 1
+        : keyed.key === "ArrowLeft" || keyed.key === "ArrowUp"
+          ? -1
+          : 0;
+    let next: number | undefined;
+    if (delta !== 0) {
+      const current = tabButtons.findIndex((b) => b.getAttribute("aria-selected") === "true");
+      next = (current + delta + tabButtons.length) % tabButtons.length;
+    } else if (keyed.key === "Home") {
+      next = 0;
+    } else if (keyed.key === "End") {
+      next = tabButtons.length - 1;
+    }
+    if (next === undefined) return;
+    keyed.preventDefault();
+    const btn = tabButtons[next];
+    btn.focus();
+    void selectTab(btn.dataset.tab!);
+  });
+
+  showTab(ctx.settings.activeTab);
 }
 
 async function wireAthenaConnection() {
@@ -502,6 +548,10 @@ function renderCategoryGroups<T>(
     details.appendChild(summary);
 
     const table = document.createElement("table");
+    const caption = document.createElement("caption");
+    caption.className = "sr-only";
+    caption.textContent = `${DOMAIN_CATEGORY_LABELS[group.category]} — ${group.items.length} ${itemNoun}, ${group.total} messages`;
+    table.appendChild(caption);
     const thead = document.createElement("thead");
     thead.appendChild(headerRow(headers));
     table.appendChild(thead);
