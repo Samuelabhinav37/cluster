@@ -21,7 +21,8 @@ import {
   type ExpiryBucket,
 } from "../lib/expiryTriage";
 import { getElevatedAuthToken, GmailApiError } from "../lib/gmailApi";
-import type { NormalizedMessageMetadata, ProviderId } from "../lib/providers/emailProvider";
+import { clearMetadataCache, loadMetadataCache, saveMetadataCache } from "../lib/metadataCache";
+import type { ProviderId } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { outlookProvider } from "../lib/providers/outlookProvider";
 import { OutlookReauthRequired } from "../lib/providers/msalAuth";
@@ -84,7 +85,7 @@ let currentDomainGroups: DomainGroup[] = [];
 let currentExpiryBuckets: ExpiryBucket[] = [];
 let engagementSuggestions: EngagementSuggestion[] = [];
 const SECURITY_SCAN_WINDOW_DAYS = 30;
-const SECURITY_SCAN_MAX_MESSAGES = 250;
+const SECURITY_SCAN_MAX_MESSAGES = 150;
 
 const statusEl = document.getElementById("status") as HTMLParagraphElement;
 const overviewContentEl = document.getElementById("overview-content") as HTMLDivElement;
@@ -353,20 +354,23 @@ function wireOfflineHandling() {
   });
 }
 
-async function scanAndRender() {
+async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   statusEl.hidden = false;
   senderGroupsEl.hidden = true;
   domainSectionEl.hidden = true;
   expirySectionEl.hidden = true;
-  statusEl.textContent = "Scanning recent mail…";
+  statusEl.textContent = "Scanning recent mail… the first run can take a minute.";
 
   let senders: SenderSummary[];
   let securitySenders: SenderSummary[];
-  // One cache spanning both scans below. The cleanup query
-  // (category:promotions OR updates, 180d) and the security query
-  // (in:inbox, 30d) overlap on recent promotional mail still in the inbox —
-  // this fetches each such message's metadata once instead of twice.
-  const scanCache = new Map<string, NormalizedMessageMetadata>();
+  // One cache spanning both scans below, seeded from the warm cache persisted
+  // by the last scan. The cleanup query (category:promotions OR updates, 180d)
+  // and the security query (in:inbox, 30d) overlap on recent promotional mail;
+  // the warm cache additionally spares re-fetching (20 quota units each) every
+  // message that hasn't changed since a previous session. An explicit "Rescan"
+  // passes refresh:true to drop the warm cache first.
+  if (refresh) await clearMetadataCache();
+  const scanCache = await loadMetadataCache();
   try {
     senders = await buildSenderSummaries(
       activeProviders,
@@ -400,6 +404,9 @@ async function scanAndRender() {
     showScanError(err);
     return;
   }
+
+  // Persist what we fetched so the next open only pays for new mail.
+  void saveMetadataCache(scanCache);
 
   const activeSnoozedIds = new Set(
     Object.entries(ctx.settings.snoozedMessages)
@@ -1101,7 +1108,8 @@ function wireScanSettings() {
     applyScanSettingsBtn.textContent = "Rescanning…";
     try {
       ctx.settings = await updateSettings({ scanWindowDays, maxMessagesPerProvider });
-      await scanAndRender();
+      // Explicit user "Rescan" — drop the warm metadata cache and re-fetch.
+      await scanAndRender({ refresh: true });
     } finally {
       applyScanSettingsBtn.disabled = false;
       applyScanSettingsBtn.textContent = "Rescan";

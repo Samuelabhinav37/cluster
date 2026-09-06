@@ -2,11 +2,7 @@ import { log } from "./lib/log";
 import { buildExpiryBuckets, totalExpiryCount } from "./lib/expiryTriage";
 import { gmailProvider } from "./lib/providers/gmailProvider";
 import { outlookProvider } from "./lib/providers/outlookProvider";
-import type {
-  EmailProvider,
-  NormalizedMessageMetadata,
-  ProviderId,
-} from "./lib/providers/emailProvider";
+import type { EmailProvider, ProviderId } from "./lib/providers/emailProvider";
 import { applyRules } from "./lib/ruleRunner";
 import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "./lib/screener";
 import { markFirstContact } from "./lib/firstContact";
@@ -19,6 +15,7 @@ import { excludeSnoozedMessages } from "./lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
 import { flushAthenaSecurityEvents, queueAthenaSecurityEvents } from "./lib/athenaIntegration";
 import { buildIncrementalSenderSummaries } from "./lib/incrementalSync";
+import { loadMetadataCache, saveMetadataCache } from "./lib/metadataCache";
 import { resumeInterruptedJobs } from "./lib/durableJobs";
 import { updateEngagementObservations } from "./lib/engagementModel";
 import { getRuleCompletionKeys, recordRuleCompletions } from "./lib/ruleCompletionLedger";
@@ -41,7 +38,7 @@ const TRIAGE_ALARM = "cluster-triage";
 const ATHENA_ALARM = "cluster-athena-flush";
 const JOBS_ALARM = "cluster-jobs";
 const SECURITY_SCAN_WINDOW_DAYS = 30;
-const SECURITY_SCAN_MAX_MESSAGES = 250;
+const SECURITY_SCAN_MAX_MESSAGES = 150;
 const providerById = new Map<ProviderId, EmailProvider>([
   [gmailProvider.id, gmailProvider],
   [outlookProvider.id, outlookProvider],
@@ -187,8 +184,10 @@ async function runBackgroundTriage() {
     const settings = await getSettings();
     // Shared across the cleanup scan and the security lane so a message that
     // shows up in both (recent inbox promo mail, or a full security-baseline
-    // rebuild) is fetched once.
-    const scanCache = new Map<string, NormalizedMessageMetadata>();
+    // rebuild) is fetched once — and seeded from the warm cache the dashboard
+    // and previous triage runs persist, so a 6-hourly pass mostly pays only
+    // for mail that arrived since.
+    const scanCache = await loadMetadataCache();
     let senders = await buildSenderSummaries(
       connected,
       settings.maxMessagesPerProvider,
@@ -207,6 +206,7 @@ async function runBackgroundTriage() {
       scanCache,
     );
     const securitySenders = securitySync.senders;
+    void saveMetadataCache(scanCache);
     const activeSnoozedIds = new Set(
       Object.entries(settings.snoozedMessages)
         .filter(([, v]) => v.resurfaceAt > Date.now())

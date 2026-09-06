@@ -152,9 +152,10 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
 
 const DEFAULT_MAX_MESSAGES = 500;
 const DEFAULT_SCAN_WINDOW_DAYS = 180;
-// Each messages.get costs 5 Gmail quota units and the per-user limit is
-// per-minute, so a burst of parallel fetches is what trips the 403 rate
-// limit. 5-wide keeps the scan reasonably fast while spreading the cost.
+// Each messages.get costs 20 Gmail quota units against a 6,000/min per-user
+// ceiling. The shared limiter in gmailFetch enforces the actual rate; this
+// just bounds in-flight requests (well under Gmail's ~50-concurrent cap) so
+// the limiter's queue doesn't balloon.
 const METADATA_FETCH_CONCURRENCY = 5;
 
 interface ProviderScanInput {
