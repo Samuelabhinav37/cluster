@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { athenaOriginPatterns, flushAthenaSecurityEvents, isAthenaConfigured, queueAthenaSecurityEvent, queueAthenaSecurityEvents } from "./athenaIntegration";
+import {
+  athenaOriginPatterns,
+  flushAthenaSecurityEvents,
+  isAthenaConfigured,
+  queueAthenaSecurityEvents,
+  type ClusterSecurityEvent,
+} from "./athenaIntegration";
+
+const queueAthenaSecurityEvent = (event: ClusterSecurityEvent) => queueAthenaSecurityEvents([event]);
 
 const managed: Record<string, unknown> = {};
 const session: Record<string, unknown> = {};

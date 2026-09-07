@@ -27,7 +27,6 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
     knownSenders: {},
     knownSendersInitialized: false,
     incrementalSyncCursors: {},
-    lastIncrementalSyncAt: 0,
     senderEngagement: {},
     autoQuarantineHighRisk: false,
     autoSort: {

@@ -354,7 +354,34 @@ function wireOfflineHandling() {
   });
 }
 
-async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
+// scanAndRender is triggered from many places (initial load, Rescan, Retry, and
+// every tab-module action's rescan()). Two overlapping runs would both mutate
+// settings and both render, letting a stale pass clobber a fresh one. Serialise:
+// a request made while a scan is running sets a "run once more" flag that the
+// in-flight run honours when it finishes, collapsing any number of queued
+// requests into a single follow-up (a pending refresh wins).
+let scanInFlight = false;
+let rescanQueued: { refresh: boolean } | null = null;
+
+async function scanAndRender(opts: { refresh?: boolean } = {}): Promise<void> {
+  if (scanInFlight) {
+    rescanQueued = { refresh: Boolean(rescanQueued?.refresh || opts.refresh) };
+    return;
+  }
+  scanInFlight = true;
+  try {
+    await runScan(opts);
+  } finally {
+    scanInFlight = false;
+  }
+  if (rescanQueued) {
+    const next = rescanQueued;
+    rescanQueued = null;
+    await scanAndRender(next);
+  }
+}
+
+async function runScan({ refresh = false }: { refresh?: boolean } = {}) {
   statusEl.hidden = false;
   senderGroupsEl.hidden = true;
   domainSectionEl.hidden = true;
@@ -413,6 +440,9 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
       .filter(([, v]) => v.resurfaceAt > Date.now())
       .map(([id]) => id),
   );
+  // Cleanup lane only. Snooze is a "deal with this later" deferral; it must not
+  // hide a message from the Security tab / threat report, so securitySenders is
+  // left intact.
   senders = excludeSnoozedMessages(senders, activeSnoozedIds);
 
   ctx.settings = await mutateSettings((current) => ({
@@ -420,6 +450,10 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
     senderEngagement: updateEngagementObservations(current.senderEngagement, senders),
   }));
 
+  // First-contact tracking is intentionally inbox-scoped: the ledger is seeded
+  // and updated only from securitySenders (in:inbox, 30d). A promotions-only
+  // sender that never lands in the recent inbox therefore isn't tracked here —
+  // acceptable, since "new sender" is a signal about mail you actually receive.
   const firstContact = markFirstContact(
     securitySenders,
     ctx.settings.knownSenders,
@@ -486,7 +520,9 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
     tile.onclick = () => {
       showTab(metric.tab);
       ctx.settings = { ...ctx.settings, activeTab: metric.tab };
-      void updateSettings({ activeTab: metric.tab });
+      updateSettings({ activeTab: metric.tab }).catch((err) =>
+        log.error("Could not persist active tab", err),
+      );
       const target = OVERVIEW_SECTION_BY_METRIC[metric.id];
       if (target) document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
     };

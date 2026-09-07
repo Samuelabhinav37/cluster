@@ -6,7 +6,7 @@ import { log } from "../lib/log";
 import { findBlocklistedLinkTargets, findMismatchedLinks } from "../lib/linkMismatch";
 import { isBlockedDomain } from "../lib/blocklist";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
-import { queueAthenaSecurityEvent } from "../lib/athenaIntegration";
+import { queueAthenaSecurityEvents } from "../lib/athenaIntegration";
 import type { SenderSummary } from "../lib/senderModel";
 import { renderConfirmStep } from "./ui";
 import { providerById } from "./state";
@@ -84,26 +84,30 @@ async function runDeepScan(sender: SenderSummary, resultEl: HTMLElement): Promis
     const domain = sender.address.slice(sender.address.lastIndexOf("@") + 1);
     const now = new Date().toISOString();
     if (suspicious.length > 0) {
-      void queueAthenaSecurityEvent({
-        sourceEventId: `${sender.key}:link-mismatch:${targetId}`,
-        occurredAt: now,
-        action: "warned",
-        severity: "high",
-        ruleId: "threat-signal:link-mismatch",
-        targetIndicator: domain,
-        evidence: { kind: "link-mismatch", count: suspicious.length },
-      });
+      void queueAthenaSecurityEvents([
+        {
+          sourceEventId: `${sender.key}:link-mismatch:${targetId}`,
+          occurredAt: now,
+          action: "warned",
+          severity: "high",
+          ruleId: "threat-signal:link-mismatch",
+          targetIndicator: domain,
+          evidence: { kind: "link-mismatch", count: suspicious.length },
+        },
+      ]);
     }
     if (blocked.length > 0) {
-      void queueAthenaSecurityEvent({
-        sourceEventId: `${sender.key}:blocklisted-link:${targetId}`,
-        occurredAt: now,
-        action: "warned",
-        severity: "high",
-        ruleId: "threat-signal:blocklisted-link",
-        targetIndicator: domain,
-        evidence: { kind: "blocklisted-link", hosts: blocked },
-      });
+      void queueAthenaSecurityEvents([
+        {
+          sourceEventId: `${sender.key}:blocklisted-link:${targetId}`,
+          occurredAt: now,
+          action: "warned",
+          severity: "high",
+          ruleId: "threat-signal:blocklisted-link",
+          targetIndicator: domain,
+          evidence: { kind: "blocklisted-link", hosts: blocked },
+        },
+      ]);
     }
   } catch (err) {
     resultEl.textContent = "Scan failed, try again.";

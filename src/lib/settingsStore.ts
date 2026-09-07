@@ -50,7 +50,6 @@ export interface ClusterSettings {
   knownSendersInitialized: boolean;
   /** Opaque Gmail history / Outlook delta checkpoints. */
   incrementalSyncCursors: Partial<Record<ProviderId, string>>;
-  lastIncrementalSyncAt: number;
   /** Aggregate-only local learning state. Never contains message ids, subjects, or bodies. */
   senderEngagement: SenderEngagementMap;
   /** Opt-in: the background triage labels high-risk senders as suspicious and
@@ -125,7 +124,6 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   knownSenders: {},
   knownSendersInitialized: false,
   incrementalSyncCursors: {},
-  lastIncrementalSyncAt: 0,
   senderEngagement: {},
   autoQuarantineHighRisk: false,
   autoSort: {
@@ -163,7 +161,6 @@ function migrateSettings(value: unknown): Record<string, unknown> {
         ...stored,
         schemaVersion: 2,
         incrementalSyncCursors: {},
-        lastIncrementalSyncAt: 0,
       };
       version = 2;
     } else if (version === 2) {
