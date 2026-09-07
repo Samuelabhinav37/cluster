@@ -159,6 +159,9 @@ export interface BootOptions {
    * the one-click unsubscribe needs). Default false. */
   grantOrigins?: boolean;
   online?: boolean;
+  /** Don't wait for a clean scan — the test drives main()/scanAndRender into
+   * an error path on purpose. */
+  tolerateScanError?: boolean;
 }
 
 export interface BootedDashboard {
@@ -266,13 +269,19 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
 
   await import("./dashboard");
 
-  await vi.waitFor(
-    () => {
-      const status = document.getElementById("status") as HTMLElement;
-      if (!status.hidden) throw new Error(`#status still visible: "${status.textContent}"`);
-    },
-    { timeout: 5000, interval: 20 },
-  );
+  if (opts.tolerateScanError) {
+    // Give main()/scanAndRender a few turns to reach whatever state the test
+    // is about, without requiring a clean finish.
+    await new Promise((r) => setTimeout(r, 50));
+  } else {
+    await vi.waitFor(
+      () => {
+        const status = document.getElementById("status") as HTMLElement;
+        if (!status.hidden) throw new Error(`#status still visible: "${status.textContent}"`);
+      },
+      { timeout: 5000, interval: 20 },
+    );
+  }
 
   const el = (id: string) => {
     const node = document.getElementById(id);
