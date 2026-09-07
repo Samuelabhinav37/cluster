@@ -69,7 +69,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 // Reports every sender threatSignals flagged (see senderModel.ts /
-// threatSignals.ts) as a minimized Athena "warned" event -- queueAthenaSecurityEvent
+// threatSignals.ts) as a minimized Athena "warned" event -- queueAthenaSecurityEvents
 // itself no-ops instantly when Athena isn't configured (the common case), so this
 // runs unconditionally rather than checking twice. sourceEventId is deterministic
 // per sender+signal (not per triage run), so re-flagging the same sender on the
@@ -250,7 +250,6 @@ async function runBackgroundTriage() {
         ...current.incrementalSyncCursors,
         ...securitySync.cursors,
       },
-      lastIncrementalSyncAt: Date.now(),
     }));
 
     // Standing user rules (Auto Clean). Operates on the in-memory scan, so the

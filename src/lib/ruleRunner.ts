@@ -128,6 +128,11 @@ export async function applyRules(
         log.error(`Rule "${rule.name}" failed for ${providerId}`, err);
       }
       if (completedActions > 0) {
+        // "moved" feeds a transient status string only. On a partial multi-
+        // action failure these ids are counted here and, since no completion
+        // receipt is written (below), counted again on the retry sweep — an
+        // accepted cosmetic imprecision; the completion ledger, not this
+        // counter, is the correctness mechanism.
         moved.set(providerId, ids.length);
         if (completedActions < actions.length) partialProviders.push(providerId);
         if (completedActions === actions.length) {

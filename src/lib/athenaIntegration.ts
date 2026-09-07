@@ -91,12 +91,8 @@ async function appendToQueue(events: ClusterSecurityEvent[]): Promise<void> {
   });
 }
 
-export async function queueAthenaSecurityEvent(event: ClusterSecurityEvent): Promise<void> {
-  return queueAthenaSecurityEvents([event]);
-}
-
 /** Batched enqueue -- one config check, one locked read-modify-write for the
- * whole set, instead of that round-trip per event. */
+ * whole set. Callers with a single event pass a one-element array. */
 export async function queueAthenaSecurityEvents(events: ClusterSecurityEvent[]): Promise<void> {
   if (events.length === 0) return;
   if (!(await getAthenaConfig())) return;
