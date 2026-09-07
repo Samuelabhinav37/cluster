@@ -54,10 +54,12 @@ the supported rule phrases.
 | Scope | Why | Restricted? |
 |---|---|---|
 | `https://www.googleapis.com/auth/gmail.modify` | read message metadata; add/remove labels; trash/untrash; snooze | **yes — restricted** |
-| `https://www.googleapis.com/auth/gmail.settings.basic` | create the filters behind "Keep sorted" / "Mute" | **yes — restricted** |
+| `https://www.googleapis.com/auth/gmail.settings.basic` | **incremental, not at install.** Requested the first time you use a filter-backed feature — "Keep sorted", "Mute", the Screener, or "Sort my inbox" with keep-sorting on. Creates the standing `from:` filters those features need. Declining cancels just that action. | **yes — restricted** |
 | `https://mail.google.com/` | **opt-in only.** Requested at the moment you enable "Fast permanent delete", never at install. Powers `batchDelete` (skip Trash). Declining it falls back to Trash. | **yes — restricted**; request only when bypassing Trash is essential |
 | Microsoft Graph `Mail.ReadBasic`, `Mail.ReadWrite`, `offline_access` | read Outlook message metadata; move to Deleted Items; refresh the token | n/a |
 
+The only Gmail scope requested at install is `gmail.modify`;
+`gmail.settings.basic` and `https://mail.google.com/` are both incremental.
 Host permissions at install are limited to the three API hosts above. Access to
 an unsubscribe link's own domain is requested **per origin, at the moment you
 click unsubscribe** (`optional_host_permissions` + `chrome.permissions.request`),

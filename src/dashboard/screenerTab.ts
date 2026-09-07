@@ -4,6 +4,7 @@
 // run when the user first turns the Screener on.
 import { log } from "../lib/log";
 import { updateSettings } from "../lib/settingsStore";
+import { ensureFilterScope, FilterScopeDeniedError } from "../lib/gmailApi";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "../lib/screener";
 import type { SenderSummary } from "../lib/senderModel";
@@ -53,6 +54,9 @@ async function screenPending(senders: SenderSummary[]) {
 }
 
 async function releaseHeldSender(address: string, ids: string[], decision: "allow" | "block") {
+  // Both branches touch Gmail filters. The Screener can only be on if the
+  // toggle's own pre-flight already granted this, so a prompt here is unlikely.
+  await ensureFilterScope();
   const token = await gmailProvider.getAuthToken(false);
   if (decision === "allow") {
     await gmailProvider.allowSenderThrough!(token, address, ids);
@@ -168,6 +172,25 @@ export function renderScreenerTab(senders: SenderSummary[]) {
 
 export function wireScreenerTab() {
   screenerToggle.onchange = async () => {
+    if (screenerToggle.checked) {
+      // Holding a sender writes a Gmail filter — get that scope before turning
+      // the feature on, so consent lands on this toggle rather than mid-scan.
+      try {
+        await ensureFilterScope();
+      } catch (err) {
+        log.error(err);
+        screenerToggle.checked = false;
+        if (err instanceof FilterScopeDeniedError) {
+          screenerQueueEl.innerHTML = "";
+          const p = document.createElement("p");
+          p.className = "hint";
+          p.textContent =
+            "The Screener needs permission to manage Gmail filters. Allow it and switch this on again.";
+          screenerQueueEl.appendChild(p);
+        }
+        return;
+      }
+    }
     ctx.settings = await updateSettings({ screenerEnabled: screenerToggle.checked });
     if (screenerToggle.checked) {
       screenerToggle.disabled = true;

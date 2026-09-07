@@ -48,8 +48,13 @@ IDs — never subjects or bodies.
 
 ## `https://www.googleapis.com/auth/gmail.settings.basic` — restricted
 
-**Requested at install.** (A future release may move this to incremental
-authorization, requested the first time a filter-backed feature is used.)
+**Not requested at install — incremental.** The manifest ships with only
+`gmail.modify`. This scope is requested via incremental authorization
+(`chrome.identity.getAuthToken` with an explicit `scopes` list) the first time
+the user invokes a filter-backed feature — Keep sorted, Mute, the Screener, or
+"Sort my inbox" with "keep sorting" ticked. If the user dismisses that consent
+screen, the specific action is cancelled with an inline note and nothing else
+is affected. Installs that never touch those features never see this scope.
 
 ### Features that require it
 

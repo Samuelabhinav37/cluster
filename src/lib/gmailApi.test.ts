@@ -1,11 +1,14 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   GmailApiError,
+  FilterScopeDeniedError,
   createFilter,
   createSenderFilter,
   deleteFilter,
   deleteSenderFilters,
+  ensureFilterScope,
   getCurrentHistoryId,
+  getFilterAuthToken,
   getOrCreateLabel,
   gmailQuotaCost,
   listFilters,
@@ -64,22 +67,31 @@ describe("gmailQuotaCost", () => {
 });
 
 describe("Gmail filter API request shape", () => {
+  // The filter CRUD helpers acquire their own gmail.settings.basic token
+  // internally (incremental auth), so every test here needs chrome.identity.
+  beforeEach(() => {
+    vi.stubGlobal("chrome", {
+      runtime: {},
+      identity: { getAuthToken: (_o: unknown, cb: (t: string) => void) => cb("filter-token") },
+    });
+  });
+
   it("lists filters and tolerates an empty response", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => json({ filter: [{ id: "f1", criteria: { from: "a@x.com" } }] })),
     );
-    await expect(listFilters("t")).resolves.toEqual([{ id: "f1", criteria: { from: "a@x.com" } }]);
+    await expect(listFilters()).resolves.toEqual([{ id: "f1", criteria: { from: "a@x.com" } }]);
 
     vi.stubGlobal("fetch", vi.fn(async () => json({})));
-    await expect(listFilters("t")).resolves.toEqual([]);
+    await expect(listFilters()).resolves.toEqual([]);
   });
 
   it("creates a filter with a criteria/action body and returns the new id", async () => {
     const fetchMock = vi.fn(async () => json({ id: "new-filter" }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const id = await createFilter("t", { from: "(a.com OR b.com) -c.com" }, { addLabelIds: ["L1"] });
+    const id = await createFilter({ from: "(a.com OR b.com) -c.com" }, { addLabelIds: ["L1"] });
 
     expect(id).toBe("new-filter");
     const c = call(fetchMock, 0);
@@ -95,7 +107,7 @@ describe("Gmail filter API request shape", () => {
     const fetchMock = vi.fn(noContent);
     vi.stubGlobal("fetch", fetchMock);
 
-    await deleteFilter("t", "f9");
+    await deleteFilter("f9");
 
     const c = call(fetchMock, 0);
     expect(c.url).toBe("https://gmail.googleapis.com/gmail/v1/users/me/settings/filters/f9");
@@ -106,7 +118,7 @@ describe("Gmail filter API request shape", () => {
     const fetchMock = vi.fn(async () => json({ id: "f-sender" }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await createSenderFilter("t", "spam@x.com", "LABEL_9");
+    await createSenderFilter("spam@x.com", "LABEL_9");
 
     expect(call(fetchMock, 0).body).toEqual({
       criteria: { from: "spam@x.com" },
@@ -129,7 +141,7 @@ describe("Gmail filter API request shape", () => {
       .mockResolvedValue(noContent());
     vi.stubGlobal("fetch", fetchMock);
 
-    await deleteSenderFilters("t", "foo@bar.com");
+    await deleteSenderFilters("foo@bar.com");
 
     expect(fetchMock).toHaveBeenCalledTimes(3); // 1 list + 2 deletes
     expect(call(fetchMock, 1).method).toBe("DELETE");
@@ -152,6 +164,50 @@ describe("Gmail filter API request shape", () => {
     await expect(getOrCreateLabel("t", "Shopping")).resolves.toBe("L_NEW");
     expect(call(fetchMock, 1).method).toBe("POST");
     expect(call(fetchMock, 1).body).toMatchObject({ name: "Shopping" });
+  });
+});
+
+describe("incremental filter-scope auth", () => {
+  it("getFilterAuthToken requests gmail.settings.basic on top of gmail.modify", async () => {
+    const getAuthToken = vi.fn((_o: unknown, cb: (t: string) => void) => cb("scoped"));
+    vi.stubGlobal("chrome", { runtime: {}, identity: { getAuthToken } });
+
+    await expect(getFilterAuthToken(true)).resolves.toBe("scoped");
+    expect(getAuthToken).toHaveBeenCalledWith(
+      {
+        interactive: true,
+        scopes: [
+          "https://www.googleapis.com/auth/gmail.modify",
+          "https://www.googleapis.com/auth/gmail.settings.basic",
+        ],
+      },
+      expect.any(Function),
+    );
+  });
+
+  it("ensureFilterScope maps a dismissed consent screen to FilterScopeDeniedError", async () => {
+    vi.stubGlobal("chrome", {
+      runtime: { lastError: { message: "The user did not approve access." } },
+      identity: { getAuthToken: (_o: unknown, cb: (t?: string) => void) => cb(undefined) },
+    });
+
+    await expect(ensureFilterScope()).rejects.toBeInstanceOf(FilterScopeDeniedError);
+  });
+
+  it("a filter CRUD call acquires its own scoped token, not the caller's", async () => {
+    const getAuthToken = vi.fn((_o: unknown, cb: (t: string) => void) => cb("scoped-token"));
+    vi.stubGlobal("chrome", { runtime: {}, identity: { getAuthToken } });
+    const fetchMock = vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(json({ filter: [] })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await listFilters();
+
+    expect(getAuthToken).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({
+      Authorization: "Bearer scoped-token",
+    });
   });
 });
 

@@ -157,6 +157,30 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
       Accepting sets `labelChoices` / `sortOverrides`; "Done" dismisses it for
       good (`settings.seededFromExisting`). No card when there's nothing to offer.
 
+## Incremental filter-scope consent (gmail.settings.basic)
+
+The manifest now ships with only `gmail.modify`. `gmail.settings.basic` is
+requested the first time a filter-backed feature runs.
+
+- [ ] Fresh install: the sign-in consent screen does **not** mention filters /
+      settings — only "read, compose, send, and permanently delete" (modify).
+- [ ] First use of **Mute** (sender row): a second Google consent screen appears
+      asking for filter access. Approve → the mute completes. Reload, mute
+      another sender → **no** second prompt (scope already granted).
+- [ ] Repeat the first-use prompt check for **Keep sorted** (row + bulk),
+      **Screener** (toggle on), and **Sort my inbox → keep sorting** ticked +
+      Apply. Each should prompt at most once ever, whichever runs first.
+- [ ] **Decline path:** on the filter consent screen, dismiss it. Mute shows
+      "Needs permission to manage Gmail filters — mute cancelled."; Keep sorted
+      shows "Needs filter permission"; the Screener toggle flips back off with a
+      hint; "Sort my inbox" still files the backlog and appends "Gmail filters
+      were not set up …" to its result. Nothing else breaks; no uncaught error
+      in the console.
+- [ ] After a decline, invoke the same feature again → the consent screen
+      reappears (not permanently suppressed).
+- [ ] Undo a mute from **Recently done** after granting the scope → still works
+      (unmute deletes the filter with the already-granted scope).
+
 ## Open questions to answer while testing
 
 - Does Gmail accept `criteria.from = "(a OR b …) -c@x.com"` and how long a list?
