@@ -152,6 +152,11 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
 
 const DEFAULT_MAX_MESSAGES = 500;
 const DEFAULT_SCAN_WINDOW_DAYS = 180;
+// Each messages.get costs 20 Gmail quota units against a 6,000/min per-user
+// ceiling. The shared limiter in gmailFetch enforces the actual rate; this
+// just bounds in-flight requests (well under Gmail's ~50-concurrent cap) so
+// the limiter's queue doesn't balloon.
+const METADATA_FETCH_CONCURRENCY = 5;
 
 interface ProviderScanInput {
   provider: EmailProvider;
@@ -174,7 +179,7 @@ export async function buildSenderSummariesFromStubs(
 
   await Promise.all(
     perProvider.map(async ({ provider, token, stubs }) => {
-      const metadatas = await mapWithConcurrency(stubs, 10, async (stub) => {
+      const metadatas = await mapWithConcurrency(stubs, METADATA_FETCH_CONCURRENCY, async (stub) => {
         const cacheKey = `${provider.id}:${stub.id}`;
         const cached = metadataCache?.get(cacheKey);
         const meta = cached ?? (await provider.getMessageMetadata(token, stub.id));

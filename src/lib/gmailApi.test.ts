@@ -7,6 +7,7 @@ import {
   deleteSenderFilters,
   getCurrentHistoryId,
   getOrCreateLabel,
+  gmailQuotaCost,
   listFilters,
   listInboxMessageIdsSince,
 } from "./gmailApi";
@@ -33,6 +34,33 @@ function call(fetchMock: ReturnType<typeof vi.fn>, n: number) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe("gmailQuotaCost", () => {
+  it("prices each Gmail method at its real quota-unit cost", () => {
+    expect(gmailQuotaCost("/users/me/messages?q=in%3Ainbox&maxResults=500", "GET")).toBe(5);
+    expect(gmailQuotaCost("/users/me/messages/18f0abc?format=metadata", "GET")).toBe(20);
+    expect(gmailQuotaCost("/users/me/messages/18f0abc?format=full", "GET")).toBe(20);
+    expect(gmailQuotaCost("/users/me/messages/batchModify", "POST")).toBe(50);
+    expect(gmailQuotaCost("/users/me/messages/batchDelete", "POST")).toBe(50);
+    expect(gmailQuotaCost("/users/me/history?startHistoryId=42", "GET")).toBe(2);
+    expect(gmailQuotaCost("/users/me/profile", "GET")).toBe(1);
+    expect(gmailQuotaCost("/users/me/labels", "GET")).toBe(1);
+    expect(gmailQuotaCost("/users/me/labels", "POST")).toBe(5);
+    expect(gmailQuotaCost("/users/me/settings/filters", "GET")).toBe(1);
+    expect(gmailQuotaCost("/users/me/settings/filters", "POST")).toBe(5);
+    expect(gmailQuotaCost("/users/me/settings/filters/abc123", "DELETE")).toBe(5);
+  });
+
+  it("does not mistake batchModify for a messages.get", () => {
+    // batchModify has no id segment; the get pattern would match it if the
+    // batch check ran second.
+    expect(gmailQuotaCost("/users/me/messages/batchModify", "POST")).not.toBe(20);
+  });
+
+  it("falls back to a cheap default for an unrecognised path", () => {
+    expect(gmailQuotaCost("/users/me/something-new", "GET")).toBe(5);
+  });
 });
 
 describe("Gmail filter API request shape", () => {

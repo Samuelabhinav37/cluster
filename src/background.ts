@@ -2,11 +2,7 @@ import { log } from "./lib/log";
 import { buildExpiryBuckets, totalExpiryCount } from "./lib/expiryTriage";
 import { gmailProvider } from "./lib/providers/gmailProvider";
 import { outlookProvider } from "./lib/providers/outlookProvider";
-import type {
-  EmailProvider,
-  NormalizedMessageMetadata,
-  ProviderId,
-} from "./lib/providers/emailProvider";
+import type { EmailProvider, ProviderId } from "./lib/providers/emailProvider";
 import { applyRules } from "./lib/ruleRunner";
 import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "./lib/screener";
 import { markFirstContact } from "./lib/firstContact";
@@ -19,6 +15,8 @@ import { excludeSnoozedMessages } from "./lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
 import { flushAthenaSecurityEvents, queueAthenaSecurityEvents } from "./lib/athenaIntegration";
 import { buildIncrementalSenderSummaries } from "./lib/incrementalSync";
+import { gmailQuotaHeadroom } from "./lib/gmailQuotaLedger";
+import { loadMetadataCache, saveMetadataCache } from "./lib/metadataCache";
 import { resumeInterruptedJobs } from "./lib/durableJobs";
 import { updateEngagementObservations } from "./lib/engagementModel";
 import { getRuleCompletionKeys, recordRuleCompletions } from "./lib/ruleCompletionLedger";
@@ -41,19 +39,20 @@ const TRIAGE_ALARM = "cluster-triage";
 const ATHENA_ALARM = "cluster-athena-flush";
 const JOBS_ALARM = "cluster-jobs";
 const SECURITY_SCAN_WINDOW_DAYS = 30;
+const SECURITY_SCAN_MAX_MESSAGES = 100;
 const providerById = new Map<ProviderId, EmailProvider>([
   [gmailProvider.id, gmailProvider],
   [outlookProvider.id, outlookProvider],
 ]);
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 1, periodInMinutes: 360 });
+  chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 5, periodInMinutes: 360 });
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 1, periodInMinutes: 360 });
+  chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 5, periodInMinutes: 360 });
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
 });
@@ -183,11 +182,21 @@ async function runBackgroundTriage() {
     const connected: EmailProvider[] = candidates.filter((_, i) => connectedFlags[i]);
     if (connected.length === 0) return;
 
+    // Don't pile a full background scan on top of a dashboard scan that's
+    // already near Gmail's per-minute ceiling — skip this cycle and let the
+    // 6-hourly alarm try again later.
+    if ((await gmailQuotaHeadroom()) < 1500) {
+      log.error("Background triage skipped: Gmail quota headroom low");
+      return;
+    }
+
     const settings = await getSettings();
     // Shared across the cleanup scan and the security lane so a message that
     // shows up in both (recent inbox promo mail, or a full security-baseline
-    // rebuild) is fetched once.
-    const scanCache = new Map<string, NormalizedMessageMetadata>();
+    // rebuild) is fetched once — and seeded from the warm cache the dashboard
+    // and previous triage runs persist, so a 6-hourly pass mostly pays only
+    // for mail that arrived since.
+    const scanCache = await loadMetadataCache();
     let senders = await buildSenderSummaries(
       connected,
       settings.maxMessagesPerProvider,
@@ -199,13 +208,14 @@ async function runBackgroundTriage() {
     const securitySync = await buildIncrementalSenderSummaries(
       connected,
       settings.incrementalSyncCursors,
-      settings.maxMessagesPerProvider,
+      Math.min(settings.maxMessagesPerProvider, SECURITY_SCAN_MAX_MESSAGES),
       Math.min(settings.scanWindowDays, SECURITY_SCAN_WINDOW_DAYS),
       "security",
       undefined,
       scanCache,
     );
     const securitySenders = securitySync.senders;
+    void saveMetadataCache(scanCache);
     const activeSnoozedIds = new Set(
       Object.entries(settings.snoozedMessages)
         .filter(([, v]) => v.resurfaceAt > Date.now())

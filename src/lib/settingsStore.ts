@@ -100,7 +100,12 @@ export const CURRENT_SETTINGS_SCHEMA_VERSION = 9;
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
   scanWindowDays: 180,
-  maxMessagesPerProvider: 500,
+  // Each message is a 20-unit Gmail messages.get against a 6,000-unit/min
+  // per-user ceiling (the ledger paces to 5,500). 150 here + the 100-message
+  // security lane keeps a cold first scan inside roughly one quota window, so
+  // it finishes in under a minute instead of stalling mid-scan for the window
+  // to clear. Raise it in Settings for a deeper (and slower, paced) scan.
+  maxMessagesPerProvider: 150,
   collapsedSenderCategories: [],
   collapsedDomainCategories: [],
   unsubscribeRequests: {},

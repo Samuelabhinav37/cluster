@@ -1,9 +1,45 @@
 import { log } from "./log";
 import { mapWithConcurrency } from "./concurrency";
 import { fetchWithRetry } from "./httpRetry";
+import { penalizeGmailQuota, reserveGmailQuota } from "./gmailQuotaLedger";
 import { extractLinksFromHtml, type ExtractedLink } from "./linkMismatch";
 
 const API_BASE = "https://gmail.googleapis.com/gmail/v1";
+
+// Gmail enforces a per-user ceiling of 6,000 quota units per minute on new
+// Cloud projects (older ones were grandfathered at 15,000; this one isn't).
+// Each method has a fixed cost — messages.get is 20, and a scan is mostly
+// messages.get, so ~300 of them exhausts the window and Gmail returns 403
+// `rateLimitExceeded`. Every call reserves its cost from a persistent,
+// cross-context ledger (gmailQuotaLedger.ts) first, so a large scan
+// self-throttles to a couple of minutes instead of failing — and a reloaded
+// tab or the background worker can't blow the budget by starting fresh.
+// Costs: developers.google.com/gmail/api/reference/quota
+const DEFAULT_CALL_COST = 5;
+
+// Rate-limit reason strings in a 403 body (mirrors httpRetry's own regex).
+const RATE_LIMIT_403_RE = /rateLimitExceeded|userRateLimitExceeded|RATE_LIMIT_EXCEEDED/i;
+
+/** Quota-unit cost of a Gmail REST call, by path shape + method. Reserved from
+ * the ledger before the request goes out. An unrecognised path falls back to a
+ * cheap default — costs only ever err on the side of over-reserving, which
+ * just paces the scan slightly more. */
+export function gmailQuotaCost(path: string, method: string): number {
+  const p = path.split("?")[0];
+  // Order matters: batchModify/batchDelete have no id segment, so they'd match
+  // the messages.get pattern below if checked after it.
+  if (p.endsWith("/messages/batchModify") || p.endsWith("/messages/batchDelete")) return 50;
+  if (p.endsWith("/messages/send")) return 100;
+  if (p.endsWith("/messages")) return 5; // messages.list
+  if (/\/messages\/[^/]+$/.test(p)) return 20; // messages.get (metadata or full)
+  if (p.endsWith("/history")) return 2; // history.list
+  if (p.endsWith("/profile")) return 1; // getProfile
+  if (p.endsWith("/labels")) return method === "POST" ? 5 : 1; // create : list
+  if (/\/labels\/[^/]+$/.test(p)) return 5; // labels.get/update/delete
+  if (p.endsWith("/settings/filters")) return method === "POST" ? 5 : 1; // create : list
+  if (/\/settings\/filters\/[^/]+$/.test(p)) return 5; // filters.get/delete
+  return DEFAULT_CALL_COST;
+}
 
 export class GmailApiError extends Error {
   constructor(
@@ -53,7 +89,9 @@ async function gmailFetch<T = unknown>(
   refreshToken: () => Promise<string> = () => getAuthToken(false),
 ): Promise<T> {
   let bearer = token;
+  const cost = gmailQuotaCost(path, (init.method ?? "GET").toUpperCase());
   for (let attempt = 0; ; attempt++) {
+    await reserveGmailQuota(cost);
     const res = await fetchWithRetry(`${API_BASE}${path}`, {
       ...init,
       headers: {
@@ -71,7 +109,14 @@ async function gmailFetch<T = unknown>(
       continue;
     }
     if (!res.ok) {
-      throw new GmailApiError(res.status, `Gmail API ${path} failed: ${res.status} ${await res.text()}`);
+      const body = await res.text();
+      // A rate-limit 403 that outlived httpRetry's backoff means Gmail's own
+      // window is exhausted. Park the ledger for a full window so a reload or
+      // a "Retry" click doesn't march straight back into the limit.
+      if (res.status === 403 && RATE_LIMIT_403_RE.test(body)) {
+        await penalizeGmailQuota();
+      }
+      throw new GmailApiError(res.status, `Gmail API ${path} failed: ${res.status} ${body}`);
     }
     if (res.status === 204) return null as T;
     return (await res.json()) as T;
@@ -241,8 +286,8 @@ export async function getMessageMetadata(token: string, id: string): Promise<Raw
 
 // Batched via batchModify below rather than one call per message — trash and
 // untrash are just label mutations under the hood (add/remove TRASH), and
-// batchModify's flat per-call quota cost (vs. per-message for /trash) matters
-// once a bulk flow (delete-domain, expiry cleanup) spans hundreds of ids.
+// batchModify's flat 50-unit cost beats messages.modify's 5 units per id
+// once a bulk flow (delete-domain, expiry cleanup) spans more than ~10 ids.
 export async function trashMessages(token: string, ids: string[]): Promise<void> {
   await batchModify(token, ids, ["TRASH"], ["INBOX"]);
 }
@@ -324,12 +369,16 @@ function parseAddressList(value: string): string[] {
 }
 
 // Everyone the user has emailed recently — the implicit Screener allowlist.
-// Metadata-only (To/Cc headers of Sent mail); capped so a big Sent folder
-// doesn't turn this into a huge scan.
-export async function listSentCorrespondents(token: string, maxMessages = 300): Promise<string[]> {
+// Metadata-only (To/Cc headers of Sent mail); capped low because each message
+// is a 20-unit messages.get and this runs in the same background pass as a
+// full scan, all drawing on the one 6,000-unit/min budget. 150 recent Sent
+// messages still surface plenty of distinct correspondents once deduped.
+export async function listSentCorrespondents(token: string, maxMessages = 150): Promise<string[]> {
   const stubs = await listMessageIds(token, "in:sent newer_than:2y", maxMessages);
   const addresses = new Set<string>();
-  await mapWithConcurrency(stubs, 10, async (stub) => {
+  // 5-wide, same rationale as senderModel's metadata fetch — the shared
+  // quota limiter in gmailFetch paces the actual rate.
+  await mapWithConcurrency(stubs, 5, async (stub) => {
     try {
       const params = new URLSearchParams({ format: "metadata" });
       params.append("metadataHeaders", "To");

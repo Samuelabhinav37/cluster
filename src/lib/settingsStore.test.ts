@@ -23,7 +23,7 @@ describe("settingsStore", () => {
   it("returns defaults when nothing has been stored yet", async () => {
     const settings = await getSettings();
     expect(settings.scanWindowDays).toBe(180);
-    expect(settings.maxMessagesPerProvider).toBe(500);
+    expect(settings.maxMessagesPerProvider).toBe(150);
     expect(settings.fastPermanentDeleteEnabled).toBe(false);
     expect(settings.unsubscribeRequests).toEqual({});
     expect(settings.onboardingDismissed).toBe(false);
@@ -39,7 +39,7 @@ describe("settingsStore", () => {
   it("updateSettings merges a partial change on top of current values and persists it", async () => {
     const updated = await updateSettings({ scanWindowDays: 90 });
     expect(updated.scanWindowDays).toBe(90);
-    expect(updated.maxMessagesPerProvider).toBe(500); // untouched field preserved
+    expect(updated.maxMessagesPerProvider).toBe(150); // untouched field preserved
 
     const reread = await getSettings();
     expect(reread.scanWindowDays).toBe(90);
