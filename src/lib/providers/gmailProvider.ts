@@ -179,7 +179,7 @@ export const gmailProvider: EmailProvider = {
 
   async keepSorted(token, fromAddress, label, existingIds) {
     const labelId = await getOrCreateLabel(token, label);
-    await createSenderFilter(token, fromAddress, labelId);
+    await createSenderFilter(fromAddress, labelId);
     await batchModify(token, existingIds, [labelId], ["INBOX"]);
   },
 

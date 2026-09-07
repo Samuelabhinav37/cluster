@@ -50,6 +50,12 @@ export class GmailApiError extends Error {
   }
 }
 
+/** The user dismissed the incremental consent screen for the filter scope. The
+ * calling feature can't work without it, but nothing else is broken — callers
+ * catch this to show an inline "you'll need to allow…" note instead of a
+ * generic failure. */
+export class FilterScopeDeniedError extends Error {}
+
 export async function getAuthToken(interactive = true): Promise<string> {
   return new Promise((resolve, reject) => {
     chrome.identity.getAuthToken({ interactive }, (token) => {
@@ -60,6 +66,54 @@ export async function getAuthToken(interactive = true): Promise<string> {
       resolve(token);
     });
   });
+}
+
+// gmail.settings.basic is requested *incrementally*, not at install: only the
+// four filter-backed features (Mute, Keep-sorted, Screener, server-side "keep
+// sorting") touch the Users.settings.filters API, and most installs never use
+// them. The manifest ships with just gmail.modify, so a fresh install's consent
+// screen is one line; the extra scope's consent screen appears the first time
+// one of those features actually runs. Same mechanism as the opt-in
+// mail.google.com scope in getElevatedAuthToken.
+const FILTER_SCOPES = [
+  "https://www.googleapis.com/auth/gmail.modify",
+  "https://www.googleapis.com/auth/gmail.settings.basic",
+];
+
+/** A token carrying gmail.settings.basic. `interactive: false` returns a token
+ * only if the scope was already granted; `true` shows the incremental consent
+ * screen. The filter CRUD helpers below acquire this themselves rather than
+ * taking the caller's plain gmail.modify token. */
+export async function getFilterAuthToken(interactive: boolean): Promise<string> {
+  return new Promise((resolve, reject) => {
+    chrome.identity.getAuthToken({ interactive, scopes: FILTER_SCOPES }, (token) => {
+      if (chrome.runtime.lastError || !token) {
+        reject(chrome.runtime.lastError ?? new Error("No auth token returned"));
+        return;
+      }
+      resolve(token);
+    });
+  });
+}
+
+/** Interactive pre-flight the dashboard runs before a filter-backed action, so
+ * the incremental consent screen appears on a deliberate button click rather
+ * than partway through an operation. Rejects with {@link FilterScopeDeniedError}
+ * if the user dismisses the grant. */
+export async function ensureFilterScope(): Promise<void> {
+  try {
+    await getFilterAuthToken(true);
+  } catch (err) {
+    throw new FilterScopeDeniedError(err instanceof Error ? err.message : String(err));
+  }
+}
+
+// Every Users.settings.filters call goes through here: it needs the
+// incrementally granted gmail.settings.basic scope, so it fetches its own token
+// (and its own 401 refresher) instead of the caller's gmail.modify one.
+async function filterFetch<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = await getFilterAuthToken(false);
+  return gmailFetch<T>(path, token, init, () => getFilterAuthToken(false));
 }
 
 // Drop a token from Chrome's in-memory cache so the next getAuthToken()
@@ -342,7 +396,7 @@ const SCREENER_LABEL_NAME = "Screener";
 // and always reversible with allowSenderThrough.
 export async function screenSender(token: string, fromAddress: string, existingIds: string[]): Promise<void> {
   const labelId = await getOrCreateLabel(token, SCREENER_LABEL_NAME);
-  await createSenderFilter(token, fromAddress, labelId);
+  await createSenderFilter(fromAddress, labelId);
   if (existingIds.length > 0) await batchModify(token, existingIds, [labelId], ["INBOX"]);
 }
 
@@ -351,7 +405,7 @@ export async function allowSenderThrough(
   fromAddress: string,
   screenedIds: string[],
 ): Promise<void> {
-  await deleteSenderFilters(token, fromAddress);
+  await deleteSenderFilters(fromAddress);
   if (screenedIds.length > 0) {
     const labelId = await getOrCreateLabel(token, SCREENER_LABEL_NAME);
     await batchModify(token, screenedIds, ["INBOX"], [labelId]);
@@ -401,12 +455,12 @@ const MUTED_LABEL_NAME = "Muted";
 // already in the inbox. Independent of whether the sender honours unsubscribe.
 export async function muteSender(token: string, fromAddress: string, existingIds: string[]): Promise<void> {
   const labelId = await getOrCreateLabel(token, MUTED_LABEL_NAME);
-  await createSenderFilter(token, fromAddress, labelId);
+  await createSenderFilter(fromAddress, labelId);
   if (existingIds.length > 0) await batchModify(token, existingIds, [labelId], ["INBOX"]);
 }
 
 export async function unmuteSender(token: string, fromAddress: string, mutedIds: string[]): Promise<void> {
-  await deleteSenderFilters(token, fromAddress);
+  await deleteSenderFilters(fromAddress);
   if (mutedIds.length > 0) {
     const labelId = await getOrCreateLabel(token, MUTED_LABEL_NAME);
     await batchModify(token, mutedIds, ["INBOX"], [labelId]);
@@ -415,12 +469,12 @@ export async function unmuteSender(token: string, fromAddress: string, mutedIds:
 
 // Deletes every filter whose `from` criterion is exactly this address — used to
 // reverse a mute and (Phase 6) to let a sender back through the Screener.
-export async function deleteSenderFilters(token: string, fromAddress: string): Promise<void> {
-  const data = await gmailFetch<{ filter?: GmailFilterResource[] }>("/users/me/settings/filters", token);
+export async function deleteSenderFilters(fromAddress: string): Promise<void> {
+  const data = await filterFetch<{ filter?: GmailFilterResource[] }>("/users/me/settings/filters");
   const target = fromAddress.toLowerCase();
   const matches = (data.filter ?? []).filter((f) => (f.criteria?.from ?? "").toLowerCase() === target);
   for (const f of matches) {
-    await gmailFetch(`/users/me/settings/filters/${f.id}`, token, { method: "DELETE" });
+    await filterFetch(`/users/me/settings/filters/${f.id}`, { method: "DELETE" });
   }
 }
 
@@ -428,17 +482,16 @@ export async function deleteSenderFilters(token: string, fromAddress: string): P
 // Gmail caps an account at 1,000 filters; Cluster only ever creates one per
 // domain-category bucket (≤7), so the cap isn't a concern here.
 
-export async function listFilters(token: string): Promise<GmailFilterResource[]> {
-  const data = await gmailFetch<{ filter?: GmailFilterResource[] }>("/users/me/settings/filters", token);
+export async function listFilters(): Promise<GmailFilterResource[]> {
+  const data = await filterFetch<{ filter?: GmailFilterResource[] }>("/users/me/settings/filters");
   return data.filter ?? [];
 }
 
 export async function createFilter(
-  token: string,
   criteria: GmailFilterCriteria,
   action: GmailFilterAction,
 ): Promise<string> {
-  const data = await gmailFetch<GmailFilterResource>("/users/me/settings/filters", token, {
+  const data = await filterFetch<GmailFilterResource>("/users/me/settings/filters", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ criteria, action }),
@@ -446,8 +499,8 @@ export async function createFilter(
   return data.id;
 }
 
-export async function deleteFilter(token: string, id: string): Promise<void> {
-  await gmailFetch(`/users/me/settings/filters/${id}`, token, { method: "DELETE" });
+export async function deleteFilter(id: string): Promise<void> {
+  await filterFetch(`/users/me/settings/filters/${id}`, { method: "DELETE" });
 }
 
 // https://mail.google.com/ is a Google-classified *restricted* scope — not in
@@ -542,8 +595,8 @@ export async function resurfaceMessages(token: string, ids: string[]): Promise<v
   await batchModify(token, ids, ["INBOX"], [labelId]);
 }
 
-export async function createSenderFilter(token: string, fromAddress: string, labelId: string): Promise<void> {
-  await gmailFetch("/users/me/settings/filters", token, {
+export async function createSenderFilter(fromAddress: string, labelId: string): Promise<void> {
+  await filterFetch("/users/me/settings/filters", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

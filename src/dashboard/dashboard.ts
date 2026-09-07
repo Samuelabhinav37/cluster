@@ -20,7 +20,12 @@ import {
   totalExpiryCount,
   type ExpiryBucket,
 } from "../lib/expiryTriage";
-import { getElevatedAuthToken, GmailApiError } from "../lib/gmailApi";
+import {
+  ensureFilterScope,
+  FilterScopeDeniedError,
+  getElevatedAuthToken,
+  GmailApiError,
+} from "../lib/gmailApi";
 import { clearMetadataCache, loadMetadataCache, saveMetadataCache } from "../lib/metadataCache";
 import type { ProviderId } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
@@ -733,6 +738,13 @@ function buildMuteCell(sender: SenderSummary): HTMLTableCellElement {
       `Hide all mail from ${sender.address}, now and in future?`,
       false,
       async () => {
+        try {
+          await ensureFilterScope();
+        } catch (err) {
+          if (err instanceof FilterScopeDeniedError)
+            return "Needs permission to manage Gmail filters — mute cancelled.";
+          throw err;
+        }
         const token = await provider.getAuthToken(false);
         await provider.muteSender!(token, sender.address, sender.messageIds);
         ctx.settings = await mutateSettings((current) => ({
@@ -855,6 +867,16 @@ function buildKeepSortedCell(sender: SenderSummary): HTMLTableCellElement {
     btn.disabled = true;
     btn.textContent = "Setting up…";
     try {
+      try {
+        await ensureFilterScope();
+      } catch (err) {
+        if (err instanceof FilterScopeDeniedError) {
+          btn.textContent = "Needs filter permission";
+          btn.disabled = false;
+          return;
+        }
+        throw err;
+      }
       const token = await provider.getAuthToken(false);
       const labelName = sender.displayName || sender.address;
       await provider.keepSorted(token, sender.address, labelName, sender.messageIds);
@@ -1516,6 +1538,13 @@ function wireBulkHandlers() {
     const summaryText = `${eligible.length} will be sorted, ${unsupported.length} skipped — not supported for this provider`;
 
     renderConfirmStep(keepSortedBulkSlot, resetKeepSortedBulkSlot, summaryText, false, async () => {
+      try {
+        await ensureFilterScope();
+      } catch (err) {
+        if (err instanceof FilterScopeDeniedError)
+          return "Needs permission to manage Gmail filters — nothing changed.";
+        throw err;
+      }
       const { succeeded, failed } = await executeBulkKeepSorted(eligible, providerById);
       if (succeeded > 0)
         await logAction("keepSorted", `Kept ${succeeded} sender${succeeded === 1 ? "" : "s"} sorted`);
@@ -1615,6 +1644,13 @@ function wireBulkHandlers() {
       `Mute ${targets.length} locally suggested sender${targets.length === 1 ? "" : "s"}, now and in future?`,
       false,
       async () => {
+        try {
+          await ensureFilterScope();
+        } catch (err) {
+          if (err instanceof FilterScopeDeniedError)
+            return "Needs permission to manage Gmail filters — nothing changed.";
+          throw err;
+        }
         const token = await gmailProvider.getAuthToken(false);
         const succeeded: EngagementSuggestion[] = [];
         for (const target of targets) {

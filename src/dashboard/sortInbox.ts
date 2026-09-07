@@ -30,6 +30,7 @@ import {
 import {
   createFilter,
   deleteFilter,
+  ensureFilterScope,
   getOrCreateLabel,
   listFilters,
   listLabelNames,
@@ -439,10 +440,26 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
   // shut. Subject-kind buckets → a client rule for the 6-hourly sweep. Server
   // buckets also keep a client rule as a fallback (the Graph rule path is not
   // yet battle-tested; on Gmail it's a near-noop via the completion ledger).
-  const gmailToken = await gmailProvider.getAuthToken(false).catch((err) => {
+  let gmailToken = await gmailProvider.getAuthToken(false).catch((err) => {
     log.error("keep-sorting: no Gmail token", err);
     return null;
   });
+  // "keep sorting" writes Gmail filters, which need the incrementally granted
+  // gmail.settings.basic scope. Ask for it up front on this click; if the user
+  // declines, still apply the one-time backlog and any client-side rules, just
+  // skip the server-side Gmail filters (nulling the token below is exactly what
+  // the `if (gmailToken)` guards already key off).
+  let filterScopeNote = "";
+  if (keepOn && gmailToken) {
+    try {
+      await ensureFilterScope();
+    } catch (err) {
+      log.error("keep-sorting: filter scope not granted", err);
+      gmailToken = null;
+      filterScopeNote =
+        " Gmail filters were not set up — allow the extra permission to keep new mail sorting automatically.";
+    }
+  }
   const outlookOn = activeProviders.some((p) => p.id === "outlook");
   const outlookToken = outlookOn
     ? await outlookProvider.getAuthToken(false).catch((err: unknown) => {
@@ -463,7 +480,7 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
     if (keptServerBuckets.has(bucket as SortBucket)) continue;
     if (gmailToken) {
       for (const id of filterIds[bucket] ?? []) {
-        await deleteFilter(gmailToken, id).catch((err) => log.error("keep-sorting: delete filter", err));
+        await deleteFilter(id).catch((err) => log.error("keep-sorting: delete filter", err));
       }
     }
     if (outlookToken) {
@@ -487,12 +504,10 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
       if (server && terms && gmailToken) {
         const labelId = await getOrCreateLabel(gmailToken, entry.label);
         for (const id of filterIds[entry.bucket] ?? []) {
-          await deleteFilter(gmailToken, id).catch((err) => log.error("keep-sorting: replace filter", err));
+          await deleteFilter(id).catch((err) => log.error("keep-sorting: replace filter", err));
         }
         const spec = buildBucketFilter(labelId, entry.fileOut, terms);
-        filterIds[entry.bucket] = spec
-          ? [await createFilter(gmailToken, spec.criteria, spec.action)]
-          : [];
+        filterIds[entry.bucket] = spec ? [await createFilter(spec.criteria, spec.action)] : [];
       }
 
       if (server && terms && outlookToken) {
@@ -572,7 +587,7 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
     Object.values(filterIds).reduce((n, ids) => n + ids.length, 0) +
     Object.values(ruleIds).reduce((n, ids) => n + ids.length, 0);
   const suffix = serverCount > 0 ? ` · ${serverCount} standing filter${serverCount === 1 ? "" : "s"}` : "";
-  return `Sorted ${total} into ${effective.length} label${effective.length === 1 ? "" : "s"}${suffix}`;
+  return `Sorted ${total} into ${effective.length} label${effective.length === 1 ? "" : "s"}${suffix}${filterScopeNote}`;
 }
 
 // First run only: offer to reuse a label the user already made that matches a
@@ -581,15 +596,20 @@ async function maybeShowSeedCard() {
   if (ctx.settings.seededFromExisting) return;
 
   let labelNames: string[];
-  let filterTargets: string[];
+  let filterTargets: string[] = [];
   try {
     const token = await gmailProvider.getAuthToken(false);
-    const [names, filters] = await Promise.all([listLabelNames(token), listFilters(token)]);
-    labelNames = names;
-    filterTargets = filteredFromTargets(filters);
+    labelNames = await listLabelNames(token);
   } catch (err) {
     log.error("seed-from-existing: Gmail read failed", err);
     return;
+  }
+  try {
+    // Needs gmail.settings.basic, which may not be granted yet — the label-reuse
+    // offer above still stands without it.
+    filterTargets = filteredFromTargets(await listFilters());
+  } catch (err) {
+    log.error("seed-from-existing: filter read skipped (scope not granted?)", err);
   }
 
   const bucketLabels = ALL_SORT_BUCKETS.map((b) => SORT_BUCKET_LABELS[b]);

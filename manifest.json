@@ -37,9 +37,6 @@
   "optional_host_permissions": ["https://*/*"],
   "oauth2": {
     "client_id": "995931931748-0hjufbdg626m372dm5pi1f9toe7ausuc.apps.googleusercontent.com",
-    "scopes": [
-      "https://www.googleapis.com/auth/gmail.modify",
-      "https://www.googleapis.com/auth/gmail.settings.basic"
-    ]
+    "scopes": ["https://www.googleapis.com/auth/gmail.modify"]
   }
 }
