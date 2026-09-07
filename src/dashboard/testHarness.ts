@@ -8,7 +8,7 @@
 import { vi } from "vitest";
 import rawIndexHtml from "./index.html?raw";
 import type { EmailProvider, NormalizedMessageMetadata } from "../lib/providers/emailProvider";
-import type { ClusterSettings } from "../lib/settingsStore";
+import { CURRENT_SETTINGS_SCHEMA_VERSION, type ClusterSettings } from "../lib/settingsStore";
 
 const DAY = 86_400_000;
 
@@ -181,12 +181,15 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
   const gmail = opts.gmail ?? makeGmailSpy(mailbox);
   const outlook = opts.outlook ?? makeOutlookSpy();
 
+  // Seed a partial settings object stamped with the current schema version so
+  // no migration runs over it (the 2->3 migration, for one, blanks
+  // senderEngagement). settingsStore merges it over its defaults on read, so
+  // main()'s first getSettings() already sees these fields.
   const local = fakeArea(
-    opts.settings ? { clusterSettings: { schemaVersion: 999, ...opts.settings } } : {},
+    opts.settings
+      ? { clusterSettings: { schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION, ...opts.settings } }
+      : {},
   );
-  // schemaVersion 999 would trip migrateSettings; instead let settingsStore
-  // seed its own defaults and layer opts.settings on afterwards.
-  if (opts.settings) local._store.delete("clusterSettings");
 
   const chromeStub = {
     storage: { local, session: fakeArea(), managed: fakeArea() },
@@ -249,15 +252,6 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
 
   await import("./dashboard");
 
-  // Layer caller settings on now that settingsStore has seeded defaults.
-  if (opts.settings) {
-    const store = await import("../lib/settingsStore");
-    await store.updateSettings(opts.settings);
-    // Re-render off the updated settings.
-    const evt = document.getElementById("apply-scan-settings-btn");
-    void evt;
-  }
-
   await vi.waitFor(
     () => {
       const status = document.getElementById("status") as HTMLElement;
@@ -291,16 +285,24 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
   };
 }
 
-/** Click through a renderConfirmStep: press Confirm, wait for the summary text
- * to settle. Returns the container's text after. */
+/** Click a renderConfirmStep's Confirm button and wait for its async onConfirm
+ * to resolve. renderConfirmStep puts the prompt in a leading <span> and
+ * overwrites that span's text with the result (or an error) when done, so we
+ * wait for that text to change. Returns the container's text after. */
 export async function confirmStep(container: HTMLElement): Promise<string> {
   const confirm = Array.from(container.querySelectorAll("button")).find(
     (b) => b.textContent === "Confirm",
   );
   if (!confirm) throw new Error("no Confirm button in container");
+  const summary = container.querySelector("span");
+  const before = summary?.textContent ?? container.textContent ?? "";
   confirm.click();
-  await vi.waitFor(() => {
-    if (container.textContent?.includes("…")) throw new Error("still working");
-  });
+  await vi.waitFor(
+    () => {
+      const now = summary?.textContent ?? container.textContent ?? "";
+      if (now === before || now.includes("…")) throw new Error("confirm step still running");
+    },
+    { timeout: 3000, interval: 10 },
+  );
   return container.textContent ?? "";
 }
