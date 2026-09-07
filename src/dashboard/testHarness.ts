@@ -155,6 +155,9 @@ export interface BootOptions {
   denyFilterScope?: boolean;
   /** Stub global fetch (e.g. for the one-click unsubscribe POST). */
   fetchImpl?: typeof fetch;
+  /** chrome.permissions.contains/request resolve true (the per-origin grant
+   * the one-click unsubscribe needs). Default false. */
+  grantOrigins?: boolean;
   online?: boolean;
 }
 
@@ -207,7 +210,10 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
     },
     runtime: { lastError: undefined as unknown, getURL: (p: string) => p, id: "test" },
     action: { setBadgeText: vi.fn(async () => {}), setBadgeBackgroundColor: vi.fn(async () => {}) },
-    permissions: { contains: async () => false, request: async () => false },
+    permissions: {
+      contains: async () => Boolean(opts.grantOrigins),
+      request: async () => Boolean(opts.grantOrigins),
+    },
     tabs: { query: async () => [], create: () => {}, update: () => {} },
     alarms: { create: () => {}, onAlarm: { addListener: () => {} } },
   };
