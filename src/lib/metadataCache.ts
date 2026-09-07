@@ -14,11 +14,15 @@ import type { NormalizedMessageMetadata } from "./providers/emailProvider";
 // couple of weeks, and an "Rescan" bypasses the cache entirely.
 
 const STORAGE_KEY = "clusterMetadataCache";
-// Cap the stored map conservatively. At ~1.5 KB per entry this is well under
-// 1 MB even alongside everything else in chrome.storage.local — a bloated
-// cache that fails to write would also knock out the quota ledger, which
-// shares that storage area.
-const MAX_ENTRIES = 400;
+// Cap the stored map so a warm rescan pays list quota (5 units/page) instead of
+// re-fetching the whole mailbox (20 units per messages.get). The manifest now
+// carries `unlimitedStorage`, so this is bounded by serialize/parse cost per
+// scan rather than the old 10 MB chrome.storage.local ceiling — 2,000 entries
+// at ~1.5 KB each is ~3 MB, which covers the default scan (maxMessagesPer
+// provider 150) and a generously widened one. A user who pushes the scan limit
+// toward its 5,000 max keeps ~40% of the mailbox warm rather than losing the
+// cache almost entirely, which the previous 400-entry cap did.
+const MAX_ENTRIES = 2000;
 // Mail newer than this is always re-fetched, so a freshly starred or newly
 // read message can't be served with stale label state into a bulk action.
 // A week keeps the bulk of an older mailbox warm while still re-reading
@@ -53,17 +57,23 @@ export async function loadMetadataCache(
 }
 
 /**
- * Persists the cache after a scan. Keeps the most-recently-inserted
- * {@link MAX_ENTRIES} (Map iteration is insertion-ordered, and
- * `buildSenderSummaries` appends freshly fetched entries as it goes). A write
- * failure is non-fatal — the next scan is simply cold.
+ * Persists the cache after a scan. When over {@link MAX_ENTRIES}, keeps the
+ * most-recently-received messages: those sit closest to the fresh window and
+ * are the likeliest to still be in a later scan's candidate set, so retaining
+ * them maximises the warm-hit rate next time. (Insertion order is not a useful
+ * proxy here — `buildSenderSummaries` fetches concurrently, so it's roughly
+ * arbitrary.) A write failure is non-fatal — the next scan is simply cold.
  */
 export async function saveMetadataCache(
   cache: Map<string, NormalizedMessageMetadata>,
 ): Promise<void> {
   try {
-    const entries = [...cache.entries()];
-    const kept = entries.slice(Math.max(0, entries.length - MAX_ENTRIES));
+    let kept = [...cache.entries()];
+    if (kept.length > MAX_ENTRIES) {
+      kept = kept
+        .sort(([, a], [, b]) => (b.receivedAt ?? 0) - (a.receivedAt ?? 0))
+        .slice(0, MAX_ENTRIES);
+    }
     await chrome.storage.local.set({ [STORAGE_KEY]: Object.fromEntries(kept) });
   } catch (error) {
     log.error("metadataCache: could not save", error);

@@ -67,20 +67,22 @@ describe("metadataCache", () => {
     expect(loaded.has("gmail:recent")).toBe(false);
   });
 
-  it("keeps only the most-recently-inserted entries past the cap", async () => {
-    // Cap is 400; insert 450 stale entries and confirm the oldest 50 fall off.
+  it("keeps the most-recently-received entries past the cap", async () => {
+    // Cap is 2000; insert 2100 stale entries with increasing receivedAt and
+    // confirm the 100 oldest-received fall off, newest-received are kept.
+    const base = NOW - FRESH_WINDOW_MS - 100_000;
     const cache = new Map<string, NormalizedMessageMetadata>();
-    for (let i = 0; i < 450; i++) {
-      cache.set(`gmail:m${i}`, meta(`m${i}`, NOW - FRESH_WINDOW_MS - 1));
+    for (let i = 0; i < 2100; i++) {
+      cache.set(`gmail:m${i}`, meta(`m${i}`, base - i));
     }
     await saveMetadataCache(cache);
 
     const loaded = await loadMetadataCache(NOW);
-    expect(loaded.size).toBe(400);
-    expect(loaded.has("gmail:m0")).toBe(false);
-    expect(loaded.has("gmail:m49")).toBe(false);
-    expect(loaded.has("gmail:m50")).toBe(true);
-    expect(loaded.has("gmail:m449")).toBe(true);
+    expect(loaded.size).toBe(2000);
+    expect(loaded.has("gmail:m0")).toBe(true); // newest receivedAt (base - 0)
+    expect(loaded.has("gmail:m1999")).toBe(true);
+    expect(loaded.has("gmail:m2000")).toBe(false); // oldest 100 evicted
+    expect(loaded.has("gmail:m2099")).toBe(false);
   });
 
   it("clears the stored cache", async () => {
