@@ -164,6 +164,14 @@ export interface BootOptions {
 export interface BootedDashboard {
   gmail: GmailSpy;
   outlook: GmailSpy;
+  /** Spies for the Gmail Settings-filters calls (mocked away from the network). */
+  gmailApi: {
+    listFilters: ReturnType<typeof vi.fn>;
+    listLabelNames: ReturnType<typeof vi.fn>;
+    getOrCreateLabel: ReturnType<typeof vi.fn>;
+    createFilter: ReturnType<typeof vi.fn>;
+    deleteFilter: ReturnType<typeof vi.fn>;
+  };
   /** Read the persisted settings object as the dashboard last wrote it. */
   storedSettings: () => ClusterSettings;
   /** Re-read #status text. */
@@ -244,17 +252,17 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
       getArchiveFolderId: vi.fn(async () => null),
     };
   });
-  vi.doMock("../lib/gmailApi", async () => {
-    const actual = (await vi.importActual("../lib/gmailApi")) as Record<string, unknown>;
-    return {
-      ...actual,
-      listFilters: vi.fn(async () => []),
-      listLabelNames: vi.fn(async () => []),
-      getOrCreateLabel: vi.fn(async () => "label-id"),
-      createFilter: vi.fn(async () => "filter-id"),
-      deleteFilter: vi.fn(async () => {}),
-    };
-  });
+  const gmailApiMock = {
+    listFilters: vi.fn(async () => [] as unknown[]),
+    listLabelNames: vi.fn(async () => [] as string[]),
+    getOrCreateLabel: vi.fn(async () => "label-id"),
+    createFilter: vi.fn(async () => "filter-id"),
+    deleteFilter: vi.fn(async () => {}),
+  };
+  vi.doMock("../lib/gmailApi", async () => ({
+    ...((await vi.importActual("../lib/gmailApi")) as Record<string, unknown>),
+    ...gmailApiMock,
+  }));
 
   await import("./dashboard");
 
@@ -275,6 +283,7 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
   return {
     gmail,
     outlook,
+    gmailApi: gmailApiMock,
     storedSettings: () =>
       (local._store.get("clusterSettings") ?? {}) as ClusterSettings,
     status: () => el("status").textContent ?? "",
