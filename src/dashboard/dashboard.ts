@@ -644,16 +644,7 @@ function render(senders: SenderSummary[]) {
   renderCategoryGroups(
     senderGroupsEl,
     groups,
-    [
-      "",
-      "Provider",
-      "Sender",
-      `Count (${ctx.settings.scanWindowDays}d)`,
-      "Unsubscribe",
-      "Keep sorted",
-      "Mute",
-      "Snooze",
-    ],
+    ["", "Provider", "Sender", `Count (${ctx.settings.scanWindowDays}d)`, "Actions"],
     buildSenderRow,
     "senders",
     "collapsedSenderCategories",
@@ -697,19 +688,47 @@ function buildSenderRow(sender: SenderSummary): HTMLTableRowElement {
   countCell.textContent = String(sender.count);
   row.appendChild(countCell);
 
-  row.appendChild(buildUnsubscribeCell(sender));
-  row.appendChild(buildKeepSortedCell(sender));
-  row.appendChild(buildMuteCell(sender));
-  row.appendChild(buildSnoozeCell(sender));
+  row.appendChild(buildSenderActionsCell(sender));
 
   return row;
+}
+
+// One "Actions" cell per row instead of four always-visible columns — a
+// closed <details> keeps the row scannable, each action group still owns its
+// own live element for renderConfirmStep's in-place cell.innerHTML swap.
+function buildSenderActionsCell(sender: SenderSummary): HTMLTableCellElement {
+  const cell = document.createElement("td");
+  const details = document.createElement("details");
+  details.className = "row-actions";
+  const summary = document.createElement("summary");
+  summary.textContent = "Actions";
+  details.appendChild(summary);
+
+  const groups: Array<[string, HTMLDivElement]> = [
+    ["Unsubscribe", buildUnsubscribeCell(sender)],
+    ["Keep sorted", buildKeepSortedCell(sender)],
+    ["Mute", buildMuteCell(sender)],
+    ["Snooze", buildSnoozeCell(sender)],
+  ];
+  for (const [label, group] of groups) {
+    const wrap = document.createElement("div");
+    wrap.className = "row-action-group";
+    const labelEl = document.createElement("span");
+    labelEl.className = "row-action-label";
+    labelEl.textContent = label;
+    wrap.append(labelEl, group);
+    details.appendChild(wrap);
+  }
+
+  cell.appendChild(details);
+  return cell;
 }
 
 // ── Mute (local BlackHole) ───────────────────────────────────────────────
 // A standing from:<address> filter hiding all mail from this sender, now and
 // future — independent of whether they honour unsubscribe. Gmail-only.
-function buildMuteCell(sender: SenderSummary): HTMLTableCellElement {
-  const cell = document.createElement("td");
+function buildMuteCell(sender: SenderSummary): HTMLDivElement {
+  const cell = document.createElement("div");
   const provider = providerById.get(sender.provider);
   if (!provider?.muteSender) {
     cell.textContent = "—";
@@ -778,8 +797,8 @@ async function saveEngagementFeedback(senderKeys: string[], feedback: Engagement
   }));
 }
 
-function buildUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
-  const cell = document.createElement("td");
+function buildUnsubscribeCell(sender: SenderSummary): HTMLDivElement {
+  const cell = document.createElement("div");
 
   if (sender.unsubscribe.postUrl) {
     const statusEl = document.createElement("div");
@@ -842,8 +861,8 @@ function buildUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
   return cell;
 }
 
-function buildKeepSortedCell(sender: SenderSummary): HTMLTableCellElement {
-  const cell = document.createElement("td");
+function buildKeepSortedCell(sender: SenderSummary): HTMLDivElement {
+  const cell = document.createElement("div");
   const btn = document.createElement("button");
   btn.textContent = "Keep sorted";
   btn.onclick = async () => {
@@ -883,8 +902,8 @@ async function recordSnoozedMessages(ids: string[], provider: ProviderId, resurf
   ctx.settings = await updateSettings({ snoozedMessages });
 }
 
-function buildSnoozeCell(sender: SenderSummary): HTMLTableCellElement {
-  const cell = document.createElement("td");
+function buildSnoozeCell(sender: SenderSummary): HTMLDivElement {
+  const cell = document.createElement("div");
 
   if (!providerById.get(sender.provider)?.snoozeMessages) {
     cell.textContent = "Not supported for this provider";

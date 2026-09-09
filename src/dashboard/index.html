@@ -38,17 +38,17 @@
 
       <div id="top-bar" class="bulk-bar">
         <button id="connect-outlook">Connect Outlook</button>
-        <label>
-          Scan window (days):
-          <input type="number" id="scan-window-input" min="1" max="3650" />
-        </label>
-        <label>
-          Max messages per account:
-          <input type="number" id="max-messages-input" min="50" max="5000" step="50" />
-        </label>
         <button id="apply-scan-settings-btn">Rescan</button>
         <details id="settings-panel">
           <summary>Settings</summary>
+          <label>
+            Scan window (days):
+            <input type="number" id="scan-window-input" min="1" max="3650" />
+          </label>
+          <label>
+            Max messages per account:
+            <input type="number" id="max-messages-input" min="50" max="5000" step="50" />
+          </label>
           <label class="setting-toggle">
             Theme
             <select id="theme-select">
@@ -311,55 +311,58 @@
           constrained rule JSON. Cluster validates and previews it; nothing runs until you save and apply it.
           A deterministic parser is used when the model is unavailable.
         </p>
-        <form id="rule-form" class="bulk-bar">
-          <input type="text" id="rule-name" placeholder="Rule name" />
-          <input type="text" id="rule-from-domain" placeholder="from domain, e.g. news.example.com" />
-          <input type="text" id="rule-from-address" placeholder="from address (exact)" />
-          <input type="text" id="rule-except-domain" placeholder="except domain" />
-          <input type="text" id="rule-except-address" placeholder="except address" />
-          <label>
-            older than
-            <input type="number" id="rule-older-days" min="1" max="3650" />
-            days
-          </label>
-          <select id="rule-kind">
-            <option value="">any kind</option>
-            <option value="otp">otp</option>
-            <option value="shipping">shipping</option>
-            <option value="receipt">receipt</option>
-            <option value="newsletter">newsletter</option>
-            <option value="social">social</option>
-            <option value="other">other</option>
-          </select>
-          <select id="rule-unsub">
-            <option value="">unsubscribe: any</option>
-            <option value="yes">has unsubscribe</option>
-            <option value="no">no unsubscribe</option>
-          </select>
-          <select id="rule-unread">
-            <option value="">read state: any</option>
-            <option value="yes">unread</option>
-            <option value="no">already read</option>
-          </select>
-          <select id="rule-action">
-            <option value="archive">archive</option>
-            <option value="trash">move to Trash</option>
-            <option value="markRead">mark read</option>
-            <option value="label">label</option>
-          </select>
-          <input type="text" id="rule-label" placeholder="Label name" hidden />
-          <label>
-            priority
-            <input type="number" id="rule-priority" min="-100" max="100" value="0" />
-          </label>
-          <label>
-            max per run
-            <input type="number" id="rule-limit" min="1" max="500" value="100" />
-          </label>
-          <label><input type="checkbox" id="rule-stop-processing" /> stop later rules</label>
-          <button type="submit" id="rule-add-btn">Add rule</button>
-          <span id="rule-form-error" class="hint"></span>
-        </form>
+        <details id="rule-form-details">
+          <summary>Customize manually</summary>
+          <form id="rule-form" class="bulk-bar">
+            <input type="text" id="rule-name" placeholder="Rule name" />
+            <input type="text" id="rule-from-domain" placeholder="from domain, e.g. news.example.com" />
+            <input type="text" id="rule-from-address" placeholder="from address (exact)" />
+            <input type="text" id="rule-except-domain" placeholder="except domain" />
+            <input type="text" id="rule-except-address" placeholder="except address" />
+            <label>
+              older than
+              <input type="number" id="rule-older-days" min="1" max="3650" />
+              days
+            </label>
+            <select id="rule-kind">
+              <option value="">any kind</option>
+              <option value="otp">otp</option>
+              <option value="shipping">shipping</option>
+              <option value="receipt">receipt</option>
+              <option value="newsletter">newsletter</option>
+              <option value="social">social</option>
+              <option value="other">other</option>
+            </select>
+            <select id="rule-unsub">
+              <option value="">unsubscribe: any</option>
+              <option value="yes">has unsubscribe</option>
+              <option value="no">no unsubscribe</option>
+            </select>
+            <select id="rule-unread">
+              <option value="">read state: any</option>
+              <option value="yes">unread</option>
+              <option value="no">already read</option>
+            </select>
+            <select id="rule-action">
+              <option value="archive">archive</option>
+              <option value="trash">move to Trash</option>
+              <option value="markRead">mark read</option>
+              <option value="label">label</option>
+            </select>
+            <input type="text" id="rule-label" placeholder="Label name" hidden />
+            <label>
+              priority
+              <input type="number" id="rule-priority" min="-100" max="100" value="0" />
+            </label>
+            <label>
+              max per run
+              <input type="number" id="rule-limit" min="1" max="500" value="100" />
+            </label>
+            <label><input type="checkbox" id="rule-stop-processing" /> stop later rules</label>
+            <button type="submit" id="rule-add-btn">Add rule</button>
+            <span id="rule-form-error" class="hint"></span>
+          </form>
+        </details>
         <div id="rule-apply-slot">
           <button id="rule-apply-btn">Apply enabled rules now</button>
         </div>

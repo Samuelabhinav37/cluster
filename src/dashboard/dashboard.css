@@ -175,6 +175,32 @@ table td:first-child {
   padding: 0 0.75rem;
 }
 
+.row-actions summary {
+  cursor: pointer;
+  color: var(--muted-strong);
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+.row-actions[open] summary {
+  margin-bottom: 0.5rem;
+}
+
+.row-action-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  min-width: 16rem;
+}
+
+.row-action-label {
+  color: var(--muted);
+  font-size: 0.85em;
+  min-width: 5.5rem;
+}
+
 /* Wide data tables scroll inside their own container rather than forcing the
    page body sideways or stack-wrapping into an unreadable column. */
 .category-group,
@@ -336,6 +362,19 @@ select {
   font-weight: 600;
 }
 
+#rule-form-details {
+  margin-top: 0.5rem;
+}
+
+#rule-form-details summary {
+  cursor: pointer;
+  color: var(--muted-strong);
+}
+
+#rule-form-details form {
+  margin-top: 0.5rem;
+}
+
 .rule-preview-row p,
 .rule-preview-row ul {
   margin: 0.5rem 0 0;
@@ -414,6 +453,12 @@ select {
 
 #settings-panel .setting-toggle {
   margin-top: 0.5rem;
+}
+
+#settings-panel > label {
+  display: block;
+  margin-top: 0.5rem;
+  color: var(--muted-strong);
 }
 
 #security-sender-list {
