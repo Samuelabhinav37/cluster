@@ -175,6 +175,32 @@ table td:first-child {
   padding: 0 0.75rem;
 }
 
+#suggested-actions-section {
+  margin-top: 2rem;
+}
+
+#suggested-actions-section > section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+#suggested-actions-section > section:first-of-type {
+  margin-top: 1rem;
+  padding-top: 0;
+  border-top: none;
+}
+
+#also-check-details {
+  margin-top: 2rem;
+}
+
+#also-check-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--muted-strong);
+}
+
 .row-actions summary {
   cursor: pointer;
   color: var(--muted-strong);

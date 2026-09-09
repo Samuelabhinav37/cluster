@@ -112,6 +112,8 @@ const selectSafeDomainsBtn = document.getElementById("select-safe-domains") as H
 const deleteDomainsBulkSlot = document.getElementById("delete-domains-bulk-slot") as HTMLSpanElement;
 const bulkDeleteDomainsBtn = document.getElementById("bulk-delete-domains-btn") as HTMLButtonElement;
 
+const suggestedActionsSectionEl = document.getElementById("suggested-actions-section") as HTMLElement;
+
 const expirySectionEl = document.getElementById("expiry-section") as HTMLElement;
 const expiryBreakdownEl = document.getElementById("expiry-breakdown") as HTMLSpanElement;
 const expiryCleanupSlot = document.getElementById("expiry-cleanup-slot") as HTMLSpanElement;
@@ -451,10 +453,20 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   renderSubscriptionsTab(senders);
   renderNeverReadSection(senders);
   renderSpamSection(senders);
+  updateSuggestedActionsVisibility();
   renderSortInbox(senders);
   renderSmartViews(senders);
   renderScreenerTab(senders);
   generateDigestBtn.disabled = false;
+}
+
+// The three suggestion sections (never-read, spam, expiry) each hide
+// themselves when empty; this just decides whether their shared "Suggested
+// actions" wrapper is worth showing at all, so an all-caught-up scan doesn't
+// leave a bare heading with nothing under it.
+function updateSuggestedActionsVisibility() {
+  suggestedActionsSectionEl.hidden =
+    neverReadSectionEl.hidden && spamSectionEl.hidden && expirySectionEl.hidden;
 }
 
 // Metric id → the section to scroll to after switching tabs. Missing entries
@@ -488,7 +500,11 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
       ctx.settings = { ...ctx.settings, activeTab: metric.tab };
       void updateSettings({ activeTab: metric.tab });
       const target = OVERVIEW_SECTION_BY_METRIC[metric.id];
-      if (target) document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const targetEl = target ? document.getElementById(target) : null;
+      if (targetEl) {
+        targetEl.closest("details")?.setAttribute("open", "");
+        targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     };
 
     const value = document.createElement("span");

@@ -147,90 +147,103 @@
             <button id="bulk-snooze-btn" disabled>Bulk snooze selected</button>
           </span>
         </div>
-        <div id="smart-views-bar" class="bulk-bar">
-          <strong>Views:</strong>
-          <span id="smart-view-chips"></span>
-        </div>
-        <div id="smart-view-result-slot"></div>
-        <div id="keep-newest-bar" class="bulk-bar">
-          <label>
-            Trim each sender to its newest
-            <input type="number" id="keep-newest-n" min="1" max="100" value="3" />
-            messages
-          </label>
-          <span id="keep-newest-slot"><button id="keep-newest-btn" class="danger">Trim…</button></span>
-        </div>
 
         <div id="sender-groups" hidden></div>
 
-        <section id="never-read-section" hidden>
-          <h2>Personalized cleanup suggestions</h2>
+        <section id="suggested-actions-section" hidden>
+          <h2>Suggested actions</h2>
           <p class="hint">
-            Cluster learns from changed unread patterns and your corrections, entirely on this device. It
-            stores only bounded sender-level counts and ratios — never message IDs, subjects, or bodies. The
-            displayed fit score explains why a suggestion appeared; it is not a probability. Starred or
-            flagged senders are excluded, nothing moves until you confirm, and “Not useful” hides a suggestion
-            for 30 days.
+            Cleanup Cluster thinks is worth reviewing, grouped by why it was suggested. Nothing moves until
+            you confirm each group below.
           </p>
-          <div id="never-read-bulk-bar" class="bulk-bar">
-            <span id="never-read-count"></span>
-            <span id="never-read-mute-slot"><button id="never-read-mute-btn">Mute suggested…</button></span>
-            <span id="never-read-trash-slot"
-              ><button id="never-read-trash-btn" class="danger">Trash suggested…</button></span
-            >
-          </div>
-          <div id="never-read-list"></div>
+
+          <section id="never-read-section" hidden>
+            <h3>Personalized cleanup suggestions</h3>
+            <p class="hint">
+              Cluster learns from changed unread patterns and your corrections, entirely on this device. It
+              stores only bounded sender-level counts and ratios — never message IDs, subjects, or bodies.
+              The displayed fit score explains why a suggestion appeared; it is not a probability. Starred
+              or flagged senders are excluded, nothing moves until you confirm, and “Not useful” hides a
+              suggestion for 30 days.
+            </p>
+            <div id="never-read-bulk-bar" class="bulk-bar">
+              <span id="never-read-count"></span>
+              <span id="never-read-mute-slot"><button id="never-read-mute-btn">Mute suggested…</button></span>
+              <span id="never-read-trash-slot"
+                ><button id="never-read-trash-btn" class="danger">Trash suggested…</button></span
+              >
+            </div>
+            <div id="never-read-list"></div>
+          </section>
+
+          <section id="spam-section" hidden>
+            <h3>Suggested spam</h3>
+            <p class="hint">
+              Senders whose domain is on a public spam or throwaway-email list (disposable-email-domains,
+              StopForumSpam) or the extension's own known-bad list. Usually safe to delete — but it's your
+              call, and nothing moves to Trash until you confirm. Anything with a starred message is left
+              out.
+              <span id="spam-list-size" class="hint"></span>
+            </p>
+            <div id="spam-bulk-bar" class="bulk-bar">
+              <label><input type="checkbox" id="spam-select-all" checked /> Select all</label>
+              <span id="spam-count"></span>
+              <span id="spam-trash-slot"
+                ><button id="spam-trash-btn" class="danger">Trash selected…</button></span
+              >
+            </div>
+            <div id="spam-list"></div>
+          </section>
+
+          <section id="expiry-section" hidden>
+            <h3>Ready to clean up</h3>
+            <p class="hint">
+              Messages that likely served their purpose — one-time codes, old shipping updates, and
+              newsletters past their window, judged only by how long ago they arrived. Starred/flagged mail
+              is always skipped. Nothing is deleted until you confirm.
+            </p>
+            <div id="expiry-bar" class="bulk-bar">
+              <span id="expiry-breakdown"></span>
+              <span id="expiry-cleanup-slot">
+                <button id="expiry-cleanup-btn">Clean up</button>
+              </span>
+            </div>
+          </section>
         </section>
 
-        <section id="spam-section" hidden>
-          <h2>Suggested spam</h2>
-          <p class="hint">
-            Senders whose domain is on a public spam or throwaway-email list (disposable-email-domains,
-            StopForumSpam) or the extension's own known-bad list. Usually safe to delete — but it's your call,
-            and nothing moves to Trash until you confirm. Anything with a starred message is left out.
-            <span id="spam-list-size" class="hint"></span>
-          </p>
-          <div id="spam-bulk-bar" class="bulk-bar">
-            <label><input type="checkbox" id="spam-select-all" checked /> Select all</label>
-            <span id="spam-count"></span>
-            <span id="spam-trash-slot"
-              ><button id="spam-trash-btn" class="danger">Trash selected…</button></span
-            >
+        <details id="also-check-details">
+          <summary>Also check</summary>
+          <div id="smart-views-bar" class="bulk-bar">
+            <strong>Views:</strong>
+            <span id="smart-view-chips"></span>
           </div>
-          <div id="spam-list"></div>
-        </section>
+          <div id="smart-view-result-slot"></div>
+          <div id="keep-newest-bar" class="bulk-bar">
+            <label>
+              Trim each sender to its newest
+              <input type="number" id="keep-newest-n" min="1" max="100" value="3" />
+              messages
+            </label>
+            <span id="keep-newest-slot"><button id="keep-newest-btn" class="danger">Trim…</button></span>
+          </div>
 
-        <section id="expiry-section" hidden>
-          <h2>Ready to clean up</h2>
-          <p class="hint">
-            Messages that likely served their purpose — one-time codes, old shipping updates, and newsletters
-            past their window, judged only by how long ago they arrived. Starred/flagged mail is always
-            skipped. Nothing is deleted until you confirm.
-          </p>
-          <div id="expiry-bar" class="bulk-bar">
-            <span id="expiry-breakdown"></span>
-            <span id="expiry-cleanup-slot">
-              <button id="expiry-cleanup-btn">Clean up</button>
-            </span>
-          </div>
-        </section>
-
-        <section id="domain-groups" hidden>
-          <h2>By domain</h2>
-          <p class="hint">
-            Senders grouped by their base domain (personal addresses at gmail.com, yahoo.com, etc. are kept
-            separate) and bucketed into categories. Deleting moves mail to Trash — starred messages are always
-            skipped. "Select safe" only checks domains with zero starred/flagged mail.
-          </p>
-          <div id="domain-bulk-bar" class="bulk-bar" hidden>
-            <button id="select-safe-domains">Select safe</button>
-            <span id="domain-selected-count">0 selected</span>
-            <span id="delete-domains-bulk-slot">
-              <button id="bulk-delete-domains-btn" class="danger" disabled>Delete selected domains…</button>
-            </span>
-          </div>
-          <div id="domain-group-list"></div>
-        </section>
+          <section id="domain-groups" hidden>
+            <h3>By domain</h3>
+            <p class="hint">
+              Senders grouped by their base domain (personal addresses at gmail.com, yahoo.com, etc. are
+              kept separate) and bucketed into categories. Deleting moves mail to Trash — starred messages
+              are always skipped. "Select safe" only checks domains with zero starred/flagged mail.
+            </p>
+            <div id="domain-bulk-bar" class="bulk-bar" hidden>
+              <button id="select-safe-domains">Select safe</button>
+              <span id="domain-selected-count">0 selected</span>
+              <span id="delete-domains-bulk-slot">
+                <button id="bulk-delete-domains-btn" class="danger" disabled>Delete selected domains…</button>
+              </span>
+            </div>
+            <div id="domain-group-list"></div>
+          </section>
+        </details>
       </section>
 
       <section class="tab-panel" data-tab="subscriptions" role="tabpanel" hidden>
