@@ -3,6 +3,7 @@ import type { ClusterRule } from "./rules";
 import type { ActionLogEntry } from "./actionLog";
 import type { SenderEngagementMap } from "./engagementModel";
 import type { SortOverride } from "./sortTaxonomy";
+import type { QuarantineReviewMap } from "./quarantineReview";
 import { withStorageLock } from "./storageLock";
 
 export interface ClusterSettings {
@@ -56,6 +57,15 @@ export interface ClusterSettings {
   /** Opt-in: the background triage labels high-risk senders as suspicious and
    * files them out of the inbox (Gmail-only, reversible, never deletes). */
   autoQuarantineHighRisk: boolean;
+  /** Senders currently auto-quarantined and awaiting a review-queue decision
+   * (see quarantineReview.ts). Keyed by SenderSummary.key. Written by
+   * background.ts's runQuarantine, cleared by the Security tab's
+   * confirm/release actions. */
+  quarantinedSenders: Record<string, { at: number; messageIds: string[] }>;
+  /** Durable confirm/release verdict history feeding
+   * quarantineReview.quarantineScoreAdjustment, so a released (false-
+   * positive) sender isn't immediately re-quarantined next alarm cycle. */
+  quarantineReview: QuarantineReviewMap;
 
   // ── Sort my inbox (Phase 3) ─────────────────────────────────────────────
   autoSort: {
@@ -95,7 +105,7 @@ export interface ClusterSettings {
 }
 
 const STORAGE_KEY = "clusterSettings";
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 9;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 10;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -128,6 +138,8 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   lastIncrementalSyncAt: 0,
   senderEngagement: {},
   autoQuarantineHighRisk: false,
+  quarantinedSenders: {},
+  quarantineReview: {},
   autoSort: {
     enabledBuckets: [],
     fileOutByBucket: {},
@@ -210,6 +222,9 @@ function migrateSettings(value: unknown): Record<string, unknown> {
     } else if (version === 8) {
       stored = { ...stored, schemaVersion: 9, theme: "system" };
       version = 9;
+    } else if (version === 9) {
+      stored = { ...stored, schemaVersion: 10, quarantinedSenders: {}, quarantineReview: {} };
+      version = 10;
     }
   }
   return stored;

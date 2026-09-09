@@ -160,6 +160,18 @@ describe("settingsStore", () => {
     expect(settings.theme).toBe("system");
   });
 
+  it("migrates schema 9 settings with quarantine tracking defaulted empty", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: { schemaVersion: 9, scanWindowDays: 11 },
+    });
+
+    const settings = await getSettings();
+    expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(settings.scanWindowDays).toBe(11);
+    expect(settings.quarantinedSenders).toEqual({});
+    expect(settings.quarantineReview).toEqual({});
+  });
+
   it("serializes concurrent partial updates so unrelated changes are preserved", async () => {
     await Promise.all([
       updateSettings({ scanWindowDays: 14 }),

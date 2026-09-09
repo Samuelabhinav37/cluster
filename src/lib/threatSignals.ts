@@ -44,7 +44,8 @@ export type ThreatSignalKind =
   | "reply-to-mismatch"
   | "punycode-domain"
   | "lure-language"
-  | "link-mismatch";
+  | "link-mismatch"
+  | "risky-attachment";
 
 export interface ThreatSignal {
   kind: ThreatSignalKind;
@@ -294,6 +295,19 @@ function replyToMismatchSignal(message: NormalizedMessageMetadata): ThreatSignal
   return { kind: "reply-to-mismatch", brand: replyTo, confidence: "medium" };
 }
 
+// Only a corroborating signal, same reasoning as lure-language: a risky-
+// shaped attachment from a sender whose mail otherwise authenticates cleanly
+// (DMARC pass) is far more likely a legitimate vendor sending a macro-enabled
+// spreadsheet than an attack -- so this only fires when authentication did
+// NOT pass, same "unauthenticated" bar authenticationSignal itself uses for
+// its medium case (spf+dkim fail, dmarc not pass).
+function attachmentSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
+  if (!message.hasRiskyAttachment) return null;
+  const { dmarc } = parseAuthenticationResults(message.authenticationResults);
+  if (dmarc === "pass") return null;
+  return { kind: "risky-attachment", brand: domainOf(message.fromAddress) || "unknown sender", confidence: "medium" };
+}
+
 function punycodeSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
   const domain = domainOf(message.fromAddress);
   if (!domain.split(".").some((label) => label.startsWith("xn--"))) return null;
@@ -351,6 +365,8 @@ export function scoreMessageContext(message: NormalizedMessageMetadata): ThreatS
   if (replyTo) signals.push(replyTo);
   const lure = lureLanguageSignal(message);
   if (lure) signals.push(lure);
+  const attachment = attachmentSignal(message);
+  if (attachment) signals.push(attachment);
   return signals;
 }
 
@@ -379,6 +395,7 @@ const SIGNAL_WEIGHTS: Record<ThreatSignalKind, number> = {
   "reply-to-mismatch": 3, // replies redirected to a personal free-mail account
   "punycode-domain": 2, // xn-- sender domain; rare for legitimate bulk mail
   "lure-language": 2, // corroborating only -- can't reach "elevated" alone
+  "risky-attachment": 3, // risky-shaped attachment, only when unauthenticated
 };
 
 export type RiskTier = "high" | "elevated" | "low";

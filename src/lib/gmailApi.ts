@@ -3,6 +3,7 @@ import { mapWithConcurrency } from "./concurrency";
 import { fetchWithRetry } from "./httpRetry";
 import { penalizeGmailQuota, reserveGmailQuota } from "./gmailQuotaLedger";
 import { extractLinksFromHtml, type ExtractedLink } from "./linkMismatch";
+import { riskyAttachmentGmailQuery } from "./riskyAttachments";
 
 const API_BASE = "https://gmail.googleapis.com/gmail/v1";
 
@@ -178,6 +179,22 @@ export async function listMessageIds(
     pageToken = data.nextPageToken;
   } while (pageToken && results.length < maxResults);
   return results;
+}
+
+// Gmail's own filename: search operator, run server-side against its index --
+// the only way to learn about risky attachment shapes without switching to
+// format=full (which would also return the actual message body inline, see
+// riskyAttachments.ts). One messages.list call, same quota class as any other
+// list (cheap; not a per-message messages.get cost), capped generously since
+// this only needs ids, not full stubs.
+export async function listRiskyAttachmentMessageIds(
+  token: string,
+  windowDays: number,
+  maxResults = 500,
+): Promise<Set<string>> {
+  const query = `${riskyAttachmentGmailQuery()} newer_than:${windowDays}d`;
+  const stubs = await listMessageIds(token, query, maxResults);
+  return new Set(stubs.map((s) => s.id));
 }
 
 export async function getCurrentHistoryId(token: string): Promise<string> {

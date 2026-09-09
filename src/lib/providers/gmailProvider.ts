@@ -12,6 +12,7 @@ import {
   unlabelMessages as apiUnlabelMessages,
   allowSenderThrough as apiAllowSenderThrough,
   listMessageIds,
+  listRiskyAttachmentMessageIds as apiListRiskyAttachmentMessageIds,
   listInboxMessageIdsSince,
   listSentCorrespondents as apiListSentCorrespondents,
   markReadMessages as apiMarkReadMessages,
@@ -123,6 +124,10 @@ export const gmailProvider: EmailProvider = {
       receivedAt: internalDate,
       authenticationResults,
     };
+  },
+
+  async listRiskyAttachmentMessageIds(token, windowDays) {
+    return await apiListRiskyAttachmentMessageIds(token, windowDays);
   },
 
   async trashMessages(token, ids) {

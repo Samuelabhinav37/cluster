@@ -43,6 +43,13 @@ export interface NormalizedMessageMetadata {
    * message had no such header at all, distinct from a header that's
    * present but doesn't mention a given mechanism. */
   authenticationResults?: string;
+  /** True when this message carries an attachment with a risky
+   * extension/shape (see riskyAttachments.ts). Populated by the provider
+   * where it's cheap (Outlook, inline in getMessageMetadata) or merged in
+   * afterward by senderModel.ts from listRiskyAttachmentMessageIds (Gmail).
+   * Undefined/false when the provider found no risky attachment or doesn't
+   * support the check yet. */
+  hasRiskyAttachment?: boolean;
 }
 
 export interface EmailProvider {
@@ -134,4 +141,14 @@ export interface EmailProvider {
    * mismatch detection (see linkMismatch.ts).
    */
   getMessageLinks?(token: string, id: string): Promise<{ text: string; href: string }[]>;
+  /**
+   * Message ids (within the scan window) that carry an attachment with a
+   * risky extension/shape (.html/.iso/double-extension/macro Office) -- see
+   * riskyAttachments.ts. Optional and provider-specific: Outlook detects this
+   * inline in getMessageMetadata's own $expand=attachments (no extra call);
+   * Gmail can't (format=metadata excludes payload.parts entirely) so it uses
+   * this separate filename:-search side channel instead, consulted once per
+   * scan by senderModel.ts before scoring each message's threat signals.
+   */
+  listRiskyAttachmentMessageIds?(token: string, windowDays: number): Promise<Set<string>>;
 }

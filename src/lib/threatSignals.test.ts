@@ -308,3 +308,47 @@ describe("scoreMessageForThreats: broadened authentication", () => {
     ).toEqual([]);
   });
 });
+
+describe("scoreMessageForThreats: risky-attachment", () => {
+  it("fires for a risky-shaped attachment from an unauthenticated sender", () => {
+    expect(
+      scoreMessageForThreats(
+        message({
+          fromAddress: "billing@spoofed.example",
+          hasRiskyAttachment: true,
+          authenticationResults: "mx.google.com; spf=fail; dkim=fail; dmarc=none",
+        }),
+      ),
+    ).toContainEqual({ kind: "risky-attachment", brand: "spoofed.example", confidence: "medium" });
+  });
+
+  it("does not fire when the sender's DMARC passes", () => {
+    expect(
+      scoreMessageForThreats(
+        message({
+          hasRiskyAttachment: true,
+          authenticationResults: "mx.google.com; spf=pass; dkim=pass; dmarc=pass",
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("does not fire when there is no risky attachment, even if unauthenticated", () => {
+    expect(
+      scoreMessageForThreats(
+        message({
+          hasRiskyAttachment: false,
+          authenticationResults: "mx.google.com; spf=fail; dkim=fail; dmarc=none",
+        }),
+      ),
+    ).not.toContainEqual(expect.objectContaining({ kind: "risky-attachment" }));
+  });
+
+  it("does not fire when hasRiskyAttachment is unset (provider doesn't support the check)", () => {
+    expect(
+      scoreMessageForThreats(
+        message({ authenticationResults: "mx.google.com; spf=fail; dkim=fail; dmarc=none" }),
+      ),
+    ).not.toContainEqual(expect.objectContaining({ kind: "risky-attachment" }));
+  });
+});

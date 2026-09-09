@@ -2,6 +2,7 @@ import { mapWithConcurrency } from "../concurrency";
 import { fetchWithRetry } from "../httpRetry";
 import { parseListUnsubscribe } from "../unsubscribe";
 import { selectTrustedAuthenticationResults } from "../emailAuth";
+import { isRiskyAttachmentFilename } from "../riskyAttachments";
 import type { EmailProvider, NormalizedMessageMetadata } from "./emailProvider";
 import { forceRefreshOutlookToken, getOutlookToken, isOutlookConnected } from "./msalAuth";
 
@@ -69,6 +70,8 @@ interface GraphMessage {
   size?: number;
   receivedDateTime?: string;
   categories?: string[];
+  hasAttachments?: boolean;
+  attachments?: { name?: string }[];
 }
 
 function isoDaysAgo(days: number): string {
@@ -131,9 +134,15 @@ async function listIncrementalMessages(
 
 async function getMessageMetadata(token: string, id: string): Promise<NormalizedMessageMetadata> {
   const data = await graphFetch<GraphMessage>(
-    `/me/messages/${id}?$select=sender,subject,flag,internetMessageHeaders,receivedDateTime,isRead,size`,
+    `/me/messages/${id}?$select=sender,subject,flag,internetMessageHeaders,receivedDateTime,isRead,size,hasAttachments&$expand=attachments($select=name)`,
     token,
   );
+  // No extra round trip -- $expand rides along on the same GET. Filenames
+  // only, never $select=contentBytes, so this stays metadata-only the same
+  // way the rest of this fetch is (see riskyAttachments.ts).
+  const hasRiskyAttachment =
+    data.hasAttachments === true &&
+    (data.attachments ?? []).some((a) => a.name && isRiskyAttachmentFilename(a.name));
   const headers: { name: string; value: string }[] = data.internetMessageHeaders ?? [];
   const find = (name: string) => headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value;
   const findAll = (name: string) =>
@@ -162,6 +171,7 @@ async function getMessageMetadata(token: string, id: string): Promise<Normalized
     }),
     receivedAt: data.receivedDateTime ? new Date(data.receivedDateTime).getTime() : 0,
     authenticationResults,
+    hasRiskyAttachment,
   };
 }
 

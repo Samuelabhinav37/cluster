@@ -7,6 +7,7 @@ import { applyRules } from "./lib/ruleRunner";
 import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "./lib/screener";
 import { markFirstContact } from "./lib/firstContact";
 import { riskTier, senderRiskScore } from "./lib/threatSignals";
+import { quarantineScoreAdjustment } from "./lib/quarantineReview";
 import { appendActionLog, makeLogId } from "./lib/actionLog";
 import { buildSenderSummaries, type SenderSummary } from "./lib/senderModel";
 import type { ClusterSettings } from "./lib/settingsStore";
@@ -140,18 +141,28 @@ async function runScreener(settings: ClusterSettings, senders: SenderSummary[]):
 // reversible from the Recently-done tab (label-removal undo). Off by default.
 async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]): Promise<number> {
   if (!settings.autoQuarantineHighRisk || !gmailProvider.labelSuspicious) return 0;
-  const targets = senders.filter(
-    (s) => s.provider === "gmail" && riskTier(senderRiskScore(s.threatSignals)) === "high",
-  );
+  // A sender the user already released via the Security tab's review queue
+  // gets its score suppressed (quarantineReview.ts) so a marginal call isn't
+  // immediately re-quarantined next alarm cycle -- a confirmed-bad domain or
+  // outright brand claim still clears "high" on its own weight regardless.
+  const targets = senders.filter((s) => {
+    if (s.provider !== "gmail") return false;
+    const adjusted = senderRiskScore(s.threatSignals) + quarantineScoreAdjustment(settings.quarantineReview[s.key]);
+    return riskTier(adjusted) === "high";
+  });
   if (targets.length === 0) return 0;
 
   const token = await gmailProvider.getAuthToken(false).catch(() => null);
   if (!token) return 0;
 
   const ids: string[] = [];
+  const idsBySender = new Map<string, string[]>();
   for (const sender of targets) {
     const protectedSet = new Set(sender.protectedMessageIds);
-    ids.push(...sender.messageIds.filter((id) => !protectedSet.has(id)));
+    const senderIds = sender.messageIds.filter((id) => !protectedSet.has(id));
+    if (senderIds.length === 0) continue;
+    ids.push(...senderIds);
+    idsBySender.set(sender.key, senderIds);
   }
   if (ids.length === 0) return 0;
 
@@ -166,6 +177,16 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
         undo: { provider: "gmail", ids, via: "unlabel-suspicious" },
       },
     ]);
+    const now = Date.now();
+    await mutateSettings((current) => ({
+      ...current,
+      quarantinedSenders: {
+        ...current.quarantinedSenders,
+        ...Object.fromEntries(
+          [...idsBySender].map(([key, senderIds]) => [key, { at: now, messageIds: senderIds }]),
+        ),
+      },
+    }));
     return ids.length;
   } catch (err) {
     log.error("Auto-quarantine failed", err);

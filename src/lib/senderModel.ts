@@ -172,6 +172,12 @@ export async function buildSenderSummariesFromStubs(
   // promotional mail still in the inbox). Passing one shared Map across both
   // calls fetches each message's metadata once. Key: `${providerId}:${id}`.
   metadataCache?: Map<string, NormalizedMessageMetadata>,
+  // Per-provider risky-attachment message-id sets (Gmail only today -- see
+  // EmailProvider.listRiskyAttachmentMessageIds). Overlaid onto each fetched
+  // meta before scoring, non-destructively, since a provider whose
+  // getMessageMetadata already sets hasRiskyAttachment inline (Outlook) has
+  // nothing to overlay.
+  riskyAttachmentIdsByProvider?: Map<ProviderId, Set<string>>,
 ): Promise<SenderSummary[]> {
   const senders = new Map<string, SenderSummary>();
   const total = perProvider.reduce((sum, item) => sum + item.stubs.length, 0);
@@ -179,6 +185,7 @@ export async function buildSenderSummariesFromStubs(
 
   await Promise.all(
     perProvider.map(async ({ provider, token, stubs }) => {
+      const riskySet = riskyAttachmentIdsByProvider?.get(provider.id);
       const metadatas = await mapWithConcurrency(stubs, METADATA_FETCH_CONCURRENCY, async (stub) => {
         const cacheKey = `${provider.id}:${stub.id}`;
         const cached = metadataCache?.get(cacheKey);
@@ -186,7 +193,9 @@ export async function buildSenderSummariesFromStubs(
         if (!cached) metadataCache?.set(cacheKey, meta);
         done += 1;
         onProgress?.(done, total);
-        return meta;
+        return riskySet
+          ? { ...meta, hasRiskyAttachment: meta.hasRiskyAttachment || riskySet.has(meta.id) }
+          : meta;
       });
       for (const meta of metadatas) addToSenders(senders, meta);
     }),
@@ -215,5 +224,17 @@ export async function buildSenderSummaries(
       return { provider, token, stubs };
     }),
   );
-  return buildSenderSummariesFromStubs(perProvider, onProgress, metadataCache);
+  const riskyAttachmentIdsByProvider = new Map<ProviderId, Set<string>>();
+  await Promise.all(
+    perProvider.map(async ({ provider, token }) => {
+      if (!provider.listRiskyAttachmentMessageIds) return;
+      try {
+        riskyAttachmentIdsByProvider.set(provider.id, await provider.listRiskyAttachmentMessageIds(token, scanWindowDays));
+      } catch {
+        // Best-effort signal -- a failed lookup just means this scan misses
+        // the attachment-shape check, not a scan failure.
+      }
+    }),
+  );
+  return buildSenderSummariesFromStubs(perProvider, onProgress, metadataCache, riskyAttachmentIdsByProvider);
 }

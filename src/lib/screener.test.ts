@@ -30,6 +30,8 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
     lastIncrementalSyncAt: 0,
     senderEngagement: {},
     autoQuarantineHighRisk: false,
+    quarantinedSenders: {},
+    quarantineReview: {},
     autoSort: {
       enabledBuckets: [],
       fileOutByBucket: {},

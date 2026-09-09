@@ -7,14 +7,19 @@ import { findBlocklistedLinkTargets, findMismatchedLinks } from "../lib/linkMism
 import { isBlockedDomain } from "../lib/blocklist";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { queueAthenaSecurityEvent } from "../lib/athenaIntegration";
+import { mutateSettings } from "../lib/settingsStore";
+import { recordQuarantineVerdict } from "../lib/quarantineReview";
 import type { SenderSummary } from "../lib/senderModel";
+import type { ProviderId } from "../lib/providers/emailProvider";
 import { renderConfirmStep } from "./ui";
-import { providerById } from "./state";
+import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
 
 const securitySectionEl = document.getElementById("security-section") as HTMLElement;
 const securitySenderListEl = document.getElementById("security-sender-list") as HTMLUListElement;
 const securityEmptyEl = document.getElementById("security-empty") as HTMLParagraphElement;
+const quarantineReviewSectionEl = document.getElementById("quarantine-review-section") as HTMLElement;
+const quarantineReviewListEl = document.getElementById("quarantine-review-list") as HTMLUListElement;
 
 function describeSignal(s: SenderSummary["threatSignals"][number]): string {
   switch (s.kind) {
@@ -36,6 +41,8 @@ function describeSignal(s: SenderSummary["threatSignals"][number]): string {
       return `subject uses urgency / credential-request language`;
     case "link-mismatch":
       return `a link's visible text doesn't match where it actually goes`;
+    case "risky-attachment":
+      return `sent a risky-shaped attachment (.html/.iso/macro Office/double extension) without authenticating`;
     default: {
       const unreachable: never = s.kind;
       return unreachable;
@@ -111,7 +118,82 @@ async function runDeepScan(sender: SenderSummary, resultEl: HTMLElement): Promis
   }
 }
 
+function parseSenderKey(key: string): { providerId: string; address: string } {
+  const sep = key.indexOf(":");
+  return sep === -1 ? { providerId: "", address: key } : { providerId: key.slice(0, sep), address: key.slice(sep + 1) };
+}
+
+// Auto-quarantine files a sender's mail out of the inbox, so a quarantined
+// sender's mail usually stops matching the security scan's own `in:inbox`
+// query -- meaning renderSecuritySection's `senders` argument can't be relied
+// on to still contain them. Rendered straight from the durable
+// quarantinedSenders ledger instead (see quarantineReview.ts / background.ts's
+// runQuarantine), keyed the same way SenderSummary.key is built.
+export function renderQuarantineReview() {
+  const entries = Object.entries(ctx.settings.quarantinedSenders);
+  quarantineReviewSectionEl.hidden = entries.length === 0;
+  if (entries.length === 0) return;
+
+  quarantineReviewListEl.replaceChildren(
+    ...entries.map(([key, record]) => {
+      const { providerId, address } = parseSenderKey(key);
+      const provider = providerById.get(providerId as ProviderId);
+      const li = document.createElement("li");
+      const text = document.createElement("span");
+      text.textContent = `${address} — quarantined ${record.messageIds.length} message${record.messageIds.length === 1 ? "" : "s"} `;
+      li.appendChild(text);
+
+      const removeEntry = async () => {
+        ctx.settings = await mutateSettings((current) => {
+          const next = { ...current.quarantinedSenders };
+          delete next[key];
+          return { ...current, quarantinedSenders: next };
+        });
+      };
+
+      const confirmBtn = document.createElement("button");
+      confirmBtn.textContent = "Confirm — keep filed";
+      confirmBtn.onclick = async () => {
+        confirmBtn.disabled = true;
+        ctx.settings = await mutateSettings((current) => ({
+          ...current,
+          quarantineReview: recordQuarantineVerdict(current.quarantineReview, key, "confirmed"),
+        }));
+        await removeEntry();
+        await logAction("labelSuspicious", `Confirmed ${address} as high-risk, kept filed out of the inbox`);
+        renderQuarantineReview();
+      };
+
+      const releaseBtn = document.createElement("button");
+      releaseBtn.textContent = "Release — false positive";
+      releaseBtn.onclick = async () => {
+        if (!provider?.unlabelSuspicious) return;
+        releaseBtn.disabled = true;
+        try {
+          const token = await provider.getAuthToken(false);
+          await provider.unlabelSuspicious(token, record.messageIds);
+          ctx.settings = await mutateSettings((current) => ({
+            ...current,
+            quarantineReview: recordQuarantineVerdict(current.quarantineReview, key, "released"),
+          }));
+          await removeEntry();
+          await logAction("labelSuspicious", `Released ${address} from quarantine, back in the inbox`);
+          renderQuarantineReview();
+        } catch (err) {
+          releaseBtn.disabled = false;
+          log.error("Release from quarantine failed", err);
+        }
+      };
+      if (!provider?.unlabelSuspicious) releaseBtn.disabled = true;
+
+      li.append(confirmBtn, releaseBtn);
+      return li;
+    }),
+  );
+}
+
 export function renderSecuritySection(senders: SenderSummary[]) {
+  renderQuarantineReview();
   // Rank by combined risk so a sender tripping several signals (or a
   // freemail brand claim) sorts above one with a lone medium signal.
   const flagged = senders
