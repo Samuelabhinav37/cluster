@@ -221,6 +221,174 @@ describe("Graph stale-token recovery", () => {
   });
 });
 
+// Dispatches by method+path substring rather than call order -- these features
+// (keepSorted/mute/screen) each fan out through ensureCategory/
+// ensureMailFolder/findRuleIdByName/createInboxRule internally, so pinning
+// exact call sequence would make the tests brittle to refactors of those
+// shared helpers (already covered by their own tests above).
+function graphRouter(
+  handlers: Array<{ method: string; test: (url: string) => boolean; respond: (url: string, body: unknown) => Response }>,
+) {
+  return vi.fn(async (url: string, init?: RequestInit) => {
+    const method = init?.method ?? "GET";
+    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+    const handler = handlers.find((h) => h.method === method && h.test(url));
+    if (!handler) throw new Error(`No handler for ${method} ${url}`);
+    return handler.respond(url, body);
+  });
+}
+
+describe("Outlook Screener / mute / keep-sorted / auto-quarantine parity", () => {
+  it("keepSorted: ensures the category, creates a sender rule scoped to the archive folder, and files existing mail", async () => {
+    const fetchMock = graphRouter([
+      { method: "GET", test: (u) => u.includes("/outlook/masterCategories"), respond: () => json({ value: [{ displayName: "Shopping" }] }) },
+      { method: "GET", test: (u) => u.includes("/mailFolders/archive"), respond: () => json({ id: "archive-id" }) },
+      { method: "GET", test: (u) => u.endsWith("/messageRules"), respond: () => json({ value: [] }) },
+      { method: "POST", test: (u) => u.endsWith("/messageRules"), respond: () => json({ id: "rule-1" }) },
+      { method: "POST", test: (u) => u.endsWith("/$batch"), respond: (_u, b) => {
+          const reqs = (b as { requests: { id: string; method: string; url: string }[] }).requests;
+          return json({ responses: reqs.map((r) => ({ id: r.id, status: r.method === "GET" ? 200 : 200, body: r.method === "GET" ? { categories: [] } : {} })) });
+        } },
+    ]);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await outlookProvider.keepSorted!("t", "amazon.com", "Shopping", ["m1"]);
+
+    const rulePost = fetchMock.mock.calls.find(
+      ([u, i]) => (u as string).endsWith("/messageRules") && (i as RequestInit | undefined)?.method === "POST",
+    );
+    const ruleBody = JSON.parse(String((rulePost?.[1] as RequestInit).body));
+    expect(ruleBody).toMatchObject({
+      displayName: "Cluster keep-sorted: amazon.com",
+      conditions: { senderContains: ["amazon.com"] },
+      actions: { assignCategories: ["Shopping"], moveToFolder: "archive-id", stopProcessingRules: true },
+    });
+  });
+
+  it("muteSender: creates the Muted folder and a move-to-folder rule, then files existing mail there", async () => {
+    const fetchMock = graphRouter([
+      { method: "GET", test: (u) => u.includes("/mailFolders?"), respond: () => json({ value: [{ id: "muted-folder", displayName: "Muted" }] }) },
+      { method: "GET", test: (u) => u.includes("/outlook/masterCategories"), respond: () => json({ value: [{ displayName: "Muted" }] }) },
+      { method: "GET", test: (u) => u.endsWith("/messageRules"), respond: () => json({ value: [] }) },
+      { method: "POST", test: (u) => u.endsWith("/messageRules"), respond: () => json({ id: "rule-mute" }) },
+      { method: "POST", test: (u) => u.endsWith("/$batch"), respond: (_u, b) => {
+          const reqs = (b as { requests: { id: string }[] }).requests;
+          return json({ responses: reqs.map((r) => ({ id: r.id, status: 200, body: {} })) });
+        } },
+    ]);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await outlookProvider.muteSender!("t", "spammer@x.com", ["m1", "m2"]);
+
+    const rulePost = fetchMock.mock.calls.find(
+      ([u, i]) => (u as string).endsWith("/messageRules") && (i as RequestInit | undefined)?.method === "POST",
+    );
+    const ruleBody = JSON.parse(String((rulePost?.[1] as RequestInit).body));
+    expect(ruleBody).toMatchObject({
+      displayName: "Cluster mute: spammer@x.com",
+      conditions: { senderContains: ["spammer@x.com"] },
+      actions: { assignCategories: ["Muted"], moveToFolder: "muted-folder", stopProcessingRules: true },
+    });
+
+    const batchPost = fetchMock.mock.calls.find(([u]) => (u as string).endsWith("/$batch"));
+    const batchBody = JSON.parse(String((batchPost?.[1] as RequestInit).body));
+    expect(batchBody.requests.every((r: { url: string; body: { destinationId: string } }) => r.body.destinationId === "muted-folder")).toBe(true);
+  });
+
+  it("unmuteSender: deletes the sender's mute rule (found by displayName) and moves mail back to inbox", async () => {
+    const fetchMock = graphRouter([
+      { method: "GET", test: (u) => u.endsWith("/messageRules"), respond: () => json({ value: [{ id: "rule-mute", displayName: "Cluster mute: spammer@x.com" }] }) },
+      { method: "DELETE", test: (u) => u.includes("/messageRules/rule-mute"), respond: () => noContent() },
+      { method: "POST", test: (u) => u.endsWith("/$batch"), respond: (_u, b) => {
+          const reqs = (b as { requests: { id: string }[] }).requests;
+          return json({ responses: reqs.map((r) => ({ id: r.id, status: 200, body: {} })) });
+        } },
+    ]);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await outlookProvider.unmuteSender!("t", "spammer@x.com", ["m1"]);
+
+    expect(fetchMock.mock.calls.some(([u, i]) => (u as string).includes("rule-mute") && (i as RequestInit)?.method === "DELETE")).toBe(true);
+    const batchPost = fetchMock.mock.calls.find(([u]) => (u as string).endsWith("/$batch"));
+    const batchBody = JSON.parse(String((batchPost?.[1] as RequestInit).body));
+    expect(batchBody.requests[0].body.destinationId).toBe("inbox");
+  });
+
+  it("screenSender/allowSenderThrough: same mechanism as mute, scoped to the Screener folder/category", async () => {
+    const fetchMock = graphRouter([
+      { method: "GET", test: (u) => u.includes("/mailFolders?"), respond: () => json({ value: [{ id: "screener-folder", displayName: "Screener" }] }) },
+      { method: "GET", test: (u) => u.includes("/outlook/masterCategories"), respond: () => json({ value: [{ displayName: "Screener" }] }) },
+      { method: "GET", test: (u) => u.endsWith("/messageRules"), respond: () => json({ value: [{ id: "rule-screen", displayName: "Cluster screener: new@x.com" }] }) },
+      { method: "DELETE", test: (u) => u.includes("/messageRules/rule-screen"), respond: () => noContent() },
+      { method: "POST", test: (u) => u.endsWith("/messageRules"), respond: () => json({ id: "rule-screen-2" }) },
+      { method: "POST", test: (u) => u.endsWith("/$batch"), respond: (_u, b) => {
+          const reqs = (b as { requests: { id: string }[] }).requests;
+          return json({ responses: reqs.map((r) => ({ id: r.id, status: 200, body: {} })) });
+        } },
+    ]);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await outlookProvider.screenSender!("t", "new@x.com", ["m1"]);
+    const rulePost = fetchMock.mock.calls.find(
+      ([u, i]) => (u as string).endsWith("/messageRules") && (i as RequestInit | undefined)?.method === "POST",
+    );
+    expect(JSON.parse(String((rulePost?.[1] as RequestInit).body))).toMatchObject({
+      displayName: "Cluster screener: new@x.com",
+      actions: { assignCategories: ["Screener"], moveToFolder: "screener-folder", stopProcessingRules: true },
+    });
+
+    fetchMock.mockClear();
+    await outlookProvider.allowSenderThrough!("t", "new@x.com", ["m1"]);
+    expect(
+      fetchMock.mock.calls.some(
+        ([u, i]) => (u as string).includes("rule-screen") && (i as RequestInit)?.method === "DELETE",
+      ),
+    ).toBe(true);
+    const batchPost = fetchMock.mock.calls.find(([u]) => (u as string).endsWith("/$batch"));
+    expect(JSON.parse(String((batchPost?.[1] as RequestInit).body)).requests[0].body.destinationId).toBe("inbox");
+  });
+
+  it("listSentCorrespondents: dedupes To/Cc addresses across sent items, lowercased", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        json({
+          value: [
+            {
+              toRecipients: [{ emailAddress: { address: "Friend@Example.com" } }],
+              ccRecipients: [{ emailAddress: { address: "colleague@work.com" } }],
+            },
+            { toRecipients: [{ emailAddress: { address: "friend@example.com" } }] },
+          ],
+        }),
+      ),
+    );
+
+    const addresses = await outlookProvider.listSentCorrespondents!("t");
+    expect(addresses.sort()).toEqual(["colleague@work.com", "friend@example.com"]);
+  });
+
+  it("labelSuspicious/unlabelSuspicious reuse labelMessages/unlabelMessages with the Possible Phishing category", async () => {
+    const fetchMock = graphRouter([
+      { method: "GET", test: (u) => u.includes("/outlook/masterCategories"), respond: () => json({ value: [{ displayName: "Possible Phishing" }] }) },
+      { method: "POST", test: (u) => u.endsWith("/$batch"), respond: (_u, b) => {
+          const reqs = (b as { requests: { id: string; method: string }[] }).requests;
+          return json({ responses: reqs.map((r) => ({ id: r.id, status: 200, body: r.method === "GET" ? { categories: [] } : {} })) });
+        } },
+    ]);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await outlookProvider.labelSuspicious!("t", ["m1"]);
+
+    const batchCalls = fetchMock.mock.calls.filter(([u]) => (u as string).endsWith("/$batch"));
+    const patchCall = batchCalls
+      .map(([, i]) => JSON.parse(String((i as RequestInit).body)))
+      .find((b) => b.requests.some((r: { method: string }) => r.method === "PATCH"));
+    const patchReq = patchCall.requests.find((r: { method: string }) => r.method === "PATCH");
+    expect(patchReq.body.categories).toContain("Possible Phishing");
+  });
+});
+
 describe("Outlook delta synchronization", () => {
   it("follows delta pages, skips removed messages, and returns the opaque checkpoint", async () => {
     const fetchMock = vi

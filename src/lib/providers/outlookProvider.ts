@@ -414,6 +414,172 @@ async function ensureCategoryFromRuleBody(token: string, body: unknown): Promise
   }
 }
 
+// ── Screener / mute / keep-sorted / auto-quarantine parity (all via
+// messageRules + folders/categories) ───────────────────────────────────────
+// Rules are identified by a deterministic displayName (`Cluster <feature>:
+// <address>`) rather than a tracked id in settings -- same approach Gmail's
+// own mute/screen take (deleteSenderFilters finds-by-criteria), so undo needs
+// no new settings schema. keepSorted/mute/screener all stay Gmail-parity:
+// reversible, never delete, only file mail out of the inbox.
+
+const MUTED_NAME = "Muted";
+const SCREENER_NAME = "Screener";
+const SUSPICIOUS_CATEGORY_NAME = "Possible Phishing";
+
+interface SenderRuleBody {
+  displayName: string;
+  sequence: number;
+  isEnabled: true;
+  conditions: { senderContains: string[] };
+  actions: { assignCategories?: string[]; moveToFolder?: string; stopProcessingRules: true };
+}
+
+/** Top-level mail folder by display name, created if missing (same
+ * check-then-create idiom as ensureCategory above). */
+async function ensureMailFolder(token: string, displayName: string): Promise<string> {
+  let url = "/me/mailFolders?$select=id,displayName&$top=100";
+  while (url) {
+    const data = await graphFetch<{ value?: { id: string; displayName: string }[]; "@odata.nextLink"?: string }>(
+      url,
+      token,
+    );
+    const found = data.value?.find((f) => f.displayName === displayName);
+    if (found) return found.id;
+    url = data["@odata.nextLink"] ?? "";
+  }
+  const created = await graphFetch<{ id: string }>("/me/mailFolders", token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ displayName }),
+  });
+  return created.id;
+}
+
+async function findRuleIdByName(token: string, displayName: string): Promise<string | null> {
+  const rules = await listInboxRules(token);
+  return rules.find((r) => r.displayName === displayName)?.id ?? null;
+}
+
+async function replaceSenderRule(token: string, displayName: string, body: SenderRuleBody): Promise<void> {
+  const existingId = await findRuleIdByName(token, displayName);
+  if (existingId) await deleteInboxRule(token, existingId).catch(() => {});
+  await createInboxRule(token, body);
+}
+
+async function deleteSenderRuleByName(token: string, displayName: string): Promise<void> {
+  const existingId = await findRuleIdByName(token, displayName);
+  if (existingId) await deleteInboxRule(token, existingId);
+}
+
+async function keepSorted(token: string, fromAddress: string, label: string, existingIds: string[]): Promise<void> {
+  const displayName = `Cluster keep-sorted: ${fromAddress}`;
+  await ensureCategory(token, label);
+  const archiveFolderId = await getArchiveFolderId(token);
+  await replaceSenderRule(token, displayName, {
+    displayName,
+    sequence: 60,
+    isEnabled: true,
+    conditions: { senderContains: [fromAddress] },
+    actions: {
+      assignCategories: [label],
+      ...(archiveFolderId ? { moveToFolder: archiveFolderId } : {}),
+      stopProcessingRules: true,
+    },
+  });
+  if (existingIds.length > 0) await labelMessages(token, existingIds, label, false);
+}
+
+async function muteSender(token: string, fromAddress: string, existingIds: string[]): Promise<void> {
+  const displayName = `Cluster mute: ${fromAddress}`;
+  const [folderId] = await Promise.all([ensureMailFolder(token, MUTED_NAME), ensureCategory(token, MUTED_NAME)]);
+  await replaceSenderRule(token, displayName, {
+    displayName,
+    sequence: 70,
+    isEnabled: true,
+    conditions: { senderContains: [fromAddress] },
+    actions: { assignCategories: [MUTED_NAME], moveToFolder: folderId, stopProcessingRules: true },
+  });
+  if (existingIds.length > 0) {
+    await batchPerId(token, existingIds, (id) => ({
+      method: "POST",
+      url: `/me/messages/${id}/move`,
+      body: { destinationId: folderId },
+    }));
+  }
+}
+
+async function unmuteSender(token: string, fromAddress: string, mutedIds: string[]): Promise<void> {
+  await deleteSenderRuleByName(token, `Cluster mute: ${fromAddress}`);
+  if (mutedIds.length > 0) await move("inbox")(token, mutedIds);
+}
+
+async function screenSender(token: string, fromAddress: string, existingIds: string[]): Promise<void> {
+  const displayName = `Cluster screener: ${fromAddress}`;
+  const [folderId] = await Promise.all([
+    ensureMailFolder(token, SCREENER_NAME),
+    ensureCategory(token, SCREENER_NAME),
+  ]);
+  await replaceSenderRule(token, displayName, {
+    displayName,
+    sequence: 80,
+    isEnabled: true,
+    conditions: { senderContains: [fromAddress] },
+    actions: { assignCategories: [SCREENER_NAME], moveToFolder: folderId, stopProcessingRules: true },
+  });
+  if (existingIds.length > 0) {
+    await batchPerId(token, existingIds, (id) => ({
+      method: "POST",
+      url: `/me/messages/${id}/move`,
+      body: { destinationId: folderId },
+    }));
+  }
+}
+
+async function allowSenderThrough(token: string, fromAddress: string, screenedIds: string[]): Promise<void> {
+  await deleteSenderRuleByName(token, `Cluster screener: ${fromAddress}`);
+  if (screenedIds.length > 0) await move("inbox")(token, screenedIds);
+}
+
+interface GraphRecipient {
+  emailAddress?: { address?: string };
+}
+interface GraphSentMessage {
+  toRecipients?: GraphRecipient[];
+  ccRecipients?: GraphRecipient[];
+}
+
+// Mirrors gmailApi.ts's listSentCorrespondents (2y window, 1000-address cap)
+// -- Graph returns recipients inline on the sent-items list, so unlike Gmail
+// this needs no per-message follow-up fetch.
+async function listSentCorrespondents(token: string, maxMessages = 150): Promise<string[]> {
+  const addresses = new Set<string>();
+  const filter = encodeURIComponent(`sentDateTime ge ${isoDaysAgo(730)}`);
+  let url = `/me/mailFolders/sentitems/messages?$select=toRecipients,ccRecipients&$filter=${filter}&$top=${Math.min(999, maxMessages)}&$orderby=sentDateTime desc`;
+  let fetched = 0;
+  while (url && fetched < maxMessages) {
+    const data = await graphFetch<{ value?: GraphSentMessage[]; "@odata.nextLink"?: string }>(url, token);
+    for (const m of data.value ?? []) {
+      for (const r of [...(m.toRecipients ?? []), ...(m.ccRecipients ?? [])]) {
+        const addr = r.emailAddress?.address;
+        if (addr) addresses.add(addr.toLowerCase());
+      }
+      fetched++;
+    }
+    url = data["@odata.nextLink"] ?? "";
+  }
+  return [...addresses].slice(0, 1000);
+}
+
+// Reuses labelMessages/unlabelMessages verbatim (category + archive, merge-
+// not-replace) -- auto-quarantine needs no new mechanism on the Outlook side.
+async function labelSuspicious(token: string, ids: string[]): Promise<void> {
+  await labelMessages(token, ids, SUSPICIOUS_CATEGORY_NAME, false);
+}
+
+async function unlabelSuspicious(token: string, ids: string[]): Promise<void> {
+  await unlabelMessages(token, ids, SUSPICIOUS_CATEGORY_NAME, true);
+}
+
 export const outlookProvider: EmailProvider = {
   id: "outlook",
   isConnected: isOutlookConnected,
@@ -428,4 +594,12 @@ export const outlookProvider: EmailProvider = {
   markReadMessages,
   labelMessages,
   unlabelMessages,
+  keepSorted,
+  muteSender,
+  unmuteSender,
+  screenSender,
+  allowSenderThrough,
+  listSentCorrespondents,
+  labelSuspicious,
+  unlabelSuspicious,
 };

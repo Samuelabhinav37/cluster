@@ -94,26 +94,39 @@ async function reportThreatSignals(senders: SenderSummary[]) {
   await queueAthenaSecurityEvents(events);
 }
 
-// Screener: hold mail from senders the user has never corresponded with. Opt-in
-// (settings.screenerEnabled). Refreshes the sent-correspondent allowlist on a
-// TTL, then moves each newly-unknown sender's mail under the Screener label and
-// records it in screenedSenders so it isn't re-screened. Returns how many
-// senders are currently held, for the badge.
-async function runScreener(settings: ClusterSettings, senders: SenderSummary[]): Promise<number> {
-  if (!settings.screenerEnabled || !gmailProvider.screenSender) return 0;
-  const token = await gmailProvider.getAuthToken(false).catch(() => null);
-  if (!token) return 0;
-
-  let sent = settings.sentCorrespondents;
-  if (sentCorrespondentsStale(settings) && gmailProvider.listSentCorrespondents) {
+async function refreshSentCorrespondents(
+  settings: ClusterSettings,
+): Promise<ClusterSettings["sentCorrespondents"]> {
+  if (!sentCorrespondentsStale(settings)) return settings.sentCorrespondents;
+  const addresses = new Set(settings.sentCorrespondents.addresses);
+  let anySucceeded = false;
+  for (const provider of providerById.values()) {
+    if (!provider.listSentCorrespondents) continue;
+    const token = await provider.getAuthToken(false).catch(() => null);
+    if (!token) continue;
     try {
-      sent = { addresses: await gmailProvider.listSentCorrespondents(token), fetchedAt: Date.now() };
-      await updateSettings({ sentCorrespondents: sent });
+      for (const addr of await provider.listSentCorrespondents(token)) addresses.add(addr);
+      anySucceeded = true;
     } catch (err) {
-      log.error("Screener: sent-correspondent refresh failed", err);
+      log.error("Screener: sent-correspondent refresh failed", provider.id, err);
     }
   }
+  if (!anySucceeded) return settings.sentCorrespondents;
+  const sent = { addresses: [...addresses], fetchedAt: Date.now() };
+  await updateSettings({ sentCorrespondents: sent });
+  return sent;
+}
 
+// Screener: hold mail from senders the user has never corresponded with. Opt-in
+// (settings.screenerEnabled). Refreshes the sent-correspondent allowlist on a
+// TTL across every connected provider that supports it, then moves each
+// newly-unknown sender's mail under the Screener label/folder (per that
+// sender's own provider) and records it in screenedSenders so it isn't
+// re-screened. Returns how many senders are currently held, for the badge.
+async function runScreener(settings: ClusterSettings, senders: SenderSummary[]): Promise<number> {
+  if (!settings.screenerEnabled) return 0;
+
+  const sent = await refreshSentCorrespondents(settings);
   const known = knownSenderSet({ ...settings, sentCorrespondents: sent });
   const excluded = new Set(
     [...settings.mutedSenders, ...settings.screenedSenders].map((a) => a.toLowerCase()),
@@ -121,9 +134,17 @@ async function runScreener(settings: ClusterSettings, senders: SenderSummary[]):
   const pending = pendingScreenerSenders(senders, known, excluded);
 
   const screened: string[] = [];
+  const tokenByProvider = new Map<ProviderId, string | null>();
   for (const s of pending) {
+    const provider = providerById.get(s.provider);
+    if (!provider?.screenSender) continue;
+    if (!tokenByProvider.has(s.provider)) {
+      tokenByProvider.set(s.provider, await provider.getAuthToken(false).catch(() => null));
+    }
+    const token = tokenByProvider.get(s.provider);
+    if (!token) continue;
     try {
-      await gmailProvider.screenSender(token, s.address, s.messageIds);
+      await provider.screenSender(token, s.address, s.messageIds);
       screened.push(s.address);
     } catch (err) {
       log.error("Screener: failed to hold", s.address, err);
@@ -137,63 +158,77 @@ async function runScreener(settings: ClusterSettings, senders: SenderSummary[]):
 
 // Opt-in protective action (settings.autoQuarantineHighRisk). For senders the
 // threat scorer puts in the "high" tier, label their mail "Possible Phishing"
-// and file it out of the inbox -- Gmail-only, never deletes, and
-// reversible from the Recently-done tab (label-removal undo). Off by default.
+// and file it out of the inbox -- per the sender's own provider, never
+// deletes, and reversible from the Recently-done tab / Security tab's
+// quarantine review queue (label-removal undo). Off by default.
 async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]): Promise<number> {
-  if (!settings.autoQuarantineHighRisk || !gmailProvider.labelSuspicious) return 0;
+  if (!settings.autoQuarantineHighRisk) return 0;
   // A sender the user already released via the Security tab's review queue
   // gets its score suppressed (quarantineReview.ts) so a marginal call isn't
   // immediately re-quarantined next alarm cycle -- a confirmed-bad domain or
   // outright brand claim still clears "high" on its own weight regardless.
   const targets = senders.filter((s) => {
-    if (s.provider !== "gmail") return false;
+    const provider = providerById.get(s.provider);
+    if (!provider?.labelSuspicious) return false;
     const adjusted = senderRiskScore(s.threatSignals) + quarantineScoreAdjustment(settings.quarantineReview[s.key]);
     return riskTier(adjusted) === "high";
   });
   if (targets.length === 0) return 0;
 
-  const token = await gmailProvider.getAuthToken(false).catch(() => null);
-  if (!token) return 0;
-
-  const ids: string[] = [];
-  const idsBySender = new Map<string, string[]>();
+  const targetsByProvider = new Map<ProviderId, SenderSummary[]>();
   for (const sender of targets) {
-    const protectedSet = new Set(sender.protectedMessageIds);
-    const senderIds = sender.messageIds.filter((id) => !protectedSet.has(id));
-    if (senderIds.length === 0) continue;
-    ids.push(...senderIds);
-    idsBySender.set(sender.key, senderIds);
+    if (!targetsByProvider.has(sender.provider)) targetsByProvider.set(sender.provider, []);
+    targetsByProvider.get(sender.provider)!.push(sender);
   }
-  if (ids.length === 0) return 0;
 
-  try {
-    await gmailProvider.labelSuspicious(token, ids);
-    await appendActionLog([
-      {
-        id: makeLogId("labelSuspicious"),
-        at: Date.now(),
-        kind: "labelSuspicious",
-        summary: `Auto-quarantined ${ids.length} message${ids.length === 1 ? "" : "s"} from ${targets.length} high-risk sender${targets.length === 1 ? "" : "s"}`,
-        undo: { provider: "gmail", ids, via: "unlabel-suspicious" },
-      },
-    ]);
-    const now = Date.now();
-    await mutateSettings((current) => ({
-      ...current,
-      quarantinedSenders: {
-        ...current.quarantinedSenders,
-        ...Object.fromEntries(
-          [...idsBySender].map(([key, senderIds]) => [key, { at: now, messageIds: senderIds }]),
-        ),
-      },
-    }));
-    return ids.length;
-  } catch (err) {
-    log.error("Auto-quarantine failed", err);
-    // Do not advance the incremental security cursor. The next alarm replays
-    // these messages and retries the opt-in protective action.
-    throw err;
+  let totalQuarantined = 0;
+  for (const [providerId, providerTargets] of targetsByProvider) {
+    const provider = providerById.get(providerId);
+    if (!provider?.labelSuspicious) continue;
+    const token = await provider.getAuthToken(false).catch(() => null);
+    if (!token) continue;
+
+    const ids: string[] = [];
+    const idsBySender = new Map<string, string[]>();
+    for (const sender of providerTargets) {
+      const protectedSet = new Set(sender.protectedMessageIds);
+      const senderIds = sender.messageIds.filter((id) => !protectedSet.has(id));
+      if (senderIds.length === 0) continue;
+      ids.push(...senderIds);
+      idsBySender.set(sender.key, senderIds);
+    }
+    if (ids.length === 0) continue;
+
+    try {
+      await provider.labelSuspicious(token, ids);
+      const now = Date.now();
+      await appendActionLog([
+        {
+          id: makeLogId("labelSuspicious"),
+          at: now,
+          kind: "labelSuspicious",
+          summary: `Auto-quarantined ${ids.length} message${ids.length === 1 ? "" : "s"} from ${providerTargets.length} high-risk sender${providerTargets.length === 1 ? "" : "s"}`,
+          undo: { provider: providerId, ids, via: "unlabel-suspicious" },
+        },
+      ]);
+      await mutateSettings((current) => ({
+        ...current,
+        quarantinedSenders: {
+          ...current.quarantinedSenders,
+          ...Object.fromEntries(
+            [...idsBySender].map(([key, senderIds]) => [key, { at: now, messageIds: senderIds }]),
+          ),
+        },
+      }));
+      totalQuarantined += ids.length;
+    } catch (err) {
+      log.error("Auto-quarantine failed", providerId, err);
+      // Do not advance the incremental security cursor for this provider's
+      // scope. The next alarm replays these messages and retries.
+      throw err;
+    }
   }
+  return totalQuarantined;
 }
 
 async function runBackgroundTriage() {

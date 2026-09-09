@@ -95,14 +95,17 @@ describe("sentCorrespondentsStale", () => {
 describe("pendingScreenerSenders", () => {
   const known = new Set(["known@x.com"]);
 
-  it("returns unknown Gmail senders with no starred mail", () => {
+  it("returns unknown senders (any provider) with no starred mail", () => {
     const senders = [
       sender({ address: "known@x.com" }),
       sender({ address: "stranger@x.com" }),
       sender({ address: "outlook-stranger@x.com", provider: "outlook" }),
       sender({ address: "starred-stranger@x.com", protectedMessageIds: ["m1"] }),
     ];
-    expect(pendingScreenerSenders(senders, known).map((s) => s.address)).toEqual(["stranger@x.com"]);
+    expect(pendingScreenerSenders(senders, known).map((s) => s.address)).toEqual([
+      "stranger@x.com",
+      "outlook-stranger@x.com",
+    ]);
   });
 
   it("excludes addresses in the excluded set (muted / already screened)", () => {

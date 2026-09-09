@@ -1,13 +1,14 @@
 // Screener tab: hold mail from senders the user has never emailed, with a
-// per-sender Allow / Block queue and a hand-managed allow-list. Gmail-only.
-// screenPending is the foreground mirror of background.ts's runScreener,
-// run when the user first turns the Screener on.
+// per-sender Allow / Block queue and a hand-managed allow-list. Provider-
+// generic (Gmail + Outlook, gated per-sender by whether that provider
+// implements screenSender). screenPending is the foreground mirror of
+// background.ts's runScreener, run when the user first turns the Screener on.
 import { log } from "../lib/log";
 import { updateSettings } from "../lib/settingsStore";
-import { gmailProvider } from "../lib/providers/gmailProvider";
+import type { ProviderId } from "../lib/providers/emailProvider";
 import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "../lib/screener";
 import type { SenderSummary } from "../lib/senderModel";
-import { ctx, rescan } from "./state";
+import { ctx, providerById, rescan } from "./state";
 import { logAction } from "./recentTab";
 
 const screenerToggle = document.getElementById("screener-toggle") as HTMLInputElement;
@@ -15,15 +16,23 @@ const screenerQueueEl = document.getElementById("screener-queue") as HTMLDivElem
 const screenerAllowlistEl = document.getElementById("screener-allowlist") as HTMLDivElement;
 
 async function screenPending(senders: SenderSummary[]) {
-  if (!gmailProvider.screenSender) return;
-  const token = await gmailProvider.getAuthToken(false);
-
-  if (sentCorrespondentsStale(ctx.settings) && gmailProvider.listSentCorrespondents) {
-    try {
-      const addresses = await gmailProvider.listSentCorrespondents(token);
-      ctx.settings = await updateSettings({ sentCorrespondents: { addresses, fetchedAt: Date.now() } });
-    } catch (err) {
-      log.error("Screener: sent-correspondent refresh failed", err);
+  if (sentCorrespondentsStale(ctx.settings)) {
+    const addresses = new Set(ctx.settings.sentCorrespondents.addresses);
+    let anySucceeded = false;
+    for (const provider of providerById.values()) {
+      if (!provider.listSentCorrespondents) continue;
+      try {
+        const token = await provider.getAuthToken(false);
+        for (const addr of await provider.listSentCorrespondents(token)) addresses.add(addr);
+        anySucceeded = true;
+      } catch (err) {
+        log.error("Screener: sent-correspondent refresh failed", provider.id, err);
+      }
+    }
+    if (anySucceeded) {
+      ctx.settings = await updateSettings({
+        sentCorrespondents: { addresses: [...addresses], fetchedAt: Date.now() },
+      });
     }
   }
 
@@ -34,8 +43,11 @@ async function screenPending(senders: SenderSummary[]) {
   const pending = pendingScreenerSenders(senders, known, excluded);
   const screened: string[] = [];
   for (const s of pending) {
+    const provider = providerById.get(s.provider);
+    if (!provider?.screenSender) continue;
     try {
-      await gmailProvider.screenSender(token, s.address, s.messageIds);
+      const token = await provider.getAuthToken(false);
+      await provider.screenSender(token, s.address, s.messageIds);
       screened.push(s.address);
     } catch (err) {
       log.error("Screener: failed to hold", s.address, err);
@@ -52,17 +64,19 @@ async function screenPending(senders: SenderSummary[]) {
   }
 }
 
-async function releaseHeldSender(address: string, ids: string[], decision: "allow" | "block") {
-  const token = await gmailProvider.getAuthToken(false);
+async function releaseHeldSender(address: string, ids: string[], provider: ProviderId, decision: "allow" | "block") {
+  const emailProvider = providerById.get(provider);
+  if (!emailProvider) return;
+  const token = await emailProvider.getAuthToken(false);
   if (decision === "allow") {
-    await gmailProvider.allowSenderThrough!(token, address, ids);
+    await emailProvider.allowSenderThrough!(token, address, ids);
     ctx.settings = await updateSettings({
       screenerAllowlist: [...new Set([...ctx.settings.screenerAllowlist, address])],
       screenedSenders: ctx.settings.screenedSenders.filter((a) => a !== address),
     });
     await logAction("screener", `Allowed ${address} through the Screener`);
   } else {
-    await gmailProvider.muteSender!(token, address, ids);
+    await emailProvider.muteSender!(token, address, ids);
     ctx.settings = await updateSettings({
       mutedSenders: [...new Set([...ctx.settings.mutedSenders, address])],
       screenedSenders: ctx.settings.screenedSenders.filter((a) => a !== address),
@@ -111,7 +125,7 @@ export function renderScreenerTab(senders: SenderSummary[]) {
         allow.onclick = async () => {
           allow.disabled = true;
           try {
-            await releaseHeldSender(s.address, s.messageIds, "allow");
+            await releaseHeldSender(s.address, s.messageIds, s.provider, "allow");
           } catch (err) {
             allow.disabled = false;
             log.error(err);
@@ -123,7 +137,7 @@ export function renderScreenerTab(senders: SenderSummary[]) {
         block.onclick = async () => {
           block.disabled = true;
           try {
-            await releaseHeldSender(s.address, s.messageIds, "block");
+            await releaseHeldSender(s.address, s.messageIds, s.provider, "block");
           } catch (err) {
             block.disabled = false;
             log.error(err);

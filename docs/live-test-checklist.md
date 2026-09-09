@@ -146,8 +146,25 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
       Archive if filed out, stop processing). The config note reads
       "N Gmail filters + M Outlook rules". Untick keep-sorting → the rule is
       gone.
-- [ ] Keep-sorted / Mute / Snooze / Screener rows still say "Not supported for
-      this provider" for Outlook.
+- [ ] **Keep-sorted** on an Outlook sender: existing mail gets the category +
+      Archive move; **Outlook web → Settings → Rules** has a
+      `Cluster keep-sorted: <address>` rule (senderContains → assign category
+      + move to Archive, stop processing).
+- [ ] **Mute** on an Outlook sender: existing mail moves to a `Muted` folder
+      (created if absent) and gets tagged with a `Muted` category; a
+      `Cluster mute: <address>` rule exists. **Unmute** deletes that rule and
+      moves the mail back to Inbox.
+- [ ] **Screener**, with an Outlook account connected: an unknown Outlook
+      sender gets held under a `Screener` folder/category, with a
+      `Cluster screener: <address>` rule; **Allow** removes the rule and
+      restores the mail to Inbox, **Block** mutes it (same as Gmail's Block).
+- [ ] **Auto-quarantine / "Label as suspicious"** on an Outlook sender: mail
+      gets the `Possible Phishing` category and moves to Archive (reuses the
+      same `labelMessages`/`unlabelMessages` mechanism as "Sort my inbox"); the
+      Security tab's quarantine review queue's Confirm/Release works for an
+      Outlook-quarantined sender the same as for Gmail.
+- [ ] **Snooze** rows still say "Not supported for this provider" for
+      Outlook — deliberately not built (no native primitive).
 
 ## First-run "seed from existing" card
 
