@@ -126,6 +126,20 @@
           <p id="digest-text" hidden></p>
         </section>
 
+        <section id="ai-kind-section" hidden>
+          <h2>Classify ambiguous mail</h2>
+          <p class="hint">
+            Cluster's built-in classifier reads only subject lines (never message bodies) and is English-only,
+            so some non-English or unusually-phrased mail lands in "other" with no retention policy. This uses
+            Chrome's on-device model as a second opinion for exactly those messages, locally, in this browser
+            session only -- it never overrides a classification the built-in rules already made.
+          </p>
+          <div id="ai-kind-bar" class="bulk-bar">
+            <button id="classify-other-btn" disabled>Classify ambiguous mail</button>
+            <span id="ai-kind-status" role="status"></span>
+          </div>
+        </section>
+
         <div id="sender-bulk-bar" class="bulk-bar" hidden>
           <button id="select-safe-senders">Select safe</button>
           <span id="sender-selected-count">0 selected</span>
