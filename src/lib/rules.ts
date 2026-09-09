@@ -1,5 +1,6 @@
 import { categorizeDomain, DOMAIN_CATEGORY_LABELS, type DomainCategory } from "./domainCategories";
 import { domainOf } from "./domainGrouping";
+import { isSameOrSubdomain } from "./registrableDomain";
 import type { MessageKind } from "./messageKind";
 import type { ProviderId } from "./providers/emailProvider";
 import type { SenderSummary } from "./senderModel";
@@ -106,7 +107,10 @@ function conditionsMatch(
   now: number,
 ): boolean {
   if (conditions.fromAddress && sender.address !== conditions.fromAddress.toLowerCase()) return false;
-  if (conditions.fromDomain && domainOf(sender.address) !== conditions.fromDomain.toLowerCase()) return false;
+  // isSameOrSubdomain: a "from @amazon.com" rule also matches a sender at
+  // email.amazon.com, the same registrable-domain fallback categorizeDomain
+  // and threatSignals's brand matching already apply.
+  if (conditions.fromDomain && !isSameOrSubdomain(domainOf(sender.address), conditions.fromDomain)) return false;
   if (
     conditions.fromDomainCategory &&
     categorizeDomain(domainOf(sender.address)) !== conditions.fromDomainCategory

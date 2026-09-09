@@ -7,10 +7,7 @@
 // a signal, and linkMismatch.ts for the link-target check used by Deep scan.
 import generated from "./data/malwareDomains.generated.json";
 import { BLOCKLIST_SEED } from "./blocklistSeed";
-
-function normalizeDomain(value: string): string {
-  return value.trim().toLowerCase().replace(/^www\./, "").replace(/\.$/, "");
-}
+import { domainMatchesSet, normalizeDomain } from "./registrableDomain";
 
 /** Builds a matcher over an explicit domain set -- exported so tests can
  * exercise the matching logic without depending on the real vendored data. */
@@ -24,19 +21,9 @@ export function createBlocklist(domains: Iterable<string>): {
     if (normalized) set.add(normalized);
   }
 
-  const isBlockedDomain = (domain: string): boolean => {
-    const normalized = normalizeDomain(domain);
-    if (!normalized) return false;
-    if (set.has(normalized)) return true;
-    // Walk parent labels so a subdomain of a blocked registrable domain
-    // matches too: mail.evil.example -> evil.example. Stops before the final
-    // single label, so a bare TLD on the list could never match everything.
-    const labels = normalized.split(".");
-    for (let i = 1; i < labels.length - 1; i++) {
-      if (set.has(labels.slice(i).join("."))) return true;
-    }
-    return false;
-  };
+  // domainMatchesSet walks parent labels so a subdomain of a blocked
+  // registrable domain matches too: mail.evil.example -> evil.example.
+  const isBlockedDomain = (domain: string): boolean => domainMatchesSet(domain, set);
 
   return { isBlockedDomain, size: set.size };
 }

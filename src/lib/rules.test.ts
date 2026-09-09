@@ -150,6 +150,13 @@ describe("matchRule", () => {
     expect(matched.has("outlook")).toBe(false);
   });
 
+  it("matches a sender at a subdomain of the rule's fromDomain", () => {
+    const subdomain = sender({ address: "news@email.shop.com", messages: [msg({ id: "s1" })] });
+    const unrelated = sender({ address: "news@notshop.com", messages: [msg({ id: "u1" })] });
+    const matched = matchRule(rule({ conditions: { fromDomain: "shop.com" } }), [subdomain, unrelated]);
+    expect(matched.get("gmail")).toEqual(["s1"]);
+  });
+
   it("never includes starred/flagged messages", () => {
     const s = sender({
       address: "a@x.com",

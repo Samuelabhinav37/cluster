@@ -28,6 +28,7 @@
 import type { NormalizedMessageMetadata } from "./providers/emailProvider";
 import { parseAuthenticationResults } from "./emailAuth";
 import { isBlockedDomain } from "./blocklist";
+import { isSameOrSubdomain } from "./registrableDomain";
 
 // "link-mismatch" is never produced by scoreMessageForThreats below -- it's
 // only ever reported by the dashboard's manual "Deep scan" action (see
@@ -135,10 +136,6 @@ const LOOKALIKE_MIN_BRAND_LABEL_LENGTH = 5;
 function domainOf(address: string): string {
   const at = address.lastIndexOf("@");
   return at === -1 ? "" : address.slice(at + 1).toLowerCase();
-}
-
-function isSameOrSubdomain(domain: string, legitimateDomain: string): boolean {
-  return domain === legitimateDomain || domain.endsWith(`.${legitimateDomain}`);
 }
 
 function escapeRegExp(literal: string): string {
