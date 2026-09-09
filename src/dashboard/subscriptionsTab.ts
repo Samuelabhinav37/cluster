@@ -15,6 +15,10 @@ import {
 import { buildSenderCleanupPlan } from "../lib/protectionPolicy";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import type { SenderSummary } from "../lib/senderModel";
+import {
+  buildSubscriptionCandidates,
+  SUBSCRIPTION_SIGNAL_LABELS,
+} from "../lib/subscriptionSignals";
 import { formatRelativeTime, headerRow, pruneSelection, renderConfirmStep } from "./ui";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
@@ -27,6 +31,48 @@ const subsUnsubAllSlot = document.getElementById("subs-unsub-all-slot") as HTMLS
 const subsUnsubAllBtn = document.getElementById("subs-unsub-all-btn") as HTMLButtonElement;
 const subsOutcomeFilter = document.getElementById("subs-outcome-filter") as HTMLSelectElement;
 const subscriptionsListEl = document.getElementById("subscriptions-list") as HTMLDivElement;
+const paidSubscriptionsListEl = document.getElementById("paid-subscriptions-list") as HTMLDivElement;
+
+function renderPaidSubscriptions(senders: SenderSummary[]) {
+  const candidates = buildSubscriptionCandidates(senders);
+  paidSubscriptionsListEl.innerHTML = "";
+
+  if (candidates.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "hint";
+    empty.textContent = "No paid subscriptions or trials detected in the current scan.";
+    paidSubscriptionsListEl.appendChild(empty);
+    return;
+  }
+
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.appendChild(headerRow(["Sender", "Signal", "Last seen"]));
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const { sender, signal, lastSeenAt } of candidates) {
+    const row = document.createElement("tr");
+
+    const nameCell = document.createElement("td");
+    nameCell.textContent = sender.displayName
+      ? `${sender.displayName} <${sender.address}>`
+      : sender.address;
+    row.appendChild(nameCell);
+
+    const signalCell = document.createElement("td");
+    signalCell.textContent = SUBSCRIPTION_SIGNAL_LABELS[signal];
+    row.appendChild(signalCell);
+
+    const seenCell = document.createElement("td");
+    seenCell.textContent = formatRelativeTime(lastSeenAt);
+    row.appendChild(seenCell);
+
+    tbody.appendChild(row);
+  }
+  table.appendChild(tbody);
+  paidSubscriptionsListEl.appendChild(table);
+}
 
 // Persisted so "already requested" survives a reload — senders can take up
 // to 10 business days to stop, so re-requesting isn't blocked, just labeled.
@@ -217,6 +263,8 @@ function senderAddressFromKey(key: string): string {
 }
 
 export function renderSubscriptionsTab(senders: SenderSummary[]) {
+  renderPaidSubscriptions(senders);
+
   const senderByKey = new Map(senders.map((sender) => [sender.key, sender]));
   const available = senders.filter(
     (sender) => sender.unsubscribe.postUrl || sender.unsubscribe.httpUrl || sender.unsubscribe.mailto,
