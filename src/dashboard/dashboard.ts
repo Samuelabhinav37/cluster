@@ -28,7 +28,7 @@ import type { ProviderId } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { outlookProvider } from "../lib/providers/outlookProvider";
 import { OutlookReauthRequired } from "../lib/providers/msalAuth";
-import { buildSenderSummaries, type SenderSummary } from "../lib/senderModel";
+import { buildCombinedSenderSummaries, type SenderSummary } from "../lib/senderModel";
 import {
   getSettings,
   mutateSettings,
@@ -93,8 +93,9 @@ let currentSecuritySenders: SenderSummary[] = [];
 // derived count is then a sample of the most-recent N, not an inbox total.
 let lastScanCapHit = false;
 let engagementSuggestions: EngagementSuggestion[] = [];
-const SECURITY_SCAN_WINDOW_DAYS = 30;
-const SECURITY_SCAN_MAX_MESSAGES = 100;
+// The security lane re-uses messages already fetched for cleanup (no extra
+// quota) — cap how many feed the per-sender threat scoring, newest first.
+const SECURITY_SCAN_MAX_MESSAGES = 250;
 
 const statusEl = document.getElementById("status") as HTMLParagraphElement;
 const overviewContentEl = document.getElementById("overview-content") as HTMLDivElement;
@@ -424,49 +425,32 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   expirySectionEl.hidden = true;
   statusEl.textContent = "Scanning recent mail… the first run can take a minute.";
 
-  let senders: SenderSummary[];
-  let securitySenders: SenderSummary[];
-  // One cache spanning both scans below, seeded from the warm cache persisted
-  // by the last scan. The cleanup query (category:promotions OR updates, 180d)
-  // and the security query (in:inbox, 30d) overlap on recent promotional mail;
-  // the warm cache additionally spares re-fetching (20 quota units each) every
-  // message that hasn't changed since a previous session. An explicit "Rescan"
-  // passes refresh:true to drop the warm cache first.
+  // One pass, one quota window: fetch the union of the cleanup
+  // (category:promotions OR updates) and security (in:inbox) candidate sets,
+  // fetch each message's metadata once, then split by lane. The warm cache,
+  // seeded from the last scan, spares re-fetching (20 units each) anything
+  // unchanged; "Rescan" (refresh:true) drops it first.
   if (refresh) await clearMetadataCache();
   const scanCache = await loadMetadataCache();
+  let combined: Awaited<ReturnType<typeof buildCombinedSenderSummaries>>;
   try {
-    senders = await buildSenderSummaries(
+    combined = await buildCombinedSenderSummaries(
       activeProviders,
       ctx.settings.maxMessagesPerProvider,
       ctx.settings.scanWindowDays,
+      SECURITY_SCAN_MAX_MESSAGES,
       (done, total) => {
         statusEl.textContent =
           total > 0 ? `Scanning recent mail… ${done}/${total} messages` : "Scanning recent mail…";
       },
-      "cleanup",
-      scanCache,
-    );
-    statusEl.textContent = "Scanning recent Inbox mail for security…";
-    securitySenders = await buildSenderSummaries(
-      activeProviders,
-      // The security lane only needs recent Inbox mail for threat signals —
-      // capping it well below the cleanup limit keeps the two scans together
-      // under Gmail's per-minute quota (the cache already dedupes the overlap).
-      Math.min(ctx.settings.maxMessagesPerProvider, SECURITY_SCAN_MAX_MESSAGES),
-      Math.min(ctx.settings.scanWindowDays, SECURITY_SCAN_WINDOW_DAYS),
-      (done, total) => {
-        statusEl.textContent =
-          total > 0
-            ? `Scanning recent Inbox mail for security… ${done}/${total} messages`
-            : "Scanning recent Inbox mail for security…";
-      },
-      "security",
       scanCache,
     );
   } catch (err) {
     showScanError(err);
     return;
   }
+  let senders = combined.cleanup;
+  const securitySenders = combined.security;
 
   // Persist what we fetched so the next open only pays for new mail.
   void saveMetadataCache(scanCache);
@@ -518,9 +502,7 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   }
 
   currentSecuritySenders = securitySenders;
-  const totalScanned = senders.reduce((n, s) => n + s.count, 0);
-  lastScanCapHit =
-    totalScanned >= ctx.settings.maxMessagesPerProvider * Math.max(1, activeProviders.length) * 0.98;
+  lastScanCapHit = combined.capHit;
   // The scan itself succeeded — a throw in one render must not blank the rest
   // (or trip the global "couldn't load your mail"). Each block is isolated.
   safeRender("overview", () => renderOverview(senders, securitySenders));

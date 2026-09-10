@@ -2,6 +2,11 @@ import type { UnsubscribeInfo } from "../unsubscribe";
 
 export type ProviderId = "gmail" | "outlook";
 export type ScanPurpose = "cleanup" | "security";
+/** `"combined"` fetches the union of the cleanup and security candidate sets in
+ * one pass; each fetched message is then tagged with the lane(s) it belongs to
+ * (see NormalizedMessageMetadata.lanes) so a cold dashboard open costs one
+ * quota window instead of two sequential scans. */
+export type CandidateScope = ScanPurpose | "combined";
 
 export type { UnsubscribeInfo };
 
@@ -50,6 +55,11 @@ export interface NormalizedMessageMetadata {
    * Undefined/false when the provider found no risky attachment or doesn't
    * support the check yet. */
   hasRiskyAttachment?: boolean;
+  /** Which scan lane(s) this message belongs to, when it was fetched via the
+   * `"combined"` scope. Gmail derives it from labels (INBOX -> security,
+   * CATEGORY_PROMOTIONS/UPDATES -> cleanup; a promo still in the inbox is
+   * both). Absent for a single-purpose fetch. */
+  lanes?: ScanPurpose[];
 }
 
 export interface EmailProvider {
@@ -60,7 +70,7 @@ export interface EmailProvider {
     token: string,
     maxResults: number,
     windowDays: number,
-    purpose?: ScanPurpose,
+    purpose?: CandidateScope,
   ): Promise<NormalizedMessageStub[]>;
   /** Initial call (cursor undefined) returns a purpose-specific baseline plus
    * a checkpoint. Later calls return only created/updated messages since it. */

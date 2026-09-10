@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildSenderSummaries } from "./senderModel";
+import { buildCombinedSenderSummaries, buildSenderSummaries } from "./senderModel";
+import { lanesFromLabelIds } from "./providers/gmailProvider";
 import type { EmailProvider, NormalizedMessageMetadata } from "./providers/emailProvider";
 
 function makeProvider(id: "gmail" | "outlook", metas: NormalizedMessageMetadata[]): EmailProvider {
@@ -234,5 +235,62 @@ describe("buildSenderSummaries", () => {
     ]);
     const clean = senders.find((s) => s.address === "hello@ordinary-newsletter.example")!;
     expect(clean.threatSignals).toEqual([]);
+  });
+});
+
+describe("lanesFromLabelIds", () => {
+  it("routes an inbox promo to both lanes", () => {
+    expect(lanesFromLabelIds(["INBOX", "CATEGORY_PROMOTIONS"]).sort()).toEqual(["cleanup", "security"]);
+  });
+  it("routes a primary-inbox message to security only", () => {
+    expect(lanesFromLabelIds(["INBOX", "CATEGORY_PERSONAL"])).toEqual(["security"]);
+  });
+  it("routes an archived promo to cleanup only", () => {
+    expect(lanesFromLabelIds(["CATEGORY_UPDATES"])).toEqual(["cleanup"]);
+  });
+  it("defaults an unlabelled message to cleanup", () => {
+    expect(lanesFromLabelIds([])).toEqual(["cleanup"]);
+  });
+});
+
+describe("buildCombinedSenderSummaries", () => {
+  it("partitions one fetched set into the two lanes by meta.lanes", async () => {
+    const gmail = makeProvider("gmail", [
+      makeMeta({ id: "c1", fromAddress: "promo@shop.example", lanes: ["cleanup"] }),
+      makeMeta({ id: "s1", fromAddress: "boss@work.example", lanes: ["security"] }),
+      makeMeta({ id: "b1", fromAddress: "news@brand.example", lanes: ["cleanup", "security"] }),
+    ]);
+
+    const { cleanup, security, scannedCount } = await buildCombinedSenderSummaries([gmail]);
+
+    expect(scannedCount).toBe(3);
+    expect(cleanup.map((s) => s.address).sort()).toEqual(["news@brand.example", "promo@shop.example"]);
+    expect(security.map((s) => s.address).sort()).toEqual(["boss@work.example", "news@brand.example"]);
+    // getMessageMetadata called once per message, not once per lane.
+    expect(gmail.getMessageMetadata).toHaveBeenCalledTimes(3);
+  });
+
+  it("caps the security slice, newest first, without a second fetch", async () => {
+    const now = Date.now();
+    const metas = Array.from({ length: 10 }, (_, i) =>
+      makeMeta({
+        id: `m${i}`,
+        fromAddress: `s${i}@x.example`,
+        receivedAt: now - i * 1000,
+        lanes: ["cleanup", "security"],
+      }),
+    );
+    const gmail = makeProvider("gmail", metas);
+
+    const { cleanup, security } = await buildCombinedSenderSummaries(
+      [gmail],
+      500,
+      180,
+      3, // securityMaxMessages
+    );
+
+    expect(cleanup).toHaveLength(10);
+    expect(security).toHaveLength(3);
+    expect(security.map((s) => s.address)).toEqual(["s0@x.example", "s1@x.example", "s2@x.example"]);
   });
 });

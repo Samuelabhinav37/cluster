@@ -162,6 +162,9 @@ async function getMessageMetadata(token: string, id: string): Promise<Normalized
     subject: data.subject ?? "",
     isProtected: data.flag?.flagStatus === "flagged",
     unread: data.isRead === false,
+    // Outlook has no Promotions/Updates split — the whole inbox scan feeds
+    // both lanes; the security slice is post-capped by the dashboard.
+    lanes: ["cleanup", "security"],
     sizeBytes: Number(data.size ?? 0),
     unsubscribe: parseListUnsubscribe(find("List-Unsubscribe"), find("List-Unsubscribe-Post"), {
       provider: "outlook",
