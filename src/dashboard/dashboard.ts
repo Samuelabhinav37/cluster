@@ -1455,16 +1455,18 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): H
   primary.className = "btn btn-accent";
   primary.textContent = label;
 
+  // Full-width options strip below the row — every action group lives here so
+  // its two-step confirm has room to render (rendering it inside the narrow
+  // max-content action column crushed the text).
   const disclosure = document.createElement("div");
   disclosure.className = "instead-strip";
   disclosure.hidden = true;
   const insteadLabel = document.createElement("span");
   insteadLabel.className = "lbl";
-  insteadLabel.textContent = "Instead";
+  insteadLabel.textContent = "Options";
   disclosure.appendChild(insteadLabel);
   const groups = buildActionGroups(sender);
   for (const g of groups) {
-    if (g.act === act) continue;
     g.el.dataset.act = g.act;
     disclosure.appendChild(g.el);
   }
@@ -1480,17 +1482,15 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): H
   spacer.className = "spacer";
   disclosure.append(spacer, notUseful);
 
+  // The primary button is a shortcut: open the options strip and fire the
+  // recommended action's confirm there (full-width), leaving both controls
+  // in place.
   primary.onclick = () => {
     disclosure.hidden = false;
     ellipsis.setAttribute("aria-expanded", "true");
-    const target = buildActionGroups(sender).find((g) => g.act === act);
-    // The primary group isn't in the strip; render it inline and fire it.
-    if (target) {
-      target.el.dataset.act = act;
-      primary.replaceWith(target.el);
-      const innerBtn = target.el.querySelector("button");
-      innerBtn?.click();
-    }
+    const target = groups.find((g) => g.act === act);
+    target?.el.querySelector("button")?.click();
+    target?.el.scrollIntoView?.({ block: "nearest" });
   };
 
   const ellipsis = document.createElement("button");

@@ -1218,7 +1218,34 @@ a:hover {
   bottom: 0;
   z-index: 15;
   flex: none;
-  padding: 14px 32px 18px;
+  /* Inside .screen, which already supplies the 32px side gutter. */
+  padding: 14px 0 4px;
+  margin-top: -12px;
+}
+
+.floating-bar:empty {
+  display: none;
+}
+
+/* A revealed "Review" section (never-read / spam / expiry) sits in its own
+   panel so it reads as intentional, not a raw table dump under the plan. */
+.review-panel {
+  margin-top: 20px;
+  padding: 18px 20px 20px;
+  border-radius: var(--r-list);
+  background: var(--glass);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 0.5px solid var(--hairline);
+  box-shadow: var(--shadow-card);
+}
+
+.review-panel > h3 {
+  margin: 0 0 4px;
+}
+
+.review-panel .toolbar {
+  margin: 12px 0;
 }
 
 .floating-bar > div {
