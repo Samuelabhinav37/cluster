@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildInboxHealth } from "./inboxHealth";
+import {
+  buildInboxHealth,
+  inboxHealthScore,
+  isoWeek,
+  recordHealthSnapshot,
+} from "./inboxHealth";
 import type { MessageRecord, SenderSummary } from "./senderModel";
-import type { ClusterSettings } from "./settingsStore";
+import type { ClusterSettings, HealthSnapshot } from "./settingsStore";
 
 function msg(over: Partial<MessageRecord> = {}): MessageRecord {
   return {
@@ -105,5 +110,65 @@ describe("buildInboxHealth", () => {
     });
     expect(h.metrics.find((x) => x.id === "snoozed-due")!.value).toBe(1);
     expect(h.metrics.find((x) => x.id === "done-last-7-days")!.value).toBe(1);
+  });
+});
+
+describe("inboxHealthScore", () => {
+  it("is 100 for an all-read inbox with no cruft", () => {
+    const senders = [sender({ messages: [msg({ unread: false }), msg({ unread: false })] })];
+    expect(inboxHealthScore(senders)).toBe(100);
+  });
+
+  it("drops as the unread ratio climbs", () => {
+    const allRead = [sender({ messages: [msg({ unread: false }), msg({ unread: false })] })];
+    const allUnread = [sender({ messages: [msg({ unread: true }), msg({ unread: true })] })];
+    expect(inboxHealthScore(allUnread)).toBeLessThan(inboxHealthScore(allRead));
+  });
+
+  it("stays within 0–100", () => {
+    const noisy = Array.from({ length: 60 }, (_, i) =>
+      sender({
+        address: `s${i}@x.com`,
+        unsubscribe: { postUrl: "https://x/u" },
+        messages: [msg({ unread: true }), msg({ unread: true })],
+      }),
+    );
+    const score = inboxHealthScore(noisy);
+    expect(score).toBeGreaterThanOrEqual(0);
+    expect(score).toBeLessThanOrEqual(100);
+  });
+
+  it("handles an empty scan without dividing by zero", () => {
+    expect(inboxHealthScore([])).toBe(100);
+  });
+});
+
+describe("isoWeek / recordHealthSnapshot", () => {
+  it("formats an ISO week label", () => {
+    // 2026-09-10 is a Thursday in ISO week 37.
+    expect(isoWeek(Date.UTC(2026, 8, 10))).toBe("2026-W37");
+  });
+
+  it("appends the current week and caps at 12 entries", () => {
+    let history: HealthSnapshot[] = [];
+    for (let w = 0; w < 20; w++) {
+      history = recordHealthSnapshot(history, 50 + w, Date.UTC(2026, 0, 1) + w * 7 * 86_400_000);
+    }
+    expect(history).toHaveLength(12);
+    expect(history[history.length - 1].score).toBe(69);
+  });
+
+  it("overwrites this week's entry instead of adding a second bar", () => {
+    const now = Date.UTC(2026, 8, 10);
+    const once = recordHealthSnapshot([], 60, now);
+    const twice = recordHealthSnapshot(once, 72, now + 3600_000);
+    expect(twice).toHaveLength(1);
+    expect(twice[0].score).toBe(72);
+  });
+
+  it("does not mutate the input array", () => {
+    const input: HealthSnapshot[] = [{ week: "2026-W01", score: 40 }];
+    recordHealthSnapshot(input, 90, Date.UTC(2026, 8, 10));
+    expect(input).toEqual([{ week: "2026-W01", score: 40 }]);
   });
 });

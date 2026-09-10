@@ -76,7 +76,7 @@ import {
   renderSubscriptionsTab,
   wireSubscriptionsTab,
 } from "./subscriptionsTab";
-import { buildInboxHealth } from "../lib/inboxHealth";
+import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib/inboxHealth";
 import { logoFor } from "../lib/senderLogos";
 import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
@@ -481,6 +481,18 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   senderGroupsEl.hidden = false;
   domainSectionEl.hidden = false;
 
+  // Record this week's inbox-health score for the Overview trend chart (once
+  // per ISO week; a same-week rescan overwrites it).
+  const weeklyScore = inboxHealthScore(senders);
+  const nextHistory = recordHealthSnapshot(ctx.settings.healthHistory, weeklyScore, Date.now());
+  if (
+    nextHistory.length !== ctx.settings.healthHistory.length ||
+    nextHistory[nextHistory.length - 1]?.score !==
+      ctx.settings.healthHistory[ctx.settings.healthHistory.length - 1]?.score
+  ) {
+    ctx.settings = await updateSettings({ healthHistory: nextHistory });
+  }
+
   renderOverview(senders, securitySenders);
   render(senders);
   renderAllSenders(senders);
@@ -524,61 +536,367 @@ function updateSuggestedActionsVisibility() {
     neverReadSectionEl.hidden && spamSectionEl.hidden && expirySectionEl.hidden;
 }
 
-// Metric id → the section to scroll to after switching tabs. Missing entries
-// just switch tab.
-const OVERVIEW_SECTION_BY_METRIC: Record<string, string> = {
-  "ready-to-clean-up": "expiry-section",
-  "never-opened": "never-read-section",
-  "suspected-spam": "spam-section",
-  "old-and-large": "smart-views-bar",
-  "flagged-senders": "security-section",
-  "unsubscribe-capable": "subscriptions-list",
-  "screener-queue": "screener-queue",
-  "done-last-7-days": "recent-list",
-};
+// ── Overview screen (v3) ────────────────────────────────────────────────
+// A landing screen with two glass cards (what's waiting / inbox-health score +
+// 12-week trend), a "needs a person" list of the things Cluster won't decide
+// alone, a "working while you were away" summary, and a Recently-done preview.
+// Every number is deterministic and already computed elsewhere.
+const ICON_WARNING =
+  '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M10 5.6v5M10 13.6h.01"></path><circle cx="10" cy="10" r="7"></circle></svg>';
+const ICON_SEARCH =
+  '<svg viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.4"></circle><path d="M13 13l4 4"></path></svg>';
+const ICON_UP =
+  '<svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9.5V2.5M3 5.5 6 2.5l3 3"></path></svg>';
+const ICON_DOWN =
+  '<svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2.5v7M3 6.5 6 9.5l3-3"></path></svg>';
+
+function makeCard(sectionLabel: string): HTMLDivElement {
+  const card = document.createElement("div");
+  card.className = "glass-card";
+  const label = document.createElement("div");
+  label.className = "section-label";
+  label.textContent = sectionLabel;
+  card.appendChild(label);
+  return card;
+}
+
+/** A "needs a person" style row: tile + title/sub + one action button. */
+function makeNeedsRow(
+  tile: HTMLElement,
+  title: string,
+  sub: string,
+  actionLabel: string,
+  actionClass: string,
+  onAction: () => void,
+): HTMLDivElement {
+  const row = document.createElement("div");
+  row.className = "list-row";
+  row.style.gridTemplateColumns = "34px minmax(0,1fr) max-content";
+  const text = document.createElement("div");
+  text.className = "row-title-wrap";
+  const t = document.createElement("div");
+  t.className = "row-title";
+  t.style.whiteSpace = "normal";
+  t.textContent = title;
+  const s = document.createElement("div");
+  s.className = "row-sub wrap";
+  s.textContent = sub;
+  text.append(t, s);
+  const btn = document.createElement("button");
+  btn.className = actionClass;
+  btn.textContent = actionLabel;
+  btn.onclick = onAction;
+  row.append(tile, text, btn);
+  return row;
+}
 
 function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary[]) {
   const health = buildInboxHealth({ senders, securitySenders, settings: ctx.settings });
+  const byId = new Map(health.metrics.map((m) => [m.id, m.value]));
   overviewHeadlineEl.textContent = `Scanned ${health.scannedSenders} sender${
     health.scannedSenders === 1 ? "" : "s"
   } · ${health.scannedMessages} message${health.scannedMessages === 1 ? "" : "s"}`;
 
+  const expiryTotal = totalExpiryCount(buildExpiryBuckets(senders));
+  const spamMsgs = suggestSpamSenders(senders).reduce((n, s) => n + s.messageCount, 0);
+  const neverReadMsgs = buildEngagementSuggestions(senders, ctx.settings.senderEngagement).reduce(
+    (n, s) => n + s.safeMessageIds.length,
+    0,
+  );
+  const planTotal = expiryTotal + spamMsgs + neverReadMsgs;
+  const planGroups = [expiryTotal, spamMsgs, neverReadMsgs].filter((n) => n > 0).length;
+
   overviewContentEl.innerHTML = "";
-  const grid = document.createElement("div");
-  grid.className = "overview-grid";
-  for (const metric of health.metrics) {
-    const tile = document.createElement("button");
-    tile.type = "button";
-    tile.className = metric.tone === "attention" ? "overview-tile attention" : "overview-tile";
-    tile.onclick = () => {
-      const screen = resolveScreen(metric.tab);
-      showScreen(screen);
-      ctx.settings = { ...ctx.settings, activeTab: screen };
-      void updateSettings({ activeTab: screen });
-      const target = OVERVIEW_SECTION_BY_METRIC[metric.id];
-      const targetEl = target ? document.getElementById(target) : null;
-      if (targetEl) {
-        targetEl.closest("details")?.setAttribute("open", "");
-        targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    };
+  const stack = document.createElement("div");
+  stack.className = "stack";
 
-    const value = document.createElement("span");
-    value.className = "value";
-    value.textContent = String(metric.value);
+  // ── Two-up: "Ready when you are" + "Inbox health" ──
+  const topGrid = document.createElement("div");
+  topGrid.className = "two-up";
 
-    const label = document.createElement("span");
-    label.className = "label";
-    label.textContent = metric.label;
+  const readyCard = makeCard("Ready when you are");
+  const readyBody = document.createElement("div");
+  const heroLine = document.createElement("div");
+  heroLine.style.display = "flex";
+  heroLine.style.alignItems = "baseline";
+  heroLine.style.gap = "10px";
+  heroLine.style.flexWrap = "wrap";
+  const hero = document.createElement("span");
+  hero.className = "metric-hero";
+  hero.textContent = planTotal.toLocaleString();
+  const heroCap = document.createElement("span");
+  heroCap.className = "row-sub";
+  heroCap.style.color = "var(--label-2)";
+  heroCap.textContent = `messages across ${planGroups || 0} group${planGroups === 1 ? "" : "s"}`;
+  heroLine.append(hero, heroCap);
+  const explain = document.createElement("p");
+  explain.className = "row-sub wrap";
+  explain.style.margin = "12px 0 0";
+  explain.style.maxWidth = "40ch";
+  explain.textContent =
+    "A few minutes of decisions. Everything stays reversible for 30 days.";
+  readyBody.append(heroLine, explain);
+  const readyActions = document.createElement("div");
+  readyActions.style.display = "flex";
+  readyActions.style.gap = "12px";
+  readyActions.style.alignItems = "center";
+  readyActions.style.flexWrap = "wrap";
+  readyActions.style.marginTop = "auto";
+  const startBtn = document.createElement("button");
+  startBtn.className = "btn-accent-solid";
+  startBtn.textContent = "Start cleanup";
+  startBtn.onclick = () => void selectScreen("suggested");
+  const reviewLink = document.createElement("a");
+  reviewLink.href = "#";
+  reviewLink.textContent = "Review suggestions";
+  reviewLink.onclick = (e) => {
+    e.preventDefault();
+    void selectScreen("suggested");
+  };
+  readyActions.append(startBtn, reviewLink);
+  readyCard.append(readyBody, readyActions);
 
-    const hint = document.createElement("span");
-    hint.className = "hint";
-    hint.textContent = metric.hint;
+  // ── Inbox health ──
+  const score = inboxHealthScore(senders);
+  const history = ctx.settings.healthHistory;
+  const prev = history.length >= 2 ? history[history.length - 2].score : undefined;
+  const delta = prev === undefined ? undefined : score - prev;
 
-    tile.append(value, label, hint);
-    grid.appendChild(tile);
+  const healthCard = makeCard("Inbox health");
+  const healthHead = healthCard.firstElementChild as HTMLElement;
+  healthHead.style.display = "flex";
+  healthHead.style.alignItems = "center";
+  healthHead.style.gap = "10px";
+  if (delta !== undefined && delta !== 0) {
+    const spacer = document.createElement("span");
+    spacer.style.flex = "1";
+    const deltaPill = document.createElement("span");
+    deltaPill.className = `pill ${delta > 0 ? "success" : "danger"}`;
+    deltaPill.innerHTML = `${delta > 0 ? ICON_UP : ICON_DOWN}${Math.abs(delta)}`;
+    healthHead.append(spacer, deltaPill);
   }
-  overviewContentEl.appendChild(grid);
+  const scoreLine = document.createElement("div");
+  scoreLine.style.display = "flex";
+  scoreLine.style.alignItems = "baseline";
+  scoreLine.style.gap = "8px";
+  const scoreN = document.createElement("span");
+  scoreN.className = "metric-hero";
+  scoreN.textContent = String(score);
+  const scoreCap = document.createElement("span");
+  scoreCap.className = "row-sub";
+  scoreCap.style.color = "var(--label-2)";
+  scoreCap.textContent = "of 100";
+  scoreLine.append(scoreN, scoreCap);
+  healthCard.appendChild(scoreLine);
+
+  const points = [...history.map((h) => h.score)];
+  if (points.length >= 2) {
+    const trendWrap = document.createElement("div");
+    const trend = document.createElement("div");
+    trend.className = "trend";
+    points.forEach((p, i) => {
+      const bar = document.createElement("span");
+      bar.className = i === points.length - 1 ? "peak" : "on";
+      bar.style.height = `${Math.max(8, Math.min(100, p))}%`;
+      trend.appendChild(bar);
+    });
+    const axis = document.createElement("div");
+    axis.className = "trend-axis";
+    axis.innerHTML = `<span>${points.length} weeks ago</span><span>This week</span>`;
+    trendWrap.append(trend, axis);
+    healthCard.appendChild(trendWrap);
+  } else {
+    const soon = document.createElement("p");
+    soon.className = "row-sub wrap";
+    soon.style.margin = "0";
+    soon.textContent = "The 12-week trend fills in as you keep using Cluster — check back next week.";
+    healthCard.appendChild(soon);
+  }
+  const healthFoot = document.createElement("p");
+  healthFoot.className = "recent-detail";
+  healthFoot.style.margin = "auto 0 0";
+  healthFoot.textContent = "Unread ratio, sender count and subscription load.";
+  healthCard.appendChild(healthFoot);
+
+  topGrid.append(readyCard, healthCard);
+  stack.appendChild(topGrid);
+
+  // ── Needs a person ──
+  const flagged = byId.get("flagged-senders") ?? 0;
+  const screenerQ = byId.get("screener-queue") ?? 0;
+  if (flagged > 0 || screenerQ > 0) {
+    const wrap = document.createElement("div");
+    const head = document.createElement("div");
+    head.className = "section-head";
+    const h2 = document.createElement("h2");
+    h2.className = "section-label";
+    h2.textContent = "Needs a person";
+    const cnt = document.createElement("span");
+    cnt.className = "muted";
+    const items = (flagged > 0 ? 1 : 0) + (screenerQ > 0 ? 1 : 0);
+    cnt.textContent = `${items} item${items === 1 ? "" : "s"} Cluster won't decide for you`;
+    head.append(h2, cnt);
+    const list = document.createElement("div");
+    list.className = "grouped-list";
+    const rows: HTMLElement[] = [];
+    if (flagged > 0) {
+      const tile = document.createElement("span");
+      tile.className = "tile-danger";
+      tile.innerHTML = ICON_WARNING;
+      rows.push(
+        makeNeedsRow(
+          tile,
+          `${flagged} sender${flagged === 1 ? "" : "s"} may be impersonating people you know`,
+          "Display name matches a known contact, the domain does not.",
+          "Inspect",
+          "btn btn-danger",
+          () => void selectScreen("impersonation"),
+        ),
+      );
+    }
+    if (screenerQ > 0) {
+      const tile = document.createElement("span");
+      tile.className = "tile-neutral";
+      tile.innerHTML = ICON_SEARCH;
+      rows.push(
+        makeNeedsRow(
+          tile,
+          `${screenerQ} first-time sender${screenerQ === 1 ? "" : "s"} waiting in the screener`,
+          "Held out of the inbox until you decide — they are not told.",
+          "Screen now",
+          "btn btn-accent",
+          () => void selectScreen("screener"),
+        ),
+      );
+    }
+    rows.forEach((row, i) => {
+      if (i > 0) {
+        const sep = document.createElement("div");
+        sep.className = "row-sep";
+        sep.style.marginLeft = "66px";
+        list.appendChild(sep);
+      }
+      list.appendChild(row);
+    });
+    wrap.append(head, list);
+    stack.appendChild(wrap);
+  }
+
+  // ── Bottom two-up: "Working while you were away" + "Recently done" ──
+  const bottomGrid = document.createElement("div");
+  bottomGrid.className = "two-up";
+
+  const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+  const recentLog = ctx.settings.actionLog.filter((e) => !e.undone);
+  const filedByRules = recentLog
+    .filter((e) => Date.now() - e.at < MONTH_MS && ["rule", "sort", "keepSorted"].includes(e.kind))
+    .reduce((n, e) => n + (e.undo?.ids.length ?? 0), 0);
+  const mutedCount = ctx.settings.mutedSenders.length;
+  const cleanupsDone = recentLog.filter(
+    (e) => Date.now() - e.at < MONTH_MS && ["trash", "archive"].includes(e.kind),
+  ).length;
+
+  const awayEntries: Array<[string, string]> = [];
+  if (filedByRules > 0)
+    awayEntries.push([filedByRules.toLocaleString(), "messages filed by your rules this month"]);
+  if (mutedCount > 0)
+    awayEntries.push([String(mutedCount), `sender${mutedCount === 1 ? "" : "s"} muted and staying quiet`]);
+  if (cleanupsDone > 0)
+    awayEntries.push([String(cleanupsDone), `cleanup${cleanupsDone === 1 ? "" : "s"} done this month`]);
+
+  if (awayEntries.length > 0) {
+    const wrap = document.createElement("div");
+    const head = document.createElement("div");
+    head.className = "section-head";
+    head.innerHTML = '<h2 class="section-label">Working while you were away</h2>';
+    const list = document.createElement("div");
+    list.className = "grouped-list";
+    awayEntries.forEach(([n, t], i) => {
+      if (i > 0) {
+        const sep = document.createElement("div");
+        sep.className = "row-sep";
+        sep.style.marginLeft = "18px";
+        list.appendChild(sep);
+      }
+      const line = document.createElement("div");
+      line.className = "metric-line";
+      const nEl = document.createElement("span");
+      nEl.className = "n";
+      nEl.textContent = n;
+      const tEl = document.createElement("span");
+      tEl.className = "t";
+      tEl.textContent = t;
+      line.append(nEl, tEl);
+      list.appendChild(line);
+    });
+    wrap.append(head, list);
+    bottomGrid.appendChild(wrap);
+  }
+
+  // Recently done preview
+  const recentWrap = document.createElement("div");
+  const recentHead = document.createElement("div");
+  recentHead.className = "section-head";
+  recentHead.innerHTML =
+    '<h2 class="section-label">Recently done</h2><span class="spacer"></span>';
+  const fullLink = document.createElement("a");
+  fullLink.href = "#";
+  fullLink.textContent = "Full history";
+  fullLink.onclick = (e) => {
+    e.preventDefault();
+    void selectScreen("recent");
+  };
+  recentHead.appendChild(fullLink);
+  const recentList = document.createElement("div");
+  recentList.className = "grouped-list";
+  const recentEntries = [...ctx.settings.actionLog].reverse().slice(0, 3);
+  if (recentEntries.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "list-row";
+    empty.textContent = "Nothing done yet.";
+    recentList.appendChild(empty);
+  } else {
+    recentEntries.forEach((entry, i) => {
+      if (i > 0) {
+        const sep = document.createElement("div");
+        sep.className = "row-sep";
+        sep.style.marginLeft = "18px";
+        recentList.appendChild(sep);
+      }
+      const row = document.createElement("div");
+      row.className = "list-row";
+      row.style.gridTemplateColumns = "minmax(0,1fr) max-content";
+      const text = document.createElement("div");
+      text.className = "row-title-wrap";
+      const line = document.createElement("div");
+      line.className = "recent-line";
+      const firstSpace = entry.summary.indexOf(" ");
+      if (firstSpace > 0) {
+        const verb = document.createElement("span");
+        verb.className = "recent-verb";
+        verb.textContent = entry.summary.slice(0, firstSpace);
+        line.append(verb, document.createTextNode(entry.summary.slice(firstSpace)));
+      } else {
+        line.textContent = entry.summary;
+      }
+      const detail = document.createElement("div");
+      detail.className = "recent-detail";
+      detail.textContent =
+        formatRelativeTime(entry.at) + (entry.undone ? " · undone" : "");
+      text.append(line, detail);
+      const btn = document.createElement("button");
+      btn.className = "btn btn-sm";
+      btn.textContent = entry.undo && !entry.undone ? "Undo" : "View";
+      btn.onclick = () => void selectScreen("recent");
+      row.append(text, btn);
+      recentList.appendChild(row);
+    });
+  }
+  recentWrap.append(recentHead, recentList);
+  bottomGrid.appendChild(recentWrap);
+
+  stack.appendChild(bottomGrid);
+  overviewContentEl.appendChild(stack);
 }
 
 function showScanError(err: unknown) {
