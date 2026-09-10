@@ -141,10 +141,11 @@ describe("dashboard boot smoke", () => {
     expect(document.getElementById("overview-headline")!.textContent).toMatch(/Scanned \d+ sender/);
   });
 
-  it("builds the sender table with rows", () => {
+  it("builds the 'senders worth a decision' list with rows", () => {
     const groups = document.getElementById("sender-groups") as HTMLElement;
     expect(groups.hidden).toBe(false);
-    expect(groups.querySelectorAll("tr").length).toBeGreaterThan(0);
+    // header row + at least one sender row
+    expect(groups.querySelectorAll(".list-row").length).toBeGreaterThan(1);
   });
 
   it("flags the free-mail brand claim in the Security tab", () => {
@@ -217,25 +218,26 @@ describe("dashboard boot smoke", () => {
     expect(document.documentElement.dataset.theme).toBeUndefined();
   });
 
-  it("gives the category-group tables a screen-reader caption", () => {
+  it("gives the by-domain category tables a screen-reader caption", () => {
     document.querySelector<HTMLButtonElement>('#sidebar button[data-screen="suggested"]')!.click();
-    const caption = document.querySelector("#sender-groups table caption");
+    document.getElementById("more-tools")!.setAttribute("open", "");
+    const caption = document.querySelector("#domain-group-list table caption");
     expect(caption?.classList.contains("sr-only")).toBe(true);
-    expect(caption?.textContent).toMatch(/\d+ senders?, \d+ messages/);
+    expect(caption?.textContent).toMatch(/\d+ domains?, \d+ messages/);
   });
 
   it("opens a confirm step from a sender-row action", () => {
     document.querySelector<HTMLButtonElement>('#sidebar button[data-screen="suggested"]')!.click();
     const muteBtn = Array.from(
-      document.querySelectorAll<HTMLButtonElement>("#sender-groups button"),
+      document.querySelectorAll<HTMLButtonElement>("#sender-groups .list-row button"),
     ).find((b) => b.textContent === "Mute");
-    expect(muteBtn, "no Mute button rendered in the sender table").toBeTruthy();
-    const cell = muteBtn!.closest("td")!;
+    expect(muteBtn, "no Mute button rendered in the decision list").toBeTruthy();
     muteBtn!.click();
-    // renderConfirmStep clears the cell and swaps in a summary + Confirm/Cancel.
-    expect(cell.textContent).toContain("Hide all mail from");
-    expect(Array.from(cell.querySelectorAll("button")).map((b) => b.textContent)).toEqual(
-      expect.arrayContaining(["Confirm", "Cancel"]),
-    );
+    // The primary action swaps in the mute group and fires its confirm.
+    const groups = document.getElementById("sender-groups") as HTMLElement;
+    expect(groups.textContent).toContain("Hide all mail from");
+    expect(
+      Array.from(groups.querySelectorAll("button")).map((b) => b.textContent),
+    ).toEqual(expect.arrayContaining(["Confirm", "Cancel"]));
   });
 });
