@@ -2460,7 +2460,7 @@ function clearSmartViewResult() {
 
 function openSmartView(view: SmartView, msgCount: number, senderCount: number) {
   smartViewResultSlot.innerHTML = "";
-  smartViewResultSlot.className = "bulk-bar";
+  smartViewResultSlot.className = "confirm-slot";
 
   const info = document.createElement("span");
   info.textContent = `${view.label}: ${msgCount} message${msgCount === 1 ? "" : "s"} across ${senderCount} sender${senderCount === 1 ? "" : "s"}`;

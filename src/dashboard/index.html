@@ -200,7 +200,7 @@
                   Cluster learns from changed unread patterns and your corrections, entirely on this
                   device. Starred or flagged senders are excluded; nothing moves until you confirm.
                 </p>
-                <div id="never-read-bulk-bar" class="confirm-slot">
+                <div id="never-read-bulk-bar" class="toolbar">
                   <span id="never-read-count"></span>
                   <span id="never-read-mute-slot"><button id="never-read-mute-btn" class="btn btn-accent">Mute suggested…</button></span>
                   <span id="never-read-trash-slot"><button id="never-read-trash-btn" class="btn btn-danger">Trash suggested…</button></span>
@@ -215,7 +215,7 @@
                   own known-bad list. Nothing moves to Trash until you confirm; starred mail is left
                   out. <span id="spam-list-size" class="hint"></span>
                 </p>
-                <div id="spam-bulk-bar" class="confirm-slot">
+                <div id="spam-bulk-bar" class="toolbar">
                   <label class="check-label"><input type="checkbox" id="spam-select-all" class="check" checked /> <span>Select all</span></label>
                   <span id="spam-count"></span>
                   <span id="spam-trash-slot"><button id="spam-trash-btn" class="btn btn-danger">Trash selected…</button></span>
@@ -296,7 +296,7 @@
                 </div>
               </section>
 
-              <div id="smart-views-bar" class="confirm-slot">
+              <div id="smart-views-bar" class="toolbar">
                 <strong>Views:</strong>
                 <span id="smart-view-chips" class="chip-row"></span>
               </div>
@@ -316,7 +316,7 @@
                   Senders grouped by base domain and bucketed into categories. Deleting moves mail to
                   Trash — starred messages are always skipped.
                 </p>
-                <div id="domain-bulk-bar" class="confirm-slot" hidden>
+                <div id="domain-bulk-bar" class="toolbar" hidden>
                   <button id="select-safe-domains" class="btn">Select safe</button>
                   <span id="domain-selected-count">0 selected</span>
                   <span id="delete-domains-bulk-slot"><button id="bulk-delete-domains-btn" class="btn btn-danger" disabled>Delete selected domains…</button></span>
@@ -352,7 +352,7 @@
               </div>
             </div>
 
-            <div id="sender-bulk-bar" class="confirm-slot" hidden>
+            <div id="sender-bulk-bar" class="toolbar" hidden>
               <button id="select-safe-senders" class="btn">Select safe</button>
               <span id="sender-selected-count">0 selected</span>
               <span id="unsubscribe-bulk-slot"><button id="bulk-unsubscribe-btn" class="btn btn-accent" disabled>Bulk unsubscribe selected</button></span>
@@ -405,7 +405,7 @@
                 starred, and ambiguous mail. "Read later" files them into a reversible Cluster label
                 instead.
               </p>
-              <div id="subscriptions-bulk-bar" class="confirm-slot" hidden>
+              <div id="subscriptions-bulk-bar" class="toolbar" hidden>
                 <span id="subs-count">0 senders</span>
                 <span id="subs-unsub-all-slot"><button id="subs-unsub-all-btn" class="btn btn-accent">Unsubscribe all verified one-click</button></span>
                 <label>

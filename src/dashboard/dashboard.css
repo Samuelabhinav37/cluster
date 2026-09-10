@@ -11,60 +11,66 @@
 :root {
   color-scheme: light;
 
-  --canvas: #f2f1f7;
+  /* Canvas sits a clear step below the white glass so cards read as raised —
+     the depth the Liquid-Glass look depends on. Label tokens are opaque and
+     contrast-checked against the white glass (≥4.5:1 for body/labels). */
+  --canvas: #e9e7f1;
   --ambient:
-    radial-gradient(900px 620px at 14% -8%, rgba(145, 132, 217, 0.18), transparent 62%),
-    radial-gradient(760px 520px at 96% 4%, rgba(88, 126, 196, 0.12), transparent 60%),
-    linear-gradient(180deg, #faf9fd, #f1f0f7 60%);
+    radial-gradient(900px 620px at 14% -8%, rgba(139, 126, 216, 0.22), transparent 62%),
+    radial-gradient(760px 520px at 96% 4%, rgba(88, 126, 196, 0.16), transparent 60%),
+    linear-gradient(180deg, #efedf7, #e5e3ef 62%);
 
-  --glass: rgba(255, 255, 255, 0.72);
+  --glass: rgba(255, 255, 255, 0.8);
   --glass-solid: #ffffff; /* prefers-reduced-transparency fallback */
-  --glass-toolbar: rgba(255, 255, 255, 0.68);
-  --glass-bar: rgba(255, 255, 255, 0.82);
+  --glass-toolbar: rgba(255, 255, 255, 0.76);
+  --glass-bar: rgba(255, 255, 255, 0.88);
 
-  --hairline: rgba(20, 20, 45, 0.12);
-  --separator: rgba(20, 20, 45, 0.1);
-  --specular: 0 1px 0 rgba(255, 255, 255, 0.7) inset;
+  --hairline: rgba(24, 22, 48, 0.14);
+  --separator: rgba(24, 22, 48, 0.1);
+  --specular: 0 1px 0 rgba(255, 255, 255, 0.75) inset;
 
-  --label: #1b1b22;
-  --label-2: rgba(28, 28, 42, 0.74);
-  --label-3: rgba(28, 28, 42, 0.62);
-  --label-4: rgba(28, 28, 42, 0.55);
+  --label: #1b1b22; /* 15:1 */
+  --label-2: #39394a; /* ~9:1 — 14–15px secondary */
+  --label-3: #4b4b5b; /* ~7:1 — 13–14px body */
+  --label-4: #5b5b6b; /* ~5.5:1 — 12px labels / metadata */
 
-  --accent: #6c5fc7;
-  --accent-text: #5a4db8;
+  --accent: #6a5cc6;
+  --accent-text: #574abb; /* ~6:1 on white — links */
   --accent-fill: rgba(124, 110, 220, 0.16);
-  --accent-fill-border: rgba(124, 110, 220, 0.42);
-  --accent-fill-text: #4a3db0;
+  --accent-fill-border: rgba(124, 110, 220, 0.44);
+  --accent-fill-text: #45389f; /* ~7:1 on the tinted fill */
   --accent-fill-hover: rgba(124, 110, 220, 0.26);
   --accent-solid: linear-gradient(180deg, #8b7fd8, #6f62c4);
   --accent-solid-border: rgba(140, 128, 220, 0.6);
   --accent-solid-text: #ffffff;
 
-  --danger-text: #c0392b;
-  --danger-fill: rgba(220, 60, 50, 0.12);
-  --danger-fill-hover: rgba(220, 60, 50, 0.2);
-  --danger-border: rgba(220, 60, 50, 0.36);
-  --danger-label: #9c261b;
+  --danger-text: #b5322a;
+  --danger-fill: rgba(200, 45, 40, 0.12);
+  --danger-fill-hover: rgba(200, 45, 40, 0.2);
+  --danger-border: rgba(200, 45, 40, 0.38);
+  --danger-label: #8f2019; /* ~7:1 on the pink fill */
   --danger-tile: linear-gradient(180deg, rgba(220, 60, 50, 0.22), rgba(200, 45, 35, 0.16));
 
-  --neutral-fill: rgba(20, 20, 45, 0.05);
-  --neutral-fill-hover: rgba(20, 20, 45, 0.1);
-  --neutral-border: rgba(20, 20, 45, 0.14);
+  --neutral-fill: rgba(24, 22, 48, 0.06);
+  --neutral-fill-hover: rgba(24, 22, 48, 0.11);
+  --neutral-border: rgba(24, 22, 48, 0.16);
 
-  --success-fill: rgba(40, 170, 80, 0.14);
-  --success-border: rgba(40, 170, 80, 0.4);
-  --success-text: #1c7d3e;
+  --success-fill: rgba(30, 140, 70, 0.14);
+  --success-border: rgba(30, 140, 70, 0.42);
+  --success-text: #197038; /* ~5:1 on the green fill */
 
-  --row-hover: rgba(20, 20, 45, 0.04);
-  --disabled-fg: rgba(28, 28, 42, 0.4);
-  --focus-ring: rgba(124, 110, 220, 0.7);
+  --row-hover: rgba(24, 22, 48, 0.05);
+  --disabled-fg: #9a9aa6;
+  --focus-ring: rgba(106, 92, 198, 0.75);
 
+  /* Two-layer shadow — a tight contact shadow plus a soft ambient one — reads
+     crisper than one big blur on a light ground. */
   --shadow-card:
-    var(--specular), 0 20px 48px -22px rgba(20, 20, 60, 0.28);
+    var(--specular), 0 2px 6px -2px rgba(30, 25, 60, 0.1), 0 12px 28px -14px rgba(30, 25, 60, 0.16);
   --shadow-card-lg:
-    var(--specular), 0 24px 56px -24px rgba(20, 20, 60, 0.32);
-  --shadow-bar: var(--specular), 0 22px 52px -18px rgba(20, 20, 60, 0.34);
+    var(--specular), 0 3px 8px -2px rgba(30, 25, 60, 0.12), 0 18px 40px -16px rgba(30, 25, 60, 0.2);
+  --shadow-bar:
+    var(--specular), 0 4px 10px -2px rgba(30, 25, 60, 0.14), 0 20px 44px -14px rgba(30, 25, 60, 0.22);
   --shadow-solid-btn:
     0 1px 0 rgba(255, 255, 255, 0.45) inset, 0 10px 24px -10px rgba(124, 110, 220, 0.55);
 
@@ -326,9 +332,12 @@ a:hover {
   z-index: 20;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
-  padding: 0 20px;
-  height: 56px;
+  row-gap: 8px;
+  padding-inline: 20px;
+  padding-block: 8px;
+  min-height: 56px;
   flex: none;
   background: var(--glass-toolbar);
   backdrop-filter: blur(28px) saturate(180%);
@@ -1710,10 +1719,47 @@ details.disclosure > summary {
 /* ── Confirm step (renderConfirmStep) ───────────────────────────────── */
 
 .confirm-slot {
-  display: inline-flex;
+  display: flex;
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+}
+
+.confirm-summary {
+  font: 400 14px/1.4 var(--font);
+  color: var(--label-2);
+}
+
+/* Grouped action bar (select-all + count + actions). Gives the loose bulk
+   controls a panel affordance so they read as one toolbar. */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--neutral-fill);
+  border: 0.5px solid var(--separator);
+  border-radius: var(--r-ctl);
+}
+
+.toolbar[hidden] {
+  display: none;
+}
+
+.toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--label-2);
+}
+
+.toolbar > span:not([class]),
+.toolbar #sender-selected-count,
+.toolbar #domain-selected-count {
+  font-size: 14px;
+  color: var(--label-3);
 }
 
 /* Legacy hint class still referenced by some tab modules until they're
@@ -1732,22 +1778,70 @@ details.disclosure > summary {
 
 /* ── Responsive ─────────────────────────────────────────────────────── */
 
+/* Below the sidebar breakpoint the nav becomes a horizontal scrolling strip
+   under the header — always visible, no off-canvas drawer, no JS. */
 @media (max-width: 900px) {
+  .app-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .sidebar {
+    width: 100%;
+    position: sticky;
+    top: 56px;
+    z-index: 15;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    border-right: none;
+    border-bottom: 0.5px solid var(--separator);
+    background: var(--glass-toolbar);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+  }
+
+  .nav-standalone {
+    margin-bottom: 0;
+  }
+
+  .nav-group-label,
+  .sidebar-spacer,
+  .sidebar-note {
     display: none;
+  }
+
+  .nav-item {
+    width: auto;
+    flex: none;
+    min-height: 36px;
+    padding: 8px 12px;
+    white-space: nowrap;
+  }
+
+  .nav-count {
+    margin-left: 6px;
   }
 
   .screen {
     padding: 24px 16px 48px;
   }
+
+  .floating-bar {
+    padding-inline: 16px;
+  }
 }
 
 @media (max-width: 520px) {
   .app-header {
-    padding: 0 16px;
+    padding-inline: 16px;
     gap: 8px;
   }
 
+  .brand-word,
   .account-pill .email {
     display: none;
   }
@@ -1758,6 +1852,11 @@ details.disclosure > summary {
 
   .metric-hero {
     font-size: 36px;
+  }
+
+  .metric-band {
+    gap: 16px;
+    padding: 18px;
   }
 }
 

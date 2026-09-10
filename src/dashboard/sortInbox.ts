@@ -366,7 +366,7 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
   };
 
   const bar = document.createElement("div");
-  bar.className = "bulk-bar";
+  bar.className = "confirm-slot";
   bar.append(applyBtn, cancelBtn, status);
   sortInboxPreviewEl.appendChild(bar);
   refreshApplyLabel();
