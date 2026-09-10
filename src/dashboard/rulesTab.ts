@@ -59,29 +59,56 @@ export function renderRulesTab() {
     rulesListEl.appendChild(p);
     return;
   }
-  for (const rule of ctx.settings.rules) {
-    const row = document.createElement("div");
-    row.className = "rule-row";
+  const list = document.createElement("div");
+  list.className = "grouped-list";
+  ctx.settings.rules.forEach((rule, i) => {
+    if (i > 0) {
+      const sep = document.createElement("div");
+      sep.className = "row-sep";
+      sep.style.marginLeft = "18px";
+      list.appendChild(sep);
+    }
 
-    const toggle = document.createElement("input");
-    toggle.type = "checkbox";
-    toggle.checked = rule.enabled;
-    toggle.onchange = async () => {
-      ctx.settings = await updateSettings({
-        rules: ctx.settings.rules.map((r) => (r.id === rule.id ? { ...r, enabled: toggle.checked } : r)),
-      });
-      renderRulesTab();
+    const row = document.createElement("div");
+    row.className = "list-row";
+    row.style.gridTemplateColumns = "minmax(0,1fr) max-content";
+
+    const text = document.createElement("div");
+    text.className = "row-title-wrap";
+    const name = document.createElement("div");
+    name.className = "row-title";
+    name.style.whiteSpace = "normal";
+    name.textContent = rule.name;
+    const desc = document.createElement("div");
+    desc.className = "row-sub wrap";
+    desc.textContent = describeRule(rule);
+    const stat = document.createElement("div");
+    stat.className = "recent-detail";
+    stat.textContent = `priority ${rule.priority ?? 0} · limit ${ruleRunLimit(rule)}/run${
+      rule.stopProcessing ? " · stops later rules" : ""
+    }`;
+    text.append(name, desc, stat);
+
+    const actions = document.createElement("div");
+    actions.className = "row-actions";
+
+    const editBtn = document.createElement("button");
+    editBtn.className = "btn btn-sm";
+    editBtn.textContent = "Edit";
+    editBtn.onclick = () => {
+      document.getElementById("rule-form-details")?.setAttribute("open", "");
+      ruleNameInput.value = rule.name;
+      ruleFromDomainInput.value = rule.conditions.fromDomain ?? "";
+      ruleFromAddressInput.value = rule.conditions.fromAddress ?? "";
+      ruleOlderDaysInput.value = rule.conditions.olderThanDays ? String(rule.conditions.olderThanDays) : "";
+      ruleActionSel.value = rule.action;
+      ruleLabelInput.hidden = rule.action !== "label";
+      ruleLabelInput.value = rule.labelName ?? "";
+      document.getElementById("rule-form-details")?.scrollIntoView({ behavior: "smooth", block: "center" });
     };
 
-    const label = document.createElement("label");
-    label.append(toggle, document.createTextNode(` ${rule.name} `));
-
-    const desc = document.createElement("span");
-    desc.className = "hint";
-    const policy = `${rule.priority ?? 0}, limit ${ruleRunLimit(rule)}/run${rule.stopProcessing ? ", stops later rules" : ""}`;
-    desc.textContent = `[priority ${policy}] ${describeRule(rule)}`;
-
     const del = document.createElement("button");
+    del.className = "btn btn-sm danger";
     del.textContent = "Delete";
     del.onclick = async () => {
       ctx.settings = await updateSettings({
@@ -90,9 +117,26 @@ export function renderRulesTab() {
       renderRulesTab();
     };
 
-    row.append(label, desc, del);
-    rulesListEl.appendChild(row);
-  }
+    const sw = document.createElement("button");
+    sw.className = "switch";
+    sw.setAttribute("role", "switch");
+    sw.setAttribute("aria-checked", String(rule.enabled));
+    sw.setAttribute("aria-label", `${rule.enabled ? "Disable" : "Enable"} ${rule.name}`);
+    sw.innerHTML = "<span></span>";
+    sw.onclick = async () => {
+      const next = sw.getAttribute("aria-checked") !== "true";
+      sw.setAttribute("aria-checked", String(next));
+      ctx.settings = await updateSettings({
+        rules: ctx.settings.rules.map((r) => (r.id === rule.id ? { ...r, enabled: next } : r)),
+      });
+      renderRulesTab();
+    };
+
+    actions.append(editBtn, del, sw);
+    row.append(text, actions);
+    list.appendChild(row);
+  });
+  rulesListEl.appendChild(list);
 }
 
 function renderRuleDryRun() {
@@ -205,7 +249,28 @@ function resetRuleApplySlot() {
   ruleApplySlot.appendChild(ruleApplyBtn);
 }
 
+const RULE_EXAMPLES = [
+  "Mute anything I haven't opened in a year",
+  "Archive unread newsletters older than 14 days",
+  "Trash one-time codes after 2 days",
+];
+
 export function wireRulesTab() {
+  const chipHost = document.getElementById("rule-example-chips");
+  if (chipHost && chipHost.childElementCount === 0) {
+    for (const example of RULE_EXAMPLES) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.textContent = example;
+      chip.onclick = () => {
+        ruleNaturalLanguageInput.value = example;
+        ruleNaturalLanguageInput.focus();
+      };
+      chipHost.appendChild(chip);
+    }
+  }
+
   ruleActionSel.onchange = () => {
     ruleLabelInput.hidden = ruleActionSel.value !== "label";
   };
