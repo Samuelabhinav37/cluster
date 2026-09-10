@@ -1749,3 +1749,146 @@ details.disclosure > summary {
 .scroll-x {
   overflow-x: auto;
 }
+
+/* ============================================================================
+   Legacy / utility surfaces — the parts not yet rebuilt as glass rows
+   (domain-category tables, the rule dry-run, the sort-inbox preview tree,
+   smart-view chips). Given a coherent-enough look so they don't clash with
+   the redesigned screens; most live behind a "More tools" / "Review"
+   disclosure.
+   ============================================================================ */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 0.5px solid var(--separator);
+  vertical-align: middle;
+}
+
+th {
+  font: 590 12px/1.3 var(--font);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--label-4);
+}
+
+table td:first-child:has(input[type="checkbox"]) {
+  width: 1.5rem;
+}
+
+.category-group {
+  border: 0.5px solid var(--hairline);
+  border-radius: var(--r-ctl);
+  background: var(--glass);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  padding: 0 14px;
+  margin-bottom: 10px;
+}
+
+.category-group > summary {
+  cursor: pointer;
+  padding: 12px 4px;
+  font: 590 14px/1.3 var(--font);
+}
+
+.category-group summary .category-count {
+  font-weight: 400;
+  color: var(--label-4);
+  font-size: 13px;
+  margin-left: 6px;
+}
+
+.rule-preview-row {
+  border: 0.5px solid var(--hairline);
+  border-radius: var(--r-ctl);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  background: var(--neutral-fill);
+}
+
+.rule-preview-row > summary {
+  cursor: pointer;
+  font: 590 14px/1.35 var(--font);
+}
+
+.rule-preview-row p,
+.rule-preview-row ul {
+  margin: 8px 0 0;
+}
+
+#rule-preview h3,
+#recent-list h3 {
+  font: 590 12px/1.3 var(--font);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--label-4);
+  margin: 20px 0 8px;
+}
+
+.smart-view-chip {
+  min-height: 38px;
+  border-radius: var(--r-pill);
+  padding: 8px 14px;
+  font-size: 14px;
+}
+
+/* Sort-my-inbox preview tree */
+.sort-preview-bucket {
+  border: 0.5px solid var(--hairline);
+  border-radius: var(--r-ctl);
+  padding: 0 14px;
+  margin-bottom: 8px;
+  background: var(--neutral-fill);
+}
+
+.sort-preview-bucket > summary {
+  cursor: pointer;
+  padding: 12px 4px;
+  font: 590 14px/1.3 var(--font);
+}
+
+.sort-preview-sender {
+  margin: 4px 0 4px 14px;
+}
+
+.sort-preview-sender > summary {
+  cursor: pointer;
+  padding: 6px 4px;
+  color: var(--label-2);
+  font-size: 14px;
+}
+
+.sort-preview-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 3px 0 3px 24px;
+  color: var(--label-2);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* Settings-sheet + inline toggles use a native checkbox — give it the accent. */
+input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.check-label {
+  gap: 8px;
+}
+
+.check-label input[type="checkbox"]:not(.check) {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: none;
+}

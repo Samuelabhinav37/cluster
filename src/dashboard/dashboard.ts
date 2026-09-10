@@ -117,7 +117,6 @@ const selectSafeDomainsBtn = document.getElementById("select-safe-domains") as H
 const deleteDomainsBulkSlot = document.getElementById("delete-domains-bulk-slot") as HTMLSpanElement;
 const bulkDeleteDomainsBtn = document.getElementById("bulk-delete-domains-btn") as HTMLButtonElement;
 
-const suggestedActionsSectionEl = document.getElementById("suggested-actions-section") as HTMLElement;
 
 const expirySectionEl = document.getElementById("expiry-section") as HTMLElement;
 const expiryBreakdownEl = document.getElementById("expiry-breakdown") as HTMLSpanElement;
@@ -506,7 +505,12 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   renderSubscriptionsTab(senders);
   renderNeverReadSection(senders);
   renderSpamSection(senders);
-  updateSuggestedActionsVisibility();
+  // The v3 "Your cleanup plan" list (renderCleanupPlan) is the primary
+  // surface for these three; their detailed sections are collapsed by default
+  // and only opened via a row's "Review" button (revealLegacySection).
+  neverReadSectionEl.hidden = true;
+  spamSectionEl.hidden = true;
+  expirySectionEl.hidden = true;
   renderSortInbox(senders);
   renderSmartViews(senders);
   renderScreenerTab(senders);
@@ -528,15 +532,6 @@ function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummar
   setNavCount("impersonation", byId.get("flagged-senders") ?? 0);
   setNavCount("rules", ctx.settings.rules.length);
   setNavCount("screener", byId.get("screener-queue") ?? 0);
-}
-
-// The three suggestion sections (never-read, spam, expiry) each hide
-// themselves when empty; this just decides whether their shared "Suggested
-// actions" wrapper is worth showing at all, so an all-caught-up scan doesn't
-// leave a bare heading with nothing under it.
-function updateSuggestedActionsVisibility() {
-  suggestedActionsSectionEl.hidden =
-    neverReadSectionEl.hidden && spamSectionEl.hidden && expirySectionEl.hidden;
 }
 
 // ── Overview screen (v3) ────────────────────────────────────────────────
