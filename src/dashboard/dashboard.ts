@@ -88,6 +88,9 @@ const selectedPlanGroups = new Set<string>();
 let currentDomainGroups: DomainGroup[] = [];
 let currentExpiryBuckets: ExpiryBucket[] = [];
 let currentSecuritySenders: SenderSummary[] = [];
+// True when the cleanup scan filled its per-account candidate cap — every
+// derived count is then a sample of the most-recent N, not an inbox total.
+let lastScanCapHit = false;
 let engagementSuggestions: EngagementSuggestion[] = [];
 const SECURITY_SCAN_WINDOW_DAYS = 30;
 const SECURITY_SCAN_MAX_MESSAGES = 100;
@@ -514,27 +517,49 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   }
 
   currentSecuritySenders = securitySenders;
-  renderOverview(senders, securitySenders);
-  render(senders);
-  renderAllSenders(senders);
-  renderRulesTab();
-  renderDomainGroups(senders);
-  renderExpirySection(senders);
-  renderSecuritySection(securitySenders);
-  renderSubscriptionsTab(senders);
-  renderNeverReadSection(senders);
-  renderSpamSection(senders);
+  const totalScanned = senders.reduce((n, s) => n + s.count, 0);
+  lastScanCapHit =
+    totalScanned >= ctx.settings.maxMessagesPerProvider * Math.max(1, activeProviders.length) * 0.98;
+  // The scan itself succeeded — a throw in one render must not blank the rest
+  // (or trip the global "couldn't load your mail"). Each block is isolated.
+  safeRender("overview", () => renderOverview(senders, securitySenders));
+  safeRender("suggested", () => render(senders));
+  safeRender("senders", () => renderAllSenders(senders));
+  safeRender("rules", () => renderRulesTab());
+  safeRender("suggested", () => renderDomainGroups(senders));
+  safeRender("suggested", () => renderExpirySection(senders));
+  safeRender("impersonation", () => renderSecuritySection(securitySenders));
+  safeRender("subscriptions", () => renderSubscriptionsTab(senders));
+  safeRender("suggested", () => renderNeverReadSection(senders));
+  safeRender("suggested", () => renderSpamSection(senders));
   // The v3 "Your cleanup plan" list (renderCleanupPlan) is the primary
   // surface for these three; their detailed sections are collapsed by default
   // and only opened via a row's "Review" button (revealLegacySection).
   neverReadSectionEl.hidden = true;
   spamSectionEl.hidden = true;
   expirySectionEl.hidden = true;
-  renderSortInbox(senders);
-  renderSmartViews(senders);
-  renderScreenerTab(senders);
-  updateNavCounts(senders, securitySenders);
+  safeRender("suggested", () => renderSortInbox(senders));
+  safeRender("suggested", () => renderSmartViews(senders));
+  safeRender("screener", () => renderScreenerTab(senders));
+  safeRender("overview", () => updateNavCounts(senders, securitySenders));
   generateDigestBtn.disabled = false;
+}
+
+// One render block failing must not take down the others — the scan already
+// succeeded. Logs, and drops a one-time notice into the screen it belongs to.
+function safeRender(screen: string, fn: () => void) {
+  try {
+    fn();
+  } catch (err) {
+    log.error(`render for "${screen}" failed`, err);
+    const el = document.querySelector<HTMLElement>(`section.screen[data-screen="${screen}"]`);
+    if (el && !el.querySelector(".screen-error")) {
+      const note = document.createElement("p");
+      note.className = "screen-error empty-state";
+      note.textContent = "Part of this screen didn't load. Try Rescan, or reload the page.";
+      el.appendChild(note);
+    }
+  }
 }
 
 function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummary[]) {
@@ -626,6 +651,14 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
   overviewContentEl.innerHTML = "";
   const stack = document.createElement("div");
   stack.className = "stack";
+
+  if (lastScanCapHit) {
+    const capNote = document.createElement("p");
+    capNote.className = "text-meta";
+    capNote.style.margin = "0";
+    capNote.textContent = `Counts below cover the most recent ${ctx.settings.maxMessagesPerProvider.toLocaleString()} messages per account across ${ctx.settings.scanWindowDays} days — widen the scan in Settings for the full picture.`;
+    stack.appendChild(capNote);
+  }
 
   // ── Two-up: "Ready when you are" + "Inbox health" ──
   const topGrid = document.createElement("div");
@@ -1080,7 +1113,7 @@ function renderSuggestedMetricBand(senders: SenderSummary[]) {
   heroCap.className = "row-sub";
   heroCap.style.color = "var(--label-2)";
   heroCap.style.marginTop = "8px";
-  heroCap.textContent = "messages ready to clean up";
+  heroCap.textContent = lastScanCapHit ? "messages ready to clean up in this scan" : "messages ready to clean up";
   heroWrap.append(heroLine, heroCap);
   band.appendChild(heroWrap);
 
@@ -1715,6 +1748,12 @@ function filteredSenders(senders: SenderSummary[]): SenderSummary[] {
 
 function renderAllSenders(senders: SenderSummary[]) {
   if (!allSendersListEl) return;
+  const lead = document.getElementById("senders-lead");
+  if (lead) {
+    lead.textContent = lastScanCapHit
+      ? `The ${senders.length} senders in this scan — the most recent ${ctx.settings.maxMessagesPerProvider.toLocaleString()} messages per account over ${ctx.settings.scanWindowDays} days. Nothing here is acted on until you say so.`
+      : `Every sender Cluster saw in the last ${ctx.settings.scanWindowDays} days, heaviest first. Nothing here is acted on until you say so.`;
+  }
   const rows = filteredSenders(senders).sort((a, b) => b.count - a.count);
   const shown = rows.slice(0, allSendersLimit);
 

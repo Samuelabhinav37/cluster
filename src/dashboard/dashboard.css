@@ -1819,6 +1819,13 @@ details.disclosure > summary {
   max-width: 65ch;
 }
 
+.screen-error {
+  margin-top: 24px;
+  border-style: solid;
+  border-color: var(--danger-border);
+  color: var(--danger-label);
+}
+
 /* Calm, centred empty state — one consistent treatment for "nothing here yet". */
 .empty-state {
   margin: 0;
