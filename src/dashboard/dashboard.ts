@@ -77,7 +77,7 @@ import {
   wireSubscriptionsTab,
 } from "./subscriptionsTab";
 import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib/inboxHealth";
-import { logoFor } from "../lib/senderLogos";
+import { senderTile, type TileSize } from "./senderTile";
 import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import { evaluateUnsubscribeOutcome } from "../lib/unsubscribeOutcome";
@@ -1801,19 +1801,12 @@ function renderAllSenders(senders: SenderSummary[]) {
   }
 }
 
-/** Build a coloured monogram tile for a sender (no network — see senderLogos.ts). */
+/** Sender tile: favicon over a coloured monogram fallback (see senderTile.ts). */
 function makeLogoTile(
   sender: Pick<SenderSummary, "address" | "displayName">,
-  sizeClass: "sz-26" | "sz-30" | "sz-34" | "sz-44",
+  sizeClass: TileSize,
 ): HTMLElement {
-  const logo = logoFor(sender.address, sender.displayName);
-  const tile = document.createElement("span");
-  tile.className = `logo-tile ${sizeClass}`;
-  tile.style.background = logo.background;
-  tile.style.color = logo.foreground;
-  tile.textContent = logo.monogram;
-  tile.setAttribute("aria-hidden", "true");
-  return tile;
+  return senderTile(sender.address, sender.displayName, sizeClass);
 }
 
 async function saveEngagementFeedback(senderKeys: string[], feedback: EngagementFeedback) {

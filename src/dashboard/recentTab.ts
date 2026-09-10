@@ -14,7 +14,7 @@ import {
 import { getSettings, mutateSettings } from "../lib/settingsStore";
 import { recordEngagementFeedback } from "../lib/engagementModel";
 import { gmailProvider } from "../lib/providers/gmailProvider";
-import { logoFor } from "../lib/senderLogos";
+import { senderTile } from "./senderTile";
 import { ctx, providerById, rescan } from "./state";
 
 const recentListEl = document.getElementById("recent-list") as HTMLDivElement;
@@ -108,20 +108,16 @@ function dayLabel(at: number): string {
 }
 
 function makeTile(entry: ActionLogEntry): HTMLElement {
+  if (entry.undo?.fromAddress) {
+    return senderTile(entry.undo.fromAddress, undefined, "sz-30");
+  }
   const tile = document.createElement("span");
   tile.className = "logo-tile sz-30";
   tile.setAttribute("aria-hidden", "true");
-  if (entry.undo?.fromAddress) {
-    const logo = logoFor(entry.undo.fromAddress);
-    tile.style.background = logo.background;
-    tile.style.color = logo.foreground;
-    tile.textContent = logo.monogram;
-  } else {
-    tile.style.background = "var(--neutral-fill-hover)";
-    tile.style.color = "var(--label-2)";
-    tile.innerHTML =
-      '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="6.6"></circle><path d="M10 6.4V10l2.6 1.6"></path></svg>';
-  }
+  tile.style.background = "var(--neutral-fill-hover)";
+  tile.style.color = "var(--label-2)";
+  tile.innerHTML =
+    '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="6.6"></circle><path d="M10 6.4V10l2.6 1.6"></path></svg>';
   return tile;
 }
 

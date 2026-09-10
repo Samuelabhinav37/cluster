@@ -20,21 +20,14 @@ import {
   SUBSCRIPTION_SIGNAL_LABELS,
 } from "../lib/subscriptionSignals";
 import { formatRelativeTime, headerRow, pruneSelection, renderConfirmStep } from "./ui";
-import { logoFor } from "../lib/senderLogos";
+import { senderTile } from "./senderTile";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
 
 const selectedSubKeys = new Set<string>();
 
 function subTile(sender: SenderSummary, size: "sz-30" | "sz-34" = "sz-34"): HTMLElement {
-  const logo = logoFor(sender.address, sender.displayName);
-  const tile = document.createElement("span");
-  tile.className = `logo-tile ${size}`;
-  tile.style.background = logo.background;
-  tile.style.color = logo.foreground;
-  tile.textContent = logo.monogram;
-  tile.setAttribute("aria-hidden", "true");
-  return tile;
+  return senderTile(sender.address, sender.displayName, size);
 }
 
 function cadenceLabel(sender: SenderSummary): "Daily" | "Weekly" | "Monthly" {

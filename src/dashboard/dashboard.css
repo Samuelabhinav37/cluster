@@ -994,6 +994,7 @@ a:hover {
 /* ── Logo tile / favicon stack ───────────────────────────────────────── */
 
 .logo-tile {
+  position: relative;
   border-radius: 10px;
   flex: none;
   display: flex;
@@ -1003,6 +1004,21 @@ a:hover {
   letter-spacing: -0.01em;
   overflow: hidden;
   box-shadow: 0 0.5px 0 rgba(255, 255, 255, 0.16) inset;
+}
+
+.logo-mono {
+  line-height: 1;
+}
+
+/* Favicon layer — covers the monogram once it loads; removed on error so the
+   monogram shows through (see senderTile.ts). */
+.logo-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: inherit;
 }
 
 .logo-tile.sz-34 {

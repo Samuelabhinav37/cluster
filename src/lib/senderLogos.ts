@@ -136,6 +136,21 @@ export function domainFromAddress(address: string): string {
   return at === -1 ? "" : normalizeDomain(address.slice(at + 1).replace(/[>\s]+$/, ""));
 }
 
+// The one deliberate off-origin asset the dashboard loads: a sender-domain
+// favicon, for a more recognisable list. This is a disclosed exception to the
+// "nothing leaves this browser" stance (see docs/privacy.md and the sidebar
+// note) — an uncredentialed GET per unique sender domain, no cookies, no
+// other data. It always degrades to the monogram tile from `logoFor` on any
+// failure. networkEgress.test.ts pins this host to this file.
+const FAVICON_HOST = "https://www.google.com/s2/favicons";
+
+/** Favicon URL for a sender's domain, or null when there's no usable domain. */
+export function faviconUrl(address: string, size = 64): string | null {
+  const domain = domainFromAddress(address);
+  if (!domain) return null;
+  return `${FAVICON_HOST}?domain=${encodeURIComponent(domain)}&sz=${size}`;
+}
+
 /**
  * Resolve the tile to paint for a sender. `displayName` is optional and only
  * used for the fallback monogram. Never performs any I/O.

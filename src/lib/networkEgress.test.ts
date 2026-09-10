@@ -128,6 +128,27 @@ describe("network egress invariant", () => {
     expect(offenders).toEqual([]);
   });
 
+  // The dashboard loads exactly one off-origin asset by design: a sender-
+  // domain favicon (senderLogos.faviconUrl, rendered by senderTile.ts). Both
+  // the host literal and the <img> construction are pinned to their one file
+  // each, so a second off-origin asset can't slip in unreviewed. This is the
+  // documented exception in docs/privacy.md and the sidebar note.
+  it("references the favicon host only from senderLogos.ts", () => {
+    const referrers = nonTestFiles
+      .filter(([, text]) => text.includes("www.google.com/s2/favicons"))
+      .map(([path]) => rel(path))
+      .sort();
+    expect(referrers).toEqual(["lib/senderLogos.ts"]);
+  });
+
+  it("constructs an off-origin <img> only in senderTile.ts", () => {
+    const referrers = nonTestFiles
+      .filter(([, text]) => /createElement\(\s*["']img["']\s*\)/.test(text))
+      .map(([path]) => rel(path))
+      .sort();
+    expect(referrers).toEqual(["dashboard/senderTile.ts"]);
+  });
+
   it("would catch a newly introduced off-origin reference (red-case fixture)", () => {
     const badHtml = '<img src="https://tracker.example/pixel.gif" />';
     const badCss = '@import url("https://fonts.evil.example/x.css");';

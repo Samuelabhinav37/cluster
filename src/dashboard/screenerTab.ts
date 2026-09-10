@@ -8,7 +8,7 @@ import { updateSettings } from "../lib/settingsStore";
 import type { ProviderId } from "../lib/providers/emailProvider";
 import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "../lib/screener";
 import type { SenderSummary } from "../lib/senderModel";
-import { logoFor } from "../lib/senderLogos";
+import { senderTile } from "./senderTile";
 import { ctx, providerById, rescan } from "./state";
 import { logAction } from "./recentTab";
 
@@ -185,13 +185,7 @@ function buildScreenerCard(s: SenderSummary): HTMLDivElement {
   head.style.alignItems = "center";
   head.style.gap = "14px";
   head.style.flexWrap = "wrap";
-  const logo = logoFor(s.address, s.displayName);
-  const tile = document.createElement("span");
-  tile.className = "logo-tile sz-44";
-  tile.style.background = logo.background;
-  tile.style.color = logo.foreground;
-  tile.textContent = logo.monogram;
-  tile.setAttribute("aria-hidden", "true");
+  const tile = senderTile(s.address, s.displayName, "sz-44");
   const idWrap = document.createElement("span");
   idWrap.style.flex = "1";
   idWrap.style.minWidth = "0";
