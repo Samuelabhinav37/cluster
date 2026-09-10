@@ -178,14 +178,14 @@ rebuilds depend on it.
 ```ts
 interface ListRowSpec {
   selectable?: { checked: boolean; disabled?: boolean; label: string; onChange: (v: boolean) => void };
-  lead?: HTMLElement;           // tile / icon
+  lead?: HTMLElement; // tile / icon
   title: string;
   titleBadges?: HTMLElement[];
   sub?: string | HTMLElement;
-  meta?: HTMLElement;           // right-aligned count / engagement bar
-  actions?: HTMLElement[];      // primary + ellipsis etc.
-  disclosure?: HTMLElement;     // full-width strip appended after the row
-  href?: () => void;            // whole-row click (All senders)
+  meta?: HTMLElement; // right-aligned count / engagement bar
+  actions?: HTMLElement[]; // primary + ellipsis etc.
+  disclosure?: HTMLElement; // full-width strip appended after the row
+  href?: () => void; // whole-row click (All senders)
 }
 export function listRow(spec: ListRowSpec): HTMLElement;
 ```
@@ -273,7 +273,7 @@ export async function applySettings(
   mutate: (current: ClusterSettings) => Partial<ClusterSettings>,
 ): Promise<void> {
   ctx.settings = await mutateSettings((cur) => ({ ...cur, ...mutate(cur) }));
-  notifySettingsChanged();  // small pub/sub → screens re-derive counts
+  notifySettingsChanged(); // small pub/sub → screens re-derive counts
 }
 ```
 
@@ -342,6 +342,7 @@ Screens already have `tabindex` toggled. Add `scroll-margin-top: 72px` on
 ### P3.3 — Mobile nav grouping · `UX-3` · Effort M · Risk low
 
 `dashboard.css` `@media (max-width: 900px)`:
+
 - Un-hide `.nav-group-label` in the strip, style as a vertical divider + tiny
   caps label (`writing-mode` or just a short inline label).
 - `.sidebar { scroll-snap-type: x proximity }`, `.nav-item { scroll-snap-align: start }`.
@@ -375,12 +376,23 @@ card to full width.
 ### P3.7 — `prefers-contrast` · `UX-11` · Effort S · Risk low
 
 `dashboard.css`:
+
 ```css
 @media (prefers-contrast: more) {
-  :root { --glass: var(--glass-solid); --hairline: rgba(0,0,0,.5); --label-4: var(--label-2); }
-  .glass-card, .grouped-list, .app-header { backdrop-filter: none; border-width: 1px; }
+  :root {
+    --glass: var(--glass-solid);
+    --hairline: rgba(0, 0, 0, 0.5);
+    --label-4: var(--label-2);
+  }
+  .glass-card,
+  .grouped-list,
+  .app-header {
+    backdrop-filter: none;
+    border-width: 1px;
+  }
 }
 ```
+
 Repeat the overrides in the dark blocks with the dark `--glass-solid`.
 
 ### P3.8 — `z-index` scale · `SW-12` · Effort S · Risk low
@@ -391,12 +403,14 @@ Replace the literals (header, sidebar, floating-bar, settings-sheet, ambient).
 ### P3.9 — Theme-stamp dedup · `SW-14` · Effort M · Risk med
 
 `dashboard.ts` `applyTheme`:
+
 ```ts
 function applyTheme(pref: ClusterSettings["theme"]) {
   const dark = pref === "dark" || (pref === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.dataset.theme = dark ? "dark" : "light";
 }
 ```
+
 Subscribe once to `matchMedia("(prefers-color-scheme: dark)")` `change` and
 re-apply when `pref === "system"`. Then delete the entire
 `@media (prefers-color-scheme: dark)` block from `dashboard.css` — only
@@ -429,11 +443,12 @@ change with unit tests; low UI risk.
 ### P4.1 — Classification confidence · `DATA-2` · Effort M · Risk med
 
 `src/lib/messageKind.ts`:
+
 - `classifyMessageKind` → returns `{ kind: MessageKind; confidence: "high" | "low" }`.
   Regex hit = high; `List-Unsubscribe` fallback = low; `"other"` = high (we're
   sure it's unclassified).
 - New rule: `List-Unsubscribe` → `"newsletter"` **only if** none of the
-  transactional regexes matched *and* the subject has no order/receipt/shipping
+  transactional regexes matched _and_ the subject has no order/receipt/shipping
   token. Otherwise the transactional kind wins even with the header present.
 - Document the precedence order + rationale in the file header.
 - `MessageRecord` gains `kindConfidence`.
@@ -443,11 +458,12 @@ change with unit tests; low UI risk.
 
 **Verify.** `messageKind.test.ts`: "your receipt has shipped" → `shipping`
 high; a plain newsletter with `List-Unsubscribe` → `newsletter` low; a shipping
-notice *with* `List-Unsubscribe` → `shipping` high (not newsletter).
+notice _with_ `List-Unsubscribe` → `shipping` high (not newsletter).
 
 ### P4.2 — Personalised retention · `DATA-3`, `DATA-4` · Effort L · Risk med
 
 New `src/lib/retentionModel.ts`:
+
 - `deriveRetentionDays(kind, actionLog): number` — from `actionLog` entries of
   kind `trash` whose summary/undo names this message-kind, compute the median
   `(trashedAt − receivedAt)` in days; clamp to `RETENTION_DAYS[kind] × [0.5, 2]`;
@@ -472,12 +488,12 @@ New `src/lib/retentionModel.ts`:
 **Risk high:** changes the grouping key that most of the UI and `settingsStore`
 maps are keyed on.
 
-- Add `senderGroupKey(address): string` = registrable domain, *except* free-mail
+- Add `senderGroupKey(address): string` = registrable domain, _except_ free-mail
   domains (`gmail.com`, `outlook.com`, …) which stay per-address (a helper list
   already exists in `domainGrouping.ts`).
 - `SenderSummary` gains `groupKey` alongside `key`. `addToSenders` still keys
   the `Map` by exact `key` (mute/filter act on the address), but a second pass
-  merges same-`groupKey` summaries into a `SenderGroup` for *display* and for
+  merges same-`groupKey` summaries into a `SenderGroup` for _display_ and for
   the `count ≥ 3` / engagement thresholds.
 - `buildEngagementSuggestions`, `pickDecisionSenders`, `renderAllSenders`
   iterate `SenderGroup`s; the per-row action still targets the constituent
@@ -495,7 +511,7 @@ maps are keyed on.
   cheap subject hash → `{ kind, at }`, TTL ~90 days, cap ~2,000 (same shape as
   `metadataCache`). `classifyOtherSubjects` checks the cache first, only calls
   the model for misses, writes results back.
-- Wire it so the cached kind is applied on *every* scan render, not just after
+- Wire it so the cached kind is applied on _every_ scan render, not just after
   the button click (the dashboard call site reads the cache and overlays
   `message.kind` for any `"other"` with a hit).
 - `engagementModel.buildEngagementSuggestions`: escape hatch
@@ -572,22 +588,22 @@ maintenance owner.
 
 ## Suggested commit / PR sequence
 
-| # | Branch | Contents | Merges into |
-|---|--------|----------|-------------|
-| 1 | `redesign/apple-glass-v3` | P1.2, P1.5 (small, safe) | — (already open as PR #8) |
-| 2 | `fix/one-pass-scan` | P1.1 | PR #8 |
-| 3 | `fix/bulk-protection-recheck` | P1.4 | PR #8 |
-| 4 | rebase `test/dashboard-action-flows` | P1.3 | PR #8 |
-| — | **merge PR #8** | redesign + Phase 1 | `master` |
-| 5 | `refactor/list-row` | P2.1 + migrations | `master` |
-| 6 | `refactor/screen-modules` | P2.2 | `master` |
-| 7 | `refactor/render-updates` | P2.3, P2.4 | `master` |
-| 8 | `chore/retire-remnants` | P2.5 | `master` |
-| 9 | `polish/visual-craft` | Phase 3 (one commit per task) | `master` |
-| 10 | `data/classification-retention` | P4.1, P4.2 | `master` |
-| 11 | `data/sender-identity` | P4.3 | `master` |
-| 12 | `data/ai-cache-engagement` | P4.4 | `master` |
-| 13+ | as needed | Phase 5 items | `master` |
+| #   | Branch                               | Contents                      | Merges into               |
+| --- | ------------------------------------ | ----------------------------- | ------------------------- |
+| 1   | `redesign/apple-glass-v3`            | P1.2, P1.5 (small, safe)      | — (already open as PR #8) |
+| 2   | `fix/one-pass-scan`                  | P1.1                          | PR #8                     |
+| 3   | `fix/bulk-protection-recheck`        | P1.4                          | PR #8                     |
+| 4   | rebase `test/dashboard-action-flows` | P1.3                          | PR #8                     |
+| —   | **merge PR #8**                      | redesign + Phase 1            | `master`                  |
+| 5   | `refactor/list-row`                  | P2.1 + migrations             | `master`                  |
+| 6   | `refactor/screen-modules`            | P2.2                          | `master`                  |
+| 7   | `refactor/render-updates`            | P2.3, P2.4                    | `master`                  |
+| 8   | `chore/retire-remnants`              | P2.5                          | `master`                  |
+| 9   | `polish/visual-craft`                | Phase 3 (one commit per task) | `master`                  |
+| 10  | `data/classification-retention`      | P4.1, P4.2                    | `master`                  |
+| 11  | `data/sender-identity`               | P4.3                          | `master`                  |
+| 12  | `data/ai-cache-engagement`           | P4.4                          | `master`                  |
+| 13+ | as needed                            | Phase 5 items                 | `master`                  |
 
 Phase 1 is the only hard gate. Everything after can land in any order that keeps
 `master` green.
