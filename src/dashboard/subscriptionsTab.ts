@@ -20,10 +20,30 @@ import {
   SUBSCRIPTION_SIGNAL_LABELS,
 } from "../lib/subscriptionSignals";
 import { formatRelativeTime, headerRow, pruneSelection, renderConfirmStep } from "./ui";
+import { logoFor } from "../lib/senderLogos";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
 
 const selectedSubKeys = new Set<string>();
+
+function subTile(sender: SenderSummary, size: "sz-30" | "sz-34" = "sz-34"): HTMLElement {
+  const logo = logoFor(sender.address, sender.displayName);
+  const tile = document.createElement("span");
+  tile.className = `logo-tile ${size}`;
+  tile.style.background = logo.background;
+  tile.style.color = logo.foreground;
+  tile.textContent = logo.monogram;
+  tile.setAttribute("aria-hidden", "true");
+  return tile;
+}
+
+function cadenceLabel(sender: SenderSummary): "Daily" | "Weekly" | "Monthly" {
+  const weeks = Math.max(1, ctx.settings.scanWindowDays / 7);
+  const perWeek = sender.count / weeks;
+  if (perWeek >= 4) return "Daily";
+  if (perWeek >= 0.9) return "Weekly";
+  return "Monthly";
+}
 
 const subsBulkBar = document.getElementById("subscriptions-bulk-bar") as HTMLDivElement;
 const subsCountEl = document.getElementById("subs-count") as HTMLSpanElement;
@@ -45,33 +65,37 @@ function renderPaidSubscriptions(senders: SenderSummary[]) {
     return;
   }
 
-  const table = document.createElement("table");
-  const thead = document.createElement("thead");
-  thead.appendChild(headerRow(["Sender", "Signal", "Last seen"]));
-  table.appendChild(thead);
-
-  const tbody = document.createElement("tbody");
-  for (const { sender, signal, lastSeenAt } of candidates) {
-    const row = document.createElement("tr");
-
-    const nameCell = document.createElement("td");
-    nameCell.textContent = sender.displayName
-      ? `${sender.displayName} <${sender.address}>`
-      : sender.address;
-    row.appendChild(nameCell);
-
-    const signalCell = document.createElement("td");
-    signalCell.textContent = SUBSCRIPTION_SIGNAL_LABELS[signal];
-    row.appendChild(signalCell);
-
-    const seenCell = document.createElement("td");
-    seenCell.textContent = formatRelativeTime(lastSeenAt);
-    row.appendChild(seenCell);
-
-    tbody.appendChild(row);
-  }
-  table.appendChild(tbody);
-  paidSubscriptionsListEl.appendChild(table);
+  const list = document.createElement("div");
+  list.className = "grouped-list";
+  candidates.forEach(({ sender, signal, lastSeenAt }, i) => {
+    if (i > 0) {
+      const sep = document.createElement("div");
+      sep.className = "row-sep inset";
+      list.appendChild(sep);
+    }
+    const row = document.createElement("div");
+    row.className = "list-row";
+    row.style.gridTemplateColumns = "minmax(0,1fr) max-content";
+    const media = document.createElement("div");
+    media.className = "row-media";
+    media.appendChild(subTile(sender));
+    const text = document.createElement("div");
+    text.className = "row-title-wrap";
+    const name = document.createElement("div");
+    name.className = "row-title";
+    name.textContent = sender.displayName || sender.address;
+    const sub = document.createElement("div");
+    sub.className = "row-sub";
+    sub.textContent = SUBSCRIPTION_SIGNAL_LABELS[signal];
+    text.append(name, sub);
+    media.appendChild(text);
+    const seen = document.createElement("span");
+    seen.className = "recent-detail";
+    seen.textContent = formatRelativeTime(lastSeenAt);
+    row.append(media, seen);
+    list.appendChild(row);
+  });
+  paidSubscriptionsListEl.appendChild(list);
 }
 
 // Persisted so "already requested" survives a reload — senders can take up
@@ -250,6 +274,36 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
   return cell;
 }
 
+function renderSubsFloatingBar(oneClickCount: number) {
+  const host = document.getElementById("subs-floating-bar");
+  if (!host) return;
+  const selected = selectedSubKeys.size;
+  if (oneClickCount === 0) {
+    host.className = "";
+    host.innerHTML = "";
+    return;
+  }
+  host.className = "floating-bar";
+  host.innerHTML = "";
+  const bar = document.createElement("div");
+  const title = document.createElement("span");
+  title.className = "fb-title";
+  title.textContent =
+    selected > 0
+      ? `${selected} selected`
+      : `${oneClickCount} verified one-click`;
+  const sub = document.createElement("span");
+  sub.className = "fb-sub";
+  sub.textContent = "existing mail stays put — only the subscription stops";
+  const allBtn = document.createElement("button");
+  allBtn.className = "btn-accent-solid";
+  allBtn.textContent = selected > 0 ? "Unsubscribe selected" : "Unsubscribe all";
+  allBtn.onclick = () =>
+    (document.getElementById("subs-unsub-all-btn") as HTMLButtonElement | null)?.click();
+  bar.append(title, sub, allBtn);
+  host.appendChild(bar);
+}
+
 function selectedUnsubscribeOutcome(): "all" | UnsubscribeOutcomeState {
   const value = subsOutcomeFilter.value;
   return value === "pending" || value === "quiet" || value === "still-sending" || value === "untracked"
@@ -312,6 +366,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
   subsBulkBar.hidden = available.length === 0 && trackedCount === 0;
   subsCountEl.textContent = `${available.length} available · ${trackedCount} tracked${stillSendingCount > 0 ? ` · ${stillSendingCount} still sending` : ""}`;
   subsUnsubAllBtn.disabled = oneClick.length === 0;
+  renderSubsFloatingBar(oneClick.length);
 
   if (available.length === 0 && trackedCount === 0) {
     const empty = document.createElement("p");
@@ -321,77 +376,153 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
     return;
   }
 
+  // Metric band
+  const cadenceCounts = { Daily: 0, Weekly: 0, Monthly: 0 };
+  for (const s of available) cadenceCounts[cadenceLabel(s)] += 1;
+  const band = document.createElement("div");
+  band.className = "metric-band";
+  band.style.marginBottom = "24px";
+  const heroWrap = document.createElement("div");
+  heroWrap.style.flex = "none";
+  heroWrap.innerHTML =
+    `<div class="metric-hero">${available.length}</div>` +
+    `<div class="row-sub" style="color:var(--label-2);margin-top:8px">mailing lists in this scan</div>`;
+  band.appendChild(heroWrap);
+  const divider = document.createElement("div");
+  divider.className = "divider";
+  band.appendChild(divider);
+  for (const [cap, n] of [
+    ["daily", cadenceCounts.Daily],
+    ["weekly", cadenceCounts.Weekly],
+    ["monthly or less", cadenceCounts.Monthly],
+  ] as const) {
+    const cell = document.createElement("div");
+    cell.className = "metric-secondary";
+    cell.style.flex = "none";
+    cell.innerHTML = `<div class="n">${n}</div><div class="cap">${cap}</div>`;
+    band.appendChild(cell);
+  }
+  subscriptionsListEl.appendChild(band);
+
   if (visibleCurrentRows.length > 0) {
-    const table = document.createElement("table");
-    const thead = document.createElement("thead");
-    thead.appendChild(
-      headerRow([
-        "",
-        "Sender",
-        `Count (${ctx.settings.scanWindowDays}d)`,
-        "Mostly",
-        "Method",
-        "Outcome",
-        "Action",
-      ]),
-    );
-    table.appendChild(thead);
+    const list = document.createElement("div");
+    list.className = "grouped-list";
 
-    const tbody = document.createElement("tbody");
+    // Select-all header
+    const hdr = document.createElement("div");
+    hdr.className = "list-row";
+    hdr.style.gridTemplateColumns = "22px minmax(0,1fr) max-content";
+    hdr.style.background = "var(--row-hover)";
+    const selAllLabel = document.createElement("label");
+    selAllLabel.className = "check-label";
+    const selAll = document.createElement("input");
+    selAll.type = "checkbox";
+    selAll.className = "check";
+    selAll.setAttribute("aria-label", "Select all subscriptions");
+    const oneClickKeys = visibleCurrentRows
+      .filter(({ sender }) => sender.unsubscribe.postUrl)
+      .map(({ sender }) => sender.key);
+    selAll.checked = oneClickKeys.length > 0 && oneClickKeys.every((k) => selectedSubKeys.has(k));
+    selAll.onchange = () => {
+      for (const k of oneClickKeys) {
+        if (selAll.checked) selectedSubKeys.add(k);
+        else selectedSubKeys.delete(k);
+      }
+      renderSubscriptionsTab(ctx.senders);
+    };
+    selAllLabel.appendChild(selAll);
+    const selCount = document.createElement("span");
+    selCount.className = "row-sub";
+    selCount.style.color = "var(--label-2)";
+    selCount.textContent = `${oneClickKeys.filter((k) => selectedSubKeys.has(k)).length} of ${oneClickKeys.length} selected`;
+    const sortedNote = document.createElement("span");
+    sortedNote.className = "recent-detail";
+    sortedNote.textContent = "Problems first, then by volume";
+    hdr.append(selAllLabel, selCount, sortedNote);
+    list.appendChild(hdr);
+
     for (const { sender, outcome } of visibleCurrentRows) {
-      const row = document.createElement("tr");
+      const sep = document.createElement("div");
+      sep.className = "row-sep";
+      sep.style.marginLeft = "56px";
+      list.appendChild(sep);
 
-      const cbCell = document.createElement("td");
+      const row = document.createElement("div");
+      row.className = "list-row";
+      row.style.gridTemplateColumns = "22px minmax(0,1fr) max-content";
+
+      const cbLabel = document.createElement("label");
+      cbLabel.className = "check-label";
       if (sender.unsubscribe.postUrl) {
         const cb = document.createElement("input");
         cb.type = "checkbox";
+        cb.className = "check";
         cb.checked = selectedSubKeys.has(sender.key);
+        cb.setAttribute("aria-label", `Select ${sender.displayName || sender.address}`);
         cb.onchange = () => {
           if (cb.checked) selectedSubKeys.add(sender.key);
           else selectedSubKeys.delete(sender.key);
+          renderSubscriptionsTab(ctx.senders);
         };
-        cbCell.appendChild(cb);
+        cbLabel.appendChild(cb);
       }
-      row.appendChild(cbCell);
+      row.appendChild(cbLabel);
 
-      const nameCell = document.createElement("td");
-      nameCell.textContent = sender.displayName
-        ? `${sender.displayName} <${sender.address}>`
-        : sender.address;
-      row.appendChild(nameCell);
-
-      const countCell = document.createElement("td");
-      countCell.textContent = String(sender.count);
-      row.appendChild(countCell);
-
-      const kindCell = document.createElement("td");
-      kindCell.textContent = dominantKind(sender);
-      row.appendChild(kindCell);
-
-      const methodCell = document.createElement("td");
-      methodCell.textContent = unsubMethodLabel(sender.unsubscribe);
-      row.appendChild(methodCell);
-
-      const statusCell = document.createElement("td");
-      const outcomeLabel = document.createElement("div");
-      outcomeLabel.textContent = outcome.requestAt
+      const media = document.createElement("div");
+      media.className = "row-media";
+      media.appendChild(subTile(sender));
+      const text = document.createElement("div");
+      text.className = "row-title-wrap";
+      const name = document.createElement("div");
+      name.className = "row-title";
+      name.textContent = sender.displayName || sender.address;
+      const subLine = document.createElement("div");
+      subLine.style.display = "flex";
+      subLine.style.alignItems = "center";
+      subLine.style.gap = "8px";
+      subLine.style.marginTop = "4px";
+      subLine.style.flexWrap = "wrap";
+      const cadencePill = document.createElement("span");
+      cadencePill.className = "pill neutral";
+      cadencePill.textContent = cadenceLabel(sender);
+      const detail = document.createElement("span");
+      detail.className = "row-sub";
+      const outcomeText = outcome.requestAt
         ? `${outcome.label} · requested ${formatRelativeTime(outcome.requestAt)}`
-        : outcome.label;
-      const evidence = document.createElement("div");
-      evidence.className = "hint";
-      evidence.textContent = outcome.detail;
-      statusCell.append(outcomeLabel, evidence);
-      row.appendChild(statusCell);
+        : `${unsubMethodLabel(sender.unsubscribe)} · mostly ${dominantKind(sender)}`;
+      detail.textContent = sender.displayName ? `${outcomeText} · ${sender.address}` : outcomeText;
+      subLine.append(cadencePill, detail);
+      text.append(name, subLine);
+      media.appendChild(text);
 
-      row.appendChild(subUnsubscribeCell(sender));
-      tbody.appendChild(row);
+      const actions = document.createElement("div");
+      actions.className = "row-actions";
+      // Transplant the working unsubscribe / clean / read-later buttons.
+      const cell = subUnsubscribeCell(sender);
+      while (cell.firstChild) actions.appendChild(cell.firstChild);
+      for (const btn of Array.from(actions.querySelectorAll("button"))) {
+        if (btn.textContent === "Unsubscribe") btn.className = "btn btn-accent btn-sm";
+        else btn.classList.add("btn-sm");
+      }
+      const keep = document.createElement("button");
+      keep.className = "btn btn-sm";
+      keep.textContent = "Keep";
+      keep.onclick = () => {
+        row.hidden = true;
+        sep.hidden = true;
+      };
+      actions.appendChild(keep);
+
+      row.append(media, actions);
+      list.appendChild(row);
     }
-    table.appendChild(tbody);
-    subscriptionsListEl.appendChild(table);
+    subscriptionsListEl.appendChild(list);
   }
 
   if (visibleTrackedOnlyRows.length > 0) {
     const heading = document.createElement("h3");
+    heading.className = "section-label";
+    heading.style.margin = "24px 0 10px";
     heading.textContent = "Tracked requests without a current unsubscribe option";
     subscriptionsListEl.appendChild(heading);
     const table = document.createElement("table");
