@@ -1797,11 +1797,15 @@ details.disclosure > summary {
   color: var(--label-3);
 }
 
-/* Legacy hint class still referenced by some tab modules until they're
-   redesigned screen-by-screen. */
+/* Small secondary / meta text. The dashboard has grown four near-identical
+   variants — `.hint` (here), `.caveat`, `.recent-detail`, `.section-head
+   .muted`. They all render ~12–13px in a muted ink; `.text-meta` is the one
+   canonical name new code should use. Folding the other three into it is a
+   mechanical follow-up (touches ~20 call sites across the tab modules). */
+.text-meta,
 .hint {
-  color: var(--label-3);
-  font-size: 13px;
+  color: var(--label-4);
+  font: 400 13px/1.5 var(--font);
   max-width: 65ch;
 }
 

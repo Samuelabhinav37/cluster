@@ -21,7 +21,7 @@ import {
   totalExpiryCount,
   type ExpiryBucket,
 } from "../lib/expiryTriage";
-import { getElevatedAuthToken, GmailApiError } from "../lib/gmailApi";
+import { getElevatedAuthToken, getProfileEmail, GmailApiError } from "../lib/gmailApi";
 import { clearMetadataCache, loadMetadataCache, saveMetadataCache } from "../lib/metadataCache";
 import type { ProviderId } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
@@ -266,6 +266,24 @@ function setNavCount(screen: string, value: number) {
   el.textContent = value > 0 ? String(value) : "";
 }
 
+/** Fill and reveal the header account pill with the signed-in Gmail address.
+ * Best-effort — a failure just leaves the pill hidden. */
+async function showAccountPill(token: string) {
+  try {
+    const email = await getProfileEmail(token);
+    if (!email) return;
+    const pill = document.getElementById("account-pill");
+    const emailEl = document.getElementById("account-email");
+    const avatarEl = document.getElementById("account-avatar");
+    if (!pill || !emailEl || !avatarEl) return;
+    emailEl.textContent = email;
+    avatarEl.textContent = email.slice(0, 2).toUpperCase();
+    pill.hidden = false;
+  } catch (err) {
+    log.error("Could not load the account email", err);
+  }
+}
+
 async function wireAthenaConnection() {
   const config = await getAthenaConfig();
   if (!config) return;
@@ -323,8 +341,9 @@ async function main() {
     ctx.settings = await updateSettings({ onboardingDismissed: true });
   };
 
-  await gmailProvider.getAuthToken(true);
+  const gmailToken = await gmailProvider.getAuthToken(true);
   resurfaceDueSnoozed(gmailProvider).catch((err) => log.error("Resurfacing snoozed mail failed", err));
+  void showAccountPill(gmailToken);
 
   if (await outlookProvider.isConnected()) {
     activeProviders.push(outlookProvider);

@@ -203,6 +203,13 @@ export async function getCurrentHistoryId(token: string): Promise<string> {
   return profile.historyId;
 }
 
+/** The signed-in Gmail address, for the dashboard's account pill. Costs 1
+ * quota unit; failures are non-fatal (the caller just hides the pill). */
+export async function getProfileEmail(token: string): Promise<string> {
+  const profile = await gmailFetch<{ emailAddress?: string }>("/users/me/profile", token);
+  return profile.emailAddress ?? "";
+}
+
 export interface GmailHistoryResult {
   messageIds: string[];
   historyId: string;
