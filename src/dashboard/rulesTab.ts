@@ -54,7 +54,7 @@ export function renderRulesTab() {
   renderRuleDryRun();
   if (ctx.settings.rules.length === 0) {
     const p = document.createElement("p");
-    p.className = "hint";
+    p.className = "empty-state";
     p.textContent = "No rules yet — add one below.";
     rulesListEl.appendChild(p);
     return;
@@ -158,12 +158,19 @@ function renderRuleDryRun() {
   }
 
   const report = buildRuleDryRunReport(ctx.settings.rules, ctx.senders, providerById);
-  const heading = document.createElement("h3");
-  heading.textContent = "Current manual dry run";
+  // The dry run is detailed and secondary — collapse it behind a one-line
+  // summary so it doesn't outweigh the composer and rule list above it.
+  const wrapper = document.createElement("details");
+  wrapper.className = "disclosure";
+  const wrapperSummary = document.createElement("summary");
+  wrapperSummary.textContent = `Dry run — ${report.predictedRuleApplicationCount} predicted application${report.predictedRuleApplicationCount === 1 ? "" : "s"} touching ${report.uniqueMatchedMessageCount} message${report.uniqueMatchedMessageCount === 1 ? "" : "s"}`;
+  wrapper.appendChild(wrapperSummary);
+  rulePreviewEl.appendChild(wrapper);
+
   const summary = document.createElement("p");
   summary.className = "hint";
-  summary.textContent = `${report.predictedRuleApplicationCount} predicted rule application${report.predictedRuleApplicationCount === 1 ? "" : "s"} touching ${report.uniqueMatchedMessageCount} unique message${report.uniqueMatchedMessageCount === 1 ? "" : "s"}; ${report.deferredByLimitCount} deferred by per-rule limits, ${report.overlapMessageCount} overlap${report.overlapMessageCount === 1 ? "" : "s"}, ${report.protectedExclusionCount} protected exclusion${report.protectedExclusionCount === 1 ? "" : "s"}, ${report.exceptionExclusionCount} rule-exception exclusion${report.exceptionExclusionCount === 1 ? "" : "s"}. Assumes supported provider calls succeed; no API call is made. This previews the confirmed manual override, so background completion receipts do not reduce these counts.`;
-  rulePreviewEl.append(heading, summary);
+  summary.textContent = `${report.deferredByLimitCount} deferred by per-rule limits, ${report.overlapMessageCount} overlap${report.overlapMessageCount === 1 ? "" : "s"}, ${report.protectedExclusionCount} protected exclusion${report.protectedExclusionCount === 1 ? "" : "s"}, ${report.exceptionExclusionCount} rule-exception exclusion${report.exceptionExclusionCount === 1 ? "" : "s"}. Assumes supported provider calls succeed; no API call is made. This previews the confirmed manual override, so background completion receipts do not reduce these counts.`;
+  wrapper.appendChild(summary);
 
   for (const impact of report.impacts) {
     const details = document.createElement("details");
@@ -218,7 +225,7 @@ function renderRuleDryRun() {
       ? `Senders: ${shown.join(", ")}${impact.senders.length > shown.length ? `, +${impact.senders.length - shown.length} more` : ""}`
       : "No sender remains eligible for this rule.";
     details.appendChild(senderList);
-    rulePreviewEl.appendChild(details);
+    wrapper.appendChild(details);
   }
 }
 

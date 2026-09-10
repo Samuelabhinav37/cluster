@@ -692,6 +692,14 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
     const trendWrap = document.createElement("div");
     const trend = document.createElement("div");
     trend.className = "trend";
+    trend.setAttribute("role", "img");
+    const first = points[0];
+    const last = points[points.length - 1];
+    const dir = last > first ? "up" : last < first ? "down" : "flat";
+    trend.setAttribute(
+      "aria-label",
+      `Inbox health over the last ${points.length} weeks: ${first} to ${last}, trending ${dir}.`,
+    );
     points.forEach((p, i) => {
       const bar = document.createElement("span");
       bar.className = i === points.length - 1 ? "peak" : "on";
@@ -1493,10 +1501,12 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): H
     target?.el.scrollIntoView?.({ block: "nearest" });
   };
 
+  disclosure.id = `opts-${sender.key.replace(/[^a-z0-9]+/gi, "-")}`;
   const ellipsis = document.createElement("button");
   ellipsis.className = "btn btn-icon";
   ellipsis.setAttribute("aria-label", "More actions");
   ellipsis.setAttribute("aria-expanded", "false");
+  ellipsis.setAttribute("aria-controls", disclosure.id);
   ellipsis.innerHTML =
     '<svg viewBox="0 0 20 20" width="17" height="17" fill="currentColor" aria-hidden="true"><circle cx="5" cy="10" r="1.5"></circle><circle cx="10" cy="10" r="1.5"></circle><circle cx="15" cy="10" r="1.5"></circle></svg>';
   ellipsis.onclick = () => {
@@ -1795,7 +1805,7 @@ function renderAllSenders(senders: SenderSummary[]) {
     allSendersListEl.appendChild(info);
   } else {
     const empty = document.createElement("p");
-    empty.className = "hint";
+    empty.className = "empty-state";
     empty.textContent = "No senders match this filter.";
     allSendersListEl.appendChild(empty);
   }

@@ -107,7 +107,7 @@ export function renderScreenerTab(senders: SenderSummary[]) {
   screenerQueueEl.innerHTML = "";
   if (!ctx.settings.screenerEnabled) {
     const p = document.createElement("p");
-    p.className = "hint";
+    p.className = "empty-state";
     p.textContent =
       ctx.settings.screenedSenders.length > 0
         ? `Screener is off. ${ctx.settings.screenedSenders.length} sender(s) are still held — turn it back on to review them, or find them under the Screener label in Gmail.`
@@ -120,7 +120,7 @@ export function renderScreenerTab(senders: SenderSummary[]) {
 
     if (queue.length === 0) {
       const p = document.createElement("p");
-      p.className = "hint";
+      p.className = "empty-state";
       p.textContent = "Nothing waiting — every sender in this scan is someone you've emailed or allowed.";
       screenerQueueEl.appendChild(p);
     } else {
@@ -137,7 +137,7 @@ export function renderScreenerTab(senders: SenderSummary[]) {
   screenerAllowlistEl.innerHTML = "";
   if (ctx.settings.screenerAllowlist.length === 0) {
     const p = document.createElement("p");
-    p.className = "hint";
+    p.className = "empty-state";
     p.textContent = "No addresses added by hand yet (your sent mail already counts as allowed).";
     screenerAllowlistEl.appendChild(p);
   } else {

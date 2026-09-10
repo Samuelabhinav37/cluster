@@ -134,7 +134,7 @@ export function renderRecentTab() {
   const entries = [...ctx.settings.actionLog].reverse();
   if (entries.length === 0) {
     const p = document.createElement("p");
-    p.className = "hint";
+    p.className = "empty-state";
     p.textContent = "Nothing done yet.";
     recentListEl.appendChild(p);
     return;

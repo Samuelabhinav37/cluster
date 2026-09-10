@@ -1019,15 +1019,23 @@ a:hover {
   line-height: 1;
 }
 
-/* Favicon layer — covers the monogram once it loads; removed on error so the
-   monogram shows through (see senderTile.ts). */
+/* Favicon layer — sits inset in the tile once it loads (contain, so wide/tall
+   favicons aren't cropped); removed on error so the monogram shows through
+   (see senderTile.ts). */
 .logo-img {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  background: inherit;
+  inset: 14%;
+  width: 72%;
+  height: 72%;
+  object-fit: contain;
+  border-radius: 3px;
+}
+
+.logo-tile.sz-26 .logo-img,
+.logo-tile.sz-30 .logo-img {
+  inset: 10%;
+  width: 80%;
+  height: 80%;
 }
 
 .logo-tile.sz-34 {
@@ -1795,6 +1803,18 @@ details.disclosure > summary {
   color: var(--label-3);
   font-size: 13px;
   max-width: 65ch;
+}
+
+/* Calm, centred empty state — one consistent treatment for "nothing here yet". */
+.empty-state {
+  margin: 0;
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--label-4);
+  font: 400 14px/1.5 var(--font);
+  border-radius: var(--r-list);
+  border: 0.5px dashed var(--neutral-border);
+  background: var(--neutral-fill);
 }
 
 .provider-badge {

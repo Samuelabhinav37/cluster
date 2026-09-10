@@ -52,7 +52,7 @@ function renderPaidSubscriptions(senders: SenderSummary[]) {
 
   if (candidates.length === 0) {
     const empty = document.createElement("p");
-    empty.className = "hint";
+    empty.className = "empty-state";
     empty.textContent = "No paid subscriptions or trials detected in the current scan.";
     paidSubscriptionsListEl.appendChild(empty);
     return;
@@ -363,7 +363,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
 
   if (available.length === 0 && trackedCount === 0) {
     const empty = document.createElement("p");
-    empty.className = "hint";
+    empty.className = "empty-state";
     empty.textContent = "No senders with an unsubscribe option or tracked request in the current scan.";
     subscriptionsListEl.appendChild(empty);
     return;
@@ -545,7 +545,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
 
   if (visibleCurrentRows.length === 0 && visibleTrackedOnlyRows.length === 0) {
     const empty = document.createElement("p");
-    empty.className = "hint";
+    empty.className = "empty-state";
     empty.textContent = "No subscriptions match this outcome filter.";
     subscriptionsListEl.appendChild(empty);
   }

@@ -40,6 +40,12 @@ export function senderTile(
     // can't distinguish "real logo" from "placeholder" — that's fine, a globe
     // still reads better than nothing. Only a genuine load error falls back.
     img.addEventListener("error", () => img.remove());
+    // Once a favicon paints, drop the brand tint to a neutral ground so a
+    // favicon with transparent or light edges reads cleanly (matches the
+    // handoff's "icon on a light tile" treatment).
+    img.addEventListener("load", () => {
+      tile.style.background = "var(--neutral-fill-hover)";
+    });
     tile.appendChild(img);
   }
 
