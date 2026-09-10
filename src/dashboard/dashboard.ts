@@ -77,6 +77,8 @@ import {
   wireSubscriptionsTab,
 } from "./subscriptionsTab";
 import { buildInboxHealth } from "../lib/inboxHealth";
+import { logoFor } from "../lib/senderLogos";
+import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import { evaluateUnsubscribeOutcome } from "../lib/unsubscribeOutcome";
 
@@ -142,8 +144,22 @@ const athenaSectionEl = document.getElementById("athena-section") as HTMLElement
 const athenaConnectBtn = document.getElementById("athena-connect-btn") as HTMLButtonElement;
 const athenaStatusEl = document.getElementById("athena-status") as HTMLSpanElement;
 
-const tabButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("#tabs button[data-tab]"));
-const tabPanels = Array.from(document.querySelectorAll<HTMLElement>("section.tab-panel[data-tab]"));
+const navButtons = Array.from(
+  document.querySelectorAll<HTMLButtonElement>("#sidebar button[data-screen]"),
+);
+const screenPanels = Array.from(document.querySelectorAll<HTMLElement>("section.screen[data-screen]"));
+const seeAllSendersLink = document.getElementById("see-all-senders-link") as HTMLAnchorElement | null;
+const allSendersListEl = document.getElementById("all-senders-list") as HTMLDivElement | null;
+
+// Old stored activeTab values → the new screen ids they map to.
+const SCREEN_ALIASES: Record<string, string> = {
+  cleanup: "suggested",
+  security: "impersonation",
+};
+function resolveScreen(name: string): string {
+  const target = SCREEN_ALIASES[name] ?? name;
+  return navButtons.some((b) => b.dataset.screen === target) ? target : "overview";
+}
 
 
 
@@ -170,68 +186,83 @@ const keepNewestSlot = document.getElementById("keep-newest-slot") as HTMLSpanEl
 const keepNewestBtn = document.getElementById("keep-newest-btn") as HTMLButtonElement;
 
 
-// ── Tabs (WAI-ARIA tabs pattern) ─────────────────────────────────────────
-function showTab(name: string) {
-  const target = tabButtons.some((b) => b.dataset.tab === name) ? name : "overview";
-  for (const panel of tabPanels) {
-    const active = panel.dataset.tab === target;
+// ── Sidebar navigation (WAI-ARIA tabs pattern, vertical) ────────────────
+function showScreen(name: string) {
+  const target = resolveScreen(name);
+  for (const panel of screenPanels) {
+    const active = panel.dataset.screen === target;
     panel.hidden = !active;
     panel.tabIndex = active ? 0 : -1;
   }
-  for (const btn of tabButtons) {
-    const active = btn.dataset.tab === target;
+  for (const btn of navButtons) {
+    const active = btn.dataset.screen === target;
+    btn.classList.toggle("active", active);
     btn.setAttribute("aria-selected", String(active));
-    // Roving tabindex: only the selected tab is in the Tab order; arrows move
-    // between the rest.
+    // Roving tabindex: only the selected item is in the Tab order; arrows
+    // move between the rest.
     btn.tabIndex = active ? 0 : -1;
   }
 }
 
-async function selectTab(name: string) {
-  showTab(name);
-  ctx.settings = await updateSettings({ activeTab: name });
+async function selectScreen(name: string) {
+  const target = resolveScreen(name);
+  showScreen(target);
+  ctx.settings = await updateSettings({ activeTab: target });
 }
 
-function wireTabs() {
-  // Link each tab to its panel for assistive tech.
-  for (const btn of tabButtons) {
-    const name = btn.dataset.tab!;
-    const panel = tabPanels.find((p) => p.dataset.tab === name);
-    if (!panel) continue;
-    btn.id ||= `tab-${name}`;
-    panel.id ||= `tabpanel-${name}`;
-    btn.setAttribute("aria-controls", panel.id);
-    panel.setAttribute("aria-labelledby", btn.id);
-    btn.onclick = () => void selectTab(name);
+function wireNav() {
+  const list = document.getElementById("sidebar");
+  list?.setAttribute("role", "tablist");
+  list?.setAttribute("aria-orientation", "vertical");
+  for (const btn of navButtons) {
+    const name = btn.dataset.screen!;
+    const panel = screenPanels.find((p) => p.dataset.screen === name);
+    btn.setAttribute("role", "tab");
+    btn.id ||= `nav-${name}`;
+    if (panel) {
+      panel.id ||= `screen-${name}`;
+      btn.setAttribute("aria-controls", panel.id);
+      panel.setAttribute("aria-labelledby", btn.id);
+    }
+    btn.onclick = () => void selectScreen(name);
   }
 
-  // Arrow / Home / End move focus within the tablist and activate, per the
-  // ARIA tabs keyboard spec.
-  document.getElementById("tabs")?.addEventListener("keydown", (event) => {
+  list?.addEventListener("keydown", (event) => {
     const keyed = event as KeyboardEvent;
     const delta =
-      keyed.key === "ArrowRight" || keyed.key === "ArrowDown"
+      keyed.key === "ArrowDown" || keyed.key === "ArrowRight"
         ? 1
-        : keyed.key === "ArrowLeft" || keyed.key === "ArrowUp"
+        : keyed.key === "ArrowUp" || keyed.key === "ArrowLeft"
           ? -1
           : 0;
     let next: number | undefined;
     if (delta !== 0) {
-      const current = tabButtons.findIndex((b) => b.getAttribute("aria-selected") === "true");
-      next = (current + delta + tabButtons.length) % tabButtons.length;
+      const current = navButtons.findIndex((b) => b.getAttribute("aria-selected") === "true");
+      next = (current + delta + navButtons.length) % navButtons.length;
     } else if (keyed.key === "Home") {
       next = 0;
     } else if (keyed.key === "End") {
-      next = tabButtons.length - 1;
+      next = navButtons.length - 1;
     }
     if (next === undefined) return;
     keyed.preventDefault();
-    const btn = tabButtons[next];
+    const btn = navButtons[next];
     btn.focus();
-    void selectTab(btn.dataset.tab!);
+    void selectScreen(btn.dataset.screen!);
   });
 
-  showTab(ctx.settings.activeTab);
+  seeAllSendersLink?.addEventListener("click", (event) => {
+    event.preventDefault();
+    void selectScreen("senders");
+  });
+
+  showScreen(ctx.settings.activeTab);
+}
+
+function setNavCount(screen: string, value: number) {
+  const el = document.getElementById(`nav-count-${screen}`);
+  if (!el) return;
+  el.textContent = value > 0 ? String(value) : "";
 }
 
 async function wireAthenaConnection() {
@@ -272,7 +303,8 @@ async function main() {
   ctx.settings = await getSettings();
   applyTheme(ctx.settings.theme);
   wireThemeSelect();
-  wireTabs();
+  wireNav();
+  wireAllSendersControls();
   fastDeleteToggle.checked = ctx.settings.fastPermanentDeleteEnabled;
   wireFastDeleteToggle();
   autoQuarantineToggle.checked = ctx.settings.autoQuarantineHighRisk;
@@ -451,6 +483,7 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
 
   renderOverview(senders, securitySenders);
   render(senders);
+  renderAllSenders(senders);
   renderRulesTab();
   renderDomainGroups(senders);
   renderExpirySection(senders);
@@ -462,7 +495,24 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   renderSortInbox(senders);
   renderSmartViews(senders);
   renderScreenerTab(senders);
+  updateNavCounts(senders, securitySenders);
   generateDigestBtn.disabled = false;
+}
+
+function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummary[]) {
+  const health = buildInboxHealth({ senders, securitySenders, settings: ctx.settings });
+  const byId = new Map(health.metrics.map((m) => [m.id, m.value]));
+  setNavCount(
+    "suggested",
+    (byId.get("ready-to-clean-up") ?? 0) +
+      (byId.get("never-opened") ?? 0) +
+      (byId.get("suspected-spam") ?? 0),
+  );
+  setNavCount("senders", senders.length);
+  setNavCount("subscriptions", byId.get("unsubscribe-capable") ?? 0);
+  setNavCount("impersonation", byId.get("flagged-senders") ?? 0);
+  setNavCount("rules", ctx.settings.rules.length);
+  setNavCount("screener", byId.get("screener-queue") ?? 0);
 }
 
 // The three suggestion sections (never-read, spam, expiry) each hide
@@ -501,9 +551,10 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
     tile.type = "button";
     tile.className = metric.tone === "attention" ? "overview-tile attention" : "overview-tile";
     tile.onclick = () => {
-      showTab(metric.tab);
-      ctx.settings = { ...ctx.settings, activeTab: metric.tab };
-      void updateSettings({ activeTab: metric.tab });
+      const screen = resolveScreen(metric.tab);
+      showScreen(screen);
+      ctx.settings = { ...ctx.settings, activeTab: screen };
+      void updateSettings({ activeTab: screen });
       const target = OVERVIEW_SECTION_BY_METRIC[metric.id];
       const targetEl = target ? document.getElementById(target) : null;
       if (targetEl) {
@@ -808,6 +859,159 @@ function updateSenderBulkBar() {
   bulkUnsubscribeBtn.disabled = selectedSenderKeys.size === 0;
   bulkKeepSortedBtn.disabled = selectedSenderKeys.size === 0;
   bulkSnoozeBtn.disabled = selectedSenderKeys.size === 0;
+}
+
+// ── All senders screen ──────────────────────────────────────────────────
+// A flat, searchable, filterable list of every scanned sender. The pixel
+// exact "engagement bar + one action" row treatment lands in the All-senders
+// screen commit; this keeps the screen populated and the controls live.
+type SenderFilterId = "all" | "never" | "subs" | "muted";
+let allSendersFilter: SenderFilterId = "all";
+let allSendersQuery = "";
+let allSendersLimit = 25;
+
+function hasAnyUnsubscribe(u: SenderSummary["unsubscribe"]): boolean {
+  return Boolean(u.postUrl || u.httpUrl || u.mailto);
+}
+
+function wireAllSendersControls() {
+  const search = document.getElementById("sender-search") as HTMLInputElement | null;
+  search?.addEventListener("input", () => {
+    allSendersQuery = search.value.trim().toLowerCase();
+    allSendersLimit = 25;
+    renderAllSenders(ctx.senders);
+  });
+  const seg = document.getElementById("sender-filter");
+  seg?.querySelectorAll<HTMLButtonElement>("button[data-filter]").forEach((btn) => {
+    btn.onclick = () => {
+      allSendersFilter = btn.dataset.filter as SenderFilterId;
+      allSendersLimit = 25;
+      seg
+        .querySelectorAll<HTMLButtonElement>("button[data-filter]")
+        .forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+      renderAllSenders(ctx.senders);
+    };
+  });
+}
+
+function filteredSenders(senders: SenderSummary[]): SenderSummary[] {
+  const neverKeys = new Set(neverReadSenders(senders).map((s) => s.key));
+  return senders.filter((s) => {
+    if (allSendersFilter === "never" && !neverKeys.has(s.key)) return false;
+    if (allSendersFilter === "subs" && !hasAnyUnsubscribe(s.unsubscribe)) return false;
+    if (allSendersFilter === "muted" && !ctx.settings.mutedSenders.includes(s.address)) return false;
+    if (allSendersQuery) {
+      const hay = `${s.displayName ?? ""} ${s.address}`.toLowerCase();
+      if (!hay.includes(allSendersQuery)) return false;
+    }
+    return true;
+  });
+}
+
+function renderAllSenders(senders: SenderSummary[]) {
+  if (!allSendersListEl) return;
+  const rows = filteredSenders(senders).sort((a, b) => b.count - a.count);
+  const shown = rows.slice(0, allSendersLimit);
+
+  allSendersListEl.innerHTML = "";
+  const list = document.createElement("div");
+  list.className = "grouped-list";
+
+  shown.forEach((sender, i) => {
+    if (i > 0) {
+      const sep = document.createElement("div");
+      sep.className = "row-sep inset";
+      list.appendChild(sep);
+    }
+    const row = document.createElement("div");
+    row.className = "list-row";
+    row.style.gridTemplateColumns = "minmax(0,1fr) 92px max-content";
+
+    const media = document.createElement("div");
+    media.className = "row-media";
+    media.appendChild(makeLogoTile(sender, "sz-34"));
+    const text = document.createElement("div");
+    text.className = "row-title-wrap";
+    const title = document.createElement("div");
+    title.className = "row-title";
+    title.textContent = sender.displayName || sender.address;
+    const sub = document.createElement("div");
+    sub.className = "row-sub";
+    sub.textContent = sender.displayName ? sender.address : `${sender.count} in this scan`;
+    text.append(title, sub);
+    media.appendChild(text);
+
+    const count = document.createElement("div");
+    const n = document.createElement("div");
+    n.className = "row-title";
+    n.style.fontSize = "15px";
+    n.textContent = `${sender.count} msg`;
+    count.appendChild(n);
+
+    const actions = document.createElement("div");
+    actions.className = "row-actions";
+    if (providerById.get(sender.provider)?.muteSender && !ctx.settings.mutedSenders.includes(sender.address)) {
+      const muteBtn = document.createElement("button");
+      muteBtn.className = "btn btn-accent btn-sm";
+      muteBtn.textContent = "Mute";
+      muteBtn.onclick = () => void selectScreen("suggested");
+      actions.appendChild(muteBtn);
+    } else {
+      const dash = document.createElement("span");
+      dash.className = "pill dashed";
+      dash.textContent = ctx.settings.mutedSenders.includes(sender.address) ? "Muted" : "—";
+      actions.appendChild(dash);
+    }
+
+    row.append(media, count, actions);
+    list.appendChild(row);
+  });
+
+  allSendersListEl.appendChild(list);
+
+  if (rows.length > shown.length) {
+    const more = document.createElement("div");
+    more.className = "confirm-slot";
+    more.style.padding = "14px 18px";
+    const info = document.createElement("span");
+    info.className = "hint";
+    info.textContent = `Showing ${shown.length} of ${rows.length}`;
+    const btn = document.createElement("button");
+    btn.className = "btn";
+    btn.textContent = "Load 25 more";
+    btn.onclick = () => {
+      allSendersLimit += 25;
+      renderAllSenders(senders);
+    };
+    more.append(info, btn);
+    allSendersListEl.appendChild(more);
+  } else if (rows.length > 0) {
+    const info = document.createElement("div");
+    info.className = "hint";
+    info.style.padding = "14px 18px 0";
+    info.textContent = `Showing all ${rows.length}`;
+    allSendersListEl.appendChild(info);
+  } else {
+    const empty = document.createElement("p");
+    empty.className = "hint";
+    empty.textContent = "No senders match this filter.";
+    allSendersListEl.appendChild(empty);
+  }
+}
+
+/** Build a coloured monogram tile for a sender (no network — see senderLogos.ts). */
+function makeLogoTile(
+  sender: Pick<SenderSummary, "address" | "displayName">,
+  sizeClass: "sz-26" | "sz-30" | "sz-34" | "sz-44",
+): HTMLElement {
+  const logo = logoFor(sender.address, sender.displayName);
+  const tile = document.createElement("span");
+  tile.className = `logo-tile ${sizeClass}`;
+  tile.style.background = logo.background;
+  tile.style.color = logo.foreground;
+  tile.textContent = logo.monogram;
+  tile.setAttribute("aria-hidden", "true");
+  return tile;
 }
 
 async function saveEngagementFeedback(senderKeys: string[], feedback: EngagementFeedback) {
