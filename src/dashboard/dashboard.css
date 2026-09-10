@@ -226,6 +226,38 @@ a {
   text-decoration: none;
 }
 
+/* Base look for any <button> that hasn't opted into a specific class yet
+   (renderConfirmStep, undo buttons, and the not-yet-redesigned tab bits). */
+button {
+  font: inherit;
+  color: var(--label);
+  background: var(--neutral-fill);
+  border: 0.5px solid var(--neutral-border);
+  border-radius: var(--r-ctl);
+  padding: 9px 14px;
+  min-height: 40px;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+
+button:hover {
+  background: var(--neutral-fill-hover);
+}
+
+button:disabled {
+  color: var(--disabled-fg);
+  cursor: default;
+  opacity: 0.6;
+}
+
+button.danger {
+  color: var(--danger-label);
+  background: var(--danger-fill);
+  border-color: var(--danger-border);
+}
+
 a:hover {
   filter: brightness(1.12);
 }
@@ -387,6 +419,7 @@ a:hover {
 }
 
 .icon-btn {
+  min-height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1199,6 +1232,7 @@ a:hover {
 /* ── iOS switch (Rules) ──────────────────────────────────────────────── */
 
 .switch {
+  min-height: 32px;
   position: relative;
   width: 52px;
   height: 32px;
@@ -1295,6 +1329,7 @@ a:hover {
 }
 
 .link-btn {
+  min-height: 0;
   background: transparent;
   border: none;
   padding: 9px 4px;
@@ -1408,6 +1443,38 @@ a:hover {
   align-items: center;
   justify-content: center;
   flex: none;
+}
+
+/* Impersonation: threat cards + quarantine review */
+#security-sender-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+#quarantine-review-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#quarantine-review-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--glass);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 0.5px solid var(--hairline);
+  border-radius: var(--r-ctl);
 }
 
 /* ── Day groups (Recently done) ──────────────────────────────────────── */

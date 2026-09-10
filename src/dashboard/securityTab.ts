@@ -192,6 +192,17 @@ export function renderQuarantineReview() {
   );
 }
 
+const CONFIDENCE_LABEL: Record<string, string> = {
+  high: "High confidence",
+  elevated: "Needs your eyes",
+  low: "Worth a look",
+};
+
+const ICON_WARNING =
+  '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M10 5.6v5M10 13.6h.01"></path><circle cx="10" cy="10" r="7"></circle></svg>';
+const ICON_INFO =
+  '<svg viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="7"></circle><path d="M10 6.6v4M10 13.4h.01"></path></svg>';
+
 export function renderSecuritySection(senders: SenderSummary[]) {
   renderQuarantineReview();
   // Rank by combined risk so a sender tripping several signals (or a
@@ -205,62 +216,137 @@ export function renderSecuritySection(senders: SenderSummary[]) {
   if (flagged.length === 0) return;
 
   securitySenderListEl.replaceChildren(
-    ...flagged.map(({ sender, score }) => {
-      const li = document.createElement("li");
-      const label = sender.threatSignals.map(describeSignal).join("; ");
-      const tierEl = document.createElement("strong");
-      tierEl.textContent = `${riskTier(score).toUpperCase()} risk`;
-      const text = document.createElement("span");
-      const firstContact = sender.firstContact ? " · new since Cluster started tracking" : "";
-      text.textContent = ` — ${sender.displayName || sender.address} <${sender.address}> — ${label} `;
-      const meta = document.createElement("span");
-      meta.className = "hint";
-      meta.textContent = `[${authChip(sender.authVerdicts)}]${firstContact} `;
-      li.append(tierEl, text, meta);
-
-      const provider = providerById.get(sender.provider);
-      if (provider?.labelSuspicious) {
-        const slot = document.createElement("span");
-        const btn = document.createElement("button");
-        btn.textContent = "Label as suspicious";
-        const reset = () => {
-          slot.innerHTML = "";
-          slot.appendChild(btn);
-        };
-        btn.onclick = () => {
-          renderConfirmStep(
-            slot,
-            reset,
-            `Move ${sender.messageIds.length} message${sender.messageIds.length === 1 ? "" : "s"} from ${sender.address} to a "Possible Phishing" label, out of the inbox?`,
-            false,
-            async () => {
-              const token = await provider.getAuthToken(false);
-              await provider.labelSuspicious!(token, sender.messageIds);
-              await logAction(
-                "labelSuspicious",
-                `Labelled ${sender.messageIds.length} from ${sender.address} as suspicious`,
-              );
-              return "Labeled ✓";
-            },
-          );
-        };
-        slot.appendChild(btn);
-        li.appendChild(slot);
-      }
-
-      if (provider?.getMessageLinks) {
-        const scanResult = document.createElement("span");
-        scanResult.className = "hint";
-        const scanBtn = document.createElement("button");
-        scanBtn.textContent = "Deep scan (checks links in the most recent message)";
-        scanBtn.onclick = async () => {
-          scanBtn.disabled = true;
-          await runDeepScan(sender, scanResult);
-          scanBtn.disabled = false;
-        };
-        li.append(scanBtn, scanResult);
-      }
-      return li;
-    }),
+    ...flagged.map(({ sender, score }) => buildThreatCard(sender, score)),
   );
+}
+
+function buildThreatCard(sender: SenderSummary, score: number): HTMLElement {
+  const li = document.createElement("li");
+  li.className = "glass-card";
+
+  // Header: danger tile + quoted display name + confidence pill
+  const head = document.createElement("div");
+  head.style.display = "flex";
+  head.style.alignItems = "center";
+  head.style.gap = "13px";
+  head.style.flexWrap = "wrap";
+  const tile = document.createElement("span");
+  tile.className = "tile-danger";
+  tile.innerHTML = ICON_WARNING;
+  const name = document.createElement("span");
+  name.style.font = "600 22px/1.2 var(--font-display)";
+  name.style.letterSpacing = "-.021em";
+  name.textContent = `"${sender.displayName || sender.address}"`;
+  const tier = riskTier(score);
+  const conf = document.createElement("span");
+  conf.className = "pill danger";
+  conf.textContent = CONFIDENCE_LABEL[tier] ?? "Worth a look";
+  head.append(tile, name, conf);
+  li.appendChild(head);
+
+  // Compare grid: claims to be / actually sent from
+  const claimedBrand = sender.threatSignals.find((s) => s.brand)?.brand;
+  const grid = document.createElement("div");
+  grid.className = "compare-grid";
+  const claim = document.createElement("div");
+  claim.className = "compare-cell";
+  claim.innerHTML =
+    `<div class="k">Claims to be</div><div class="v">${
+      claimedBrand ?? (sender.displayName || "someone you know")
+    }</div>` +
+    (sender.firstContact
+      ? `<div class="n">New since Cluster started tracking</div>`
+      : `<div class="n">Display name matches a contact or a known brand</div>`);
+  const actual = document.createElement("div");
+  actual.className = "compare-cell bad";
+  actual.innerHTML = `<div class="k">Actually sent from</div><div class="v">${
+    sender.address
+  }</div><div class="n">${authChip(sender.authVerdicts)}</div>`;
+  grid.append(claim, actual);
+  li.appendChild(grid);
+
+  // Evidence list
+  if (sender.threatSignals.length > 0) {
+    const evidence = document.createElement("div");
+    evidence.className = "evidence-list";
+    for (const signal of sender.threatSignals) {
+      const item = document.createElement("div");
+      item.className = "item";
+      const icon = document.createElement("span");
+      icon.innerHTML = ICON_INFO;
+      icon.style.display = "inline-flex";
+      const text = document.createElement("span");
+      text.textContent = describeSignal(signal);
+      item.append(icon, text);
+      evidence.appendChild(item);
+    }
+    li.appendChild(evidence);
+  }
+
+  // Actions
+  const actions = document.createElement("div");
+  actions.style.display = "flex";
+  actions.style.gap = "10px";
+  actions.style.alignItems = "center";
+  actions.style.flexWrap = "wrap";
+  const provider = providerById.get(sender.provider);
+
+  if (provider?.labelSuspicious) {
+    const slot = document.createElement("span");
+    slot.className = "confirm-slot";
+    const btn = document.createElement("button");
+    btn.className = "btn btn-danger";
+    btn.textContent = "Block sender";
+    const reset = () => {
+      slot.innerHTML = "";
+      slot.appendChild(btn);
+    };
+    btn.onclick = () => {
+      renderConfirmStep(
+        slot,
+        reset,
+        `Move ${sender.messageIds.length} message${sender.messageIds.length === 1 ? "" : "s"} from ${sender.address} to a "Possible Phishing" label, out of the inbox?`,
+        false,
+        async () => {
+          const token = await provider.getAuthToken(false);
+          await provider.labelSuspicious!(token, sender.messageIds);
+          await logAction(
+            "labelSuspicious",
+            `Labelled ${sender.messageIds.length} from ${sender.address} as suspicious`,
+          );
+          return "Labeled ✓";
+        },
+      );
+    };
+    slot.appendChild(btn);
+    actions.appendChild(slot);
+  }
+
+  if (provider?.getMessageLinks) {
+    const scanResult = document.createElement("span");
+    scanResult.className = "recent-detail";
+    const scanBtn = document.createElement("button");
+    scanBtn.className = "btn";
+    scanBtn.textContent = "Deep scan";
+    scanBtn.title = "Checks links in the most recent message";
+    scanBtn.onclick = async () => {
+      scanBtn.disabled = true;
+      await runDeepScan(sender, scanResult);
+      scanBtn.disabled = false;
+    };
+    actions.append(scanBtn, scanResult);
+  }
+
+  const spacer = document.createElement("span");
+  spacer.style.flex = "1";
+  const genuine = document.createElement("button");
+  genuine.className = "btn";
+  genuine.textContent = "This is genuinely them";
+  genuine.onclick = () => {
+    li.hidden = true;
+  };
+  actions.append(spacer, genuine);
+  li.appendChild(actions);
+
+  return li;
 }
