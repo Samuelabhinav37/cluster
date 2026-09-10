@@ -1718,30 +1718,56 @@ function renderAllSenders(senders: SenderSummary[]) {
     title.textContent = sender.displayName || sender.address;
     const sub = document.createElement("div");
     sub.className = "row-sub";
-    sub.textContent = sender.displayName ? sender.address : `${sender.count} in this scan`;
+    const unread = sender.messages.filter((m) => m.unread).length;
+    sub.textContent =
+      unread === sender.count
+        ? `nothing opened${sender.displayName ? ` · ${sender.address}` : ""}`
+        : `${unread} of ${sender.count} unread${sender.displayName ? ` · ${sender.address}` : ""}`;
     text.append(title, sub);
     media.appendChild(text);
 
+    // Count + engagement bar (unread ratio).
     const count = document.createElement("div");
+    count.style.minWidth = "0";
     const n = document.createElement("div");
     n.className = "row-title";
     n.style.fontSize = "15px";
     n.textContent = `${sender.count} msg`;
-    count.appendChild(n);
+    const ratio = sender.count > 0 ? unread / sender.count : 0;
+    const bar = document.createElement("div");
+    bar.className = "eng-bar";
+    const fill = document.createElement("span");
+    fill.style.width = `${Math.round(ratio * 100)}%`;
+    if (ratio <= 0.6) fill.classList.add("low");
+    bar.appendChild(fill);
+    count.append(n, bar);
 
     const actions = document.createElement("div");
     actions.className = "row-actions";
-    if (providerById.get(sender.provider)?.muteSender && !ctx.settings.mutedSenders.includes(sender.address)) {
-      const muteBtn = document.createElement("button");
-      muteBtn.className = "btn btn-accent btn-sm";
-      muteBtn.textContent = "Mute";
-      muteBtn.onclick = () => void selectScreen("suggested");
-      actions.appendChild(muteBtn);
+    const isProtected = sender.protectedMessageIds.length > 0;
+    const isMuted = ctx.settings.mutedSenders.includes(sender.address);
+    if (isProtected) {
+      const chip = document.createElement("span");
+      chip.className = "pill dashed";
+      chip.textContent = "Protected";
+      actions.appendChild(chip);
+    } else if (isMuted) {
+      const chip = document.createElement("span");
+      chip.className = "pill neutral";
+      chip.textContent = "Muted";
+      actions.appendChild(chip);
     } else {
-      const dash = document.createElement("span");
-      dash.className = "pill dashed";
-      dash.textContent = ctx.settings.mutedSenders.includes(sender.address) ? "Muted" : "—";
-      actions.appendChild(dash);
+      const { act, label } = primaryActionFor(sender);
+      const primary = document.createElement("button");
+      primary.className = "btn btn-accent btn-sm";
+      primary.textContent = label;
+      primary.onclick = () => {
+        const group = buildActionGroups(sender).find((g) => g.act === act);
+        if (!group) return;
+        primary.replaceWith(group.el);
+        group.el.querySelector("button")?.click();
+      };
+      actions.appendChild(primary);
     }
 
     row.append(media, count, actions);
