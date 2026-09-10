@@ -59,6 +59,7 @@
   --success-border: rgba(30, 140, 70, 0.42);
   --success-text: #197038; /* ~5:1 on the green fill */
 
+  --logo-ground: #f6f5fa;
   --row-hover: rgba(24, 22, 48, 0.05);
   --disabled-fg: #9a9aa6;
   --focus-ring: rgba(106, 92, 198, 0.75);
@@ -140,6 +141,7 @@
     --success-text: #c3fbd8;
 
     --row-hover: rgba(255, 255, 255, 0.045);
+    --logo-ground: rgba(255, 255, 255, 0.09);
     --disabled-fg: rgba(235, 235, 245, 0.4);
     --focus-ring: rgba(145, 132, 217, 0.7);
 
@@ -199,6 +201,7 @@
   --success-text: #c3fbd8;
 
   --row-hover: rgba(255, 255, 255, 0.045);
+  --logo-ground: rgba(255, 255, 255, 0.09);
   --disabled-fg: rgba(235, 235, 245, 0.4);
   --focus-ring: rgba(145, 132, 217, 0.7);
 
@@ -1015,27 +1018,34 @@ a:hover {
   box-shadow: 0 0.5px 0 rgba(255, 255, 255, 0.16) inset;
 }
 
-.logo-mono {
-  line-height: 1;
+/* Neutral ground a favicon tile sits on — light enough that a favicon with
+   transparent or dark artwork still reads. */
+.logo-tile.has-favicon {
+  background: var(--logo-ground);
+  border: 0.5px solid var(--separator);
 }
 
-/* Favicon layer — sits inset in the tile once it loads (contain, so wide/tall
-   favicons aren't cropped); removed on error so the monogram shows through
+.logo-mono {
+  line-height: 1;
+  transition: opacity 0.12s ease;
+}
+
+/* Favicon layer — nearly fills the tile (contain, so non-square marks aren't
+   cropped). Removed on error so the coloured monogram shows through
    (see senderTile.ts). */
 .logo-img {
   position: absolute;
-  inset: 14%;
-  width: 72%;
-  height: 72%;
+  inset: 12%;
+  width: 76%;
+  height: 76%;
   object-fit: contain;
-  border-radius: 3px;
 }
 
 .logo-tile.sz-26 .logo-img,
 .logo-tile.sz-30 .logo-img {
-  inset: 10%;
-  width: 80%;
-  height: 80%;
+  inset: 8%;
+  width: 84%;
+  height: 84%;
 }
 
 .logo-tile.sz-34 {

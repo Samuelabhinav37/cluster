@@ -144,8 +144,9 @@ export function domainFromAddress(address: string): string {
 // failure. networkEgress.test.ts pins this host to this file.
 const FAVICON_HOST = "https://www.google.com/s2/favicons";
 
-/** Favicon URL for a sender's domain, or null when there's no usable domain. */
-export function faviconUrl(address: string, size = 64): string | null {
+/** Favicon URL for a sender's domain, or null when there's no usable domain.
+ * Defaults to a 128px source so downscaled tiles stay crisp on HiDPI. */
+export function faviconUrl(address: string, size = 128): string | null {
   const domain = domainFromAddress(address);
   if (!domain) return null;
   return `${FAVICON_HOST}?domain=${encodeURIComponent(domain)}&sz=${size}`;
