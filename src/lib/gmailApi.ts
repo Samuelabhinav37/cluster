@@ -197,6 +197,14 @@ export async function listRiskyAttachmentMessageIds(
   return new Set(stubs.map((s) => s.id));
 }
 
+/** Every currently-starred message id — one `messages.list` (5 units/page,
+ * usually one page since a starred set is small), not a per-id fetch. Used by
+ * the bulk-delete safety re-check (see EmailProvider.listProtectedMessageIds). */
+export async function listStarredMessageIds(token: string): Promise<Set<string>> {
+  const stubs = await listMessageIds(token, "is:starred", 5000);
+  return new Set(stubs.map((s) => s.id));
+}
+
 export async function getCurrentHistoryId(token: string): Promise<string> {
   const profile = await gmailFetch<{ historyId?: string }>("/users/me/profile", token);
   if (!profile.historyId) throw new Error("Gmail profile did not include a historyId");

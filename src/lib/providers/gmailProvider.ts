@@ -13,6 +13,7 @@ import {
   allowSenderThrough as apiAllowSenderThrough,
   listMessageIds,
   listRiskyAttachmentMessageIds as apiListRiskyAttachmentMessageIds,
+  listStarredMessageIds as apiListStarredMessageIds,
   listInboxMessageIdsSince,
   listSentCorrespondents as apiListSentCorrespondents,
   markReadMessages as apiMarkReadMessages,
@@ -132,6 +133,10 @@ export const gmailProvider: EmailProvider = {
 
   async trashMessages(token, ids) {
     await apiTrashMessages(token, ids);
+  },
+
+  async listProtectedMessageIds(token) {
+    return await apiListStarredMessageIds(token);
   },
 
   async untrashMessages(token, ids) {

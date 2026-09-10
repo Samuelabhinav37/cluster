@@ -3,6 +3,7 @@ import {
   executeBulkKeepSorted,
   executeBulkSnooze,
   executeBulkUnsubscribe,
+  filterOutProtected,
   mergeDeletableIdsByProvider,
   partitionForKeepSorted,
   partitionForSnooze,
@@ -2330,26 +2331,41 @@ interface SmartDeleteResult {
   undoableGmailIds: string[];
 }
 
+function skippedNote(skipped: number): string {
+  return skipped > 0 ? ` (skipped ${skipped} you starred since the scan)` : "";
+}
+
 async function executeSmartDelete(merged: Map<ProviderId, string[]>): Promise<SmartDeleteResult> {
   const { gmailCount, otherCount, willUsePermanent } = planDelete(merged);
   if (!willUsePermanent) {
-    await executeBulkDeleteDomains(merged, providerById);
+    const { skipped } = await executeBulkDeleteDomains(merged, providerById);
     return {
-      message: `Moved ${gmailCount + otherCount} to Trash ✓`,
-      undoableGmailIds: merged.get("gmail") ?? [],
+      message: `Moved ${gmailCount + otherCount - skipped} to Trash ✓${skippedNote(skipped)}`,
+      undoableGmailIds: (merged.get("gmail") ?? []).filter(Boolean),
     };
   }
 
   try {
     const elevatedToken = await getElevatedAuthToken(false);
-    await gmailProvider.permanentlyDeleteMessages!(elevatedToken, merged.get("gmail")!);
+    // Permanent delete has no undo — re-check protection before it, not just
+    // before the Trash paths.
+    const { safe, skipped } = await filterOutProtected(
+      new Map([["gmail", merged.get("gmail") ?? []]]),
+      providerById,
+    );
+    const gmailSafe = safe.get("gmail") ?? [];
+    if (gmailSafe.length > 0) {
+      await gmailProvider.permanentlyDeleteMessages!(elevatedToken, gmailSafe);
+    }
     const rest = new Map(merged);
     rest.delete("gmail");
-    if (rest.size > 0) await executeBulkDeleteDomains(rest, providerById);
+    let otherSkipped = 0;
+    if (rest.size > 0) ({ skipped: otherSkipped } = await executeBulkDeleteDomains(rest, providerById));
+    const totalSkipped = skipped + otherSkipped;
     const message =
-      otherCount > 0
-        ? `Permanently deleted ${gmailCount} from Gmail, moved ${otherCount} to Trash ✓`
-        : `Permanently deleted ${gmailCount} from Gmail ✓`;
+      (otherCount > 0
+        ? `Permanently deleted ${gmailSafe.length} from Gmail, moved ${otherCount - otherSkipped} to Trash ✓`
+        : `Permanently deleted ${gmailSafe.length} from Gmail ✓`) + skippedNote(totalSkipped);
     return { message, undoableGmailIds: [] };
   } catch (err) {
     log.error("Elevated permanent-delete failed, falling back to Trash", err);
@@ -2497,7 +2513,8 @@ function renderSpamSection(senders: SenderSummary[]) {
 
 // ── Smart Views + Keep-newest (Clean up tab) ─────────────────────────────
 async function applySmartView(view: SmartView, action: "archive" | "trash"): Promise<string> {
-  const merged = evaluateSmartView(view, ctx.senders);
+  let merged = evaluateSmartView(view, ctx.senders);
+  if (action === "trash") ({ safe: merged } = await filterOutProtected(merged, providerById));
   const gmailIds = merged.get("gmail") ?? [];
   let total = 0;
   for (const [pid, ids] of merged) {
@@ -2597,7 +2614,8 @@ function wireKeepNewest() {
       `Move ${total} older message${total === 1 ? "" : "s"} to Trash, keeping the newest ${n} per sender?`,
       true,
       async () => {
-        for (const [pid, ids] of merged) {
+        const { safe } = await filterOutProtected(merged, providerById);
+        for (const [pid, ids] of safe) {
           const provider = providerById.get(pid);
           if (!provider || ids.length === 0) continue;
           const token = await provider.getAuthToken(false);
@@ -2809,7 +2827,10 @@ function wireBulkHandlers() {
       `Move ${ids.length} safe message${ids.length === 1 ? "" : "s"} from ${targets.length} suggested sender${targets.length === 1 ? "" : "s"} to Trash? Starred and flagged mail is excluded.`,
       true,
       async () => {
-        const job = await createDurableJob({ provider: "gmail", operation: "trash", targetIds: ids });
+        const { safe } = await filterOutProtected(new Map([["gmail", ids]]), providerById);
+        const targetIds = safe.get("gmail") ?? [];
+        if (targetIds.length === 0) return "Nothing to trash — all were starred since the scan";
+        const job = await createDurableJob({ provider: "gmail", operation: "trash", targetIds });
         const result = await runDurableJob(job.id, providerById);
         const succeededIds = new Set(result.succeededIds);
         const acceptedKeys = targets

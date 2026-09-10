@@ -73,6 +73,14 @@ export interface EmailProvider {
   ): Promise<IncrementalMessageResult>;
   getMessageMetadata(token: string, id: string): Promise<NormalizedMessageMetadata>;
   trashMessages(token: string, ids: string[]): Promise<void>;
+  /**
+   * All message ids currently starred / flagged, checked live — one cheap
+   * list call, not a per-id fetch. Bulk-delete paths call this immediately
+   * before trashing so a message the user starred since the last scan (the
+   * warm metadata cache only re-reads the last 7 days) can't be swept up.
+   * Optional: a provider without it skips the re-check.
+   */
+  listProtectedMessageIds?(token: string): Promise<Set<string>>;
   keepSorted?(token: string, fromAddress: string, label: string, existingIds: string[]): Promise<void>;
   /**
    * Permanent delete — no Trash recovery, unlike trashMessages. Gmail-only,
