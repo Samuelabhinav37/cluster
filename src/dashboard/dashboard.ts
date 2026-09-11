@@ -79,6 +79,7 @@ import {
 } from "./subscriptionsTab";
 import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib/inboxHealth";
 import { senderTile, type TileSize } from "./senderTile";
+import { listGroup, listRow } from "./listRow";
 import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import { evaluateUnsubscribeOutcome } from "../lib/unsubscribeOutcome";
@@ -1741,86 +1742,7 @@ function renderAllSenders(senders: SenderSummary[]) {
   const shown = rows.slice(0, allSendersLimit);
 
   allSendersListEl.innerHTML = "";
-  const list = document.createElement("div");
-  list.className = "grouped-list";
-
-  shown.forEach((sender, i) => {
-    if (i > 0) {
-      const sep = document.createElement("div");
-      sep.className = "row-sep inset";
-      list.appendChild(sep);
-    }
-    const row = document.createElement("div");
-    row.className = "list-row";
-    row.style.gridTemplateColumns = "minmax(0,1fr) 92px max-content";
-
-    const media = document.createElement("div");
-    media.className = "row-media";
-    media.appendChild(makeLogoTile(sender, "sz-34"));
-    const text = document.createElement("div");
-    text.className = "row-title-wrap";
-    const title = document.createElement("div");
-    title.className = "row-title";
-    title.textContent = sender.displayName || sender.address;
-    const sub = document.createElement("div");
-    sub.className = "row-sub";
-    const unread = sender.messages.filter((m) => m.unread).length;
-    sub.textContent =
-      unread === sender.count
-        ? `nothing opened${sender.displayName ? ` · ${sender.address}` : ""}`
-        : `${unread} of ${sender.count} unread${sender.displayName ? ` · ${sender.address}` : ""}`;
-    text.append(title, sub);
-    media.appendChild(text);
-
-    // Count + engagement bar (unread ratio).
-    const count = document.createElement("div");
-    count.style.minWidth = "0";
-    const n = document.createElement("div");
-    n.className = "row-title";
-    n.style.fontSize = "15px";
-    n.textContent = `${sender.count} msg`;
-    const ratio = sender.count > 0 ? unread / sender.count : 0;
-    const bar = document.createElement("div");
-    bar.className = "eng-bar";
-    const fill = document.createElement("span");
-    fill.style.width = `${Math.round(ratio * 100)}%`;
-    if (ratio <= 0.6) fill.classList.add("low");
-    bar.appendChild(fill);
-    count.append(n, bar);
-
-    const actions = document.createElement("div");
-    actions.className = "row-actions";
-    const isProtected = sender.protectedMessageIds.length > 0;
-    const isMuted = ctx.settings.mutedSenders.includes(sender.address);
-    if (isProtected) {
-      const chip = document.createElement("span");
-      chip.className = "pill dashed";
-      chip.textContent = "Protected";
-      actions.appendChild(chip);
-    } else if (isMuted) {
-      const chip = document.createElement("span");
-      chip.className = "pill neutral";
-      chip.textContent = "Muted";
-      actions.appendChild(chip);
-    } else {
-      const { act, label } = primaryActionFor(sender);
-      const primary = document.createElement("button");
-      primary.className = "btn btn-accent btn-sm";
-      primary.textContent = label;
-      primary.onclick = () => {
-        const group = buildActionGroups(sender).find((g) => g.act === act);
-        if (!group) return;
-        primary.replaceWith(group.el);
-        group.el.querySelector("button")?.click();
-      };
-      actions.appendChild(primary);
-    }
-
-    row.append(media, count, actions);
-    list.appendChild(row);
-  });
-
-  allSendersListEl.appendChild(list);
+  allSendersListEl.appendChild(listGroup(shown.map(buildAllSendersRow)));
 
   if (rows.length > shown.length) {
     const more = document.createElement("div");
@@ -1850,6 +1772,65 @@ function renderAllSenders(senders: SenderSummary[]) {
     empty.textContent = "No senders match this filter.";
     allSendersListEl.appendChild(empty);
   }
+}
+
+function buildAllSendersRow(sender: SenderSummary): HTMLElement {
+  const unread = sender.messages.filter((m) => m.unread).length;
+  const sub =
+    unread === sender.count
+      ? `nothing opened${sender.displayName ? ` · ${sender.address}` : ""}`
+      : `${unread} of ${sender.count} unread${sender.displayName ? ` · ${sender.address}` : ""}`;
+
+  // Count + engagement bar (unread ratio).
+  const count = document.createElement("div");
+  count.style.minWidth = "0";
+  const n = document.createElement("div");
+  n.className = "row-title";
+  n.style.fontSize = "15px";
+  n.textContent = `${sender.count} msg`;
+  const ratio = sender.count > 0 ? unread / sender.count : 0;
+  const bar = document.createElement("div");
+  bar.className = "eng-bar";
+  const fill = document.createElement("span");
+  fill.style.width = `${Math.round(ratio * 100)}%`;
+  if (ratio <= 0.6) fill.classList.add("low");
+  bar.appendChild(fill);
+  count.append(n, bar);
+
+  const actions: HTMLElement[] = [];
+  const isProtected = sender.protectedMessageIds.length > 0;
+  const isMuted = ctx.settings.mutedSenders.includes(sender.address);
+  if (isProtected) {
+    const chip = document.createElement("span");
+    chip.className = "pill dashed";
+    chip.textContent = "Protected";
+    actions.push(chip);
+  } else if (isMuted) {
+    const chip = document.createElement("span");
+    chip.className = "pill neutral";
+    chip.textContent = "Muted";
+    actions.push(chip);
+  } else {
+    const { act, label } = primaryActionFor(sender);
+    const primary = document.createElement("button");
+    primary.className = "btn btn-accent btn-sm";
+    primary.textContent = label;
+    primary.onclick = () => {
+      const group = buildActionGroups(sender).find((g) => g.act === act);
+      if (!group) return;
+      primary.replaceWith(group.el);
+      group.el.querySelector("button")?.click();
+    };
+    actions.push(primary);
+  }
+
+  return listRow({
+    lead: makeLogoTile(sender, "sz-34"),
+    title: sender.displayName || sender.address,
+    sub,
+    meta: count,
+    actions,
+  });
 }
 
 /** Sender tile: favicon over a coloured monogram fallback (see senderTile.ts). */
