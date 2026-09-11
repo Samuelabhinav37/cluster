@@ -683,6 +683,13 @@ a:hover {
   transition: background 0.18s ease;
 }
 
+/* listRow() grid shapes — named by which cells a row has (checkbox / media /
+ * meta / actions), built by src/dashboard/listRow.ts. Add a rule here when a
+ * new combination is migrated; there is no inline gridTemplateColumns. */
+.list-row--media-meta-actions {
+  grid-template-columns: minmax(0, 1fr) 92px max-content;
+}
+
 .list-row:hover {
   background: var(--row-hover);
 }
