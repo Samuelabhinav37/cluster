@@ -1372,6 +1372,17 @@ a:hover {
   white-space: normal;
 }
 
+.row-title.wrap {
+  white-space: normal;
+}
+
+.row-title-line {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
 .row-title-wrap {
   min-width: 0;
 }

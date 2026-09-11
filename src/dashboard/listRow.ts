@@ -18,6 +18,9 @@ export interface ListRowSpec {
   lead?: HTMLElement;
   title: string;
   titleBadges?: HTMLElement[];
+  /** Wrap onto multiple lines instead of the default single-line ellipsis —
+   * for rows whose title/sub is a full sentence, not a name. */
+  wrapText?: boolean;
   sub?: string | HTMLElement;
   /** Right-aligned content between the media block and actions (a count, an
    * engagement bar, a timestamp). */
@@ -66,13 +69,12 @@ export function listRow(spec: ListRowSpec): HTMLElement {
   const textWrap = document.createElement("div");
   textWrap.className = "row-title-wrap";
   const title = document.createElement("div");
-  title.className = "row-title";
+  title.className = spec.wrapText ? "row-title wrap" : "row-title";
   title.title = spec.title;
   title.textContent = spec.title;
   if (spec.titleBadges && spec.titleBadges.length > 0) {
     const titleLine = document.createElement("div");
     titleLine.className = "row-title-line";
-    title.title = spec.title;
     titleLine.appendChild(title);
     for (const badge of spec.titleBadges) titleLine.appendChild(badge);
     textWrap.appendChild(titleLine);
@@ -81,7 +83,7 @@ export function listRow(spec: ListRowSpec): HTMLElement {
   }
   if (spec.sub !== undefined) {
     const sub = document.createElement("div");
-    sub.className = "row-sub";
+    sub.className = spec.wrapText ? "row-sub wrap" : "row-sub";
     if (typeof spec.sub === "string") sub.textContent = spec.sub;
     else sub.appendChild(spec.sub);
     textWrap.appendChild(sub);

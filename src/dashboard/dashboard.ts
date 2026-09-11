@@ -1126,6 +1126,20 @@ function renderSuggestedMetricBand(senders: SenderSummary[]) {
 }
 
 // ── Suggested cleanup: "Your cleanup plan" (3 grouped decisions) ────────
+type PlanRow = {
+  id: string;
+  checked: boolean;
+  title: string;
+  sub: string;
+  badge?: string;
+  primaryLabel: string;
+  primaryClass: string;
+  onPrimary: () => void;
+  showReview: boolean;
+  reviewTarget: string;
+  stack?: SenderSummary[];
+};
+
 function renderCleanupPlan(senders: SenderSummary[]) {
   const list = document.getElementById("cleanup-plan-list");
   const countEl = document.getElementById("cleanup-plan-count");
@@ -1138,19 +1152,6 @@ function renderCleanupPlan(senders: SenderSummary[]) {
   const spam = suggestSpamSenders(senders);
   const spamMsgs = spam.reduce((n, s) => n + s.messageCount, 0);
 
-  type PlanRow = {
-    id: string;
-    checked: boolean;
-    title: string;
-    sub: string;
-    badge?: string;
-    primaryLabel: string;
-    primaryClass: string;
-    onPrimary: () => void;
-    showReview: boolean;
-    reviewTarget: string;
-    stack?: SenderSummary[];
-  };
   const rows: PlanRow[] = [];
 
   if (engagement.length > 0) {
@@ -1201,89 +1202,71 @@ function renderCleanupPlan(senders: SenderSummary[]) {
   if (suggestedWrap) suggestedWrap.hidden = rows.length === 0;
   if (rows.length === 0) return;
 
-  rows.forEach((r, i) => {
-    if (i > 0) {
-      const sep = document.createElement("div");
-      sep.className = "row-sep";
-      sep.style.marginLeft = "56px";
-      list.appendChild(sep);
-    }
-    const row = document.createElement("div");
-    row.className = "list-row";
-    row.style.gridTemplateColumns = "22px minmax(0,1fr) max-content";
-
-    const cbLabel = document.createElement("label");
-    cbLabel.className = "check-label";
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.className = "check";
-    cb.checked = r.checked;
-    cb.dataset.planGroup = r.id;
-    cb.setAttribute("aria-label", `Include ${r.title}`);
-    cb.onchange = () => renderSuggestedFloatingBar();
+  const rowEls = rows.map((r) => {
     if (r.checked) selectedPlanGroups.add(r.id);
-    cbLabel.appendChild(cb);
-
-    const text = document.createElement("div");
-    text.className = "row-title-wrap";
-    const titleWrap = document.createElement("div");
-    titleWrap.style.display = "flex";
-    titleWrap.style.alignItems = "center";
-    titleWrap.style.gap = "9px";
-    titleWrap.style.flexWrap = "wrap";
-    const title = document.createElement("span");
-    title.className = "row-title";
-    title.style.whiteSpace = "normal";
-    title.textContent = r.title;
-    titleWrap.appendChild(title);
-    if (r.badge) {
-      const badge = document.createElement("span");
-      badge.className = "pill danger";
-      badge.textContent = r.badge;
-      titleWrap.appendChild(badge);
-    }
-    const sub = document.createElement("div");
-    sub.className = "row-sub wrap";
-    sub.textContent = r.sub;
-    text.append(titleWrap, sub);
-    if (r.stack && r.stack.length > 0) {
-      const stackRow = document.createElement("div");
-      stackRow.style.display = "flex";
-      stackRow.style.alignItems = "center";
-      stackRow.style.gap = "10px";
-      stackRow.style.marginTop = "10px";
-      const stack = document.createElement("span");
-      stack.className = "favicon-stack";
-      r.stack.slice(0, 4).forEach((s) => stack.appendChild(makeLogoTile(s, "sz-26")));
-      stackRow.appendChild(stack);
-      if (r.stack.length > 4) {
-        const more = document.createElement("span");
-        more.className = "row-sub";
-        more.textContent = `+${r.stack.length - 4} more`;
-        stackRow.appendChild(more);
-      }
-      text.appendChild(stackRow);
-    }
-
-    const actions = document.createElement("div");
-    actions.className = "row-actions";
-    const primary = document.createElement("button");
-    primary.className = r.primaryClass;
-    primary.textContent = r.primaryLabel;
-    primary.onclick = r.onPrimary;
-    actions.appendChild(primary);
-    if (r.showReview) {
-      const review = document.createElement("button");
-      review.className = "btn";
-      review.textContent = "Review";
-      review.onclick = () => revealLegacySection(r.reviewTarget);
-      actions.appendChild(review);
-    }
-
-    row.append(cbLabel, text, actions);
-    list.appendChild(row);
+    return buildCleanupPlanRow(r);
   });
+  list.appendChild(listGroup(rowEls));
   renderSuggestedFloatingBar();
+}
+
+function buildCleanupPlanRow(r: PlanRow): HTMLElement {
+  const actions: HTMLElement[] = [];
+  const primary = document.createElement("button");
+  primary.className = r.primaryClass;
+  primary.textContent = r.primaryLabel;
+  primary.onclick = r.onPrimary;
+  actions.push(primary);
+  if (r.showReview) {
+    const review = document.createElement("button");
+    review.className = "btn";
+    review.textContent = "Review";
+    review.onclick = () => revealLegacySection(r.reviewTarget);
+    actions.push(review);
+  }
+
+  let titleBadges: HTMLElement[] | undefined;
+  if (r.badge) {
+    const badge = document.createElement("span");
+    badge.className = "pill danger";
+    badge.textContent = r.badge;
+    titleBadges = [badge];
+  }
+
+  const row = listRow({
+    selectable: {
+      checked: r.checked,
+      label: `Include ${r.title}`,
+      data: { planGroup: r.id },
+      onChange: () => renderSuggestedFloatingBar(),
+    },
+    title: r.title,
+    titleBadges,
+    wrapText: true,
+    sub: r.sub,
+    actions,
+  });
+
+  if (r.stack && r.stack.length > 0) {
+    const stackRow = document.createElement("div");
+    stackRow.style.display = "flex";
+    stackRow.style.alignItems = "center";
+    stackRow.style.gap = "10px";
+    stackRow.style.marginTop = "10px";
+    const stack = document.createElement("span");
+    stack.className = "favicon-stack";
+    r.stack.slice(0, 4).forEach((s) => stack.appendChild(makeLogoTile(s, "sz-26")));
+    stackRow.appendChild(stack);
+    if (r.stack.length > 4) {
+      const more = document.createElement("span");
+      more.className = "row-sub";
+      more.textContent = `+${r.stack.length - 4} more`;
+      stackRow.appendChild(more);
+    }
+    row.querySelector(".row-title-wrap")?.appendChild(stackRow);
+  }
+
+  return row;
 }
 
 function revealLegacySection(id: string) {

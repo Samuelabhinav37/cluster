@@ -46,6 +46,23 @@ describe("listRow", () => {
     expect(input.dataset.senderKey).toBe("gmail:a@shop.example");
   });
 
+  it("wraps title/sub onto multiple lines when wrapText is set", () => {
+    const row = listRow({ title: "A long sentence", sub: "another one", wrapText: true });
+    expect(row.querySelector(".row-title")?.className).toBe("row-title wrap");
+    expect(row.querySelector(".row-sub")?.className).toBe("row-sub wrap");
+  });
+
+  it("puts title badges alongside the title in a wrapping line", () => {
+    const badge = document.createElement("span");
+    badge.className = "pill danger";
+    badge.textContent = "Needs review";
+    const row = listRow({ title: "Spam senders", titleBadges: [badge] });
+    const line = row.querySelector(".row-title-line");
+    expect(line?.children).toHaveLength(2);
+    expect(line?.querySelector(".row-title")?.textContent).toBe("Spam senders");
+    expect(line?.querySelector(".pill.danger")).toBe(badge);
+  });
+
   it("appends meta and actions as their own cells", () => {
     const meta = document.createElement("div");
     meta.className = "meta";
