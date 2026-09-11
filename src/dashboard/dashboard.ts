@@ -1374,8 +1374,7 @@ function renderDecisionSenders(senders: SenderSummary[]) {
 
   // Header row
   const hdr = document.createElement("div");
-  hdr.className = "list-row";
-  hdr.style.gridTemplateColumns = "22px minmax(0,1fr) max-content";
+  hdr.className = "list-row list-row--check-media-actions";
   hdr.style.background = "var(--row-hover)";
   const hdrLabel = document.createElement("label");
   hdrLabel.className = "check-label";
@@ -1418,82 +1417,32 @@ function renderDecisionSenders(senders: SenderSummary[]) {
     sep.className = "row-sep";
     sep.style.marginLeft = "56px";
     list.appendChild(sep);
-    const row = document.createElement("div");
-    row.className = "list-row protected-row";
-    row.style.gridTemplateColumns = "22px minmax(0,1fr) max-content";
-    const cbLabel = document.createElement("label");
-    cbLabel.className = "check-label";
-    cbLabel.style.cursor = "default";
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.className = "check";
-    cb.disabled = true;
-    cb.setAttribute("aria-label", `${protectedOne.displayName || protectedOne.address} is protected`);
-    cbLabel.appendChild(cb);
-    const media = document.createElement("div");
-    media.className = "row-media";
     const tile = makeLogoTile(protectedOne, "sz-34");
     tile.classList.add("dim");
-    media.appendChild(tile);
-    const text = document.createElement("div");
-    text.className = "row-title-wrap";
-    const t = document.createElement("div");
-    t.className = "row-title";
-    t.textContent = protectedOne.displayName || protectedOne.address;
-    const s = document.createElement("div");
-    s.className = "row-sub";
-    s.textContent = `${protectedOne.protectedMessageIds.length} starred of ${protectedOne.count} · excluded entirely`;
-    text.append(t, s);
-    media.appendChild(text);
     const chip = document.createElement("span");
     chip.className = "pill dashed";
     chip.textContent = "Protected";
-    row.append(cbLabel, media, chip);
+    const row = listRow({
+      selectable: {
+        checked: true,
+        disabled: true,
+        label: `${protectedOne.displayName || protectedOne.address} is protected`,
+        onChange: () => {},
+      },
+      lead: tile,
+      title: protectedOne.displayName || protectedOne.address,
+      sub: `${protectedOne.protectedMessageIds.length} starred of ${protectedOne.count} · excluded entirely`,
+      actions: [chip],
+    });
+    row.classList.add("protected-row");
+    (row.querySelector(".check-label") as HTMLLabelElement).style.cursor = "default";
     list.appendChild(row);
   }
 
   senderGroupsEl.appendChild(list);
 }
 
-function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): HTMLDivElement {
-  const wrap = document.createElement("div");
-
-  const row = document.createElement("div");
-  row.className = "list-row";
-  row.style.gridTemplateColumns = "22px minmax(0,1fr) max-content";
-
-  const cbLabel = document.createElement("label");
-  cbLabel.className = "check-label";
-  const cb = document.createElement("input");
-  cb.type = "checkbox";
-  cb.className = "check";
-  cb.dataset.senderKey = sender.key;
-  cb.checked = selectedSenderKeys.has(sender.key);
-  cb.setAttribute("aria-label", `Select ${sender.displayName || sender.address}`);
-  cb.onchange = () => {
-    if (cb.checked) selectedSenderKeys.add(sender.key);
-    else selectedSenderKeys.delete(sender.key);
-    updateSenderBulkBar();
-    renderSuggestedFloatingBar();
-  };
-  cbLabel.appendChild(cb);
-
-  const media = document.createElement("div");
-  media.className = "row-media";
-  media.appendChild(makeLogoTile(sender, "sz-34"));
-  const text = document.createElement("div");
-  text.className = "row-title-wrap";
-  const name = document.createElement("div");
-  name.className = "row-title";
-  name.textContent = sender.displayName || sender.address;
-  const reason = document.createElement("div");
-  reason.className = "row-sub";
-  reason.textContent = decisionReason(sender);
-  text.append(name, reason);
-  media.appendChild(text);
-
-  const actions = document.createElement("div");
-  actions.className = "row-actions";
+function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): HTMLElement {
   const { act, label } = primaryActionFor(sender);
   const primary = document.createElement("button");
   primary.className = "btn btn-accent";
@@ -1550,10 +1499,24 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): H
     ellipsis.setAttribute("aria-expanded", String(!disclosure.hidden));
   };
 
-  actions.append(primary, ellipsis);
-  row.append(cbLabel, media, actions);
-  wrap.append(row, disclosure);
-  return wrap;
+  return listRow({
+    selectable: {
+      checked: selectedSenderKeys.has(sender.key),
+      label: `Select ${sender.displayName || sender.address}`,
+      data: { senderKey: sender.key },
+      onChange: (checked) => {
+        if (checked) selectedSenderKeys.add(sender.key);
+        else selectedSenderKeys.delete(sender.key);
+        updateSenderBulkBar();
+        renderSuggestedFloatingBar();
+      },
+    },
+    lead: makeLogoTile(sender, "sz-34"),
+    title: sender.displayName || sender.address,
+    sub: decisionReason(sender),
+    actions: [primary, ellipsis],
+    disclosure,
+  });
 }
 
 // ── Mute (local BlackHole) ───────────────────────────────────────────────

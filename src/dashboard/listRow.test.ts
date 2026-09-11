@@ -37,6 +37,15 @@ describe("listRow", () => {
     expect(onChange).toHaveBeenCalledWith(false);
   });
 
+  it("sets extra data-* attributes on the checkbox for cross-row sync", () => {
+    const row = listRow({
+      title: "Shop",
+      selectable: { checked: false, label: "Select Shop", onChange: () => {}, data: { senderKey: "gmail:a@shop.example" } },
+    });
+    const input = row.querySelector("input[type=checkbox]") as HTMLInputElement;
+    expect(input.dataset.senderKey).toBe("gmail:a@shop.example");
+  });
+
   it("appends meta and actions as their own cells", () => {
     const meta = document.createElement("div");
     meta.className = "meta";

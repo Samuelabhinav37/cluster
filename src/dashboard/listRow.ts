@@ -9,6 +9,10 @@ export interface ListRowSpec {
     disabled?: boolean;
     label: string;
     onChange: (checked: boolean) => void;
+    /** Extra `data-*` attributes on the checkbox itself (e.g. a sender key),
+     * for callers that sync checked state across rows without a full
+     * re-render — see `refreshSenderCheckboxes`. */
+    data?: Record<string, string>;
   };
   /** Tile / icon shown before the title. Wrapped together with title+sub. */
   lead?: HTMLElement;
@@ -50,6 +54,7 @@ export function listRow(spec: ListRowSpec): HTMLElement {
     input.checked = spec.selectable.checked;
     input.disabled = spec.selectable.disabled ?? false;
     input.setAttribute("aria-label", spec.selectable.label);
+    if (spec.selectable.data) Object.assign(input.dataset, spec.selectable.data);
     input.onchange = () => spec.selectable!.onChange(input.checked);
     label.appendChild(input);
     row.appendChild(label);

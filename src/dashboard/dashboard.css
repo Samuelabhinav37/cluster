@@ -690,6 +690,10 @@ a:hover {
   grid-template-columns: minmax(0, 1fr) 92px max-content;
 }
 
+.list-row--check-media-actions {
+  grid-template-columns: 22px minmax(0, 1fr) max-content;
+}
+
 .list-row:hover {
   background: var(--row-hover);
 }
