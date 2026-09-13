@@ -65,13 +65,23 @@ export function protectionDecision(
     return { protected: true, reason: "active-offer-or-window" };
   }
   if (options?.contentHeuristics === false) return { protected: false };
-  if (["receipt", "shipping", "otp"].includes(message.kind)) {
+  // otp is deliberately excluded here -- one-time codes are meant to expire
+  // quickly (see retentionPolicy.ts) rather than being permanently exempt
+  // like receipt/shipping records.
+  if (["receipt", "shipping"].includes(message.kind)) {
     return { protected: true, reason: "transactional" };
   }
   if (SENSITIVE_SUBJECT.test(message.subject ?? "")) {
     return { protected: true, reason: "sensitive-subject" };
   }
-  if (!message.looksAutomated) return { protected: true, reason: "no-bulk-signal" };
+  // Only "other" reaches here without any positive kind signal (otp/shipping/
+  // receipt/social/newsletter were all already recognized above or by
+  // classifyMessageKind itself) -- this is the ambiguous, unclassified case
+  // where "no bulk-mail header at all" is the best evidence that a real
+  // person, not a company, wrote this.
+  if (message.kind === "other" && !message.looksAutomated) {
+    return { protected: true, reason: "no-bulk-signal" };
+  }
   return { protected: false };
 }
 

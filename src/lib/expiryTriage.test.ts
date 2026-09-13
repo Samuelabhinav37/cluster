@@ -14,7 +14,11 @@ function makeMessage(overrides: Partial<MessageRecord> = {}): MessageRecord {
     unread: false,
     sizeBytes: 0,
     providerMarkedPersonal: false,
-    looksAutomated: false,
+    // These fixtures represent ordinary bulk mail (newsletters, socials,
+    // otps) unless a test says otherwise -- looksAutomated true so the
+    // no-bulk-signal protection doesn't interfere with the age-based
+    // retention behavior these tests exercise.
+    looksAutomated: true,
     ...overrides,
   };
 }
@@ -44,10 +48,46 @@ describe("buildExpiryBuckets", () => {
     expect(buildExpiryBuckets([sender])).toEqual([]);
   });
 
-  it("skips kinds with no retention policy (receipt, other) regardless of age", () => {
+  it("skips kinds with no retention policy (receipt, shipping, other) regardless of age", () => {
     const sender = makeSender("gmail", [
       makeMessage({ id: "r1", kind: "receipt", receivedAt: Date.now() - 9999 * DAY_MS }),
+      makeMessage({ id: "s1", kind: "shipping", receivedAt: Date.now() - 9999 * DAY_MS }),
       makeMessage({ id: "o1", kind: "other", receivedAt: Date.now() - 9999 * DAY_MS }),
+    ]);
+    expect(buildExpiryBuckets([sender])).toEqual([]);
+  });
+
+  it("never buckets shipping mail by age -- a return window can outlast any fixed cutoff", () => {
+    const sender = makeSender("gmail", [
+      makeMessage({ id: "old-order", kind: "shipping", receivedAt: Date.now() - 400 * DAY_MS }),
+    ]);
+    expect(buildExpiryBuckets([sender])).toEqual([]);
+  });
+
+  it("excludes a message with an active discount/return-window subject even past its retention window", () => {
+    const sender = makeSender("gmail", [
+      makeMessage({
+        id: "discount",
+        kind: "newsletter",
+        subject: "20% off — offer ends tonight",
+        receivedAt: Date.now() - 40 * DAY_MS,
+      }),
+    ]);
+    expect(buildExpiryBuckets([sender])).toEqual([]);
+  });
+
+  it("does not touch an unclassified ('other') message with no bulk-mail signal", () => {
+    // "other" has no retention policy at all, so this is really just
+    // confirming protectionDecision doesn't change that -- the no-bulk-signal
+    // reason only ever matters to surfaces (spam/never-read/domain-delete)
+    // that don't gate on kind the way expiry does.
+    const sender = makeSender("gmail", [
+      makeMessage({
+        id: "human",
+        kind: "other",
+        looksAutomated: false,
+        receivedAt: Date.now() - 400 * DAY_MS,
+      }),
     ]);
     expect(buildExpiryBuckets([sender])).toEqual([]);
   });
