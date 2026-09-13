@@ -68,10 +68,12 @@ vi.mock("./lib/expiryTriage", () => ({
   totalExpiryCount: () => 0,
 }));
 vi.mock("./lib/snoozeFilter", () => ({ excludeSnoozedMessages: (s: unknown) => s }));
+const refreshSentCorrespondents = vi.fn(async (settings: { sentCorrespondents: unknown }) => settings.sentCorrespondents);
 vi.mock("./lib/screener", () => ({
   knownSenderSet: () => new Set(),
   pendingScreenerSenders: () => [],
   sentCorrespondentsStale: () => false,
+  refreshSentCorrespondents,
 }));
 vi.mock("./lib/settingsStore", () => ({
   getSettings: async () => SETTINGS,
@@ -191,6 +193,10 @@ describe("runBackgroundTriage guard rails", () => {
     expect(summaryPatch?.lastTriageSummary).toContain("ready to clean up");
     // total + held = 0 → badge cleared, not set to a number
     expect(setBadgeText).toHaveBeenCalledWith({ text: "" });
+    // The known-correspondent refresh now runs every triage pass regardless
+    // of screenerEnabled (SETTINGS above has it false) -- it feeds the
+    // general protection gate, not just the opt-in Screener.
+    expect(refreshSentCorrespondents).toHaveBeenCalledTimes(1);
   });
 
   it("swallows a scan failure instead of letting it reject out of the alarm", async () => {

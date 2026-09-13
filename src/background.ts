@@ -4,7 +4,7 @@ import { gmailProvider } from "./lib/providers/gmailProvider";
 import { outlookProvider } from "./lib/providers/outlookProvider";
 import type { EmailProvider, ProviderId } from "./lib/providers/emailProvider";
 import { applyRules } from "./lib/ruleRunner";
-import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "./lib/screener";
+import { knownSenderSet, pendingScreenerSenders, refreshSentCorrespondents } from "./lib/screener";
 import { markFirstContact } from "./lib/firstContact";
 import { riskTier, senderRiskScore } from "./lib/threatSignals";
 import { quarantineScoreAdjustment } from "./lib/quarantineReview";
@@ -94,40 +94,21 @@ async function reportThreatSignals(senders: SenderSummary[]) {
   await queueAthenaSecurityEvents(events);
 }
 
-async function refreshSentCorrespondents(
-  settings: ClusterSettings,
-): Promise<ClusterSettings["sentCorrespondents"]> {
-  if (!sentCorrespondentsStale(settings)) return settings.sentCorrespondents;
-  const addresses = new Set(settings.sentCorrespondents.addresses);
-  let anySucceeded = false;
-  for (const provider of providerById.values()) {
-    if (!provider.listSentCorrespondents) continue;
-    const token = await provider.getAuthToken(false).catch(() => null);
-    if (!token) continue;
-    try {
-      for (const addr of await provider.listSentCorrespondents(token)) addresses.add(addr);
-      anySucceeded = true;
-    } catch (err) {
-      log.error("Screener: sent-correspondent refresh failed", provider.id, err);
-    }
-  }
-  if (!anySucceeded) return settings.sentCorrespondents;
-  const sent = { addresses: [...addresses], fetchedAt: Date.now() };
-  await updateSettings({ sentCorrespondents: sent });
-  return sent;
-}
-
 // Screener: hold mail from senders the user has never corresponded with. Opt-in
-// (settings.screenerEnabled). Refreshes the sent-correspondent allowlist on a
-// TTL across every connected provider that supports it, then moves each
+// (settings.screenerEnabled) -- the sent-correspondent refresh itself now runs
+// unconditionally (see the caller), since that signal also feeds the general
+// protection gate (protectionPolicy.ts), not just this feature. Moves each
 // newly-unknown sender's mail under the Screener label/folder (per that
 // sender's own provider) and records it in screenedSenders so it isn't
 // re-screened. Returns how many senders are currently held, for the badge.
-async function runScreener(settings: ClusterSettings, senders: SenderSummary[]): Promise<number> {
+async function runScreener(
+  settings: ClusterSettings,
+  senders: SenderSummary[],
+  sentCorrespondents: ClusterSettings["sentCorrespondents"],
+): Promise<number> {
   if (!settings.screenerEnabled) return 0;
 
-  const sent = await refreshSentCorrespondents(settings);
-  const known = knownSenderSet({ ...settings, sentCorrespondents: sent });
+  const known = knownSenderSet({ ...settings, sentCorrespondents });
   const excluded = new Set(
     [...settings.mutedSenders, ...settings.screenedSenders].map((a) => a.toLowerCase()),
   );
@@ -332,7 +313,8 @@ async function runBackgroundTriage() {
     const ruleDeferred = ruleResults.reduce((sum, result) => sum + result.deferredByLimitCount, 0);
     const ruleSkipped = ruleResults.reduce((sum, result) => sum + result.previouslyCompletedCount, 0);
 
-    const held = await runScreener(settings, senders);
+    const sentCorrespondents = await refreshSentCorrespondents(settings, providerById);
+    const held = await runScreener(settings, senders, sentCorrespondents);
     const total = totalExpiryCount(buildExpiryBuckets(senders));
 
     await updateSettings({

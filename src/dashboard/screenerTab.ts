@@ -6,7 +6,7 @@
 import { log } from "../lib/log";
 import { updateSettings } from "../lib/settingsStore";
 import type { ProviderId } from "../lib/providers/emailProvider";
-import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "../lib/screener";
+import { knownSenderSet, pendingScreenerSenders, refreshSentCorrespondents } from "../lib/screener";
 import type { SenderSummary } from "../lib/senderModel";
 import { senderTile } from "./senderTile";
 import { ctx, providerById, rescan } from "./state";
@@ -31,24 +31,9 @@ const screenerQueueEl = document.getElementById("screener-queue") as HTMLDivElem
 const screenerAllowlistEl = document.getElementById("screener-allowlist") as HTMLDivElement;
 
 async function screenPending(senders: SenderSummary[]) {
-  if (sentCorrespondentsStale(ctx.settings)) {
-    const addresses = new Set(ctx.settings.sentCorrespondents.addresses);
-    let anySucceeded = false;
-    for (const provider of providerById.values()) {
-      if (!provider.listSentCorrespondents) continue;
-      try {
-        const token = await provider.getAuthToken(false);
-        for (const addr of await provider.listSentCorrespondents(token)) addresses.add(addr);
-        anySucceeded = true;
-      } catch (err) {
-        log.error("Screener: sent-correspondent refresh failed", provider.id, err);
-      }
-    }
-    if (anySucceeded) {
-      ctx.settings = await updateSettings({
-        sentCorrespondents: { addresses: [...addresses], fetchedAt: Date.now() },
-      });
-    }
+  const sentCorrespondents = await refreshSentCorrespondents(ctx.settings, providerById);
+  if (sentCorrespondents !== ctx.settings.sentCorrespondents) {
+    ctx.settings = { ...ctx.settings, sentCorrespondents };
   }
 
   const known = knownSenderSet(ctx.settings);
