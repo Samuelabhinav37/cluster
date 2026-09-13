@@ -6,7 +6,9 @@ import type { EmailProvider, ProviderId } from "./lib/providers/emailProvider";
 import { applyRules } from "./lib/ruleRunner";
 import { knownSenderSet, pendingScreenerSenders, refreshSentCorrespondents } from "./lib/screener";
 import { markFirstContact } from "./lib/firstContact";
-import { riskTier, senderRiskScore } from "./lib/threatSignals";
+import { refreshBrandDomains, riskTier, senderRiskScore } from "./lib/threatSignals";
+import { refreshMalwareBlocklist } from "./lib/blocklist";
+import { refreshSpamList } from "./lib/spamList";
 import { quarantineScoreAdjustment } from "./lib/quarantineReview";
 import { appendActionLog, makeLogId } from "./lib/actionLog";
 import { buildSenderSummaries, type SenderSummary } from "./lib/senderModel";
@@ -39,6 +41,7 @@ chrome.action.onClicked.addListener(async () => {
 const TRIAGE_ALARM = "cluster-triage";
 const ATHENA_ALARM = "cluster-athena-flush";
 const JOBS_ALARM = "cluster-jobs";
+const DATASET_ALARM = "cluster-dataset-refresh";
 const SECURITY_SCAN_WINDOW_DAYS = 30;
 const SECURITY_SCAN_MAX_MESSAGES = 100;
 const providerById = new Map<ProviderId, EmailProvider>([
@@ -50,12 +53,14 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 5, periodInMinutes: 360 });
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
+  chrome.alarms.create(DATASET_ALARM, { delayInMinutes: 10, periodInMinutes: 1440 });
 });
 
 chrome.runtime.onStartup.addListener(() => {
   chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 5, periodInMinutes: 360 });
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
+  chrome.alarms.create(DATASET_ALARM, { delayInMinutes: 10, periodInMinutes: 1440 });
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -67,7 +72,22 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === JOBS_ALARM) {
     void resumeInterruptedJobs(providerById).catch((err) => log.error("Resuming durable jobs failed", err));
   }
+  if (alarm.name === DATASET_ALARM) void refreshPublicDatasets();
 });
+
+// Daily: pulls Cluster's own published brand-domain and blocklist datasets
+// (see remoteDataset.ts) so impersonation/spam detection stay current
+// without waiting for a new extension release. Each call is independently
+// rate-limited and never throws -- one failing fetch can't block the others,
+// and every dataset already has a bundled fallback that works without this
+// ever succeeding.
+async function refreshPublicDatasets(): Promise<void> {
+  await Promise.all([
+    refreshBrandDomains().catch((err) => log.error("Brand-domain dataset refresh failed", err)),
+    refreshMalwareBlocklist().catch((err) => log.error("Malware blocklist refresh failed", err)),
+    refreshSpamList().catch((err) => log.error("Spam list refresh failed", err)),
+  ]);
+}
 
 // Reports every sender threatSignals flagged (see senderModel.ts /
 // threatSignals.ts) as a minimized Athena "warned" event -- queueAthenaSecurityEvent

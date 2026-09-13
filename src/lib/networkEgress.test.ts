@@ -56,16 +56,20 @@ const ALLOWED_FETCH_CALLERS = [
   "lib/athenaIntegration.ts", // managed-policy Athena URL, opt-in only
   "lib/httpRetry.ts", // the shared wrapper every fixed-endpoint API call flows through
   "lib/providers/msalAuth.ts", // login.microsoftonline.com token endpoint
+  "lib/remoteDataset.ts", // Cluster's own published reference datasets -- see its header comment
   "lib/unsubscribe.ts", // user-approved unsubscribe origin, one click at a time
 ];
 
 // Hosts allowed to appear as URL-shaped string literals in fixed-endpoint
-// files. The first three are actual request targets; the last two are Google
-// OAuth *scope identifiers* (URNs that happen to be URL-shaped), never fetched.
+// files. The first three are actual request targets; "...github.io" is
+// Cluster's own published-dataset host (remoteDataset.ts) -- no user data in
+// any request there, see its header comment; the last two are Google OAuth
+// *scope identifiers* (URNs that happen to be URL-shaped), never fetched.
 const ALLOWED_HOSTS = [
   "gmail.googleapis.com",
   "graph.microsoft.com",
   "login.microsoftonline.com",
+  "samuelabhinav37.github.io",
   "www.googleapis.com", // OAuth scope URN prefix, e.g. .../auth/gmail.modify
   "mail.google.com", // restricted-scope URN for opt-in permanent delete
 ];
@@ -86,6 +90,7 @@ describe("network egress invariant", () => {
       "lib/gmailApi.ts",
       "lib/providers/outlookProvider.ts",
       "lib/providers/msalAuth.ts",
+      "lib/remoteDataset.ts",
     ];
     const seen = new Set<string>();
     for (const [path, text] of nonTestFiles) {

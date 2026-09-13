@@ -10,6 +10,7 @@
 // which is the malware/phishing list feeding threat detection.
 import generated from "./data/spamDomains.generated.json";
 import { SPAM_SEED } from "./spamSeed";
+import { getDataset, refreshDataset } from "./remoteDataset";
 
 function normalizeDomain(value: string): string {
   return value.trim().toLowerCase().replace(/^www\./, "").replace(/\.$/, "");
@@ -44,13 +45,36 @@ export function createSpamList(domains: Iterable<string>): {
   return { isSpamDomain, size: set.size };
 }
 
-const defaultSpamList = createSpamList([
-  ...SPAM_SEED,
-  ...(generated.domains as readonly string[]),
-]);
+const bundledDomains = [...SPAM_SEED, ...(generated.domains as readonly string[])];
+let defaultSpamList = createSpamList(bundledDomains);
 
-/** True if `domain` (or a parent of it) is on the seed list or the vendored
- * disposable / StopForumSpam slice. */
+function isValidDomainList(data: unknown): data is string[] {
+  return Array.isArray(data) && data.every((d) => typeof d === "string");
+}
+
+// Hydrate from any existing cache at module load -- local only, never blocks
+// on network. A live-published copy of this feed only ever ADDS domains on
+// top of the bundled seed+disposable/StopForumSpam slice, never replaces it.
+void getDataset<string[]>("spamDomains", []).then((extra) => {
+  if (isValidDomainList(extra) && extra.length > 0) {
+    defaultSpamList = createSpamList([...bundledDomains, ...extra]);
+  }
+});
+
+/** Called by the background alarm on a schedule (see background.ts) -- never
+ * from the interactive scan path. Returns whether the cache changed. */
+export async function refreshSpamList(): Promise<boolean> {
+  const updated = await refreshDataset("spamDomains", "spamDomains.json", isValidDomainList);
+  if (updated) {
+    const extra = await getDataset<string[]>("spamDomains", []);
+    if (isValidDomainList(extra)) defaultSpamList = createSpamList([...bundledDomains, ...extra]);
+  }
+  return updated;
+}
+
+/** True if `domain` (or a parent of it) is on the seed list, the vendored
+ * disposable/StopForumSpam slice, or the live-refreshed copy of the same
+ * feed. */
 export function isSpamDomain(domain: string): boolean {
   return defaultSpamList.isSpamDomain(domain);
 }

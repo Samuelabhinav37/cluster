@@ -8,6 +8,7 @@
 import generated from "./data/malwareDomains.generated.json";
 import { BLOCKLIST_SEED } from "./blocklistSeed";
 import { domainMatchesSet, normalizeDomain } from "./registrableDomain";
+import { getDataset, refreshDataset } from "./remoteDataset";
 
 /** Builds a matcher over an explicit domain set -- exported so tests can
  * exercise the matching logic without depending on the real vendored data. */
@@ -28,13 +29,35 @@ export function createBlocklist(domains: Iterable<string>): {
   return { isBlockedDomain, size: set.size };
 }
 
-const defaultBlocklist = createBlocklist([
-  ...BLOCKLIST_SEED,
-  ...(generated.domains as readonly string[]),
-]);
+const bundledDomains = [...BLOCKLIST_SEED, ...(generated.domains as readonly string[])];
+let defaultBlocklist = createBlocklist(bundledDomains);
 
-/** True if `domain` (or a parent of it) is on the seed list or the vendored
- * URLhaus slice. */
+function isValidDomainList(data: unknown): data is string[] {
+  return Array.isArray(data) && data.every((d) => typeof d === "string");
+}
+
+// Hydrate from any existing cache at module load -- local only, never blocks
+// on network. A live-published copy of this same feed only ever ADDS
+// domains on top of the bundled seed+URLhaus slice, never replaces it.
+void getDataset<string[]>("malwareDomains", []).then((extra) => {
+  if (isValidDomainList(extra) && extra.length > 0) {
+    defaultBlocklist = createBlocklist([...bundledDomains, ...extra]);
+  }
+});
+
+/** Called by the background alarm on a schedule (see background.ts) -- never
+ * from the interactive scan path. Returns whether the cache changed. */
+export async function refreshMalwareBlocklist(): Promise<boolean> {
+  const updated = await refreshDataset("malwareDomains", "malwareDomains.json", isValidDomainList);
+  if (updated) {
+    const extra = await getDataset<string[]>("malwareDomains", []);
+    if (isValidDomainList(extra)) defaultBlocklist = createBlocklist([...bundledDomains, ...extra]);
+  }
+  return updated;
+}
+
+/** True if `domain` (or a parent of it) is on the seed list, the vendored
+ * URLhaus slice, or the live-refreshed copy of the same feed. */
 export function isBlockedDomain(domain: string): boolean {
   return defaultBlocklist.isBlockedDomain(domain);
 }

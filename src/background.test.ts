@@ -92,6 +92,15 @@ vi.mock("./lib/providers/gmailProvider", () => ({
 vi.mock("./lib/providers/outlookProvider", () => ({
   outlookProvider: { id: "outlook", isConnected: () => Promise.resolve(false) },
 }));
+const refreshBrandDomains = vi.fn(async () => true);
+vi.mock("./lib/threatSignals", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./lib/threatSignals")>();
+  return { ...actual, refreshBrandDomains };
+});
+const refreshMalwareBlocklist = vi.fn(async () => true);
+vi.mock("./lib/blocklist", () => ({ refreshMalwareBlocklist }));
+const refreshSpamList = vi.fn(async () => true);
+vi.mock("./lib/spamList", () => ({ refreshSpamList }));
 
 // ── chrome stub with listener capture ────────────────────────────────────
 type AlarmCb = (a: { name: string }) => void;
@@ -133,10 +142,11 @@ const settleTriage = () =>
   vi.waitFor(() => expect(updateSettings).toHaveBeenCalled(), { timeout: 2000, interval: 10 });
 
 describe("alarm routing", () => {
-  it("registers the three alarms on install", () => {
+  it("registers the four alarms on install", () => {
     expect(alarmsCreate).toHaveBeenCalledWith("cluster-triage", expect.any(Object));
     expect(alarmsCreate).toHaveBeenCalledWith("cluster-athena-flush", expect.any(Object));
     expect(alarmsCreate).toHaveBeenCalledWith("cluster-jobs", expect.any(Object));
+    expect(alarmsCreate).toHaveBeenCalledWith("cluster-dataset-refresh", expect.any(Object));
   });
 
   it("the triage alarm resurfaces due snoozes and starts a triage pass", async () => {
@@ -161,6 +171,22 @@ describe("alarm routing", () => {
     expect(resurfaceDueSnoozed).not.toHaveBeenCalled();
     expect(flushAthenaSecurityEvents).not.toHaveBeenCalled();
     expect(resumeInterruptedJobs).not.toHaveBeenCalled();
+  });
+
+  it("the dataset-refresh alarm refreshes all three public datasets independently", async () => {
+    alarmListener!({ name: "cluster-dataset-refresh" });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(refreshBrandDomains).toHaveBeenCalledTimes(1);
+    expect(refreshMalwareBlocklist).toHaveBeenCalledTimes(1);
+    expect(refreshSpamList).toHaveBeenCalledTimes(1);
+  });
+
+  it("one dataset refresh failing does not block the others", async () => {
+    refreshBrandDomains.mockRejectedValueOnce(new Error("offline"));
+    alarmListener!({ name: "cluster-dataset-refresh" });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(refreshMalwareBlocklist).toHaveBeenCalledTimes(1);
+    expect(refreshSpamList).toHaveBeenCalledTimes(1);
   });
 });
 
