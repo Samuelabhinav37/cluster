@@ -6,7 +6,7 @@
 import { mutateSettings } from "../lib/settingsStore";
 import { recordEngagementFeedback } from "../lib/engagementModel";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
-import { executeBulkUnsubscribe } from "../lib/bulkActions";
+import { executeBulkUnsubscribe, filterOutProtected } from "../lib/bulkActions";
 import {
   evaluateUnsubscribeOutcome,
   unsubscribeOutcomeRank,
@@ -179,13 +179,23 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
             if (!ok) return "Unsubscribe failed — no mail was moved";
             const provider = providerById.get(sender.provider);
             if (!provider) return "Provider unavailable — no mail was moved";
+            const { safe, skipped } = await filterOutProtected(
+              new Map([[sender.provider, cleanup.safeNewsletterIds]]),
+              providerById,
+            );
+            const targetIds = safe.get(sender.provider) ?? [];
+            await recordUnsubscribeRequests([sender]);
+            if (targetIds.length === 0) {
+              return skipped > 0
+                ? `Unsubscribed; skipped ${skipped} you starred since the scan`
+                : "Unsubscribed; nothing left to move";
+            }
             const job = await createDurableJob({
               provider: sender.provider,
               operation: "trash",
-              targetIds: cleanup.safeNewsletterIds,
+              targetIds,
             });
             const result = await runDurableJob(job.id, providerById);
-            await recordUnsubscribeRequests([sender]);
             if (result.succeededIds.length > 0) {
               await logAction(
                 "trash",
@@ -195,9 +205,10 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
                   : undefined,
               );
             }
+            const skippedNote = skipped > 0 ? `, skipped ${skipped} you starred since the scan` : "";
             return result.failures.length > 0
-              ? `Unsubscribed; moved ${result.succeededIds.length}, failed ${result.failures.length}, kept ${kept}`
-              : `Unsubscribed and moved ${result.succeededIds.length} to Trash; kept ${kept}`;
+              ? `Unsubscribed; moved ${result.succeededIds.length}, failed ${result.failures.length}, kept ${kept}${skippedNote}`
+              : `Unsubscribed and moved ${result.succeededIds.length} to Trash; kept ${kept}${skippedNote}`;
           },
         );
       };
@@ -234,10 +245,18 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
         `Move ${readLaterPlan.safeNewsletterIds.length} newsletter message${readLaterPlan.safeNewsletterIds.length === 1 ? "" : "s"} from ${sender.address} to a "Read Later" label? ${kept} protected or ambiguous message${kept === 1 ? " stays" : "s stay"}.`,
         false,
         async () => {
+          const { safe, skipped } = await filterOutProtected(
+            new Map([[sender.provider, readLaterPlan.safeNewsletterIds]]),
+            providerById,
+          );
+          const targetIds = safe.get(sender.provider) ?? [];
+          if (targetIds.length === 0) {
+            return skipped > 0 ? `Skipped ${skipped} you starred since the scan` : "Nothing to move";
+          }
           const job = await createDurableJob({
             provider: sender.provider,
             operation: "label",
-            targetIds: readLaterPlan.safeNewsletterIds,
+            targetIds,
             labelName: "Read Later",
             keepInInbox: false,
           });
@@ -245,7 +264,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
           if (result.succeededIds.length > 0) {
             await logAction(
               "sort",
-              `Moved ${result.succeededIds.length} newsletter message${result.succeededIds.length === 1 ? "" : "s"} from ${sender.address} to Read Later`,
+              `Moved ${result.succeededIds.length} newsletter message${result.succeededIds.length === 1 ? "" : "s"} from ${sender.address} to Read Later${skipped > 0 ? `, skipped ${skipped} you starred since the scan` : ""}`,
               {
                 provider: sender.provider,
                 ids: result.succeededIds,
