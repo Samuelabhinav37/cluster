@@ -53,6 +53,14 @@ Being honest about the narrow list of places data does go:
   domains appear in your mail; if that trade isn't worth it to you, the list still works
   without it (each sender falls back to a coloured initial). A future build may make this a
   toggle or cache the icons locally.
+- **Reference-list updates.** Roughly once a day, Cluster fetches a small public data file — the
+  list of domains known-legitimate brands send from, and known-bad/spam domains — from a page
+  Cluster itself publishes (`samuelabhinav37.github.io`), so a fix can reach you without waiting
+  for a new Chrome Web Store release. It's a plain, uncredentialed request for "today's file,"
+  identical for every install — the same shape as an app checking for an update. **Nothing about
+  you or your mail is in this request or its response**: no address, no sender, no subject, no
+  identifier of any kind. If the fetch ever fails, or you're offline, Cluster just keeps using the
+  copy already bundled in the extension — this is a convenience, never a dependency.
 
 That's the complete list. Everything else — your settings, rules, and the log of what Cluster
 has done — stays in your browser's local storage, on your device, and is deleted the moment you

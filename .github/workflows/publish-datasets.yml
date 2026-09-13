@@ -1,0 +1,51 @@
+name: Publish public datasets
+
+# Publishes the currently-committed reference datasets (brand-domain list,
+# malware/spam blocklists) to GitHub Pages so installed extensions can pick
+# up a fix without waiting for a new Chrome Web Store release -- see
+# src/lib/remoteDataset.ts and docs/privacy.md.
+#
+# Deliberately does NOT re-run refresh-blocklist.mjs / refresh-spam-domains.mjs
+# against URLhaus here: those need a free abuse.ch account's auth key (see
+# that script's own header comment) and are meant to be run by hand, reviewed,
+# and committed like any other data change. This workflow only ever publishes
+# whatever is already in the repo -- nothing it does can put unreviewed data
+# in front of users. Run `npm run refresh:blocklist` / `refresh:spam` by hand
+# and commit the result to actually refresh those feeds; this job picks the
+# update up on its next scheduled run (or via "Run workflow" below).
+on:
+  schedule:
+    - cron: "17 6 * * 1" # every Monday, 06:17 UTC -- an arbitrary off-peak time
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble the published dataset directory
+        run: |
+          mkdir -p dist-pages
+          cp src/lib/data/brandDomains.json dist-pages/brandDomains.json
+          jq '.domains' src/lib/data/malwareDomains.generated.json > dist-pages/malwareDomains.json
+          jq '.domains' src/lib/data/spamDomains.generated.json > dist-pages/spamDomains.json
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-pages
+      - uses: actions/deploy-pages@v4
+        id: deployment
