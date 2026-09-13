@@ -1182,7 +1182,9 @@ function renderCleanupPlan(senders: SenderSummary[]) {
   if (expiryCount > 0) {
     rows.push({
       id: "expired",
-      checked: true,
+      // Delete-adjacent, so this one requires an explicit look before it's
+      // included in a bulk confirm -- unlike the mute-only row above.
+      checked: false,
       title: `${expiryCount} one-time code${expiryCount === 1 ? "" : "s"} and stale mail past their use`,
       sub: expiryBuckets.map((b) => `${b.count} ${b.label.toLowerCase()}`).join(", ") + " · judged by age alone",
       primaryLabel: "Trash",
@@ -2413,7 +2415,9 @@ function renderSpamSection(senders: SenderSummary[]) {
     const pickCell = document.createElement("td");
     const box = document.createElement("input");
     box.type = "checkbox";
-    box.checked = true;
+    // Delete-adjacent -- requires an explicit look before it's trashed,
+    // rather than everything pre-selected for a one-click confirm.
+    box.checked = false;
     box.dataset.key = sug.sender.key;
     box.onchange = updateSpamCount;
     pickCell.appendChild(box);
