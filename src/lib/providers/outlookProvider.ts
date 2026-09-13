@@ -577,6 +577,21 @@ async function listSentCorrespondents(token: string, maxMessages = 150): Promise
   return [...addresses].slice(0, 1000);
 }
 
+// Live pre-delete re-check (mirrors gmailApi.listStarredMessageIds) -- one
+// cheap list call, not a per-id fetch, so filterOutProtected stops silently
+// no-op'ing for Outlook accounts. Capped at 5000 ids, same as the Gmail side.
+async function listProtectedMessageIds(token: string): Promise<Set<string>> {
+  const ids = new Set<string>();
+  const filter = encodeURIComponent(`flag/flagStatus eq 'flagged'`);
+  let url = `/me/messages?$select=id&$filter=${filter}&$top=999`;
+  while (url && ids.size < 5000) {
+    const data = await graphFetch<{ value?: { id: string }[]; "@odata.nextLink"?: string }>(url, token);
+    for (const m of data.value ?? []) ids.add(m.id);
+    url = data["@odata.nextLink"] ?? "";
+  }
+  return ids;
+}
+
 // Reuses labelMessages/unlabelMessages verbatim (category + archive, merge-
 // not-replace) -- auto-quarantine needs no new mechanism on the Outlook side.
 async function labelSuspicious(token: string, ids: string[]): Promise<void> {
@@ -609,4 +624,5 @@ export const outlookProvider: EmailProvider = {
   listSentCorrespondents,
   labelSuspicious,
   unlabelSuspicious,
+  listProtectedMessageIds,
 };
