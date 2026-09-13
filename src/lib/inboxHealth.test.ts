@@ -16,6 +16,8 @@ function msg(over: Partial<MessageRecord> = {}): MessageRecord {
     isProtected: false,
     unread: true,
     sizeBytes: 0,
+    providerMarkedPersonal: false,
+    looksAutomated: false,
     subject: "",
     ...over,
   };

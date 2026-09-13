@@ -145,6 +145,9 @@ export const gmailProvider: EmailProvider = {
       }),
       receivedAt: internalDate,
       authenticationResults,
+      providerMarkedPersonal: labelIds.includes("IMPORTANT") || labelIds.includes("CATEGORY_PERSONAL"),
+      precedence: headers.Precedence,
+      autoSubmitted: headers["Auto-Submitted"],
     };
   },
 

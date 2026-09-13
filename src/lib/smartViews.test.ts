@@ -6,7 +6,16 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const MB = 1024 * 1024;
 
 function msg(over: Partial<MessageRecord> & { id: string }): MessageRecord {
-  return { receivedAt: Date.now(), kind: "other", isProtected: false, unread: false, sizeBytes: 0, ...over };
+  return {
+    receivedAt: Date.now(),
+    kind: "other",
+    isProtected: false,
+    unread: false,
+    sizeBytes: 0,
+    providerMarkedPersonal: false,
+    looksAutomated: false,
+    ...over,
+  };
 }
 
 function sender(provider: "gmail" | "outlook", address: string, messages: MessageRecord[]): SenderSummary {

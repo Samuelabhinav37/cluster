@@ -292,6 +292,8 @@ export async function getMessageMetadata(token: string, id: string): Promise<Raw
     "Subject",
     "Authentication-Results",
     "DKIM-Signature",
+    "Precedence",
+    "Auto-Submitted",
   ]) {
     params.append("metadataHeaders", header);
   }

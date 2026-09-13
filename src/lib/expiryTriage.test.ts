@@ -13,6 +13,8 @@ function makeMessage(overrides: Partial<MessageRecord> = {}): MessageRecord {
     isProtected: false,
     unread: false,
     sizeBytes: 0,
+    providerMarkedPersonal: false,
+    looksAutomated: false,
     ...overrides,
   };
 }

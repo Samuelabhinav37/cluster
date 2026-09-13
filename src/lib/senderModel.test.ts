@@ -294,3 +294,33 @@ describe("buildCombinedSenderSummaries", () => {
     expect(security.map((s) => s.address)).toEqual(["s0@x.example", "s1@x.example", "s2@x.example"]);
   });
 });
+
+describe("addToSenders providerMarkedPersonal/looksAutomated", () => {
+  it("carries providerMarkedPersonal through onto the MessageRecord", async () => {
+    const gmail = makeProvider("gmail", [
+      makeMeta({ id: "g1", providerMarkedPersonal: true }),
+      makeMeta({ id: "g2", providerMarkedPersonal: false }),
+      makeMeta({ id: "g3" }), // absent -> defaults to false
+    ]);
+    const [sender] = await buildSenderSummaries([gmail]);
+    const byId = Object.fromEntries(sender.messages.map((m) => [m.id, m]));
+    expect(byId.g1.providerMarkedPersonal).toBe(true);
+    expect(byId.g2.providerMarkedPersonal).toBe(false);
+    expect(byId.g3.providerMarkedPersonal).toBe(false);
+  });
+
+  it("derives looksAutomated from hasListUnsubscribe/precedence/autoSubmitted", async () => {
+    const gmail = makeProvider("gmail", [
+      makeMeta({ id: "g1", unsubscribe: { httpUrl: "https://example.com/unsub" } }),
+      makeMeta({ id: "g2", precedence: "bulk" }),
+      makeMeta({ id: "g3", autoSubmitted: "auto-generated" }),
+      makeMeta({ id: "g4" }),
+    ]);
+    const [sender] = await buildSenderSummaries([gmail]);
+    const byId = Object.fromEntries(sender.messages.map((m) => [m.id, m]));
+    expect(byId.g1.looksAutomated).toBe(true);
+    expect(byId.g2.looksAutomated).toBe(true);
+    expect(byId.g3.looksAutomated).toBe(true);
+    expect(byId.g4.looksAutomated).toBe(false);
+  });
+});

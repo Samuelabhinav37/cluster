@@ -60,6 +60,19 @@ export interface NormalizedMessageMetadata {
    * CATEGORY_PROMOTIONS/UPDATES -> cleanup; a promo still in the inbox is
    * both). Absent for a single-purpose fetch. */
   lanes?: ScanPurpose[];
+  /** The provider's own long-lived, per-user importance signal -- Gmail's
+   * IMPORTANT / CATEGORY_PERSONAL labels (its personalized model, built
+   * from actual reply/open/star history with that sender) or Outlook's
+   * inferenceClassification === "focused". Stronger evidence than anything
+   * we could infer from headers alone; see protectionPolicy.ts. */
+  providerMarkedPersonal?: boolean;
+  /** Raw Precedence header value, if present (e.g. "bulk", "list", "junk") --
+   * a secondary/fallback bulk-mail signal for senders providerMarkedPersonal
+   * has no opinion on yet. See messageKind.looksAutomated. */
+  precedence?: string;
+  /** Raw Auto-Submitted header value, if present (RFC 3834, e.g.
+   * "auto-generated", "auto-replied") -- same secondary signal as precedence. */
+  autoSubmitted?: string;
 }
 
 export interface EmailProvider {

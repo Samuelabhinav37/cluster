@@ -72,6 +72,7 @@ interface GraphMessage {
   categories?: string[];
   hasAttachments?: boolean;
   attachments?: { name?: string }[];
+  inferenceClassification?: string;
 }
 
 function isoDaysAgo(days: number): string {
@@ -134,7 +135,7 @@ async function listIncrementalMessages(
 
 async function getMessageMetadata(token: string, id: string): Promise<NormalizedMessageMetadata> {
   const data = await graphFetch<GraphMessage>(
-    `/me/messages/${id}?$select=sender,subject,flag,internetMessageHeaders,receivedDateTime,isRead,size,hasAttachments&$expand=attachments($select=name)`,
+    `/me/messages/${id}?$select=sender,subject,flag,internetMessageHeaders,receivedDateTime,isRead,size,hasAttachments,inferenceClassification&$expand=attachments($select=name)`,
     token,
   );
   // No extra round trip -- $expand rides along on the same GET. Filenames
@@ -175,6 +176,9 @@ async function getMessageMetadata(token: string, id: string): Promise<Normalized
     receivedAt: data.receivedDateTime ? new Date(data.receivedDateTime).getTime() : 0,
     authenticationResults,
     hasRiskyAttachment,
+    providerMarkedPersonal: data.inferenceClassification === "focused",
+    precedence: find("Precedence"),
+    autoSubmitted: find("Auto-Submitted"),
   };
 }
 

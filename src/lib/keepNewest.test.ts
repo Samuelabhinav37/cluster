@@ -12,6 +12,8 @@ function msg(id: string, daysAgo: number, isProtected = false): MessageRecord {
     isProtected,
     unread: false,
     sizeBytes: 0,
+    providerMarkedPersonal: false,
+    looksAutomated: false,
   };
 }
 

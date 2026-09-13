@@ -3,7 +3,16 @@ import { domainOf, suggestSpamSenders, type SpamMatchers } from "./spamSuggestio
 import type { MessageRecord, SenderSummary } from "./senderModel";
 
 function msg(over: Partial<MessageRecord> & { id: string }): MessageRecord {
-  return { receivedAt: Date.now(), kind: "newsletter", isProtected: false, unread: true, sizeBytes: 0, ...over };
+  return {
+    receivedAt: Date.now(),
+    kind: "newsletter",
+    isProtected: false,
+    unread: true,
+    sizeBytes: 0,
+    providerMarkedPersonal: false,
+    looksAutomated: false,
+    ...over,
+  };
 }
 
 function sender(address: string, messages: MessageRecord[]): SenderSummary {

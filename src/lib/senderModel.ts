@@ -1,5 +1,5 @@
 import { mapWithConcurrency } from "./concurrency";
-import { classifyMessageKind, type MessageKind } from "./messageKind";
+import { classifyMessageKind, looksAutomated, type MessageKind } from "./messageKind";
 import {
   scoreMessageAuthentication,
   scoreMessageContext,
@@ -25,6 +25,12 @@ export interface MessageRecord {
   isProtected: boolean;
   unread: boolean;
   sizeBytes: number;
+  /** Gmail/Outlook's own per-user importance signal -- see
+   * NormalizedMessageMetadata.providerMarkedPersonal. */
+  providerMarkedPersonal: boolean;
+  /** Secondary bulk-mail signal, consulted only when providerMarkedPersonal
+   * is false -- see messageKind.looksAutomated. */
+  looksAutomated: boolean;
 }
 
 export interface SenderSummary {
@@ -99,6 +105,8 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     isProtected: meta.isProtected,
     unread: meta.unread,
     sizeBytes: meta.sizeBytes,
+    providerMarkedPersonal: meta.providerMarkedPersonal ?? false,
+    looksAutomated: looksAutomated(hasUnsubscribe(meta.unsubscribe), meta.precedence, meta.autoSubmitted),
   };
   const existing = senders.get(key);
   if (existing) {

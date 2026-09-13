@@ -9,7 +9,16 @@ import {
 } from "./engagementModel";
 
 function message(id: string, unread = true, receivedAt = 1, isProtected = false): MessageRecord {
-  return { id, receivedAt, kind: "newsletter", isProtected, unread, sizeBytes: 0 };
+  return {
+    id,
+    receivedAt,
+    kind: "newsletter",
+    isProtected,
+    unread,
+    sizeBytes: 0,
+    providerMarkedPersonal: false,
+    looksAutomated: false,
+  };
 }
 
 function sender(messages: MessageRecord[], over: Partial<SenderSummary> = {}): SenderSummary {

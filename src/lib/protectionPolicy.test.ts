@@ -10,6 +10,8 @@ function message(over: Partial<MessageRecord> & { id: string }): MessageRecord {
     isProtected: false,
     unread: true,
     sizeBytes: 0,
+    providerMarkedPersonal: false,
+    looksAutomated: false,
     ...over,
   };
 }
