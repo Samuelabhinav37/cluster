@@ -12,7 +12,7 @@ import {
   unsubscribeOutcomeRank,
   type UnsubscribeOutcomeState,
 } from "../lib/unsubscribeOutcome";
-import { buildSenderCleanupPlan } from "../lib/protectionPolicy";
+import { buildProtectionContext, buildSenderCleanupPlan } from "../lib/protectionPolicy";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import type { SenderSummary } from "../lib/senderModel";
 import {
@@ -158,7 +158,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
     };
     cell.appendChild(btn);
 
-    const cleanup = buildSenderCleanupPlan(sender);
+    const cleanup = buildSenderCleanupPlan(sender, buildProtectionContext(ctx.settings));
     if (cleanup.safeNewsletterIds.length > 0) {
       const cleanSlot = document.createElement("span");
       const cleanBtn = document.createElement("button");
@@ -230,7 +230,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
     cell.appendChild(a);
   }
 
-  const readLaterPlan = buildSenderCleanupPlan(sender);
+  const readLaterPlan = buildSenderCleanupPlan(sender, buildProtectionContext(ctx.settings));
   const provider = providerById.get(sender.provider);
   if (readLaterPlan.safeNewsletterIds.length > 0 && provider?.labelMessages && provider.unlabelMessages) {
     const slot = document.createElement("span");

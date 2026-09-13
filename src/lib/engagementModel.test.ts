@@ -100,7 +100,7 @@ describe("engagement suggestions", () => {
       unsubscribe: current.unsubscribe,
     });
     const twice = updateEngagementObservations(once, [changed], 200);
-    const [suggestion] = buildEngagementSuggestions([changed], twice, 200);
+    const [suggestion] = buildEngagementSuggestions([changed], twice, undefined, 200);
 
     expect(suggestion.suggestedAction).toBe("unsubscribe");
     expect(suggestion.confidence).toBe("medium");
@@ -116,20 +116,38 @@ describe("engagement suggestions", () => {
       message("star", false, 2, true),
     ]);
     const observed = updateEngagementObservations({}, [protectedSender], 100);
-    expect(buildEngagementSuggestions([protectedSender], observed, 100)).toEqual([]);
+    expect(buildEngagementSuggestions([protectedSender], observed, undefined, 100)).toEqual([]);
 
     const safe = sender([message("a"), message("b"), message("c"), message("d"), message("e")]);
     const safeObserved = updateEngagementObservations({}, [safe], 100);
-    expect(buildEngagementSuggestions([safe], safeObserved, 100)).toHaveLength(1);
+    expect(buildEngagementSuggestions([safe], safeObserved, undefined, 100)).toHaveLength(1);
     const dismissed = recordEngagementFeedback(safeObserved, [safe.key], "dismiss", 200);
-    expect(buildEngagementSuggestions([safe], dismissed, 200)).toEqual([]);
-    expect(buildEngagementSuggestions([safe], dismissed, 200 + SUGGESTION_DISMISS_MS + 1)).toHaveLength(1);
+    expect(buildEngagementSuggestions([safe], dismissed, undefined, 200)).toEqual([]);
+    expect(
+      buildEngagementSuggestions([safe], dismissed, undefined, 200 + SUGGESTION_DISMISS_MS + 1),
+    ).toHaveLength(1);
   });
 
   it("uses undo feedback as a strong correction", () => {
     const current = sender([message("a"), message("b"), message("c"), message("d"), message("e")]);
     const observed = updateEngagementObservations({}, [current], 100);
     const corrected = recordEngagementFeedback(observed, [current.key], "undo", 200);
-    expect(buildEngagementSuggestions([current], corrected, 200)).toEqual([]);
+    expect(buildEngagementSuggestions([current], corrected, undefined, 200)).toEqual([]);
+  });
+
+  it("abstains for a sender Gmail/Outlook marked personal or the user has emailed before", () => {
+    const personalMsgs = [message("a"), message("b"), message("c"), message("d")];
+    personalMsgs[0].providerMarkedPersonal = true;
+    const personal = sender(personalMsgs);
+    const observed = updateEngagementObservations({}, [personal], 100);
+    expect(buildEngagementSuggestions([personal], observed, undefined, 100)).toEqual([]);
+
+    const known = sender([message("a"), message("b"), message("c"), message("d")], {
+      address: "friend@example.com",
+      key: "gmail:friend@example.com",
+    });
+    const knownObserved = updateEngagementObservations({}, [known], 100);
+    const ctx = { knownSenders: new Set(["friend@example.com"]) };
+    expect(buildEngagementSuggestions([known], knownObserved, ctx, 100)).toEqual([]);
   });
 });

@@ -4,7 +4,7 @@ import type { MessageRecord, SenderSummary } from "./senderModel";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function msg(id: string, daysAgo: number, isProtected = false): MessageRecord {
+function msg(id: string, daysAgo: number, isProtected = false, providerMarkedPersonal = false): MessageRecord {
   return {
     id,
     receivedAt: Date.now() - daysAgo * DAY_MS,
@@ -12,8 +12,11 @@ function msg(id: string, daysAgo: number, isProtected = false): MessageRecord {
     isProtected,
     unread: false,
     sizeBytes: 0,
-    providerMarkedPersonal: false,
-    looksAutomated: false,
+    providerMarkedPersonal,
+    // Keep Newest targets repetitive automated senders (daily reports,
+    // alerts) -- looksAutomated true so these fixtures aren't swept up by
+    // the no-bulk-signal protection meant for unclassified human mail.
+    looksAutomated: true,
   };
 }
 
@@ -60,6 +63,20 @@ describe("keepNewestExcess", () => {
     ]);
     // keep newest 1 non-starred (d1); excess is d3, d4; the starred one is left alone.
     expect(keepNewestExcess([s], 1).get("gmail")).toEqual(["d3", "d4"]);
+  });
+
+  it("also leaves alone a provider-marked-personal message or a known correspondent", () => {
+    const s = sender("gmail", "a@x.com", [
+      msg("d1", 1),
+      msg("personal", 2, false, true),
+      msg("d3", 3),
+      msg("d4", 4),
+    ]);
+    expect(keepNewestExcess([s], 1).get("gmail")).toEqual(["d3", "d4"]);
+
+    const known = sender("gmail", "friend@x.com", [msg("k1", 1), msg("k2", 2), msg("k3", 3)]);
+    const ctx = { knownSenders: new Set(["friend@x.com"]) };
+    expect(keepNewestExcess([known], 1, ctx).size).toBe(0);
   });
 
   it("groups excess by provider and totals via the count helper", () => {

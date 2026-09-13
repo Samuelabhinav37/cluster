@@ -22,6 +22,7 @@ import {
   totalExpiryCount,
   type ExpiryBucket,
 } from "../lib/expiryTriage";
+import { buildProtectionContext } from "../lib/protectionPolicy";
 import { getElevatedAuthToken, getProfileEmail, GmailApiError } from "../lib/gmailApi";
 import { clearMetadataCache, loadMetadataCache, saveMetadataCache } from "../lib/metadataCache";
 import type { ProviderId } from "../lib/providers/emailProvider";
@@ -63,6 +64,7 @@ import { spamListSize } from "../lib/spamList";
 import {
   SMART_VIEWS,
   evaluateSmartView,
+  evaluateSmartViewForTrash,
   smartViewMessageCount,
   smartViewSenderCount,
   type SmartView,
@@ -623,9 +625,13 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
     health.scannedSenders === 1 ? "" : "s"
   } · ${health.scannedMessages} message${health.scannedMessages === 1 ? "" : "s"}`;
 
-  const expiryTotal = totalExpiryCount(buildExpiryBuckets(senders));
-  const spamMsgs = suggestSpamSenders(senders).reduce((n, s) => n + s.messageCount, 0);
-  const neverReadMsgs = buildEngagementSuggestions(senders, ctx.settings.senderEngagement).reduce(
+  const protectionCtx = buildProtectionContext(ctx.settings);
+  const expiryTotal = totalExpiryCount(buildExpiryBuckets(senders, protectionCtx));
+  const spamMsgs = suggestSpamSenders(senders, undefined, protectionCtx).reduce(
+    (n, s) => n + s.messageCount,
+    0,
+  );
+  const neverReadMsgs = buildEngagementSuggestions(senders, ctx.settings.senderEngagement, protectionCtx).reduce(
     (n, s) => n + s.safeMessageIds.length,
     0,
   );
@@ -1065,9 +1071,13 @@ function renderCategoryGroups<T>(
 function renderSuggestedMetricBand(senders: SenderSummary[]) {
   const band = document.getElementById("suggested-metric-band");
   if (!band) return;
-  const expiryTotal = totalExpiryCount(buildExpiryBuckets(senders));
-  const spamMsgs = suggestSpamSenders(senders).reduce((n, s) => n + s.messageCount, 0);
-  const neverReadMsgs = buildEngagementSuggestions(senders, ctx.settings.senderEngagement).reduce(
+  const protectionCtx = buildProtectionContext(ctx.settings);
+  const expiryTotal = totalExpiryCount(buildExpiryBuckets(senders, protectionCtx));
+  const spamMsgs = suggestSpamSenders(senders, undefined, protectionCtx).reduce(
+    (n, s) => n + s.messageCount,
+    0,
+  );
+  const neverReadMsgs = buildEngagementSuggestions(senders, ctx.settings.senderEngagement, protectionCtx).reduce(
     (n, s) => n + s.safeMessageIds.length,
     0,
   );
@@ -1145,11 +1155,12 @@ function renderCleanupPlan(senders: SenderSummary[]) {
   const countEl = document.getElementById("cleanup-plan-count");
   if (!list) return;
 
-  const expiryBuckets = buildExpiryBuckets(senders);
+  const protectionCtx = buildProtectionContext(ctx.settings);
+  const expiryBuckets = buildExpiryBuckets(senders, protectionCtx);
   const expiryCount = totalExpiryCount(expiryBuckets);
-  const engagement = buildEngagementSuggestions(senders, ctx.settings.senderEngagement);
+  const engagement = buildEngagementSuggestions(senders, ctx.settings.senderEngagement, protectionCtx);
   const neverMsgs = engagement.reduce((n, s) => n + s.safeMessageIds.length, 0);
-  const spam = suggestSpamSenders(senders);
+  const spam = suggestSpamSenders(senders, undefined, protectionCtx);
   const spamMsgs = spam.reduce((n, s) => n + s.messageCount, 0);
 
   const rows: PlanRow[] = [];
@@ -1316,7 +1327,9 @@ function buildActionGroups(sender: SenderSummary): Array<{ act: string; label: s
 
 function pickDecisionSenders(senders: SenderSummary[]): { decide: SenderSummary[]; protectedOne?: SenderSummary } {
   const engagementKeys = new Set(
-    buildEngagementSuggestions(senders, ctx.settings.senderEngagement).map((s) => s.sender.key),
+    buildEngagementSuggestions(senders, ctx.settings.senderEngagement, buildProtectionContext(ctx.settings)).map(
+      (s) => s.sender.key,
+    ),
   );
   const eligible = senders.filter((s) => s.protectedMessageIds.length === 0);
   const ranked = [...eligible].sort((a, b) => {
@@ -1663,7 +1676,7 @@ function wireAllSendersControls() {
 }
 
 function filteredSenders(senders: SenderSummary[]): SenderSummary[] {
-  const neverKeys = new Set(neverReadSenders(senders).map((s) => s.key));
+  const neverKeys = new Set(neverReadSenders(senders, buildProtectionContext(ctx.settings)).map((s) => s.key));
   return senders.filter((s) => {
     if (allSendersFilter === "never" && !neverKeys.has(s.key)) return false;
     if (allSendersFilter === "subs" && !hasAnyUnsubscribe(s.unsubscribe)) return false;
@@ -1953,7 +1966,9 @@ function buildSnoozeCell(sender: SenderSummary): HTMLDivElement {
 
 // ── Domain-group table ───────────────────────────────────────────────────
 function renderDomainGroups(senders: SenderSummary[]) {
-  const groups = buildDomainGroups(senders).filter((g) => g.totalCount > 0);
+  const groups = buildDomainGroups(senders, buildProtectionContext(ctx.settings)).filter(
+    (g) => g.totalCount > 0,
+  );
   currentDomainGroups = groups;
   pruneSelection(
     selectedDomainKeys,
@@ -2004,7 +2019,7 @@ function buildDomainRow(group: DomainGroup): HTMLTableRowElement {
   row.appendChild(countCell);
 
   const protectedCell = document.createElement("td");
-  protectedCell.textContent = group.protectedCount > 0 ? `${group.protectedCount} starred` : "—";
+  protectedCell.textContent = group.protectedCount > 0 ? `${group.protectedCount} protected` : "—";
   row.appendChild(protectedCell);
 
   row.appendChild(buildDeleteDomainCell(group));
@@ -2043,7 +2058,7 @@ function buildDeleteDomainCell(group: DomainGroup): HTMLTableCellElement {
   btn.onclick = () => {
     const summaryText =
       group.protectedCount > 0
-        ? `Move ${deletable} to Trash, skip ${group.protectedCount} starred/flagged?`
+        ? `Move ${deletable} to Trash, skip ${group.protectedCount} protected?`
         : `Move ${deletable} to Trash?`;
 
     renderConfirmStep(cell, resetCell, summaryText, true, async () => {
@@ -2066,7 +2081,7 @@ function buildDeleteDomainCell(group: DomainGroup): HTMLTableCellElement {
 
 // ── Ready-to-clean-up (retention expiry) section ────────────────────────
 function renderExpirySection(senders: SenderSummary[]) {
-  currentExpiryBuckets = buildExpiryBuckets(senders);
+  currentExpiryBuckets = buildExpiryBuckets(senders, buildProtectionContext(ctx.settings));
   const total = totalExpiryCount(currentExpiryBuckets);
   expirySectionEl.hidden = total === 0;
   if (total === 0) return;
@@ -2299,7 +2314,11 @@ function resetNeverReadSlots() {
 }
 
 function renderNeverReadSection(senders: SenderSummary[]) {
-  engagementSuggestions = buildEngagementSuggestions(senders, ctx.settings.senderEngagement);
+  engagementSuggestions = buildEngagementSuggestions(
+    senders,
+    ctx.settings.senderEngagement,
+    buildProtectionContext(ctx.settings),
+  );
   neverReadSectionEl.hidden = engagementSuggestions.length === 0;
   if (engagementSuggestions.length === 0) return;
 
@@ -2380,7 +2399,7 @@ function updateSpamCount() {
 function renderSpamSection(senders: SenderSummary[]) {
   const sizeEl = document.getElementById("spam-list-size");
   if (sizeEl) sizeEl.textContent = `Matched against ${spamListSize().toLocaleString()} known domains.`;
-  spamSuggestions = suggestSpamSenders(senders);
+  spamSuggestions = suggestSpamSenders(senders, undefined, buildProtectionContext(ctx.settings));
   spamSectionEl.hidden = spamSuggestions.length === 0;
   resetSpamSlot();
   if (spamSuggestions.length === 0) return;
@@ -2422,7 +2441,10 @@ function renderSpamSection(senders: SenderSummary[]) {
 
 // ── Smart Views + Keep-newest (Clean up tab) ─────────────────────────────
 async function applySmartView(view: SmartView, action: "archive" | "trash"): Promise<string> {
-  let merged = evaluateSmartView(view, ctx.senders);
+  let merged =
+    action === "trash"
+      ? evaluateSmartViewForTrash(view, ctx.senders, buildProtectionContext(ctx.settings))
+      : evaluateSmartView(view, ctx.senders);
   if (action === "trash") ({ safe: merged } = await filterOutProtected(merged, providerById));
   const gmailIds = merged.get("gmail") ?? [];
   let total = 0;
@@ -2469,10 +2491,19 @@ function openSmartView(view: SmartView, msgCount: number, senderCount: number) {
   const trashBtn = document.createElement("button");
   trashBtn.className = "danger";
   trashBtn.textContent = "Trash";
-  trashBtn.onclick = () =>
-    renderConfirmStep(smartViewResultSlot, clearSmartViewResult, `Move ${msgCount} to Trash?`, true, () =>
-      applySmartView(view, "trash"),
-    );
+  // Order confirmations are never auto-trashed (see protectionPolicy.ts) --
+  // a return window can easily outlast any fixed age cutoff. Archive still
+  // works; Trash is disabled and explained rather than silently doing
+  // nothing or quietly excluding every message.
+  if (view.id === "shipping") {
+    trashBtn.disabled = true;
+    trashBtn.title = "Order confirmations are never auto-trashed — archive instead.";
+  } else {
+    trashBtn.onclick = () =>
+      renderConfirmStep(smartViewResultSlot, clearSmartViewResult, `Move ${msgCount} to Trash?`, true, () =>
+        applySmartView(view, "trash"),
+      );
+  }
 
   const cancel = document.createElement("button");
   cancel.textContent = "Cancel";
@@ -2504,7 +2535,7 @@ function resetKeepNewestSlot() {
 function wireKeepNewest() {
   keepNewestBtn.onclick = () => {
     const n = Math.max(1, Number(keepNewestNInput.value) || 3);
-    const merged = keepNewestExcess(ctx.senders, n);
+    const merged = keepNewestExcess(ctx.senders, n, buildProtectionContext(ctx.settings));
     const gmailIds = merged.get("gmail") ?? [];
     const total = [...merged.values()].reduce((a, b) => a + b.length, 0);
     if (total === 0) {
@@ -2641,11 +2672,11 @@ function wireBulkHandlers() {
     const deletable = totalDeletableAcrossGroups(selected);
     const protectedTotal = selected.reduce((sum, g) => sum + g.protectedCount, 0);
     const permanentSummary = describePermanentDelete(merged);
-    const skipNote = protectedTotal > 0 ? ` (skips ${protectedTotal} starred/flagged)` : "";
+    const skipNote = protectedTotal > 0 ? ` (skips ${protectedTotal} protected)` : "";
     const summaryText = permanentSummary
       ? `${permanentSummary}${skipNote}`
       : protectedTotal > 0
-        ? `Move ${deletable} to Trash across ${selected.length} domains, skip ${protectedTotal} starred/flagged?`
+        ? `Move ${deletable} to Trash across ${selected.length} domains, skip ${protectedTotal} protected?`
         : `Move ${deletable} to Trash across ${selected.length} domains?`;
 
     renderConfirmStep(deleteDomainsBulkSlot, resetDeleteDomainsBulkSlot, summaryText, true, async () => {

@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { buildDomainGroups, domainOf } from "./domainGrouping";
-import type { SenderSummary } from "./senderModel";
+import type { MessageRecord, SenderSummary } from "./senderModel";
 import type { ProviderId } from "./providers/emailProvider";
+
+function msg(id: string, isProtected = false): MessageRecord {
+  return {
+    id,
+    receivedAt: Date.now(),
+    kind: "newsletter",
+    isProtected,
+    unread: false,
+    sizeBytes: 0,
+    providerMarkedPersonal: false,
+    looksAutomated: true,
+  };
+}
 
 function makeSender(overrides: Partial<SenderSummary> & { address: string }): SenderSummary {
   const provider: ProviderId = overrides.provider ?? "gmail";
@@ -78,10 +91,27 @@ describe("buildDomainGroups", () => {
       count: 3,
       messageIds: ["a1", "a2", "a3"],
       protectedMessageIds: ["a2"],
+      messages: [msg("a1"), msg("a2", true), msg("a3")],
     });
     const [group] = buildDomainGroups([sender]);
     expect(group.protectedCount).toBe(1);
     expect(group.deletableMessageIds.get("gmail")).toEqual(["a1", "a3"]);
+    expect(group.protectedMessageIds.get("gmail")).toEqual(["a2"]);
+  });
+
+  it("also treats a known-correspondent or provider-marked-personal message as protected", () => {
+    const sender = makeSender({
+      address: "orders@amazon.com",
+      count: 2,
+      messageIds: ["a1", "a2"],
+      messages: [
+        msg("a1"),
+        { ...msg("a2"), providerMarkedPersonal: true },
+      ],
+    });
+    const [group] = buildDomainGroups([sender]);
+    expect(group.protectedCount).toBe(1);
+    expect(group.deletableMessageIds.get("gmail")).toEqual(["a1"]);
     expect(group.protectedMessageIds.get("gmail")).toEqual(["a2"]);
   });
 

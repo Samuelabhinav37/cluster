@@ -1,3 +1,4 @@
+import { emptyProtectionContext, protectionDecision, type ProtectionContext } from "./protectionPolicy";
 import type { SenderSummary } from "./senderModel";
 
 /**
@@ -52,8 +53,8 @@ function emptyRecord(now: number): SenderEngagementRecord {
   };
 }
 
-function safeMessages(sender: SenderSummary) {
-  return sender.messages.filter((message) => !message.isProtected);
+function safeMessages(sender: SenderSummary, ctx: ProtectionContext) {
+  return sender.messages.filter((message) => !protectionDecision(message, sender.address, ctx).protected);
 }
 
 /** Merge changed, aggregate-only observations and prune stale/old records. */
@@ -61,6 +62,7 @@ export function updateEngagementObservations(
   existing: SenderEngagementMap,
   senders: SenderSummary[],
   now = Date.now(),
+  ctx: ProtectionContext = emptyProtectionContext(),
 ): SenderEngagementMap {
   const next: SenderEngagementMap = {};
   const cutoff = now - RECORD_TTL_MS;
@@ -69,7 +71,7 @@ export function updateEngagementObservations(
   }
 
   for (const sender of senders) {
-    const messages = safeMessages(sender);
+    const messages = safeMessages(sender, ctx);
     if (messages.length === 0) continue;
     const unreadCount = messages.filter((message) => message.unread).length;
     const latestMessageAt = Math.max(...messages.map((message) => message.receivedAt));
@@ -143,12 +145,13 @@ function suggestionAction(sender: SenderSummary): EngagementSuggestionAction {
 export function buildEngagementSuggestions(
   senders: SenderSummary[],
   observations: SenderEngagementMap,
+  ctx: ProtectionContext = emptyProtectionContext(),
   now = Date.now(),
 ): EngagementSuggestion[] {
   const suggestions: EngagementSuggestion[] = [];
   for (const sender of senders) {
-    if (sender.protectedMessageIds.length > 0) continue;
-    const messages = safeMessages(sender);
+    if (sender.messages.some((m) => protectionDecision(m, sender.address, ctx).protected)) continue;
+    const messages = safeMessages(sender, ctx);
     const record = observations[sender.key];
     if (!record || messages.length < 3 || (record.snoozedUntil && record.snoozedUntil > now)) continue;
 
@@ -182,7 +185,7 @@ export function buildEngagementSuggestions(
       reasons: [
         `${unreadPercent}% of ${messages.length} current messages are unread`,
         `${historyPercent}% rolling unread pattern across ${record.samples} changed snapshot${record.samples === 1 ? "" : "s"}`,
-        "No starred or flagged messages are included",
+        "No starred, protected, or personal-looking messages are included",
       ],
       suggestedAction: suggestionAction(sender),
       safeMessageIds: messages.map((message) => message.id),
