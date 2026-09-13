@@ -368,6 +368,21 @@ describe("Outlook Screener / mute / keep-sorted / auto-quarantine parity", () =>
     expect(addresses.sort()).toEqual(["colleague@work.com", "friend@example.com"]);
   });
 
+  it("listProtectedMessageIds: filters on flag/flagStatus eq 'flagged' and pages through nextLink", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        json({ value: [{ id: "m1" }, { id: "m2" }], "@odata.nextLink": "https://graph.microsoft.com/v1.0/next" }),
+      )
+      .mockResolvedValueOnce(json({ value: [{ id: "m3" }] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ids = await outlookProvider.listProtectedMessageIds!("t");
+    expect(ids).toEqual(new Set(["m1", "m2", "m3"]));
+    const firstUrl = fetchMock.mock.calls[0][0] as string;
+    expect(firstUrl).toContain(encodeURIComponent(`flag/flagStatus eq 'flagged'`));
+  });
+
   it("labelSuspicious/unlabelSuspicious reuse labelMessages/unlabelMessages with the Possible Phishing category", async () => {
     const fetchMock = graphRouter([
       { method: "GET", test: (u) => u.includes("/outlook/masterCategories"), respond: () => json({ value: [{ displayName: "Possible Phishing" }] }) },

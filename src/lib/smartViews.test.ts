@@ -1,12 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { SMART_VIEWS, evaluateSmartView, smartViewMessageCount, smartViewSenderCount } from "./smartViews";
+import {
+  SMART_VIEWS,
+  evaluateSmartView,
+  evaluateSmartViewForTrash,
+  smartViewMessageCount,
+  smartViewSenderCount,
+} from "./smartViews";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MB = 1024 * 1024;
 
 function msg(over: Partial<MessageRecord> & { id: string }): MessageRecord {
-  return { receivedAt: Date.now(), kind: "other", isProtected: false, unread: false, sizeBytes: 0, ...over };
+  return {
+    receivedAt: Date.now(),
+    kind: "other",
+    isProtected: false,
+    unread: false,
+    sizeBytes: 0,
+    providerMarkedPersonal: false,
+    looksAutomated: false,
+    ...over,
+  };
 }
 
 function sender(provider: "gmail" | "outlook", address: string, messages: MessageRecord[]): SenderSummary {
@@ -54,6 +69,41 @@ describe("evaluateSmartView", () => {
       msg({ id: "s", kind: "newsletter", isProtected: true }),
     ]);
     expect(evaluateSmartView(view("promos-unsub"), [g]).get("gmail")).toEqual(["n"]);
+  });
+});
+
+describe("evaluateSmartViewForTrash", () => {
+  it("never returns anything for the shipping view -- order mail is never auto-trashed", () => {
+    const g = sender("gmail", "a@x.com", [
+      msg({ id: "old-order", kind: "shipping", receivedAt: Date.now() - 400 * DAY_MS, looksAutomated: true }),
+    ]);
+    expect(evaluateSmartViewForTrash(view("shipping"), [g]).size).toBe(0);
+    // The lighter evaluator (used for Archive/counts) still matches it.
+    expect(evaluateSmartView(view("shipping"), [g]).get("gmail")).toEqual(["old-order"]);
+  });
+
+  it("applies the full protection gate (known-correspondent, provider-marked-personal), not just starred", () => {
+    const g = sender("gmail", "a@x.com", [
+      msg({ id: "old1", receivedAt: Date.now() - 400 * DAY_MS, looksAutomated: true }),
+      msg({
+        id: "old2",
+        receivedAt: Date.now() - 400 * DAY_MS,
+        looksAutomated: true,
+        providerMarkedPersonal: true,
+      }),
+    ]);
+    expect(evaluateSmartViewForTrash(view("older-1y"), [g]).get("gmail")).toEqual(["old1"]);
+
+    const known = sender("gmail", "friend@x.com", [
+      msg({ id: "old3", receivedAt: Date.now() - 400 * DAY_MS, looksAutomated: true }),
+    ]);
+    const ctx = { knownSenders: new Set(["friend@x.com"]) };
+    expect(evaluateSmartViewForTrash(view("older-1y"), [known], ctx).size).toBe(0);
+  });
+
+  it("still matches an otp-kind message (short-lived by design, unaffected by the shipping/receipt exemption)", () => {
+    const g = sender("gmail", "a@x.com", [msg({ id: "code", kind: "otp", looksAutomated: true })]);
+    expect(evaluateSmartViewForTrash(view("otp"), [g]).get("gmail")).toEqual(["code"]);
   });
 });
 

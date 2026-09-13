@@ -47,6 +47,12 @@ Being honest about the narrow list of places data does go:
   settings being changed, the same as if you'd clicked "create filter" yourself in Gmail.
 - **Signing in.** Your Gmail token is held by Chrome itself, not by Cluster. Your Outlook token
   is used only to talk to Microsoft's own servers to keep you signed in.
+- **Sender site icons.** The dashboard shows each sender's favicon, fetched from Google's public
+  favicon service (`google.com/s2/favicons`) by domain only — an uncredentialed image request,
+  no cookies, no other data, one per unique sender domain. This does tell Google which sender
+  domains appear in your mail; if that trade isn't worth it to you, the list still works
+  without it (each sender falls back to a coloured initial). A future build may make this a
+  toggle or cache the icons locally.
 
 That's the complete list. Everything else — your settings, rules, and the log of what Cluster
 has done — stays in your browser's local storage, on your device, and is deleted the moment you

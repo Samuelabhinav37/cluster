@@ -141,10 +141,11 @@ describe("dashboard boot smoke", () => {
     expect(document.getElementById("overview-headline")!.textContent).toMatch(/Scanned \d+ sender/);
   });
 
-  it("builds the sender table with rows", () => {
+  it("builds the 'senders worth a decision' list with rows", () => {
     const groups = document.getElementById("sender-groups") as HTMLElement;
     expect(groups.hidden).toBe(false);
-    expect(groups.querySelectorAll("tr").length).toBeGreaterThan(0);
+    // header row + at least one sender row
+    expect(groups.querySelectorAll(".list-row").length).toBeGreaterThan(1);
   });
 
   it("flags the free-mail brand claim in the Security tab", () => {
@@ -161,43 +162,45 @@ describe("dashboard boot smoke", () => {
     expect(document.getElementById("recent-list")!.textContent).toContain("Nothing done yet");
   });
 
-  it("switches to every tab, showing exactly one panel", () => {
+  it("switches to every screen, showing exactly one panel", () => {
     const buttons = Array.from(
-      document.querySelectorAll<HTMLButtonElement>("#tabs button[data-tab]"),
+      document.querySelectorAll<HTMLButtonElement>("#sidebar button[data-screen]"),
     );
-    expect(buttons.length).toBe(7);
+    expect(buttons.length).toBe(8);
     for (const button of buttons) {
       button.click();
       const shown = Array.from(
-        document.querySelectorAll<HTMLElement>("section.tab-panel[data-tab]"),
+        document.querySelectorAll<HTMLElement>("section.screen[data-screen]"),
       ).filter((panel) => !panel.hidden);
       expect(shown).toHaveLength(1);
-      expect(shown[0].dataset.tab).toBe(button.dataset.tab);
+      expect(shown[0].dataset.screen).toBe(button.dataset.screen);
     }
   });
 
   it("wires the ARIA tabs pattern: aria-controls, roving tabindex, arrow keys", () => {
     const buttons = Array.from(
-      document.querySelectorAll<HTMLButtonElement>("#tabs button[data-tab]"),
+      document.querySelectorAll<HTMLButtonElement>("#sidebar button[data-screen]"),
     );
-    // each tab points at its panel and back
+    // each nav item points at its screen and back
     for (const btn of buttons) {
       const panelId = btn.getAttribute("aria-controls")!;
       const panel = document.getElementById(panelId)!;
-      expect(panel.dataset.tab).toBe(btn.dataset.tab);
+      expect(panel.dataset.screen).toBe(btn.dataset.screen);
       expect(panel.getAttribute("aria-labelledby")).toBe(btn.id);
     }
-    // exactly one tab in the Tab order
+    // exactly one item in the Tab order
     buttons[0].click();
-    expect(buttons.filter((b) => b.tabIndex === 0).map((b) => b.dataset.tab)).toEqual(["overview"]);
-    expect(buttons.filter((b) => b.tabIndex === -1)).toHaveLength(6);
-    // ArrowRight from the first tab activates the second
+    expect(buttons.filter((b) => b.tabIndex === 0).map((b) => b.dataset.screen)).toEqual([
+      "overview",
+    ]);
+    expect(buttons.filter((b) => b.tabIndex === -1)).toHaveLength(7);
+    // ArrowDown from the first item activates the second
     document
-      .getElementById("tabs")!
-      .dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+      .getElementById("sidebar")!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
     expect(buttons[1].getAttribute("aria-selected")).toBe("true");
     expect(
-      document.querySelector<HTMLElement>("section.tab-panel[data-tab='cleanup']")!.hidden,
+      document.querySelector<HTMLElement>("section.screen[data-screen='suggested']")!.hidden,
     ).toBe(false);
   });
 
@@ -215,25 +218,26 @@ describe("dashboard boot smoke", () => {
     expect(document.documentElement.dataset.theme).toBeUndefined();
   });
 
-  it("gives the category-group tables a screen-reader caption", () => {
-    document.querySelector<HTMLButtonElement>('#tabs button[data-tab="cleanup"]')!.click();
-    const caption = document.querySelector("#sender-groups table caption");
+  it("gives the by-domain category tables a screen-reader caption", () => {
+    document.querySelector<HTMLButtonElement>('#sidebar button[data-screen="suggested"]')!.click();
+    document.getElementById("more-tools")!.setAttribute("open", "");
+    const caption = document.querySelector("#domain-group-list table caption");
     expect(caption?.classList.contains("sr-only")).toBe(true);
-    expect(caption?.textContent).toMatch(/\d+ senders?, \d+ messages/);
+    expect(caption?.textContent).toMatch(/\d+ domains?, \d+ messages/);
   });
 
   it("opens a confirm step from a sender-row action", () => {
-    document.querySelector<HTMLButtonElement>('#tabs button[data-tab="cleanup"]')!.click();
+    document.querySelector<HTMLButtonElement>('#sidebar button[data-screen="suggested"]')!.click();
     const muteBtn = Array.from(
-      document.querySelectorAll<HTMLButtonElement>("#sender-groups button"),
+      document.querySelectorAll<HTMLButtonElement>("#sender-groups .list-row button"),
     ).find((b) => b.textContent === "Mute");
-    expect(muteBtn, "no Mute button rendered in the sender table").toBeTruthy();
-    const cell = muteBtn!.closest("td")!;
+    expect(muteBtn, "no Mute button rendered in the decision list").toBeTruthy();
     muteBtn!.click();
-    // renderConfirmStep clears the cell and swaps in a summary + Confirm/Cancel.
-    expect(cell.textContent).toContain("Hide all mail from");
-    expect(Array.from(cell.querySelectorAll("button")).map((b) => b.textContent)).toEqual(
-      expect.arrayContaining(["Confirm", "Cancel"]),
-    );
+    // The primary action swaps in the mute group and fires its confirm.
+    const groups = document.getElementById("sender-groups") as HTMLElement;
+    expect(groups.textContent).toContain("Hide all mail from");
+    expect(
+      Array.from(groups.querySelectorAll("button")).map((b) => b.textContent),
+    ).toEqual(expect.arrayContaining(["Confirm", "Cancel"]));
   });
 });

@@ -197,10 +197,25 @@ export async function listRiskyAttachmentMessageIds(
   return new Set(stubs.map((s) => s.id));
 }
 
+/** Every currently-starred message id — one `messages.list` (5 units/page,
+ * usually one page since a starred set is small), not a per-id fetch. Used by
+ * the bulk-delete safety re-check (see EmailProvider.listProtectedMessageIds). */
+export async function listStarredMessageIds(token: string): Promise<Set<string>> {
+  const stubs = await listMessageIds(token, "is:starred", 5000);
+  return new Set(stubs.map((s) => s.id));
+}
+
 export async function getCurrentHistoryId(token: string): Promise<string> {
   const profile = await gmailFetch<{ historyId?: string }>("/users/me/profile", token);
   if (!profile.historyId) throw new Error("Gmail profile did not include a historyId");
   return profile.historyId;
+}
+
+/** The signed-in Gmail address, for the dashboard's account pill. Costs 1
+ * quota unit; failures are non-fatal (the caller just hides the pill). */
+export async function getProfileEmail(token: string): Promise<string> {
+  const profile = await gmailFetch<{ emailAddress?: string }>("/users/me/profile", token);
+  return profile.emailAddress ?? "";
 }
 
 export interface GmailHistoryResult {
@@ -277,6 +292,8 @@ export async function getMessageMetadata(token: string, id: string): Promise<Raw
     "Subject",
     "Authentication-Results",
     "DKIM-Signature",
+    "Precedence",
+    "Auto-Submitted",
   ]) {
     params.append("metadataHeaders", header);
   }

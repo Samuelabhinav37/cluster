@@ -72,6 +72,7 @@ interface GraphMessage {
   categories?: string[];
   hasAttachments?: boolean;
   attachments?: { name?: string }[];
+  inferenceClassification?: string;
 }
 
 function isoDaysAgo(days: number): string {
@@ -134,7 +135,7 @@ async function listIncrementalMessages(
 
 async function getMessageMetadata(token: string, id: string): Promise<NormalizedMessageMetadata> {
   const data = await graphFetch<GraphMessage>(
-    `/me/messages/${id}?$select=sender,subject,flag,internetMessageHeaders,receivedDateTime,isRead,size,hasAttachments&$expand=attachments($select=name)`,
+    `/me/messages/${id}?$select=sender,subject,flag,internetMessageHeaders,receivedDateTime,isRead,size,hasAttachments,inferenceClassification&$expand=attachments($select=name)`,
     token,
   );
   // No extra round trip -- $expand rides along on the same GET. Filenames
@@ -162,6 +163,9 @@ async function getMessageMetadata(token: string, id: string): Promise<Normalized
     subject: data.subject ?? "",
     isProtected: data.flag?.flagStatus === "flagged",
     unread: data.isRead === false,
+    // Outlook has no Promotions/Updates split — the whole inbox scan feeds
+    // both lanes; the security slice is post-capped by the dashboard.
+    lanes: ["cleanup", "security"],
     sizeBytes: Number(data.size ?? 0),
     unsubscribe: parseListUnsubscribe(find("List-Unsubscribe"), find("List-Unsubscribe-Post"), {
       provider: "outlook",
@@ -172,6 +176,9 @@ async function getMessageMetadata(token: string, id: string): Promise<Normalized
     receivedAt: data.receivedDateTime ? new Date(data.receivedDateTime).getTime() : 0,
     authenticationResults,
     hasRiskyAttachment,
+    providerMarkedPersonal: data.inferenceClassification === "focused",
+    precedence: find("Precedence"),
+    autoSubmitted: find("Auto-Submitted"),
   };
 }
 
@@ -570,6 +577,21 @@ async function listSentCorrespondents(token: string, maxMessages = 150): Promise
   return [...addresses].slice(0, 1000);
 }
 
+// Live pre-delete re-check (mirrors gmailApi.listStarredMessageIds) -- one
+// cheap list call, not a per-id fetch, so filterOutProtected stops silently
+// no-op'ing for Outlook accounts. Capped at 5000 ids, same as the Gmail side.
+async function listProtectedMessageIds(token: string): Promise<Set<string>> {
+  const ids = new Set<string>();
+  const filter = encodeURIComponent(`flag/flagStatus eq 'flagged'`);
+  let url = `/me/messages?$select=id&$filter=${filter}&$top=999`;
+  while (url && ids.size < 5000) {
+    const data = await graphFetch<{ value?: { id: string }[]; "@odata.nextLink"?: string }>(url, token);
+    for (const m of data.value ?? []) ids.add(m.id);
+    url = data["@odata.nextLink"] ?? "";
+  }
+  return ids;
+}
+
 // Reuses labelMessages/unlabelMessages verbatim (category + archive, merge-
 // not-replace) -- auto-quarantine needs no new mechanism on the Outlook side.
 async function labelSuspicious(token: string, ids: string[]): Promise<void> {
@@ -602,4 +624,5 @@ export const outlookProvider: EmailProvider = {
   listSentCorrespondents,
   labelSuspicious,
   unlabelSuspicious,
+  listProtectedMessageIds,
 };

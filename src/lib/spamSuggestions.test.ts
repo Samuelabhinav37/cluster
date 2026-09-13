@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { domainOf, suggestSpamSenders, type SpamMatchers } from "./spamSuggestions";
+import type { ProtectionContext } from "./protectionPolicy";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 
 function msg(over: Partial<MessageRecord> & { id: string }): MessageRecord {
-  return { receivedAt: Date.now(), kind: "newsletter", isProtected: false, unread: true, sizeBytes: 0, ...over };
+  return {
+    receivedAt: Date.now(),
+    kind: "newsletter",
+    isProtected: false,
+    unread: true,
+    sizeBytes: 0,
+    providerMarkedPersonal: false,
+    looksAutomated: false,
+    ...over,
+  };
 }
 
 function sender(address: string, messages: MessageRecord[]): SenderSummary {
@@ -72,5 +82,24 @@ describe("suggestSpamSenders", () => {
       "b@throwaway.example",
       "a@spammer.example",
     ]);
+  });
+
+  it("still flags a blocklisted domain sending a receipt-kind, non-bulk message (phishing often impersonates receipts)", () => {
+    // contentHeuristics is off for this surface on purpose -- a confirmed-bad
+    // domain is stronger evidence than kind/subject/bulk-header heuristics,
+    // which phishing routinely fakes or omits.
+    const s = sender("billing@evil.example", [
+      msg({ id: "1", kind: "receipt", subject: "Your receipt is ready", looksAutomated: false }),
+    ]);
+    expect(suggestSpamSenders([s], { ...matchers, isSpam: () => true })).toHaveLength(1);
+  });
+
+  it("still excludes a sender the user knows or Gmail marked personal, even on a matched domain", () => {
+    const knownCtx: ProtectionContext = { knownSenders: new Set(["friend@throwaway.example"]) };
+    const known = sender("friend@throwaway.example", [msg({ id: "1" })]);
+    expect(suggestSpamSenders([known], matchers, knownCtx)).toEqual([]);
+
+    const personal = sender("boss@spammer.example", [msg({ id: "2", providerMarkedPersonal: true })]);
+    expect(suggestSpamSenders([personal], matchers)).toEqual([]);
   });
 });

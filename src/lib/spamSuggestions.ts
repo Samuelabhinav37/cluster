@@ -4,6 +4,7 @@
 // shows the list with per-row checkboxes and a confirm step, and the user
 // decides.
 import { isBlockedDomain } from "./blocklist";
+import { emptyProtectionContext, protectionDecision, type ProtectionContext } from "./protectionPolicy";
 import { isSpamDomain } from "./spamList";
 import type { SenderSummary } from "./senderModel";
 
@@ -37,17 +38,29 @@ const DEFAULT_MATCHERS: SpamMatchers = { isBlocked: isBlockedDomain, isSpam: isS
 
 /**
  * Senders whose address domain is on the malware/phishing blocklist or the
- * spam/throwaway list. Any sender with a starred or flagged message is left
- * out completely -- consistent with every other bulk path in the app. Sorted
- * by message count, most first.
+ * spam/throwaway list. Any sender with a starred/flagged/provider-marked-
+ * personal/known-correspondent message is left out completely -- consistent
+ * with every other bulk path in the app. Deliberately does NOT apply the
+ * kind/subject/no-bulk-signal heuristics (contentHeuristics: false): a
+ * domain already confirmed malicious is stronger evidence than those
+ * headers, and phishing routinely impersonates receipts and omits proper
+ * bulk headers -- applying those checks here would suppress the exact mail
+ * this feature exists to catch. Sorted by message count, most first.
  */
 export function suggestSpamSenders(
   senders: SenderSummary[],
   matchers: SpamMatchers = DEFAULT_MATCHERS,
+  ctx: ProtectionContext = emptyProtectionContext(),
 ): SpamSuggestion[] {
   const out: SpamSuggestion[] = [];
   for (const sender of senders) {
-    if (sender.protectedMessageIds.length > 0) continue;
+    if (
+      sender.messages.some(
+        (m) => protectionDecision(m, sender.address, ctx, { contentHeuristics: false }).protected,
+      )
+    ) {
+      continue;
+    }
     const domain = domainOf(sender.address);
     if (!domain) continue;
     const blocked = matchers.isBlocked(domain);

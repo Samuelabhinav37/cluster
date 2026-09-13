@@ -2,6 +2,11 @@ import type { UnsubscribeInfo } from "../unsubscribe";
 
 export type ProviderId = "gmail" | "outlook";
 export type ScanPurpose = "cleanup" | "security";
+/** `"combined"` fetches the union of the cleanup and security candidate sets in
+ * one pass; each fetched message is then tagged with the lane(s) it belongs to
+ * (see NormalizedMessageMetadata.lanes) so a cold dashboard open costs one
+ * quota window instead of two sequential scans. */
+export type CandidateScope = ScanPurpose | "combined";
 
 export type { UnsubscribeInfo };
 
@@ -50,6 +55,24 @@ export interface NormalizedMessageMetadata {
    * Undefined/false when the provider found no risky attachment or doesn't
    * support the check yet. */
   hasRiskyAttachment?: boolean;
+  /** Which scan lane(s) this message belongs to, when it was fetched via the
+   * `"combined"` scope. Gmail derives it from labels (INBOX -> security,
+   * CATEGORY_PROMOTIONS/UPDATES -> cleanup; a promo still in the inbox is
+   * both). Absent for a single-purpose fetch. */
+  lanes?: ScanPurpose[];
+  /** The provider's own long-lived, per-user importance signal -- Gmail's
+   * IMPORTANT / CATEGORY_PERSONAL labels (its personalized model, built
+   * from actual reply/open/star history with that sender) or Outlook's
+   * inferenceClassification === "focused". Stronger evidence than anything
+   * we could infer from headers alone; see protectionPolicy.ts. */
+  providerMarkedPersonal?: boolean;
+  /** Raw Precedence header value, if present (e.g. "bulk", "list", "junk") --
+   * a secondary/fallback bulk-mail signal for senders providerMarkedPersonal
+   * has no opinion on yet. See messageKind.looksAutomated. */
+  precedence?: string;
+  /** Raw Auto-Submitted header value, if present (RFC 3834, e.g.
+   * "auto-generated", "auto-replied") -- same secondary signal as precedence. */
+  autoSubmitted?: string;
 }
 
 export interface EmailProvider {
@@ -60,7 +83,7 @@ export interface EmailProvider {
     token: string,
     maxResults: number,
     windowDays: number,
-    purpose?: ScanPurpose,
+    purpose?: CandidateScope,
   ): Promise<NormalizedMessageStub[]>;
   /** Initial call (cursor undefined) returns a purpose-specific baseline plus
    * a checkpoint. Later calls return only created/updated messages since it. */
@@ -73,6 +96,14 @@ export interface EmailProvider {
   ): Promise<IncrementalMessageResult>;
   getMessageMetadata(token: string, id: string): Promise<NormalizedMessageMetadata>;
   trashMessages(token: string, ids: string[]): Promise<void>;
+  /**
+   * All message ids currently starred / flagged, checked live — one cheap
+   * list call, not a per-id fetch. Bulk-delete paths call this immediately
+   * before trashing so a message the user starred since the last scan (the
+   * warm metadata cache only re-reads the last 7 days) can't be swept up.
+   * Optional: a provider without it skips the re-check.
+   */
+  listProtectedMessageIds?(token: string): Promise<Set<string>>;
   keepSorted?(token: string, fromAddress: string, label: string, existingIds: string[]): Promise<void>;
   /**
    * Permanent delete — no Trash recovery, unlike trashMessages. Gmail-only,

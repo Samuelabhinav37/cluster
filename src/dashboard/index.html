@@ -6,440 +6,596 @@
     <link rel="stylesheet" href="./dashboard.css" />
   </head>
   <body>
-    <main>
-      <h1>
-        <svg class="app-logo" viewBox="0 0 256 256" width="28" height="28" aria-hidden="true">
-          <path
-            d="M 110.68,26 Q 128,16 145.32,26 L 207.67,62 Q 224.99,72 224.99,92 L 224.99,164 Q 224.99,184 207.67,194 L 145.32,230 Q 128,240 110.68,230 L 48.33,194 Q 31.01,184 31.01,164 L 31.01,92 Q 31.01,72 48.33,62 Z M 81 88 h 94 a 12 12 0 0 1 12 12 v 56 a 12 12 0 0 1 -12 12 h -94 a 12 12 0 0 1 -12 -12 v -56 a 12 12 0 0 1 12 -12 Z M 75 96 L 128 129.6 L 181 96 L 181 82 L 75 82 Z"
-            fill="currentColor"
-            fill-rule="evenodd"
-          />
-        </svg>
-        Cluster
-      </h1>
-      <div id="onboarding-banner" class="onboarding-banner" hidden>
-        <p>
-          Cluster sorts and cleans up mail using only what your inbox already tells it — subjects, senders,
-          dates, and starred/flagged status, never message bodies. Nothing is deleted without you confirming
-          first, and everything runs from your own sign-in — no data leaves your browser except through
-          provider APIs and optional features you explicitly enable.
-        </p>
-        <button id="onboarding-dismiss-btn">Got it</button>
-      </div>
-      <section id="athena-section" class="onboarding-banner" hidden>
-        <p>
-          <strong>Athena email security is available for this managed installation.</strong> Enabling the
-          connection sends only minimized security evidence to your organization's Athena server. Mailbox
-          cleanup stays local and suspicious mail is never auto-deleted.
-        </p>
-        <button id="athena-connect-btn">Allow Athena connection</button>
-        <span id="athena-status" role="status"></span>
-      </section>
+    <div class="ambient" aria-hidden="true"></div>
 
-      <div id="top-bar" class="bulk-bar">
-        <button id="connect-outlook">Connect Outlook</button>
-        <button id="apply-scan-settings-btn">Rescan</button>
-        <details id="settings-panel">
-          <summary>Settings</summary>
-          <label>
-            Scan window (days):
-            <input type="number" id="scan-window-input" min="1" max="3650" />
-          </label>
-          <label>
-            Max messages per account:
-            <input type="number" id="max-messages-input" min="50" max="5000" step="50" />
-          </label>
-          <label class="setting-toggle">
-            Theme
-            <select id="theme-select">
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </label>
-          <label id="fast-delete-toggle-label" class="setting-toggle">
-            <input type="checkbox" id="fast-delete-toggle" />
-            Fast permanent delete for Gmail (skips Trash — cannot be undone, also applies to "Clean up";
-            requires a one-time extra permission grant)
-          </label>
-        </details>
-      </div>
+    <div class="app-shell">
+      <!-- ── Header ─────────────────────────────────────────────────── -->
+      <header class="app-header">
+        <span class="brand">
+          <svg
+            class="brand-mark"
+            viewBox="0 0 256 256"
+            width="22"
+            height="22"
+            aria-hidden="true"
+          >
+            <path
+              d="M 110.68,26 Q 128,16 145.32,26 L 207.67,62 Q 224.99,72 224.99,92 L 224.99,164 Q 224.99,184 207.67,194 L 145.32,230 Q 128,240 110.68,230 L 48.33,194 Q 31.01,184 31.01,164 L 31.01,92 Q 31.01,72 48.33,62 Z M 81 88 h 94 a 12 12 0 0 1 12 12 v 56 a 12 12 0 0 1 -12 12 h -94 a 12 12 0 0 1 -12 -12 v -56 a 12 12 0 0 1 12 -12 Z M 75 96 L 128 129.6 L 181 96 L 181 82 L 75 82 Z"
+              fill="currentColor"
+              fill-rule="evenodd"
+            />
+          </svg>
+          <span class="brand-word">Cluster</span>
+        </span>
 
-      <p id="status" role="status">Loading your senders…</p>
+        <span class="header-spacer"></span>
 
-      <nav id="tabs" role="tablist">
-        <button type="button" data-tab="overview" role="tab">Overview</button>
-        <button type="button" data-tab="cleanup" role="tab">Clean up</button>
-        <button type="button" data-tab="subscriptions" role="tab">Subscriptions</button>
-        <button type="button" data-tab="security" role="tab">Security</button>
-        <button type="button" data-tab="rules" role="tab">Rules</button>
-        <button type="button" data-tab="screener" role="tab">Screener</button>
-        <button type="button" data-tab="recent" role="tab">Recently done</button>
-      </nav>
+        <span class="account-pill" id="account-pill" hidden>
+          <span class="avatar" id="account-avatar">SA</span>
+          <span class="email" id="account-email"></span>
+        </span>
 
-      <section class="tab-panel" data-tab="overview" role="tabpanel">
-        <h2>Overview</h2>
-        <p class="hint" id="overview-headline"></p>
-        <div id="overview-content"></div>
-      </section>
+        <button type="button" id="connect-outlook" class="pill-btn">Connect Outlook</button>
 
-      <section class="tab-panel" data-tab="cleanup" role="tabpanel">
-        <section id="sort-inbox-section">
-          <h2>Sort my inbox</h2>
-          <p class="hint">
-            One pass: file every scanned message under a flat label
-            (<code>Shopping</code>, <code>Newsletters</code>, …) by what it is (one-time codes,
-            receipts, shipping) or who sent it (Shopping, Finance, Travel, …). If you already have a
-            label with that name, Cluster asks before touching it. Starred mail is left alone.
-            "Sort my inbox…" shows a preview first — nothing moves until you press Apply.
-          </p>
-          <div id="sort-inbox-bar" class="bulk-bar">
-            <span id="sort-inbox-slot"><button id="sort-inbox-btn">Sort my inbox…</button></span>
-            <span id="sort-inbox-count" class="hint"></span>
-          </div>
-          <details id="sort-inbox-config">
-            <summary>Which buckets, and where they go</summary>
-            <div id="sort-inbox-buckets"></div>
-            <label class="setting-toggle">
-              <input type="checkbox" id="sort-keep-sorting" />
-              Keep sorting new mail (save a rule per bucket for the background sweep)
+        <button type="button" id="apply-scan-settings-btn" class="pill-btn">
+          <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+            <path d="M16.5 6.5A7 7 0 1 0 17 10"></path>
+            <path d="M17 3.2v3.6h-3.6"></path>
+          </svg>
+          Rescan
+        </button>
+
+        <details class="settings-sheet" id="settings-panel">
+          <summary class="icon-btn" aria-label="Settings" title="Settings">
+            <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+              <circle cx="10" cy="10" r="2.6"></circle>
+              <path d="M10 3.4v1.4M10 15.2v1.4M4.9 4.9l1 1M14.1 14.1l1 1M3.4 10h1.4M15.2 10h1.4M4.9 15.1l1-1M14.1 5.9l1-1"></path>
+            </svg>
+          </summary>
+          <div class="sheet-body">
+            <label>
+              Scan window (days)
+              <input type="number" id="scan-window-input" min="1" max="3650" />
             </label>
-            <label class="setting-toggle">
-              <input type="checkbox" id="sort-expire-otp" />
-              Also auto-trash one-time codes older than 2 days
+            <label>
+              Max messages per account
+              <input type="number" id="max-messages-input" min="50" max="5000" step="50" />
             </label>
-          </details>
-          <section id="sort-seed-card" class="onboarding-banner" hidden></section>
-          <div id="sort-inbox-preview"></div>
-        </section>
-
-        <section id="digest-section" hidden>
-          <h2>Digest</h2>
-          <p class="hint">
-            A quick on-device summary of what's in your inbox right now — generated locally by Chrome from the
-            counts below, nothing sent anywhere.
-          </p>
-          <div id="digest-bar" class="bulk-bar">
-            <button id="generate-digest-btn" disabled>Generate digest</button>
-            <span id="digest-status" role="status"></span>
-          </div>
-          <p id="digest-text" hidden></p>
-        </section>
-
-        <section id="ai-kind-section" hidden>
-          <h2>Classify ambiguous mail</h2>
-          <p class="hint">
-            Cluster's built-in classifier reads only subject lines (never message bodies) and is English-only,
-            so some non-English or unusually-phrased mail lands in "other" with no retention policy. This uses
-            Chrome's on-device model as a second opinion for exactly those messages, locally, in this browser
-            session only -- it never overrides a classification the built-in rules already made.
-          </p>
-          <div id="ai-kind-bar" class="bulk-bar">
-            <button id="classify-other-btn" disabled>Classify ambiguous mail</button>
-            <span id="ai-kind-status" role="status"></span>
-          </div>
-        </section>
-
-        <div id="sender-bulk-bar" class="bulk-bar" hidden>
-          <button id="select-safe-senders">Select safe</button>
-          <span id="sender-selected-count">0 selected</span>
-          <span id="unsubscribe-bulk-slot">
-            <button id="bulk-unsubscribe-btn" disabled>Bulk unsubscribe selected</button>
-          </span>
-          <span id="keep-sorted-bulk-slot">
-            <button id="bulk-keep-sorted-btn" disabled>Bulk keep sorted selected</button>
-          </span>
-          <label>
-            Snooze for:
-            <select id="snooze-duration-select">
-              <option value="1">1 day</option>
-              <option value="7" selected>1 week</option>
-              <option value="30">1 month</option>
-            </select>
-          </label>
-          <span id="snooze-bulk-slot">
-            <button id="bulk-snooze-btn" disabled>Bulk snooze selected</button>
-          </span>
-        </div>
-
-        <div id="sender-groups" hidden></div>
-
-        <section id="suggested-actions-section" hidden>
-          <h2>Suggested actions</h2>
-          <p class="hint">
-            Cleanup Cluster thinks is worth reviewing, grouped by why it was suggested. Nothing moves until
-            you confirm each group below.
-          </p>
-
-          <section id="never-read-section" hidden>
-            <h3>Personalized cleanup suggestions</h3>
-            <p class="hint">
-              Cluster learns from changed unread patterns and your corrections, entirely on this device. It
-              stores only bounded sender-level counts and ratios — never message IDs, subjects, or bodies.
-              The displayed fit score explains why a suggestion appeared; it is not a probability. Starred
-              or flagged senders are excluded, nothing moves until you confirm, and “Not useful” hides a
-              suggestion for 30 days.
-            </p>
-            <div id="never-read-bulk-bar" class="bulk-bar">
-              <span id="never-read-count"></span>
-              <span id="never-read-mute-slot"><button id="never-read-mute-btn">Mute suggested…</button></span>
-              <span id="never-read-trash-slot"
-                ><button id="never-read-trash-btn" class="danger">Trash suggested…</button></span
-              >
-            </div>
-            <div id="never-read-list"></div>
-          </section>
-
-          <section id="spam-section" hidden>
-            <h3>Suggested spam</h3>
-            <p class="hint">
-              Senders whose domain is on a public spam or throwaway-email list (disposable-email-domains,
-              StopForumSpam) or the extension's own known-bad list. Usually safe to delete — but it's your
-              call, and nothing moves to Trash until you confirm. Anything with a starred message is left
-              out.
-              <span id="spam-list-size" class="hint"></span>
-            </p>
-            <div id="spam-bulk-bar" class="bulk-bar">
-              <label><input type="checkbox" id="spam-select-all" checked /> Select all</label>
-              <span id="spam-count"></span>
-              <span id="spam-trash-slot"
-                ><button id="spam-trash-btn" class="danger">Trash selected…</button></span
-              >
-            </div>
-            <div id="spam-list"></div>
-          </section>
-
-          <section id="expiry-section" hidden>
-            <h3>Ready to clean up</h3>
-            <p class="hint">
-              Messages that likely served their purpose — one-time codes, old shipping updates, and
-              newsletters past their window, judged only by how long ago they arrived. Starred/flagged mail
-              is always skipped. Nothing is deleted until you confirm.
-            </p>
-            <div id="expiry-bar" class="bulk-bar">
-              <span id="expiry-breakdown"></span>
-              <span id="expiry-cleanup-slot">
-                <button id="expiry-cleanup-btn">Clean up</button>
+            <label>
+              Theme
+              <select id="theme-select">
+                <option value="system">System</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
+            <label class="row" id="fast-delete-toggle-label">
+              <input type="checkbox" id="fast-delete-toggle" />
+              <span>
+                Fast permanent delete for Gmail — skips Trash, cannot be undone. Applies to bulk
+                "Clean up" too. Needs a one-time extra permission grant.
               </span>
-            </div>
-          </section>
-        </section>
-
-        <details id="also-check-details">
-          <summary>Also check</summary>
-          <div id="smart-views-bar" class="bulk-bar">
-            <strong>Views:</strong>
-            <span id="smart-view-chips"></span>
-          </div>
-          <div id="smart-view-result-slot"></div>
-          <div id="keep-newest-bar" class="bulk-bar">
-            <label>
-              Trim each sender to its newest
-              <input type="number" id="keep-newest-n" min="1" max="100" value="3" />
-              messages
             </label>
-            <span id="keep-newest-slot"><button id="keep-newest-btn" class="danger">Trim…</button></span>
           </div>
+        </details>
+      </header>
 
-          <section id="domain-groups" hidden>
-            <h3>By domain</h3>
-            <p class="hint">
-              Senders grouped by their base domain (personal addresses at gmail.com, yahoo.com, etc. are
-              kept separate) and bucketed into categories. Deleting moves mail to Trash — starred messages
-              are always skipped. "Select safe" only checks domains with zero starred/flagged mail.
+      <div class="app-body">
+        <!-- ── Sidebar ───────────────────────────────────────────────── -->
+        <nav class="sidebar" id="sidebar" aria-label="Sections">
+          <button type="button" class="nav-item nav-standalone" data-screen="overview">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.2 8.6 10 3.3l6.8 5.3v7.2a1 1 0 0 1-1 1h-3.4v-4.6H7.6v4.6H4.2a1 1 0 0 1-1-1z"></path></svg>
+            Overview
+          </button>
+
+          <div class="nav-group-label">Clean up</div>
+          <button type="button" class="nav-item" data-screen="suggested">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3.1l1.5 3.9 3.9 1.5-3.9 1.5L10 13.9 8.5 10 4.6 8.5 8.5 7z"></path><path d="M15.2 13.2l.7 1.7 1.7.7-1.7.7-.7 1.7-.7-1.7-1.7-.7 1.7-.7z"></path></svg>
+            Suggested
+            <span class="nav-count accent" id="nav-count-suggested"></span>
+          </button>
+          <button type="button" class="nav-item" data-screen="senders">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.4h3.2l1.1 1.8h5.4l1.1-1.8H17"></path><path d="M4.4 5.2h11.2l1.4 6.2v3.2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3.2z"></path></svg>
+            All senders
+            <span class="nav-count" id="nav-count-senders"></span>
+          </button>
+          <button type="button" class="nav-item" data-screen="subscriptions">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.6" width="14" height="10.8" rx="2"></rect><path d="M3.6 5.4 10 10.6l6.4-5.2"></path></svg>
+            Subscriptions
+            <span class="nav-count" id="nav-count-subscriptions"></span>
+          </button>
+          <button type="button" class="nav-item" data-screen="impersonation">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2.9 4.2 5v4.6c0 3.2 2.3 6 5.8 7.5 3.5-1.5 5.8-4.3 5.8-7.5V5z"></path><path d="M10 7.6v3M10 13.1h.01"></path></svg>
+            Impersonation
+            <span class="nav-count alert" id="nav-count-impersonation"></span>
+          </button>
+
+          <div class="nav-group-label">Standing</div>
+          <button type="button" class="nav-item" data-screen="rules">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.4 6.2h13.2M3.4 10h9M3.4 13.8h5.6"></path></svg>
+            Rules
+            <span class="nav-count" id="nav-count-rules"></span>
+          </button>
+          <button type="button" class="nav-item" data-screen="screener">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="9" r="5.4"></circle><path d="M13 13l4 4"></path></svg>
+            Screener
+            <span class="nav-count accent" id="nav-count-screener"></span>
+          </button>
+          <button type="button" class="nav-item" data-screen="recent">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="6.6"></circle><path d="M10 6.4V10l2.6 1.6"></path></svg>
+            Recently done
+          </button>
+
+          <span class="sidebar-spacer"></span>
+          <p class="sidebar-note">
+            Senders, subjects and dates only — never message bodies. The only thing fetched
+            externally is a sender's site icon.
+          </p>
+        </nav>
+
+        <!-- ── Main ──────────────────────────────────────────────────── -->
+        <main class="app-main">
+          <p id="status" class="status-line" role="status">Loading your senders…</p>
+
+          <div id="onboarding-banner" class="banner" hidden>
+            <p>
+              Cluster sorts and cleans up mail using only what your inbox already tells it — subjects,
+              senders, dates, and starred/flagged status, never message bodies. Nothing is deleted
+              without you confirming first, and everything runs from your own sign-in.
             </p>
-            <div id="domain-bulk-bar" class="bulk-bar" hidden>
-              <button id="select-safe-domains">Select safe</button>
-              <span id="domain-selected-count">0 selected</span>
-              <span id="delete-domains-bulk-slot">
-                <button id="bulk-delete-domains-btn" class="danger" disabled>Delete selected domains…</button>
-              </span>
+            <button type="button" id="onboarding-dismiss-btn" class="btn btn-accent">Got it</button>
+          </div>
+          <div id="athena-section" class="banner" hidden>
+            <p>
+              <strong>Athena email security is available for this managed installation.</strong>
+              Enabling the connection sends only minimized security evidence to your organization's
+              Athena server. Mailbox cleanup stays local and suspicious mail is never auto-deleted.
+            </p>
+            <button type="button" id="athena-connect-btn" class="btn btn-accent">
+              Allow Athena connection
+            </button>
+            <span id="athena-status" role="status" class="hint"></span>
+          </div>
+
+          <!-- ══ Overview ═══════════════════════════════════════════════ -->
+          <section class="screen" data-screen="overview" role="tabpanel" hidden>
+            <div class="page-head">
+              <div class="page-titles">
+                <h1 class="page-title">Overview</h1>
+                <p class="lead">
+                  Everything Cluster found, and the things it will not decide without you.
+                </p>
+              </div>
             </div>
-            <div id="domain-group-list"></div>
+            <p class="sr-only" id="overview-headline"></p>
+            <div id="overview-content"></div>
           </section>
-        </details>
-      </section>
 
-      <section class="tab-panel" data-tab="subscriptions" role="tabpanel" hidden>
-        <h2>Subscriptions</h2>
+          <!-- ══ Suggested cleanup ═════════════════════════════════════ -->
+          <section class="screen" data-screen="suggested" role="tabpanel" hidden>
+            <div class="page-head">
+              <div class="page-titles">
+                <h1 class="page-title">Suggested cleanup</h1>
+                <p class="lead">
+                  Ranked by how you actually read mail. One recommended action each — the rest are one
+                  tap deeper.
+                </p>
+              </div>
+            </div>
 
-        <h3>Paid subscriptions &amp; trials</h3>
-        <p class="hint">
-          Services detected from trial/renewal wording or a recognized subscription domain in this
-          scan, most urgent first. This is awareness only: Cluster has no way to actually cancel a
-          paid subscription the way it can unsubscribe from a newsletter, so there's no action button
-          here — cancel or manage the plan from the service itself.
-        </p>
-        <div id="paid-subscriptions-list"></div>
+            <div id="suggested-metric-band"></div>
 
-        <h3>Newsletters</h3>
-        <p class="hint">
-          Every sender in this scan with an unsubscribe option, with problem outcomes shown first. Verified
-          one-click requests fire straight away; others open the provider's page or an email. Requests are
-          monitored locally and sorted into pending, quiet in the current scan, or still sending after a
-          14-day observation window; “quiet” is scan-limited evidence, not a claim that all delivery stopped.
-          “Unsubscribe + clean” moves only newsletter-classified messages to Trash and keeps transactional,
-          sensitive, starred, and ambiguous mail. “Read later” files the same safely classified newsletters
-          into a reversible Cluster label instead of deleting them.
-        </p>
-        <div id="subscriptions-bulk-bar" class="bulk-bar" hidden>
-          <span id="subs-count">0 senders</span>
-          <span id="subs-unsub-all-slot">
-            <button id="subs-unsub-all-btn">Unsubscribe all verified one-click</button>
-          </span>
-          <label>
-            Outcome
-            <select id="subs-outcome-filter">
-              <option value="all">all</option>
-              <option value="still-sending">still sending</option>
-              <option value="pending">pending</option>
-              <option value="quiet">quiet in scan</option>
-              <option value="untracked">not requested</option>
-            </select>
-          </label>
-        </div>
-        <div id="subscriptions-list"></div>
-      </section>
+            <section id="suggested-actions-section" hidden>
+              <div class="section-head">
+                <h2 class="section-label">Your cleanup plan</h2>
+                <span class="muted" id="cleanup-plan-count"></span>
+              </div>
+              <div class="grouped-list" id="cleanup-plan-list"></div>
 
-      <section class="tab-panel" data-tab="security" role="tabpanel" hidden>
-        <label class="setting-toggle">
-          <input type="checkbox" id="auto-quarantine-toggle" />
-          Auto-quarantine high-risk senders in the background
-        </label>
-        <p class="hint">
-          When on, the 6-hourly background pass labels mail from HIGH-risk senders "Possible Phishing"
-          and files it out of your inbox. Gmail only, never deleted, and every batch is reversible from
-          Recently done. Off by default.
-        </p>
-        <section id="quarantine-review-section" hidden>
-          <h2>Quarantine review</h2>
-          <p class="hint">
-            Senders auto-quarantined by the background pass, awaiting your decision. Confirm keeps a sender
-            filed out and remembers the call; Release brings the mail back to the inbox and makes this sender
-            less likely to be auto-quarantined again on a similar signal mix.
-          </p>
-          <ul id="quarantine-review-list"></ul>
-        </section>
-        <section id="security-section" hidden>
-          <h2>Possible impersonation</h2>
-          <p class="hint">
-            Senders that claim a well-known brand whose real domain doesn't match, fail authentication, use a
-            lookalike domain, or appear on a known-bad domain list — common phishing patterns. Cluster scans
-            recent Inbox mail separately from cleanup and uses provider-trusted authentication headers, but
-            these are still risk signals rather than verified facts. Auto-quarantine acts only when the switch
-            above is enabled; otherwise nothing here is moved or deleted. Ordered by risk.
-          </p>
-          <ul id="security-sender-list"></ul>
-        </section>
-        <p id="security-empty" class="hint">No possible-impersonation signals in the current scan.</p>
-      </section>
+              <!-- Legacy per-section slots the current render code targets;
+                   re-skinned into the plan list screen-by-screen. -->
+              <section id="never-read-section" class="review-panel" hidden>
+                <h3 class="section-label">Personalized cleanup suggestions</h3>
+                <p class="hint">
+                  Cluster learns from changed unread patterns and your corrections, entirely on this
+                  device. Starred or flagged senders are excluded; nothing moves until you confirm.
+                </p>
+                <div id="never-read-bulk-bar" class="toolbar">
+                  <span id="never-read-count"></span>
+                  <span id="never-read-mute-slot"><button id="never-read-mute-btn" class="btn btn-accent">Mute suggested…</button></span>
+                  <span id="never-read-trash-slot"><button id="never-read-trash-btn" class="btn btn-danger">Trash suggested…</button></span>
+                </div>
+                <div id="never-read-list" class="scroll-x"></div>
+              </section>
 
-      <section class="tab-panel" data-tab="rules" role="tabpanel" hidden>
-        <h2>Rules</h2>
-        <p class="hint">
-          Standing clean-up rules with priorities, exceptions, and optional stop-processing. Applied when you
-          click "Apply" below and on every background sweep. Starred/flagged mail is always skipped; rules
-          never permanently delete. Cluster previews overlapping rules before it acts.
-        </p>
-        <div id="rules-list"></div>
-        <div id="rule-preview"></div>
-        <div class="bulk-bar">
-          <input
-            type="text"
-            id="rule-natural-language"
-            placeholder="Describe a rule, e.g. Archive unread newsletters older than 14 days"
-          />
-          <button type="button" id="rule-draft-btn">Draft rule locally</button>
-          <button type="button" id="rule-save-draft-btn" disabled>Save reviewed draft</button>
-          <span id="rule-draft-status" class="hint"></span>
-        </div>
-        <p class="hint">
-          The on-device model receives only the instruction above—not email content—and can only draft
-          constrained rule JSON. Cluster validates and previews it; nothing runs until you save and apply it.
-          A deterministic parser is used when the model is unavailable.
-        </p>
-        <details id="rule-form-details">
-          <summary>Customize manually</summary>
-          <form id="rule-form" class="bulk-bar">
-            <input type="text" id="rule-name" placeholder="Rule name" />
-            <input type="text" id="rule-from-domain" placeholder="from domain, e.g. news.example.com" />
-            <input type="text" id="rule-from-address" placeholder="from address (exact)" />
-            <input type="text" id="rule-except-domain" placeholder="except domain" />
-            <input type="text" id="rule-except-address" placeholder="except address" />
-            <label>
-              older than
-              <input type="number" id="rule-older-days" min="1" max="3650" />
-              days
+              <section id="spam-section" class="review-panel" hidden>
+                <h3 class="section-label">Suggested spam</h3>
+                <p class="hint">
+                  Senders whose domain is on a public spam or throwaway-email list, or the extension's
+                  own known-bad list. Nothing moves to Trash until you confirm; starred mail is left
+                  out. <span id="spam-list-size" class="hint"></span>
+                </p>
+                <div id="spam-bulk-bar" class="toolbar">
+                  <label class="check-label"><input type="checkbox" id="spam-select-all" class="check" checked /> <span>Select all</span></label>
+                  <span id="spam-count"></span>
+                  <span id="spam-trash-slot"><button id="spam-trash-btn" class="btn btn-danger">Trash selected…</button></span>
+                </div>
+                <div id="spam-list" class="scroll-x"></div>
+              </section>
+
+              <section id="expiry-section" class="review-panel" hidden>
+                <h3 class="section-label">Ready to clean up</h3>
+                <p class="hint">
+                  Messages that likely served their purpose — one-time codes, old shipping updates,
+                  newsletters past their window — judged only by how long ago they arrived.
+                  Starred/flagged mail is always skipped.
+                </p>
+                <div id="expiry-bar" class="confirm-slot">
+                  <span id="expiry-breakdown"></span>
+                  <span id="expiry-cleanup-slot"><button id="expiry-cleanup-btn" class="btn btn-accent">Clean up</button></span>
+                </div>
+              </section>
+            </section>
+
+            <section id="senders-worth-decision">
+              <div class="section-head">
+                <h2 class="section-label">Senders worth a decision</h2>
+                <span class="muted" id="worth-decision-count"></span>
+                <span class="spacer"></span>
+                <a href="#" id="see-all-senders-link">See all senders</a>
+              </div>
+              <div id="sender-groups" hidden></div>
+            </section>
+
+            <details class="disclosure" id="more-tools">
+              <summary>More tools — sort, smart views, digest</summary>
+
+              <section id="sort-inbox-section">
+                <h3 class="section-label">Sort my inbox</h3>
+                <p class="hint">
+                  One pass: file every scanned message under a flat label by what it is (one-time
+                  codes, receipts, shipping) or who sent it. Starred mail is left alone. A preview
+                  shows first — nothing moves until you press Apply.
+                </p>
+                <div id="sort-inbox-bar" class="confirm-slot">
+                  <span id="sort-inbox-slot"><button id="sort-inbox-btn" class="btn btn-accent">Sort my inbox…</button></span>
+                  <span id="sort-inbox-count" class="hint"></span>
+                </div>
+                <details id="sort-inbox-config">
+                  <summary>Which buckets, and where they go</summary>
+                  <div id="sort-inbox-buckets"></div>
+                  <label class="check-label"><input type="checkbox" id="sort-keep-sorting" /> <span>Keep sorting new mail (save a rule per bucket for the background sweep)</span></label>
+                  <label class="check-label"><input type="checkbox" id="sort-expire-otp" /> <span>Also auto-trash one-time codes older than 2 days</span></label>
+                </details>
+                <section id="sort-seed-card" class="banner" hidden></section>
+                <div id="sort-inbox-preview"></div>
+              </section>
+
+              <section id="digest-section" hidden>
+                <h3 class="section-label">Digest</h3>
+                <p class="hint">
+                  A quick on-device summary of what's in your inbox right now — generated locally by
+                  Chrome from the counts below, nothing sent anywhere.
+                </p>
+                <div id="digest-bar" class="confirm-slot">
+                  <button id="generate-digest-btn" class="btn" disabled>Generate digest</button>
+                  <span id="digest-status" role="status"></span>
+                </div>
+                <p id="digest-text" hidden></p>
+              </section>
+
+              <section id="ai-kind-section" hidden>
+                <h3 class="section-label">Classify ambiguous mail</h3>
+                <p class="hint">
+                  Uses Chrome's on-device model as a second opinion for subject lines the built-in
+                  rules gave up on — locally, this session only, never overriding a rule.
+                </p>
+                <div id="ai-kind-bar" class="confirm-slot">
+                  <button id="classify-other-btn" class="btn" disabled>Classify ambiguous mail</button>
+                  <span id="ai-kind-status" role="status"></span>
+                </div>
+              </section>
+
+              <div id="smart-views-bar" class="toolbar">
+                <strong>Views:</strong>
+                <span id="smart-view-chips" class="chip-row"></span>
+              </div>
+              <div id="smart-view-result-slot"></div>
+              <div id="keep-newest-bar" class="confirm-slot">
+                <label>
+                  Trim each sender to its newest
+                  <input type="number" id="keep-newest-n" min="1" max="100" value="3" />
+                  messages
+                </label>
+                <span id="keep-newest-slot"><button id="keep-newest-btn" class="btn btn-danger">Trim…</button></span>
+              </div>
+
+              <section id="domain-groups" hidden>
+                <h3 class="section-label">By domain</h3>
+                <p class="hint">
+                  Senders grouped by base domain and bucketed into categories. Deleting moves mail to
+                  Trash — starred messages are always skipped.
+                </p>
+                <div id="domain-bulk-bar" class="toolbar" hidden>
+                  <button id="select-safe-domains" class="btn">Select safe</button>
+                  <span id="domain-selected-count">0 selected</span>
+                  <span id="delete-domains-bulk-slot"><button id="bulk-delete-domains-btn" class="btn btn-danger" disabled>Delete selected domains…</button></span>
+                </div>
+                <div id="domain-group-list" class="scroll-x"></div>
+              </section>
+            </details>
+
+            <div id="suggested-floating-bar"></div>
+          </section>
+
+          <!-- ══ All senders ═══════════════════════════════════════════ -->
+          <section class="screen" data-screen="senders" role="tabpanel" hidden>
+            <div class="page-head">
+              <div class="page-titles">
+                <h1 class="page-title">All senders</h1>
+                <p class="lead" id="senders-lead">
+                  Every sender Cluster saw, heaviest first. Nothing here is acted on until you say so.
+                </p>
+              </div>
+            </div>
+
+            <div class="toolbar-row">
+              <label class="search">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.4"></circle><path d="M13 13l4 4"></path></svg>
+                <input type="search" id="sender-search" placeholder="Search senders" aria-label="Search senders" />
+              </label>
+              <div class="segmented" id="sender-filter" role="group" aria-label="Filter senders">
+                <button type="button" data-filter="all" aria-pressed="true">All</button>
+                <button type="button" data-filter="never" aria-pressed="false">Never opened</button>
+                <button type="button" data-filter="subs" aria-pressed="false">Subscriptions</button>
+                <button type="button" data-filter="muted" aria-pressed="false">Muted</button>
+              </div>
+            </div>
+
+            <div id="sender-bulk-bar" class="toolbar" hidden>
+              <button id="select-safe-senders" class="btn">Select safe</button>
+              <span id="sender-selected-count">0 selected</span>
+              <span id="unsubscribe-bulk-slot"><button id="bulk-unsubscribe-btn" class="btn btn-accent" disabled>Bulk unsubscribe selected</button></span>
+              <span id="keep-sorted-bulk-slot"><button id="bulk-keep-sorted-btn" class="btn" disabled>Bulk keep sorted selected</button></span>
+              <label>
+                Snooze for:
+                <select id="snooze-duration-select">
+                  <option value="1">1 day</option>
+                  <option value="7" selected>1 week</option>
+                  <option value="30">1 month</option>
+                </select>
+              </label>
+              <span id="snooze-bulk-slot"><button id="bulk-snooze-btn" class="btn" disabled>Bulk snooze selected</button></span>
+            </div>
+
+            <div id="all-senders-list"></div>
+          </section>
+
+          <!-- ══ Subscriptions ═════════════════════════════════════════ -->
+          <section class="screen" data-screen="subscriptions" role="tabpanel" hidden>
+            <div class="page-head">
+              <div class="page-titles">
+                <h1 class="page-title">Subscriptions</h1>
+                <p class="lead">
+                  Mailing lists, grouped by how often they arrive. Cluster only uses a verified
+                  one-click unsubscribe — it never fills in a form on your behalf.
+                </p>
+              </div>
+            </div>
+
+            <section id="paid-subscriptions-section">
+              <div class="section-head">
+                <h2 class="section-label">Paid subscriptions &amp; trials</h2>
+              </div>
+              <p class="hint">
+                Services detected from trial/renewal wording or a recognized subscription domain,
+                most urgent first. Awareness only — Cluster can't cancel a paid plan the way it
+                unsubscribes from a newsletter, so there's no action here.
+              </p>
+              <div id="paid-subscriptions-list" class="scroll-x"></div>
+            </section>
+
+            <section>
+              <div class="section-head">
+                <h2 class="section-label">Newsletters</h2>
+              </div>
+              <p class="hint">
+                Every sender with an unsubscribe option, problems first. "Unsubscribe + clean" moves
+                only newsletter-classified messages to Trash and keeps transactional, sensitive,
+                starred, and ambiguous mail. "Read later" files them into a reversible Cluster label
+                instead.
+              </p>
+              <div id="subscriptions-bulk-bar" class="toolbar" hidden>
+                <span id="subs-count">0 senders</span>
+                <span id="subs-unsub-all-slot"><button id="subs-unsub-all-btn" class="btn btn-accent">Unsubscribe all verified one-click</button></span>
+                <label>
+                  Outcome
+                  <select id="subs-outcome-filter">
+                    <option value="all">all</option>
+                    <option value="still-sending">still sending</option>
+                    <option value="pending">pending</option>
+                    <option value="quiet">quiet in scan</option>
+                    <option value="untracked">not requested</option>
+                  </select>
+                </label>
+              </div>
+              <div id="subscriptions-list" class="scroll-x"></div>
+            </section>
+
+            <div id="subs-floating-bar"></div>
+          </section>
+
+          <!-- ══ Impersonation ═════════════════════════════════════════ -->
+          <section class="screen" data-screen="impersonation" role="tabpanel" hidden>
+            <div class="page-head">
+              <div class="page-titles">
+                <h1 class="page-title">Possible impersonation</h1>
+                <p class="lead">
+                  Senders using a display name from your contacts but writing from a domain that
+                  doesn't match. Cluster never opens the message — this is judged on the envelope
+                  alone.
+                </p>
+              </div>
+            </div>
+
+            <label class="check-label" id="auto-quarantine-row">
+              <input type="checkbox" id="auto-quarantine-toggle" />
+              <span>Auto-quarantine high-risk senders in the background</span>
             </label>
-            <select id="rule-kind">
-              <option value="">any kind</option>
-              <option value="otp">otp</option>
-              <option value="shipping">shipping</option>
-              <option value="receipt">receipt</option>
-              <option value="newsletter">newsletter</option>
-              <option value="social">social</option>
-              <option value="other">other</option>
-            </select>
-            <select id="rule-unsub">
-              <option value="">unsubscribe: any</option>
-              <option value="yes">has unsubscribe</option>
-              <option value="no">no unsubscribe</option>
-            </select>
-            <select id="rule-unread">
-              <option value="">read state: any</option>
-              <option value="yes">unread</option>
-              <option value="no">already read</option>
-            </select>
-            <select id="rule-action">
-              <option value="archive">archive</option>
-              <option value="trash">move to Trash</option>
-              <option value="markRead">mark read</option>
-              <option value="label">label</option>
-            </select>
-            <input type="text" id="rule-label" placeholder="Label name" hidden />
-            <label>
-              priority
-              <input type="number" id="rule-priority" min="-100" max="100" value="0" />
-            </label>
-            <label>
-              max per run
-              <input type="number" id="rule-limit" min="1" max="500" value="100" />
-            </label>
-            <label><input type="checkbox" id="rule-stop-processing" /> stop later rules</label>
-            <button type="submit" id="rule-add-btn">Add rule</button>
-            <span id="rule-form-error" class="hint"></span>
-          </form>
-        </details>
-        <div id="rule-apply-slot">
-          <button id="rule-apply-btn">Apply enabled rules now</button>
-        </div>
-      </section>
+            <p class="hint">
+              When on, the 6-hourly background pass labels mail from HIGH-risk senders "Possible
+              Phishing" and files it out of your inbox. Gmail only, never deleted, reversible from
+              Recently done. Off by default.
+            </p>
 
-      <section class="tab-panel" data-tab="screener" role="tabpanel" hidden>
-        <h2>Screener</h2>
-        <p class="hint">
-          Hold mail from senders you've never emailed until you decide about them. When on, the background
-          sweep moves unknown senders' mail into a "Screener" label and out of your inbox. Your sent
-          mail (who you've written to) is the automatic allow-list; nothing here is ever deleted.
-        </p>
-        <label class="setting-toggle">
-          <input type="checkbox" id="screener-toggle" />
-          Turn the Screener on
-        </label>
-        <div id="screener-queue"></div>
-        <h3>Always allow</h3>
-        <div id="screener-allowlist"></div>
-      </section>
+            <section id="quarantine-review-section" hidden>
+              <div class="section-head"><h2 class="section-label">Quarantine review</h2></div>
+              <p class="hint">
+                Senders auto-quarantined by the background pass, awaiting your decision. Confirm keeps
+                a sender filed out; Release brings the mail back and makes this sender less likely to
+                be auto-quarantined again.
+              </p>
+              <ul id="quarantine-review-list"></ul>
+            </section>
 
-      <section class="tab-panel" data-tab="recent" role="tabpanel" hidden>
-        <h2>Recently done</h2>
-        <p class="hint">
-          Everything Cluster changed, newest first, with an Undo where the action can be reversed. The most
-          recent background sweep is summarised at the top.
-        </p>
-        <div id="recent-list"></div>
-      </section>
-    </main>
+            <section id="security-section" hidden>
+              <div id="security-sender-list"></div>
+            </section>
+            <p id="security-empty" class="caveat">No possible-impersonation signals in the current scan.</p>
+            <p class="caveat">
+              Detection compares display names against your contacts and checks the sending domain's
+              authentication records. It cannot read the message, so treat this as a prompt to look —
+              not a verdict.
+            </p>
+          </section>
+
+          <!-- ══ Rules ═════════════════════════════════════════════════ -->
+          <section class="screen" data-screen="rules" role="tabpanel" hidden>
+            <div class="page-head">
+              <div class="page-titles">
+                <h1 class="page-title">Rules</h1>
+                <p class="lead">
+                  Standing instructions that run on new mail as it arrives. Describe one in plain
+                  words and Cluster writes the conditions.
+                </p>
+              </div>
+            </div>
+
+            <div class="glass-card" id="rule-composer">
+              <label class="section-label" for="rule-natural-language">New rule</label>
+              <input
+                type="text"
+                id="rule-natural-language"
+                class="composer-input"
+                placeholder="e.g. Archive unread newsletters older than 14 days"
+              />
+              <div class="chip-row">
+                <span class="hint">Try</span>
+                <span id="rule-example-chips" class="chip-row"></span>
+                <span style="flex: 1"></span>
+                <button type="button" id="rule-draft-btn" class="btn btn-accent">Draft rule locally</button>
+                <button type="button" id="rule-save-draft-btn" class="btn" disabled>Save reviewed draft</button>
+              </div>
+              <span id="rule-draft-status" class="hint"></span>
+              <p class="hint">
+                The on-device model receives only the instruction above — not email content — and can
+                only draft constrained rule JSON. Cluster validates and previews it; nothing runs
+                until you save and apply. A deterministic parser is used when the model is unavailable.
+              </p>
+            </div>
+
+            <div id="rules-list"></div>
+            <div id="rule-preview"></div>
+
+            <details id="rule-form-details" class="disclosure">
+              <summary>Customize manually</summary>
+              <form id="rule-form" class="form-grid">
+                <input type="text" id="rule-name" placeholder="Rule name" />
+                <input type="text" id="rule-from-domain" placeholder="from domain, e.g. news.example.com" />
+                <input type="text" id="rule-from-address" placeholder="from address (exact)" />
+                <input type="text" id="rule-except-domain" placeholder="except domain" />
+                <input type="text" id="rule-except-address" placeholder="except address" />
+                <label>older than <input type="number" id="rule-older-days" min="1" max="3650" /> days</label>
+                <select id="rule-kind">
+                  <option value="">any kind</option>
+                  <option value="otp">otp</option>
+                  <option value="shipping">shipping</option>
+                  <option value="receipt">receipt</option>
+                  <option value="newsletter">newsletter</option>
+                  <option value="social">social</option>
+                  <option value="other">other</option>
+                </select>
+                <select id="rule-unsub">
+                  <option value="">unsubscribe: any</option>
+                  <option value="yes">has unsubscribe</option>
+                  <option value="no">no unsubscribe</option>
+                </select>
+                <select id="rule-unread">
+                  <option value="">read state: any</option>
+                  <option value="yes">unread</option>
+                  <option value="no">already read</option>
+                </select>
+                <select id="rule-action">
+                  <option value="archive">archive</option>
+                  <option value="trash">move to Trash</option>
+                  <option value="markRead">mark read</option>
+                  <option value="label">label</option>
+                </select>
+                <input type="text" id="rule-label" placeholder="Label name" hidden />
+                <label>priority <input type="number" id="rule-priority" min="-100" max="100" value="0" /></label>
+                <label>max per run <input type="number" id="rule-limit" min="1" max="500" value="100" /></label>
+                <label class="check-label"><input type="checkbox" id="rule-stop-processing" /> <span>stop later rules</span></label>
+                <button type="submit" id="rule-add-btn" class="btn btn-accent">Add rule</button>
+                <span id="rule-form-error" class="field-error"></span>
+              </form>
+            </details>
+
+            <div id="rule-apply-slot">
+              <button id="rule-apply-btn" class="btn">Apply enabled rules now</button>
+            </div>
+          </section>
+
+          <!-- ══ Screener ══════════════════════════════════════════════ -->
+          <section class="screen" data-screen="screener" role="tabpanel" hidden>
+            <div class="page-head">
+              <div class="page-titles">
+                <h1 class="page-title">Screener</h1>
+                <p class="lead">
+                  Hold mail from senders you've never emailed until you decide. They are not told, and
+                  nothing is deleted. Your sent mail is the automatic allow-list.
+                </p>
+              </div>
+            </div>
+
+            <label class="check-label" id="screener-toggle-row">
+              <input type="checkbox" id="screener-toggle" />
+              <span>Turn the Screener on</span>
+            </label>
+
+            <div id="screener-queue"></div>
+
+            <section>
+              <div class="section-head"><h2 class="section-label">Always allow</h2></div>
+              <div id="screener-allowlist"></div>
+            </section>
+          </section>
+
+          <!-- ══ Recently done ═════════════════════════════════════════ -->
+          <section class="screen" data-screen="recent" role="tabpanel" hidden>
+            <div class="page-head">
+              <div class="page-titles">
+                <h1 class="page-title">Recently done</h1>
+                <p class="lead">
+                  Every action Cluster has taken on your behalf, newest first. Anything here can be
+                  put back for 30 days — muted senders stay reversible forever.
+                </p>
+              </div>
+            </div>
+            <div id="recent-list"></div>
+          </section>
+        </main>
+      </div>
+    </div>
     <script type="module" src="./dashboard.ts"></script>
   </body>
 </html>

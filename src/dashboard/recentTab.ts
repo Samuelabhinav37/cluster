@@ -14,6 +14,7 @@ import {
 import { getSettings, mutateSettings } from "../lib/settingsStore";
 import { recordEngagementFeedback } from "../lib/engagementModel";
 import { gmailProvider } from "../lib/providers/gmailProvider";
+import { senderTile } from "./senderTile";
 import { ctx, providerById, rescan } from "./state";
 
 const recentListEl = document.getElementById("recent-list") as HTMLDivElement;
@@ -90,12 +91,42 @@ async function undoEntry(entry: ActionLogEntry) {
   await rescan();
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function dayLabel(at: number): string {
+  const startOfDay = (t: number) => {
+    const d = new Date(t);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+  const days = Math.round((startOfDay(Date.now()) - startOfDay(at)) / DAY_MS);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days} days ago`;
+  if (days < 14) return "Last week";
+  return new Date(at).toLocaleDateString();
+}
+
+function makeTile(entry: ActionLogEntry): HTMLElement {
+  if (entry.undo?.fromAddress) {
+    return senderTile(entry.undo.fromAddress, undefined, "sz-30");
+  }
+  const tile = document.createElement("span");
+  tile.className = "logo-tile sz-30";
+  tile.setAttribute("aria-hidden", "true");
+  tile.style.background = "var(--neutral-fill-hover)";
+  tile.style.color = "var(--label-2)";
+  tile.innerHTML =
+    '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="6.6"></circle><path d="M10 6.4V10l2.6 1.6"></path></svg>';
+  return tile;
+}
+
 export function renderRecentTab() {
   recentListEl.innerHTML = "";
 
   if (ctx.settings.lastTriageSummary) {
     const p = document.createElement("p");
-    p.className = "hint";
+    p.className = "caveat";
     p.textContent = `Last background sweep: ${ctx.settings.lastTriageSummary}`;
     recentListEl.appendChild(p);
   }
@@ -103,37 +134,79 @@ export function renderRecentTab() {
   const entries = [...ctx.settings.actionLog].reverse();
   if (entries.length === 0) {
     const p = document.createElement("p");
-    p.className = "hint";
+    p.className = "empty-state";
     p.textContent = "Nothing done yet.";
     recentListEl.appendChild(p);
     return;
   }
 
-  let lastDay = "";
+  const stack = document.createElement("div");
+  stack.className = "stack";
+
+  let currentLabel = "";
+  let group: HTMLDivElement | null = null;
+  let rowInGroup = 0;
+
   for (const entry of entries) {
-    const day = new Date(entry.at).toLocaleDateString();
-    if (day !== lastDay) {
-      const h = document.createElement("h3");
-      h.textContent = day;
-      recentListEl.appendChild(h);
-      lastDay = day;
+    const label = dayLabel(entry.at);
+    if (label !== currentLabel) {
+      const wrap = document.createElement("div");
+      wrap.className = "day-group";
+      const h = document.createElement("div");
+      h.className = "section-label";
+      h.style.padding = "0 4px 10px";
+      h.textContent = label;
+      group = document.createElement("div");
+      group.className = "grouped-list";
+      wrap.append(h, group);
+      stack.appendChild(wrap);
+      currentLabel = label;
+      rowInGroup = 0;
     }
 
-    const row = document.createElement("div");
-    row.className = "recent-row";
+    if (rowInGroup > 0) {
+      const sep = document.createElement("div");
+      sep.className = "row-sep";
+      sep.style.marginLeft = "61px";
+      group!.appendChild(sep);
+    }
+    rowInGroup += 1;
 
-    const text = document.createElement("span");
-    const time = new Date(entry.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    text.textContent = `${time} — ${entry.summary}`;
+    const row = document.createElement("div");
+    row.className = "list-row";
+    row.style.gridTemplateColumns = "30px minmax(0,1fr) max-content";
+    row.appendChild(makeTile(entry));
+
+    const text = document.createElement("div");
+    text.className = "row-title-wrap";
+    const line = document.createElement("div");
+    line.className = "recent-line";
+    const firstSpace = entry.summary.indexOf(" ");
+    if (firstSpace > 0) {
+      const verb = document.createElement("span");
+      verb.className = "recent-verb";
+      verb.textContent = entry.summary.slice(0, firstSpace);
+      line.append(verb, document.createTextNode(entry.summary.slice(firstSpace)));
+    } else {
+      line.textContent = entry.summary;
+    }
+    const detail = document.createElement("div");
+    detail.className = "recent-detail";
+    detail.textContent = new Date(entry.at).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    text.append(line, detail);
     row.appendChild(text);
 
     if (entry.undone) {
       const done = document.createElement("span");
-      done.className = "hint";
+      done.className = "recent-detail";
       done.textContent = "undone";
       row.appendChild(done);
     } else if (entry.undo) {
       const undoBtn = document.createElement("button");
+      undoBtn.className = "btn btn-sm";
       undoBtn.textContent = "Undo";
       undoBtn.onclick = async () => {
         undoBtn.disabled = true;
@@ -147,8 +220,13 @@ export function renderRecentTab() {
         }
       };
       row.appendChild(undoBtn);
+    } else {
+      const spacer = document.createElement("span");
+      row.appendChild(spacer);
     }
 
-    recentListEl.appendChild(row);
+    group!.appendChild(row);
   }
+
+  recentListEl.appendChild(stack);
 }
