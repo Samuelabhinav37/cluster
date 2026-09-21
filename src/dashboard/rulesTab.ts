@@ -20,6 +20,7 @@ import { recordRuleCompletions } from "../lib/ruleCompletionLedger";
 import { draftRuleFromNaturalLanguage } from "../lib/aiRuleDraft";
 import type { MessageKind } from "../lib/messageKind";
 import { renderConfirmStep } from "./ui";
+import { listGroup, listRow } from "./listRow";
 import { ctx, providerById, rescan } from "./state";
 import { renderRecentTab } from "./recentTab";
 
@@ -59,84 +60,68 @@ export function renderRulesTab() {
     rulesListEl.appendChild(p);
     return;
   }
-  const list = document.createElement("div");
-  list.className = "grouped-list";
-  ctx.settings.rules.forEach((rule, i) => {
-    if (i > 0) {
-      const sep = document.createElement("div");
-      sep.className = "row-sep";
-      sep.style.marginLeft = "18px";
-      list.appendChild(sep);
-    }
+  const rows = ctx.settings.rules.map((rule) => buildRuleRow(rule));
+  rulesListEl.appendChild(listGroup(rows, { inset: false }));
+}
 
-    const row = document.createElement("div");
-    row.className = "list-row";
-    row.style.gridTemplateColumns = "minmax(0,1fr) max-content";
+function buildRuleRow(rule: ClusterRule): HTMLElement {
+  const sub = document.createElement("div");
+  const desc = document.createElement("div");
+  desc.className = "row-sub wrap";
+  desc.textContent = describeRule(rule);
+  const stat = document.createElement("div");
+  stat.className = "recent-detail";
+  stat.textContent = `priority ${rule.priority ?? 0} · limit ${ruleRunLimit(rule)}/run${
+    rule.stopProcessing ? " · stops later rules" : ""
+  }`;
+  sub.append(desc, stat);
 
-    const text = document.createElement("div");
-    text.className = "row-title-wrap";
-    const name = document.createElement("div");
-    name.className = "row-title";
-    name.style.whiteSpace = "normal";
-    name.textContent = rule.name;
-    const desc = document.createElement("div");
-    desc.className = "row-sub wrap";
-    desc.textContent = describeRule(rule);
-    const stat = document.createElement("div");
-    stat.className = "recent-detail";
-    stat.textContent = `priority ${rule.priority ?? 0} · limit ${ruleRunLimit(rule)}/run${
-      rule.stopProcessing ? " · stops later rules" : ""
-    }`;
-    text.append(name, desc, stat);
+  const editBtn = document.createElement("button");
+  editBtn.className = "btn btn-sm";
+  editBtn.textContent = "Edit";
+  editBtn.onclick = () => {
+    document.getElementById("rule-form-details")?.setAttribute("open", "");
+    ruleNameInput.value = rule.name;
+    ruleFromDomainInput.value = rule.conditions.fromDomain ?? "";
+    ruleFromAddressInput.value = rule.conditions.fromAddress ?? "";
+    ruleOlderDaysInput.value = rule.conditions.olderThanDays ? String(rule.conditions.olderThanDays) : "";
+    ruleActionSel.value = rule.action;
+    ruleLabelInput.hidden = rule.action !== "label";
+    ruleLabelInput.value = rule.labelName ?? "";
+    document.getElementById("rule-form-details")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
-    const actions = document.createElement("div");
-    actions.className = "row-actions";
+  const del = document.createElement("button");
+  del.className = "btn btn-sm danger";
+  del.textContent = "Delete";
+  del.onclick = async () => {
+    ctx.settings = await updateSettings({
+      rules: ctx.settings.rules.filter((r) => r.id !== rule.id),
+    });
+    renderRulesTab();
+  };
 
-    const editBtn = document.createElement("button");
-    editBtn.className = "btn btn-sm";
-    editBtn.textContent = "Edit";
-    editBtn.onclick = () => {
-      document.getElementById("rule-form-details")?.setAttribute("open", "");
-      ruleNameInput.value = rule.name;
-      ruleFromDomainInput.value = rule.conditions.fromDomain ?? "";
-      ruleFromAddressInput.value = rule.conditions.fromAddress ?? "";
-      ruleOlderDaysInput.value = rule.conditions.olderThanDays ? String(rule.conditions.olderThanDays) : "";
-      ruleActionSel.value = rule.action;
-      ruleLabelInput.hidden = rule.action !== "label";
-      ruleLabelInput.value = rule.labelName ?? "";
-      document.getElementById("rule-form-details")?.scrollIntoView({ behavior: "smooth", block: "center" });
-    };
+  const sw = document.createElement("button");
+  sw.className = "switch";
+  sw.setAttribute("role", "switch");
+  sw.setAttribute("aria-checked", String(rule.enabled));
+  sw.setAttribute("aria-label", `${rule.enabled ? "Disable" : "Enable"} ${rule.name}`);
+  sw.innerHTML = "<span></span>";
+  sw.onclick = async () => {
+    const next = sw.getAttribute("aria-checked") !== "true";
+    sw.setAttribute("aria-checked", String(next));
+    ctx.settings = await updateSettings({
+      rules: ctx.settings.rules.map((r) => (r.id === rule.id ? { ...r, enabled: next } : r)),
+    });
+    renderRulesTab();
+  };
 
-    const del = document.createElement("button");
-    del.className = "btn btn-sm danger";
-    del.textContent = "Delete";
-    del.onclick = async () => {
-      ctx.settings = await updateSettings({
-        rules: ctx.settings.rules.filter((r) => r.id !== rule.id),
-      });
-      renderRulesTab();
-    };
-
-    const sw = document.createElement("button");
-    sw.className = "switch";
-    sw.setAttribute("role", "switch");
-    sw.setAttribute("aria-checked", String(rule.enabled));
-    sw.setAttribute("aria-label", `${rule.enabled ? "Disable" : "Enable"} ${rule.name}`);
-    sw.innerHTML = "<span></span>";
-    sw.onclick = async () => {
-      const next = sw.getAttribute("aria-checked") !== "true";
-      sw.setAttribute("aria-checked", String(next));
-      ctx.settings = await updateSettings({
-        rules: ctx.settings.rules.map((r) => (r.id === rule.id ? { ...r, enabled: next } : r)),
-      });
-      renderRulesTab();
-    };
-
-    actions.append(editBtn, del, sw);
-    row.append(text, actions);
-    list.appendChild(row);
+  return listRow({
+    title: rule.name,
+    wrapText: true,
+    sub,
+    actions: [editBtn, del, sw],
   });
-  rulesListEl.appendChild(list);
 }
 
 function renderRuleDryRun() {
