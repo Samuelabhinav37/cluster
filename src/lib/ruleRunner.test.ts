@@ -111,6 +111,37 @@ describe("applyRules", () => {
     expect(trashMessages).toHaveBeenCalledWith("outlook-token", ["1"]);
   });
 
+  it("re-checks protection live before trashing, skipping anything starred since the scan", async () => {
+    const trashMessages = vi.fn(async () => {});
+    const listProtectedMessageIds = vi.fn(async () => new Set(["2"]));
+    const gmail = fakeProvider("gmail", { trashMessages, listProtectedMessageIds });
+    const s = sender("a@news.com", "gmail", [msg({ id: "1" }), msg({ id: "2" }), msg({ id: "3" })]);
+
+    const [result] = await applyRules(
+      [{ ...archiveRule, action: "trash" }],
+      [s],
+      new Map([["gmail", gmail]]),
+    );
+
+    expect(trashMessages).toHaveBeenCalledWith("gmail-token", ["1", "3"]);
+    expect(result.protectionSkippedCount).toBe(1);
+    expect(appendActionLog.mock.calls.at(-1)![0][0].summary).toContain(
+      "skipped 1 you starred since the scan",
+    );
+  });
+
+  it("does not live-recheck protection for non-trash actions", async () => {
+    const archiveMessages = vi.fn(async () => {});
+    const listProtectedMessageIds = vi.fn(async () => new Set(["1"]));
+    const gmail = fakeProvider("gmail", { archiveMessages, listProtectedMessageIds });
+    const s = sender("a@news.com", "gmail", [msg({ id: "1" })]);
+
+    await applyRules([archiveRule], [s], new Map([["gmail", gmail]]));
+
+    expect(listProtectedMessageIds).not.toHaveBeenCalled();
+    expect(archiveMessages).toHaveBeenCalledWith("gmail-token", ["1"]);
+  });
+
   it("a label rule now runs for Outlook and passes labelKeepInInbox through", async () => {
     const labelMessages = vi.fn(async () => {});
     const outlook = fakeProvider("outlook", { labelMessages });

@@ -10,20 +10,37 @@ import { describe, expect, it } from "vitest";
 // createDurableJob({ operation: "trash" })) must have a filterOutProtected
 // call reachable in an enclosing scope, earlier in the source.
 //
+// Originally scoped to src/dashboard/ only. Widened to src/lib/ after an
+// audit found the rule engine's own trash action (src/lib/ruleRunner.ts)
+// bypassed the gate entirely, reachable unattended from the background
+// triage alarm, and was invisible to this test because it lived outside the
+// scanned directory. Every future "src/lib" call site is now covered too.
+//
 // This is a source-text check, not a real scope/AST analysis -- it walks
 // outward through enclosing `{...}` blocks (a plain brace-depth climb, so it
 // also passes through object-literal braces harmlessly) looking for
 // `filterOutProtected` textually before the trash call. That's enough to
 // catch the actual failure mode (a handler that never calls it at all)
 // without needing a JS parser dependency.
+//
+// One deliberate exemption: src/lib/durableJobs.ts's executeBatch() is a
+// generic multi-operation dispatcher — its provider.trashMessages call has
+// no *local* guard because the guard already ran upstream, at job-creation
+// time, in whichever src/dashboard/ handler called createDurableJob({
+// operation: "trash" }). Those creation call sites are themselves scanned
+// (as `operation:\s*"trash"` matches) and must still pass this same check.
 
-const sources: Record<string, string> = import.meta.glob("./*.ts", {
+const sources: Record<string, string> = import.meta.glob(["./*.ts", "../lib/*.ts"], {
   query: "?raw",
   import: "default",
   eager: true,
 });
 
-const nonTestFiles = Object.entries(sources).filter(([path]) => !path.endsWith(".test.ts"));
+const EXEMPT_FROM_LOCAL_GUARD = new Set(["../lib/durableJobs.ts"]);
+
+const nonTestFiles = Object.entries(sources).filter(
+  ([path]) => !path.endsWith(".test.ts") && !EXEMPT_FROM_LOCAL_GUARD.has(path),
+);
 
 const TRASH_CALL_PATTERNS = [/\.trashMessages\(/g, /operation:\s*"trash"/g];
 const GUARD = "filterOutProtected";

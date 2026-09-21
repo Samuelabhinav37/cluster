@@ -394,8 +394,12 @@ export function wireRulesTab() {
           0,
         );
         const deferred = results.reduce((sum, result) => sum + result.deferredByLimitCount, 0);
+        const protectionSkipped = results.reduce(
+          (sum, result) => sum + result.protectionSkippedCount,
+          0,
+        );
         await rescan();
-        return `Applied — ${moved} message${moved === 1 ? "" : "s"} actioned${deferred > 0 ? `, ${deferred} deferred by safety limits` : ""}`;
+        return `Applied — ${moved} message${moved === 1 ? "" : "s"} actioned${deferred > 0 ? `, ${deferred} deferred by safety limits` : ""}${protectionSkipped > 0 ? `, skipped ${protectionSkipped} you starred since the scan` : ""}`;
       },
     );
   };

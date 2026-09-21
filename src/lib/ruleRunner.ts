@@ -1,5 +1,6 @@
 import { log } from "./log";
 import { appendActionLog, makeLogId, type ActionLogEntry } from "./actionLog";
+import { filterOutProtected } from "./bulkActions";
 import type { EmailProvider, ProviderId } from "./providers/emailProvider";
 import {
   applyRuleRunLimit,
@@ -32,12 +33,19 @@ export interface RuleRunResult {
   deferredByLimitCount: number;
   /** Matching messages skipped because this exact rule behavior already completed successfully. */
   previouslyCompletedCount: number;
+  /** Trash-bound messages skipped because a live re-check found them protected (starred/flagged) since the scan. */
+  protectionSkippedCount: number;
   /** Only ids whose entire ordered action sequence completed successfully. */
   completedIdsByProvider: Map<ProviderId, string[]>;
 }
 
 // Returns true if the action ran, false if this provider can't do it (Outlook
 // has no archive/label/mute wired up yet — those rules just no-op for it).
+// Trash is deliberately NOT handled here: applyRules calls provider.trashMessages
+// directly, right next to the filterOutProtected re-check that guards it — see
+// the comment there. Keeping that call and its guard in the same function
+// (rather than behind this generic dispatcher) is what lets
+// bulkDeleteGuard.test.ts's source-scan actually verify the guard is present.
 async function runAction(
   provider: EmailProvider,
   token: string,
@@ -46,8 +54,7 @@ async function runAction(
 ): Promise<boolean> {
   switch (action.action) {
     case "trash":
-      await provider.trashMessages(token, ids);
-      return true;
+      throw new Error("trash is handled inline in applyRules, not via runAction");
     case "archive":
       if (!provider.archiveMessages) return false;
       await provider.archiveMessages(token, ids);
@@ -65,10 +72,15 @@ async function runAction(
 
 /**
  * Apply every enabled rule to the current scan. Called from the dashboard
- * ("Apply enabled rules now") and the background triage alarm. Never touches
- * starred/flagged mail (matchRule excludes it) and never permanently deletes.
- * Writes one action-log entry per rule that actioned anything or tripped its
- * per-run safety limit.
+ * ("Apply enabled rules now") and the background triage alarm — the latter
+ * can run hours after the scan that `senders` came from. matchRule already
+ * excludes mail starred/flagged as of that scan; a Trash action additionally
+ * re-checks live (via filterOutProtected) immediately before trashing, so a
+ * message starred *after* the scan but before this sweep still survives —
+ * the same live-recheck guarantee every other delete surface in the
+ * dashboard gives. Non-trash actions (label/archive/markRead) are reversible
+ * and stay on the scan-time check only. Writes one action-log entry per rule
+ * that actioned anything or tripped its per-run safety limit.
  */
 export async function applyRules(
   rules: ClusterRule[],
@@ -104,11 +116,13 @@ export async function applyRules(
     const moved = new Map<ProviderId, number>();
     let undoableGmailIds: string[] = [];
     const actions = ruleActions(rule);
+    const hasTrash = actions.some((action) => action.action === "trash");
     const partialProviders: ProviderId[] = [];
     const completedIdsByProvider = new Map<ProviderId, string[]>();
+    let protectionSkippedCount = 0;
 
-    for (const [providerId, ids] of matched) {
-      if (ids.length === 0) continue;
+    for (const [providerId, rawIds] of matched) {
+      if (rawIds.length === 0) continue;
       const provider = providerById.get(providerId);
       if (!provider) continue;
       const token = await provider.getAuthToken(false).catch((err) => {
@@ -116,9 +130,28 @@ export async function applyRules(
         return undefined;
       });
       if (!token) continue;
+      let ids = rawIds;
+      if (hasTrash) {
+        // Live re-check, immediately before any trashing below — matchRule
+        // only knows about mail starred/flagged as of the scan `senders`
+        // came from, which can be hours stale by the time a background
+        // sweep gets here.
+        const { safe, skipped } = await filterOutProtected(
+          new Map([[providerId, rawIds]]),
+          providerById,
+        );
+        ids = safe.get(providerId) ?? [];
+        protectionSkippedCount += skipped;
+      }
+      if (ids.length === 0) continue;
       let completedActions = 0;
       try {
         for (const action of actions) {
+          if (action.action === "trash") {
+            await provider.trashMessages(token, ids);
+            completedActions += 1;
+            continue;
+          }
           if (!(await runAction(provider, token, action, ids))) {
             break;
           }
@@ -153,7 +186,7 @@ export async function applyRules(
           ? "unarchive"
           : undefined;
     const total = [...moved.values()].reduce((a, b) => a + b, 0);
-    if (total > 0 || deferredByLimitCount > 0) {
+    if (total > 0 || deferredByLimitCount > 0 || protectionSkippedCount > 0) {
       logEntries.push({
         id: makeLogId("rule"),
         at: Date.now(),
@@ -163,7 +196,10 @@ export async function applyRules(
           (partialProviders.length > 0
             ? `; partial action sequence for ${partialProviders.join(", ")}`
             : "") +
-          (deferredByLimitCount > 0 ? `; ${deferredByLimitCount} deferred by safety limit` : ""),
+          (deferredByLimitCount > 0 ? `; ${deferredByLimitCount} deferred by safety limit` : "") +
+          (protectionSkippedCount > 0
+            ? `; skipped ${protectionSkippedCount} you starred since the scan`
+            : ""),
         undo:
           undoableGmailIds.length > 0 && undoVia
             ? { provider: "gmail", ids: undoableGmailIds, via: undoVia }
@@ -178,6 +214,7 @@ export async function applyRules(
       partialProviders,
       deferredByLimitCount,
       previouslyCompletedCount,
+      protectionSkippedCount,
       completedIdsByProvider,
     });
   }
