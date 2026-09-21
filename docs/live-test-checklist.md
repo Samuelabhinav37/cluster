@@ -8,6 +8,15 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
 > meant to be identical — re-run the whole Sort flow below and watch the
 > console for load-order / undefined errors.
 
+> The sidebar was restructured: the old single "Suggested" screen split into
+> two — **Delete** (everything that ends in Trash: Ready to clean up,
+> Suggested spam, Never opened, Trim-to-newest, By domain) and **Organize**
+> (everything else: Senders worth a decision, Sort my inbox, Smart views,
+> Digest, Classify ambiguous mail). "Impersonation" was renamed **Phishing**
+> (same screen, same content). Below, references to "Suggested" mean the
+> **Delete** screen unless the item is explicitly organize-flavored (Sort my
+> inbox, Smart Views), which now lives on **Organize**.
+
 ## Load
 
 1. `npm run build` (not `npm run dev` — crxjs dev server gives an unstable
@@ -108,7 +117,9 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
 
 - [ ] "Auto-quarantine high-risk senders in the background" toggle — **off** on
       first load. Toggling persists across a reload.
-- [ ] "Possible impersonation" list: each flagged sender shows a HIGH/ELEVATED/
+- [ ] "Phishing" screen (nav badge stays quiet with no color at zero findings,
+      turns red only when a HIGH-tier sender is present, amber/accent for
+      ELEVATED/LOW-only): each flagged sender shows a HIGH/ELEVATED/
       LOW prefix, the signal descriptions, an `[SPF ✓ · DKIM — · DMARC —]`
       chip, and "· first email from this sender" where applicable.
 - [ ] New signal types render sensibly if present: reply-to-mismatch,

@@ -166,7 +166,7 @@ describe("dashboard boot smoke", () => {
     const buttons = Array.from(
       document.querySelectorAll<HTMLButtonElement>("#sidebar button[data-screen]"),
     );
-    expect(buttons.length).toBe(8);
+    expect(buttons.length).toBe(9);
     for (const button of buttons) {
       button.click();
       const shown = Array.from(
@@ -193,14 +193,14 @@ describe("dashboard boot smoke", () => {
     expect(buttons.filter((b) => b.tabIndex === 0).map((b) => b.dataset.screen)).toEqual([
       "overview",
     ]);
-    expect(buttons.filter((b) => b.tabIndex === -1)).toHaveLength(7);
+    expect(buttons.filter((b) => b.tabIndex === -1)).toHaveLength(8);
     // ArrowDown from the first item activates the second
     document
       .getElementById("sidebar")!
       .dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
     expect(buttons[1].getAttribute("aria-selected")).toBe("true");
     expect(
-      document.querySelector<HTMLElement>("section.screen[data-screen='suggested']")!.hidden,
+      document.querySelector<HTMLElement>("section.screen[data-screen='delete']")!.hidden,
     ).toBe(false);
   });
 
@@ -219,15 +219,14 @@ describe("dashboard boot smoke", () => {
   });
 
   it("gives the by-domain category tables a screen-reader caption", () => {
-    document.querySelector<HTMLButtonElement>('#sidebar button[data-screen="suggested"]')!.click();
-    document.getElementById("more-tools")!.setAttribute("open", "");
+    document.querySelector<HTMLButtonElement>('#sidebar button[data-screen="delete"]')!.click();
     const caption = document.querySelector("#domain-group-list table caption");
     expect(caption?.classList.contains("sr-only")).toBe(true);
     expect(caption?.textContent).toMatch(/\d+ domains?, \d+ messages/);
   });
 
   it("opens a confirm step from a sender-row action", () => {
-    document.querySelector<HTMLButtonElement>('#sidebar button[data-screen="suggested"]')!.click();
+    document.querySelector<HTMLButtonElement>('#sidebar button[data-screen="organize"]')!.click();
     const muteBtn = Array.from(
       document.querySelectorAll<HTMLButtonElement>("#sender-groups .list-row button"),
     ).find((b) => b.textContent === "Mute");

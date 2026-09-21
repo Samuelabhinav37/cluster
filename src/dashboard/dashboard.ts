@@ -60,6 +60,7 @@ import {
   type CategoryGroup,
 } from "./ui";
 import { reasonLabel, suggestSpamSenders, type SpamSuggestion } from "../lib/spamSuggestions";
+import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { spamListSize } from "../lib/spamList";
 import {
   SMART_VIEWS,
@@ -91,7 +92,6 @@ const selectedDomainKeys = new Set<string>();
 const selectedPlanGroups = new Set<string>();
 let currentDomainGroups: DomainGroup[] = [];
 let currentExpiryBuckets: ExpiryBucket[] = [];
-let currentSecuritySenders: SenderSummary[] = [];
 // True when the cleanup scan filled its per-account candidate cap — every
 // derived count is then a sample of the most-recent N, not an inbox total.
 let lastScanCapHit = false;
@@ -162,7 +162,8 @@ const allSendersListEl = document.getElementById("all-senders-list") as HTMLDivE
 
 // Old stored activeTab values → the new screen ids they map to.
 const SCREEN_ALIASES: Record<string, string> = {
-  cleanup: "suggested",
+  cleanup: "delete",
+  suggested: "delete",
   security: "impersonation",
 };
 function resolveScreen(name: string): string {
@@ -268,10 +269,22 @@ function wireNav() {
   showScreen(ctx.settings.activeTab);
 }
 
-function setNavCount(screen: string, value: number) {
+// `accentWhenPositive` keeps the "Clean up" group's badges on one shared
+// rule (quiet at zero, some visual weight once there's something to review)
+// instead of a badge that's permanently styled regardless of content. Screens
+// outside that group (senders/rules/screener) keep their plain always-neutral
+// count, unchanged. `ariaSuffix`, when given, sets an accessible name (e.g.
+// "4 to review") so a screen reader doesn't just hear a bare number — a color
+// change alone (accent/alert classes) carries no meaning without it.
+function setNavCount(screen: string, value: number, accentWhenPositive = false, ariaSuffix?: string) {
   const el = document.getElementById(`nav-count-${screen}`);
   if (!el) return;
   el.textContent = value > 0 ? String(value) : "";
+  if (accentWhenPositive) el.classList.toggle("accent", value > 0);
+  if (ariaSuffix) {
+    if (value > 0) el.setAttribute("aria-label", `${value} ${ariaSuffix}`);
+    else el.removeAttribute("aria-label");
+  }
 }
 
 /** Fill and reveal the header account pill with the signed-in Gmail address.
@@ -504,28 +517,29 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
     ctx.settings = await updateSettings({ healthHistory: nextHistory });
   }
 
-  currentSecuritySenders = securitySenders;
   lastScanCapHit = combined.capHit;
   // The scan itself succeeded — a throw in one render must not blank the rest
   // (or trip the global "couldn't load your mail"). Each block is isolated.
+  updateSenderState(senders);
   safeRender("overview", () => renderOverview(senders, securitySenders));
-  safeRender("suggested", () => render(senders));
+  safeRender("delete", () => renderDeleteScreen(senders));
+  safeRender("organize", () => renderOrganizeScreen(senders));
   safeRender("senders", () => renderAllSenders(senders));
   safeRender("rules", () => renderRulesTab());
-  safeRender("suggested", () => renderDomainGroups(senders));
-  safeRender("suggested", () => renderExpirySection(senders));
+  safeRender("delete", () => renderDomainGroups(senders));
+  safeRender("delete", () => renderExpirySection(senders));
   safeRender("impersonation", () => renderSecuritySection(securitySenders));
   safeRender("subscriptions", () => renderSubscriptionsTab(senders));
-  safeRender("suggested", () => renderNeverReadSection(senders));
-  safeRender("suggested", () => renderSpamSection(senders));
+  safeRender("delete", () => renderNeverReadSection(senders));
+  safeRender("delete", () => renderSpamSection(senders));
   // The v3 "Your cleanup plan" list (renderCleanupPlan) is the primary
   // surface for these three; their detailed sections are collapsed by default
   // and only opened via a row's "Review" button (revealLegacySection).
   neverReadSectionEl.hidden = true;
   spamSectionEl.hidden = true;
   expirySectionEl.hidden = true;
-  safeRender("suggested", () => renderSortInbox(senders));
-  safeRender("suggested", () => renderSmartViews(senders));
+  safeRender("organize", () => renderSortInbox(senders));
+  safeRender("organize", () => renderSmartViews(senders));
   safeRender("screener", () => renderScreenerTab(senders));
   safeRender("overview", () => updateNavCounts(senders, securitySenders));
   generateDigestBtn.disabled = false;
@@ -552,16 +566,41 @@ function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummar
   const health = buildInboxHealth({ senders, securitySenders, settings: ctx.settings });
   const byId = new Map(health.metrics.map((m) => [m.id, m.value]));
   setNavCount(
-    "suggested",
+    "delete",
     (byId.get("ready-to-clean-up") ?? 0) +
       (byId.get("never-opened") ?? 0) +
       (byId.get("suspected-spam") ?? 0),
+    true,
   );
+  setNavCount("organize", pickDecisionSenders(senders).decide.length, true, "to review");
   setNavCount("senders", senders.length);
-  setNavCount("subscriptions", byId.get("unsubscribe-capable") ?? 0);
+  setNavCount("subscriptions", byId.get("unsubscribe-capable") ?? 0, true);
   setNavCount("impersonation", byId.get("flagged-senders") ?? 0);
+  setPhishingNavSeverity(securitySenders);
   setNavCount("rules", ctx.settings.rules.length);
   setNavCount("screener", byId.get("screener-queue") ?? 0);
+}
+
+// Quiet by default (no badge at zero, per the phishing-UX research this
+// screen followed — see research/2026-09-18-phishing-security-ux-separation.md):
+// strong "alert" red only when a HIGH-tier finding exists, a milder "accent"
+// treatment for ELEVATED/LOW-only findings, so the sidebar doesn't cry wolf.
+function setPhishingNavSeverity(securitySenders: SenderSummary[]) {
+  const el = document.getElementById("nav-count-impersonation");
+  if (!el) return;
+  const tiers = securitySenders
+    .filter((s) => s.threatSignals.length > 0)
+    .map((s) => riskTier(senderRiskScore(s.threatSignals)));
+  el.classList.remove("alert", "accent");
+  if (tiers.includes("high")) {
+    el.classList.add("alert");
+    el.setAttribute("aria-label", `${el.textContent}, high severity`);
+  } else if (tiers.length > 0) {
+    el.classList.add("accent");
+    el.setAttribute("aria-label", `${el.textContent}, needs review`);
+  } else {
+    el.removeAttribute("aria-label");
+  }
 }
 
 // ── Overview screen (v3) ────────────────────────────────────────────────
@@ -637,6 +676,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
   );
   const planTotal = expiryTotal + spamMsgs + neverReadMsgs;
   const planGroups = [expiryTotal, spamMsgs, neverReadMsgs].filter((n) => n > 0).length;
+  const organizeCount = pickDecisionSenders(senders).decide.length;
 
   overviewContentEl.innerHTML = "";
   const stack = document.createElement("div");
@@ -676,6 +716,20 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
   explain.textContent =
     "A few minutes of decisions. Everything stays reversible for 30 days.";
   readyBody.append(heroLine, explain);
+  if (organizeCount > 0) {
+    const organizeLine = document.createElement("p");
+    organizeLine.className = "row-sub wrap";
+    organizeLine.style.margin = "8px 0 0";
+    const organizeLink = document.createElement("a");
+    organizeLink.href = "#";
+    organizeLink.textContent = `${organizeCount} sender${organizeCount === 1 ? "" : "s"} worth a decision`;
+    organizeLink.onclick = (e) => {
+      e.preventDefault();
+      void selectScreen("organize");
+    };
+    organizeLine.append(organizeLink, document.createTextNode(" — mute, keep sorted, or unsubscribe"));
+    readyBody.appendChild(organizeLine);
+  }
   const readyActions = document.createElement("div");
   readyActions.style.display = "flex";
   readyActions.style.gap = "12px";
@@ -685,13 +739,13 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
   const startBtn = document.createElement("button");
   startBtn.className = "btn-accent-solid";
   startBtn.textContent = "Start cleanup";
-  startBtn.onclick = () => void selectScreen("suggested");
+  startBtn.onclick = () => void selectScreen("delete");
   const reviewLink = document.createElement("a");
   reviewLink.href = "#";
   reviewLink.textContent = "Review suggestions";
   reviewLink.onclick = (e) => {
     e.preventDefault();
-    void selectScreen("suggested");
+    void selectScreen("delete");
   };
   readyActions.append(startBtn, reviewLink);
   readyCard.append(readyBody, readyActions);
@@ -1084,8 +1138,6 @@ function renderSuggestedMetricBand(senders: SenderSummary[]) {
   const planTotal = expiryTotal + spamMsgs + neverReadMsgs;
   const scanned = senders.reduce((n, s) => n + s.count, 0);
   const pct = scanned > 0 ? Math.round((planTotal / scanned) * 100) : 0;
-  const unsub = senders.filter((s) => hasAnyUnsubscribe(s.unsubscribe)).length;
-  const flagged = currentSecuritySenders.filter((s) => s.threatSignals.length > 0).length;
 
   band.className = "metric-band";
   band.innerHTML = "";
@@ -1115,10 +1167,14 @@ function renderSuggestedMetricBand(senders: SenderSummary[]) {
   divider.className = "divider";
   band.appendChild(divider);
 
+  // Delete-only tiles — no Subscriptions/Phishing counts here (those belong
+  // to their own screens; see the 2026-09-18 phishing-UX research on not
+  // letting other categories' findings bleed into a routine cleanup surface).
   const secondary: Array<[number, string, boolean]> = [
     [senders.length, "senders scanned", false],
-    [unsub, "can unsubscribe", false],
-    [flagged, "flagged senders", true],
+    [expiryTotal, "past their window", false],
+    [neverReadMsgs, "never opened", false],
+    [spamMsgs, "suspected spam", false],
   ];
   for (const [n, cap, danger] of secondary) {
     const cell = document.createElement("div");
@@ -1348,17 +1404,22 @@ function pickDecisionSenders(senders: SenderSummary[]): { decide: SenderSummary[
   return { decide: ranked.slice(0, 8), protectedOne };
 }
 
-function render(senders: SenderSummary[]) {
+function updateSenderState(senders: SenderSummary[]) {
   ctx.senders = senders;
   pruneSelection(
     selectedSenderKeys,
     senders.map((s) => s.key),
   );
+}
+
+function renderDeleteScreen(senders: SenderSummary[]) {
   renderSuggestedMetricBand(senders);
   renderCleanupPlan(senders);
+}
+
+function renderOrganizeScreen(senders: SenderSummary[]) {
   renderDecisionSenders(senders);
   updateSenderBulkBar();
-  renderSuggestedFloatingBar();
 }
 
 function renderDecisionSenders(senders: SenderSummary[]) {
@@ -1388,7 +1449,6 @@ function renderDecisionSenders(senders: SenderSummary[]) {
     }
     renderDecisionSenders(senders);
     updateSenderBulkBar();
-    renderSuggestedFloatingBar();
   };
   hdrLabel.appendChild(selectAll);
   const hdrCount = document.createElement("span");
@@ -1506,7 +1566,6 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): H
         if (checked) selectedSenderKeys.add(sender.key);
         else selectedSenderKeys.delete(sender.key);
         updateSenderBulkBar();
-        renderSuggestedFloatingBar();
       },
     },
     lead: makeLogoTile(sender, "sz-34"),
@@ -1582,11 +1641,11 @@ function updateSenderBulkBar() {
   bulkSnoozeBtn.disabled = selectedSenderKeys.size === 0;
 }
 
-// ── Suggested cleanup: sticky floating action bar ──────────────────────
-// Reflects the checked "cleanup plan" groups plus the count of senders ticked
-// in "Senders worth a decision". "Apply plan" runs the checked plan groups
-// (each delegates to its existing bulk-action confirm); per-sender actions
-// stay on the row and in the All-senders bulk bar.
+// ── Delete: sticky floating action bar ──────────────────────────────────
+// Reflects the checked "cleanup plan" groups. "Apply plan" runs the checked
+// plan groups (each delegates to its existing bulk-action confirm). Senders
+// worth a decision (Organize screen) has its own selection state, actioned
+// per-row or from the All-senders bulk bar — it never shares this bar.
 function renderSuggestedFloatingBar() {
   const host = document.getElementById("suggested-floating-bar");
   if (!host) return;
@@ -1596,9 +1655,8 @@ function renderSuggestedFloatingBar() {
   const checkedGroups = planBoxes.filter((b) => b.checked);
   selectedPlanGroups.clear();
   for (const b of checkedGroups) selectedPlanGroups.add(b.dataset.planGroup!);
-  const senderCount = selectedSenderKeys.size;
 
-  if (checkedGroups.length === 0 && senderCount === 0) {
+  if (checkedGroups.length === 0) {
     host.className = "";
     host.innerHTML = "";
     return;
@@ -1610,11 +1668,7 @@ function renderSuggestedFloatingBar() {
 
   const title = document.createElement("span");
   title.className = "fb-title";
-  const parts: string[] = [];
-  if (checkedGroups.length > 0)
-    parts.push(`${checkedGroups.length} group${checkedGroups.length === 1 ? "" : "s"}`);
-  if (senderCount > 0) parts.push(`${senderCount} sender${senderCount === 1 ? "" : "s"}`);
-  title.textContent = parts.join(" · ");
+  title.textContent = `${checkedGroups.length} group${checkedGroups.length === 1 ? "" : "s"}`;
 
   const sub = document.createElement("span");
   sub.className = "fb-sub";
@@ -1625,8 +1679,7 @@ function renderSuggestedFloatingBar() {
   clear.textContent = "Clear";
   clear.onclick = () => {
     for (const b of planBoxes) b.checked = false;
-    selectedSenderKeys.clear();
-    render(ctx.senders);
+    renderDeleteScreen(ctx.senders);
   };
 
   const apply = document.createElement("button");
@@ -2219,7 +2272,10 @@ async function wireAiMessageKind() {
         changed > 0
           ? `Reclassified ${changed} of ${otherMessages.length} "other" message${otherMessages.length === 1 ? "" : "s"}.`
           : "No confident reclassification found.";
-      if (changed > 0) render(ctx.senders);
+      if (changed > 0) {
+        renderDeleteScreen(ctx.senders);
+        renderOrganizeScreen(ctx.senders);
+      }
     } catch (err) {
       aiKindStatusEl.textContent = "Couldn't classify right now.";
       log.error(err);
@@ -2615,7 +2671,8 @@ function wireBulkHandlers() {
       await recordUnsubscribeRequests(succeeded);
       if (succeeded.length > 0)
         await logAction("unsubscribe", `Bulk unsubscribed from ${succeeded.length} senders`);
-      render(ctx.senders);
+      renderDeleteScreen(ctx.senders);
+      renderOrganizeScreen(ctx.senders);
       return `Unsubscribed ${succeeded.length}, failed ${failed.length}, skipped ${manual.length} (no verified link)`;
     });
   };

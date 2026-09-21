@@ -89,15 +89,15 @@
           </button>
 
           <div class="nav-group-label">Clean up</div>
-          <button type="button" class="nav-item" data-screen="suggested">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3.1l1.5 3.9 3.9 1.5-3.9 1.5L10 13.9 8.5 10 4.6 8.5 8.5 7z"></path><path d="M15.2 13.2l.7 1.7 1.7.7-1.7.7-.7 1.7-.7-1.7-1.7-.7 1.7-.7z"></path></svg>
-            Suggested
-            <span class="nav-count accent" id="nav-count-suggested"></span>
+          <button type="button" class="nav-item" data-screen="delete">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.2 6h11.6"></path><path d="M8.2 6V4.6a1 1 0 0 1 1-1h1.6a1 1 0 0 1 1 1V6"></path><path d="M6.6 6 7.3 15a1 1 0 0 0 1 .9h3.4a1 1 0 0 0 1-.9L13.4 6"></path></svg>
+            Delete
+            <span class="nav-count" id="nav-count-delete"></span>
           </button>
-          <button type="button" class="nav-item" data-screen="senders">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.4h3.2l1.1 1.8h5.4l1.1-1.8H17"></path><path d="M4.4 5.2h11.2l1.4 6.2v3.2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3.2z"></path></svg>
-            All senders
-            <span class="nav-count" id="nav-count-senders"></span>
+          <button type="button" class="nav-item" data-screen="organize">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3.4 3.2 7.4 10 11.4 16.8 7.4Z"></path><path d="M3.2 11 10 15 16.8 11"></path></svg>
+            Organize
+            <span class="nav-count" id="nav-count-organize"></span>
           </button>
           <button type="button" class="nav-item" data-screen="subscriptions">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.6" width="14" height="10.8" rx="2"></rect><path d="M3.6 5.4 10 10.6l6.4-5.2"></path></svg>
@@ -106,11 +106,16 @@
           </button>
           <button type="button" class="nav-item" data-screen="impersonation">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2.9 4.2 5v4.6c0 3.2 2.3 6 5.8 7.5 3.5-1.5 5.8-4.3 5.8-7.5V5z"></path><path d="M10 7.6v3M10 13.1h.01"></path></svg>
-            Impersonation
-            <span class="nav-count alert" id="nav-count-impersonation"></span>
+            Phishing
+            <span class="nav-count" id="nav-count-impersonation"></span>
           </button>
 
-          <div class="nav-group-label">Standing</div>
+          <div class="nav-group-label">More</div>
+          <button type="button" class="nav-item" data-screen="senders">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.4h3.2l1.1 1.8h5.4l1.1-1.8H17"></path><path d="M4.4 5.2h11.2l1.4 6.2v3.2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3.2z"></path></svg>
+            All senders
+            <span class="nav-count" id="nav-count-senders"></span>
+          </button>
           <button type="button" class="nav-item" data-screen="rules">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.4 6.2h13.2M3.4 10h9M3.4 13.8h5.6"></path></svg>
             Rules
@@ -171,14 +176,14 @@
             <div id="overview-content"></div>
           </section>
 
-          <!-- ══ Suggested cleanup ═════════════════════════════════════ -->
-          <section class="screen" data-screen="suggested" role="tabpanel" hidden>
+          <!-- ══ Delete ════════════════════════════════════════════════ -->
+          <section class="screen" data-screen="delete" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Suggested cleanup</h1>
+                <h1 class="page-title">Delete</h1>
                 <p class="lead">
-                  Ranked by how you actually read mail. One recommended action each — the rest are one
-                  tap deeper.
+                  Everything here ends in Trash. Ranked by how you actually read mail, with one
+                  recommended action each — the rest are one tap deeper.
                 </p>
               </div>
             </div>
@@ -237,6 +242,50 @@
               </section>
             </section>
 
+            <details class="disclosure" id="keep-newest-section">
+              <summary>Trim to newest — keep only the last few from each sender</summary>
+              <p class="hint">
+                Keep only the newest few messages from each sender and trash the rest. Starred
+                messages are always skipped.
+              </p>
+              <div id="keep-newest-bar" class="confirm-slot">
+                <label>
+                  Trim each sender to its newest
+                  <input type="number" id="keep-newest-n" min="1" max="100" value="3" />
+                  messages
+                </label>
+                <span id="keep-newest-slot"><button id="keep-newest-btn" class="btn btn-danger">Trim…</button></span>
+              </div>
+            </details>
+
+            <section id="domain-groups" hidden>
+              <h3 class="section-label">By domain</h3>
+              <p class="hint">
+                Senders grouped by base domain and bucketed into categories. Deleting moves mail to
+                Trash — starred messages are always skipped.
+              </p>
+              <div id="domain-bulk-bar" class="toolbar" hidden>
+                <button id="select-safe-domains" class="btn">Select safe</button>
+                <span id="domain-selected-count">0 selected</span>
+                <span id="delete-domains-bulk-slot"><button id="bulk-delete-domains-btn" class="btn btn-danger" disabled>Delete selected domains…</button></span>
+              </div>
+              <div id="domain-group-list" class="scroll-x"></div>
+            </section>
+
+            <div id="suggested-floating-bar"></div>
+          </section>
+
+          <!-- ══ Organize ══════════════════════════════════════════════ -->
+          <section class="screen" data-screen="organize" role="tabpanel" hidden>
+            <div class="page-head">
+              <div class="page-titles">
+                <h1 class="page-title">Organize</h1>
+                <p class="lead">
+                  Nothing here deletes anything — file, sort, mute, or unsubscribe instead.
+                </p>
+              </div>
+            </div>
+
             <section id="senders-worth-decision">
               <div class="section-head">
                 <h2 class="section-label">Senders worth a decision</h2>
@@ -245,31 +294,56 @@
                 <a href="#" id="see-all-senders-link">See all senders</a>
               </div>
               <div id="sender-groups" hidden></div>
+
+              <div id="sender-bulk-bar" class="toolbar" hidden>
+                <button id="select-safe-senders" class="btn">Select safe</button>
+                <span id="sender-selected-count">0 selected</span>
+                <span id="unsubscribe-bulk-slot"><button id="bulk-unsubscribe-btn" class="btn btn-accent" disabled>Bulk unsubscribe selected</button></span>
+                <span id="keep-sorted-bulk-slot"><button id="bulk-keep-sorted-btn" class="btn" disabled>Bulk keep sorted selected</button></span>
+                <label>
+                  Snooze for:
+                  <select id="snooze-duration-select">
+                    <option value="1">1 day</option>
+                    <option value="7" selected>1 week</option>
+                    <option value="30">1 month</option>
+                  </select>
+                </label>
+                <span id="snooze-bulk-slot"><button id="bulk-snooze-btn" class="btn" disabled>Bulk snooze selected</button></span>
+              </div>
+            </section>
+
+            <section id="sort-inbox-section">
+              <h3 class="section-label">Sort my inbox</h3>
+              <p class="hint">
+                One pass: file every scanned message under a flat label by what it is (one-time
+                codes, receipts, shipping) or who sent it. Starred mail is left alone. A preview
+                shows first — nothing moves until you press Apply.
+              </p>
+              <div id="sort-inbox-bar" class="confirm-slot">
+                <span id="sort-inbox-slot"><button id="sort-inbox-btn" class="btn btn-accent">Sort my inbox…</button></span>
+                <span id="sort-inbox-count" class="hint"></span>
+              </div>
+              <details id="sort-inbox-config">
+                <summary>Which buckets, and where they go</summary>
+                <div id="sort-inbox-buckets"></div>
+                <label class="check-label"><input type="checkbox" id="sort-keep-sorting" /> <span>Keep sorting new mail (save a rule per bucket for the background sweep)</span></label>
+                <label class="check-label"><input type="checkbox" id="sort-expire-otp" /> <span>Also auto-trash one-time codes older than 2 days</span></label>
+              </details>
+              <section id="sort-seed-card" class="banner" hidden></section>
+              <div id="sort-inbox-preview"></div>
+            </section>
+
+            <section id="smart-views-section">
+              <h3 class="section-label">Smart views</h3>
+              <div id="smart-views-bar" class="toolbar">
+                <strong>Views:</strong>
+                <span id="smart-view-chips" class="chip-row"></span>
+              </div>
+              <div id="smart-view-result-slot"></div>
             </section>
 
             <details class="disclosure" id="more-tools">
-              <summary>More tools — sort, smart views, digest</summary>
-
-              <section id="sort-inbox-section">
-                <h3 class="section-label">Sort my inbox</h3>
-                <p class="hint">
-                  One pass: file every scanned message under a flat label by what it is (one-time
-                  codes, receipts, shipping) or who sent it. Starred mail is left alone. A preview
-                  shows first — nothing moves until you press Apply.
-                </p>
-                <div id="sort-inbox-bar" class="confirm-slot">
-                  <span id="sort-inbox-slot"><button id="sort-inbox-btn" class="btn btn-accent">Sort my inbox…</button></span>
-                  <span id="sort-inbox-count" class="hint"></span>
-                </div>
-                <details id="sort-inbox-config">
-                  <summary>Which buckets, and where they go</summary>
-                  <div id="sort-inbox-buckets"></div>
-                  <label class="check-label"><input type="checkbox" id="sort-keep-sorting" /> <span>Keep sorting new mail (save a rule per bucket for the background sweep)</span></label>
-                  <label class="check-label"><input type="checkbox" id="sort-expire-otp" /> <span>Also auto-trash one-time codes older than 2 days</span></label>
-                </details>
-                <section id="sort-seed-card" class="banner" hidden></section>
-                <div id="sort-inbox-preview"></div>
-              </section>
+              <summary>More tools — digest, AI classify</summary>
 
               <section id="digest-section" hidden>
                 <h3 class="section-label">Digest</h3>
@@ -295,37 +369,7 @@
                   <span id="ai-kind-status" role="status"></span>
                 </div>
               </section>
-
-              <div id="smart-views-bar" class="toolbar">
-                <strong>Views:</strong>
-                <span id="smart-view-chips" class="chip-row"></span>
-              </div>
-              <div id="smart-view-result-slot"></div>
-              <div id="keep-newest-bar" class="confirm-slot">
-                <label>
-                  Trim each sender to its newest
-                  <input type="number" id="keep-newest-n" min="1" max="100" value="3" />
-                  messages
-                </label>
-                <span id="keep-newest-slot"><button id="keep-newest-btn" class="btn btn-danger">Trim…</button></span>
-              </div>
-
-              <section id="domain-groups" hidden>
-                <h3 class="section-label">By domain</h3>
-                <p class="hint">
-                  Senders grouped by base domain and bucketed into categories. Deleting moves mail to
-                  Trash — starred messages are always skipped.
-                </p>
-                <div id="domain-bulk-bar" class="toolbar" hidden>
-                  <button id="select-safe-domains" class="btn">Select safe</button>
-                  <span id="domain-selected-count">0 selected</span>
-                  <span id="delete-domains-bulk-slot"><button id="bulk-delete-domains-btn" class="btn btn-danger" disabled>Delete selected domains…</button></span>
-                </div>
-                <div id="domain-group-list" class="scroll-x"></div>
-              </section>
             </details>
-
-            <div id="suggested-floating-bar"></div>
           </section>
 
           <!-- ══ All senders ═══════════════════════════════════════════ -->
@@ -350,22 +394,6 @@
                 <button type="button" data-filter="subs" aria-pressed="false">Subscriptions</button>
                 <button type="button" data-filter="muted" aria-pressed="false">Muted</button>
               </div>
-            </div>
-
-            <div id="sender-bulk-bar" class="toolbar" hidden>
-              <button id="select-safe-senders" class="btn">Select safe</button>
-              <span id="sender-selected-count">0 selected</span>
-              <span id="unsubscribe-bulk-slot"><button id="bulk-unsubscribe-btn" class="btn btn-accent" disabled>Bulk unsubscribe selected</button></span>
-              <span id="keep-sorted-bulk-slot"><button id="bulk-keep-sorted-btn" class="btn" disabled>Bulk keep sorted selected</button></span>
-              <label>
-                Snooze for:
-                <select id="snooze-duration-select">
-                  <option value="1">1 day</option>
-                  <option value="7" selected>1 week</option>
-                  <option value="30">1 month</option>
-                </select>
-              </label>
-              <span id="snooze-bulk-slot"><button id="bulk-snooze-btn" class="btn" disabled>Bulk snooze selected</button></span>
             </div>
 
             <div id="all-senders-list"></div>
@@ -429,11 +457,12 @@
           <section class="screen" data-screen="impersonation" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Possible impersonation</h1>
+                <h1 class="page-title">Phishing</h1>
                 <p class="lead">
-                  Senders using a display name from your contacts but writing from a domain that
-                  doesn't match. Cluster never opens the message — this is judged on the envelope
-                  alone.
+                  Flags senders showing signs of phishing: a display name that doesn't match the
+                  sending domain, a lookalike or newly-registered domain, failed sender
+                  authentication, urgent or high-pressure language, or a risky attachment. Judged
+                  from headers and metadata only — Cluster never reads the message body.
                 </p>
               </div>
             </div>
@@ -461,11 +490,12 @@
             <section id="security-section" hidden>
               <div id="security-sender-list"></div>
             </section>
-            <p id="security-empty" class="caveat">No possible-impersonation signals in the current scan.</p>
+            <p id="security-empty" class="caveat">No phishing signals in the current scan.</p>
             <p class="caveat">
-              Detection compares display names against your contacts and checks the sending domain's
-              authentication records. It cannot read the message, so treat this as a prompt to look —
-              not a verdict.
+              Detection compares display names against your contacts, checks domain lookalikes and
+              authentication records (SPF/DKIM/DMARC), and scans subject lines and attachment names
+              for common phishing patterns. It cannot read the message, so treat this as a prompt to
+              look — not a verdict.
             </p>
           </section>
 
