@@ -60,6 +60,12 @@ const ALLOWED_FETCH_CALLERS = [
   "lib/unsubscribe.ts", // user-approved unsubscribe origin, one click at a time
 ];
 
+// dashboard/testHarness.ts's dynamic import() re-imports the local
+// dashboard.ts module graph (never a remote specifier) so each bootDashboard()
+// call gets isolated module state via vi.resetModules(). It's imported only by
+// *.dom.test.ts files and tree-shaken from the real build -- never ships.
+const ALLOWED_DYNAMIC_IMPORT_CALLERS = ["dashboard/testHarness.ts"];
+
 // Hosts allowed to appear as URL-shaped string literals in fixed-endpoint
 // files. The first three are actual request targets; "...github.io" is
 // Cluster's own published-dataset host (remoteDataset.ts) -- no user data in
@@ -113,7 +119,12 @@ describe("network egress invariant", () => {
       }
       // Dynamic import() can pull a remote module; static `import x from` and
       // `import.meta` are fine. Match `import(` not preceded by a word char.
-      if (/(^|[^.\w])import\s*\(/.test(text)) offenders.push(`${rel(path)} uses dynamic import()`);
+      if (
+        /(^|[^.\w])import\s*\(/.test(text) &&
+        !ALLOWED_DYNAMIC_IMPORT_CALLERS.includes(rel(path))
+      ) {
+        offenders.push(`${rel(path)} uses dynamic import()`);
+      }
     }
     expect(offenders).toEqual([]);
   });
