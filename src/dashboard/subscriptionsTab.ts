@@ -20,6 +20,7 @@ import {
   SUBSCRIPTION_SIGNAL_LABELS,
 } from "../lib/subscriptionSignals";
 import { formatRelativeTime, headerRow, pruneSelection, renderConfirmStep } from "./ui";
+import { listGroup, listRow } from "./listRow";
 import { senderTile } from "./senderTile";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
@@ -58,37 +59,18 @@ function renderPaidSubscriptions(senders: SenderSummary[]) {
     return;
   }
 
-  const list = document.createElement("div");
-  list.className = "grouped-list";
-  candidates.forEach(({ sender, signal, lastSeenAt }, i) => {
-    if (i > 0) {
-      const sep = document.createElement("div");
-      sep.className = "row-sep inset";
-      list.appendChild(sep);
-    }
-    const row = document.createElement("div");
-    row.className = "list-row";
-    row.style.gridTemplateColumns = "minmax(0,1fr) max-content";
-    const media = document.createElement("div");
-    media.className = "row-media";
-    media.appendChild(subTile(sender));
-    const text = document.createElement("div");
-    text.className = "row-title-wrap";
-    const name = document.createElement("div");
-    name.className = "row-title";
-    name.textContent = sender.displayName || sender.address;
-    const sub = document.createElement("div");
-    sub.className = "row-sub";
-    sub.textContent = SUBSCRIPTION_SIGNAL_LABELS[signal];
-    text.append(name, sub);
-    media.appendChild(text);
+  const rows = candidates.map(({ sender, signal, lastSeenAt }) => {
     const seen = document.createElement("span");
     seen.className = "recent-detail";
     seen.textContent = formatRelativeTime(lastSeenAt);
-    row.append(media, seen);
-    list.appendChild(row);
+    return listRow({
+      lead: subTile(sender),
+      title: sender.displayName || sender.address,
+      sub: SUBSCRIPTION_SIGNAL_LABELS[signal],
+      meta: seen,
+    });
   });
-  paidSubscriptionsListEl.appendChild(list);
+  paidSubscriptionsListEl.appendChild(listGroup(rows));
 }
 
 // Persisted so "already requested" survives a reload — senders can take up
@@ -417,13 +399,11 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
   subscriptionsListEl.appendChild(band);
 
   if (visibleCurrentRows.length > 0) {
-    const list = document.createElement("div");
-    list.className = "grouped-list";
-
-    // Select-all header
+    // Select-all header — not itself a list item (no title/media), so it
+    // reuses the check-media-actions grid class directly rather than going
+    // through listRow(), whose spec always expects a title.
     const hdr = document.createElement("div");
-    hdr.className = "list-row";
-    hdr.style.gridTemplateColumns = "22px minmax(0,1fr) max-content";
+    hdr.className = "list-row list-row--check-media-actions";
     hdr.style.background = "var(--row-hover)";
     const selAllLabel = document.createElement("label");
     selAllLabel.className = "check-label";
@@ -451,43 +431,8 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
     sortedNote.className = "recent-detail";
     sortedNote.textContent = "Problems first, then by volume";
     hdr.append(selAllLabel, selCount, sortedNote);
-    list.appendChild(hdr);
 
-    for (const { sender, outcome } of visibleCurrentRows) {
-      const sep = document.createElement("div");
-      sep.className = "row-sep";
-      sep.style.marginLeft = "56px";
-      list.appendChild(sep);
-
-      const row = document.createElement("div");
-      row.className = "list-row";
-      row.style.gridTemplateColumns = "22px minmax(0,1fr) max-content";
-
-      const cbLabel = document.createElement("label");
-      cbLabel.className = "check-label";
-      if (sender.unsubscribe.postUrl) {
-        const cb = document.createElement("input");
-        cb.type = "checkbox";
-        cb.className = "check";
-        cb.checked = selectedSubKeys.has(sender.key);
-        cb.setAttribute("aria-label", `Select ${sender.displayName || sender.address}`);
-        cb.onchange = () => {
-          if (cb.checked) selectedSubKeys.add(sender.key);
-          else selectedSubKeys.delete(sender.key);
-          renderSubscriptionsTab(ctx.senders);
-        };
-        cbLabel.appendChild(cb);
-      }
-      row.appendChild(cbLabel);
-
-      const media = document.createElement("div");
-      media.className = "row-media";
-      media.appendChild(subTile(sender));
-      const text = document.createElement("div");
-      text.className = "row-title-wrap";
-      const name = document.createElement("div");
-      name.className = "row-title";
-      name.textContent = sender.displayName || sender.address;
+    const rows = visibleCurrentRows.map(({ sender, outcome }) => {
       const subLine = document.createElement("div");
       subLine.style.display = "flex";
       subLine.style.alignItems = "center";
@@ -504,11 +449,8 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
         : `${unsubMethodLabel(sender.unsubscribe)} · mostly ${dominantKind(sender)}`;
       detail.textContent = sender.displayName ? `${outcomeText} · ${sender.address}` : outcomeText;
       subLine.append(cadencePill, detail);
-      text.append(name, subLine);
-      media.appendChild(text);
 
       const actions = document.createElement("div");
-      actions.className = "row-actions";
       // Transplant the working unsubscribe / clean / read-later buttons.
       const cell = subUnsubscribeCell(sender);
       while (cell.firstChild) actions.appendChild(cell.firstChild);
@@ -519,16 +461,39 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
       const keep = document.createElement("button");
       keep.className = "btn btn-sm";
       keep.textContent = "Keep";
+
+      const row = listRow({
+        // Every row keeps the checkbox column even without a one-click
+        // unsubscribe (disabled instead of omitted) so titles stay aligned
+        // under the select-all header's checkbox column.
+        selectable: sender.unsubscribe.postUrl
+          ? {
+              checked: selectedSubKeys.has(sender.key),
+              label: `Select ${sender.displayName || sender.address}`,
+              onChange: (checked) => {
+                if (checked) selectedSubKeys.add(sender.key);
+                else selectedSubKeys.delete(sender.key);
+                renderSubscriptionsTab(ctx.senders);
+              },
+            }
+          : { checked: false, disabled: true, label: "No one-click unsubscribe to select", onChange: () => {} },
+        lead: subTile(sender),
+        title: sender.displayName || sender.address,
+        sub: subLine,
+        actions: [...Array.from(actions.children) as HTMLElement[], keep],
+      });
       keep.onclick = () => {
         row.hidden = true;
-        sep.hidden = true;
+        // listGroup() puts an anonymous row-sep before every row but the
+        // first; hide it too so a dismissed row doesn't leave a stray line.
+        const sep = row.previousElementSibling;
+        if (sep instanceof HTMLElement && sep.classList.contains("row-sep")) sep.hidden = true;
       };
-      actions.appendChild(keep);
+      return row;
+    });
 
-      row.append(media, actions);
-      list.appendChild(row);
-    }
-    subscriptionsListEl.appendChild(list);
+    subscriptionsListEl.appendChild(hdr);
+    subscriptionsListEl.appendChild(listGroup(rows, { inset: true }));
   }
 
   if (visibleTrackedOnlyRows.length > 0) {
