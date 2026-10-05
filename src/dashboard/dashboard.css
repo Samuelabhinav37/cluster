@@ -1674,6 +1674,77 @@ a:hover {
   display: none;
 }
 
+/* ── Connect gate ──────────────────────────────────────────────────────
+   Shown instead of the app until Gmail is connected (first run, or a
+   sign-in that has expired). Everything that needs an account is hidden
+   so the only thing to do is read the explainer and press Connect. */
+body[data-state="connect"] .sidebar,
+body[data-state="connect"] #account-pill,
+body[data-state="connect"] #connect-outlook,
+body[data-state="connect"] #apply-scan-settings-btn,
+body[data-state="connect"] #settings-panel,
+body[data-state="connect"] #status,
+body[data-state="connect"] #onboarding-banner,
+body[data-state="connect"] #athena-section,
+body[data-state="connect"] .screen {
+  display: none !important;
+}
+
+.connect-gate {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 72px 24px 56px;
+}
+
+.connect-gate[hidden] {
+  display: none;
+}
+
+.connect-card {
+  width: 100%;
+  max-width: 600px;
+  gap: 18px;
+}
+
+.connect-card .lead {
+  margin: 0;
+}
+
+.connect-points {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font: 400 15px/1.5 var(--font);
+  color: var(--label-3);
+}
+
+.connect-points strong {
+  color: var(--label);
+  font-weight: 600;
+}
+
+.connect-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+.connect-error {
+  font: 400 14px/1.45 var(--font);
+  color: var(--danger-text);
+  max-width: 44ch;
+}
+
+.connect-error:empty {
+  display: none;
+}
+
 .caveat {
   margin: 0;
   padding: 0 4px;

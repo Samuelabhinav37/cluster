@@ -51,6 +51,7 @@ import {
 } from "../lib/engagementModel";
 import { markFirstContact } from "../lib/firstContact";
 import { log } from "../lib/log";
+import { isAuthCancelled } from "../lib/chromeError";
 import {
   formatRelativeTime,
   groupByCategory,
@@ -289,6 +290,87 @@ function setNavCount(screen: string, value: number, accentWhenPositive = false, 
 
 /** Fill and reveal the header account pill with the signed-in Gmail address.
  * Best-effort — a failure just leaves the pill hidden. */
+// ── Connect gate ─────────────────────────────────────────────────────────
+// The Google consent popup used to fire the moment the dashboard opened, on
+// top of a page that still said "Connecting…", and a cancelled popup ended in
+// "Something went wrong". Now: try for a token silently; if there isn't one
+// (first run, or a sign-in that expired), show what Cluster reads and doesn't,
+// and only open Google's prompt when the user presses Connect.
+async function connectGmail(): Promise<string> {
+  try {
+    return await gmailProvider.getAuthToken(false);
+  } catch {
+    // Not connected yet (or the grant expired). Fall through to the gate.
+  }
+  return showConnectGate();
+}
+
+function showConnectGate(): Promise<string> {
+  const gate = document.getElementById("connect-gate") as HTMLElement;
+  const btn = document.getElementById("connect-gmail-btn") as HTMLButtonElement;
+  const errorEl = document.getElementById("connect-error") as HTMLElement;
+  const titleEl = document.getElementById("connect-title") as HTMLElement;
+
+  // Anyone with a recorded health score has completed a scan before, so a
+  // missing token means the sign-in expired rather than a first run.
+  if (ctx.settings.healthHistory.length > 0) {
+    titleEl.textContent = "Reconnect Gmail";
+    const lead = document.getElementById("connect-lead") as HTMLElement;
+    lead.textContent =
+      "Your Google sign-in has expired. Reconnect to pick up where you left off. Your rules and settings are still here.";
+  }
+  void showPinTip();
+
+  document.body.dataset.state = "connect";
+  gate.hidden = false;
+  btn.focus();
+
+  return new Promise((resolve) => {
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.textContent = "Waiting for Google…";
+      errorEl.textContent = "";
+      try {
+        const token = await gmailProvider.getAuthToken(true);
+        gate.hidden = true;
+        delete document.body.dataset.state;
+        // The gate already explained what Cluster reads, so the old trust
+        // banner would only repeat it.
+        if (!ctx.settings.onboardingDismissed) {
+          ctx.settings = await updateSettings({ onboardingDismissed: true });
+          onboardingBanner.hidden = true;
+        }
+        resolve(token);
+      } catch (err) {
+        log.error("Gmail connect failed", err);
+        btn.disabled = false;
+        btn.textContent = "Connect Gmail";
+        if (!navigator.onLine) {
+          errorEl.textContent = "You're offline. Reconnect to the internet and try again.";
+        } else if (isAuthCancelled(err)) {
+          errorEl.textContent =
+            "Google sign-in was cancelled. Cluster can't see your mail until you allow access.";
+        } else {
+          const message = err instanceof Error ? err.message : String(err);
+          errorEl.textContent = `Couldn't connect to Gmail (${message}). Try again.`;
+        }
+      }
+    };
+  });
+}
+
+// chrome.action.getUserSettings() (Chrome 91+) says whether the toolbar icon
+// is pinned. Only nudge when it isn't; stay quiet if the API is missing.
+async function showPinTip() {
+  const tip = document.getElementById("connect-pin-tip") as HTMLElement;
+  try {
+    const settings = await chrome.action?.getUserSettings?.();
+    tip.hidden = !settings || settings.isOnToolbar;
+  } catch {
+    tip.hidden = true;
+  }
+}
+
 async function showAccountPill(token: string) {
   try {
     const email = await getProfileEmail(token);
@@ -362,7 +444,7 @@ async function main() {
     ctx.settings = await updateSettings({ onboardingDismissed: true });
   };
 
-  const gmailToken = await gmailProvider.getAuthToken(true);
+  const gmailToken = await connectGmail();
   resurfaceDueSnoozed(gmailProvider).catch((err) => log.error("Resurfacing snoozed mail failed", err));
   void showAccountPill(gmailToken);
 
@@ -2900,7 +2982,12 @@ function wireBulkHandlers() {
 
 main().catch((err) => {
   log.error(err);
-  const message = err instanceof Error ? err.message : "unknown error";
+  const message =
+    err instanceof Error
+      ? err.message
+      : typeof (err as { message?: unknown })?.message === "string"
+        ? (err as { message: string }).message
+        : "unknown error";
   statusEl.hidden = false;
   statusEl.innerHTML = "";
   const text = document.createElement("span");

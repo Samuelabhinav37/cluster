@@ -140,6 +140,42 @@
 
         <!-- ── Main ──────────────────────────────────────────────────── -->
         <main class="app-main">
+          <!-- ══ Connect gate (first run / expired sign-in) ══════════════ -->
+          <section id="connect-gate" class="connect-gate" aria-labelledby="connect-title" hidden>
+            <div class="glass-card connect-card">
+              <h1 class="page-title" id="connect-title">Connect Gmail to get started</h1>
+              <p class="lead" id="connect-lead">
+                Cluster finds mail you can clear out, sorts the rest, and flags senders that look like
+                phishing. It runs entirely in your browser.
+              </p>
+              <ul class="connect-points">
+                <li>
+                  <strong>What it reads.</strong> Senders, subjects, dates, labels and the
+                  sender-authentication headers. Never message bodies.
+                </li>
+                <li>
+                  <strong>What it never does.</strong> Send your mail anywhere, send email for you, or
+                  delete or move anything before you confirm.
+                </li>
+                <li>
+                  <strong>Why Google asks to change your mail.</strong> So Cluster can label, archive,
+                  move to Trash and create filters when you tell it to.
+                </li>
+              </ul>
+              <p class="hint" id="connect-testing-note">
+                Cluster is still in testing, so Google will show a "Google hasn't verified this app"
+                screen first. Choose <strong>Continue</strong> to reach the permission screen.
+              </p>
+              <div class="connect-actions">
+                <button type="button" id="connect-gmail-btn" class="btn-accent-solid">Connect Gmail</button>
+                <span id="connect-error" class="connect-error" role="alert"></span>
+              </div>
+              <p class="hint" id="connect-pin-tip" hidden>
+                Tip: pin Cluster from the puzzle-piece menu in Chrome's toolbar so it's one click away.
+              </p>
+            </div>
+          </section>
+
           <p id="status" class="status-line" role="status">Loading your senders…</p>
 
           <div id="onboarding-banner" class="banner" hidden>
