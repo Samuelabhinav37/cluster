@@ -9,6 +9,7 @@ import { vi } from "vitest";
 import rawIndexHtml from "./index.html?raw";
 import type { EmailProvider, NormalizedMessageMetadata } from "../lib/providers/emailProvider";
 import { CURRENT_SETTINGS_SCHEMA_VERSION, type ClusterSettings } from "../lib/settingsStore";
+import { labelLookupNames } from "../lib/clusterLabels";
 
 const DAY = 86_400_000;
 
@@ -162,6 +163,8 @@ export interface BootOptions {
   outlook?: GmailSpy;
   /** Gmail labels as labels.list returns them (default: none). */
   labels?: { id: string; name: string; type?: "system" | "user"; messagesTotal?: number }[];
+  /** Message ids under each label id, for listMessageIdsInLabel. */
+  labelMessages?: Record<string, string[]>;
   /** Make the incremental filter-scope consent screen come back denied. */
   denyFilterScope?: boolean;
   /** Stub global fetch (e.g. for the one-click unsubscribe POST). */
@@ -191,6 +194,7 @@ export interface BootedDashboard {
     deleteLabel: ReturnType<typeof vi.fn>;
     listMessageIdsInLabel: ReturnType<typeof vi.fn>;
     batchModify: ReturnType<typeof vi.fn>;
+    findLabelIds: ReturnType<typeof vi.fn>;
   };
   /** Read the persisted settings object as the dashboard last wrote it. */
   storedSettings: () => ClusterSettings;
@@ -285,8 +289,16 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
     }),
     renameLabel: vi.fn(async () => {}),
     deleteLabel: vi.fn(async () => {}),
-    listMessageIdsInLabel: vi.fn(async () => [] as string[]),
+    listMessageIdsInLabel: vi.fn(async (_t: string, id: string) => opts.labelMessages?.[id] ?? []),
     batchModify: vi.fn(async () => {}),
+    findLabelIds: vi.fn(async (_t: string, name: string) => {
+      const ids: string[] = [];
+      for (const candidate of labelLookupNames(name)) {
+        const hit = (opts.labels ?? []).find((l) => l.name.toLowerCase() === candidate.toLowerCase());
+        if (hit && !ids.includes(hit.id)) ids.push(hit.id);
+      }
+      return ids;
+    }),
   };
   vi.doMock("../lib/gmailApi", async () => ({
     ...((await vi.importActual("../lib/gmailApi")) as Record<string, unknown>),

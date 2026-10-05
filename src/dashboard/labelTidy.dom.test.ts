@@ -53,7 +53,7 @@ describe("Tidy up Cluster's labels", () => {
   it("stays hidden once dismissed, and when there is nothing to tidy", async () => {
     const dismissed = await bootDashboard({ labels: OLD_LABELS, settings: { labelTidyDismissed: true } });
     expect(dismissed.el("label-tidy-banner").hidden).toBe(true);
-    expect(dismissed.gmailApi.getLabel).not.toHaveBeenCalled();
+    expect(dismissed.gmailApi.renameLabel).not.toHaveBeenCalled();
 
     const clean = await bootDashboard({ labels: [{ id: "L", name: "🔇 Muted", type: "user" }] });
     await vi.waitFor(() => {

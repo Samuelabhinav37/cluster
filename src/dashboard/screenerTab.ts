@@ -11,6 +11,8 @@ import type { SenderSummary } from "../lib/senderModel";
 import { senderTile } from "./senderTile";
 import { ctx, providerById, rescan } from "./state";
 import { logAction } from "./recentTab";
+import { renderScreenerBacklog } from "./screenerBacklog";
+import { clusterLabelName } from "../lib/clusterLabels";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -88,6 +90,7 @@ async function releaseHeldSender(address: string, ids: string[], provider: Provi
 
 export function renderScreenerTab(senders: SenderSummary[]) {
   screenerToggle.checked = ctx.settings.screenerEnabled;
+  renderScreenerBacklog().catch((err) => log.error("Screener backlog render failed", err));
 
   screenerQueueEl.innerHTML = "";
   if (!ctx.settings.screenerEnabled) {
@@ -95,7 +98,7 @@ export function renderScreenerTab(senders: SenderSummary[]) {
     p.className = "empty-state";
     p.textContent =
       ctx.settings.screenedSenders.length > 0
-        ? `Screener is off. ${ctx.settings.screenedSenders.length} sender(s) are still held — turn it back on to review them, or find them under the Screener label in Gmail.`
+        ? `Screener is off. Mail it already held from ${ctx.settings.screenedSenders.length} sender${ctx.settings.screenedSenders.length === 1 ? "" : "s"} is still under the "${clusterLabelName("screener")}" label in Gmail.`
         : "Screener is off.";
     screenerQueueEl.appendChild(p);
   } else {
