@@ -118,9 +118,35 @@ in [`live-test-checklist.md`](./live-test-checklist.md):
 - MV3 CSP under real Chrome; the `managed_schema.json` load path.
 - Chrome's on-device `Summarizer` / `LanguageModel` availability and the
   actual on-device rule-draft output quality.
-- The redesign's visual layer generally: the Delete/Organize/Phishing nav
-  split, glass-card styling, and every screen's actual look — DOM tests only
-  assert structure and behavior, never layout or appearance.
+- The redesign's visual layer against a real mailbox. For layout and
+  appearance against fake data, use the UI preview below.
+
+## UI preview — `npm run preview:ui`
+
+Builds `dist/` and serves it at `http://127.0.0.1:4599/` with
+`scripts/preview/chrome-stub.js` injected ahead of the dashboard bundle. The
+stub replaces `chrome.*` and answers the Gmail REST endpoints from a fixed fake
+mailbox (shops, newsletters, receipts, codes, contacts, cold outreach, brand
+lookalike phishing). The real bundle then runs in an ordinary tab: no OAuth, no
+real mail, and browser automation can drive it, which it can't do for
+`chrome-extension://` pages.
+
+Fake state lives in the tab's `localStorage`, so writes (trash, labels,
+filters, settings) survive a reload. Query flags:
+
+| Flag | Effect |
+|---|---|
+| `?reset` | Wipe fake state: a fresh install with Gmail not connected (the root URL redirects here) |
+| `?consent` | Show a simulated sign-in overlay on Connect, with Allow and Cancel |
+| `?deny` | The interactive sign-in fails as a cancelled prompt would |
+| `?offline` | Every Gmail call fails with a network error |
+| `?pinned` | Report the toolbar icon as pinned, hiding the pin tip |
+
+It proves layout and flow, not Gmail: real quota, real headers and Google's
+real consent screens still need the reload-unpacked checklist. The server adds
+`<meta name="darkreader-lock">` because the Dark Reader extension re-tints
+localhost pages (it can't reach the real extension page), which made early
+previews look like a broken light theme.
 
 ## Adding a DOM action-flow test
 
