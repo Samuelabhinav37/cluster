@@ -33,8 +33,8 @@ describe("resolveLabelName", () => {
 });
 
 describe("applyLabelChoice", () => {
-  it("reuse keeps the name, suffix appends ' (Cluster)'", () => {
+  it("reuse keeps the name, suffix appends ' · sorted'", () => {
     expect(applyLabelChoice("Shopping", "reuse")).toBe("Shopping");
-    expect(applyLabelChoice("Shopping", "suffix")).toBe("Shopping (Cluster)");
+    expect(applyLabelChoice("Shopping", "suffix")).toBe("Shopping · sorted");
   });
 });

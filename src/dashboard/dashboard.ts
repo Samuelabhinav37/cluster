@@ -2015,6 +2015,8 @@ function buildKeepSortedCell(sender: SenderSummary): HTMLDivElement {
   const cell = document.createElement("div");
   const btn = document.createElement("button");
   btn.textContent = "Keep sorted";
+  const labelName = sender.displayName || sender.address;
+  btn.title = `New mail from ${sender.address} will skip your inbox and go to a label named "${labelName}". A Gmail filter does this, even with Chrome closed. You can remove it in Gmail under Settings, then Filters.`;
   btn.onclick = async () => {
     const provider = providerById.get(sender.provider);
     if (!provider?.keepSorted) {
@@ -2025,7 +2027,6 @@ function buildKeepSortedCell(sender: SenderSummary): HTMLDivElement {
     btn.textContent = "Setting up…";
     try {
       const token = await provider.getAuthToken(false);
-      const labelName = sender.displayName || sender.address;
       await provider.keepSorted(token, sender.address, labelName, sender.messageIds);
       await logAction("keepSorted", `Kept ${sender.address} sorted into "${labelName}"`);
       btn.textContent = "Sorted ✓";
@@ -2769,7 +2770,8 @@ function wireBulkHandlers() {
   bulkKeepSortedBtn.onclick = () => {
     const selected = ctx.senders.filter((s) => selectedSenderKeys.has(s.key));
     const { eligible, unsupported } = partitionForKeepSorted(selected, providerById);
-    const summaryText = `${eligible.length} will be sorted, ${unsupported.length} skipped — not supported for this provider`;
+    const skipped = unsupported.length > 0 ? ` (${unsupported.length} skipped: not supported for this provider)` : "";
+    const summaryText = `From now on, new mail from ${eligible.length} sender${eligible.length === 1 ? "" : "s"} will skip your inbox and go to a label named after each sender${skipped}.`;
 
     renderConfirmStep(keepSortedBulkSlot, resetKeepSortedBulkSlot, summaryText, false, async () => {
       const { succeeded, failed } = await executeBulkKeepSorted(eligible, providerById);

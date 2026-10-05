@@ -352,19 +352,25 @@
             <section id="sort-inbox-section">
               <h3 class="section-label">Sort my inbox</h3>
               <p class="hint">
-                One pass: file every scanned message under a flat label by what it is (one-time
-                codes, receipts, shipping) or who sent it. Starred mail is left alone. A preview
-                shows first — nothing moves until you press Apply.
+                Files your recent mail under labels like 🔑 One-time codes, 🧾 Receipts and
+                🛍 Shopping, based on what each email is or who sent it. Starred mail is left alone.
+                You see a preview first, and nothing moves until you press Apply.
               </p>
               <div id="sort-inbox-bar" class="confirm-slot">
                 <span id="sort-inbox-slot"><button id="sort-inbox-btn" class="btn btn-accent">Sort my inbox…</button></span>
                 <span id="sort-inbox-count" class="hint"></span>
               </div>
               <details id="sort-inbox-config">
-                <summary>Which buckets, and where they go</summary>
+                <summary>Which labels, and where the mail goes</summary>
                 <div id="sort-inbox-buckets"></div>
-                <label class="check-label"><input type="checkbox" id="sort-keep-sorting" /> <span>Keep sorting new mail (save a rule per bucket for the background sweep)</span></label>
-                <label class="check-label"><input type="checkbox" id="sort-expire-otp" /> <span>Also auto-trash one-time codes older than 2 days</span></label>
+                <label class="check-label"><input type="checkbox" id="sort-keep-sorting" /> <span>Keep doing this for new mail</span></label>
+                <label class="check-label"><input type="checkbox" id="sort-expire-otp" /> <span>Also move one-time codes to Trash after 2 days</span></label>
+                <p class="hint">
+                  For sender-based labels (Shopping, Travel, Finance and so on), Cluster adds a Gmail
+                  filter, so new mail gets its label the moment it arrives, even with Chrome closed. You
+                  can see them in Gmail under Settings, then Filters. One-time codes, receipts and
+                  shipping updates are sorted by Cluster's background check while Chrome is open.
+                </p>
               </details>
               <section id="sort-seed-card" class="banner" hidden></section>
               <div id="sort-inbox-preview"></div>

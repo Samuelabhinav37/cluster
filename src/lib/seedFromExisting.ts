@@ -1,7 +1,7 @@
 // First-run helper: look at what the user has already set up in Gmail and offer
 // to reuse it, so "Sort my inbox" doesn't fight their own organisation.
 // - a label they already made that matches a bucket name → offer to reuse it
-//   instead of creating "<name> (Cluster)";
+//   instead of creating "<name> · sorted";
 // - a sender/domain they already filter themselves → offer to leave it alone
 //   (a "never" sort override).
 // Pure — the dashboard does the Gmail reads (listLabelNames, listFilters) and

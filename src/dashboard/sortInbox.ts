@@ -147,7 +147,7 @@ function renderSortBucketToggles() {
     if (ruleCount > 0) parts.push(`${ruleCount} Outlook rule${ruleCount === 1 ? "" : "s"}`);
     const note = document.createElement("p");
     note.className = "hint";
-    note.textContent = `${parts.join(" + ")} keep these buckets sorted at delivery — manage them in your provider's settings.`;
+    note.textContent = `${parts.join(" and ")} label new mail as it arrives. You can see or remove them in your mail settings.`;
     sortInboxBucketsEl.appendChild(note);
   }
 
@@ -171,7 +171,7 @@ function renderSortInbox(senders: SenderSummary[]) {
 // Cluster's sort-bucket labels are flat ("Shopping", …). Before applying, we
 // check them against the mailbox's existing labels: a clash with a label the
 // user made themselves is surfaced here so they can choose to reuse it or keep
-// Cluster's separate as "<name> (Cluster)". The choice persists
+// Cluster's separate as "<name> · sorted". The choice persists
 // (settings.labelChoices) so this only asks once.
 function renderSortLabelConflicts(conflicts: PlanLabelConflict[], retry: () => void) {
   sortInboxSlot.innerHTML = "";
@@ -179,8 +179,8 @@ function renderSortLabelConflicts(conflicts: PlanLabelConflict[], retry: () => v
   const intro = document.createElement("span");
   intro.textContent =
     conflicts.length === 1
-      ? "You already have a label with this name — reuse it, or keep Cluster's separate? "
-      : "You already have labels with these names — reuse them, or keep Cluster's separate? ";
+      ? "You already have a label with this name. Use yours, or keep Cluster's separate? "
+      : "You already have labels with these names. Use yours, or keep Cluster's separate? ";
   sortInboxSlot.appendChild(intro);
 
   for (const c of conflicts) {
@@ -189,7 +189,7 @@ function renderSortLabelConflicts(conflicts: PlanLabelConflict[], retry: () => v
     reuseBtn.onclick = () => resolveSortLabelConflict(c.desired, "reuse", retry);
 
     const suffixBtn = document.createElement("button");
-    suffixBtn.textContent = `Keep separate: "${c.desired} (Cluster)"`;
+    suffixBtn.textContent = `Keep separate: "${applyLabelChoice(c.desired, "suffix")}"`;
     suffixBtn.onclick = () => resolveSortLabelConflict(c.desired, "suffix", retry);
 
     sortInboxSlot.append(reuseBtn, suffixBtn);

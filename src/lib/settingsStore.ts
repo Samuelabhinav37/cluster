@@ -103,7 +103,7 @@ export interface ClusterSettings {
   clusterOwnedLabels: string[];
   /** Desired label name → the name to actually use, once the user has
    * resolved a clash with one of their own labels. `"Shopping"` maps to
-   * either `"Shopping"` (reuse theirs) or `"Shopping (Cluster)"` (keep separate). */
+   * either `"Shopping"` (reuse theirs) or `"Shopping · sorted"` (keep separate). */
   labelChoices: Record<string, string>;
 
   // ── Overview trend ─────────────────────────────────────────────────────
