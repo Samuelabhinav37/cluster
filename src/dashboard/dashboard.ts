@@ -38,6 +38,7 @@ import {
 } from "../lib/settingsStore";
 import { activeProviders, ctx, providerById, setBridge } from "./state";
 import { maybeShowSeedCard, renderSortInbox, wireSortInbox } from "./sortInbox";
+import { maybeShowLabelTidyCard } from "./labelTidy";
 import { excludeSnoozedMessages } from "../lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "../lib/snoozeResurface";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
@@ -481,6 +482,7 @@ async function main() {
   await wireDigest();
   await wireAiMessageKind();
   maybeShowSeedCard().catch((err) => log.error("seed-from-existing card failed", err));
+  maybeShowLabelTidyCard().catch((err) => log.error("label tidy-up card failed", err));
   await scanAndRender();
 }
 

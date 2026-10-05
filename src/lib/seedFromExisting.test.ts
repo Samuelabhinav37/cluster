@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GmailFilterResource } from "./gmailApi";
 import {
+  clusterLabelIdSet,
   filteredFromTargets,
   findLabelReuseCandidates,
   skipOverridesFor,
@@ -33,6 +34,33 @@ describe("filteredFromTargets", () => {
     expect(filteredFromTargets([f("News@Stripe.com"), f("news@stripe.com")])).toEqual([
       "news@stripe.com",
     ]);
+  });
+
+  it("leaves out Cluster's own mute / Screener / Keep sorted filters", () => {
+    const labels = [
+      { id: "L_MUTED", name: "Cluster/Muted" },
+      { id: "L_SCREEN", name: "✋ Screener" },
+      { id: "L_SENDER", name: "Jobright Job Alert" },
+      { id: "L_MINE", name: "Job Applications" },
+    ];
+    const ours = clusterLabelIdSet(labels, ["Jobright Job Alert"]);
+    expect([...ours].sort()).toEqual(["L_MUTED", "L_SCREEN", "L_SENDER"]);
+    const filed = (from: string, label: string): GmailFilterResource => ({
+      id: from,
+      criteria: { from },
+      action: { addLabelIds: [label], removeLabelIds: ["INBOX"] },
+    });
+    expect(
+      filteredFromTargets(
+        [
+          filed("noisy@a.com", "L_MUTED"),
+          filed("new@b.com", "L_SCREEN"),
+          filed("jobs@jobright.ai", "L_SENDER"),
+          filed("recruiter@c.com", "L_MINE"),
+        ],
+        ours,
+      ),
+    ).toEqual(["recruiter@c.com"]);
   });
 });
 

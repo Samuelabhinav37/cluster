@@ -1674,6 +1674,27 @@ a:hover {
   display: none;
 }
 
+.tidy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tidy-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 400 14px/1.4 var(--font);
+  color: var(--label);
+}
+
+.tidy-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 /* ── Connect gate ──────────────────────────────────────────────────────
    Shown instead of the app until Gmail is connected (first run, or a
    sign-in that has expired). Everything that needs an account is hidden
@@ -1686,6 +1707,7 @@ body[data-state="connect"] #settings-panel,
 body[data-state="connect"] #status,
 body[data-state="connect"] #onboarding-banner,
 body[data-state="connect"] #athena-section,
+body[data-state="connect"] #label-tidy-banner,
 body[data-state="connect"] .screen {
   display: none !important;
 }

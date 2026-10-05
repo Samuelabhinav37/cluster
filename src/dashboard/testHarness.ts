@@ -160,6 +160,8 @@ export interface BootOptions {
   mailbox?: NormalizedMessageMetadata[];
   gmail?: GmailSpy;
   outlook?: GmailSpy;
+  /** Gmail labels as labels.list returns them (default: none). */
+  labels?: { id: string; name: string; type?: "system" | "user"; messagesTotal?: number }[];
   /** Make the incremental filter-scope consent screen come back denied. */
   denyFilterScope?: boolean;
   /** Stub global fetch (e.g. for the one-click unsubscribe POST). */
@@ -183,6 +185,12 @@ export interface BootedDashboard {
     getOrCreateLabel: ReturnType<typeof vi.fn>;
     createFilter: ReturnType<typeof vi.fn>;
     deleteFilter: ReturnType<typeof vi.fn>;
+    listLabels: ReturnType<typeof vi.fn>;
+    getLabel: ReturnType<typeof vi.fn>;
+    renameLabel: ReturnType<typeof vi.fn>;
+    deleteLabel: ReturnType<typeof vi.fn>;
+    listMessageIdsInLabel: ReturnType<typeof vi.fn>;
+    batchModify: ReturnType<typeof vi.fn>;
   };
   /** Read the persisted settings object as the dashboard last wrote it. */
   storedSettings: () => ClusterSettings;
@@ -269,6 +277,16 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
     getOrCreateLabel: vi.fn(async () => "label-id"),
     createFilter: vi.fn(async () => "filter-id"),
     deleteFilter: vi.fn(async () => {}),
+    listLabels: vi.fn(async () => opts.labels ?? []),
+    getLabel: vi.fn(async (_t: string, id: string) => {
+      const label = (opts.labels ?? []).find((l) => l.id === id);
+      if (!label) throw new Error(`no label ${id}`);
+      return label;
+    }),
+    renameLabel: vi.fn(async () => {}),
+    deleteLabel: vi.fn(async () => {}),
+    listMessageIdsInLabel: vi.fn(async () => [] as string[]),
+    batchModify: vi.fn(async () => {}),
   };
   vi.doMock("../lib/gmailApi", async () => ({
     ...((await vi.importActual("../lib/gmailApi")) as Record<string, unknown>),

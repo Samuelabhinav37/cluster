@@ -24,6 +24,7 @@ import {
   isServerSortBucket,
 } from "../lib/serverSort";
 import {
+  clusterLabelIdSet,
   filteredFromTargets,
   findLabelReuseCandidates,
   skipOverridesFor,
@@ -34,6 +35,7 @@ import {
   getOrCreateLabel,
   listFilters,
   listLabelNames,
+  listLabels,
 } from "../lib/gmailApi";
 import {
   createInboxRule,
@@ -585,9 +587,9 @@ async function maybeShowSeedCard() {
   let filterTargets: string[];
   try {
     const token = await gmailProvider.getAuthToken(false);
-    const [names, filters] = await Promise.all([listLabelNames(token), listFilters(token)]);
-    labelNames = names;
-    filterTargets = filteredFromTargets(filters);
+    const [labels, filters] = await Promise.all([listLabels(token), listFilters(token)]);
+    labelNames = labels.map((l) => l.name);
+    filterTargets = filteredFromTargets(filters, clusterLabelIdSet(labels, ctx.settings.clusterOwnedLabels));
   } catch (err) {
     log.error("seed-from-existing: Gmail read failed", err);
     return;

@@ -42,6 +42,7 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
     },
     sortOverrides: {},
     seededFromExisting: false,
+    labelTidyDismissed: false,
     clusterOwnedLabels: [],
     labelChoices: {},
     healthHistory: [],

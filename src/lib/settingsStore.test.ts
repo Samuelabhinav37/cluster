@@ -103,7 +103,7 @@ describe("settingsStore", () => {
     const settings = await getSettings();
     expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
     expect(settings.scanWindowDays).toBe(20);
-    expect(settings.clusterOwnedLabels).toEqual(["🛍 Shopping"]) // v12 canonicalises;
+    expect(settings.clusterOwnedLabels).toEqual(["🛍 Shopping", "Shopping"]); // v12 adds today's name
     expect(settings.sortOverrides).toEqual({});
   });
 
@@ -220,7 +220,7 @@ describe("settingsStore", () => {
 
     const settings = await getSettings();
     expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
-    expect(settings.clusterOwnedLabels).toEqual(["📰 Newsletters", "🛍 Shopping"]);
+    expect(settings.clusterOwnedLabels).toEqual(["📰 Newsletters", "🛍 Shopping", "Newsletters", "Shopping"]);
     expect(settings.labelChoices).toEqual({ "My thing": "My thing" });
     const [a, b, c] = settings.rules;
     expect(a.name).toBe("Sort: 📰 Newsletters");

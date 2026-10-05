@@ -93,6 +93,8 @@ export interface ClusterSettings {
   /** True once the first-run "reuse your existing labels/filters" card has been
    * shown and dismissed (see seedFromExisting.ts). */
   seededFromExisting: boolean;
+  /** The user closed the "Tidy up Cluster's labels" card without applying. */
+  labelTidyDismissed: boolean;
 
   // ── Flat-label collision guard ─────────────────────────────────────────
   /** Canonical names of Gmail labels Cluster itself created. Lets us tell
@@ -165,6 +167,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   },
   sortOverrides: {},
   seededFromExisting: false,
+  labelTidyDismissed: false,
   clusterOwnedLabels: [],
   labelChoices: {},
   healthHistory: [],

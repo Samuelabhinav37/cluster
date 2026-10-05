@@ -572,6 +572,59 @@ export async function findLabelIds(token: string, name: string): Promise<string[
   return ids;
 }
 
+export interface GmailLabelInfo {
+  id: string;
+  name: string;
+  type?: "system" | "user";
+  /** Only present on labels.get, not labels.list. */
+  messagesTotal?: number;
+}
+
+export async function listLabels(token: string): Promise<GmailLabelInfo[]> {
+  const data = await gmailFetch<{ labels?: GmailLabelInfo[] }>("/users/me/labels", token);
+  return data.labels ?? [];
+}
+
+export async function getLabel(token: string, id: string): Promise<GmailLabelInfo> {
+  return gmailFetch<GmailLabelInfo>(`/users/me/labels/${encodeURIComponent(id)}`, token);
+}
+
+/** Renames in place: messages and filters point at the id, so both follow. */
+export async function renameLabel(token: string, id: string, name: string): Promise<void> {
+  await gmailFetch(`/users/me/labels/${encodeURIComponent(id)}`, token, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function deleteLabel(token: string, id: string): Promise<void> {
+  await gmailFetch(`/users/me/labels/${encodeURIComponent(id)}`, token, { method: "DELETE" });
+}
+
+/** Every message carrying a label, by id (not a `label:` search, which needs
+ * Gmail's hyphenated form of the name and breaks on emoji). Includes Spam and
+ * Trash so a merge moves those too. */
+export async function listMessageIdsInLabel(token: string, labelId: string, maxResults = 20000): Promise<string[]> {
+  const ids: string[] = [];
+  let pageToken: string | undefined;
+  do {
+    const params = new URLSearchParams({
+      labelIds: labelId,
+      includeSpamTrash: "true",
+      maxResults: String(Math.min(500, maxResults - ids.length)),
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+    const data = await gmailFetch<{ messages?: GmailMessageStub[]; nextPageToken?: string }>(
+      `/users/me/messages?${params}`,
+      token,
+    );
+    for (const m of data.messages ?? []) ids.push(m.id);
+    pageToken = data.nextPageToken;
+  } while (pageToken && ids.length < maxResults);
+  return ids;
+}
+
 /** Just the display names of every label (system + user). Feeds the
  * flat-label collision guard (see labelResolver.ts). */
 export async function listLabelNames(token: string): Promise<string[]> {

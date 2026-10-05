@@ -18,7 +18,8 @@ export type ActionLogKind =
   | "keepSorted"
   | "sort"
   | "screener"
-  | "rule";
+  | "rule"
+  | "labels";
 
 export interface ActionLogUndo {
   provider: ProviderId;

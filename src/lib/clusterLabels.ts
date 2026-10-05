@@ -167,7 +167,9 @@ export function migrateStoredLabelNames(stored: StoredRecord): StoredRecord {
     ? Object.fromEntries(Object.entries(stored.labelChoices).filter(([k]) => !clusterLabelKeyFor(k)))
     : stored.labelChoices;
 
-  const clusterOwnedLabels = [...new Set(ownedNames.map(canonicalLabelName))];
+  // Keep the old names alongside today's: the label tidy-up uses them to tell
+  // a plain "Shopping" Cluster made from one the user made.
+  const clusterOwnedLabels = [...new Set([...ownedNames.map(canonicalLabelName), ...ownedNames])];
   // Only write back fields that were stored: an explicit `undefined` would
   // override the defaults normalisation fills in.
   const out: StoredRecord = { ...stored };

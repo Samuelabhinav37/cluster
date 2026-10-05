@@ -6,6 +6,7 @@
 //   (a "never" sort override).
 // Pure — the dashboard does the Gmail reads (listLabelNames, listFilters) and
 // the settings writes.
+import { CLUSTER_LABELS } from "./clusterLabels";
 import type { GmailFilterResource } from "./gmailApi";
 import type { SortOverride } from "./sortTaxonomy";
 
@@ -62,11 +63,17 @@ export function findLabelReuseCandidates(
  * Sender addresses / domains the user already routes with their own Gmail
  * filters — candidates to leave out of sorting. Only `from:` criteria that
  * look like a single address or bare domain are taken (a complex query is
- * skipped rather than guessed at).
+ * skipped rather than guessed at). Filters that file into one of Cluster's
+ * own labels (`clusterLabelIds`: mute, Screener, Keep sorted) are Cluster's,
+ * not the user's, so they're left out.
  */
-export function filteredFromTargets(filters: GmailFilterResource[]): string[] {
+export function filteredFromTargets(
+  filters: GmailFilterResource[],
+  clusterLabelIds: ReadonlySet<string> = new Set(),
+): string[] {
   const out = new Set<string>();
   for (const f of filters) {
+    if ((f.action?.addLabelIds ?? []).some((id) => clusterLabelIds.has(id))) continue;
     const from = f.criteria?.from?.trim().toLowerCase();
     if (!from) continue;
     if (/[()"]| or | -/i.test(from)) continue; // compound query — don't guess
@@ -82,4 +89,23 @@ export function skipOverridesFor(targets: string[]): Record<string, SortOverride
   const next: Record<string, SortOverride> = {};
   for (const t of targets) next[t.toLowerCase()] = "never";
   return next;
+}
+
+/** Ids of labels that belong to Cluster: today's names from its label table,
+ * any "Cluster/…"/"Declutter/…" label, and any label it recorded creating
+ * (e.g. per-sender Keep sorted labels). */
+export function clusterLabelIdSet(
+  labels: { id: string; name: string }[],
+  clusterOwnedLabels: string[],
+): Set<string> {
+  const ours = new Set([
+    ...clusterOwnedLabels.map((n) => n.toLowerCase()),
+    ...Object.values(CLUSTER_LABELS).map((s) => s.name.toLowerCase()),
+  ]);
+  const ids = new Set<string>();
+  for (const l of labels) {
+    const lower = l.name.toLowerCase();
+    if (ours.has(lower) || lower.startsWith("cluster/") || lower.startsWith("declutter/")) ids.add(l.id);
+  }
+  return ids;
 }
