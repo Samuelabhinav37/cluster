@@ -14,6 +14,7 @@ import type { ProviderId } from "../lib/providers/emailProvider";
 import { renderConfirmStep } from "./ui";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
+import { clusterLabelName } from "../lib/clusterLabels";
 
 const securitySectionEl = document.getElementById("security-section") as HTMLElement;
 const securitySenderListEl = document.getElementById("security-sender-list") as HTMLUListElement;
@@ -305,7 +306,7 @@ function buildThreatCard(sender: SenderSummary, score: number): HTMLElement {
       renderConfirmStep(
         slot,
         reset,
-        `Move ${sender.messageIds.length} message${sender.messageIds.length === 1 ? "" : "s"} from ${sender.address} to a "Possible Phishing" label, out of the inbox?`,
+        `Move ${sender.messageIds.length} message${sender.messageIds.length === 1 ? "" : "s"} from ${sender.address} to the "${clusterLabelName("suspicious")}" label, out of the inbox?`,
         false,
         async () => {
           const token = await provider.getAuthToken(false);

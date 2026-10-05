@@ -7,6 +7,7 @@ import {
   getMessageLinks as fetchGmailMessageLinks,
   getMessageMetadata as fetchGmailMessageMetadata,
   getCurrentHistoryId,
+  findLabelIds,
   getOrCreateLabel,
   labelMessages as apiLabelMessages,
   unlabelMessages as apiUnlabelMessages,
@@ -27,6 +28,7 @@ import {
   untrashMessages as apiUntrashMessages,
 } from "../gmailApi";
 import { parseListUnsubscribe } from "../unsubscribe";
+import { clusterLabelName } from "../clusterLabels";
 import { selectTrustedAuthenticationResults } from "../emailAuth";
 import type {
   CandidateScope,
@@ -35,9 +37,7 @@ import type {
   ScanPurpose,
 } from "./emailProvider";
 
-// Flat label name, matching gmailApi.ts's other labels (Muted, Snoozed, …) --
-// no "Cluster/" parent; it sits alongside the user's own labels.
-const SUSPICIOUS_LABEL_NAME = "Possible Phishing";
+const SUSPICIOUS_LABEL_NAME = clusterLabelName("suspicious");
 
 export function gmailQueryForPurpose(purpose: CandidateScope, windowDays: number): string {
   const age = `newer_than:${windowDays}d`;
@@ -231,8 +231,8 @@ export const gmailProvider: EmailProvider = {
   },
 
   async unlabelSuspicious(token, ids) {
-    const labelId = await getOrCreateLabel(token, SUSPICIOUS_LABEL_NAME);
-    await batchModify(token, ids, ["INBOX"], [labelId]);
+    const labelIds = await findLabelIds(token, SUSPICIOUS_LABEL_NAME);
+    await batchModify(token, ids, ["INBOX"], labelIds);
   },
 
   async getMessageLinks(token, id) {

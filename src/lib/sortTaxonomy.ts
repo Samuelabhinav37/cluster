@@ -5,6 +5,7 @@
 // order-update, not just "Shopping".
 import { categorizeDomain, type DomainCategory } from "./domainCategories";
 import type { MessageKind } from "./messageKind";
+import { clusterLabelName } from "./clusterLabels";
 
 export type SortBucket =
   | "otp"
@@ -19,22 +20,22 @@ export type SortBucket =
   | "education";
 
 export const SORT_BUCKET_LABELS: Record<SortBucket, string> = {
-  otp: "One-time codes",
-  receipt: "Receipts & invoices",
-  shipping: "Order & shipping updates",
-  newsletter: "Newsletters",
-  social: "Social",
-  shopping: "Shopping",
-  travel: "Travel",
-  finance: "Finance",
-  productivity: "Productivity",
-  education: "Education",
+  otp: clusterLabelName("otp"),
+  receipt: clusterLabelName("receipt"),
+  shipping: clusterLabelName("shipping"),
+  newsletter: clusterLabelName("newsletter"),
+  social: clusterLabelName("social"),
+  shopping: clusterLabelName("shopping"),
+  travel: clusterLabelName("travel"),
+  finance: clusterLabelName("finance"),
+  productivity: clusterLabelName("productivity"),
+  education: clusterLabelName("education"),
 };
 
 /**
  * The Gmail / Outlook label a bucket's mail is filed under. Flat, no prefix --
- * the label a user sees is just "Shopping", "Newsletters", etc., sitting
- * alongside their own labels rather than nested under a "Cluster/" parent.
+ * the label a user sees is just "🛍 Shopping", "📰 Newsletters", etc., sitting
+ * alongside their own labels (see clusterLabels.ts for the full table).
  */
 export function bucketLabelName(bucket: SortBucket): string {
   return SORT_BUCKET_LABELS[bucket];

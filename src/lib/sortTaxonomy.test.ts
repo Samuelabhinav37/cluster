@@ -52,9 +52,9 @@ describe("effectiveBucket", () => {
 });
 
 describe("bucketLabelName / defaults", () => {
-  it("uses a flat label name with no prefix", () => {
-    expect(bucketLabelName("shopping")).toBe("Shopping");
-    expect(bucketLabelName("otp")).toBe("One-time codes");
+  it("uses the flat, emoji-tagged label name with no prefix", () => {
+    expect(bucketLabelName("shopping")).toBe("🛍 Shopping");
+    expect(bucketLabelName("otp")).toBe("🔑 One-time codes");
   });
 
   it("defaults transactional buckets to filing out of the inbox, category buckets to in-place", () => {

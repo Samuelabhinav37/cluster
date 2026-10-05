@@ -16,6 +16,7 @@ import {
   type SortBucket,
   type SortOverride,
 } from "../lib/sortTaxonomy";
+import { SORT_RULE_PREFIX } from "../lib/clusterLabels";
 import {
   buildBucketFilter,
   buildBucketRule,
@@ -520,7 +521,7 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
       if (!server || hasOutlook) {
         const nextRule: ClusterRule = {
           id: crypto.randomUUID(),
-          name: `Auto-sort: ${SORT_BUCKET_LABELS[entry.bucket]}`,
+          name: `${SORT_RULE_PREFIX}${SORT_BUCKET_LABELS[entry.bucket]}`,
           enabled: true,
           conditions: KIND_SORT_BUCKETS.has(entry.bucket)
             ? { kind: entry.bucket as MessageKind }
@@ -543,7 +544,7 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
     if (sortExpireOtpEl.checked) {
       rules = upsertRuleByName(rules, {
         id: crypto.randomUUID(),
-        name: "Auto-sort: expire one-time codes",
+        name: `${SORT_RULE_PREFIX}expire one-time codes`,
         enabled: true,
         conditions: { kind: "otp", olderThanDays: 2 },
         action: "trash",

@@ -5,6 +5,7 @@ import { penalizeGmailQuota, reserveGmailQuota } from "./gmailQuotaLedger";
 import { extractLinksFromHtml, type ExtractedLink } from "./linkMismatch";
 import { riskyAttachmentGmailQuery } from "./riskyAttachments";
 import { lastErrorAsError } from "./chromeError";
+import { canonicalLabelName, clusterLabelName, labelLookupNames } from "./clusterLabels";
 
 const API_BASE = "https://gmail.googleapis.com/gmail/v1";
 
@@ -366,11 +367,11 @@ export async function unlabelMessages(
   labelName: string,
   wasFiledOut: boolean,
 ): Promise<void> {
-  const labelId = await getOrCreateLabel(token, labelName);
-  await batchModify(token, ids, wasFiledOut ? ["INBOX"] : [], [labelId]);
+  const labelIds = await findLabelIds(token, labelName);
+  await batchModify(token, ids, wasFiledOut ? ["INBOX"] : [], labelIds);
 }
 
-const SCREENER_LABEL_NAME = "Screener";
+const SCREENER_LABEL_NAME = clusterLabelName("screener");
 
 // Screener: hold a sender's mail under the Screener label and out of the inbox
 // via a standing from: filter — same mechanism as muteSender, different label,
@@ -388,8 +389,8 @@ export async function allowSenderThrough(
 ): Promise<void> {
   await deleteSenderFilters(token, fromAddress);
   if (screenedIds.length > 0) {
-    const labelId = await getOrCreateLabel(token, SCREENER_LABEL_NAME);
-    await batchModify(token, screenedIds, ["INBOX"], [labelId]);
+    const labelIds = await findLabelIds(token, SCREENER_LABEL_NAME);
+    await batchModify(token, screenedIds, ["INBOX"], labelIds);
   }
 }
 
@@ -429,7 +430,7 @@ export async function listSentCorrespondents(token: string, maxMessages = 150): 
   return [...addresses].slice(0, 1000);
 }
 
-const MUTED_LABEL_NAME = "Muted";
+const MUTED_LABEL_NAME = clusterLabelName("muted");
 
 // Local "BlackHole": a standing from:<address> filter that files future mail
 // under the Muted label and out of the inbox, plus the same move for mail
@@ -443,8 +444,8 @@ export async function muteSender(token: string, fromAddress: string, existingIds
 export async function unmuteSender(token: string, fromAddress: string, mutedIds: string[]): Promise<void> {
   await deleteSenderFilters(token, fromAddress);
   if (mutedIds.length > 0) {
-    const labelId = await getOrCreateLabel(token, MUTED_LABEL_NAME);
-    await batchModify(token, mutedIds, ["INBOX"], [labelId]);
+    const labelIds = await findLabelIds(token, MUTED_LABEL_NAME);
+    await batchModify(token, mutedIds, ["INBOX"], labelIds);
   }
 }
 
@@ -546,12 +547,29 @@ async function createLabel(token: string, name: string): Promise<string> {
 // button click) should use this instead of createLabel directly. The match is
 // case-insensitive because Gmail treats label names that way for uniqueness:
 // creating "Shopping" when "shopping" exists is a 409, so we must reuse it.
+// Names from older builds ("Cluster/Muted", "Declutter/Screener") resolve to
+// the same label (see clusterLabels.labelLookupNames); a new label is always
+// created under the current name.
 export async function getOrCreateLabel(token: string, name: string): Promise<string> {
+  const [existing] = await findLabelIds(token, name);
+  if (existing) return existing;
+  return createLabel(token, canonicalLabelName(name));
+}
+
+/** Every existing label `name` resolves to, best match first — the current
+ * name and any older-build name can both exist until the label tidy-up merges
+ * them. Removal paths (unmute, let through, resurface) strip all of them so
+ * mail tagged under an older name is released too. */
+export async function findLabelIds(token: string, name: string): Promise<string[]> {
   const data = await gmailFetch<{ labels?: { id: string; name: string }[] }>("/users/me/labels", token);
-  const target = name.toLowerCase();
-  const existing = (data.labels ?? []).find((l) => l.name.toLowerCase() === target);
-  if (existing) return existing.id;
-  return createLabel(token, name);
+  const labels = data.labels ?? [];
+  const ids: string[] = [];
+  for (const candidate of labelLookupNames(name)) {
+    const target = candidate.toLowerCase();
+    const hit = labels.find((l) => l.name.toLowerCase() === target);
+    if (hit && !ids.includes(hit.id)) ids.push(hit.id);
+  }
+  return ids;
 }
 
 /** Just the display names of every label (system + user). Feeds the
@@ -561,7 +579,7 @@ export async function listLabelNames(token: string): Promise<string[]> {
   return (data.labels ?? []).map((l) => l.name);
 }
 
-const SNOOZE_LABEL_NAME = "Snoozed";
+const SNOOZE_LABEL_NAME = clusterLabelName("snoozed");
 
 // Snooze is entirely our own bookkeeping — Gmail has no snooze primitive.
 // This just moves mail out of the inbox under a dedicated label; the
@@ -573,8 +591,8 @@ export async function snoozeMessages(token: string, ids: string[]): Promise<void
 }
 
 export async function resurfaceMessages(token: string, ids: string[]): Promise<void> {
-  const labelId = await getOrCreateLabel(token, SNOOZE_LABEL_NAME);
-  await batchModify(token, ids, ["INBOX"], [labelId]);
+  const labelIds = await findLabelIds(token, SNOOZE_LABEL_NAME);
+  await batchModify(token, ids, ["INBOX"], labelIds);
 }
 
 export async function createSenderFilter(token: string, fromAddress: string, labelId: string): Promise<void> {

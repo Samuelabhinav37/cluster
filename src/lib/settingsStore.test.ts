@@ -103,7 +103,7 @@ describe("settingsStore", () => {
     const settings = await getSettings();
     expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
     expect(settings.scanWindowDays).toBe(20);
-    expect(settings.clusterOwnedLabels).toEqual(["Shopping"]);
+    expect(settings.clusterOwnedLabels).toEqual(["🛍 Shopping"]) // v12 canonicalises;
     expect(settings.sortOverrides).toEqual({});
   });
 
@@ -181,6 +181,55 @@ describe("settingsStore", () => {
     expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
     expect(settings.scanWindowDays).toBe(8);
     expect(settings.healthHistory).toEqual([]);
+  });
+
+  it("migrates schema 11 settings to the emoji label names", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: {
+        schemaVersion: 11,
+        clusterOwnedLabels: ["Newsletters", "Shopping"],
+        labelChoices: { Shopping: "Shopping (Cluster)", "My thing": "My thing" },
+        rules: [
+          {
+            id: "a",
+            name: "Auto-sort: Newsletters",
+            enabled: true,
+            conditions: { kind: "newsletter" },
+            action: "label",
+            labelName: "Newsletters",
+          },
+          {
+            id: "b",
+            name: "Auto-sort: expire one-time codes",
+            enabled: true,
+            conditions: { kind: "otp", olderThanDays: 2 },
+            action: "trash",
+          },
+          {
+            id: "c",
+            name: "Mine",
+            enabled: true,
+            conditions: { fromDomain: "x.com" },
+            action: "label",
+            labelName: "Travel",
+            actions: [{ action: "label", labelName: "Cluster/Muted" }],
+          },
+        ],
+      },
+    });
+
+    const settings = await getSettings();
+    expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(settings.clusterOwnedLabels).toEqual(["📰 Newsletters", "🛍 Shopping"]);
+    expect(settings.labelChoices).toEqual({ "My thing": "My thing" });
+    const [a, b, c] = settings.rules;
+    expect(a.name).toBe("Sort: 📰 Newsletters");
+    expect(a.labelName).toBe("📰 Newsletters");
+    expect(b.name).toBe("Sort: expire one-time codes");
+    // A plain "Travel" Cluster never claimed may be the user's own label: untouched.
+    expect(c.labelName).toBe("Travel");
+    // A Cluster/-prefixed name is always Cluster's.
+    expect(c.actions?.[0].labelName).toBe("🔇 Muted");
   });
 
   it("serializes concurrent partial updates so unrelated changes are preserved", async () => {

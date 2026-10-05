@@ -24,6 +24,9 @@ import { listGroup, listRow } from "./listRow";
 import { senderTile } from "./senderTile";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
+import { clusterLabelName } from "../lib/clusterLabels";
+
+const READ_LATER_LABEL = clusterLabelName("readLater");
 
 const selectedSubKeys = new Set<string>();
 
@@ -224,7 +227,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
       renderConfirmStep(
         slot,
         reset,
-        `Move ${readLaterPlan.safeNewsletterIds.length} newsletter message${readLaterPlan.safeNewsletterIds.length === 1 ? "" : "s"} from ${sender.address} to a "Read Later" label? ${kept} protected or ambiguous message${kept === 1 ? " stays" : "s stay"}.`,
+        `Move ${readLaterPlan.safeNewsletterIds.length} newsletter message${readLaterPlan.safeNewsletterIds.length === 1 ? "" : "s"} from ${sender.address} to the "${READ_LATER_LABEL}" label? ${kept} protected or ambiguous message${kept === 1 ? " stays" : "s stay"}.`,
         false,
         async () => {
           const { safe, skipped } = await filterOutProtected(
@@ -239,26 +242,26 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
             provider: sender.provider,
             operation: "label",
             targetIds,
-            labelName: "Read Later",
+            labelName: READ_LATER_LABEL,
             keepInInbox: false,
           });
           const result = await runDurableJob(job.id, providerById);
           if (result.succeededIds.length > 0) {
             await logAction(
               "sort",
-              `Moved ${result.succeededIds.length} newsletter message${result.succeededIds.length === 1 ? "" : "s"} from ${sender.address} to Read Later${skipped > 0 ? `, skipped ${skipped} you starred since the scan` : ""}`,
+              `Moved ${result.succeededIds.length} newsletter message${result.succeededIds.length === 1 ? "" : "s"} from ${sender.address} to "${READ_LATER_LABEL}"${skipped > 0 ? `, skipped ${skipped} you starred since the scan` : ""}`,
               {
                 provider: sender.provider,
                 ids: result.succeededIds,
                 via: "unsort",
-                labelName: "Read Later",
+                labelName: READ_LATER_LABEL,
                 wasFiledOut: true,
               },
             );
           }
           return result.failures.length > 0
             ? `Moved ${result.succeededIds.length}; failed ${result.failures.length}; kept ${kept}`
-            : `Moved ${result.succeededIds.length} to Read Later; kept ${kept}`;
+            : `Moved ${result.succeededIds.length} to "${READ_LATER_LABEL}"; kept ${kept}`;
         },
       );
     };

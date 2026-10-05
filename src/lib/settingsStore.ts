@@ -5,6 +5,7 @@ import type { SenderEngagementMap } from "./engagementModel";
 import type { SortOverride } from "./sortTaxonomy";
 import type { QuarantineReviewMap } from "./quarantineReview";
 import { withStorageLock } from "./storageLock";
+import { migrateStoredLabelNames } from "./clusterLabels";
 
 export interface ClusterSettings {
   schemaVersion: number;
@@ -119,7 +120,7 @@ export interface HealthSnapshot {
 }
 
 const STORAGE_KEY = "clusterSettings";
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 11;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 12;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -243,6 +244,9 @@ function migrateSettings(value: unknown): Record<string, unknown> {
     } else if (version === 10) {
       stored = { ...stored, schemaVersion: 11, healthHistory: [] };
       version = 11;
+    } else if (version === 11) {
+      stored = { ...migrateStoredLabelNames(stored), schemaVersion: 12 };
+      version = 12;
     }
   }
   return stored;

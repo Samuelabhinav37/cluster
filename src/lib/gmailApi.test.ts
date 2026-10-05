@@ -7,10 +7,12 @@ import {
   deleteSenderFilters,
   getAuthToken as getAuthToken_,
   getCurrentHistoryId,
+  findLabelIds,
   getOrCreateLabel,
   gmailQuotaCost,
   listFilters,
   listInboxMessageIdsSince,
+  unmuteSender,
 } from "./gmailApi";
 
 function json(data: unknown, status = 200): Response {
@@ -152,7 +154,78 @@ describe("Gmail filter API request shape", () => {
     vi.stubGlobal("fetch", fetchMock);
     await expect(getOrCreateLabel("t", "Shopping")).resolves.toBe("L_NEW");
     expect(call(fetchMock, 1).method).toBe("POST");
-    expect(call(fetchMock, 1).body).toMatchObject({ name: "Shopping" });
+    // An old plain name is created under today's name.
+    expect(call(fetchMock, 1).body).toMatchObject({ name: "🛍 Shopping" });
+  });
+
+  it("getOrCreateLabel adopts a label an older build made under Cluster/ or Declutter/", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        json({
+          labels: [
+            { id: "L_OLD_SCREEN", name: "Declutter/Screener" },
+            { id: "L_OLD_SENDER", name: "Cluster/Jobright Job Alert" },
+          ],
+        }),
+      ),
+    );
+    await expect(getOrCreateLabel("t", "✋ Screener")).resolves.toBe("L_OLD_SCREEN");
+    await expect(getOrCreateLabel("t", "Jobright Job Alert")).resolves.toBe("L_OLD_SENDER");
+  });
+
+  it("getOrCreateLabel prefers today's label over an older-build one", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        json({
+          labels: [
+            { id: "L_OLD", name: "Cluster/Muted" },
+            { id: "L_NEW", name: "🔇 Muted" },
+          ],
+        }),
+      ),
+    );
+    await expect(getOrCreateLabel("t", "🔇 Muted")).resolves.toBe("L_NEW");
+  });
+
+  it("findLabelIds returns every label a name resolves to, but never the user's own plain one", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        json({
+          labels: [
+            { id: "L_OLD", name: "Cluster/Muted" },
+            { id: "L_NEW", name: "🔇 Muted" },
+            { id: "L_USER", name: "Muted" },
+          ],
+        }),
+      ),
+    );
+    await expect(findLabelIds("t", "🔇 Muted")).resolves.toEqual(["L_NEW", "L_OLD"]);
+  });
+
+  it("unmuteSender clears both the current and the older-build Muted label", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ filter: [] })) // deleteSenderFilters: list
+      .mockResolvedValueOnce(
+        json({
+          labels: [
+            { id: "L_OLD", name: "Cluster/Muted" },
+            { id: "L_NEW", name: "🔇 Muted" },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(json({}));
+    vi.stubGlobal("fetch", fetchMock);
+    await unmuteSender("t", "news@example.com", ["m1"]);
+    expect(call(fetchMock, 2).url).toContain("/messages/batchModify");
+    expect(call(fetchMock, 2).body).toEqual({
+      ids: ["m1"],
+      addLabelIds: ["INBOX"],
+      removeLabelIds: ["L_NEW", "L_OLD"],
+    });
   });
 });
 
