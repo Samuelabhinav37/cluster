@@ -1,3 +1,4 @@
+import { lastErrorAsError } from "../chromeError";
 import { OUTLOOK_CLIENT_ID, OUTLOOK_TENANT } from "./outlookConfig";
 
 const AUTH_BASE = `https://login.microsoftonline.com/${OUTLOOK_TENANT}/oauth2/v2.0`;
@@ -87,7 +88,7 @@ function launchWebAuthFlow(url: string, interactive: boolean): Promise<string> {
   return new Promise((resolve, reject) => {
     chrome.identity.launchWebAuthFlow({ url, interactive }, (responseUrl) => {
       if (chrome.runtime.lastError || !responseUrl) {
-        reject(chrome.runtime.lastError ?? new Error("No response URL from Microsoft sign-in"));
+        reject(lastErrorAsError("No response URL from Microsoft sign-in"));
         return;
       }
       resolve(responseUrl);

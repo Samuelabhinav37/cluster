@@ -5,6 +5,7 @@ import {
   createSenderFilter,
   deleteFilter,
   deleteSenderFilters,
+  getAuthToken as getAuthToken_,
   getCurrentHistoryId,
   getOrCreateLabel,
   gmailQuotaCost,
@@ -245,5 +246,21 @@ describe("Gmail history synchronization", () => {
       historyId: "old",
       expired: true,
     });
+  });
+});
+
+describe("getAuthToken errors", () => {
+  it("rejects with a real Error carrying chrome.runtime.lastError's message", async () => {
+    const runtime: { lastError?: { message: string } } = {};
+    const getAuthToken = vi.fn((_o: unknown, cb: (t?: string) => void) => {
+      runtime.lastError = { message: "The user did not approve access." };
+      cb(undefined);
+      runtime.lastError = undefined;
+    });
+    vi.stubGlobal("chrome", { runtime, identity: { getAuthToken } });
+
+    const err = await getAuthToken_(true).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toBe("The user did not approve access.");
   });
 });

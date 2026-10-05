@@ -4,6 +4,7 @@ import { fetchWithRetry } from "./httpRetry";
 import { penalizeGmailQuota, reserveGmailQuota } from "./gmailQuotaLedger";
 import { extractLinksFromHtml, type ExtractedLink } from "./linkMismatch";
 import { riskyAttachmentGmailQuery } from "./riskyAttachments";
+import { lastErrorAsError } from "./chromeError";
 
 const API_BASE = "https://gmail.googleapis.com/gmail/v1";
 
@@ -55,7 +56,7 @@ export async function getAuthToken(interactive = true): Promise<string> {
   return new Promise((resolve, reject) => {
     chrome.identity.getAuthToken({ interactive }, (token) => {
       if (chrome.runtime.lastError || !token) {
-        reject(chrome.runtime.lastError ?? new Error("No auth token returned"));
+        reject(lastErrorAsError("No auth token returned"));
         return;
       }
       resolve(token);
@@ -499,7 +500,7 @@ export async function getElevatedAuthToken(interactive: boolean): Promise<string
   return new Promise((resolve, reject) => {
     chrome.identity.getAuthToken({ interactive, scopes: ELEVATED_SCOPES }, (token) => {
       if (chrome.runtime.lastError || !token) {
-        reject(chrome.runtime.lastError ?? new Error("No auth token returned"));
+        reject(lastErrorAsError("No auth token returned"));
         return;
       }
       resolve(token);
