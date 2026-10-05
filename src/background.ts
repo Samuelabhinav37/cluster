@@ -24,7 +24,7 @@ import { resumeInterruptedJobs } from "./lib/durableJobs";
 import { updateEngagementObservations } from "./lib/engagementModel";
 import { getRuleCompletionKeys, recordRuleCompletions } from "./lib/ruleCompletionLedger";
 
-chrome.action.onClicked.addListener(async () => {
+async function openDashboard() {
   const url = chrome.runtime.getURL("src/dashboard/index.html");
   const existing = await chrome.tabs.query({ url });
   if (existing[0]?.id) {
@@ -32,7 +32,9 @@ chrome.action.onClicked.addListener(async () => {
   } else {
     chrome.tabs.create({ url });
   }
-});
+}
+
+chrome.action.onClicked.addListener(() => void openDashboard());
 
 // Background pre-triage: periodically counts mail that's aged past its
 // retention window (see retentionPolicy.ts) and surfaces the count as a
@@ -49,11 +51,15 @@ const providerById = new Map<ProviderId, EmailProvider>([
   [outlookProvider.id, outlookProvider],
 ]);
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 5, periodInMinutes: 360 });
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(DATASET_ALARM, { delayInMinutes: 10, periodInMinutes: 1440 });
+  // A fresh install used to open nothing, leaving the user to find an
+  // unpinned icon in the puzzle menu. Open the dashboard, whose connect gate
+  // is the welcome screen. Updates and Chrome updates stay silent.
+  if (details?.reason === "install") void openDashboard();
 });
 
 chrome.runtime.onStartup.addListener(() => {

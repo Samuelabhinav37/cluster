@@ -108,6 +108,9 @@ let alarmListener: AlarmCb | undefined;
 const setBadgeText = vi.fn(async () => {});
 const setBadgeBackgroundColor = vi.fn(async () => {});
 const alarmsCreate = vi.fn();
+type InstalledCb = (d?: { reason: string }) => void;
+let installedListener: InstalledCb | undefined;
+const tabsCreate = vi.fn();
 
 beforeEach(async () => {
   vi.clearAllMocks();
@@ -119,7 +122,12 @@ beforeEach(async () => {
   (globalThis as unknown as { chrome: unknown }).chrome = {
     runtime: {
       getURL: (p: string) => p,
-      onInstalled: { addListener: (fn: () => void) => fn() },
+      onInstalled: {
+        addListener: (fn: InstalledCb) => {
+          installedListener = fn;
+          fn(undefined);
+        },
+      },
       onStartup: { addListener: () => {} },
     },
     action: {
@@ -131,7 +139,7 @@ beforeEach(async () => {
       create: alarmsCreate,
       onAlarm: { addListener: (fn: AlarmCb) => (alarmListener = fn) },
     },
-    tabs: { query: async () => [], create: () => {}, update: () => {} },
+    tabs: { query: async () => [], create: tabsCreate, update: () => {} },
   };
 
   vi.resetModules();
@@ -140,6 +148,22 @@ beforeEach(async () => {
 
 const settleTriage = () =>
   vi.waitFor(() => expect(updateSettings).toHaveBeenCalled(), { timeout: 2000, interval: 10 });
+
+describe("install", () => {
+  it("opens the dashboard on a fresh install, so the welcome screen is the first thing seen", async () => {
+    installedListener?.({ reason: "install" });
+    await vi.waitFor(() =>
+      expect(tabsCreate).toHaveBeenCalledWith({ url: "src/dashboard/index.html" }),
+    );
+  });
+
+  it("stays silent on an extension or Chrome update", async () => {
+    installedListener?.({ reason: "update" });
+    installedListener?.({ reason: "chrome_update" });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(tabsCreate).not.toHaveBeenCalled();
+  });
+});
 
 describe("alarm routing", () => {
   it("registers the four alarms on install", () => {
