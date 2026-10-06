@@ -166,8 +166,10 @@ describe("dashboard boot smoke", () => {
     const buttons = Array.from(
       document.querySelectorAll<HTMLButtonElement>("#sidebar button[data-screen]"),
     );
-    expect(buttons.length).toBe(9);
-    for (const button of buttons) {
+    expect(buttons.length).toBe(11);
+    // "Home" exists only in simple mode; outside it the item is hidden.
+    expect(buttons.filter((b) => b.hidden).map((b) => b.dataset.screen)).toEqual(["simple"]);
+    for (const button of buttons.filter((b) => !b.hidden)) {
       button.click();
       const shown = Array.from(
         document.querySelectorAll<HTMLElement>("section.screen[data-screen]"),
@@ -193,7 +195,7 @@ describe("dashboard boot smoke", () => {
     expect(buttons.filter((b) => b.tabIndex === 0).map((b) => b.dataset.screen)).toEqual([
       "overview",
     ]);
-    expect(buttons.filter((b) => b.tabIndex === -1)).toHaveLength(8);
+    expect(buttons.filter((b) => b.tabIndex === -1)).toHaveLength(buttons.length - 1);
     // ArrowDown from the first item activates the second
     document
       .getElementById("sidebar")!

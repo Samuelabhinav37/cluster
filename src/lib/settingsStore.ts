@@ -43,6 +43,12 @@ export interface ClusterSettings {
   activeTab: string;
   /** Dashboard colour theme. "system" follows prefers-color-scheme. */
   theme: "system" | "light" | "dark";
+  /** First-run setup answer (setupTab.ts). "" until the user picks one. */
+  persona: "" | "calm" | "business" | "safe" | "busy";
+  /** Set once the user answered or dismissed the setup question. */
+  setupDone: boolean;
+  /** Bigger text and a three-item nav (setupTab.ts). */
+  simpleMode: boolean;
 
   // ── Security (Phase 2) ──────────────────────────────────────────────────
   /** Provider + sender address → epoch ms first seen. After the initial
@@ -163,6 +169,9 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   lastTriageSummary: "",
   activeTab: "overview",
   theme: "system",
+  persona: "",
+  setupDone: false,
+  simpleMode: false,
   knownSenders: {},
   knownSendersInitialized: false,
   incrementalSyncCursors: {},

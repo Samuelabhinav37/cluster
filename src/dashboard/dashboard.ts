@@ -79,6 +79,7 @@ import { keepNewestExcess } from "../lib/keepNewest";
 import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
 import { renderRulesTab, wireRulesTab } from "./rulesTab";
 import { renderSecuritySection } from "./securityTab";
+import { applySimpleMode, renderSettingsSetup, renderSimpleHome, screenForMode, wireSetup } from "./setupTab";
 import { renderScreenerTab, wireScreenerTab } from "./screenerTab";
 import {
   recordUnsubscribeRequests,
@@ -172,8 +173,9 @@ const SCREEN_ALIASES: Record<string, string> = {
   security: "impersonation",
 };
 function resolveScreen(name: string): string {
-  const target = SCREEN_ALIASES[name] ?? name;
-  return navButtons.some((b) => b.dataset.screen === target) ? target : "overview";
+  const target = screenForMode(SCREEN_ALIASES[name] ?? name);
+  if (target === "setup") return target; // reached from Overview and Settings, not the nav
+  return navButtons.some((b) => b.dataset.screen === target) ? target : screenForMode("overview");
 }
 
 
@@ -251,17 +253,19 @@ function wireNav() {
           ? -1
           : 0;
     let next: number | undefined;
+    // Simple mode hides most items; arrow keys skip what isn't shown.
+    const shown = navButtons.filter((b) => !b.hidden);
     if (delta !== 0) {
-      const current = navButtons.findIndex((b) => b.getAttribute("aria-selected") === "true");
-      next = (current + delta + navButtons.length) % navButtons.length;
+      const current = shown.findIndex((b) => b.getAttribute("aria-selected") === "true");
+      next = (current + delta + shown.length) % shown.length;
     } else if (keyed.key === "Home") {
       next = 0;
     } else if (keyed.key === "End") {
-      next = navButtons.length - 1;
+      next = shown.length - 1;
     }
     if (next === undefined) return;
     keyed.preventDefault();
-    const btn = navButtons[next];
+    const btn = shown[next];
     btn.focus();
     void selectScreen(btn.dataset.screen!);
   });
@@ -430,6 +434,9 @@ async function main() {
   const [settings] = await Promise.all([getSettings(), loadPublicSuffixList()]);
   ctx.settings = settings;
   applyTheme(ctx.settings.theme);
+  applySimpleMode(ctx.settings.simpleMode);
+  wireSetup(selectScreen);
+  renderSettingsSetup();
   wireThemeSelect();
   wireNav();
   wireAllSendersControls();
@@ -620,6 +627,7 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   safeRender("delete", () => renderDomainGroups(senders));
   safeRender("delete", () => renderExpirySection(senders));
   safeRender("impersonation", () => renderSecuritySection(securitySenders));
+  safeRender("simple", () => renderSimpleHome(securitySenders));
   safeRender("subscriptions", () => renderSubscriptionsTab(senders));
   safeRender("delete", () => renderNeverReadSection(senders));
   safeRender("delete", () => renderSpamSection(senders));

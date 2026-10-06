@@ -132,6 +132,20 @@ export function renderTimeLimits(): void {
   backlogBtn.hidden = !cfg.timeLimitsEnabled;
 }
 
+/** Fills the rows with suggested values (from first-run setup) and turns the
+ * switch on, without saving: Gmail only changes when the user presses Save. */
+export function proposeTimeLimits(hours: Partial<Record<SortBucket, number | null>>, message: string): void {
+  if (!toggleEl || !statusEl) return;
+  for (const [bucket, value] of Object.entries(hours)) {
+    const select = selectFor(bucket as SortBucket);
+    if (!select) continue;
+    select.value = choiceValue(value ?? null);
+    select.dispatchEvent(new Event("change"));
+  }
+  toggleEl.checked = true;
+  statusEl.textContent = message;
+}
+
 async function save(): Promise<void> {
   if (!toggleEl || !saveBtn || !statusEl) return;
   const inboxHoursByBucket: Record<string, number | null> = { ...ctx.settings.autoSort.inboxHoursByBucket };
