@@ -76,9 +76,11 @@ export async function runInboxTimeLimits(now = Date.now()): Promise<TimeLimitRun
     const n = sweep.movedIds.length;
     await appendActionLog([
       {
-        id: makeLogId("archive"),
+        // Sorting, not a cleanup: Overview counts "archive" entries as
+        // cleanups the user did.
+        id: makeLogId("sort"),
         at: now,
-        kind: "archive",
+        kind: "sort",
         summary: `Time limits moved ${n} message${n === 1 ? "" : "s"} out of the inbox into their labels`,
         undo: { provider: "gmail", ids: sweep.movedIds, via: "unarchive" },
       },
