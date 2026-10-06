@@ -1316,7 +1316,7 @@ function renderCleanupPlan(senders: SenderSummary[]) {
       sub: `${neverMsgs} message${neverMsgs === 1 ? "" : "s"}, none opened recently · muting files them out without deleting`,
       primaryLabel: "Mute all",
       primaryClass: "btn btn-accent",
-      onPrimary: () => neverReadMuteBtn.click(),
+      onPrimary: () => confirmIn("never-read-section", neverReadMuteBtn),
       showReview: true,
       reviewTarget: "never-read-section",
       stack: engagement.map((e) => e.sender),
@@ -1332,7 +1332,7 @@ function renderCleanupPlan(senders: SenderSummary[]) {
       sub: expiryBuckets.map((b) => `${b.count} ${b.label.toLowerCase()}`).join(", ") + " · judged by age alone",
       primaryLabel: "Trash",
       primaryClass: "btn btn-accent",
-      onPrimary: () => expiryCleanupBtn.click(),
+      onPrimary: () => confirmIn("expiry-section", expiryCleanupBtn),
       showReview: true,
       reviewTarget: "expiry-section",
     });
@@ -1423,6 +1423,14 @@ function buildCleanupPlanRow(r: PlanRow): HTMLElement {
   }
 
   return row;
+}
+
+// The plan's buttons start a confirm that renders next to the section's own
+// button. Those sections start hidden, so reveal (and scroll to) the section
+// first, or the confirm appears where nobody can see it.
+function confirmIn(sectionId: string, button: HTMLButtonElement) {
+  revealLegacySection(sectionId);
+  button.click();
 }
 
 function revealLegacySection(id: string) {
@@ -1775,8 +1783,8 @@ function renderSuggestedFloatingBar() {
   apply.disabled = checkedGroups.length === 0;
   apply.onclick = () => {
     const groups = new Set(selectedPlanGroups);
-    if (groups.has("never-opened")) neverReadMuteBtn.click();
-    if (groups.has("expired")) expiryCleanupBtn.click();
+    if (groups.has("never-opened")) confirmIn("never-read-section", neverReadMuteBtn);
+    if (groups.has("expired")) confirmIn("expiry-section", expiryCleanupBtn);
     if (groups.has("spam")) revealLegacySection("spam-section");
   };
 
