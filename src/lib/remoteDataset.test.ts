@@ -40,7 +40,7 @@ describe("getDataset", () => {
       "fetch",
       vi.fn(async () => new Response(JSON.stringify(["x", "y"]), { status: 200 })),
     );
-    await refreshDataset("widgets", "widgets.json", isStringArray, "block");
+    await refreshDataset("widgets", "widgets.json", isStringArray, "block", "");
     expect(await getDataset("widgets", ["fallback"])).toEqual(["x", "y"]);
   });
 
@@ -55,7 +55,7 @@ describe("refreshDataset", () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify(["a"]), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const updated = await refreshDataset("widgets", "widgets.json", isStringArray, "block");
+    const updated = await refreshDataset("widgets", "widgets.json", isStringArray, "block", "");
 
     expect(updated).toBe(true);
     expect(fetchMock).toHaveBeenCalledWith(`${DATASET_BASE_URL}/widgets.json`);
@@ -67,7 +67,7 @@ describe("refreshDataset", () => {
       "fetch",
       vi.fn(async () => new Response(JSON.stringify({ not: "an array" }), { status: 200 })),
     );
-    const updated = await refreshDataset("widgets", "widgets.json", isStringArray, "block");
+    const updated = await refreshDataset("widgets", "widgets.json", isStringArray, "block", "");
     expect(updated).toBe(false);
     expect(await getDataset("widgets", ["fallback"])).toEqual(["fallback"]);
   });
@@ -77,7 +77,7 @@ describe("refreshDataset", () => {
       "fetch",
       vi.fn(async () => new Response("not found", { status: 404 })),
     );
-    const updated = await refreshDataset("widgets", "widgets.json", isStringArray, "block");
+    const updated = await refreshDataset("widgets", "widgets.json", isStringArray, "block", "");
     expect(updated).toBe(false);
     expect(await getDataset("widgets", ["fallback"])).toEqual(["fallback"]);
   });
@@ -89,7 +89,7 @@ describe("refreshDataset", () => {
         throw new Error("network down");
       }),
     );
-    const updated = await refreshDataset("widgets", "widgets.json", isStringArray, "block");
+    const updated = await refreshDataset("widgets", "widgets.json", isStringArray, "block", "");
     expect(updated).toBe(false);
     expect(await getDataset("widgets", ["fallback"])).toEqual(["fallback"]);
   });
@@ -98,12 +98,12 @@ describe("refreshDataset", () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify(["a"]), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await refreshDataset("widgets", "widgets.json", isStringArray, "block");
+    await refreshDataset("widgets", "widgets.json", isStringArray, "block", "");
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     // Still well within the 6h minimum interval -- must not refetch.
     vi.setSystemTime(60 * 60 * 1000);
-    const updated = await refreshDataset("widgets", "widgets.json", isStringArray, "block");
+    const updated = await refreshDataset("widgets", "widgets.json", isStringArray, "block", "");
     expect(updated).toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -112,9 +112,9 @@ describe("refreshDataset", () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify(["a"]), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await refreshDataset("widgets", "widgets.json", isStringArray, "block");
+    await refreshDataset("widgets", "widgets.json", isStringArray, "block", "");
     vi.setSystemTime(7 * 60 * 60 * 1000); // past the 6h minimum interval
-    const updated = await refreshDataset("widgets", "widgets.json", isStringArray, "block");
+    const updated = await refreshDataset("widgets", "widgets.json", isStringArray, "block", "");
 
     expect(updated).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -124,7 +124,7 @@ describe("refreshDataset", () => {
     (globalThis as any).chrome = undefined;
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const updated = await refreshDataset("widgets", "widgets.json", isStringArray, "block");
+    const updated = await refreshDataset("widgets", "widgets.json", isStringArray, "block", "");
     expect(updated).toBe(false);
     expect(fetchMock).not.toHaveBeenCalled();
   });

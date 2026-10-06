@@ -57,7 +57,7 @@ describe("refreshSpamList", () => {
       "fetch",
       vi.fn(async () => new Response(JSON.stringify(["live-only-spam.example"]), { status: 200 })),
     );
-    expect(await refreshSpamList()).toBe(true);
+    expect(await refreshSpamList("")).toBe(true);
     expect(isSpamDomain("live-only-spam.example")).toBe(true);
   });
 
@@ -68,7 +68,7 @@ describe("refreshSpamList", () => {
       "fetch",
       vi.fn(async () => new Response(JSON.stringify({ not: "a list" }), { status: 200 })),
     );
-    expect(await refreshSpamList()).toBe(false);
+    expect(await refreshSpamList("")).toBe(false);
     expect(isSpamDomain("another-live-spam.example")).toBe(false);
   });
 });

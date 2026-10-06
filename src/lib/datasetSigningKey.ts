@@ -10,4 +10,4 @@
 //
 // Rotation, if the private key ever leaks: paste a new public key here and
 // ship an extension update. The shipped build is the trust anchor.
-export const DATASET_PUBLIC_KEY = "";
+export const DATASET_PUBLIC_KEY = "QFhsozA1gXBl7toeONC5xnPEmsd5e7DDbkxpnd4XaR0=";

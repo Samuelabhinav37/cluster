@@ -60,13 +60,24 @@ describe("refreshMalwareBlocklist", () => {
     vi.unstubAllGlobals();
   });
 
+  it("refuses an unsigned list now that the shipped build has a signing key", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        url.endsWith(".sig") ? new Response("missing", { status: 404 }) : new Response(JSON.stringify(["gmail.com"]), { status: 200 }),
+      ),
+    );
+    expect(await refreshMalwareBlocklist()).toBe(false);
+    expect(isBlockedDomain("gmail.com")).toBe(false);
+  });
+
   it("adds live-fetched domains on top of the bundled seed/URLhaus slice without replacing it", async () => {
     expect(isBlockedDomain("live-only-bad.example")).toBe(false);
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(JSON.stringify(["live-only-bad.example"]), { status: 200 })),
     );
-    expect(await refreshMalwareBlocklist()).toBe(true);
+    expect(await refreshMalwareBlocklist("")).toBe(true);
     expect(isBlockedDomain("live-only-bad.example")).toBe(true);
   });
 
@@ -77,7 +88,7 @@ describe("refreshMalwareBlocklist", () => {
       "fetch",
       vi.fn(async () => new Response(JSON.stringify({ not: "a list" }), { status: 200 })),
     );
-    expect(await refreshMalwareBlocklist()).toBe(false);
+    expect(await refreshMalwareBlocklist("")).toBe(false);
     expect(isBlockedDomain("another-live-bad.example")).toBe(false);
   });
 });
