@@ -25,6 +25,19 @@ export function classifyMessageKind(subject: string, hasListUnsubscribe: boolean
   return "other";
 }
 
+// Subjects that read like an actual code to type in, not just a mention of
+// "one-time" or "2FA" ("Your one-time payment receipt", "Enable 2FA").
+const CODE_PHRASE_RE =
+  /\b(verification|security|login|sign[- ]?in|confirmation|access) code\b|\bone[- ]?time pass(word|code)\b|\bpasscode\b|\bis your code\b|\byour code is\b|\botp\b/i;
+const CODE_TOKEN_RE = /\b\d{4,8}\b|\b(?=[A-Z0-9]*\d)[A-Z0-9]{6,8}\b/;
+
+/** True when a one-time-code subject looks like a disposable code, the only
+ * kind of "code" mail it is safe to trash automatically. */
+export function looksLikeDisposableCode(subject: string | undefined): boolean {
+  const s = subject ?? "";
+  return CODE_PHRASE_RE.test(s) || CODE_TOKEN_RE.test(s);
+}
+
 const PRECEDENCE_BULK_RE = /\b(bulk|list|junk)\b/i;
 const AUTO_SUBMITTED_RE = /^auto-(generated|replied)/i;
 

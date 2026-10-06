@@ -1,4 +1,5 @@
 import { categorizeDomain, DOMAIN_CATEGORY_LABELS, type DomainCategory } from "./domainCategories";
+import { looksLikeDisposableCode } from "./messageKind";
 import { domainOf } from "./domainGrouping";
 import { isSameOrSubdomain } from "./registrableDomain";
 import type { MessageKind } from "./messageKind";
@@ -138,6 +139,10 @@ export interface RuleMessageMatch {
   id: string;
 }
 
+function ruleTrashes(rule: ClusterRule): boolean {
+  return rule.actions ? rule.actions.some((a) => a.action === "trash") : rule.action === "trash";
+}
+
 /** Explain why one message is or is not eligible for a rule. */
 export function evaluateRuleMessage(
   rule: ClusterRule,
@@ -149,6 +154,12 @@ export function evaluateRuleMessage(
     return "conditions-miss";
   }
   if (message.isProtected) return "protected";
+  if (ruleTrashes(rule)) {
+    // Trash is the one action that can lose mail: never for mail the
+    // provider marked important, and for "codes" only real-looking codes.
+    if (message.providerMarkedPersonal) return "protected";
+    if (message.kind === "otp" && !looksLikeDisposableCode(message.subject)) return "protected";
+  }
   if (
     rule.exceptions &&
     ruleHasConditions(rule.exceptions) &&
