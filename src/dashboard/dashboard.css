@@ -40,7 +40,8 @@
   --accent-fill-border: rgba(124, 110, 220, 0.44);
   --accent-fill-text: #45389f; /* ~7:1 on the tinted fill */
   --accent-fill-hover: rgba(124, 110, 220, 0.26);
-  --accent-solid: linear-gradient(180deg, #8b7fd8, #6f62c4);
+  /* White text needs 4.5:1 (WCAG 1.4.3); the old #8b7fd8 top stop gave 3.4:1. */
+  --accent-solid: linear-gradient(180deg, #7466cc, #6456c0);
   --accent-solid-border: rgba(140, 128, 220, 0.6);
   --accent-solid-text: #ffffff;
 
@@ -62,7 +63,9 @@
   --logo-ground: #f6f5fa;
   --row-hover: rgba(24, 22, 48, 0.05);
   --disabled-fg: #9a9aa6;
-  --focus-ring: rgba(106, 92, 198, 0.75);
+  --focus-ring: #6a5cc6;
+  /* Form control edges need 3:1 against the surface (WCAG 1.4.11). */
+  --control-border: rgba(24, 22, 48, 0.5);
 
   /* Two-layer shadow — a tight contact shadow plus a soft ambient one — reads
      crisper than one big blur on a light ground. */
@@ -122,7 +125,7 @@
     --accent-fill-border: rgba(178, 169, 236, 0.45);
     --accent-fill-text: #efecfd;
     --accent-fill-hover: rgba(145, 132, 217, 0.34);
-    --accent-solid: linear-gradient(180deg, rgba(160, 148, 226, 0.95), rgba(125, 113, 196, 0.95));
+    --accent-solid: linear-gradient(180deg, #7466cc, #6456c0);
     --accent-solid-border: rgba(200, 192, 246, 0.5);
 
     --danger-text: #ff9f93;
@@ -143,7 +146,8 @@
     --row-hover: rgba(255, 255, 255, 0.045);
     --logo-ground: rgba(255, 255, 255, 0.09);
     --disabled-fg: rgba(235, 235, 245, 0.4);
-    --focus-ring: rgba(145, 132, 217, 0.7);
+    --focus-ring: #a99cf0;
+    --control-border: rgba(255, 255, 255, 0.36);
 
     --shadow-card: var(--specular), 0 20px 48px -22px rgba(0, 0, 0, 0.8);
     --shadow-card-lg: var(--specular), 0 24px 56px -24px rgba(0, 0, 0, 0.85);
@@ -182,7 +186,7 @@
   --accent-fill-border: rgba(178, 169, 236, 0.45);
   --accent-fill-text: #efecfd;
   --accent-fill-hover: rgba(145, 132, 217, 0.34);
-  --accent-solid: linear-gradient(180deg, rgba(160, 148, 226, 0.95), rgba(125, 113, 196, 0.95));
+  --accent-solid: linear-gradient(180deg, #7466cc, #6456c0);
   --accent-solid-border: rgba(200, 192, 246, 0.5);
 
   --danger-text: #ff9f93;
@@ -203,7 +207,8 @@
   --row-hover: rgba(255, 255, 255, 0.045);
   --logo-ground: rgba(255, 255, 255, 0.09);
   --disabled-fg: rgba(235, 235, 245, 0.4);
-  --focus-ring: rgba(145, 132, 217, 0.7);
+  --focus-ring: #a99cf0;
+  --control-border: rgba(255, 255, 255, 0.36);
 
   --shadow-card: var(--specular), 0 20px 48px -22px rgba(0, 0, 0, 0.8);
   --shadow-card-lg: var(--specular), 0 24px 56px -24px rgba(0, 0, 0, 0.85);
@@ -271,8 +276,14 @@ a:hover {
   filter: brightness(1.12);
 }
 
+/* Component rules like .instead-strip { display: flex } otherwise beat the
+   hidden attribute, so "hidden" panels stayed open. */
+[hidden] {
+  display: none !important;
+}
+
 :focus-visible {
-  outline: 3px solid var(--focus-ring);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
   border-radius: 8px;
 }
@@ -1180,13 +1191,14 @@ a:hover {
   color: var(--label-4);
 }
 
-.search input {
+.search input,
+.search input[type="search"] {
   appearance: none;
   font: 400 15px/1.25 var(--font);
   letter-spacing: -0.012em;
   color: var(--label);
   background: var(--neutral-fill);
-  border: 0.5px solid var(--neutral-border);
+  border: 1px solid var(--control-border);
   border-radius: var(--r-ctl);
   padding: 12px 14px 12px 38px;
   outline: none;
@@ -1845,7 +1857,7 @@ body[data-state="connect"] .screen {
   font: inherit;
   color: var(--label);
   background: var(--neutral-fill);
-  border: 0.5px solid var(--neutral-border);
+  border: 1px solid var(--control-border);
   border-radius: 8px;
   padding: 6px 8px;
 }
@@ -1859,7 +1871,7 @@ select {
   font: inherit;
   color: var(--label);
   background: var(--neutral-fill);
-  border: 0.5px solid var(--neutral-border);
+  border: 1px solid var(--control-border);
   border-radius: var(--r-ctl);
   padding: 12px 14px;
   outline: none;
@@ -2202,6 +2214,11 @@ table td:first-child:has(input[type="checkbox"]) {
 /* Settings-sheet + inline toggles use a native checkbox — give it the accent. */
 input[type="checkbox"] {
   accent-color: var(--accent);
+  /* 20 px box + 4 px of clickable margin each side = a 28 px target
+     (WCAG 2.5.8 asks for at least 24). */
+  min-width: 20px;
+  min-height: 20px;
+  margin: 4px;
 }
 
 .check-label {
@@ -2209,8 +2226,8 @@ input[type="checkbox"] {
 }
 
 .check-label input[type="checkbox"]:not(.check) {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   margin: 0;
   flex: none;
 }
