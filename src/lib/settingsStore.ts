@@ -1,3 +1,4 @@
+import type { ScamWeek } from "./scamHistory";
 import type { ProviderId } from "./providers/emailProvider";
 import type { ClusterRule } from "./rules";
 import type { ActionLogEntry } from "./actionLog";
@@ -49,6 +50,8 @@ export interface ClusterSettings {
   setupDone: boolean;
   /** Bigger text and a three-item nav (setupTab.ts). */
   simpleMode: boolean;
+  /** Weekly counts of what auto-quarantine held, for the Scam report (scamHistory.ts). */
+  scamHistory: ScamWeek[];
 
   // ── Security (Phase 2) ──────────────────────────────────────────────────
   /** Provider + sender address → epoch ms first seen. After the initial
@@ -172,6 +175,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   persona: "",
   setupDone: false,
   simpleMode: false,
+  scamHistory: [],
   knownSenders: {},
   knownSendersInitialized: false,
   incrementalSyncCursors: {},

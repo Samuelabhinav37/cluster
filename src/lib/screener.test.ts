@@ -27,6 +27,7 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
     persona: "",
     setupDone: false,
     simpleMode: false,
+    scamHistory: [],
     knownSenders: {},
     knownSendersInitialized: false,
     incrementalSyncCursors: {},

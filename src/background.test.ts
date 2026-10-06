@@ -343,6 +343,18 @@ describe("auto-quarantine (opt-in)", () => {
     expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["bad"]);
   });
 
+  it("records what it held in the weekly scam history", async () => {
+    mutateSettings.mockClear();
+    await triageWith(hijacked("billing@acme.example"), ["billing@acme.example"]);
+    const base = { scamHistory: [], quarantinedSenders: {}, actionLog: [] };
+    const written = mutateSettings.mock.calls
+      .map(([fn]) => (fn ? (fn(base) as { scamHistory?: unknown[] }) : {}))
+      .find((next) => Array.isArray(next.scamHistory) && next.scamHistory.length > 0);
+    expect(written?.scamHistory).toEqual([
+      expect.objectContaining({ held: 1, kinds: { "identity-change": 1, "reply-to-mismatch": 1 }, brands: {} }),
+    ]);
+  });
+
   it("doesn't hold a message when its two signals came from different messages", async () => {
     const split = {
       ...hijacked("billing@acme.example"),

@@ -79,6 +79,7 @@ import { keepNewestExcess } from "../lib/keepNewest";
 import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
 import { renderRulesTab, wireRulesTab } from "./rulesTab";
 import { renderSecuritySection } from "./securityTab";
+import { renderScamReport } from "./reportTab";
 import { applySimpleMode, renderSettingsSetup, renderSimpleHome, screenForMode, wireSetup } from "./setupTab";
 import { renderScreenerTab, wireScreenerTab } from "./screenerTab";
 import {
@@ -628,6 +629,7 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   safeRender("delete", () => renderExpirySection(senders));
   safeRender("impersonation", () => renderSecuritySection(securitySenders));
   safeRender("simple", () => renderSimpleHome(securitySenders));
+  safeRender("report", () => renderScamReport(securitySenders));
   safeRender("subscriptions", () => renderSubscriptionsTab(senders));
   safeRender("delete", () => renderNeverReadSection(senders));
   safeRender("delete", () => renderSpamSection(senders));

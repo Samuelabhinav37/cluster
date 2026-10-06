@@ -9,6 +9,7 @@ import { knownSenderSet, pendingScreenerSenders, refreshSentCorrespondents } fro
 import { markFirstContact } from "./lib/firstContact";
 import { refreshBrandDomains } from "./lib/threatSignals";
 import { senderVerdict } from "./lib/verdict";
+import { recordHeld, type HeldBatch } from "./lib/scamHistory";
 import { refreshMalwareBlocklist } from "./lib/blocklist";
 import { refreshSpamList } from "./lib/spamList";
 import { appendActionLog, makeLogId } from "./lib/actionLog";
@@ -196,6 +197,24 @@ async function runScreener(
 // and file it out of the inbox -- per the sender's own provider, never
 // deletes, and reversible from the Recently-done tab / Security tab's
 // quarantine review queue (label-removal undo). Off by default.
+const BRAND_KINDS = new Set(["brand-impersonation", "freemail-brand-claim", "lookalike-domain"]);
+
+/** What one auto-quarantine run held, per email: the brands faked and the
+ * warning signs that applied to it (address-wide signals apply to all). */
+function heldBatch(targets: SenderSummary[], idsBySender: Map<string, string[]>): HeldBatch {
+  const batch: HeldBatch = { count: 0, brands: [], kinds: [] };
+  for (const sender of targets) {
+    for (const id of idsBySender.get(sender.key) ?? []) {
+      batch.count += 1;
+      const applies = sender.threatSignals.filter((sig) => !sig.messageIds || sig.messageIds.includes(id));
+      for (const kind of new Set(applies.map((sig) => sig.kind))) batch.kinds.push(kind);
+      const brand = applies.find((sig) => BRAND_KINDS.has(sig.kind))?.brand;
+      if (brand) batch.brands.push(brand);
+    }
+  }
+  return batch;
+}
+
 async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]): Promise<number> {
   if (!settings.autoQuarantineHighRisk) return 0;
   // senderVerdict (verdict.ts) holds only on two kinds of signal or one
@@ -255,8 +274,10 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
           undo: { provider: providerId, ids, via: "unlabel-suspicious" },
         },
       ]);
+      const batch = heldBatch(providerTargets, idsBySender);
       await mutateSettings((current) => ({
         ...current,
+        scamHistory: recordHeld(current.scamHistory, batch, now),
         quarantinedSenders: {
           ...current.quarantinedSenders,
           ...Object.fromEntries(
