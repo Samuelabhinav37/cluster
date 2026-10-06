@@ -130,7 +130,7 @@ describe("DOM injection", () => {
     })),
   );
 
-  it.fails("KNOWN BUG: the Phishing screen interpolates sender-controlled text into innerHTML", () => {
+  it("the Phishing screen never interpolates sender-controlled text into innerHTML (fixed in R0 B10)", () => {
     const unsafe = assignments.filter(({ rhs }) => interpolations(rhs).some((e) => KNOWN_UNSAFE.has(e)));
     expect(unsafe).toEqual([]);
   });

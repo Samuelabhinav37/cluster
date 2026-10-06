@@ -58,6 +58,22 @@ function authChip(v: SenderSummary["authVerdicts"]): string {
   return `SPF ${mark(v.spf)} · DKIM ${mark(v.dkim)} · DMARC ${mark(v.dmarc)}`;
 }
 
+function compareCell(className: string, key: string, value: string, note: string): HTMLDivElement {
+  const cell = document.createElement("div");
+  cell.className = className;
+  for (const [cls, text] of [
+    ["k", key],
+    ["v", value],
+    ["n", note],
+  ] as const) {
+    const part = document.createElement("div");
+    part.className = cls;
+    part.textContent = text;
+    cell.appendChild(part);
+  }
+  return cell;
+}
+
 // messageIds is in fetch order, not date order -- pick the genuinely most
 // recent message so "checks the most recent message" is true.
 function newestMessageId(sender: SenderSummary): string | undefined {
@@ -249,20 +265,17 @@ function buildThreatCard(sender: SenderSummary, score: number): HTMLElement {
   const claimedBrand = sender.threatSignals.find((s) => s.brand)?.brand;
   const grid = document.createElement("div");
   grid.className = "compare-grid";
-  const claim = document.createElement("div");
-  claim.className = "compare-cell";
-  claim.innerHTML =
-    `<div class="k">Claims to be</div><div class="v">${
-      claimedBrand ?? (sender.displayName || "someone you know")
-    }</div>` +
-    (sender.firstContact
-      ? `<div class="n">New since Cluster started tracking</div>`
-      : `<div class="n">Display name matches a contact or a known brand</div>`);
-  const actual = document.createElement("div");
-  actual.className = "compare-cell bad";
-  actual.innerHTML = `<div class="k">Actually sent from</div><div class="v">${
-    sender.address
-  }</div><div class="n">${authChip(sender.authVerdicts)}</div>`;
+  // Display names and addresses come from the sender, so they go in as
+  // text, never as HTML.
+  const claim = compareCell(
+    "compare-cell",
+    "Claims to be",
+    claimedBrand ?? (sender.displayName || "someone you know"),
+    sender.firstContact
+      ? "New since Cluster started tracking"
+      : "Display name matches a contact or a known brand",
+  );
+  const actual = compareCell("compare-cell bad", "Actually sent from", sender.address, authChip(sender.authVerdicts));
   grid.append(claim, actual);
   li.appendChild(grid);
 

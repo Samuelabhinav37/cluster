@@ -154,7 +154,7 @@ describe("Phishing screen — sender-controlled text", () => {
     return dash;
   }
 
-  it.fails("KNOWN BUG: a hostile sender address injects markup into the Phishing screen", async () => {
+  it("a hostile sender address renders as text on the Phishing screen (fixed in R0 B10)", async () => {
     const dash = await bootWithHostileSender("PayPal Security", hostileAddress);
     const list = dash.el("security-sender-list");
     expect(list.querySelector("[data-injected]")).toBeNull();
