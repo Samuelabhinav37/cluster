@@ -1,5 +1,6 @@
 import { categorizeDomain, type DomainCategory } from "./domainCategories";
 import type { ProviderId } from "./providers/emailProvider";
+import { emptyProtectionContext, protectionDecision, type ProtectionContext } from "./protectionPolicy";
 import type { SenderSummary } from "./senderModel";
 
 // Major free-mail providers are excluded from domain-level grouping: thousands
@@ -52,7 +53,10 @@ function appendIds(map: Map<ProviderId, string[]>, provider: ProviderId, ids: st
   else map.set(provider, [...ids]);
 }
 
-export function buildDomainGroups(senders: SenderSummary[]): DomainGroup[] {
+export function buildDomainGroups(
+  senders: SenderSummary[],
+  ctx: ProtectionContext = emptyProtectionContext(),
+): DomainGroup[] {
   const groups = new Map<string, DomainGroup>();
 
   for (const sender of senders) {
@@ -75,12 +79,16 @@ export function buildDomainGroups(senders: SenderSummary[]): DomainGroup[] {
 
     group.senders.push(sender);
     group.totalCount += sender.count;
-    group.protectedCount += sender.protectedMessageIds.length;
 
-    const protectedSet = new Set(sender.protectedMessageIds);
-    const deletable = sender.messageIds.filter((id) => !protectedSet.has(id));
+    const protectedIds: string[] = [];
+    const deletable: string[] = [];
+    for (const message of sender.messages) {
+      if (protectionDecision(message, sender.address, ctx).protected) protectedIds.push(message.id);
+      else deletable.push(message.id);
+    }
+    group.protectedCount += protectedIds.length;
     appendIds(group.deletableMessageIds, sender.provider, deletable);
-    appendIds(group.protectedMessageIds, sender.provider, sender.protectedMessageIds);
+    appendIds(group.protectedMessageIds, sender.provider, protectedIds);
   }
 
   return [...groups.values()].sort((a, b) => b.totalCount - a.totalCount);

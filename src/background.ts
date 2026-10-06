@@ -4,9 +4,11 @@ import { gmailProvider } from "./lib/providers/gmailProvider";
 import { outlookProvider } from "./lib/providers/outlookProvider";
 import type { EmailProvider, ProviderId } from "./lib/providers/emailProvider";
 import { applyRules } from "./lib/ruleRunner";
-import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "./lib/screener";
+import { knownSenderSet, pendingScreenerSenders, refreshSentCorrespondents } from "./lib/screener";
 import { markFirstContact } from "./lib/firstContact";
-import { riskTier, senderRiskScore } from "./lib/threatSignals";
+import { refreshBrandDomains, riskTier, senderRiskScore } from "./lib/threatSignals";
+import { refreshMalwareBlocklist } from "./lib/blocklist";
+import { refreshSpamList } from "./lib/spamList";
 import { quarantineScoreAdjustment } from "./lib/quarantineReview";
 import { appendActionLog, makeLogId } from "./lib/actionLog";
 import { buildSenderSummaries, type SenderSummary } from "./lib/senderModel";
@@ -22,7 +24,7 @@ import { resumeInterruptedJobs } from "./lib/durableJobs";
 import { updateEngagementObservations } from "./lib/engagementModel";
 import { getRuleCompletionKeys, recordRuleCompletions } from "./lib/ruleCompletionLedger";
 
-chrome.action.onClicked.addListener(async () => {
+async function openDashboard() {
   const url = chrome.runtime.getURL("src/dashboard/index.html");
   const existing = await chrome.tabs.query({ url });
   if (existing[0]?.id) {
@@ -30,7 +32,9 @@ chrome.action.onClicked.addListener(async () => {
   } else {
     chrome.tabs.create({ url });
   }
-});
+}
+
+chrome.action.onClicked.addListener(() => void openDashboard());
 
 // Background pre-triage: periodically counts mail that's aged past its
 // retention window (see retentionPolicy.ts) and surfaces the count as a
@@ -39,6 +43,7 @@ chrome.action.onClicked.addListener(async () => {
 const TRIAGE_ALARM = "cluster-triage";
 const ATHENA_ALARM = "cluster-athena-flush";
 const JOBS_ALARM = "cluster-jobs";
+const DATASET_ALARM = "cluster-dataset-refresh";
 const SECURITY_SCAN_WINDOW_DAYS = 30;
 const SECURITY_SCAN_MAX_MESSAGES = 100;
 const providerById = new Map<ProviderId, EmailProvider>([
@@ -46,16 +51,22 @@ const providerById = new Map<ProviderId, EmailProvider>([
   [outlookProvider.id, outlookProvider],
 ]);
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 5, periodInMinutes: 360 });
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
+  chrome.alarms.create(DATASET_ALARM, { delayInMinutes: 10, periodInMinutes: 1440 });
+  // A fresh install used to open nothing, leaving the user to find an
+  // unpinned icon in the puzzle menu. Open the dashboard, whose connect gate
+  // is the welcome screen. Updates and Chrome updates stay silent.
+  if (details?.reason === "install") void openDashboard();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 5, periodInMinutes: 360 });
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
+  chrome.alarms.create(DATASET_ALARM, { delayInMinutes: 10, periodInMinutes: 1440 });
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -67,7 +78,22 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === JOBS_ALARM) {
     void resumeInterruptedJobs(providerById).catch((err) => log.error("Resuming durable jobs failed", err));
   }
+  if (alarm.name === DATASET_ALARM) void refreshPublicDatasets();
 });
+
+// Daily: pulls Cluster's own published brand-domain and blocklist datasets
+// (see remoteDataset.ts) so impersonation/spam detection stay current
+// without waiting for a new extension release. Each call is independently
+// rate-limited and never throws -- one failing fetch can't block the others,
+// and every dataset already has a bundled fallback that works without this
+// ever succeeding.
+async function refreshPublicDatasets(): Promise<void> {
+  await Promise.all([
+    refreshBrandDomains().catch((err) => log.error("Brand-domain dataset refresh failed", err)),
+    refreshMalwareBlocklist().catch((err) => log.error("Malware blocklist refresh failed", err)),
+    refreshSpamList().catch((err) => log.error("Spam list refresh failed", err)),
+  ]);
+}
 
 // Reports every sender threatSignals flagged (see senderModel.ts /
 // threatSignals.ts) as a minimized Athena "warned" event -- queueAthenaSecurityEvent
@@ -94,40 +120,21 @@ async function reportThreatSignals(senders: SenderSummary[]) {
   await queueAthenaSecurityEvents(events);
 }
 
-async function refreshSentCorrespondents(
-  settings: ClusterSettings,
-): Promise<ClusterSettings["sentCorrespondents"]> {
-  if (!sentCorrespondentsStale(settings)) return settings.sentCorrespondents;
-  const addresses = new Set(settings.sentCorrespondents.addresses);
-  let anySucceeded = false;
-  for (const provider of providerById.values()) {
-    if (!provider.listSentCorrespondents) continue;
-    const token = await provider.getAuthToken(false).catch(() => null);
-    if (!token) continue;
-    try {
-      for (const addr of await provider.listSentCorrespondents(token)) addresses.add(addr);
-      anySucceeded = true;
-    } catch (err) {
-      log.error("Screener: sent-correspondent refresh failed", provider.id, err);
-    }
-  }
-  if (!anySucceeded) return settings.sentCorrespondents;
-  const sent = { addresses: [...addresses], fetchedAt: Date.now() };
-  await updateSettings({ sentCorrespondents: sent });
-  return sent;
-}
-
 // Screener: hold mail from senders the user has never corresponded with. Opt-in
-// (settings.screenerEnabled). Refreshes the sent-correspondent allowlist on a
-// TTL across every connected provider that supports it, then moves each
+// (settings.screenerEnabled) -- the sent-correspondent refresh itself now runs
+// unconditionally (see the caller), since that signal also feeds the general
+// protection gate (protectionPolicy.ts), not just this feature. Moves each
 // newly-unknown sender's mail under the Screener label/folder (per that
 // sender's own provider) and records it in screenedSenders so it isn't
 // re-screened. Returns how many senders are currently held, for the badge.
-async function runScreener(settings: ClusterSettings, senders: SenderSummary[]): Promise<number> {
+async function runScreener(
+  settings: ClusterSettings,
+  senders: SenderSummary[],
+  sentCorrespondents: ClusterSettings["sentCorrespondents"],
+): Promise<number> {
   if (!settings.screenerEnabled) return 0;
 
-  const sent = await refreshSentCorrespondents(settings);
-  const known = knownSenderSet({ ...settings, sentCorrespondents: sent });
+  const known = knownSenderSet({ ...settings, sentCorrespondents });
   const excluded = new Set(
     [...settings.mutedSenders, ...settings.screenedSenders].map((a) => a.toLowerCase()),
   );
@@ -332,7 +339,8 @@ async function runBackgroundTriage() {
     const ruleDeferred = ruleResults.reduce((sum, result) => sum + result.deferredByLimitCount, 0);
     const ruleSkipped = ruleResults.reduce((sum, result) => sum + result.previouslyCompletedCount, 0);
 
-    const held = await runScreener(settings, senders);
+    const sentCorrespondents = await refreshSentCorrespondents(settings, providerById);
+    const held = await runScreener(settings, senders, sentCorrespondents);
     const total = totalExpiryCount(buildExpiryBuckets(senders));
 
     await updateSettings({

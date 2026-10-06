@@ -6,13 +6,13 @@
 import { mutateSettings } from "../lib/settingsStore";
 import { recordEngagementFeedback } from "../lib/engagementModel";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
-import { executeBulkUnsubscribe } from "../lib/bulkActions";
+import { executeBulkUnsubscribe, filterOutProtected } from "../lib/bulkActions";
 import {
   evaluateUnsubscribeOutcome,
   unsubscribeOutcomeRank,
   type UnsubscribeOutcomeState,
 } from "../lib/unsubscribeOutcome";
-import { buildSenderCleanupPlan } from "../lib/protectionPolicy";
+import { buildProtectionContext, buildSenderCleanupPlan } from "../lib/protectionPolicy";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import type { SenderSummary } from "../lib/senderModel";
 import {
@@ -20,10 +20,24 @@ import {
   SUBSCRIPTION_SIGNAL_LABELS,
 } from "../lib/subscriptionSignals";
 import { formatRelativeTime, headerRow, pruneSelection, renderConfirmStep } from "./ui";
+import { listGroup, listRow } from "./listRow";
+import { senderTile } from "./senderTile";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
 
 const selectedSubKeys = new Set<string>();
+
+function subTile(sender: SenderSummary, size: "sz-30" | "sz-34" = "sz-34"): HTMLElement {
+  return senderTile(sender.address, sender.displayName, size);
+}
+
+function cadenceLabel(sender: SenderSummary): "Daily" | "Weekly" | "Monthly" {
+  const weeks = Math.max(1, ctx.settings.scanWindowDays / 7);
+  const perWeek = sender.count / weeks;
+  if (perWeek >= 4) return "Daily";
+  if (perWeek >= 0.9) return "Weekly";
+  return "Monthly";
+}
 
 const subsBulkBar = document.getElementById("subscriptions-bulk-bar") as HTMLDivElement;
 const subsCountEl = document.getElementById("subs-count") as HTMLSpanElement;
@@ -39,39 +53,24 @@ function renderPaidSubscriptions(senders: SenderSummary[]) {
 
   if (candidates.length === 0) {
     const empty = document.createElement("p");
-    empty.className = "hint";
+    empty.className = "empty-state";
     empty.textContent = "No paid subscriptions or trials detected in the current scan.";
     paidSubscriptionsListEl.appendChild(empty);
     return;
   }
 
-  const table = document.createElement("table");
-  const thead = document.createElement("thead");
-  thead.appendChild(headerRow(["Sender", "Signal", "Last seen"]));
-  table.appendChild(thead);
-
-  const tbody = document.createElement("tbody");
-  for (const { sender, signal, lastSeenAt } of candidates) {
-    const row = document.createElement("tr");
-
-    const nameCell = document.createElement("td");
-    nameCell.textContent = sender.displayName
-      ? `${sender.displayName} <${sender.address}>`
-      : sender.address;
-    row.appendChild(nameCell);
-
-    const signalCell = document.createElement("td");
-    signalCell.textContent = SUBSCRIPTION_SIGNAL_LABELS[signal];
-    row.appendChild(signalCell);
-
-    const seenCell = document.createElement("td");
-    seenCell.textContent = formatRelativeTime(lastSeenAt);
-    row.appendChild(seenCell);
-
-    tbody.appendChild(row);
-  }
-  table.appendChild(tbody);
-  paidSubscriptionsListEl.appendChild(table);
+  const rows = candidates.map(({ sender, signal, lastSeenAt }) => {
+    const seen = document.createElement("span");
+    seen.className = "recent-detail";
+    seen.textContent = formatRelativeTime(lastSeenAt);
+    return listRow({
+      lead: subTile(sender),
+      title: sender.displayName || sender.address,
+      sub: SUBSCRIPTION_SIGNAL_LABELS[signal],
+      meta: seen,
+    });
+  });
+  paidSubscriptionsListEl.appendChild(listGroup(rows));
 }
 
 // Persisted so "already requested" survives a reload — senders can take up
@@ -141,7 +140,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
     };
     cell.appendChild(btn);
 
-    const cleanup = buildSenderCleanupPlan(sender);
+    const cleanup = buildSenderCleanupPlan(sender, buildProtectionContext(ctx.settings));
     if (cleanup.safeNewsletterIds.length > 0) {
       const cleanSlot = document.createElement("span");
       const cleanBtn = document.createElement("button");
@@ -162,13 +161,23 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
             if (!ok) return "Unsubscribe failed — no mail was moved";
             const provider = providerById.get(sender.provider);
             if (!provider) return "Provider unavailable — no mail was moved";
+            const { safe, skipped } = await filterOutProtected(
+              new Map([[sender.provider, cleanup.safeNewsletterIds]]),
+              providerById,
+            );
+            const targetIds = safe.get(sender.provider) ?? [];
+            await recordUnsubscribeRequests([sender]);
+            if (targetIds.length === 0) {
+              return skipped > 0
+                ? `Unsubscribed; skipped ${skipped} you starred since the scan`
+                : "Unsubscribed; nothing left to move";
+            }
             const job = await createDurableJob({
               provider: sender.provider,
               operation: "trash",
-              targetIds: cleanup.safeNewsletterIds,
+              targetIds,
             });
             const result = await runDurableJob(job.id, providerById);
-            await recordUnsubscribeRequests([sender]);
             if (result.succeededIds.length > 0) {
               await logAction(
                 "trash",
@@ -178,9 +187,10 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
                   : undefined,
               );
             }
+            const skippedNote = skipped > 0 ? `, skipped ${skipped} you starred since the scan` : "";
             return result.failures.length > 0
-              ? `Unsubscribed; moved ${result.succeededIds.length}, failed ${result.failures.length}, kept ${kept}`
-              : `Unsubscribed and moved ${result.succeededIds.length} to Trash; kept ${kept}`;
+              ? `Unsubscribed; moved ${result.succeededIds.length}, failed ${result.failures.length}, kept ${kept}${skippedNote}`
+              : `Unsubscribed and moved ${result.succeededIds.length} to Trash; kept ${kept}${skippedNote}`;
           },
         );
       };
@@ -202,7 +212,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
     cell.appendChild(a);
   }
 
-  const readLaterPlan = buildSenderCleanupPlan(sender);
+  const readLaterPlan = buildSenderCleanupPlan(sender, buildProtectionContext(ctx.settings));
   const provider = providerById.get(sender.provider);
   if (readLaterPlan.safeNewsletterIds.length > 0 && provider?.labelMessages && provider.unlabelMessages) {
     const slot = document.createElement("span");
@@ -217,10 +227,18 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
         `Move ${readLaterPlan.safeNewsletterIds.length} newsletter message${readLaterPlan.safeNewsletterIds.length === 1 ? "" : "s"} from ${sender.address} to a "Read Later" label? ${kept} protected or ambiguous message${kept === 1 ? " stays" : "s stay"}.`,
         false,
         async () => {
+          const { safe, skipped } = await filterOutProtected(
+            new Map([[sender.provider, readLaterPlan.safeNewsletterIds]]),
+            providerById,
+          );
+          const targetIds = safe.get(sender.provider) ?? [];
+          if (targetIds.length === 0) {
+            return skipped > 0 ? `Skipped ${skipped} you starred since the scan` : "Nothing to move";
+          }
           const job = await createDurableJob({
             provider: sender.provider,
             operation: "label",
-            targetIds: readLaterPlan.safeNewsletterIds,
+            targetIds,
             labelName: "Read Later",
             keepInInbox: false,
           });
@@ -228,7 +246,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
           if (result.succeededIds.length > 0) {
             await logAction(
               "sort",
-              `Moved ${result.succeededIds.length} newsletter message${result.succeededIds.length === 1 ? "" : "s"} from ${sender.address} to Read Later`,
+              `Moved ${result.succeededIds.length} newsletter message${result.succeededIds.length === 1 ? "" : "s"} from ${sender.address} to Read Later${skipped > 0 ? `, skipped ${skipped} you starred since the scan` : ""}`,
               {
                 provider: sender.provider,
                 ids: result.succeededIds,
@@ -248,6 +266,36 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
     cell.append(" ", slot);
   }
   return cell;
+}
+
+function renderSubsFloatingBar(oneClickCount: number) {
+  const host = document.getElementById("subs-floating-bar");
+  if (!host) return;
+  const selected = selectedSubKeys.size;
+  if (oneClickCount === 0) {
+    host.className = "";
+    host.innerHTML = "";
+    return;
+  }
+  host.className = "floating-bar";
+  host.innerHTML = "";
+  const bar = document.createElement("div");
+  const title = document.createElement("span");
+  title.className = "fb-title";
+  title.textContent =
+    selected > 0
+      ? `${selected} selected`
+      : `${oneClickCount} verified one-click`;
+  const sub = document.createElement("span");
+  sub.className = "fb-sub";
+  sub.textContent = "existing mail stays put — only the subscription stops";
+  const allBtn = document.createElement("button");
+  allBtn.className = "btn-accent-solid";
+  allBtn.textContent = selected > 0 ? "Unsubscribe selected" : "Unsubscribe all";
+  allBtn.onclick = () =>
+    (document.getElementById("subs-unsub-all-btn") as HTMLButtonElement | null)?.click();
+  bar.append(title, sub, allBtn);
+  host.appendChild(bar);
 }
 
 function selectedUnsubscribeOutcome(): "all" | UnsubscribeOutcomeState {
@@ -312,86 +360,146 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
   subsBulkBar.hidden = available.length === 0 && trackedCount === 0;
   subsCountEl.textContent = `${available.length} available · ${trackedCount} tracked${stillSendingCount > 0 ? ` · ${stillSendingCount} still sending` : ""}`;
   subsUnsubAllBtn.disabled = oneClick.length === 0;
+  renderSubsFloatingBar(oneClick.length);
 
   if (available.length === 0 && trackedCount === 0) {
     const empty = document.createElement("p");
-    empty.className = "hint";
+    empty.className = "empty-state";
     empty.textContent = "No senders with an unsubscribe option or tracked request in the current scan.";
     subscriptionsListEl.appendChild(empty);
     return;
   }
 
+  // Metric band
+  const cadenceCounts = { Daily: 0, Weekly: 0, Monthly: 0 };
+  for (const s of available) cadenceCounts[cadenceLabel(s)] += 1;
+  const band = document.createElement("div");
+  band.className = "metric-band";
+  band.style.marginBottom = "24px";
+  const heroWrap = document.createElement("div");
+  heroWrap.style.flex = "none";
+  heroWrap.innerHTML =
+    `<div class="metric-hero">${available.length}</div>` +
+    `<div class="row-sub" style="color:var(--label-2);margin-top:8px">mailing lists in this scan</div>`;
+  band.appendChild(heroWrap);
+  const divider = document.createElement("div");
+  divider.className = "divider";
+  band.appendChild(divider);
+  for (const [cap, n] of [
+    ["daily", cadenceCounts.Daily],
+    ["weekly", cadenceCounts.Weekly],
+    ["monthly or less", cadenceCounts.Monthly],
+  ] as const) {
+    const cell = document.createElement("div");
+    cell.className = "metric-secondary";
+    cell.style.flex = "none";
+    cell.innerHTML = `<div class="n">${n}</div><div class="cap">${cap}</div>`;
+    band.appendChild(cell);
+  }
+  subscriptionsListEl.appendChild(band);
+
   if (visibleCurrentRows.length > 0) {
-    const table = document.createElement("table");
-    const thead = document.createElement("thead");
-    thead.appendChild(
-      headerRow([
-        "",
-        "Sender",
-        `Count (${ctx.settings.scanWindowDays}d)`,
-        "Mostly",
-        "Method",
-        "Outcome",
-        "Action",
-      ]),
-    );
-    table.appendChild(thead);
-
-    const tbody = document.createElement("tbody");
-    for (const { sender, outcome } of visibleCurrentRows) {
-      const row = document.createElement("tr");
-
-      const cbCell = document.createElement("td");
-      if (sender.unsubscribe.postUrl) {
-        const cb = document.createElement("input");
-        cb.type = "checkbox";
-        cb.checked = selectedSubKeys.has(sender.key);
-        cb.onchange = () => {
-          if (cb.checked) selectedSubKeys.add(sender.key);
-          else selectedSubKeys.delete(sender.key);
-        };
-        cbCell.appendChild(cb);
+    // Select-all header — not itself a list item (no title/media), so it
+    // reuses the check-media-actions grid class directly rather than going
+    // through listRow(), whose spec always expects a title.
+    const hdr = document.createElement("div");
+    hdr.className = "list-row list-row--check-media-actions";
+    hdr.style.background = "var(--row-hover)";
+    const selAllLabel = document.createElement("label");
+    selAllLabel.className = "check-label";
+    const selAll = document.createElement("input");
+    selAll.type = "checkbox";
+    selAll.className = "check";
+    selAll.setAttribute("aria-label", "Select all subscriptions");
+    const oneClickKeys = visibleCurrentRows
+      .filter(({ sender }) => sender.unsubscribe.postUrl)
+      .map(({ sender }) => sender.key);
+    selAll.checked = oneClickKeys.length > 0 && oneClickKeys.every((k) => selectedSubKeys.has(k));
+    selAll.onchange = () => {
+      for (const k of oneClickKeys) {
+        if (selAll.checked) selectedSubKeys.add(k);
+        else selectedSubKeys.delete(k);
       }
-      row.appendChild(cbCell);
+      renderSubscriptionsTab(ctx.senders);
+    };
+    selAllLabel.appendChild(selAll);
+    const selCount = document.createElement("span");
+    selCount.className = "row-sub";
+    selCount.style.color = "var(--label-2)";
+    selCount.textContent = `${oneClickKeys.filter((k) => selectedSubKeys.has(k)).length} of ${oneClickKeys.length} selected`;
+    const sortedNote = document.createElement("span");
+    sortedNote.className = "recent-detail";
+    sortedNote.textContent = "Problems first, then by volume";
+    hdr.append(selAllLabel, selCount, sortedNote);
 
-      const nameCell = document.createElement("td");
-      nameCell.textContent = sender.displayName
-        ? `${sender.displayName} <${sender.address}>`
-        : sender.address;
-      row.appendChild(nameCell);
-
-      const countCell = document.createElement("td");
-      countCell.textContent = String(sender.count);
-      row.appendChild(countCell);
-
-      const kindCell = document.createElement("td");
-      kindCell.textContent = dominantKind(sender);
-      row.appendChild(kindCell);
-
-      const methodCell = document.createElement("td");
-      methodCell.textContent = unsubMethodLabel(sender.unsubscribe);
-      row.appendChild(methodCell);
-
-      const statusCell = document.createElement("td");
-      const outcomeLabel = document.createElement("div");
-      outcomeLabel.textContent = outcome.requestAt
+    const rows = visibleCurrentRows.map(({ sender, outcome }) => {
+      const subLine = document.createElement("div");
+      subLine.style.display = "flex";
+      subLine.style.alignItems = "center";
+      subLine.style.gap = "8px";
+      subLine.style.marginTop = "4px";
+      subLine.style.flexWrap = "wrap";
+      const cadencePill = document.createElement("span");
+      cadencePill.className = "pill neutral";
+      cadencePill.textContent = cadenceLabel(sender);
+      const detail = document.createElement("span");
+      detail.className = "row-sub";
+      const outcomeText = outcome.requestAt
         ? `${outcome.label} · requested ${formatRelativeTime(outcome.requestAt)}`
-        : outcome.label;
-      const evidence = document.createElement("div");
-      evidence.className = "hint";
-      evidence.textContent = outcome.detail;
-      statusCell.append(outcomeLabel, evidence);
-      row.appendChild(statusCell);
+        : `${unsubMethodLabel(sender.unsubscribe)} · mostly ${dominantKind(sender)}`;
+      detail.textContent = sender.displayName ? `${outcomeText} · ${sender.address}` : outcomeText;
+      subLine.append(cadencePill, detail);
 
-      row.appendChild(subUnsubscribeCell(sender));
-      tbody.appendChild(row);
-    }
-    table.appendChild(tbody);
-    subscriptionsListEl.appendChild(table);
+      const actions = document.createElement("div");
+      // Transplant the working unsubscribe / clean / read-later buttons.
+      const cell = subUnsubscribeCell(sender);
+      while (cell.firstChild) actions.appendChild(cell.firstChild);
+      for (const btn of Array.from(actions.querySelectorAll("button"))) {
+        if (btn.textContent === "Unsubscribe") btn.className = "btn btn-accent btn-sm";
+        else btn.classList.add("btn-sm");
+      }
+      const keep = document.createElement("button");
+      keep.className = "btn btn-sm";
+      keep.textContent = "Keep";
+
+      const row = listRow({
+        // Every row keeps the checkbox column even without a one-click
+        // unsubscribe (disabled instead of omitted) so titles stay aligned
+        // under the select-all header's checkbox column.
+        selectable: sender.unsubscribe.postUrl
+          ? {
+              checked: selectedSubKeys.has(sender.key),
+              label: `Select ${sender.displayName || sender.address}`,
+              onChange: (checked) => {
+                if (checked) selectedSubKeys.add(sender.key);
+                else selectedSubKeys.delete(sender.key);
+                renderSubscriptionsTab(ctx.senders);
+              },
+            }
+          : { checked: false, disabled: true, label: "No one-click unsubscribe to select", onChange: () => {} },
+        lead: subTile(sender),
+        title: sender.displayName || sender.address,
+        sub: subLine,
+        actions: [...Array.from(actions.children) as HTMLElement[], keep],
+      });
+      keep.onclick = () => {
+        row.hidden = true;
+        // listGroup() puts an anonymous row-sep before every row but the
+        // first; hide it too so a dismissed row doesn't leave a stray line.
+        const sep = row.previousElementSibling;
+        if (sep instanceof HTMLElement && sep.classList.contains("row-sep")) sep.hidden = true;
+      };
+      return row;
+    });
+
+    subscriptionsListEl.appendChild(hdr);
+    subscriptionsListEl.appendChild(listGroup(rows, { inset: true }));
   }
 
   if (visibleTrackedOnlyRows.length > 0) {
     const heading = document.createElement("h3");
+    heading.className = "section-label";
+    heading.style.margin = "24px 0 10px";
     heading.textContent = "Tracked requests without a current unsubscribe option";
     subscriptionsListEl.appendChild(heading);
     const table = document.createElement("table");
@@ -421,7 +529,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
 
   if (visibleCurrentRows.length === 0 && visibleTrackedOnlyRows.length === 0) {
     const empty = document.createElement("p");
-    empty.className = "hint";
+    empty.className = "empty-state";
     empty.textContent = "No subscriptions match this outcome filter.";
     subscriptionsListEl.appendChild(empty);
   }

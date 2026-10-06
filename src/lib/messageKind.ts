@@ -20,3 +20,26 @@ export function classifyMessageKind(subject: string, hasListUnsubscribe: boolean
   if (hasListUnsubscribe) return "newsletter";
   return "other";
 }
+
+const PRECEDENCE_BULK_RE = /\b(bulk|list|junk)\b/i;
+const AUTO_SUBMITTED_RE = /^auto-(generated|replied)/i;
+
+/**
+ * A secondary/fallback "this looks like bulk or system mail, not a human
+ * writing to me" signal -- used only when the provider's own importance
+ * model (see NormalizedMessageMetadata.providerMarkedPersonal) has no
+ * opinion yet, e.g. a brand-new correspondent. List-Unsubscribe indicates
+ * an unsubscribe mechanism exists, not proof of authorship; Precedence and
+ * Auto-Submitted (RFC 3834) are closer to a direct machine-authorship
+ * signal.
+ */
+export function looksAutomated(
+  hasListUnsubscribe: boolean,
+  precedence?: string,
+  autoSubmitted?: string,
+): boolean {
+  if (hasListUnsubscribe) return true;
+  if (precedence && PRECEDENCE_BULK_RE.test(precedence)) return true;
+  if (autoSubmitted && AUTO_SUBMITTED_RE.test(autoSubmitted)) return true;
+  return false;
+}

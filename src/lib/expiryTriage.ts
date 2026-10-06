@@ -1,4 +1,5 @@
 import type { ProviderId } from "./providers/emailProvider";
+import { emptyProtectionContext, protectionDecision, type ProtectionContext } from "./protectionPolicy";
 import { RETENTION_DAYS, RETENTION_LABELS } from "./retentionPolicy";
 import type { MessageKind } from "./messageKind";
 import type { SenderSummary } from "./senderModel";
@@ -14,14 +15,18 @@ export interface ExpiryBucket {
 }
 
 // Age-since-received only — never a date read out of the message body. A
-// kind with no entry in RETENTION_DAYS (receipt, other) never appears here.
-export function buildExpiryBuckets(senders: SenderSummary[]): ExpiryBucket[] {
+// kind with no entry in RETENTION_DAYS (receipt, shipping, other) never
+// appears here.
+export function buildExpiryBuckets(
+  senders: SenderSummary[],
+  ctx: ProtectionContext = emptyProtectionContext(),
+): ExpiryBucket[] {
   const now = Date.now();
   const buckets = new Map<MessageKind, ExpiryBucket>();
 
   for (const sender of senders) {
     for (const msg of sender.messages) {
-      if (msg.isProtected) continue;
+      if (protectionDecision(msg, sender.address, ctx).protected) continue;
       const retentionDays = RETENTION_DAYS[msg.kind];
       if (!retentionDays) continue;
       if (now - msg.receivedAt < retentionDays * DAY_MS) continue;

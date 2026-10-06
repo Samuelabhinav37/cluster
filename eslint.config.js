@@ -29,6 +29,11 @@ export default tseslint.config(
     rules: { "no-console": "off", "@typescript-eslint/no-explicit-any": "off" },
   },
   {
+    // The UI preview stub runs in the page, standing in for chrome.*.
+    files: ["scripts/preview/chrome-stub.js"],
+    languageOptions: { sourceType: "script", globals: { ...globals.browser } },
+  },
+  {
     files: ["scripts/**/*.mjs", "*.config.js", "*.config.ts"],
     languageOptions: { globals: { ...globals.node } },
     rules: { "no-console": "off", "@typescript-eslint/no-explicit-any": "off" },

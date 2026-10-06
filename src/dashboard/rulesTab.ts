@@ -20,6 +20,7 @@ import { recordRuleCompletions } from "../lib/ruleCompletionLedger";
 import { draftRuleFromNaturalLanguage } from "../lib/aiRuleDraft";
 import type { MessageKind } from "../lib/messageKind";
 import { renderConfirmStep } from "./ui";
+import { listGroup, listRow } from "./listRow";
 import { ctx, providerById, rescan } from "./state";
 import { renderRecentTab } from "./recentTab";
 
@@ -54,45 +55,73 @@ export function renderRulesTab() {
   renderRuleDryRun();
   if (ctx.settings.rules.length === 0) {
     const p = document.createElement("p");
-    p.className = "hint";
+    p.className = "empty-state";
     p.textContent = "No rules yet — add one below.";
     rulesListEl.appendChild(p);
     return;
   }
-  for (const rule of ctx.settings.rules) {
-    const row = document.createElement("div");
-    row.className = "rule-row";
+  const rows = ctx.settings.rules.map((rule) => buildRuleRow(rule));
+  rulesListEl.appendChild(listGroup(rows, { inset: false }));
+}
 
-    const toggle = document.createElement("input");
-    toggle.type = "checkbox";
-    toggle.checked = rule.enabled;
-    toggle.onchange = async () => {
-      ctx.settings = await updateSettings({
-        rules: ctx.settings.rules.map((r) => (r.id === rule.id ? { ...r, enabled: toggle.checked } : r)),
-      });
-      renderRulesTab();
-    };
+function buildRuleRow(rule: ClusterRule): HTMLElement {
+  const sub = document.createElement("div");
+  const desc = document.createElement("div");
+  desc.className = "row-sub wrap";
+  desc.textContent = describeRule(rule);
+  const stat = document.createElement("div");
+  stat.className = "recent-detail";
+  stat.textContent = `priority ${rule.priority ?? 0} · limit ${ruleRunLimit(rule)}/run${
+    rule.stopProcessing ? " · stops later rules" : ""
+  }`;
+  sub.append(desc, stat);
 
-    const label = document.createElement("label");
-    label.append(toggle, document.createTextNode(` ${rule.name} `));
+  const editBtn = document.createElement("button");
+  editBtn.className = "btn btn-sm";
+  editBtn.textContent = "Edit";
+  editBtn.onclick = () => {
+    document.getElementById("rule-form-details")?.setAttribute("open", "");
+    ruleNameInput.value = rule.name;
+    ruleFromDomainInput.value = rule.conditions.fromDomain ?? "";
+    ruleFromAddressInput.value = rule.conditions.fromAddress ?? "";
+    ruleOlderDaysInput.value = rule.conditions.olderThanDays ? String(rule.conditions.olderThanDays) : "";
+    ruleActionSel.value = rule.action;
+    ruleLabelInput.hidden = rule.action !== "label";
+    ruleLabelInput.value = rule.labelName ?? "";
+    document.getElementById("rule-form-details")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
-    const desc = document.createElement("span");
-    desc.className = "hint";
-    const policy = `${rule.priority ?? 0}, limit ${ruleRunLimit(rule)}/run${rule.stopProcessing ? ", stops later rules" : ""}`;
-    desc.textContent = `[priority ${policy}] ${describeRule(rule)}`;
+  const del = document.createElement("button");
+  del.className = "btn btn-sm danger";
+  del.textContent = "Delete";
+  del.onclick = async () => {
+    ctx.settings = await updateSettings({
+      rules: ctx.settings.rules.filter((r) => r.id !== rule.id),
+    });
+    renderRulesTab();
+  };
 
-    const del = document.createElement("button");
-    del.textContent = "Delete";
-    del.onclick = async () => {
-      ctx.settings = await updateSettings({
-        rules: ctx.settings.rules.filter((r) => r.id !== rule.id),
-      });
-      renderRulesTab();
-    };
+  const sw = document.createElement("button");
+  sw.className = "switch";
+  sw.setAttribute("role", "switch");
+  sw.setAttribute("aria-checked", String(rule.enabled));
+  sw.setAttribute("aria-label", `${rule.enabled ? "Disable" : "Enable"} ${rule.name}`);
+  sw.innerHTML = "<span></span>";
+  sw.onclick = async () => {
+    const next = sw.getAttribute("aria-checked") !== "true";
+    sw.setAttribute("aria-checked", String(next));
+    ctx.settings = await updateSettings({
+      rules: ctx.settings.rules.map((r) => (r.id === rule.id ? { ...r, enabled: next } : r)),
+    });
+    renderRulesTab();
+  };
 
-    row.append(label, desc, del);
-    rulesListEl.appendChild(row);
-  }
+  return listRow({
+    title: rule.name,
+    wrapText: true,
+    sub,
+    actions: [editBtn, del, sw],
+  });
 }
 
 function renderRuleDryRun() {
@@ -114,12 +143,19 @@ function renderRuleDryRun() {
   }
 
   const report = buildRuleDryRunReport(ctx.settings.rules, ctx.senders, providerById);
-  const heading = document.createElement("h3");
-  heading.textContent = "Current manual dry run";
+  // The dry run is detailed and secondary — collapse it behind a one-line
+  // summary so it doesn't outweigh the composer and rule list above it.
+  const wrapper = document.createElement("details");
+  wrapper.className = "disclosure";
+  const wrapperSummary = document.createElement("summary");
+  wrapperSummary.textContent = `Dry run — ${report.predictedRuleApplicationCount} predicted application${report.predictedRuleApplicationCount === 1 ? "" : "s"} touching ${report.uniqueMatchedMessageCount} message${report.uniqueMatchedMessageCount === 1 ? "" : "s"}`;
+  wrapper.appendChild(wrapperSummary);
+  rulePreviewEl.appendChild(wrapper);
+
   const summary = document.createElement("p");
   summary.className = "hint";
-  summary.textContent = `${report.predictedRuleApplicationCount} predicted rule application${report.predictedRuleApplicationCount === 1 ? "" : "s"} touching ${report.uniqueMatchedMessageCount} unique message${report.uniqueMatchedMessageCount === 1 ? "" : "s"}; ${report.deferredByLimitCount} deferred by per-rule limits, ${report.overlapMessageCount} overlap${report.overlapMessageCount === 1 ? "" : "s"}, ${report.protectedExclusionCount} protected exclusion${report.protectedExclusionCount === 1 ? "" : "s"}, ${report.exceptionExclusionCount} rule-exception exclusion${report.exceptionExclusionCount === 1 ? "" : "s"}. Assumes supported provider calls succeed; no API call is made. This previews the confirmed manual override, so background completion receipts do not reduce these counts.`;
-  rulePreviewEl.append(heading, summary);
+  summary.textContent = `${report.deferredByLimitCount} deferred by per-rule limits, ${report.overlapMessageCount} overlap${report.overlapMessageCount === 1 ? "" : "s"}, ${report.protectedExclusionCount} protected exclusion${report.protectedExclusionCount === 1 ? "" : "s"}, ${report.exceptionExclusionCount} rule-exception exclusion${report.exceptionExclusionCount === 1 ? "" : "s"}. Assumes supported provider calls succeed; no API call is made. This previews the confirmed manual override, so background completion receipts do not reduce these counts.`;
+  wrapper.appendChild(summary);
 
   for (const impact of report.impacts) {
     const details = document.createElement("details");
@@ -174,7 +210,7 @@ function renderRuleDryRun() {
       ? `Senders: ${shown.join(", ")}${impact.senders.length > shown.length ? `, +${impact.senders.length - shown.length} more` : ""}`
       : "No sender remains eligible for this rule.";
     details.appendChild(senderList);
-    rulePreviewEl.appendChild(details);
+    wrapper.appendChild(details);
   }
 }
 
@@ -205,7 +241,28 @@ function resetRuleApplySlot() {
   ruleApplySlot.appendChild(ruleApplyBtn);
 }
 
+const RULE_EXAMPLES = [
+  "Mute anything I haven't opened in a year",
+  "Archive unread newsletters older than 14 days",
+  "Trash one-time codes after 2 days",
+];
+
 export function wireRulesTab() {
+  const chipHost = document.getElementById("rule-example-chips");
+  if (chipHost && chipHost.childElementCount === 0) {
+    for (const example of RULE_EXAMPLES) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.textContent = example;
+      chip.onclick = () => {
+        ruleNaturalLanguageInput.value = example;
+        ruleNaturalLanguageInput.focus();
+      };
+      chipHost.appendChild(chip);
+    }
+  }
+
   ruleActionSel.onchange = () => {
     ruleLabelInput.hidden = ruleActionSel.value !== "label";
   };
@@ -322,8 +379,12 @@ export function wireRulesTab() {
           0,
         );
         const deferred = results.reduce((sum, result) => sum + result.deferredByLimitCount, 0);
+        const protectionSkipped = results.reduce(
+          (sum, result) => sum + result.protectionSkippedCount,
+          0,
+        );
         await rescan();
-        return `Applied — ${moved} message${moved === 1 ? "" : "s"} actioned${deferred > 0 ? `, ${deferred} deferred by safety limits` : ""}`;
+        return `Applied — ${moved} message${moved === 1 ? "" : "s"} actioned${deferred > 0 ? `, ${deferred} deferred by safety limits` : ""}${protectionSkipped > 0 ? `, skipped ${protectionSkipped} you starred since the scan` : ""}`;
       },
     );
   };

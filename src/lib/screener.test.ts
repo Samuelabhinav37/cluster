@@ -44,6 +44,7 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
     seededFromExisting: false,
     clusterOwnedLabels: [],
     labelChoices: {},
+    healthHistory: [],
     ...over,
   };
 }

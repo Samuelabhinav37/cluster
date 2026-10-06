@@ -56,16 +56,26 @@ const ALLOWED_FETCH_CALLERS = [
   "lib/athenaIntegration.ts", // managed-policy Athena URL, opt-in only
   "lib/httpRetry.ts", // the shared wrapper every fixed-endpoint API call flows through
   "lib/providers/msalAuth.ts", // login.microsoftonline.com token endpoint
+  "lib/remoteDataset.ts", // Cluster's own published reference datasets -- see its header comment
   "lib/unsubscribe.ts", // user-approved unsubscribe origin, one click at a time
 ];
 
+// dashboard/testHarness.ts's dynamic import() re-imports the local
+// dashboard.ts module graph (never a remote specifier) so each bootDashboard()
+// call gets isolated module state via vi.resetModules(). It's imported only by
+// *.dom.test.ts files and tree-shaken from the real build -- never ships.
+const ALLOWED_DYNAMIC_IMPORT_CALLERS = ["dashboard/testHarness.ts"];
+
 // Hosts allowed to appear as URL-shaped string literals in fixed-endpoint
-// files. The first three are actual request targets; the last two are Google
-// OAuth *scope identifiers* (URNs that happen to be URL-shaped), never fetched.
+// files. The first three are actual request targets; "...github.io" is
+// Cluster's own published-dataset host (remoteDataset.ts) -- no user data in
+// any request there, see its header comment; the last two are Google OAuth
+// *scope identifiers* (URNs that happen to be URL-shaped), never fetched.
 const ALLOWED_HOSTS = [
   "gmail.googleapis.com",
   "graph.microsoft.com",
   "login.microsoftonline.com",
+  "samuelabhinav37.github.io",
   "www.googleapis.com", // OAuth scope URN prefix, e.g. .../auth/gmail.modify
   "mail.google.com", // restricted-scope URN for opt-in permanent delete
 ];
@@ -86,6 +96,7 @@ describe("network egress invariant", () => {
       "lib/gmailApi.ts",
       "lib/providers/outlookProvider.ts",
       "lib/providers/msalAuth.ts",
+      "lib/remoteDataset.ts",
     ];
     const seen = new Set<string>();
     for (const [path, text] of nonTestFiles) {
@@ -108,7 +119,12 @@ describe("network egress invariant", () => {
       }
       // Dynamic import() can pull a remote module; static `import x from` and
       // `import.meta` are fine. Match `import(` not preceded by a word char.
-      if (/(^|[^.\w])import\s*\(/.test(text)) offenders.push(`${rel(path)} uses dynamic import()`);
+      if (
+        /(^|[^.\w])import\s*\(/.test(text) &&
+        !ALLOWED_DYNAMIC_IMPORT_CALLERS.includes(rel(path))
+      ) {
+        offenders.push(`${rel(path)} uses dynamic import()`);
+      }
     }
     expect(offenders).toEqual([]);
   });
@@ -126,6 +142,27 @@ describe("network egress invariant", () => {
     // Sanity-check the glob actually matched the dashboard files.
     expect(Object.keys(markupFiles).length).toBeGreaterThan(0);
     expect(offenders).toEqual([]);
+  });
+
+  // The dashboard loads exactly one off-origin asset by design: a sender-
+  // domain favicon (senderLogos.faviconUrl, rendered by senderTile.ts). Both
+  // the host literal and the <img> construction are pinned to their one file
+  // each, so a second off-origin asset can't slip in unreviewed. This is the
+  // documented exception in docs/privacy.md and the sidebar note.
+  it("references the favicon host only from senderLogos.ts", () => {
+    const referrers = nonTestFiles
+      .filter(([, text]) => text.includes("www.google.com/s2/favicons"))
+      .map(([path]) => rel(path))
+      .sort();
+    expect(referrers).toEqual(["lib/senderLogos.ts"]);
+  });
+
+  it("constructs an off-origin <img> only in senderTile.ts", () => {
+    const referrers = nonTestFiles
+      .filter(([, text]) => /createElement\(\s*["']img["']\s*\)/.test(text))
+      .map(([path]) => rel(path))
+      .sort();
+    expect(referrers).toEqual(["dashboard/senderTile.ts"]);
   });
 
   it("would catch a newly introduced off-origin reference (red-case fixture)", () => {

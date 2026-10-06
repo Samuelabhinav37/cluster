@@ -5,7 +5,7 @@
 import { buildExpiryBuckets, totalExpiryCount } from "./expiryTriage";
 import { neverReadSenders } from "./neverRead";
 import type { SenderSummary } from "./senderModel";
-import type { ClusterSettings } from "./settingsStore";
+import type { ClusterSettings, HealthSnapshot } from "./settingsStore";
 import { SMART_VIEWS, smartViewMessageCount } from "./smartViews";
 import { suggestSpamSenders } from "./spamSuggestions";
 import { riskTier, senderRiskScore } from "./threatSignals";
@@ -153,4 +153,65 @@ export function buildInboxHealth(input: {
     scannedMessages: senders.reduce((sum, s) => sum + s.count, 0),
     metrics,
   };
+}
+
+function hasUnsub(u: SenderSummary["unsubscribe"]): boolean {
+  return Boolean(u.postUrl || u.httpUrl || u.mailto);
+}
+
+/**
+ * A single deterministic 0–100 "how healthy is this inbox" number, from the
+ * three inputs the Overview screen names: unread ratio, sender count (via the
+ * never-opened senders), and subscription load (unsubscribe-capable senders),
+ * plus a smaller penalty for mail already past its useful life. Pure — no AI,
+ * no scanning. 100 is a tidy inbox; the penalties are capped so one bad
+ * dimension can't zero the score on its own.
+ */
+export function inboxHealthScore(senders: SenderSummary[]): number {
+  const messages = senders.flatMap((s) => s.messages);
+  const total = messages.length || 1;
+  const unreadRatio = messages.filter((m) => m.unread).length / total;
+  const neverOpened = neverReadSenders(senders).length;
+  const unsubCapable = senders.filter((s) => hasUnsub(s.unsubscribe)).length;
+  const ready = totalExpiryCount(buildExpiryBuckets(senders));
+
+  let score = 100;
+  score -= unreadRatio * 45;
+  score -= Math.min(neverOpened, 40) * 0.5;
+  score -= Math.min(unsubCapable, 50) * 0.35;
+  score -= Math.min(ready / total, 1) * 15;
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+/** ISO-8601 week label for a timestamp, e.g. "2026-W37". */
+export function isoWeek(now: number): string {
+  const d = new Date(now);
+  d.setUTCHours(0, 0, 0, 0);
+  // Thursday of the current week decides the year.
+  d.setUTCDate(d.getUTCDate() + 3 - ((d.getUTCDay() + 6) % 7));
+  const week1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const weekNo =
+    1 +
+    Math.round(
+      ((d.getTime() - week1.getTime()) / 86_400_000 - 3 + ((week1.getUTCDay() + 6) % 7)) / 7,
+    );
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
+}
+
+const MAX_HISTORY_WEEKS = 12;
+
+/**
+ * Append `score` to `history` as this week's data point, oldest first, keeping
+ * the last 12 weeks. If the current week already has an entry it's overwritten
+ * (the score reflects the latest scan), so opening the dashboard twice in a
+ * week doesn't create two bars. Returns a new array — never mutates the input.
+ */
+export function recordHealthSnapshot(
+  history: HealthSnapshot[],
+  score: number,
+  now: number,
+): HealthSnapshot[] {
+  const week = isoWeek(now);
+  const withoutThisWeek = history.filter((h) => h.week !== week);
+  return [...withoutThisWeek, { week, score }].slice(-MAX_HISTORY_WEEKS);
 }

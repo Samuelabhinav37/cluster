@@ -130,16 +130,56 @@ export function totalDeletableAcrossGroups(groups: DomainGroup[]): number {
   return total;
 }
 
-export async function executeBulkDeleteDomains(
+/**
+ * Drop any id that is starred / flagged *right now* — the warm metadata cache
+ * only re-reads the last 7 days, so a message the user protected since the last
+ * scan can still carry `isProtected: false` into a bulk action. One cheap list
+ * call per provider. A provider without `listProtectedMessageIds` is passed
+ * through unchanged.
+ */
+export async function filterOutProtected(
   mergedIds: Map<ProviderId, string[]>,
   providerById: Map<ProviderId, EmailProvider>,
-): Promise<void> {
+): Promise<{ safe: Map<ProviderId, string[]>; skipped: number }> {
+  const safe = new Map<ProviderId, string[]>();
+  let skipped = 0;
   await Promise.all(
     [...mergedIds.entries()].map(async ([providerId, ids]) => {
       const provider = providerById.get(providerId);
       if (!provider) return;
+      let protectedNow: Set<string> | undefined;
+      try {
+        const token = await provider.getAuthToken(false);
+        protectedNow = await provider.listProtectedMessageIds?.(token);
+      } catch {
+        // A failed re-check must not block the delete — fall back to trusting
+        // the scan-time protection state (the scan already excluded starred
+        // mail from these id sets).
+      }
+      if (!protectedNow || protectedNow.size === 0) {
+        safe.set(providerId, ids);
+        return;
+      }
+      const kept = ids.filter((id) => !protectedNow.has(id));
+      skipped += ids.length - kept.length;
+      if (kept.length > 0) safe.set(providerId, kept);
+    }),
+  );
+  return { safe, skipped };
+}
+
+export async function executeBulkDeleteDomains(
+  mergedIds: Map<ProviderId, string[]>,
+  providerById: Map<ProviderId, EmailProvider>,
+): Promise<{ skipped: number }> {
+  const { safe, skipped } = await filterOutProtected(mergedIds, providerById);
+  await Promise.all(
+    [...safe.entries()].map(async ([providerId, ids]) => {
+      const provider = providerById.get(providerId);
+      if (!provider || ids.length === 0) return;
       const token = await provider.getAuthToken(false);
       await provider.trashMessages(token, ids);
     }),
   );
+  return { skipped };
 }

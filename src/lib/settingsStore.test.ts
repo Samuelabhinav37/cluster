@@ -172,6 +172,17 @@ describe("settingsStore", () => {
     expect(settings.quarantineReview).toEqual({});
   });
 
+  it("migrates schema 10 settings with an empty health history", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: { schemaVersion: 10, scanWindowDays: 8 },
+    });
+
+    const settings = await getSettings();
+    expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(settings.scanWindowDays).toBe(8);
+    expect(settings.healthHistory).toEqual([]);
+  });
+
   it("serializes concurrent partial updates so unrelated changes are preserved", async () => {
     await Promise.all([
       updateSettings({ scanWindowDays: 14 }),

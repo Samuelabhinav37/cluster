@@ -236,4 +236,51 @@ describe("executeBulkDeleteDomains", () => {
     expect(gmailTrash).toHaveBeenCalledWith("gmail-token", ["a1", "a2"]);
     expect(outlookTrash).toHaveBeenCalledWith("outlook-token", ["o1"]);
   });
+
+  it("re-checks protection and never trashes a now-starred id", async () => {
+    const gmailTrash = vi.fn(async () => {});
+    const providerById = new Map<ProviderId, EmailProvider>([
+      [
+        "gmail",
+        {
+          id: "gmail",
+          isConnected: vi.fn(async () => true),
+          getAuthToken: vi.fn(async () => "t"),
+          listCandidateMessages: vi.fn(async () => []),
+          getMessageMetadata: vi.fn(),
+          trashMessages: gmailTrash,
+          listProtectedMessageIds: vi.fn(async () => new Set(["a2"])),
+        } as unknown as EmailProvider,
+      ],
+    ]);
+    const result = await executeBulkDeleteDomains(
+      new Map<ProviderId, string[]>([["gmail", ["a1", "a2", "a3"]]]),
+      providerById,
+    );
+    expect(gmailTrash).toHaveBeenCalledWith("t", ["a1", "a3"]);
+    expect(result.skipped).toBe(1);
+  });
+
+  it("passes everything through when a provider has no protection check", async () => {
+    const gmailTrash = vi.fn(async () => {});
+    const providerById = new Map<ProviderId, EmailProvider>([
+      [
+        "gmail",
+        {
+          id: "gmail",
+          isConnected: vi.fn(async () => true),
+          getAuthToken: vi.fn(async () => "t"),
+          listCandidateMessages: vi.fn(async () => []),
+          getMessageMetadata: vi.fn(),
+          trashMessages: gmailTrash,
+        } as unknown as EmailProvider,
+      ],
+    ]);
+    const result = await executeBulkDeleteDomains(
+      new Map<ProviderId, string[]>([["gmail", ["a1", "a2"]]]),
+      providerById,
+    );
+    expect(gmailTrash).toHaveBeenCalledWith("t", ["a1", "a2"]);
+    expect(result.skipped).toBe(0);
+  });
 });

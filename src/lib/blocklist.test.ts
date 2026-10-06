@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { createBlocklist } from "./blocklist";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createBlocklist, isBlockedDomain, refreshMalwareBlocklist } from "./blocklist";
 
 describe("createBlocklist", () => {
   const { isBlockedDomain } = createBlocklist([
@@ -34,5 +34,50 @@ describe("createBlocklist", () => {
 
   it("de-duplicates when reporting its size", () => {
     expect(createBlocklist(["a.example", "a.example", "b.example"]).size).toBe(2);
+  });
+});
+
+describe("refreshMalwareBlocklist", () => {
+  function makeFakeChromeStorage() {
+    let store: Record<string, unknown> = {};
+    return {
+      local: {
+        async get(key: string) {
+          return key in store ? { [key]: store[key] } : {};
+        },
+        async set(items: Record<string, unknown>) {
+          store = { ...store, ...items };
+        },
+      },
+    };
+  }
+
+  beforeEach(() => {
+    (globalThis as any).chrome = { storage: makeFakeChromeStorage() };
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("adds live-fetched domains on top of the bundled seed/URLhaus slice without replacing it", async () => {
+    expect(isBlockedDomain("live-only-bad.example")).toBe(false);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(["live-only-bad.example"]), { status: 200 })),
+    );
+    expect(await refreshMalwareBlocklist()).toBe(true);
+    expect(isBlockedDomain("live-only-bad.example")).toBe(true);
+  });
+
+  it("leaves the existing list untouched when the fetch response isn't a string array", async () => {
+    // A domain distinct from the previous test's -- defaultBlocklist is
+    // module-level state that isn't reset between tests in this file.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ not: "a list" }), { status: 200 })),
+    );
+    expect(await refreshMalwareBlocklist()).toBe(false);
+    expect(isBlockedDomain("another-live-bad.example")).toBe(false);
   });
 });

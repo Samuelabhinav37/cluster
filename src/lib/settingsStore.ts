@@ -102,10 +102,24 @@ export interface ClusterSettings {
    * resolved a clash with one of their own labels. `"Shopping"` maps to
    * either `"Shopping"` (reuse theirs) or `"Shopping (Cluster)"` (keep separate). */
   labelChoices: Record<string, string>;
+
+  // ── Overview trend ─────────────────────────────────────────────────────
+  /** One deterministic inbox-health score per ISO week, oldest first, capped
+   * at the last 12 weeks — feeds the Overview screen's trend chart. Written
+   * once per scan when the current week has no entry yet (see
+   * inboxHealth.recordHealthSnapshot). */
+  healthHistory: HealthSnapshot[];
+}
+
+export interface HealthSnapshot {
+  /** ISO week, e.g. "2026-W37". */
+  week: string;
+  /** 0–100, from inboxHealth.inboxHealthScore. */
+  score: number;
 }
 
 const STORAGE_KEY = "clusterSettings";
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 10;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 11;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -152,6 +166,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   seededFromExisting: false,
   clusterOwnedLabels: [],
   labelChoices: {},
+  healthHistory: [],
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -225,6 +240,9 @@ function migrateSettings(value: unknown): Record<string, unknown> {
     } else if (version === 9) {
       stored = { ...stored, schemaVersion: 10, quarantinedSenders: {}, quarantineReview: {} };
       version = 10;
+    } else if (version === 10) {
+      stored = { ...stored, schemaVersion: 11, healthHistory: [] };
+      version = 11;
     }
   }
   return stored;

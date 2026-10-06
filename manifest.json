@@ -32,7 +32,8 @@
   "host_permissions": [
     "https://gmail.googleapis.com/*",
     "https://graph.microsoft.com/*",
-    "https://login.microsoftonline.com/*"
+    "https://login.microsoftonline.com/*",
+    "https://samuelabhinav37.github.io/*"
   ],
   "optional_host_permissions": ["https://*/*"],
   "oauth2": {

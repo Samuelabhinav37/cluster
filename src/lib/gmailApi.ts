@@ -4,6 +4,7 @@ import { fetchWithRetry } from "./httpRetry";
 import { penalizeGmailQuota, reserveGmailQuota } from "./gmailQuotaLedger";
 import { extractLinksFromHtml, type ExtractedLink } from "./linkMismatch";
 import { riskyAttachmentGmailQuery } from "./riskyAttachments";
+import { lastErrorAsError } from "./chromeError";
 
 const API_BASE = "https://gmail.googleapis.com/gmail/v1";
 
@@ -55,7 +56,7 @@ export async function getAuthToken(interactive = true): Promise<string> {
   return new Promise((resolve, reject) => {
     chrome.identity.getAuthToken({ interactive }, (token) => {
       if (chrome.runtime.lastError || !token) {
-        reject(chrome.runtime.lastError ?? new Error("No auth token returned"));
+        reject(lastErrorAsError("No auth token returned"));
         return;
       }
       resolve(token);
@@ -197,10 +198,25 @@ export async function listRiskyAttachmentMessageIds(
   return new Set(stubs.map((s) => s.id));
 }
 
+/** Every currently-starred message id — one `messages.list` (5 units/page,
+ * usually one page since a starred set is small), not a per-id fetch. Used by
+ * the bulk-delete safety re-check (see EmailProvider.listProtectedMessageIds). */
+export async function listStarredMessageIds(token: string): Promise<Set<string>> {
+  const stubs = await listMessageIds(token, "is:starred", 5000);
+  return new Set(stubs.map((s) => s.id));
+}
+
 export async function getCurrentHistoryId(token: string): Promise<string> {
   const profile = await gmailFetch<{ historyId?: string }>("/users/me/profile", token);
   if (!profile.historyId) throw new Error("Gmail profile did not include a historyId");
   return profile.historyId;
+}
+
+/** The signed-in Gmail address, for the dashboard's account pill. Costs 1
+ * quota unit; failures are non-fatal (the caller just hides the pill). */
+export async function getProfileEmail(token: string): Promise<string> {
+  const profile = await gmailFetch<{ emailAddress?: string }>("/users/me/profile", token);
+  return profile.emailAddress ?? "";
 }
 
 export interface GmailHistoryResult {
@@ -277,6 +293,8 @@ export async function getMessageMetadata(token: string, id: string): Promise<Raw
     "Subject",
     "Authentication-Results",
     "DKIM-Signature",
+    "Precedence",
+    "Auto-Submitted",
   ]) {
     params.append("metadataHeaders", header);
   }
@@ -482,7 +500,7 @@ export async function getElevatedAuthToken(interactive: boolean): Promise<string
   return new Promise((resolve, reject) => {
     chrome.identity.getAuthToken({ interactive, scopes: ELEVATED_SCOPES }, (token) => {
       if (chrome.runtime.lastError || !token) {
-        reject(chrome.runtime.lastError ?? new Error("No auth token returned"));
+        reject(lastErrorAsError("No auth token returned"));
         return;
       }
       resolve(token);

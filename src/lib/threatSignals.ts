@@ -29,6 +29,8 @@ import type { NormalizedMessageMetadata } from "./providers/emailProvider";
 import { parseAuthenticationResults } from "./emailAuth";
 import { isBlockedDomain } from "./blocklist";
 import { isSameOrSubdomain } from "./registrableDomain";
+import { getDataset, refreshDataset } from "./remoteDataset";
+import brandDomainsFallback from "./data/brandDomains.json";
 
 // "link-mismatch" is never produced by scoreMessageForThreats below -- it's
 // only ever reported by the dashboard's manual "Deep scan" action (see
@@ -61,52 +63,56 @@ export interface ThreatSignal {
 // from it on purpose: domainCategories.ts answers "which label does mail
 // from this domain get filed under," a materially different question from
 // "which domains is this brand actually allowed to send phishing-relevant
-// mail from." Grouped by category so it's obvious what's covered and what
-// isn't -- expand deliberately, one verified legitimate domain at a time.
-const BRAND_DOMAINS: Record<string, string[]> = {
-  // Payments / finance
-  paypal: ["paypal.com"],
-  venmo: ["venmo.com"],
-  "cash app": ["cash.app", "square.com"],
-  zelle: ["zellepay.com"],
-  "bank of america": ["bankofamerica.com"],
-  chase: ["chase.com"],
-  "wells fargo": ["wellsfargo.com"],
-  citibank: ["citi.com", "citibank.com"],
-  "capital one": ["capitalone.com"],
-  "american express": ["americanexpress.com", "aexp.com"],
-  amex: ["americanexpress.com", "aexp.com"],
-  coinbase: ["coinbase.com"],
-  robinhood: ["robinhood.com"],
-  fidelity: ["fidelity.com"],
-  discover: ["discover.com"],
-  usbank: ["usbank.com"],
-  // Shipping / delivery
-  ups: ["ups.com"],
-  fedex: ["fedex.com"],
-  usps: ["usps.com"],
-  dhl: ["dhl.com"],
-  amazon: ["amazon.com", "amazon.co.uk", "amazon.ca", "amazon.de"],
-  // Tech / cloud
-  microsoft: ["microsoft.com", "microsoftonline.com", "outlook.com", "office.com", "office365.com"],
-  apple: ["apple.com", "icloud.com"],
-  google: ["google.com", "gmail.com"],
-  adobe: ["adobe.com"],
-  dropbox: ["dropbox.com"],
-  docusign: ["docusign.com", "docusign.net"],
-  zoom: ["zoom.us"],
-  linkedin: ["linkedin.com"],
-  facebook: ["facebook.com", "fb.com", "meta.com"],
-  netflix: ["netflix.com"],
-  // Telecom
-  verizon: ["verizon.com"],
-  "at&t": ["att.com"],
-  "t-mobile": ["t-mobile.com"],
-  // Government
-  irs: ["irs.gov"],
-  "social security": ["ssa.gov"],
-  uscis: ["uscis.gov"],
-};
+// mail from." Grouped by category in data/brandDomains.json so it's obvious
+// what's covered and what isn't -- expand deliberately, one verified
+// legitimate domain at a time (see the audit trail in the project plan for
+// how each entry was verified).
+//
+// BRAND_DOMAINS_BASE is the bundled snapshot, always complete enough on its
+// own -- everything works exactly as before if the fetch below never
+// succeeds. BRAND_DOMAINS is a mutable binding: refreshBrandDomains (called
+// by the background alarm, see background.ts) can widen a KNOWN brand's
+// domain list from a live-published copy of this same file, but can never
+// introduce a brand that wasn't already here -- see isValidBrandDomainsPatch.
+// This keeps a bad publish from being able to add a new "trusted" identity,
+// only ever additional domains for brands this file already vouches for.
+const BRAND_DOMAINS_BASE: Record<string, string[]> = brandDomainsFallback;
+let BRAND_DOMAINS: Record<string, string[]> = BRAND_DOMAINS_BASE;
+
+function isValidBrandDomainsPatch(data: unknown): data is Record<string, string[]> {
+  if (typeof data !== "object" || data === null) return false;
+  return Object.entries(data).every(
+    ([brand, domains]) =>
+      brand in BRAND_DOMAINS_BASE && Array.isArray(domains) && domains.every((d) => typeof d === "string"),
+  );
+}
+
+function mergeBrandDomains(patch: Record<string, string[]>): Record<string, string[]> {
+  const merged: Record<string, string[]> = {};
+  for (const [brand, domains] of Object.entries(BRAND_DOMAINS_BASE)) {
+    merged[brand] = [...new Set([...domains, ...(patch[brand] ?? [])])];
+  }
+  return merged;
+}
+
+// Hydrate from any existing cache at module load -- local storage only,
+// never blocks on network, so this can't slow anything down. If nothing is
+// cached yet (fresh install, or the alarm hasn't fired), this is a no-op and
+// BRAND_DOMAINS just stays BRAND_DOMAINS_BASE.
+void getDataset<Record<string, string[]>>("brandDomains", {}).then((patch) => {
+  if (isValidBrandDomainsPatch(patch)) BRAND_DOMAINS = mergeBrandDomains(patch);
+});
+
+/** Called by the background alarm on a schedule (see background.ts) -- never
+ * from the interactive scan path. Returns whether the cache changed. */
+export async function refreshBrandDomains(): Promise<boolean> {
+  const updated = await refreshDataset("brandDomains", "brandDomains.json", isValidBrandDomainsPatch);
+  if (updated) {
+    const patch = await getDataset<Record<string, string[]>>("brandDomains", {});
+    if (isValidBrandDomainsPatch(patch)) BRAND_DOMAINS = mergeBrandDomains(patch);
+  }
+  return updated;
+}
 
 // Real senders sometimes legitimately use these for bulk mail (e.g. a small
 // business emailing from a Gmail account) -- flagging "freemail-brand-claim"
@@ -203,8 +209,14 @@ function findLookalikeBrand(senderDomain: string): string | null {
   if (senderDomain.length < LOOKALIKE_MIN_DOMAIN_LENGTH) return null;
   const skeleton = asciiSkeleton(senderDomain);
   for (const [brand, domains] of Object.entries(BRAND_DOMAINS)) {
+    // Check every one of this brand's own legitimate domains BEFORE any
+    // edit-distance comparison against them individually -- some brands
+    // (Amazon) have several real domains that are a small edit distance
+    // from each other (amazon.in / amazon.ca), so a domain that's genuinely
+    // on the list must never get flagged as a lookalike of a DIFFERENT
+    // entry on that same list just because the loop reaches it first.
+    if (domains.some((d) => isSameOrSubdomain(senderDomain, d))) return null;
     for (const legitDomain of domains) {
-      if (isSameOrSubdomain(senderDomain, legitDomain)) return null; // The real thing -- stop checking this sender entirely, not just this brand.
       if (legitDomain.split(".")[0].length < LOOKALIKE_MIN_BRAND_LABEL_LENGTH) continue;
       // Confusable-normalised exact match: the domain renders identically to
       // the brand's real one but isn't it -- a Cyrillic 'а' in pаypаl.com, a

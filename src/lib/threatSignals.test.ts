@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { riskTier, scoreMessageForThreats, senderRiskScore } from "./threatSignals";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { refreshBrandDomains, riskTier, scoreMessageForThreats, senderRiskScore } from "./threatSignals";
 import type { NormalizedMessageMetadata } from "./providers/emailProvider";
 
 // The real blocklist is the empty vendored slice plus a (shipped-empty)
@@ -80,6 +80,28 @@ describe("scoreMessageForThreats: brand-impersonation / freemail-brand-claim", (
   it("accepts any of a brand's several legitimate domains", () => {
     expect(scoreMessageForThreats(message({ fromDisplayName: "Amazon", fromAddress: "auto-confirm@amazon.co.uk" }))).toEqual([]);
   });
+
+  it("accepts the regional/service domains confirmed by the brand-domain audit", () => {
+    const confirmed: Array<[string, string]> = [
+      ["Amazon", "cs-reply@amazon.in"],
+      ["Amazon", "auto-confirm@amazon.co.jp"],
+      ["Microsoft", "no-reply@microsoftsupport.com"],
+      ["Microsoft", "no-reply@office365support.com"],
+      ["DHL", "tracking@dpdhl.com"],
+      ["DHL", "tracking@dhl.de"],
+      ["Dropbox", "share@dropboxmail.com"],
+      ["Dropbox", "notify@docsend.com"],
+      ["Verizon", "billing@vzw.com"],
+      ["Verizon", "billing@verizonwireless.com"],
+      ["AT&T", "billing@att.net"],
+    ];
+    for (const [fromDisplayName, fromAddress] of confirmed) {
+      expect(
+        scoreMessageForThreats(message({ fromDisplayName, fromAddress })),
+        `${fromDisplayName} <${fromAddress}> should not be flagged`,
+      ).toEqual([]);
+    }
+  });
 });
 
 describe("scoreMessageForThreats: lookalike-domain", () => {
@@ -136,6 +158,17 @@ describe("scoreMessageForThreats: lookalike-domain", () => {
       message({ fromDisplayName: "Chase Bank Alerts", fromAddress: "alerts@chase-secure-login.example" })
     );
     expect(result.filter((s) => s.kind === "lookalike-domain")).toEqual([]);
+  });
+
+  it("never flags one of a brand's own legitimate domains as a lookalike of a SIBLING domain on the same list", () => {
+    // Regression: amazon.in is genuinely Amazon's, but sits at edit distance
+    // 2 from amazon.ca -- another genuinely-Amazon domain earlier in the
+    // list. The old per-domain loop returned a false "lookalike" hit as
+    // soon as it reached amazon.ca, before ever reaching the exact match
+    // for amazon.in itself later in the array.
+    expect(scoreMessageForThreats(message({ fromDisplayName: "Amazon", fromAddress: "cs-reply@amazon.in" }))).toEqual(
+      [],
+    );
   });
 });
 
@@ -350,5 +383,69 @@ describe("scoreMessageForThreats: risky-attachment", () => {
         message({ authenticationResults: "mx.google.com; spf=fail; dkim=fail; dmarc=none" }),
       ),
     ).not.toContainEqual(expect.objectContaining({ kind: "risky-attachment" }));
+  });
+});
+
+// Must stay the LAST describe block in this file: refreshBrandDomains
+// mutates threatSignals.ts's module-level BRAND_DOMAINS binding, and
+// nothing resets it back afterward (there's no reset API -- module state
+// mutation is an inherent cost of testing this live-refresh path at all).
+describe("refreshBrandDomains", () => {
+  function makeFakeChromeStorage() {
+    let store: Record<string, unknown> = {};
+    return {
+      local: {
+        async get(key: string) {
+          return key in store ? { [key]: store[key] } : {};
+        },
+        async set(items: Record<string, unknown>) {
+          store = { ...store, ...items };
+        },
+      },
+    };
+  }
+
+  beforeEach(() => {
+    (globalThis as any).chrome = { storage: makeFakeChromeStorage() };
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("merges additional domains for a known brand, and rejects a patch naming an unknown brand", async () => {
+    const fromNewDomain = message({ fromDisplayName: "PayPal", fromAddress: "notice@paypal-extra.example" });
+    expect(scoreMessageForThreats(fromNewDomain)).toContainEqual(
+      expect.objectContaining({ kind: "brand-impersonation", brand: "paypal" }),
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ paypal: ["paypal-extra.example"] }), { status: 200 })),
+    );
+    expect(await refreshBrandDomains()).toBe(true);
+    expect(scoreMessageForThreats(fromNewDomain)).toEqual([]);
+
+    // A patch naming a brand outside the bundled base list is rejected
+    // wholesale (isValidBrandDomainsPatch fails the whole object, not just
+    // the bad key) -- a bad publish can't smuggle in a new "trusted" brand.
+    vi.setSystemTime(7 * 60 * 60 * 1000); // past the minimum refresh interval
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({ paypal: ["paypal-extra-2.example"], "totally new brand": ["evil.example"] }),
+          { status: 200 },
+        ),
+      ),
+    );
+    expect(await refreshBrandDomains()).toBe(false);
+    // The rejected patch's own addition never took effect either.
+    expect(
+      scoreMessageForThreats(message({ fromDisplayName: "PayPal", fromAddress: "x@paypal-extra-2.example" })),
+    ).toContainEqual(expect.objectContaining({ kind: "brand-impersonation" }));
   });
 });

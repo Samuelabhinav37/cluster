@@ -65,6 +65,8 @@ function sender(address: string, subjects: string[], receivedAtStart = 1000): Se
       isProtected: false,
       unread: false,
       sizeBytes: 0,
+      providerMarkedPersonal: false,
+      looksAutomated: false,
     })),
     threatSignals: [],
     authVerdicts: { spf: "unknown", dkim: "unknown", dmarc: "unknown" },

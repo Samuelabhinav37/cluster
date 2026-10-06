@@ -68,10 +68,12 @@ vi.mock("./lib/expiryTriage", () => ({
   totalExpiryCount: () => 0,
 }));
 vi.mock("./lib/snoozeFilter", () => ({ excludeSnoozedMessages: (s: unknown) => s }));
+const refreshSentCorrespondents = vi.fn(async (settings: { sentCorrespondents: unknown }) => settings.sentCorrespondents);
 vi.mock("./lib/screener", () => ({
   knownSenderSet: () => new Set(),
   pendingScreenerSenders: () => [],
   sentCorrespondentsStale: () => false,
+  refreshSentCorrespondents,
 }));
 vi.mock("./lib/settingsStore", () => ({
   getSettings: async () => SETTINGS,
@@ -90,6 +92,15 @@ vi.mock("./lib/providers/gmailProvider", () => ({
 vi.mock("./lib/providers/outlookProvider", () => ({
   outlookProvider: { id: "outlook", isConnected: () => Promise.resolve(false) },
 }));
+const refreshBrandDomains = vi.fn(async () => true);
+vi.mock("./lib/threatSignals", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./lib/threatSignals")>();
+  return { ...actual, refreshBrandDomains };
+});
+const refreshMalwareBlocklist = vi.fn(async () => true);
+vi.mock("./lib/blocklist", () => ({ refreshMalwareBlocklist }));
+const refreshSpamList = vi.fn(async () => true);
+vi.mock("./lib/spamList", () => ({ refreshSpamList }));
 
 // ── chrome stub with listener capture ────────────────────────────────────
 type AlarmCb = (a: { name: string }) => void;
@@ -97,6 +108,9 @@ let alarmListener: AlarmCb | undefined;
 const setBadgeText = vi.fn(async () => {});
 const setBadgeBackgroundColor = vi.fn(async () => {});
 const alarmsCreate = vi.fn();
+type InstalledCb = (d?: { reason: string }) => void;
+let installedListener: InstalledCb | undefined;
+const tabsCreate = vi.fn();
 
 beforeEach(async () => {
   vi.clearAllMocks();
@@ -108,7 +122,12 @@ beforeEach(async () => {
   (globalThis as unknown as { chrome: unknown }).chrome = {
     runtime: {
       getURL: (p: string) => p,
-      onInstalled: { addListener: (fn: () => void) => fn() },
+      onInstalled: {
+        addListener: (fn: InstalledCb) => {
+          installedListener = fn;
+          fn(undefined);
+        },
+      },
       onStartup: { addListener: () => {} },
     },
     action: {
@@ -120,7 +139,7 @@ beforeEach(async () => {
       create: alarmsCreate,
       onAlarm: { addListener: (fn: AlarmCb) => (alarmListener = fn) },
     },
-    tabs: { query: async () => [], create: () => {}, update: () => {} },
+    tabs: { query: async () => [], create: tabsCreate, update: () => {} },
   };
 
   vi.resetModules();
@@ -130,11 +149,28 @@ beforeEach(async () => {
 const settleTriage = () =>
   vi.waitFor(() => expect(updateSettings).toHaveBeenCalled(), { timeout: 2000, interval: 10 });
 
+describe("install", () => {
+  it("opens the dashboard on a fresh install, so the welcome screen is the first thing seen", async () => {
+    installedListener?.({ reason: "install" });
+    await vi.waitFor(() =>
+      expect(tabsCreate).toHaveBeenCalledWith({ url: "src/dashboard/index.html" }),
+    );
+  });
+
+  it("stays silent on an extension or Chrome update", async () => {
+    installedListener?.({ reason: "update" });
+    installedListener?.({ reason: "chrome_update" });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(tabsCreate).not.toHaveBeenCalled();
+  });
+});
+
 describe("alarm routing", () => {
-  it("registers the three alarms on install", () => {
+  it("registers the four alarms on install", () => {
     expect(alarmsCreate).toHaveBeenCalledWith("cluster-triage", expect.any(Object));
     expect(alarmsCreate).toHaveBeenCalledWith("cluster-athena-flush", expect.any(Object));
     expect(alarmsCreate).toHaveBeenCalledWith("cluster-jobs", expect.any(Object));
+    expect(alarmsCreate).toHaveBeenCalledWith("cluster-dataset-refresh", expect.any(Object));
   });
 
   it("the triage alarm resurfaces due snoozes and starts a triage pass", async () => {
@@ -159,6 +195,22 @@ describe("alarm routing", () => {
     expect(resurfaceDueSnoozed).not.toHaveBeenCalled();
     expect(flushAthenaSecurityEvents).not.toHaveBeenCalled();
     expect(resumeInterruptedJobs).not.toHaveBeenCalled();
+  });
+
+  it("the dataset-refresh alarm refreshes all three public datasets independently", async () => {
+    alarmListener!({ name: "cluster-dataset-refresh" });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(refreshBrandDomains).toHaveBeenCalledTimes(1);
+    expect(refreshMalwareBlocklist).toHaveBeenCalledTimes(1);
+    expect(refreshSpamList).toHaveBeenCalledTimes(1);
+  });
+
+  it("one dataset refresh failing does not block the others", async () => {
+    refreshBrandDomains.mockRejectedValueOnce(new Error("offline"));
+    alarmListener!({ name: "cluster-dataset-refresh" });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(refreshMalwareBlocklist).toHaveBeenCalledTimes(1);
+    expect(refreshSpamList).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -191,6 +243,10 @@ describe("runBackgroundTriage guard rails", () => {
     expect(summaryPatch?.lastTriageSummary).toContain("ready to clean up");
     // total + held = 0 → badge cleared, not set to a number
     expect(setBadgeText).toHaveBeenCalledWith({ text: "" });
+    // The known-correspondent refresh now runs every triage pass regardless
+    // of screenerEnabled (SETTINGS above has it false) -- it feeds the
+    // general protection gate, not just the opt-in Screener.
+    expect(refreshSentCorrespondents).toHaveBeenCalledTimes(1);
   });
 
   it("swallows a scan failure instead of letting it reject out of the alarm", async () => {
