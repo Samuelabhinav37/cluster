@@ -70,7 +70,11 @@ vi.mock("./lib/expiryTriage", () => ({
 vi.mock("./lib/snoozeFilter", () => ({ excludeSnoozedMessages: (s: unknown) => s }));
 const refreshSentCorrespondents = vi.fn(async (settings: { sentCorrespondents: unknown }) => settings.sentCorrespondents);
 vi.mock("./lib/screener", () => ({
-  knownSenderSet: () => new Set(),
+  // Same contract as the real knownSenderSet: allow-list plus sent-to addresses.
+  knownSenderSet: (s: { screenerAllowlist?: string[]; sentCorrespondents?: { addresses?: string[] } }) =>
+    new Set(
+      [...(s.screenerAllowlist ?? []), ...(s.sentCorrespondents?.addresses ?? [])].map((a) => a.toLowerCase()),
+    ),
   pendingScreenerSenders: () => [],
   sentCorrespondentsStale: () => false,
   refreshSentCorrespondents,
@@ -273,7 +277,12 @@ describe("auto-quarantine (opt-in)", () => {
     firstContact: false,
   });
 
+  const labelSuspiciousSpy = async () =>
+    ((await import("./lib/providers/gmailProvider")).gmailProvider as unknown as { labelSuspicious: ReturnType<typeof vi.fn> })
+      .labelSuspicious;
+
   async function triageWith(sender: ReturnType<typeof highRiskSender>, sentTo: string[]) {
+    (await labelSuspiciousSpy()).mockClear();
     const saved = { ...SETTINGS };
     Object.assign(SETTINGS, {
       autoQuarantineHighRisk: true,
@@ -297,20 +306,21 @@ describe("auto-quarantine (opt-in)", () => {
     }
   }
 
-  const labelSuspicious = async () =>
-    ((await import("./lib/providers/gmailProvider")).gmailProvider as unknown as { labelSuspicious: ReturnType<typeof vi.fn> })
-      .labelSuspicious;
-
   it("quarantines an unknown high-risk sender when the setting is on", async () => {
     await triageWith(highRiskSender("stranger@gmail.com"), []);
-    expect(await labelSuspicious()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"]);
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"]);
   });
 
-  // Audit finding: runQuarantine never consults the known-correspondent set,
-  // so someone you email (here, a friend whose name contains a brand word)
-  // can have their mail filed out of the inbox as "Possible Phishing".
-  it.fails("KNOWN BUG: quarantines mail from someone the user corresponds with", async () => {
+  // Audit finding (fixed in R0 B8): someone you email, here a friend whose
+  // name contains a brand word, was filed out of the inbox as phishing.
+  it("leaves mail from someone the user corresponds with alone", async () => {
     await triageWith(highRiskSender("chase.miller@gmail.com"), ["chase.miller@gmail.com"]);
-    expect(await labelSuspicious()).not.toHaveBeenCalled();
+    expect(await labelSuspiciousSpy()).not.toHaveBeenCalled();
+  });
+
+  it("still quarantines a known address when its authentication fails", async () => {
+    const spoofed = { ...highRiskSender("chase.miller@gmail.com"), authVerdicts: { spf: "fail", dkim: "fail", dmarc: "fail" } };
+    await triageWith(spoofed, ["chase.miller@gmail.com"]);
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"]);
   });
 });

@@ -194,9 +194,17 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
   // gets its score suppressed (quarantineReview.ts) so a marginal call isn't
   // immediately re-quarantined next alarm cycle -- a confirmed-bad domain or
   // outright brand claim still clears "high" on its own weight regardless.
+  // Someone the user writes to is not filed away on a score alone (a friend
+  // named "Chase" on gmail.com trips the brand check). Only a failed
+  // authentication, which says the mail isn't really from that address,
+  // overrides that.
+  const known = knownSenderSet(settings);
+  const authFailed = (s: SenderSummary) =>
+    s.authVerdicts.dmarc === "fail" || (s.authVerdicts.spf === "fail" && s.authVerdicts.dkim === "fail");
   const targets = senders.filter((s) => {
     const provider = providerById.get(s.provider);
     if (!provider?.labelSuspicious) return false;
+    if (known.has(s.address.toLowerCase()) && !authFailed(s)) return false;
     const adjusted = senderRiskScore(s.threatSignals) + quarantineScoreAdjustment(settings.quarantineReview[s.key]);
     return riskTier(adjusted) === "high";
   });
