@@ -112,6 +112,31 @@ describe("hasVerifiedOneClickSignature", () => {
   });
 });
 
+describe("hasVerifiedOneClickSignature: planted results", () => {
+  it("ignores a dkim pass planted after a semicolon inside a comment", () => {
+    expect(
+      hasVerifiedOneClickSignature({
+        ...verified,
+        authenticationResults: [
+          "mx.google.com; spf=pass (domain of x;dkim=pass header.d=example.com x@evil.example) " +
+            "smtp.mailfrom=x@evil.example; dkim=fail header.d=evil.example",
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it("ignores a dkim pass planted inside a quoted envelope sender", () => {
+    expect(
+      hasVerifiedOneClickSignature({
+        ...verified,
+        authenticationResults: [
+          'mx.google.com; spf=pass smtp.mailfrom="x;dkim=pass header.d=example.com x"@evil.example; dkim=none',
+        ],
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("isAllowedOneClickUrl", () => {
   it("accepts ordinary HTTPS endpoints", () => {
     expect(isAllowedOneClickUrl("https://example.com/unsubscribe?id=1")).toBe(true);
