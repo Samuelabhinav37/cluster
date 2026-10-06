@@ -267,6 +267,9 @@ Cluster also bundles public data. Each source keeps its own terms:
   Refreshed by `npm run refresh:blocklist`.
 - **disposable-email-domains**: [CC0-1.0](https://github.com/disposable-email-domains/disposable-email-domains).
   Refreshed by `npm run refresh:spam`.
+- **Public Suffix List** (Mozilla Foundation): which part of a domain is a public suffix,
+  [MPL-2.0](https://mozilla.org/MPL/2.0/). Shipped as `public/data/public-suffix.json`,
+  refreshed by `npm run refresh:psl`.
 - **StopForumSpam** toxic-domains list: free to use under [its own terms](https://www.stopforumspam.com/legal),
   which forbid charging money for software that uses the data. This is one reason Cluster stays free.
 
