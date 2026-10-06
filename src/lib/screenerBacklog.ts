@@ -47,7 +47,7 @@ export function planScreenerRelease(
     for (const msg of sender.messages) {
       const dest: ReleaseDestination = known.has(address)
         ? "inbox"
-        : (effectiveBucket(msg.kind, domain, address, overrides) ?? "inbox");
+        : (effectiveBucket(msg.kind, domain, address, overrides, msg.promotion) ?? "inbox");
       const group = groups.get(dest) ?? { ids: [], senders: new Set<string>() };
       group.ids.push(msg.id);
       group.senders.add(address);

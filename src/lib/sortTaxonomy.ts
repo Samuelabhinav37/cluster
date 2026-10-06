@@ -13,6 +13,7 @@ export type SortBucket =
   | "shipping"
   | "newsletter"
   | "social"
+  | "promotions"
   | "shopping"
   | "travel"
   | "finance"
@@ -25,6 +26,7 @@ export const SORT_BUCKET_LABELS: Record<SortBucket, string> = {
   shipping: clusterLabelName("shipping"),
   newsletter: clusterLabelName("newsletter"),
   social: clusterLabelName("social"),
+  promotions: clusterLabelName("promotions"),
   shopping: clusterLabelName("shopping"),
   travel: clusterLabelName("travel"),
   finance: clusterLabelName("finance"),
@@ -50,6 +52,7 @@ export const DEFAULT_FILE_OUT_OF_INBOX: Record<SortBucket, boolean> = {
   shipping: true,
   newsletter: true,
   social: true,
+  promotions: true,
   shopping: false,
   travel: false,
   finance: false,
@@ -80,12 +83,15 @@ const CATEGORY_BUCKET: Partial<Record<DomainCategory, SortBucket>> = {
 /**
  * The bucket a message belongs in, or null if neither its kind nor its
  * sender's domain category is specific enough (both fell through to "other").
- * Kind takes priority.
+ * Kind takes priority, then the sender's category, then Gmail's own
+ * Promotions tab as the catch-all for ads.
  */
-export function classifySortBucket(kind: MessageKind, senderDomain: string): SortBucket | null {
+export function classifySortBucket(kind: MessageKind, senderDomain: string, promotion = false): SortBucket | null {
   const byKind = KIND_BUCKET[kind];
   if (byKind) return byKind;
-  return CATEGORY_BUCKET[categorizeDomain(senderDomain)] ?? null;
+  const byCategory = CATEGORY_BUCKET[categorizeDomain(senderDomain)];
+  if (byCategory) return byCategory;
+  return promotion ? "promotions" : null;
 }
 
 /** A user's correction for one sender: force a bucket, or never sort them. */
@@ -102,9 +108,10 @@ export function effectiveBucket(
   senderDomain: string,
   senderAddress: string,
   overrides: Record<string, SortOverride>,
+  promotion = false,
 ): SortBucket | null {
   const override = overrides[senderAddress.toLowerCase()];
   if (override === "never") return null;
   if (override) return override;
-  return classifySortBucket(kind, senderDomain);
+  return classifySortBucket(kind, senderDomain, promotion);
 }

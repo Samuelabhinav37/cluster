@@ -60,6 +60,9 @@ export interface NormalizedMessageMetadata {
    * CATEGORY_PROMOTIONS/UPDATES -> cleanup; a promo still in the inbox is
    * both). Absent for a single-purpose fetch. */
   lanes?: ScanPurpose[];
+  /** Gmail filed it under the Promotions tab (CATEGORY_PROMOTIONS). Feeds
+   * the 🏷 Promotions sort category; Outlook has no equivalent. */
+  gmailPromotion?: boolean;
   /** The provider's own long-lived, per-user importance signal -- Gmail's
    * IMPORTANT / CATEGORY_PERSONAL labels (its personalized model, built
    * from actual reply/open/star history with that sender) or Outlook's

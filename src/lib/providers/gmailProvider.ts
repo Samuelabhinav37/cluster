@@ -136,6 +136,7 @@ export const gmailProvider: EmailProvider = {
       isProtected: labelIds.includes("STARRED"),
       unread: labelIds.includes("UNREAD"),
       lanes: lanesFromLabelIds(labelIds),
+      gmailPromotion: labelIds.includes("CATEGORY_PROMOTIONS"),
       sizeBytes: sizeEstimate,
       unsubscribe: parseListUnsubscribe(headers["List-Unsubscribe"], headers["List-Unsubscribe-Post"], {
         provider: "gmail",

@@ -5,15 +5,19 @@
 export type MessageKind = "otp" | "receipt" | "shipping" | "newsletter" | "social" | "other";
 
 const OTP_RE =
-  /\b(one[- ]?time|verification code|security code|otp|passcode|confirm your (email|sign[- ]?in)|login code|2fa|two-factor)\b/i;
+  /\b(one[- ]?time|verification code|security code|otp|passcode|confirm your (email|sign[- ]?in)|(login|sign[- ]?in) code|is your code|your code is|2fa|two-factor)\b/i;
+// Security notices that mention codes or 2FA ("Two-factor authentication was
+// disabled", "Security alert") are not disposable codes. Mirrors
+// OTP_EXCLUDED_PHRASES in categoryQueries.ts.
+const OTP_EXCLUDE_RE = /\b(alert|disabled|changed|new sign[- ]?in|suspicious)\b/i;
 const SHIPPING_RE =
-  /\b(shipped|out for delivery|delivery|tracking|order (confirm|confirmation)|order #|has shipped|arriving|on its way)\b/i;
+  /\b(shipped|out for delivery|delivery|delivered|tracking|order (confirm|confirmed|confirmation)|order #|has shipped|arriving|on its way)\b/i;
 const RECEIPT_RE = /\b(receipt|invoice|payment (received|confirmation)|your bill|statement|paid)\b/i;
 const SOCIAL_RE = /\b(mentioned you|tagged you|new follower|friend request|liked your|commented on)\b/i;
 
 export function classifyMessageKind(subject: string, hasListUnsubscribe: boolean): MessageKind {
   const s = subject || "";
-  if (OTP_RE.test(s)) return "otp";
+  if (OTP_RE.test(s) && !OTP_EXCLUDE_RE.test(s)) return "otp";
   if (SHIPPING_RE.test(s)) return "shipping";
   if (RECEIPT_RE.test(s)) return "receipt";
   if (SOCIAL_RE.test(s)) return "social";

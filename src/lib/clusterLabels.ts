@@ -14,6 +14,7 @@ export type ClusterLabelKey =
   | "shipping"
   | "newsletter"
   | "social"
+  | "promotions"
   | "shopping"
   | "travel"
   | "finance"
@@ -48,6 +49,7 @@ export const CLUSTER_LABELS: Record<ClusterLabelKey, ClusterLabelSpec> = {
   shipping: spec("📦 Orders & shipping", "Order & shipping updates"),
   newsletter: spec("📰 Newsletters", "Newsletters"),
   social: spec("💬 Social", "Social"),
+  promotions: spec("🏷 Promotions"),
   shopping: spec("🛍 Shopping", "Shopping"),
   travel: spec("🧳 Travel", "Travel"),
   finance: spec("💳 Finance", "Finance"),

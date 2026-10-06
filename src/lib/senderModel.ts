@@ -31,6 +31,8 @@ export interface MessageRecord {
   /** Secondary bulk-mail signal, consulted only when providerMarkedPersonal
    * is false -- see messageKind.looksAutomated. */
   looksAutomated: boolean;
+  /** Gmail put it in the Promotions tab (CATEGORY_PROMOTIONS). */
+  promotion?: boolean;
 }
 
 export interface SenderSummary {
@@ -107,6 +109,7 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     sizeBytes: meta.sizeBytes,
     providerMarkedPersonal: meta.providerMarkedPersonal ?? false,
     looksAutomated: looksAutomated(hasUnsubscribe(meta.unsubscribe), meta.precedence, meta.autoSubmitted),
+    promotion: meta.gmailPromotion ?? false,
   };
   const existing = senders.get(key);
   if (existing) {
