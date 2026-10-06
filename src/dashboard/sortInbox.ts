@@ -17,8 +17,8 @@ import {
   type SortOverride,
 } from "../lib/sortTaxonomy";
 import { SORT_RULE_PREFIX } from "../lib/clusterLabels";
+import { syncGmailCategoryFilters } from "../lib/categoryFilters";
 import {
-  buildBucketFilter,
   buildBucketRule,
   bucketMatchTerms,
   isServerSortBucket,
@@ -30,9 +30,6 @@ import {
   skipOverridesFor,
 } from "../lib/seedFromExisting";
 import {
-  createFilter,
-  deleteFilter,
-  getOrCreateLabel,
   listFilters,
   listLabelNames,
   listLabels,
@@ -437,15 +434,50 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
   }
 
   // ── Keep sorting ───────────────────────────────────────────────────────
-  // Domain-category buckets → a real Gmail filter + (if Outlook is connected)
-  // an Outlook inbox rule, so new mail is filed at delivery with the browser
-  // shut. Subject-kind buckets → a client rule for the 6-hourly sweep. Server
-  // buckets also keep a client rule as a fallback (the Graph rule path is not
-  // yet battle-tested; on Gmail it's a near-noop via the completion ledger).
+  // Which categories stay sorted is a setting, not "whatever had mail in this
+  // scan": a ticked category with nothing to sort today keeps its filter, and
+  // a category not shown this time keeps whatever it had.
+  const shown = new Set<string>(sortPlan.map((e) => e.bucket));
+  const enabledBuckets = [
+    ...new Set([
+      ...ctx.settings.autoSort.enabledBuckets.filter((b) => !shown.has(b)),
+      ...chosen.map((e) => e.bucket),
+    ]),
+  ];
+  ctx.settings = await updateSettings({
+    autoSort: {
+      ...ctx.settings.autoSort,
+      enabledBuckets,
+      fileOutByBucket: {
+        ...ctx.settings.autoSort.fileOutByBucket,
+        ...Object.fromEntries(effective.map((e) => [e.bucket, e.fileOut])),
+      },
+      keepSorting: keepOn,
+      expireOtp: sortExpireOtpEl.checked,
+    },
+  });
+
+  // Gmail: one filter per category, built from settings (categoryFilters.ts).
   const gmailToken = await gmailProvider.getAuthToken(false).catch((err) => {
     log.error("keep-sorting: no Gmail token", err);
     return null;
   });
+  if (gmailToken) {
+    try {
+      const synced = await syncGmailCategoryFilters(ctx.settings, gmailToken);
+      ctx.settings = await updateSettings({
+        autoSort: {
+          ...ctx.settings.autoSort,
+          filterIdsByBucket: synced.filterIdsByBucket,
+          filterSpecByBucket: synced.filterSpecByBucket,
+        },
+      });
+    } catch (err) {
+      log.error("keep-sorting: Gmail filter sync failed", err);
+    }
+  }
+
+  // Outlook: an inbox rule per sender-based category, plus client rules.
   const outlookOn = activeProviders.some((p) => p.id === "outlook");
   const outlookToken = outlookOn
     ? await outlookProvider.getAuthToken(false).catch((err: unknown) => {
@@ -454,49 +486,28 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
       })
     : null;
   const archiveFolderId = outlookToken ? await getArchiveFolderId(outlookToken).catch(() => null) : null;
-
-  const filterIds: Record<string, string[]> = { ...ctx.settings.autoSort.filterIdsByBucket };
   const ruleIds: Record<string, string[]> = { ...ctx.settings.autoSort.ruleIdsByBucket };
-  const keptServerBuckets = new Set(
-    keepOn ? effective.filter((e) => isServerSortBucket(e.bucket)).map((e) => e.bucket) : [],
+  const keptOutlookBuckets = new Set(
+    keepOn ? enabledBuckets.filter((b) => isServerSortBucket(b as SortBucket)) : [],
   );
-
-  // Tear down server-side filters/rules for buckets that are no longer kept.
-  for (const bucket of new Set([...Object.keys(filterIds), ...Object.keys(ruleIds)])) {
-    if (keptServerBuckets.has(bucket as SortBucket)) continue;
-    if (gmailToken) {
-      for (const id of filterIds[bucket] ?? []) {
-        await deleteFilter(gmailToken, id).catch((err) => log.error("keep-sorting: delete filter", err));
-      }
-    }
+  for (const bucket of Object.keys(ruleIds)) {
+    if (keptOutlookBuckets.has(bucket)) continue;
     if (outlookToken) {
       for (const id of ruleIds[bucket] ?? []) {
         await deleteInboxRule(outlookToken, id).catch((err) => log.error("keep-sorting: delete rule", err));
       }
     }
-    delete filterIds[bucket];
     delete ruleIds[bucket];
   }
 
+  let rules = ctx.settings.rules;
   if (keepOn) {
-    let rules = ctx.settings.rules;
     const sortCompletions: Array<{ rule: ClusterRule; idsByProvider: Map<ProviderId, string[]> }> = [];
 
     for (const entry of effective) {
       const server = isServerSortBucket(entry.bucket);
       const hasOutlook = (entry.idsByProvider.get("outlook") ?? []).length > 0;
       const terms = server ? bucketMatchTerms(entry.bucket, ctx.settings.sortOverrides) : null;
-
-      if (server && terms && gmailToken) {
-        const labelId = await getOrCreateLabel(gmailToken, entry.label);
-        for (const id of filterIds[entry.bucket] ?? []) {
-          await deleteFilter(gmailToken, id).catch((err) => log.error("keep-sorting: replace filter", err));
-        }
-        const spec = buildBucketFilter(labelId, entry.fileOut, terms);
-        filterIds[entry.bucket] = spec
-          ? [await createFilter(gmailToken, spec.criteria, spec.action)]
-          : [];
-      }
 
       if (server && terms && outlookToken) {
         for (const id of ruleIds[entry.bucket] ?? []) {
@@ -518,30 +529,34 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
         }
       }
 
-      // Client rule: always for kind buckets; for server buckets only when
-      // there's Outlook mail to cover (fallback for the Graph rule path).
-      if (!server || hasOutlook) {
-        const nextRule: ClusterRule = {
-          id: crypto.randomUUID(),
-          name: `${SORT_RULE_PREFIX}${SORT_BUCKET_LABELS[entry.bucket]}`,
-          enabled: true,
-          conditions: KIND_SORT_BUCKETS.has(entry.bucket)
-            ? { kind: entry.bucket as MessageKind }
-            : { fromDomainCategory: entry.bucket as DomainCategory },
-          action: "label",
-          labelName: entry.label,
-          labelKeepInInbox: !entry.fileOut,
-        };
-        rules = upsertRuleByName(rules, nextRule);
-        sortCompletions.push({
-          rule: rules.find((rule) => rule.name === nextRule.name)!,
-          idsByProvider: new Map(
-            [...entry.idsByProvider].filter(
-              ([providerId, ids]) => ids.length > 0 && providerById.get(providerId)?.labelMessages,
-            ),
-          ),
-        });
+      // Gmail filters now cover every category, so a client rule is only
+      // needed for Outlook mail; an old Gmail-only one would fight the time
+      // limits by filing mail out on every scan.
+      const ruleName = `${SORT_RULE_PREFIX}${SORT_BUCKET_LABELS[entry.bucket]}`;
+      if (!hasOutlook) {
+        rules = rules.filter((rule) => rule.name !== ruleName);
+        continue;
       }
+      const nextRule: ClusterRule = {
+        id: crypto.randomUUID(),
+        name: ruleName,
+        enabled: true,
+        conditions: KIND_SORT_BUCKETS.has(entry.bucket)
+          ? { kind: entry.bucket as MessageKind }
+          : { fromDomainCategory: entry.bucket as DomainCategory },
+        action: "label",
+        labelName: entry.label,
+        labelKeepInInbox: !entry.fileOut,
+      };
+      rules = upsertRuleByName(rules, nextRule);
+      sortCompletions.push({
+        rule: rules.find((rule) => rule.name === nextRule.name)!,
+        idsByProvider: new Map(
+          [...entry.idsByProvider].filter(
+            ([providerId, ids]) => ids.length > 0 && providerById.get(providerId)?.labelMessages,
+          ),
+        ),
+      });
     }
     if (sortExpireOtpEl.checked) {
       rules = upsertRuleByName(rules, {
@@ -552,22 +567,15 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
         action: "trash",
       });
     }
-    ctx.settings = await updateSettings({ rules });
     await recordRuleCompletions(sortCompletions).catch((error) =>
       log.error("Could not seed auto-sort completion receipts", error),
     );
   }
-
   ctx.settings = await updateSettings({
-    autoSort: {
-      enabledBuckets: effective.map((e) => e.bucket),
-      fileOutByBucket: Object.fromEntries(effective.map((e) => [e.bucket, e.fileOut])),
-      keepSorting: keepOn,
-      expireOtp: sortExpireOtpEl.checked,
-      filterIdsByBucket: filterIds,
-      ruleIdsByBucket: ruleIds,
-    },
+    rules,
+    autoSort: { ...ctx.settings.autoSort, ruleIdsByBucket: ruleIds },
   });
+  const filterIds = ctx.settings.autoSort.filterIdsByBucket;
 
   excludedSortIds.clear();
   await rescan();

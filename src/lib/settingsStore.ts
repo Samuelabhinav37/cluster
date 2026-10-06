@@ -2,7 +2,7 @@ import type { ProviderId } from "./providers/emailProvider";
 import type { ClusterRule } from "./rules";
 import type { ActionLogEntry } from "./actionLog";
 import type { SenderEngagementMap } from "./engagementModel";
-import type { SortOverride } from "./sortTaxonomy";
+import { DEFAULT_INBOX_HOURS, type SortOverride } from "./sortTaxonomy";
 import type { QuarantineReviewMap } from "./quarantineReview";
 import { withStorageLock } from "./storageLock";
 import { migrateStoredLabelNames } from "./clusterLabels";
@@ -85,6 +85,17 @@ export interface ClusterSettings {
     filterIdsByBucket: Record<string, string[]>;
     /** Same, for Outlook inbox messageRules. */
     ruleIdsByBucket: Record<string, string[]>;
+    /** Fingerprint of what each stored Gmail filter does (categoryFilters.specKey),
+     * so a sync only replaces filters whose settings changed. */
+    filterSpecByBucket: Record<string, string>;
+    /** Inbox time limits: Gmail filters label every category on arrival and
+     * the background sweep moves mail out once its category's limit passes. */
+    timeLimitsEnabled: boolean;
+    /** Hours new mail stays in the inbox, per category. 0 = straight to the
+     * label; null = stays in the inbox. Defaults: DEFAULT_INBOX_HOURS. */
+    inboxHoursByBucket: Record<string, number | null>;
+    /** The last time-limit sweep: when, and how many messages it moved. */
+    lastSweep: { at: number; moved: number };
   };
   /** Per-sender "wrong bucket?" corrections from the sort preview, keyed by
    * lowercased from-address → a bucket to force, or "never" to skip. Consulted
@@ -122,7 +133,7 @@ export interface HealthSnapshot {
 }
 
 const STORAGE_KEY = "clusterSettings";
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 12;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 13;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -164,6 +175,10 @@ const DEFAULT_SETTINGS: ClusterSettings = {
     expireOtp: false,
     filterIdsByBucket: {},
     ruleIdsByBucket: {},
+    filterSpecByBucket: {},
+    timeLimitsEnabled: false,
+    inboxHoursByBucket: { ...DEFAULT_INBOX_HOURS },
+    lastSweep: { at: 0, moved: 0 },
   },
   sortOverrides: {},
   seededFromExisting: false,
@@ -250,6 +265,16 @@ function migrateSettings(value: unknown): Record<string, unknown> {
     } else if (version === 11) {
       stored = { ...migrateStoredLabelNames(stored), schemaVersion: 12 };
       version = 12;
+    } else if (version === 12) {
+      // Inbox time limits: defaults come from normalisation; off until the
+      // user turns them on.
+      const autoSort = isRecord(stored.autoSort) ? stored.autoSort : {};
+      stored = {
+        ...stored,
+        schemaVersion: 13,
+        autoSort: { ...autoSort, filterSpecByBucket: {}, timeLimitsEnabled: false },
+      };
+      version = 13;
     }
   }
   return stored;
@@ -281,6 +306,12 @@ function normalizeSettings(value: unknown): ClusterSettings {
       ruleIdsByBucket: {
         ...DEFAULT_SETTINGS.autoSort.ruleIdsByBucket,
         ...(isRecord(autoSort.ruleIdsByBucket) ? autoSort.ruleIdsByBucket : {}),
+      },
+      filterSpecByBucket: isRecord(autoSort.filterSpecByBucket) ? autoSort.filterSpecByBucket : {},
+      // Every category has a limit, including ones added after the user saved.
+      inboxHoursByBucket: {
+        ...DEFAULT_SETTINGS.autoSort.inboxHoursByBucket,
+        ...(isRecord(autoSort.inboxHoursByBucket) ? autoSort.inboxHoursByBucket : {}),
       },
     } as ClusterSettings["autoSort"],
   };

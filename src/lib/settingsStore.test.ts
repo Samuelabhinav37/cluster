@@ -232,6 +232,23 @@ describe("settingsStore", () => {
     expect(c.actions?.[0].labelName).toBe("🔇 Muted");
   });
 
+  it("migrates schema 12 settings with time limits off and every category's default limit", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: {
+        schemaVersion: 12,
+        autoSort: { enabledBuckets: ["otp"], keepSorting: true, filterIdsByBucket: { travel: ["F"] } },
+      },
+    });
+
+    const settings = await getSettings();
+    expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(settings.autoSort.timeLimitsEnabled).toBe(false);
+    expect(settings.autoSort.keepSorting).toBe(true);
+    expect(settings.autoSort.filterIdsByBucket).toEqual({ travel: ["F"] });
+    expect(settings.autoSort.filterSpecByBucket).toEqual({});
+    expect(settings.autoSort.inboxHoursByBucket).toMatchObject({ otp: 24, shipping: 168, travel: null });
+  });
+
   it("serializes concurrent partial updates so unrelated changes are preserved", async () => {
     await Promise.all([
       updateSettings({ scanWindowDays: 14 }),
