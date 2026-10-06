@@ -40,7 +40,8 @@ export function filteredCategories(settings: ClusterSettings): SortBucket[] {
  * plain "keep sorting" keeps its per-category file-out choice. */
 function fileOutOnArrival(settings: ClusterSettings, bucket: SortBucket): boolean {
   const { autoSort } = settings;
-  if (autoSort.timeLimitsEnabled) return autoSort.inboxHoursByBucket[bucket] === 0;
+  // Only Promotions may skip the inbox on arrival (see timeLimitsTab).
+  if (autoSort.timeLimitsEnabled) return bucket === "promotions" && autoSort.inboxHoursByBucket[bucket] === 0;
   return autoSort.fileOutByBucket[bucket] ?? DEFAULT_FILE_OUT_OF_INBOX[bucket];
 }
 

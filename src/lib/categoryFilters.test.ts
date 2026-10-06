@@ -51,6 +51,14 @@ describe("desiredCategoryFilters", () => {
     expect(specs.find((s) => s.bucket === "promotions")?.fileOut).toBe(true);
   });
 
+  it("lets only Promotions skip the inbox on arrival, even if another limit is 0", () => {
+    const specs = desiredCategoryFilters(
+      settings({ timeLimitsEnabled: true, inboxHoursByBucket: { ...DEFAULT_INBOX_HOURS, otp: 0, promotions: 0 } }),
+    );
+    expect(specs.find((s) => s.bucket === "otp")?.fileOut).toBe(false);
+    expect(specs.find((s) => s.bucket === "promotions")?.fileOut).toBe(true);
+  });
+
   it("with only keep-sorting on, covers the enabled categories with their file-out choice", () => {
     const specs = desiredCategoryFilters(
       settings({ keepSorting: true, enabledBuckets: ["otp", "shopping"], fileOutByBucket: { shopping: true } }),

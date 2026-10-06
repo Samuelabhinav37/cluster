@@ -34,6 +34,12 @@ export const LIMIT_CHOICES: { label: string; hours: number | null }[] = [
   { label: "Stays in inbox", hours: null },
 ];
 
+/** "Straight to label" skips the inbox entirely, so it's offered only for
+ * Promotions, where missing one ad costs nothing. */
+export function limitChoicesFor(bucket: SortBucket) {
+  return bucket === "promotions" ? LIMIT_CHOICES : LIMIT_CHOICES.filter((c) => c.hours !== 0);
+}
+
 function choiceValue(hours: number | null): string {
   return hours === null ? "stay" : String(hours);
 }
@@ -70,7 +76,7 @@ export function renderTimeLimits(): void {
     name.textContent = categoryLabelName(bucket, ctx.settings.labelChoices);
     const select = document.createElement("select");
     select.id = `time-limit-${bucket}`;
-    for (const choice of LIMIT_CHOICES) select.add(new Option(choice.label, choiceValue(choice.hours)));
+    for (const choice of limitChoicesFor(bucket)) select.add(new Option(choice.label, choiceValue(choice.hours)));
     select.value = choiceValue(cfg.inboxHoursByBucket[bucket] ?? null);
     row.append(name, select);
     rowsEl.appendChild(row);

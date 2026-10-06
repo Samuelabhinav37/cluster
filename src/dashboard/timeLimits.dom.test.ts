@@ -26,6 +26,10 @@ describe("Inbox time limits", () => {
     expect((dash.el("time-limit-shipping") as HTMLSelectElement).value).toBe("168");
     expect((dash.el("time-limit-travel") as HTMLSelectElement).value).toBe("stay");
     expect(dash.el("time-limits-rows").textContent).toContain("🏷 Promotions");
+    // "Straight to label" skips the inbox, so only Promotions offers it.
+    const values = (id: string) => Array.from((dash.el(id) as HTMLSelectElement).options).map((o) => o.value);
+    expect(values("time-limit-otp")).not.toContain("0");
+    expect(values("time-limit-promotions")).toContain("0");
   });
 
   it("saving creates a filter per category that labels and keeps mail in the inbox", async () => {
