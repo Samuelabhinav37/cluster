@@ -200,7 +200,7 @@ describe("dashboard boot smoke", () => {
       .dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
     expect(buttons[1].getAttribute("aria-selected")).toBe("true");
     expect(
-      document.querySelector<HTMLElement>("section.screen[data-screen='delete']")!.hidden,
+      document.querySelector<HTMLElement>(`section.screen[data-screen='${buttons[1].dataset.screen}']`)!.hidden,
     ).toBe(false);
   });
 

@@ -88,53 +88,55 @@
             Overview
           </button>
 
-          <div class="nav-group-label">Clean up</div>
-          <button type="button" class="nav-item" data-screen="delete">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.2 6h11.6"></path><path d="M8.2 6V4.6a1 1 0 0 1 1-1h1.6a1 1 0 0 1 1 1V6"></path><path d="M6.6 6 7.3 15a1 1 0 0 0 1 .9h3.4a1 1 0 0 0 1-.9L13.4 6"></path></svg>
-            Delete
-            <span class="nav-count" id="nav-count-delete"></span>
-          </button>
+          <div class="nav-group-label">Organize</div>
           <button type="button" class="nav-item" data-screen="organize">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3.4 3.2 7.4 10 11.4 16.8 7.4Z"></path><path d="M3.2 11 10 15 16.8 11"></path></svg>
-            Organize
+            Sorting
             <span class="nav-count" id="nav-count-organize"></span>
+          </button>
+          <button type="button" class="nav-item" data-screen="senders">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.4h3.2l1.1 1.8h5.4l1.1-1.8H17"></path><path d="M4.4 5.2h11.2l1.4 6.2v3.2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3.2z"></path></svg>
+            Senders
+            <span class="nav-count" id="nav-count-senders"></span>
           </button>
           <button type="button" class="nav-item" data-screen="subscriptions">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.6" width="14" height="10.8" rx="2"></rect><path d="M3.6 5.4 10 10.6l6.4-5.2"></path></svg>
             Subscriptions
             <span class="nav-count" id="nav-count-subscriptions"></span>
           </button>
-          <button type="button" class="nav-item" data-screen="impersonation">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2.9 4.2 5v4.6c0 3.2 2.3 6 5.8 7.5 3.5-1.5 5.8-4.3 5.8-7.5V5z"></path><path d="M10 7.6v3M10 13.1h.01"></path></svg>
-            Phishing
-            <span class="nav-count" id="nav-count-impersonation"></span>
-          </button>
-
-          <div class="nav-group-label">More</div>
-          <button type="button" class="nav-item" data-screen="senders">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.4h3.2l1.1 1.8h5.4l1.1-1.8H17"></path><path d="M4.4 5.2h11.2l1.4 6.2v3.2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3.2z"></path></svg>
-            All senders
-            <span class="nav-count" id="nav-count-senders"></span>
-          </button>
           <button type="button" class="nav-item" data-screen="rules">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.4 6.2h13.2M3.4 10h9M3.4 13.8h5.6"></path></svg>
             Rules
             <span class="nav-count" id="nav-count-rules"></span>
           </button>
+
+          <div class="nav-group-label">Clean up</div>
+          <button type="button" class="nav-item" data-screen="delete">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.2 6h11.6"></path><path d="M8.2 6V4.6a1 1 0 0 1 1-1h1.6a1 1 0 0 1 1 1V6"></path><path d="M6.6 6 7.3 15a1 1 0 0 0 1 .9h3.4a1 1 0 0 0 1-.9L13.4 6"></path></svg>
+            Clear out
+            <span class="nav-count" id="nav-count-delete"></span>
+          </button>
+
+          <div class="nav-group-label">Protect</div>
+          <button type="button" class="nav-item" data-screen="impersonation">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2.9 4.2 5v4.6c0 3.2 2.3 6 5.8 7.5 3.5-1.5 5.8-4.3 5.8-7.5V5z"></path><path d="M10 7.6v3M10 13.1h.01"></path></svg>
+            Scams
+            <span class="nav-count" id="nav-count-impersonation"></span>
+          </button>
           <button type="button" class="nav-item" data-screen="screener">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="9" r="5.4"></circle><path d="M13 13l4 4"></path></svg>
-            Screener
+            New senders
             <span class="nav-count accent" id="nav-count-screener"></span>
-          </button>
-          <button type="button" class="nav-item" data-screen="recent">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="6.6"></circle><path d="M10 6.4V10l2.6 1.6"></path></svg>
-            Recently done
           </button>
 
           <span class="sidebar-spacer"></span>
+          <div class="nav-sep" aria-hidden="true"></div>
+          <button type="button" class="nav-item" data-screen="recent">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="6.6"></circle><path d="M10 6.4V10l2.6 1.6"></path></svg>
+            Activity
+          </button>
           <p class="sidebar-note">
-            Senders, subjects and dates only — never message bodies. The only thing fetched
-            externally is a sender's site icon.
+            Cluster reads senders, subjects and dates. Never message bodies.
           </p>
         </nav>
 
@@ -217,7 +219,7 @@
           <section class="screen" data-screen="delete" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Delete</h1>
+                <h1 class="page-title">Clear out</h1>
                 <p class="lead">
                   Everything here ends in Trash. Ranked by how you actually read mail, with one
                   recommended action each — the rest are one tap deeper.
@@ -316,7 +318,7 @@
           <section class="screen" data-screen="organize" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Organize</h1>
+                <h1 class="page-title">Sorting</h1>
                 <p class="lead">
                   Nothing here deletes anything — file, sort, mute, or unsubscribe instead.
                 </p>
@@ -438,7 +440,7 @@
           <section class="screen" data-screen="senders" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">All senders</h1>
+                <h1 class="page-title">Senders</h1>
                 <p class="lead" id="senders-lead">
                   Every sender Cluster saw, heaviest first. Nothing here is acted on until you say so.
                 </p>
@@ -519,7 +521,7 @@
           <section class="screen" data-screen="impersonation" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Phishing</h1>
+                <h1 class="page-title">Scams</h1>
                 <p class="lead">
                   Flags senders showing signs of phishing: a display name that doesn't match the
                   sending domain, a lookalike or newly-registered domain, failed sender
@@ -652,7 +654,7 @@
           <section class="screen" data-screen="screener" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Screener</h1>
+                <h1 class="page-title">New senders</h1>
                 <p class="lead">
                   Hold mail from senders you've never emailed until you decide. They are not told, and
                   nothing is deleted. Your sent mail is the automatic allow-list.
@@ -678,7 +680,7 @@
           <section class="screen" data-screen="recent" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Recently done</h1>
+                <h1 class="page-title">Activity</h1>
                 <p class="lead">
                   Everything you or Cluster did, newest first. Use Undo on any entry that has it.
                   Mail moved to Trash stays there for 30 days. Mail deleted forever can't come back.
