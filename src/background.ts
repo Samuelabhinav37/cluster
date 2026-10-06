@@ -7,10 +7,10 @@ import type { EmailProvider, ProviderId } from "./lib/providers/emailProvider";
 import { applyRules } from "./lib/ruleRunner";
 import { knownSenderSet, pendingScreenerSenders, refreshSentCorrespondents } from "./lib/screener";
 import { markFirstContact } from "./lib/firstContact";
-import { refreshBrandDomains, riskTier, senderRiskScore } from "./lib/threatSignals";
+import { refreshBrandDomains } from "./lib/threatSignals";
+import { senderFailedAuthentication, senderVerdict } from "./lib/verdict";
 import { refreshMalwareBlocklist } from "./lib/blocklist";
 import { refreshSpamList } from "./lib/spamList";
-import { quarantineScoreAdjustment } from "./lib/quarantineReview";
 import { appendActionLog, makeLogId } from "./lib/actionLog";
 import { buildSenderSummaries, type SenderSummary } from "./lib/senderModel";
 import type { ClusterSettings } from "./lib/settingsStore";
@@ -198,23 +198,18 @@ async function runScreener(
 // quarantine review queue (label-removal undo). Off by default.
 async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]): Promise<number> {
   if (!settings.autoQuarantineHighRisk) return 0;
-  // A sender the user already released via the Security tab's review queue
-  // gets its score suppressed (quarantineReview.ts) so a marginal call isn't
-  // immediately re-quarantined next alarm cycle -- a confirmed-bad domain or
-  // outright brand claim still clears "high" on its own weight regardless.
-  // Someone the user writes to is not filed away on a score alone (a friend
-  // named "Chase" on gmail.com trips the brand check). Only a failed
-  // authentication, which says the mail isn't really from that address,
-  // overrides that.
+  // senderVerdict (verdict.ts) holds only on two kinds of signal or one
+  // decisive one, and weighs a sender the user released lower, so a marginal
+  // call isn't re-quarantined next alarm cycle. Quarantine moves a whole
+  // sender, so someone the user writes to is still never filed away unless
+  // their mail failed authentication, which says it isn't really from them.
   const known = knownSenderSet(settings);
-  const authFailed = (s: SenderSummary) =>
-    s.authVerdicts.dmarc === "fail" || (s.authVerdicts.spf === "fail" && s.authVerdicts.dkim === "fail");
   const targets = senders.filter((s) => {
     const provider = providerById.get(s.provider);
     if (!provider?.labelSuspicious) return false;
-    if (known.has(s.address.toLowerCase()) && !authFailed(s)) return false;
-    const adjusted = senderRiskScore(s.threatSignals) + quarantineScoreAdjustment(settings.quarantineReview[s.key]);
-    return riskTier(adjusted) === "high";
+    const knownCorrespondent = known.has(s.address.toLowerCase());
+    if (knownCorrespondent && !senderFailedAuthentication(s)) return false;
+    return senderVerdict(s, { knownCorrespondent, review: settings.quarantineReview[s.key] }).tier === "hold";
   });
   if (targets.length === 0) return 0;
 

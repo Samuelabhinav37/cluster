@@ -5,7 +5,8 @@
 import { log } from "../lib/log";
 import { findBlocklistedLinkTargets, findMismatchedLinks } from "../lib/linkMismatch";
 import { isBlockedDomain } from "../lib/blocklist";
-import { riskTier, senderRiskScore } from "../lib/threatSignals";
+import { MAX_REASONS, senderVerdict, type Verdict, type VerdictTier } from "../lib/verdict";
+import { knownSenderSet } from "../lib/screener";
 import { queueAthenaSecurityEvent } from "../lib/athenaIntegration";
 import { mutateSettings } from "../lib/settingsStore";
 import { recordQuarantineVerdict } from "../lib/quarantineReview";
@@ -21,37 +22,6 @@ const securitySenderListEl = document.getElementById("security-sender-list") as 
 const securityEmptyEl = document.getElementById("security-empty") as HTMLParagraphElement;
 const quarantineReviewSectionEl = document.getElementById("quarantine-review-section") as HTMLElement;
 const quarantineReviewListEl = document.getElementById("quarantine-review-list") as HTMLUListElement;
-
-function describeSignal(s: SenderSummary["threatSignals"][number]): string {
-  switch (s.kind) {
-    case "freemail-brand-claim":
-      return `claims to be ${s.brand}, sent from a free-mail address`;
-    case "brand-impersonation":
-      return `claims to be ${s.brand}, domain doesn't match`;
-    case "lookalike-domain":
-      return `domain closely resembles ${s.brand}'s real domain`;
-    case "failed-authentication":
-      return `failed DMARC authentication (claimed domain: ${s.brand})`;
-    case "blocklisted-domain":
-      return `sending domain (${s.brand}) is on a known-bad domain list`;
-    case "reply-to-mismatch":
-      return `replies would go to a personal address (${s.brand}), not the sender's domain`;
-    case "punycode-domain":
-      return `sender domain (${s.brand}) uses punycode — a common homograph trick`;
-    case "lure-language":
-      return `subject uses urgency / credential-request language`;
-    case "link-mismatch":
-      return `a link's visible text doesn't match where it actually goes`;
-    case "risky-attachment":
-      return `sent a risky-shaped attachment (.html/.iso/macro Office/double extension) without authenticating`;
-    case "identity-change":
-      return `usually comes from the same place, but this mail is signed by or asks for replies at ${s.brand}`;
-    default: {
-      const unreachable: never = s.kind;
-      return unreachable;
-    }
-  }
-}
 
 // "SPF ✓ · DKIM ✓ · DMARC —" — a plain-language read on what the mail
 // provider's Authentication-Results header actually said about this sender.
@@ -211,10 +181,10 @@ export function renderQuarantineReview() {
   );
 }
 
-const CONFIDENCE_LABEL: Record<string, string> = {
-  high: "High confidence",
-  elevated: "Needs your eyes",
-  low: "Worth a look",
+const CONFIDENCE_LABEL: Record<VerdictTier, string> = {
+  hold: "High confidence",
+  warn: "Needs your eyes",
+  none: "Worth a look",
 };
 
 const ICON_WARNING =
@@ -226,20 +196,29 @@ export function renderSecuritySection(senders: SenderSummary[]) {
   renderQuarantineReview();
   // Rank by combined risk so a sender tripping several signals (or a
   // freemail brand claim) sorts above one with a lone medium signal.
+  const known = knownSenderSet(ctx.settings);
   const flagged = senders
-    .filter((s) => s.threatSignals.length > 0)
-    .map((sender) => ({ sender, score: senderRiskScore(sender.threatSignals) }))
-    .sort((a, b) => b.score - a.score);
+    .map((sender) => ({
+      sender,
+      verdict: senderVerdict(sender, {
+        knownCorrespondent: known.has(sender.address.toLowerCase()),
+        review: ctx.settings.quarantineReview[sender.key],
+      }),
+    }))
+    // A known correspondent whose only "signal" was a brand-like name has
+    // nothing left to show (verdict.ts rule 1).
+    .filter(({ verdict }) => verdict.signals.length > 0)
+    .sort((a, b) => b.verdict.score - a.verdict.score);
   securitySectionEl.hidden = flagged.length === 0;
   securityEmptyEl.hidden = flagged.length > 0;
   if (flagged.length === 0) return;
 
   securitySenderListEl.replaceChildren(
-    ...flagged.map(({ sender, score }) => buildThreatCard(sender, score)),
+    ...flagged.map(({ sender, verdict }) => buildThreatCard(sender, verdict)),
   );
 }
 
-function buildThreatCard(sender: SenderSummary, score: number): HTMLElement {
+function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
   const li = document.createElement("li");
   li.className = "glass-card";
 
@@ -256,10 +235,9 @@ function buildThreatCard(sender: SenderSummary, score: number): HTMLElement {
   name.style.font = "600 22px/1.2 var(--font-display)";
   name.style.letterSpacing = "-.021em";
   name.textContent = `"${sender.displayName || sender.address}"`;
-  const tier = riskTier(score);
   const conf = document.createElement("span");
   conf.className = "pill danger";
-  conf.textContent = CONFIDENCE_LABEL[tier] ?? "Worth a look";
+  conf.textContent = CONFIDENCE_LABEL[verdict.tier];
   head.append(tile, name, conf);
   li.appendChild(head);
 
@@ -281,18 +259,21 @@ function buildThreatCard(sender: SenderSummary, score: number): HTMLElement {
   grid.append(claim, actual);
   li.appendChild(grid);
 
-  // Evidence list
-  if (sender.threatSignals.length > 0) {
+  // Evidence list: the strongest plain reasons, then anything that weighed
+  // in the sender's favour. Reason text quotes sender-chosen domains, so it
+  // goes in as text, never as HTML.
+  const shown = [...verdict.reasons.slice(0, MAX_REASONS), ...verdict.trustReasons];
+  if (shown.length > 0) {
     const evidence = document.createElement("div");
     evidence.className = "evidence-list";
-    for (const signal of sender.threatSignals) {
+    for (const reason of shown) {
       const item = document.createElement("div");
       item.className = "item";
       const icon = document.createElement("span");
       icon.innerHTML = ICON_INFO;
       icon.style.display = "inline-flex";
       const text = document.createElement("span");
-      text.textContent = describeSignal(signal);
+      text.textContent = reason.text;
       item.append(icon, text);
       evidence.appendChild(item);
     }
