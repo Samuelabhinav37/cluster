@@ -1,74 +1,119 @@
 # Your data, in plain language
 
-Cluster cleans up, sorts, and screens your Gmail or Outlook inbox. Here's exactly what that
-involves, without the jargon. For the full technical breakdown (scopes, headers, retention),
-see [`SECURITY.md`](../SECURITY.md).
+Cluster cleans up, sorts and protects your Gmail or Outlook inbox. This page says exactly what that
+involves. For the technical detail (scopes, headers, retention), see [`SECURITY.md`](../SECURITY.md).
+For the promises we hold ourselves to, see [Ethics and safety](ethics-and-safety.md).
+
+**In five lines:**
+
+- **Where Cluster runs:** in your browser, on your computer. There is no Cluster server.
+- **What it reads:** who sent each email, its subject, date, size and a few technical headers. Not the
+  message itself, except when you press "Deep scan" on one email.
+- **What it sends to us:** nothing. Cluster's developer receives nothing about you or your mail.
+- **What it changes:** only your own mailbox, through Gmail's or Outlook's own tools (labels, filters,
+  moving mail). It never deletes mail on its own judgement.
+- **What it costs:** nothing. Cluster is free and open source.
 
 ## There is no Cluster server
 
-Cluster runs entirely inside your browser, using your own Google or Microsoft sign-in. There is
-no Cluster-operated backend anywhere — nothing you do in the extension is sent to us, because
-there's no "us" to send it to. The extension talks directly to Gmail's API or Microsoft Graph,
-the same way any other app you've signed into does.
+Cluster runs entirely inside your browser and signs in with your own Google or Microsoft account. It
+talks directly to Gmail or Microsoft Graph, the same way any app you sign into does. Nothing you do
+in Cluster is sent to us, because there is no Cluster server to send it to.
 
 ## It reads headers, not your mail
 
-By default, Cluster only ever looks at message **metadata**: who a message is from, its subject
-line, when it arrived, its size, and whether it's read or starred. It never reads the body of
-your email — the part with the actual content — with one narrow, deliberate exception below.
+By default Cluster looks only at each message's **metadata**:
 
-## The one exception: "Deep scan"
+- who it is from, and the reply address
+- the subject line
+- when it arrived and how big it is
+- whether it is read or starred, and its labels
+- technical headers that show whether the sender is who they claim to be (for example, the results
+  of Gmail's own sender checks)
 
-If you click "Deep scan" on a specific flagged sender, Cluster fetches that **one** message's
-full body, checks whether any link's visible text matches where it actually goes (a classic
-phishing trick), and then immediately discards the body. It's never automatic, never runs in the
-background, and the body is never stored or sent anywhere — it's read, checked, and thrown away
-in the same moment.
+It never reads the body of an email, with one narrow exception below.
 
-## On-device AI, not a server AI
+## The one exception: Deep scan
 
-Three features — a plain-English digest, drafting a rule from a sentence you type, and
-classifying mail Cluster can't otherwise categorize — use Chrome's **built-in, on-device** AI
-(Gemini Nano). These run locally, on your own computer's hardware. Nothing about your mail is
-sent to any AI company's servers. If your computer doesn't support Chrome's on-device AI, these
-features quietly don't appear — the rest of Cluster works exactly the same either way.
+If you press "Deep scan" on a flagged sender, Cluster fetches that **one** message's body. It checks
+whether each link really goes where its text says, a common phishing trick. Then it throws the body
+away. Deep scan never runs on its own, never runs in the background, and never stores or sends the
+body anywhere.
+
+## Scam protection
+
+When scam protection is on, Cluster moves suspected scams out of your inbox into a Cluster label in
+your own mailbox. This happens inside Gmail or Outlook. Nothing about the email leaves your device.
+
+- Held mail is never deleted by Cluster. It stays in your mailbox under the label.
+- You can see why each email was held, in plain words.
+- You can release any email with one tap, or by moving it back to your inbox in Gmail.
+
+## Learning stays on your device
+
+Cluster gets better at spotting scams from what you do: releasing an email, or confirming a scam.
+That learning stays in your browser. It is never uploaded, and it is never used to train a shared
+model. Cluster does not train shared AI on your Gmail.
+
+Three features (a plain-English summary, drafting a rule from a sentence you type, and sorting mail
+Cluster can't otherwise categorise) use Chrome's **built-in, on-device** AI. It runs on your own
+computer. Nothing about your mail goes to an AI company. If your computer doesn't support it, those
+features don't appear and everything else works the same.
 
 ## What actually leaves your device
 
-Being honest about the narrow list of places data does go:
+This is the complete list.
 
-- **Unsubscribing.** When you click a verified one-click unsubscribe, the request goes straight
-  to that sender's own unsubscribe link — never to Cluster — over HTTPS only, with no
-  credentials attached and no redirects followed.
-- **Deep scan's link check**, described above — one outbound check of a link you're reviewing,
-  guarded against private/internal addresses.
-- **Sorting and filtering.** Creating a Gmail filter or Outlook rule (for "keep sorted," "mute,"
-  or the Screener) happens through Gmail's or Outlook's own API — it's your mailbox's own
-  settings being changed, the same as if you'd clicked "create filter" yourself in Gmail.
-- **Signing in.** Your Gmail token is held by Chrome itself, not by Cluster. Your Outlook token
-  is used only to talk to Microsoft's own servers to keep you signed in.
-- **Sender site icons.** The dashboard shows each sender's favicon, fetched from Google's public
-  favicon service (`google.com/s2/favicons`) by domain only — an uncredentialed image request,
-  no cookies, no other data, one per unique sender domain. This does tell Google which sender
-  domains appear in your mail; if that trade isn't worth it to you, the list still works
-  without it (each sender falls back to a coloured initial). A future build may make this a
-  toggle or cache the icons locally.
-- **Reference-list updates.** Roughly once a day, Cluster fetches a small public data file — the
-  list of domains known-legitimate brands send from, and known-bad/spam domains — from a page
-  Cluster itself publishes (`samuelabhinav37.github.io`), so a fix can reach you without waiting
-  for a new Chrome Web Store release. It's a plain, uncredentialed request for "today's file,"
-  identical for every install — the same shape as an app checking for an update. **Nothing about
-  you or your mail is in this request or its response**: no address, no sender, no subject, no
-  identifier of any kind. If the fetch ever fails, or you're offline, Cluster just keeps using the
-  copy already bundled in the extension — this is a convenience, never a dependency.
+- **Unsubscribing.** When you press a verified one-click unsubscribe, the request goes straight to
+  that sender's own unsubscribe address. It never goes to us. It uses HTTPS only, sends no login
+  details and follows no redirects.
+- **Deep scan's link check,** described above. One check of a link you are reviewing. It refuses
+  private and internal network addresses.
+- **Sorting, filters and labels.** Creating a Gmail filter or Outlook rule happens through Gmail's or
+  Outlook's own API. It is your mailbox's own settings being changed, just as if you had clicked
+  "Create filter" yourself.
+- **Signing in.** Chrome itself holds your Gmail sign-in, not Cluster. Your Outlook sign-in is used
+  only to talk to Microsoft's servers.
+- **Sender icons.** The dashboard shows each sender's website icon from Google's public icon service
+  (`google.com/s2/favicons`). The request carries only the sender's domain, with no cookies. It does
+  tell Google which sender domains appear in your mail. If an icon can't load, the sender gets a
+  coloured initial instead. A future version will make this a setting or bundle icons locally.
+- **Daily list updates.** About once a day Cluster downloads a small public file from a page we
+  publish (`samuelabhinav37.github.io`). It holds the domains real brands send from and known bad or
+  spam domains. The request is identical for everyone and carries nothing about you. If it fails,
+  Cluster uses the copy built into the extension.
 
-That's the complete list. Everything else — your settings, rules, and the log of what Cluster
-has done — stays in your browser's local storage, on your device, and is deleted the moment you
-uninstall the extension.
+Your settings, rules, personal learning and the log of what Cluster has done stay in your browser's
+local storage. Uninstalling Cluster deletes them.
+
+## Work installs managed by your organisation
+
+This section applies only if your employer or school has set up Cluster through Chrome's managed
+policies and connected it to an **Athena** server that **your organisation** runs. A normal install
+never does this, and Cluster's developer never receives these events.
+
+When it is set up, and after the connection is allowed in the dashboard, Cluster sends security
+events to your organisation's own server. Each event says that Cluster warned about or held a
+suspicious sender. It contains:
+
+- the sender's email address and domain
+- the kind of warning (for example, "pretends to be PayPal") and the brand involved
+- for a Deep scan, the website domains of any dangerous links that were found
+- when it happened, and how serious it was
+
+Events never contain the email's subject or body, or anything about the people you write to.
+
+Athena is still in development. This part of Cluster will change as Athena is rebuilt, and this page
+will be updated first.
 
 ## Open source
 
-All of this is verifiable, not just asserted. Cluster's full source is on GitHub:
-[github.com/Samuelabhinav37/cluster](https://github.com/Samuelabhinav37/cluster). If you'd like
-to check any claim on this page against the actual code, everything here traces back to
-[`SECURITY.md`](../SECURITY.md) and the `src/` directory.
+You don't have to take any of this on trust. Cluster's full source is on GitHub at
+[github.com/Samuelabhinav37/cluster](https://github.com/Samuelabhinav37/cluster), under the
+[GPL-3.0](../LICENSE) license. Every claim on this page can be checked against
+[`SECURITY.md`](../SECURITY.md) and the `src/` folder.
+
+## If this changes
+
+If we ever change what Cluster sends or where, we will update this page first and say so in the
+release notes. Earlier versions of this page stay in the project's history on GitHub.

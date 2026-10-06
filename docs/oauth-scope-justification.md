@@ -9,6 +9,16 @@ Google sign-in via `chrome.identity`. No Gmail data — restricted or otherwise 
 is transmitted to or stored on any Cluster-operated system. See `SECURITY.md`
 for the full data-flow.
 
+One exception concerns organisation-managed installs only. When an
+organisation configures Cluster through Chrome managed policy to connect to an
+Athena server that the organisation itself runs, and the connection is allowed
+in the dashboard, Cluster sends minimal security events to that server: the
+flagged sender's address and domain, the warning type and impersonated brand,
+dangerous link domains found by a user-triggered Deep scan, a timestamp and a
+severity. Never subjects, bodies or recipients. This is a security-purpose
+transfer to the customer's own system. The Cluster developer never receives it.
+It is disclosed to users in `docs/privacy.md`.
+
 ---
 
 ## `https://www.googleapis.com/auth/gmail.modify` — restricted
