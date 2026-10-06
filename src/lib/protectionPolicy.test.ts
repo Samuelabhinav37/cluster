@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildSenderCleanupPlan, protectionDecision, type ProtectionContext } from "./protectionPolicy";
+import {
+  buildSenderCleanupPlan,
+  idsSafeToMoveOut,
+  protectionDecision,
+  type ProtectionContext,
+} from "./protectionPolicy";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 
 function message(over: Partial<MessageRecord> & { id: string }): MessageRecord {
@@ -124,5 +129,18 @@ describe("buildSenderCleanupPlan", () => {
     expect(plan.retainedOtherIds).toEqual(["other"]);
     expect(plan.protectionReasons.transactional).toBe(1);
     expect(plan.protectionReasons["starred-or-flagged"]).toBe(1);
+  });
+});
+
+describe("idsSafeToMoveOut", () => {
+  it("leaves starred and provider-Important mail in the inbox, moves the rest", () => {
+    const s = sender([
+      message({ id: "a" }),
+      message({ id: "b", isProtected: true }),
+      message({ id: "c", providerMarkedPersonal: true }),
+      message({ id: "d", kind: "receipt" }),
+    ]);
+    // Receipts are kept from deletion, not from filing: a mute may file them.
+    expect(idsSafeToMoveOut(s)).toEqual(["a", "d"]);
   });
 });

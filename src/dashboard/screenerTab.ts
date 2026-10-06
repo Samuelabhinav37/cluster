@@ -3,6 +3,7 @@
 // generic (Gmail + Outlook, gated per-sender by whether that provider
 // implements screenSender). screenPending is the foreground mirror of
 // background.ts's runScreener, run when the user first turns the Screener on.
+import { idsSafeToMoveOut } from "../lib/protectionPolicy";
 import { log } from "../lib/log";
 import { updateSettings } from "../lib/settingsStore";
 import type { ProviderId } from "../lib/providers/emailProvider";
@@ -49,7 +50,7 @@ async function screenPending(senders: SenderSummary[]) {
     if (!provider?.screenSender) continue;
     try {
       const token = await provider.getAuthToken(false);
-      await provider.screenSender(token, s.address, s.messageIds);
+      await provider.screenSender(token, s.address, idsSafeToMoveOut(s));
       screened.push(s.address);
     } catch (err) {
       log.error("Screener: failed to hold", s.address, err);
@@ -248,7 +249,7 @@ function buildScreenerCard(s: SenderSummary): HTMLDivElement {
   block.onclick = async () => {
     block.disabled = true;
     try {
-      await releaseHeldSender(s.address, s.messageIds, s.provider, "block");
+      await releaseHeldSender(s.address, idsSafeToMoveOut(s), s.provider, "block");
     } catch (err) {
       block.disabled = false;
       log.error(err);

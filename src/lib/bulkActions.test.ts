@@ -131,6 +131,24 @@ describe("partitionForKeepSorted / executeBulkKeepSorted", () => {
     expect(succeeded).toBe(1);
     expect(failed).toBe(1);
   });
+
+  it("regression (B3): never moves the sender's starred or Important mail out of the inbox", async () => {
+    const gmail = makeProvider("gmail", true);
+    const providerById = new Map<ProviderId, EmailProvider>([["gmail", gmail]]);
+    const base = { receivedAt: 0, kind: "other" as const, unread: false, sizeBytes: 0, looksAutomated: true };
+    const sender = makeSender({
+      address: "a@x.com",
+      messageIds: ["plain", "starred", "important"],
+      protectedMessageIds: ["starred"],
+      messages: [
+        { ...base, id: "plain", isProtected: false, providerMarkedPersonal: false },
+        { ...base, id: "starred", isProtected: true, providerMarkedPersonal: false },
+        { ...base, id: "important", isProtected: false, providerMarkedPersonal: true },
+      ],
+    });
+    await executeBulkKeepSorted([sender], providerById);
+    expect(gmail.keepSorted).toHaveBeenCalledWith("token", "a@x.com", expect.any(String), ["plain"]);
+  });
 });
 
 describe("partitionForSnooze / executeBulkSnooze", () => {

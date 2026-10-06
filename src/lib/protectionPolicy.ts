@@ -128,3 +128,18 @@ export function buildSenderCleanupPlan(
   }
   return plan;
 }
+
+/**
+ * Ids of a sender's mail that a sender-wide move (Mute, Keep sorted, the
+ * Screener's hold and Block) may take out of the inbox: everything except
+ * starred mail and mail Gmail/Outlook marked as important to this user. The
+ * standing filter for future mail is unaffected; this only guards mail that
+ * is already there.
+ */
+export function idsSafeToMoveOut(sender: SenderSummary): string[] {
+  const keep = new Set(
+    sender.messages.filter((m) => m.isProtected || m.providerMarkedPersonal).map((m) => m.id),
+  );
+  for (const id of sender.protectedMessageIds) keep.add(id);
+  return sender.messageIds.filter((id) => !keep.has(id));
+}

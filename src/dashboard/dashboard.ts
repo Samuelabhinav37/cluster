@@ -22,7 +22,7 @@ import {
   totalExpiryCount,
   type ExpiryBucket,
 } from "../lib/expiryTriage";
-import { buildProtectionContext } from "../lib/protectionPolicy";
+import { buildProtectionContext, idsSafeToMoveOut } from "../lib/protectionPolicy";
 import { getElevatedAuthToken, getProfileEmail, GmailApiError } from "../lib/gmailApi";
 import { clearMetadataCache, loadMetadataCache, saveMetadataCache } from "../lib/metadataCache";
 import type { ProviderId } from "../lib/providers/emailProvider";
@@ -1692,7 +1692,7 @@ function buildMuteCell(sender: SenderSummary): HTMLDivElement {
       false,
       async () => {
         const token = await provider.getAuthToken(false);
-        await provider.muteSender!(token, sender.address, sender.messageIds);
+        await provider.muteSender!(token, sender.address, idsSafeToMoveOut(sender));
         ctx.settings = await mutateSettings((current) => ({
           ...current,
           mutedSenders: [...new Set([...current.mutedSenders, sender.address])],
@@ -2030,7 +2030,7 @@ function buildKeepSortedCell(sender: SenderSummary): HTMLDivElement {
     btn.textContent = "Setting up…";
     try {
       const token = await provider.getAuthToken(false);
-      await provider.keepSorted(token, sender.address, labelName, sender.messageIds);
+      await provider.keepSorted(token, sender.address, labelName, idsSafeToMoveOut(sender));
       await logAction("keepSorted", `Kept ${sender.address} sorted into "${labelName}"`);
       btn.textContent = "Sorted ✓";
     } catch (err) {

@@ -1,3 +1,4 @@
+import { idsSafeToMoveOut } from "./lib/protectionPolicy";
 import { log } from "./lib/log";
 import { buildExpiryBuckets, totalExpiryCount } from "./lib/expiryTriage";
 import { gmailProvider } from "./lib/providers/gmailProvider";
@@ -170,7 +171,7 @@ async function runScreener(
     const token = tokenByProvider.get(s.provider);
     if (!token) continue;
     try {
-      await provider.screenSender(token, s.address, s.messageIds);
+      await provider.screenSender(token, s.address, idsSafeToMoveOut(s));
       screened.push(s.address);
     } catch (err) {
       log.error("Screener: failed to hold", s.address, err);

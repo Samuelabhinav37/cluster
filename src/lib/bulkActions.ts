@@ -1,3 +1,4 @@
+import { idsSafeToMoveOut } from "./protectionPolicy";
 import { log } from "./log";
 import { mapWithConcurrency } from "./concurrency";
 import type { DomainGroup } from "./domainGrouping";
@@ -62,7 +63,7 @@ export async function executeBulkKeepSorted(
     try {
       const token = await provider.getAuthToken(false);
       const labelName = s.displayName || s.address;
-      await provider.keepSorted(token, s.address, labelName, s.messageIds);
+      await provider.keepSorted(token, s.address, labelName, idsSafeToMoveOut(s));
       return true;
     } catch (err) {
       log.error(err);
