@@ -523,46 +523,51 @@
               <div class="page-titles">
                 <h1 class="page-title">Scams</h1>
                 <p class="lead">
-                  Flags senders showing signs of phishing: a display name that doesn't match the
-                  sending domain, a lookalike or newly-registered domain, failed sender
-                  authentication, urgent or high-pressure language, or a risky attachment. Judged
-                  from headers and metadata only — Cluster never reads the message body.
+                  Emails that look like scams can be
+                  <span class="term" tabindex="0">held<span class="term-tip" role="tooltip">Moved out of your inbox into the "🚨 Possible phishing" label. Never deleted. One tap brings it back.</span></span>
+                  out of your inbox, so you see them only when you choose to. You decide what happens next.
                 </p>
               </div>
             </div>
 
-            <label class="check-label" id="auto-quarantine-row">
-              <input type="checkbox" id="auto-quarantine-toggle" />
-              <span>Move emails that look like scams out of my inbox</span>
+            <label class="toggle-card" id="auto-quarantine-row">
+              <span class="tc-text">
+                <b>Hold emails that look like scams</b>
+                <span class="tc-sub">
+                  Cluster checks every 6 hours. It needs two separate warning signs on the same email,
+                  or one certain one. Only that email moves, never a sender's other mail. Works with
+                  Gmail and Outlook.
+                </span>
+              </span>
+              <input type="checkbox" class="switch" role="switch" id="auto-quarantine-toggle" />
             </label>
-            <p class="hint">
-              When on, Cluster checks your mail every 6 hours and moves emails that look like scams
-              to the "🚨 Possible phishing" label. It needs two separate warning signs on the same
-              email, or one certain one. Only those emails move, never a sender's other mail. Nothing
-              is deleted, and you can move any email back. Works with Gmail and Outlook. Off by default.
+            <p class="trust-line">
+              <span>Checked on your computer</span><span>Nothing deleted</span><span>One tap to put it back</span>
             </p>
 
             <section id="quarantine-review-section" hidden>
-              <div class="section-head"><h2 class="section-label">Quarantine review</h2></div>
-              <p class="hint">
-                Senders auto-quarantined by the background pass, awaiting your decision. Confirm keeps
-                a sender filed out; Release brings the mail back and makes this sender less likely to
-                be auto-quarantined again.
-              </p>
-              <ul id="quarantine-review-list"></ul>
+              <div class="section-head">
+                <h2 class="section-label">Held for you</h2>
+                <span class="muted" id="quarantine-review-count"></span>
+              </div>
+              <ul id="quarantine-review-list" class="stack"></ul>
             </section>
 
             <section id="security-section" hidden>
-              <div id="security-sender-list"></div>
+              <div class="section-head">
+                <h2 class="section-label">Check before you act</h2>
+                <span class="muted">These are still in your inbox</span>
+              </div>
+              <div id="security-sender-list" class="stack"></div>
             </section>
-            <p id="security-empty" class="caveat">No phishing signals in the current scan.</p>
+            <p id="security-empty" class="empty-state">Nothing looks like a scam right now.</p>
             <p class="caveat">
-              Detection compares display names against your contacts, checks domain lookalikes and
-              authentication records (SPF/DKIM/DMARC), and scans subject lines and attachment names
-              for common phishing patterns. It cannot read the message, so treat this as a prompt to
-              look — not a verdict.
+              Cluster checks who sent each email and how it was sent, never what it says. Treat a
+              warning as a reason to look closely, and when money is involved, call the sender on a
+              number you already have.
             </p>
           </section>
+
 
           <!-- ══ Rules ═════════════════════════════════════════════════ -->
           <section class="screen" data-screen="rules" role="tabpanel" hidden>
@@ -656,22 +661,32 @@
               <div class="page-titles">
                 <h1 class="page-title">New senders</h1>
                 <p class="lead">
-                  Hold mail from senders you've never emailed until you decide. They are not told, and
-                  nothing is deleted. Your sent mail is the automatic allow-list.
+                  Mail from people you've never written to waits here until you let them in. They
+                  aren't told, and nothing is deleted. People you've emailed always get straight
+                  through.
                 </p>
               </div>
             </div>
 
-            <label class="check-label" id="screener-toggle-row">
-              <input type="checkbox" id="screener-toggle" />
-              <span>Turn the Screener on</span>
+            <label class="toggle-card" id="screener-toggle-row">
+              <span class="tc-text">
+                <b>Hold mail from new senders</b>
+                <span class="tc-sub">Anyone you've emailed gets through. Everyone else waits here.</span>
+              </span>
+              <input type="checkbox" class="switch" role="switch" id="screener-toggle" />
             </label>
 
             <div id="screener-backlog" class="banner" hidden></div>
-            <div id="screener-queue"></div>
+            <section>
+              <div class="section-head">
+                <h2 class="section-label">Waiting</h2>
+                <span class="muted" id="screener-queue-count"></span>
+              </div>
+              <div id="screener-queue"></div>
+            </section>
 
             <section>
-              <div class="section-head"><h2 class="section-label">Always allow</h2></div>
+              <div class="section-head"><h2 class="section-label">People you let in by hand</h2></div>
               <div id="screener-allowlist"></div>
             </section>
           </section>

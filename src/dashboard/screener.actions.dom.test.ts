@@ -2,12 +2,12 @@
 /// <reference types="vite/client" />
 //
 // Action-flow tests for the Screener: turning it on holds every
-// never-corresponded-with sender, then Allow/Block release each one.
+// never-corresponded-with sender, then Let in / Block release each one.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { bootDashboard } from "./testHarness";
 
 function findScreenerCard(container: HTMLElement, address: string): HTMLElement {
-  const card = Array.from(container.querySelectorAll(".glass-card")).find((c) =>
+  const card = Array.from(container.querySelectorAll(".sender-row")).find((c) =>
     c.textContent?.includes(address),
   );
   if (!card) throw new Error(`no screener card for "${address}"`);
@@ -57,7 +57,7 @@ describe("Screener", () => {
     });
   });
 
-  it("Let through allows a held sender and drops them from the queue", async () => {
+  it("Let in allows a held sender and drops them from the queue", async () => {
     const dash = await bootDashboard();
     dash.showScreen("screener");
     const toggle = dash.el("screener-toggle") as HTMLInputElement;
@@ -71,7 +71,7 @@ describe("Screener", () => {
 
     const card = findScreenerCard(dash.el("screener-queue"), "statements@chase.com");
     const allowBtn = Array.from(card.querySelectorAll("button")).find(
-      (b) => b.textContent === "Let through",
+      (b) => b.textContent === "Let in",
     )!;
     allowBtn.click();
 

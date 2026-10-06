@@ -48,6 +48,10 @@
   --danger-label: #8f2019;
   --danger-tile: rgba(180, 46, 46, 0.1);
 
+  --caution-text: #8a5a00;
+  --caution-fill: rgba(138, 90, 0, 0.08);
+  --caution-border: rgba(138, 90, 0, 0.35);
+
   --neutral-fill: #f1eff4;
   --neutral-fill-hover: #e9e6ee;
   --neutral-border: #d3cfd9;
@@ -120,6 +124,10 @@
     --danger-label: #ffd0d0;
     --danger-tile: rgba(250, 109, 109, 0.14);
 
+    --caution-text: #e0b16f;
+    --caution-fill: rgba(224, 177, 111, 0.12);
+    --caution-border: rgba(224, 177, 111, 0.4);
+
     --neutral-fill: #222027;
     --neutral-fill-hover: #2a2730;
     --neutral-border: #3a3640;
@@ -176,6 +184,10 @@
   --danger-border: rgba(250, 109, 109, 0.4);
   --danger-label: #ffd0d0;
   --danger-tile: rgba(250, 109, 109, 0.14);
+
+  --caution-text: #e0b16f;
+  --caution-fill: rgba(224, 177, 111, 0.12);
+  --caution-border: rgba(224, 177, 111, 0.4);
 
   --neutral-fill: #222027;
   --neutral-fill-hover: #2a2730;
@@ -1559,18 +1571,6 @@ a:hover {
   gap: 8px;
 }
 
-#quarantine-review-list li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
-  background: var(--glass);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
-  border: 0.5px solid var(--hairline);
-  border-radius: var(--r-ctl);
-}
 
 /* ── Day groups (Recently done) ──────────────────────────────────────── */
 
@@ -2338,3 +2338,283 @@ input[type="checkbox"] {
 .grouped-list {
   border-width: 1px;
 }
+
+/* ══ v4 Protect pages (stage 2) ═══════════════════════════════════════════ */
+
+.term {
+  position: relative;
+  border-bottom: 1px dashed var(--label-4);
+  cursor: help;
+}
+
+.term-tip {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  width: min(300px, 80vw);
+  padding: 10px 12px;
+  border: 1px solid var(--neutral-border);
+  border-radius: 10px;
+  background: var(--glass);
+  box-shadow: var(--shadow-bar);
+  color: var(--label);
+  font: 400 13px/1.45 var(--font);
+  display: none;
+}
+
+.term:hover .term-tip,
+.term:focus .term-tip {
+  display: block;
+}
+
+.toggle-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  background: var(--glass);
+  cursor: pointer;
+}
+
+.toggle-card .tc-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.toggle-card b {
+  display: block;
+  font: 600 15px/1.35 var(--font);
+}
+
+.toggle-card .tc-sub {
+  display: block;
+  margin-top: 2px;
+  font: 400 13px/1.45 var(--font);
+  color: var(--label-4);
+}
+
+input.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--neutral-border);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+input.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 0.15s ease;
+}
+
+input.switch:checked {
+  background: var(--accent);
+}
+
+input.switch:checked::after {
+  transform: translateX(16px);
+}
+
+input.switch:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.trust-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: -8px 0 0;
+  font: 400 13px/1.4 var(--font);
+  color: var(--label-4);
+}
+
+.trust-line span::before {
+  content: "✓";
+  margin-right: 6px;
+  color: var(--success-text);
+  font-weight: 700;
+}
+
+.scam-card {
+  list-style: none;
+  gap: 12px;
+  padding: 18px 20px;
+}
+
+.scam-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.scam-id {
+  flex: 1;
+  min-width: 200px;
+}
+
+.scam-subj {
+  font: 650 15px/1.35 var(--font);
+  overflow-wrap: anywhere;
+}
+
+.scam-from {
+  font: 400 13px/1.4 var(--font);
+  color: var(--label-4);
+  overflow-wrap: anywhere;
+}
+
+.risk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--neutral-border);
+  border-radius: 999px;
+  background: var(--neutral-fill);
+  font: 500 12px/1 var(--font);
+  color: var(--label-3);
+  white-space: nowrap;
+}
+
+.risk-chip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.risk-chip.hold {
+  color: var(--danger-text);
+  border-color: var(--danger-border);
+  background: var(--danger-fill);
+}
+
+.risk-chip.warn {
+  color: var(--caution-text);
+  border-color: var(--caution-border);
+  background: var(--caution-fill);
+}
+
+.reasons {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.reasons li {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  font: 400 14px/1.45 var(--font);
+}
+
+.reasons li::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 50%;
+  background: var(--danger-text);
+}
+
+.reasons li.trust::before {
+  background: var(--success-text);
+}
+
+.callback {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 1px solid var(--neutral-border);
+  border-radius: 10px;
+  background: var(--neutral-fill);
+  font: 400 14px/1.45 var(--font);
+}
+
+.callback b {
+  display: block;
+}
+
+.report-steps {
+  margin: 0;
+  padding: 12px 14px 12px 34px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--neutral-fill);
+  font: 400 14px/1.5 var(--font);
+  display: grid;
+  gap: 4px;
+}
+
+.scam-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.scam-actions .grow {
+  flex: 1;
+}
+
+.sender-rows {
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-list);
+  background: var(--glass);
+  overflow: hidden;
+}
+
+.sender-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  border-top: 1px solid var(--separator);
+}
+
+.sender-row:first-child {
+  border-top: 0;
+}
+
+.sender-row .sr-text {
+  flex: 1;
+  min-width: 180px;
+}
+
+.sender-row .sr-name {
+  font: 600 14px/1.35 var(--font);
+}
+
+.sender-row .sr-sub {
+  font: 400 13px/1.4 var(--font);
+  color: var(--label-4);
+  overflow-wrap: anywhere;
+}
+

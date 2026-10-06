@@ -74,7 +74,7 @@ describe("Phishing screen — quarantine review", () => {
     expect(list.textContent).toContain("spammy@bad.example");
 
     const confirmBtn = Array.from(list.querySelectorAll("button")).find(
-      (b) => b.textContent === "Confirm — keep filed",
+      (b) => b.textContent === "Keep it held",
     )!;
     confirmBtn.click();
 
@@ -101,7 +101,7 @@ describe("Phishing screen — quarantine review", () => {
 
     const list = dash.el("quarantine-review-list");
     const releaseBtn = Array.from(list.querySelectorAll("button")).find(
-      (b) => b.textContent === "Release — false positive",
+      (b) => b.textContent === "Not a scam, put it back",
     )!;
     releaseBtn.click();
 
