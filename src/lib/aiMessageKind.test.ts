@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { checkMessageKindAiAvailability, classifyOtherSubjects } from "./aiMessageKind";
+import { aiVerdictAllowed, checkMessageKindAiAvailability, classifyOtherSubjects } from "./aiMessageKind";
 
 function fakeApi(overrides: {
   availability?: string;
@@ -109,5 +109,21 @@ describe("classifyOtherSubjects", () => {
     expect(result.get("dup subject")).toBe("social");
     const [promptText] = api._prompt.mock.calls[0];
     expect(promptText.split("\n").length).toBe(2); // header + 1 unique subject line
+  });
+});
+
+describe("aiVerdictAllowed (B9: the model may only add protection)", () => {
+  it("never relabels a no-bulk-signal 'other' message into a deletable kind", () => {
+    const person = { kind: "other" as const, looksAutomated: false };
+    expect(aiVerdictAllowed(person, "newsletter")).toBe(false);
+    expect(aiVerdictAllowed(person, "otp")).toBe(false);
+    expect(aiVerdictAllowed(person, "social")).toBe(false);
+  });
+
+  it("lets it add protection, and relabel bulk mail freely", () => {
+    expect(aiVerdictAllowed({ kind: "other", looksAutomated: false }, "receipt")).toBe(true);
+    expect(aiVerdictAllowed({ kind: "other", looksAutomated: true }, "newsletter")).toBe(true);
+    expect(aiVerdictAllowed({ kind: "newsletter", looksAutomated: true }, "receipt")).toBe(false);
+    expect(aiVerdictAllowed({ kind: "other", looksAutomated: true }, "other")).toBe(false);
   });
 });

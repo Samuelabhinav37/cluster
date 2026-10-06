@@ -13,7 +13,7 @@ import {
   totalDeletableAcrossGroups,
 } from "../lib/bulkActions";
 import { buildDigestInput, checkDigestAvailability, generateDigest } from "../lib/aiDigest";
-import { checkMessageKindAiAvailability, classifyOtherSubjects } from "../lib/aiMessageKind";
+import { aiVerdictAllowed, checkMessageKindAiAvailability, classifyOtherSubjects } from "../lib/aiMessageKind";
 import { DOMAIN_CATEGORY_LABELS, type DomainCategory } from "../lib/domainCategories";
 import { buildDomainGroups, type DomainGroup } from "../lib/domainGrouping";
 import {
@@ -2351,7 +2351,7 @@ async function wireAiMessageKind() {
       let changed = 0;
       for (const message of otherMessages) {
         const verdict = message.subject ? verdicts.get(message.subject) : undefined;
-        if (verdict && verdict !== "other") {
+        if (aiVerdictAllowed(message, verdict)) {
           message.kind = verdict;
           changed += 1;
         }
