@@ -43,6 +43,7 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
       timeLimitsEnabled: false,
       inboxHoursByBucket: {},
       lastSweep: { at: 0, moved: 0 },
+      keptInInboxIds: [],
     },
     sortOverrides: {},
     seededFromExisting: false,

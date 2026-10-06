@@ -19,6 +19,7 @@ import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
 import { flushAthenaSecurityEvents, queueAthenaSecurityEvents } from "./lib/athenaIntegration";
 import { buildIncrementalSenderSummaries } from "./lib/incrementalSync";
 import { gmailQuotaHeadroom } from "./lib/gmailQuotaLedger";
+import { runInboxTimeLimits } from "./lib/inboxTimeLimitsRunner";
 import { loadMetadataCache, saveMetadataCache } from "./lib/metadataCache";
 import { resumeInterruptedJobs } from "./lib/durableJobs";
 import { updateEngagementObservations } from "./lib/engagementModel";
@@ -44,6 +45,10 @@ const TRIAGE_ALARM = "cluster-triage";
 const ATHENA_ALARM = "cluster-athena-flush";
 const JOBS_ALARM = "cluster-jobs";
 const DATASET_ALARM = "cluster-dataset-refresh";
+// Inbox time limits: label what Gmail filters missed and move mail whose
+// category's time is up out of the inbox (see inboxTimeLimits.ts). No-op
+// unless the user turned time limits on.
+const INBOX_LIMITS_ALARM = "cluster-inbox-limits";
 const SECURITY_SCAN_WINDOW_DAYS = 30;
 const SECURITY_SCAN_MAX_MESSAGES = 100;
 const providerById = new Map<ProviderId, EmailProvider>([
@@ -56,6 +61,7 @@ chrome.runtime.onInstalled.addListener((details) => {
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(DATASET_ALARM, { delayInMinutes: 10, periodInMinutes: 1440 });
+  chrome.alarms.create(INBOX_LIMITS_ALARM, { delayInMinutes: 2, periodInMinutes: 15 });
   // A fresh install used to open nothing, leaving the user to find an
   // unpinned icon in the puzzle menu. Open the dashboard, whose connect gate
   // is the welcome screen. Updates and Chrome updates stay silent.
@@ -67,6 +73,7 @@ chrome.runtime.onStartup.addListener(() => {
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(DATASET_ALARM, { delayInMinutes: 10, periodInMinutes: 1440 });
+  chrome.alarms.create(INBOX_LIMITS_ALARM, { delayInMinutes: 2, periodInMinutes: 15 });
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -79,7 +86,19 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     void resumeInterruptedJobs(providerById).catch((err) => log.error("Resuming durable jobs failed", err));
   }
   if (alarm.name === DATASET_ALARM) void refreshPublicDatasets();
+  if (alarm.name === INBOX_LIMITS_ALARM) void runInboxTimeLimitsIfQuota();
 });
+
+async function runInboxTimeLimitsIfQuota(): Promise<void> {
+  try {
+    // Same guard as triage: don't add to a scan already near Gmail's
+    // per-minute ceiling; the next 15-minute tick tries again.
+    if ((await gmailQuotaHeadroom()) < 1500) return;
+    await runInboxTimeLimits();
+  } catch (err) {
+    log.error("Inbox time limits failed", err);
+  }
+}
 
 // Daily: pulls Cluster's own published brand-domain and blocklist datasets
 // (see remoteDataset.ts) so impersonation/spam detection stay current

@@ -25,6 +25,7 @@ function settings(autoSort: Partial<ClusterSettings["autoSort"]> = {}, extra: Pa
       timeLimitsEnabled: false,
       inboxHoursByBucket: { ...DEFAULT_INBOX_HOURS },
       lastSweep: { at: 0, moved: 0 },
+      keptInInboxIds: [],
       ...autoSort,
     },
   } as unknown as ClusterSettings;

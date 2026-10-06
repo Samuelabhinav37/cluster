@@ -164,6 +164,7 @@ export async function listMessageIds(
   token: string,
   query: string,
   maxResults = 500,
+  labelIds: string[] = [],
 ): Promise<GmailMessageStub[]> {
   const results: GmailMessageStub[] = [];
   let pageToken: string | undefined;
@@ -172,6 +173,9 @@ export async function listMessageIds(
       q: query,
       maxResults: String(Math.min(500, maxResults - results.length)),
     });
+    // Label ids, not `label:` search terms: those need Gmail's hyphenated
+    // form of a name and break on emoji. A message must carry all of them.
+    for (const id of labelIds) params.append("labelIds", id);
     if (pageToken) params.set("pageToken", pageToken);
     const data = await gmailFetch<{ messages?: GmailMessageStub[]; nextPageToken?: string }>(
       `/users/me/messages?${params}`,

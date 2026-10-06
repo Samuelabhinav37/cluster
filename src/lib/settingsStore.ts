@@ -96,6 +96,9 @@ export interface ClusterSettings {
     inboxHoursByBucket: Record<string, number | null>;
     /** The last time-limit sweep: when, and how many messages it moved. */
     lastSweep: { at: number; moved: number };
+    /** Messages past their limit that a sweep kept in the inbox (starred, a
+     * known person, or risky), so later sweeps don't re-read them. Capped. */
+    keptInInboxIds: string[];
   };
   /** Per-sender "wrong bucket?" corrections from the sort preview, keyed by
    * lowercased from-address → a bucket to force, or "never" to skip. Consulted
@@ -179,6 +182,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
     timeLimitsEnabled: false,
     inboxHoursByBucket: { ...DEFAULT_INBOX_HOURS },
     lastSweep: { at: 0, moved: 0 },
+    keptInInboxIds: [],
   },
   sortOverrides: {},
   seededFromExisting: false,
