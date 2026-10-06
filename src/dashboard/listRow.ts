@@ -16,7 +16,11 @@ export interface ListRowSpec {
   };
   /** Tile / icon shown before the title. Wrapped together with title+sub. */
   lead?: HTMLElement;
-  title: string;
+  /** An HTMLElement title (e.g. a leading styled verb span) skips the native
+   * tooltip attribute UX-9 otherwise sets from plain text — callers with
+   * meaningful inline markup in the primary line are expected to make that
+   * markup itself accessible/tooltip-able if needed. */
+  title: string | HTMLElement;
   titleBadges?: HTMLElement[];
   /** Wrap onto multiple lines instead of the default single-line ellipsis —
    * for rows whose title/sub is a full sentence, not a name. */
@@ -70,8 +74,12 @@ export function listRow(spec: ListRowSpec): HTMLElement {
   textWrap.className = "row-title-wrap";
   const title = document.createElement("div");
   title.className = spec.wrapText ? "row-title wrap" : "row-title";
-  title.title = spec.title;
-  title.textContent = spec.title;
+  if (typeof spec.title === "string") {
+    title.title = spec.title;
+    title.textContent = spec.title;
+  } else {
+    title.appendChild(spec.title);
+  }
   if (spec.titleBadges && spec.titleBadges.length > 0) {
     const titleLine = document.createElement("div");
     titleLine.className = "row-title-line";
