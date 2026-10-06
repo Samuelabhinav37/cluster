@@ -1767,7 +1767,11 @@ function renderSuggestedFloatingBar() {
 
   const sub = document.createElement("span");
   sub.className = "fb-sub";
-  sub.textContent = "nothing permanent — everything here is reversible";
+  // Honest about Trash: with fast permanent delete on, the expired-mail
+  // cleanup skips Trash entirely.
+  sub.textContent = ctx.settings.fastPermanentDeleteEnabled
+    ? "Expired mail is deleted forever (fast delete is on in Settings). Muting can be undone."
+    : "Moves mail to Trash, where Gmail keeps it for 30 days. Muting can be undone.";
 
   const clear = document.createElement("button");
   clear.className = "btn btn-ghost";
