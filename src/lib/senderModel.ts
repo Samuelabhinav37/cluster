@@ -6,7 +6,13 @@ import {
   scoreSenderIdentity,
   type ThreatSignal,
 } from "./threatSignals";
-import { parseAuthenticationResults, type AuthenticationVerdicts, type AuthVerdict } from "./emailAuth";
+import {
+  parseAuthenticationResults,
+  passingDkimDomains,
+  type AuthenticationVerdicts,
+  type AuthVerdict,
+} from "./emailAuth";
+import { registrableDomain } from "./registrableDomain";
 import type {
   EmailProvider,
   NormalizedMessageMetadata,
@@ -33,6 +39,11 @@ export interface MessageRecord {
   looksAutomated: boolean;
   /** Gmail put it in the Promotions tab (CATEGORY_PROMOTIONS). */
   promotion?: boolean;
+  /** Registrable domains of the DKIM signatures the provider says passed.
+   * The sender ledger's signing baseline (senderLedger.ts). */
+  dkimDomains?: string[];
+  /** Registrable domain of the Reply-To address, if the message set one. */
+  replyToDomain?: string;
 }
 
 export interface SenderSummary {
@@ -110,6 +121,10 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     providerMarkedPersonal: meta.providerMarkedPersonal ?? false,
     looksAutomated: looksAutomated(hasUnsubscribe(meta.unsubscribe), meta.precedence, meta.autoSubmitted),
     promotion: meta.gmailPromotion ?? false,
+    dkimDomains: [...new Set(passingDkimDomains(meta.authenticationResults).map(registrableDomain))],
+    replyToDomain: meta.replyToAddress.includes("@")
+      ? registrableDomain(meta.replyToAddress.slice(meta.replyToAddress.lastIndexOf("@") + 1))
+      : undefined,
   };
   const existing = senders.get(key);
   if (existing) {

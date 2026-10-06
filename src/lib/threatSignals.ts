@@ -48,7 +48,8 @@ export type ThreatSignalKind =
   | "punycode-domain"
   | "lure-language"
   | "link-mismatch"
-  | "risky-attachment";
+  | "risky-attachment"
+  | "identity-change";
 
 export interface ThreatSignal {
   kind: ThreatSignalKind;
@@ -445,6 +446,10 @@ const SIGNAL_WEIGHTS: Record<ThreatSignalKind, number> = {
   "punycode-domain": 2, // xn-- sender domain; rare for legitimate bulk mail
   "lure-language": 2, // corroborating only -- can't reach "elevated" alone
   "risky-attachment": 3, // risky-shaped attachment, only when unauthenticated
+  // A familiar sender now signed by, or asking for replies at, a new domain
+  // (senderLedger.ts). Elevated on its own, never "high": quarantine moves a
+  // whole sender, and this sender's earlier mail is real.
+  "identity-change": 3,
 };
 
 export type RiskTier = "high" | "elevated" | "low";

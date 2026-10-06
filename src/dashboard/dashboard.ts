@@ -16,6 +16,7 @@ import { buildDigestInput, checkDigestAvailability, generateDigest } from "../li
 import { aiVerdictAllowed, checkMessageKindAiAvailability, classifyOtherSubjects } from "../lib/aiMessageKind";
 import { DOMAIN_CATEGORY_LABELS, type DomainCategory } from "../lib/domainCategories";
 import { loadPublicSuffixList } from "../lib/publicSuffix";
+import { applySenderLedger } from "../lib/senderLedgerStore";
 import { buildDomainGroups, type DomainGroup } from "../lib/domainGrouping";
 import {
   buildExpiryBuckets,
@@ -582,6 +583,7 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
     securitySenders.filter((sender) => sender.firstContact).map((sender) => sender.key),
   );
   for (const sender of senders) sender.firstContact = newlySeenKeys.has(sender.key);
+  await applySenderLedger(securitySenders);
   if (!ctx.settings.knownSendersInitialized || firstContact.firstContactCount > 0) {
     ctx.settings = await mutateSettings((current) => ({
       ...current,

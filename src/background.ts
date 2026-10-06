@@ -26,6 +26,7 @@ import { resumeInterruptedJobs } from "./lib/durableJobs";
 import { updateEngagementObservations } from "./lib/engagementModel";
 import { getRuleCompletionKeys, recordRuleCompletions } from "./lib/ruleCompletionLedger";
 import { loadPublicSuffixList } from "./lib/publicSuffix";
+import { applySenderLedger } from "./lib/senderLedgerStore";
 
 async function openDashboard() {
   const url = chrome.runtime.getURL("src/dashboard/index.html");
@@ -340,6 +341,9 @@ async function runBackgroundTriage() {
       }));
     }
 
+    // Before reporting or quarantining, so a familiar sender's change of
+    // signing or reply domain is part of the picture (senderLedger.ts).
+    await applySenderLedger(securitySenders);
     await reportThreatSignals(securitySenders);
     const quarantined = await runQuarantine(settings, securitySenders);
     await mutateSettings((current) => ({

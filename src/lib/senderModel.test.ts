@@ -95,6 +95,26 @@ describe("buildSenderSummaries", () => {
     ]);
   });
 
+  it("records each message's passing DKIM domains and Reply-To domain for the sender ledger", async () => {
+    const gmail = makeProvider("gmail", [
+      makeMeta({
+        id: "g1",
+        fromAddress: "billing@acme.example",
+        replyToAddress: "Payments@Mail.Acme-Pay.example",
+        authenticationResults:
+          "mx.google.com; dkim=pass header.d=mail.acme.example; dkim=pass header.d=sendgrid.net; dkim=fail header.d=x.example",
+      }),
+      makeMeta({ id: "g2", fromAddress: "billing@acme.example" }),
+    ]);
+
+    const [sender] = await buildSenderSummaries([gmail]);
+
+    expect(sender.messages[0].dkimDomains).toEqual(["acme.example", "sendgrid.net"]);
+    expect(sender.messages[0].replyToDomain).toBe("acme-pay.example");
+    expect(sender.messages[1].dkimDomains).toEqual([]);
+    expect(sender.messages[1].replyToDomain).toBeUndefined();
+  });
+
   it("records the failed-authentication signal only once even when several messages fail", async () => {
     const gmail = makeProvider("gmail", [
       makeMeta({ id: "g1", fromAddress: "x@y.example", authenticationResults: "mx; dmarc=fail" }),

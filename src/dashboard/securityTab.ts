@@ -44,6 +44,8 @@ function describeSignal(s: SenderSummary["threatSignals"][number]): string {
       return `a link's visible text doesn't match where it actually goes`;
     case "risky-attachment":
       return `sent a risky-shaped attachment (.html/.iso/macro Office/double extension) without authenticating`;
+    case "identity-change":
+      return `usually comes from the same place, but this mail is signed by or asks for replies at ${s.brand}`;
     default: {
       const unreachable: never = s.kind;
       return unreachable;
