@@ -1688,6 +1688,22 @@ a:hover {
   color: var(--label);
 }
 
+.time-limit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px 16px;
+  margin: 10px 0;
+}
+
+.time-limit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font: 400 14px/1.4 var(--font);
+  color: var(--label);
+}
+
 .tidy-actions {
   display: flex;
   align-items: center;

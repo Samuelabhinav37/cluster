@@ -39,6 +39,7 @@ import {
 import { activeProviders, ctx, providerById, setBridge } from "./state";
 import { maybeShowSeedCard, renderSortInbox, wireSortInbox } from "./sortInbox";
 import { maybeShowLabelTidyCard } from "./labelTidy";
+import { renderTimeLimits, wireTimeLimits } from "./timeLimitsTab";
 import { excludeSnoozedMessages } from "../lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "../lib/snoozeResurface";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
@@ -473,6 +474,7 @@ async function main() {
   wireSubscriptionsTab();
   wireKeepNewest();
   wireSortInbox();
+  wireTimeLimits();
   wireScreenerTab();
   wireOfflineHandling();
   wireRulesTab();
@@ -623,6 +625,7 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   spamSectionEl.hidden = true;
   expirySectionEl.hidden = true;
   safeRender("organize", () => renderSortInbox(senders));
+  safeRender("organize", () => renderTimeLimits());
   safeRender("organize", () => renderSmartViews(senders));
   safeRender("screener", () => renderScreenerTab(senders));
   safeRender("overview", () => updateNavCounts(senders, securitySenders));

@@ -349,6 +349,25 @@
               </div>
             </section>
 
+            <section id="time-limits-section">
+              <h3 class="section-label">Inbox time limits</h3>
+              <p class="hint">
+                New mail stays in your inbox for this long, then moves into its label. Nothing is
+                deleted. Starred mail and mail from people you write to always stay. Gmail filters label
+                mail the moment it arrives, even with Chrome closed; moving it out happens every 15
+                minutes while Chrome is open. Gmail only for now.
+              </p>
+              <label class="check-label"><input type="checkbox" id="time-limits-toggle" /> <span>Use inbox time limits</span></label>
+              <div id="time-limits-rows" class="time-limit-grid"></div>
+              <div class="tidy-actions">
+                <button type="button" id="time-limits-save" class="btn btn-accent">Save time limits</button>
+                <button type="button" id="time-limits-backlog-btn" class="btn" hidden>Apply to mail already in my inbox…</button>
+                <span id="time-limits-status" class="hint" role="status"></span>
+              </div>
+              <p id="time-limits-last" class="hint"></p>
+              <div id="time-limits-backlog" class="banner" hidden></div>
+            </section>
+
             <section id="sort-inbox-section">
               <h3 class="section-label">Sort my inbox</h3>
               <p class="hint">

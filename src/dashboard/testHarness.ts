@@ -163,6 +163,8 @@ export interface BootOptions {
   outlook?: GmailSpy;
   /** Gmail labels as labels.list returns them (default: none). */
   labels?: { id: string; name: string; type?: "system" | "user"; messagesTotal?: number }[];
+  /** Gmail search results for listMessageIds, by query (default: none). */
+  search?: (query: string, labelIds: string[]) => string[];
   /** Message ids under each label id, for listMessageIdsInLabel. */
   labelMessages?: Record<string, string[]>;
   /** Make the incremental filter-scope consent screen come back denied. */
@@ -195,6 +197,7 @@ export interface BootedDashboard {
     listMessageIdsInLabel: ReturnType<typeof vi.fn>;
     batchModify: ReturnType<typeof vi.fn>;
     findLabelIds: ReturnType<typeof vi.fn>;
+    listMessageIds: ReturnType<typeof vi.fn>;
   };
   /** Read the persisted settings object as the dashboard last wrote it. */
   storedSettings: () => ClusterSettings;
@@ -291,6 +294,9 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
     deleteLabel: vi.fn(async () => {}),
     listMessageIdsInLabel: vi.fn(async (_t: string, id: string) => opts.labelMessages?.[id] ?? []),
     batchModify: vi.fn(async () => {}),
+    listMessageIds: vi.fn(async (_t: string, query: string, _max?: number, labelIds: string[] = []) =>
+      (opts.search?.(query, labelIds) ?? []).map((id) => ({ id, threadId: id })),
+    ),
     findLabelIds: vi.fn(async (_t: string, name: string) => {
       const ids: string[] = [];
       for (const candidate of labelLookupNames(name)) {

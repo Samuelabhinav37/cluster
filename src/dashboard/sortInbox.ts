@@ -77,6 +77,14 @@ function resetSortInboxSlot() {
   sortInboxSlot.appendChild(sortInboxBtn);
 }
 
+/** Per-category "take it out of the inbox now". With inbox time limits on,
+ * only a 0-hour limit does; the sweep moves the rest once their time is up. */
+function fileOutChoices(): Record<string, boolean> {
+  const cfg = ctx.settings.autoSort;
+  if (!cfg.timeLimitsEnabled) return cfg.fileOutByBucket;
+  return Object.fromEntries(ALL_SORT_BUCKETS.map((b) => [b, cfg.inboxHoursByBucket[b] === 0]));
+}
+
 function clearSortPreview() {
   sortInboxPreviewEl.innerHTML = "";
 }
@@ -131,6 +139,8 @@ function renderSortBucketToggles() {
     keepBox.id = `sort-keep-${entry.bucket}`;
     keepBox.checked = !entry.fileOut;
     keep.append(keepBox, document.createTextNode(" keep in inbox"));
+    // With inbox time limits on, the limit decides when mail leaves the inbox.
+    keep.hidden = cfg.timeLimitsEnabled;
 
     row.append(inc, text, keep);
     sortInboxBucketsEl.appendChild(row);
@@ -153,7 +163,7 @@ function renderSortBucketToggles() {
 
 function renderSortInbox(senders: SenderSummary[]) {
   const cfg = ctx.settings.autoSort;
-  sortPlan = buildSortPlan(senders, cfg.fileOutByBucket, ctx.settings.sortOverrides);
+  sortPlan = buildSortPlan(senders, fileOutChoices(), ctx.settings.sortOverrides);
   resetSortInboxSlot();
   clearSortPreview();
   pruneSelection(
@@ -448,10 +458,14 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
     autoSort: {
       ...ctx.settings.autoSort,
       enabledBuckets,
-      fileOutByBucket: {
-        ...ctx.settings.autoSort.fileOutByBucket,
-        ...Object.fromEntries(effective.map((e) => [e.bucket, e.fileOut])),
-      },
+      // Under time limits the per-category choice comes from the limit, so
+      // keep the user's own file-out choices for when limits are off again.
+      fileOutByBucket: ctx.settings.autoSort.timeLimitsEnabled
+        ? ctx.settings.autoSort.fileOutByBucket
+        : {
+            ...ctx.settings.autoSort.fileOutByBucket,
+            ...Object.fromEntries(effective.map((e) => [e.bucket, e.fileOut])),
+          },
       keepSorting: keepOn,
       expireOtp: sortExpireOtpEl.checked,
     },
