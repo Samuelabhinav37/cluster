@@ -254,3 +254,19 @@ lone lookalike or DMARC failure, and any two signals on one sender outrank a sin
 
 Any future detection must call `queueAthenaSecurityEvent` only after a local warning or quarantine
 action, must never include message bodies or subjects, and must never automatically delete mail.
+
+## License
+
+Cluster is free and open source under the [GNU General Public License v3.0 or later](LICENSE),
+the same license as its sister extension Moat. You can use, study, change and share it. If you
+share a changed version, you share its source under the same license.
+
+Cluster also bundles public data. Each source keeps its own terms:
+
+- **URLhaus** (abuse.ch): malware host list, [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/).
+  Refreshed by `npm run refresh:blocklist`.
+- **disposable-email-domains**: [CC0-1.0](https://github.com/disposable-email-domains/disposable-email-domains).
+  Refreshed by `npm run refresh:spam`.
+- **StopForumSpam** toxic-domains list: free to use under [its own terms](https://www.stopforumspam.com/legal),
+  which forbid charging money for software that uses the data. This is one reason Cluster stays free.
+
