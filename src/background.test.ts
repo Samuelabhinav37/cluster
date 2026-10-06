@@ -256,3 +256,61 @@ describe("runBackgroundTriage guard rails", () => {
     expect(setBadgeText).not.toHaveBeenCalled();
   });
 });
+
+describe("auto-quarantine (opt-in)", () => {
+  const highRiskSender = (address: string) => ({
+    key: `gmail:${address}`,
+    provider: "gmail",
+    address,
+    displayName: "Chase Miller",
+    count: 2,
+    messageIds: ["q1", "q2"],
+    protectedMessageIds: [],
+    unsubscribe: {},
+    messages: [],
+    threatSignals: [{ kind: "freemail-brand-claim", brand: "chase", confidence: "high" }],
+    authVerdicts: { spf: "pass", dkim: "pass", dmarc: "pass" },
+    firstContact: false,
+  });
+
+  async function triageWith(sender: ReturnType<typeof highRiskSender>, sentTo: string[]) {
+    const saved = { ...SETTINGS };
+    Object.assign(SETTINGS, {
+      autoQuarantineHighRisk: true,
+      quarantineReview: {},
+      quarantinedSenders: {},
+      sentCorrespondents: { addresses: sentTo, fetchedAt: Date.now() },
+    });
+    buildIncrementalSenderSummaries.mockResolvedValueOnce({
+      senders: [sender] as never[],
+      cursors: {},
+      resetProviders: [],
+      changedMessageCount: 2,
+    });
+    try {
+      alarmListener!({ name: "cluster-triage" });
+      await settleTriage();
+      await new Promise((r) => setTimeout(r, 30));
+    } finally {
+      for (const k of Object.keys(SETTINGS)) delete (SETTINGS as Record<string, unknown>)[k];
+      Object.assign(SETTINGS, saved);
+    }
+  }
+
+  const labelSuspicious = async () =>
+    ((await import("./lib/providers/gmailProvider")).gmailProvider as unknown as { labelSuspicious: ReturnType<typeof vi.fn> })
+      .labelSuspicious;
+
+  it("quarantines an unknown high-risk sender when the setting is on", async () => {
+    await triageWith(highRiskSender("stranger@gmail.com"), []);
+    expect(await labelSuspicious()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"]);
+  });
+
+  // Audit finding: runQuarantine never consults the known-correspondent set,
+  // so someone you email (here, a friend whose name contains a brand word)
+  // can have their mail filed out of the inbox as "Possible Phishing".
+  it.fails("KNOWN BUG: quarantines mail from someone the user corresponds with", async () => {
+    await triageWith(highRiskSender("chase.miller@gmail.com"), ["chase.miller@gmail.com"]);
+    expect(await labelSuspicious()).not.toHaveBeenCalled();
+  });
+});

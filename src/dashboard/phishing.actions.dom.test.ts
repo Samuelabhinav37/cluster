@@ -120,3 +120,45 @@ describe("Phishing screen — quarantine review", () => {
     });
   });
 });
+
+describe("Phishing screen — sender-controlled text", () => {
+  // Audit finding (security): securityTab.ts builds the "Claims to be" /
+  // "Actually sent from" panels with innerHTML, interpolating the sender's
+  // display name and address. CSP blocks script, but markup still lands: a
+  // remote <img> is a tracking pixel (breaking the no-egress promise) and
+  // fake links/buttons can be drawn onto the screen meant to protect the
+  // user. A crafted From like `PayPal <a@b.c><img src=https://evil.example/p.gif>`
+  // reaches this code as exactly the address used below (see the From parser
+  // in gmailProvider.ts). Both panels are reachable through the address
+  // alone: "Actually sent from" shows it, and "Claims to be" shows the first
+  // signal's `brand`, which for a failed-DMARC signal is the sender's own
+  // domain (everything after the last "@").
+  const hostileAddress = 'support@paypa1-help.example><img src="https://evil.example/p.gif" data-injected="1"';
+
+  async function bootWithHostileSender(displayName: string, fromAddress: string) {
+    const { fixtureMailbox } = await import("./testHarness");
+    const mailbox = [
+      ...fixtureMailbox(),
+      {
+        ...fixtureMailbox()[0],
+        id: "h1",
+        fromAddress,
+        fromDisplayName: displayName,
+        subject: "Your account has been suspended",
+        unsubscribe: {},
+        authenticationResults: "mx.google.com; spf=fail; dkim=fail; dmarc=fail header.from=paypa1-help.example",
+      },
+    ];
+    const dash = await bootDashboard({ mailbox });
+    dash.showScreen("impersonation");
+    return dash;
+  }
+
+  it.fails("KNOWN BUG: a hostile sender address injects markup into the Phishing screen", async () => {
+    const dash = await bootWithHostileSender("PayPal Security", hostileAddress);
+    const list = dash.el("security-sender-list");
+    expect(list.querySelector("[data-injected]")).toBeNull();
+    expect(list.querySelector('img[src^="https://evil.example"]')).toBeNull();
+  });
+
+});

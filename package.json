@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview:ui": "vite build && node scripts/preview/serve.mjs",
+    "check:bundle": "vite build && node scripts/check-bundle.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

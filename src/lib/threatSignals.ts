@@ -235,6 +235,9 @@ function findLookalikeBrand(senderDomain: string): string | null {
 }
 
 function editDistanceWithin(a: string, b: string, max: number): boolean {
+  // Edit distance is at least the length difference, so most brand domains
+  // are ruled out without building the full matrix.
+  if (Math.abs(a.length - b.length) > max) return false;
   const distance = editDistance(a, b);
   return distance > 0 && distance <= max;
 }
