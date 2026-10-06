@@ -62,7 +62,7 @@ describe("applySenderLedger", () => {
     const changed = sender([70], "acme-payments.net");
     await applySenderLedger([changed], T0 + 70 * DAY);
     expect(changed.threatSignals).toEqual([
-      { kind: "identity-change", brand: "acme-payments.net", confidence: "medium" },
+      { kind: "identity-change", brand: "acme-payments.net", confidence: "medium", messageIds: ["m70"] },
     ]);
   });
 

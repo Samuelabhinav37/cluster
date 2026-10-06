@@ -283,7 +283,11 @@ describe("auto-quarantine (opt-in)", () => {
     ((await import("./lib/providers/gmailProvider")).gmailProvider as unknown as { labelSuspicious: ReturnType<typeof vi.fn> })
       .labelSuspicious;
 
-  async function triageWith(sender: ReturnType<typeof highRiskSender>, sentTo: string[]) {
+  async function triageWith(
+    sender: ReturnType<typeof highRiskSender>,
+    sentTo: string[],
+    extraSettings: Record<string, unknown> = {},
+  ) {
     (await labelSuspiciousSpy()).mockClear();
     const saved = { ...SETTINGS };
     Object.assign(SETTINGS, {
@@ -291,6 +295,7 @@ describe("auto-quarantine (opt-in)", () => {
       quarantineReview: {},
       quarantinedSenders: {},
       sentCorrespondents: { addresses: sentTo, fetchedAt: Date.now() },
+      ...extraSettings,
     });
     buildIncrementalSenderSummaries.mockResolvedValueOnce({
       senders: [sender] as never[],
@@ -318,6 +323,43 @@ describe("auto-quarantine (opt-in)", () => {
   it("leaves mail from someone the user corresponds with alone", async () => {
     await triageWith(highRiskSender("chase.miller@gmail.com"), ["chase.miller@gmail.com"]);
     expect(await labelSuspiciousSpy()).not.toHaveBeenCalled();
+  });
+
+  // A supplier you write to sends one email that is signed by a new domain
+  // and asks for replies elsewhere: hold that email, not their history.
+  const hijacked = (address: string) =>
+    ({
+      ...highRiskSender(address),
+      displayName: "Acme Billing",
+      messageIds: ["old1", "old2", "bad"],
+      threatSignals: [
+        { kind: "identity-change", brand: "acme-pay.example", confidence: "medium", messageIds: ["bad"] },
+        { kind: "reply-to-mismatch", brand: "gmail.com", confidence: "medium", messageIds: ["bad"] },
+      ],
+    }) as unknown as ReturnType<typeof highRiskSender>;
+
+  it("holds only the hijacked message from someone the user corresponds with", async () => {
+    await triageWith(hijacked("billing@acme.example"), ["billing@acme.example"]);
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["bad"]);
+  });
+
+  it("doesn't hold a message when its two signals came from different messages", async () => {
+    const split = {
+      ...hijacked("billing@acme.example"),
+      threatSignals: [
+        { kind: "identity-change", brand: "acme-pay.example", confidence: "medium", messageIds: ["old1"] },
+        { kind: "reply-to-mismatch", brand: "gmail.com", confidence: "medium", messageIds: ["old2"] },
+      ],
+    } as unknown as ReturnType<typeof highRiskSender>;
+    await triageWith(split, []);
+    expect(await labelSuspiciousSpy()).not.toHaveBeenCalled();
+  });
+
+  it("doesn't label a message again once it's held, so moving it back in Gmail sticks", async () => {
+    await triageWith(highRiskSender("stranger@gmail.com"), [], {
+      quarantinedSenders: { "gmail:stranger@gmail.com": { at: 0, messageIds: ["q1"] } },
+    });
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q2"]);
   });
 
   it("still quarantines a known address when its authentication fails", async () => {

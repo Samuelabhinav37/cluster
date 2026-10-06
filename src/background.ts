@@ -8,7 +8,7 @@ import { applyRules } from "./lib/ruleRunner";
 import { knownSenderSet, pendingScreenerSenders, refreshSentCorrespondents } from "./lib/screener";
 import { markFirstContact } from "./lib/firstContact";
 import { refreshBrandDomains } from "./lib/threatSignals";
-import { senderFailedAuthentication, senderVerdict } from "./lib/verdict";
+import { senderVerdict } from "./lib/verdict";
 import { refreshMalwareBlocklist } from "./lib/blocklist";
 import { refreshSpamList } from "./lib/spamList";
 import { appendActionLog, makeLogId } from "./lib/actionLog";
@@ -199,18 +199,26 @@ async function runScreener(
 async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]): Promise<number> {
   if (!settings.autoQuarantineHighRisk) return 0;
   // senderVerdict (verdict.ts) holds only on two kinds of signal or one
-  // decisive one, and weighs a sender the user released lower, so a marginal
-  // call isn't re-quarantined next alarm cycle. Quarantine moves a whole
-  // sender, so someone the user writes to is still never filed away unless
-  // their mail failed authentication, which says it isn't really from them.
+  // decisive one, judges each message on its own evidence, and weighs a
+  // sender the user released lower. Only the messages that earn a hold move,
+  // so someone the user writes to can have one hijacked email held while the
+  // rest of their mail stays. Starred and other protected mail never moves,
+  // and a message already held isn't labelled again, so a user who put it
+  // back in Gmail isn't overruled on the next cycle.
   const known = knownSenderSet(settings);
-  const targets = senders.filter((s) => {
-    const provider = providerById.get(s.provider);
-    if (!provider?.labelSuspicious) return false;
-    const knownCorrespondent = known.has(s.address.toLowerCase());
-    if (knownCorrespondent && !senderFailedAuthentication(s)) return false;
-    return senderVerdict(s, { knownCorrespondent, review: settings.quarantineReview[s.key] }).tier === "hold";
-  });
+  const heldIds = new Map<string, string[]>();
+  for (const s of senders) {
+    if (!providerById.get(s.provider)?.labelSuspicious) continue;
+    const verdict = senderVerdict(s, {
+      knownCorrespondent: known.has(s.address.toLowerCase()),
+      review: settings.quarantineReview[s.key],
+    });
+    const protectedSet = new Set(s.protectedMessageIds);
+    const alreadyHeld = new Set(settings.quarantinedSenders[s.key]?.messageIds ?? []);
+    const ids = verdict.heldMessageIds.filter((id) => !protectedSet.has(id) && !alreadyHeld.has(id));
+    if (ids.length > 0) heldIds.set(s.key, ids);
+  }
+  const targets = senders.filter((s) => heldIds.has(s.key));
   if (targets.length === 0) return 0;
 
   const targetsByProvider = new Map<ProviderId, SenderSummary[]>();
@@ -229,9 +237,7 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
     const ids: string[] = [];
     const idsBySender = new Map<string, string[]>();
     for (const sender of providerTargets) {
-      const protectedSet = new Set(sender.protectedMessageIds);
-      const senderIds = sender.messageIds.filter((id) => !protectedSet.has(id));
-      if (senderIds.length === 0) continue;
+      const senderIds = heldIds.get(sender.key) ?? [];
       ids.push(...senderIds);
       idsBySender.set(sender.key, senderIds);
     }
@@ -254,7 +260,11 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
         quarantinedSenders: {
           ...current.quarantinedSenders,
           ...Object.fromEntries(
-            [...idsBySender].map(([key, senderIds]) => [key, { at: now, messageIds: senderIds }]),
+            [...idsBySender].map(([key, senderIds]) => [
+              key,
+              // Keep earlier holds for this sender: the review queue releases all of them.
+              { at: now, messageIds: [...new Set([...(current.quarantinedSenders[key]?.messageIds ?? []), ...senderIds])] },
+            ]),
           ),
         },
       }));

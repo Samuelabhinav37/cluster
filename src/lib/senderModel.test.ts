@@ -91,7 +91,7 @@ describe("buildSenderSummaries", () => {
     const senders = await buildSenderSummaries([gmail]);
 
     expect(senders[0].threatSignals).toEqual([
-      { kind: "failed-authentication", brand: "bank.example", confidence: "high" },
+      { kind: "failed-authentication", brand: "bank.example", confidence: "high", messageIds: ["g2"] },
     ]);
   });
 
@@ -124,7 +124,9 @@ describe("buildSenderSummaries", () => {
 
     const senders = await buildSenderSummaries([gmail]);
 
-    expect(senders[0].threatSignals.filter((s) => s.kind === "failed-authentication")).toHaveLength(1);
+    const failed = senders[0].threatSignals.filter((s) => s.kind === "failed-authentication");
+    expect(failed).toHaveLength(1);
+    expect(failed[0].messageIds).toEqual(["g1", "g2", "g3"]);
   });
 
   it("keeps identity signals and adds a later message's auth failure alongside them", async () => {
@@ -142,7 +144,7 @@ describe("buildSenderSummaries", () => {
 
     expect(senders[0].threatSignals).toEqual([
       { kind: "freemail-brand-claim", brand: "paypal", confidence: "high" },
-      { kind: "failed-authentication", brand: "gmail.com", confidence: "high" },
+      { kind: "failed-authentication", brand: "gmail.com", confidence: "high", messageIds: ["g2"] },
     ]);
   });
 

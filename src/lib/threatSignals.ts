@@ -58,6 +58,12 @@ export interface ThreatSignal {
    * to name. */
   brand: string;
   confidence: "high" | "medium";
+  /** The messages this signal came from, when it's about individual
+   * messages (failed authentication, a lure subject, a redirected Reply-To,
+   * a risky attachment, an identity change). Absent when it's about the
+   * sender's address itself (lookalike, brand claim, list hit), so it covers
+   * every message from them. Set by senderModel.ts and senderLedger.ts. */
+  messageIds?: string[];
 }
 
 // Deliberately hand-curated, same "no free/reliable API fits this project's
@@ -447,8 +453,8 @@ const SIGNAL_WEIGHTS: Record<ThreatSignalKind, number> = {
   "lure-language": 2, // corroborating only -- can't reach "elevated" alone
   "risky-attachment": 3, // risky-shaped attachment, only when unauthenticated
   // A familiar sender now signed by, or asking for replies at, a new domain
-  // (senderLedger.ts). Elevated on its own, never "high": quarantine moves a
-  // whole sender, and this sender's earlier mail is real.
+  // (senderLedger.ts). A warning on its own. With a second kind of evidence
+  // on the same message it holds that message only (verdict.ts).
   "identity-change": 3,
 };
 

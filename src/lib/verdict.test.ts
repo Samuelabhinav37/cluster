@@ -126,3 +126,38 @@ describe("reasons", () => {
     expect(brandName("wells fargo")).toBe("Wells Fargo");
   });
 });
+
+describe("heldMessageIds", () => {
+  function withMessages(signals: ThreatSignal[]): SenderSummary {
+    return { ...sender(signals), messageIds: ["a", "b", "c"] };
+  }
+
+  it("holds every message when the hold rests on the address itself", () => {
+    expect(senderVerdict(withMessages([blocklisted]), stranger).heldMessageIds).toEqual(["a", "b", "c"]);
+  });
+
+  it("holds only the message that carries two kinds of evidence", () => {
+    const signals: ThreatSignal[] = [
+      { ...identity, messageIds: ["b"] },
+      { ...replyTo, messageIds: ["b"] },
+    ];
+    expect(senderVerdict(withMessages(signals), stranger).heldMessageIds).toEqual(["b"]);
+  });
+
+  it("combines an address signal with one message's own evidence", () => {
+    const signals: ThreatSignal[] = [lookalike, { ...lure, messageIds: ["c"] }];
+    const verdict = senderVerdict(withMessages(signals), stranger);
+    expect(verdict.tier).toBe("hold");
+    expect(verdict.heldMessageIds).toEqual(["c"]);
+  });
+
+  it("holds nothing when the evidence is spread across different messages", () => {
+    const signals: ThreatSignal[] = [
+      { ...identity, messageIds: ["a"] },
+      { ...replyTo, messageIds: ["b"] },
+    ];
+    const verdict = senderVerdict(withMessages(signals), stranger);
+    expect(verdict.tier).toBe("hold");
+    expect(verdict.heldMessageIds).toEqual([]);
+  });
+});

@@ -139,14 +139,20 @@ export function observeSenders(ledger: SenderLedger, senders: SenderSummary[]): 
 export function identityChanges(entry: SenderLedgerEntry | undefined, sender: SenderSummary): ThreatSignal[] {
   if (!isFamiliar(entry)) return [];
   const fromDomain = senderDomain(sender);
-  const found = new Set<string>();
+  const found = new Map<string, string[]>(); // new domain -> message ids
+  const note = (domain: string, id: string) => found.set(domain, [...(found.get(domain) ?? []), id]);
   for (const message of sender.messages) {
     const dkim = message.dkimDomains ?? [];
     if (entry.dkim.known.length > 0 && dkim.length > 0 && !dkim.some((d) => entry.dkim.known.includes(d))) {
-      found.add(dkim[0]);
+      note(dkim[0], message.id);
     }
     const replyTo = foreignReplyTo(message.replyToDomain, fromDomain);
-    if (replyTo && !entry.replyTo.known.includes(replyTo)) found.add(replyTo);
+    if (replyTo && !entry.replyTo.known.includes(replyTo)) note(replyTo, message.id);
   }
-  return [...found].map((domain) => ({ kind: "identity-change", brand: domain, confidence: "medium" }));
+  return [...found].map(([domain, messageIds]) => ({
+    kind: "identity-change",
+    brand: domain,
+    confidence: "medium",
+    messageIds: [...new Set(messageIds)],
+  }));
 }

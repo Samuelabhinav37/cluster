@@ -79,13 +79,24 @@ function hasUnsubscribe(info: UnsubscribeInfo): boolean {
 }
 
 // Union `incoming` into `existing` in place, keyed by kind+brand so re-scoring
-// the same sender never double-records a signal.
+// the same sender never double-records a signal. Message ids are unioned too;
+// a signal with no ids (about the address itself) stays that way.
 function mergeSignals(existing: ThreatSignal[], incoming: ThreatSignal[]) {
   for (const signal of incoming) {
-    if (!existing.some((s) => s.kind === signal.kind && s.brand === signal.brand)) {
+    const match = existing.find((s) => s.kind === signal.kind && s.brand === signal.brand);
+    if (!match) {
       existing.push(signal);
+    } else if (match.messageIds && signal.messageIds) {
+      match.messageIds = [...new Set([...match.messageIds, ...signal.messageIds])];
+    } else {
+      delete match.messageIds;
     }
   }
+}
+
+/** Tags per-message signals with the message they came from. */
+function fromMessage(signals: ThreatSignal[], id: string): ThreatSignal[] {
+  return signals.map((signal) => ({ ...signal, messageIds: [id] }));
 }
 
 // Keep the most alarming verdict per mechanism across all of a sender's
@@ -143,15 +154,13 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     if (meta.fromDisplayName !== existing.displayName) {
       mergeSignals(existing.threatSignals, scoreSenderIdentity(meta));
     }
-    // DMARC alignment is per-message, so keep checking until one message from
-    // this sender trips it (then stop -- one is enough to flag).
-    if (!existing.threatSignals.some((s) => s.kind === "failed-authentication")) {
-      const authSignal = scoreMessageAuthentication(meta);
-      if (authSignal) existing.threatSignals.push(authSignal);
-    }
+    // DMARC alignment is per-message, so check every message: each failing
+    // one is recorded, so a hold can take just those messages.
+    const authSignal = scoreMessageAuthentication(meta);
+    if (authSignal) mergeSignals(existing.threatSignals, fromMessage([authSignal], meta.id));
     // Per-message context signals (lure subject, redirected Reply-To) -- union
     // anything new, deduped by kind+brand.
-    mergeSignals(existing.threatSignals, scoreMessageContext(meta));
+    mergeSignals(existing.threatSignals, fromMessage(scoreMessageContext(meta), meta.id));
     mergeVerdicts(existing.authVerdicts, parseAuthenticationResults(meta.authenticationResults));
   } else {
     const authSignal = scoreMessageAuthentication(meta);
@@ -163,8 +172,8 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
       count: 1,
       threatSignals: [
         ...scoreSenderIdentity(meta),
-        ...(authSignal ? [authSignal] : []),
-        ...scoreMessageContext(meta),
+        ...fromMessage(authSignal ? [authSignal] : [], meta.id),
+        ...fromMessage(scoreMessageContext(meta), meta.id),
       ],
       authVerdicts: parseAuthenticationResults(meta.authenticationResults),
       firstContact: false,

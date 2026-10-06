@@ -85,14 +85,16 @@ describe("identityChanges", () => {
     const entry = establishedLedger()["gmail:billing@acme.com"];
     const now = sender([msg(70, { dkimDomains: ["acme-payments.net"] })]);
     expect(identityChanges(entry, now)).toEqual([
-      { kind: "identity-change", brand: "acme-payments.net", confidence: "medium" },
+      { kind: "identity-change", brand: "acme-payments.net", confidence: "medium", messageIds: [now.messages[0].id] },
     ]);
   });
 
   it("flags a familiar sender suddenly asking for replies at another domain (hijacked thread)", () => {
     const entry = establishedLedger()["gmail:billing@acme.com"];
     const now = sender([msg(70, { dkimDomains: ["acme.com"], replyToDomain: "gmail.com" })]);
-    expect(identityChanges(entry, now)).toEqual([{ kind: "identity-change", brand: "gmail.com", confidence: "medium" }]);
+    expect(identityChanges(entry, now)).toEqual([
+      { kind: "identity-change", brand: "gmail.com", confidence: "medium", messageIds: [now.messages[0].id] },
+    ]);
   });
 
   it("keeps warning while the new domain is only pending", () => {

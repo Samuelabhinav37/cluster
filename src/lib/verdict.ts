@@ -19,6 +19,8 @@
 //    one "floor" signal that is decisive alone: a domain on a known-bad list,
 //    or a brand claim sent from a free email account.
 // 4. Warn at the warn score. Below that, nothing.
+// 5. Holds are per message (heldMessageIds): each message is judged on the
+//    signals about the sender's address plus its own, with rules 1 to 3.
 //
 // Reasons are fixed, plain sentences, strongest first. Callers show the top
 // three (MAX_REASONS).
@@ -45,6 +47,10 @@ export interface Verdict {
   trustReasons: Reason[];
   /** The signals that counted, after rule 1. */
   signals: ThreatSignal[];
+  /** Messages that reach "hold" on their own evidence: the signals about the
+   * sender's address plus the ones about that message. All of them when the
+   * hold rests on the address (a lookalike, a list hit). */
+  heldMessageIds: string[];
 }
 
 export interface VerdictContext {
@@ -161,14 +167,26 @@ export function senderVerdict(sender: SenderSummary, context: VerdictContext): V
     });
   }
 
-  const score = signals.length > 0 ? senderRiskScore(signals) + adjustment : 0;
-  const kinds = new Set(signals.map((s) => s.kind));
-  const decisive = signals.some((s) => FLOOR_KINDS.has(s.kind)) || kinds.size >= 2;
-  const tier: VerdictTier = score >= HOLD_SCORE && decisive ? "hold" : score >= WARN_SCORE ? "warn" : "none";
-
+  const { tier, score } = judge(signals, adjustment);
   const reasons = signals
     .map((signal) => ({ kind: signal.kind, text: reasonText(signal), points: signalPoints(signal) }))
     .sort((a, b) => b.points - a.points);
 
-  return { tier, score, reasons, trustReasons, signals };
+  // Each message is judged on the signals about the sender's address plus
+  // its own, so a hold takes only the messages that earn it: one hijacked
+  // email from a supplier, not the supplier's whole history.
+  const heldMessageIds = sender.messageIds.filter((id) => {
+    const own = signals.filter((s) => !s.messageIds || s.messageIds.includes(id));
+    return judge(own, adjustment).tier === "hold";
+  });
+
+  return { tier, score, reasons, trustReasons, signals, heldMessageIds };
+}
+
+function judge(signals: ThreatSignal[], adjustment: number): { tier: VerdictTier; score: number } {
+  const score = signals.length > 0 ? senderRiskScore(signals) + adjustment : 0;
+  const kinds = new Set(signals.map((s) => s.kind));
+  const decisive = signals.some((s) => FLOOR_KINDS.has(s.kind)) || kinds.size >= 2;
+  const tier: VerdictTier = score >= HOLD_SCORE && decisive ? "hold" : score >= WARN_SCORE ? "warn" : "none";
+  return { tier, score };
 }
