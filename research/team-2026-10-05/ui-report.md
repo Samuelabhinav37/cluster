@@ -824,3 +824,123 @@ Changes to the component spec from v2:
 - 3.14 Category row: the "Then" cell is a select on 4 categories and fixed "Keep" text on the
   rest. A Trash choice always opens the inline confirm. The status rule is the one in M5.
 - 3.2 Shell: line icons, not emoji, in the sidebar (C-9).
+
+
+---
+
+## v3 (after the owner rejected v2)
+
+_The owner's verdict on v2: "Too bulky. Remove the purple gradient style at the back. Use actual
+icons. Check how we redesigned Moat and take things from it. Redesign the whole layout: the
+grouping is not good. Make it more professional." That overrides "keep Apple glass v3" and the
+manager's purple decision (C-4). The new file is `mockup-v3.html`. v1 and v2 are unchanged.
+Screenshots are in `v3-shots/`._
+
+### What was taken from Moat (`C:\Users\samue\projects\moat`)
+
+| Taken | Moat source | In v3 |
+|---|---|---|
+| Colour tokens, dark and light: page, panel, panel-2/3, line, line-2, switch-off, one blue | `src/options/options.html:17-50` (dark), `:53-87` (light); `src/ui/theme.css:1-32` (fg, muted, danger, caution) | `:root` and `:root[data-theme="light"]`. Light page `#f6f5f8`, panel `#fff`, line `#e2dfe7`, blue `#3563c7`. Dark page `#141317`, panel `#1b191d`, line `#2e2b33`, blue `#3f6fd1` |
+| One global `[hidden] { display:none !important }` | `options.html:89-91` | Same. This also fixes the bug class behind the always-open Options strip |
+| Top bar with the menu button beside the logo and search in the middle | `options.html:1611-1629` (topbar), `:3796-3839` (`.nav-toggle`) | Same layout. Search covers senders, categories and settings |
+| Grouped left rail, 248 px, with plain group headers (12.5 px, weight 600, muted, not uppercase) | `options.html:1630-1646` | Same width and header style |
+| Calm icon tiles: every glyph sits on the same neutral 28 px tile, only the current one is blue, and a red dot appears only for a real alert | `options.html:1689-1724` | Same. The red dot sits only on Phishing |
+| A separator before the bottom items | `options.html:3840-3844` (`.nav-sep`) | Above Activity, Settings and Help |
+| Three nav modes: full at 1,100 px and up, an icon rail from 720 to 1,099 px with hover tips, and a drawer under 720 px. The menu button folds the full rail and the choice is remembered | `src/options/navMode.ts:11-21`, `:47-160`; CSS `options.html:3846-3907` | Same breakpoints and behaviour (fold, overlay, Esc, scrim) |
+| KPI cards: label, value, change vs last week, trend line | `src/options/overviewView.ts` (`changePercent`); CSS `options.html:2248-2298` | Same anatomy. The owner's rules apply on top: a flat panel (Moat's dark card uses a `--kpi-fade` gradient), a faint grey line, and no icons |
+| Status strip at the top of Overview | `options.html:1805-1823` (`.ov-status`) | A neutral panel with a small green dot. Moat's green background is dropped |
+| Segmented control | `options.html:1834-1857` (`.ov-period`) | Used for the period, sender filters, the Activity filter and the theme |
+| Brand logos from Simple Icons 16.33.0 (CC0), bundled and never fetched | `src/options/brandIcons.ts:1-7`, `:39` | 18 inline marks, including Groupon, Medium, Duolingo, DoorDash, Substack, Spotify, Strava, Uber, GitHub, Coursera, Netflix, PayPal, Google and Figma. Amazon and LinkedIn are not in Simple Icons (LinkedIn asked to be removed, as Moat's file notes), so they get a letter tile |
+| A letter tile when there's no icon | `src/options/siteIcon.ts:18` (`siteInitial`) | Same, for unknown senders such as Priya Raman and Old Navy |
+| Switch: 36 × 20, blue when on | `src/ui/components.css:1-15`, `:76-125` | Same |
+| A toast with Undo | `options.html:1543-1600` | Kept Cluster's version: bottom left, up to 3, 10 s, pauses on hover or focus |
+
+`navTiles.ts`, named in the request, does not exist. The tile rules live in
+`options.html:1689-1724` and are checked by `navTiles.test.ts`.
+
+### Grouping
+
+```
+Overview
+Organize   Sorting · Senders · Subscriptions
+Clean up   Suggestions · Storage
+Protect    Phishing · Screener
+──────────
+Activity · Settings · Help
+```
+
+Why this split, mapped to the UX report's jobs (UX §1):
+
+- **Organize means deciding where future mail goes.** Job 3 (keep routine mail out) is Sorting.
+  Job 2 (stop a sender) is Senders. Subscriptions is the list people ask for by name, and Gmail
+  has its own "Manage subscriptions" list. It reuses the Senders row and the same sender sheet,
+  so there is still one place per sender. Only the entry point differs.
+- **Clean up means clearing what's already there.** This is Job 1. It is its own group because it
+  is the only place that moves mail to Trash. The item is called "Suggestions" so "Clean up" is
+  not both a group and an item; the sync note §2.2 F flagged five overlapping uses of that phrase.
+  Storage gives "older than 1 year", "over 2 MB" and "by website" a home instead of loose chips.
+- **Protect means who and what reaches you.** Job 6 (Phishing) and Job 7 (Screener). Both are
+  about letting someone in or keeping them out. This **reverses decision C-5** (Screener inside
+  Senders). The owner asked for a new grouping, and a Screener chip inside Senders mixed new people
+  with bulk mail. Overview still shows "3 new senders are waiting", and Screener has a nav count.
+- **Activity, Settings and Help sit at the bottom.** These cover jobs 4 and 8. They are utilities,
+  not daily work, so they sit under a divider as in Moat. Settings is a labelled item and a real
+  page.
+- **Overview** answers job 5 ("is it working?") with the status strip and KPIs, plus "Needs you".
+  It replaces "Today". The owner and Moat both use "Overview".
+
+### Other v3 changes
+
+- **No gradients, glass, blur or ambient background.** Panels are flat with a 1 px line. Shadows
+  appear only on floating layers (sheet, popover, bulk bar, toast).
+- **One blue accent.** It appears only on the current nav tile, switches, checked boxes, progress
+  bars, the one primary button on a page, and links. Red, amber and green appear only as small
+  dots or chips. Red marks high risk and Trash confirms. Amber marks "Moves out only while Chrome
+  is open". Green marks "Works with Chrome closed" and "Up to date".
+- **Line icons** in Lucide style, 1.5 px (1.75 px in nav tiles, as in Moat). Settings has a real
+  gear, not the sun-like glyph of the current build.
+- **Type scale:** 12, 13, 14, 15, 17 and 30 px. Page titles are 30 px bold. There are no uppercase
+  eyebrows.
+- **Density.** Rows are 48 to 52 px. Card padding is 16 to 20 px. The page is at most 1,120 px
+  wide. The Sorting table fits all 11 categories on one screen at 1440 × 900.
+- **Sorting keeps every v2 rule.** Defaults:
+  - codes 1 day
+  - receipts 7 days
+  - shipping 7 days
+  - newsletters 3 days
+  - social 2 days
+  - promotions 1 day
+  - shopping 3 days
+  - the rest stay in the inbox
+
+  "Then" appears only on 4 categories and defaults to Keep. A Trash choice opens an inline
+  confirm. "Leaves at once" is offered for Promotions only. The status rule is unchanged. When the
+  card is narrower than 860 px, a container query turns the table into stacked rows.
+- **Status pill in the top bar.** States: "Up to date · 2 min ago", "Reading your mail… 4,180 of
+  18,412", Checking, Offline and Signed out. The all-mail backfill also shows as a progress strip
+  on Overview and in Settings → Sync.
+- **Theme.** It follows the system by default. A sun or moon button in the top bar and Settings →
+  Appearance (System, Light, Dark) override it. The choice is stored and applied before first
+  paint, as Moat's `theme-boot.js` does.
+- **Every v2 function is still reachable:**
+  - pending rows, with Retry on error
+  - toasts with Undo (Ctrl/⌘+Z)
+  - the sender sheet, with focus trap and inline Trash confirm
+  - the bulk bar
+  - the preset card
+  - "Sort mail already in my inbox…" with progress and Stop
+  - custom rules
+  - Settings as a page
+
+  New in v3: working Subscriptions, Suggestions (with an outcome button and confirm), Screener,
+  Phishing, Activity and Help pages. Storage is still a placeholder.
+
+Checked in headless Chrome at 1440 × 900 (light and dark), 1024 × 768 (icon rail) and 390 × 844
+(drawer). No page scrolls sideways at 390 px. Screenshots: `v3-shots/overview-light.png`,
+`sorting-light.png`, `senders-sheet-light.png` and `overview-dark.png`, plus
+`sorting-1024-icon-rail.png` and `drawer-390.png`.
+
+**v3 follow-up (2026-10-06).** Category emoji are gone from the dashboard. The Sorting rows, the
+sender chips and the sender sheet now use line icons from the same set as the nav. The emoji stay
+only where the text names a real Gmail label, such as the phishing toast and the custom-rule
+example, because those label names do carry the emoji since Phase 1.
