@@ -64,7 +64,7 @@ void getDataset<string[]>("spamDomains", []).then((extra) => {
 /** Called by the background alarm on a schedule (see background.ts) -- never
  * from the interactive scan path. Returns whether the cache changed. */
 export async function refreshSpamList(): Promise<boolean> {
-  const updated = await refreshDataset("spamDomains", "spamDomains.json", isValidDomainList);
+  const updated = await refreshDataset("spamDomains", "spamDomains.json", isValidDomainList, "block");
   if (updated) {
     const extra = await getDataset<string[]>("spamDomains", []);
     if (isValidDomainList(extra)) defaultSpamList = createSpamList([...bundledDomains, ...extra]);

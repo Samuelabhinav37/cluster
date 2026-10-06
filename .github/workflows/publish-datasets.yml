@@ -43,6 +43,14 @@ jobs:
           jq '.domains' src/lib/data/malwareDomains.generated.json > dist-pages/malwareDomains.json
           jq '.domains' src/lib/data/spamDomains.generated.json > dist-pages/spamDomains.json
 
+      # Ed25519 signature beside each file (<file>.sig). The extension takes
+      # the brand allow-list only when it verifies, and the block lists too
+      # once DATASET_PUBLIC_KEY is set. See scripts/sign-datasets.mjs.
+      - name: Sign the datasets
+        env:
+          CLUSTER_DATASET_SIGNING_KEY: ${{ secrets.CLUSTER_DATASET_SIGNING_KEY }}
+        run: node scripts/sign-datasets.mjs dist-pages
+
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

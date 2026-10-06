@@ -1,3 +1,5 @@
+import { isDatasetTrusted, verifyDatasetSignature, type DatasetTrust } from "./datasetSignature";
+import { DATASET_PUBLIC_KEY } from "./datasetSigningKey";
 import { log } from "./log";
 
 // Cluster's own GitHub Pages -- the one external host this project talks to
@@ -19,8 +21,10 @@ interface CachedDataset<T> {
   fetchedAt: number;
 }
 
+// v2: caches written before signature checks existed are ignored, so an
+// unsigned allow-list fetched by an older build can't outlive the update.
 function storageKeyFor(name: string): string {
-  return `remoteDataset:${name}`;
+  return `remoteDataset:v2:${name}`;
 }
 
 // This module is imported transitively by most of src/lib (threatSignals,
@@ -50,27 +54,47 @@ export async function getDataset<T>(name: string, fallback: T): Promise<T> {
   return cached?.data ?? fallback;
 }
 
+async function fetchSignature(path: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${DATASET_BASE_URL}/${path}.sig`);
+    return response.ok ? await response.text() : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Fetches the published dataset for `name` from `${DATASET_BASE_URL}/{path}`
- * and updates its cache if the response is present and passes `isValid`.
- * Meant to be called by the background alarm on a schedule -- never by
- * anything on the interactive scan path, so a slow or failed fetch is never
- * user-visible. Never throws: a failed fetch just leaves the existing cache
- * (or the bundled fallback) in place. Returns whether the cache changed.
+ * and updates its cache if the response is present, its Ed25519 signature
+ * (`{path}.sig`) satisfies `trust` (see datasetSignature.ts), and it passes
+ * `isValid`. Meant to be called by the background alarm on a schedule --
+ * never by anything on the interactive scan path, so a slow or failed fetch
+ * is never user-visible. Never throws: a failed fetch or a rejected signature
+ * just leaves the existing cache (or the bundled fallback) in place. Returns
+ * whether the cache changed.
  */
 export async function refreshDataset<T>(
   name: string,
   path: string,
   isValid: (data: unknown) => data is T,
+  trust: DatasetTrust,
+  publicKeyB64: string = DATASET_PUBLIC_KEY,
 ): Promise<boolean> {
   if (!hasChromeStorage()) return false;
+  // An allow-list is only ever taken signed. With no key there is nothing to
+  // check against, so don't fetch it at all.
+  if (trust === "allow" && !publicKeyB64) return false;
   const cached = await readCache<T>(name);
   if (cached && Date.now() - cached.fetchedAt < MIN_REFRESH_INTERVAL_MS) return false;
 
   try {
     const response = await fetch(`${DATASET_BASE_URL}/${path}`);
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-    const data: unknown = await response.json();
+    const bytes = await response.arrayBuffer();
+    const signature = publicKeyB64 ? await fetchSignature(path) : null;
+    const sigResult = await verifyDatasetSignature(bytes, signature, publicKeyB64);
+    if (!isDatasetTrusted(sigResult, trust)) throw new Error(`dataset "${name}" signature: ${sigResult}`);
+    const data: unknown = JSON.parse(new TextDecoder().decode(bytes));
     if (!isValid(data)) throw new Error(`unexpected shape for dataset "${name}"`);
     const key = storageKeyFor(name);
     const entry: CachedDataset<T> = { data, fetchedAt: Date.now() };

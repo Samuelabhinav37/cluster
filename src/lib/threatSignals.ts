@@ -105,8 +105,9 @@ void getDataset<Record<string, string[]>>("brandDomains", {}).then((patch) => {
 
 /** Called by the background alarm on a schedule (see background.ts) -- never
  * from the interactive scan path. Returns whether the cache changed. */
-export async function refreshBrandDomains(): Promise<boolean> {
-  const updated = await refreshDataset("brandDomains", "brandDomains.json", isValidBrandDomainsPatch);
+export async function refreshBrandDomains(publicKeyB64?: string): Promise<boolean> {
+  // An allow-list: only a signed copy is taken (see datasetSignature.ts).
+  const updated = await refreshDataset("brandDomains", "brandDomains.json", isValidBrandDomainsPatch, "allow", publicKeyB64);
   if (updated) {
     const patch = await getDataset<Record<string, string[]>>("brandDomains", {});
     if (isValidBrandDomainsPatch(patch)) BRAND_DOMAINS = mergeBrandDomains(patch);

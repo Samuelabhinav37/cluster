@@ -48,7 +48,7 @@ void getDataset<string[]>("malwareDomains", []).then((extra) => {
 /** Called by the background alarm on a schedule (see background.ts) -- never
  * from the interactive scan path. Returns whether the cache changed. */
 export async function refreshMalwareBlocklist(): Promise<boolean> {
-  const updated = await refreshDataset("malwareDomains", "malwareDomains.json", isValidDomainList);
+  const updated = await refreshDataset("malwareDomains", "malwareDomains.json", isValidDomainList, "block");
   if (updated) {
     const extra = await getDataset<string[]>("malwareDomains", []);
     if (isValidDomainList(extra)) defaultBlocklist = createBlocklist([...bundledDomains, ...extra]);

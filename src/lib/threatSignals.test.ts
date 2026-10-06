@@ -416,33 +416,50 @@ describe("refreshBrandDomains", () => {
     vi.unstubAllGlobals();
   });
 
+  async function signedServer() {
+    const pair = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
+    const spki = new Uint8Array(await crypto.subtle.exportKey("spki", pair.publicKey));
+    const publicKeyB64 = btoa(String.fromCharCode(...spki.subarray(12)));
+    const serve = async (patch: unknown) => {
+      const body = JSON.stringify(patch);
+      const sig = new Uint8Array(await crypto.subtle.sign("Ed25519", pair.privateKey, new TextEncoder().encode(body)));
+      const sigB64 = btoa(String.fromCharCode(...sig));
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string) => new Response(url.endsWith(".sig") ? sigB64 : body, { status: 200 })),
+      );
+    };
+    return { publicKeyB64, serve };
+  }
+
+  it("never takes an unsigned brand list, which could silence an impersonation warning", async () => {
+    const fromNewDomain = message({ fromDisplayName: "PayPal", fromAddress: "notice@paypal-extra.example" });
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ paypal: ["paypal-extra.example"] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await refreshBrandDomains("")).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(scoreMessageForThreats(fromNewDomain)).toContainEqual(
+      expect.objectContaining({ kind: "brand-impersonation", brand: "paypal" }),
+    );
+  });
+
   it("merges additional domains for a known brand, and rejects a patch naming an unknown brand", async () => {
+    const { publicKeyB64, serve } = await signedServer();
     const fromNewDomain = message({ fromDisplayName: "PayPal", fromAddress: "notice@paypal-extra.example" });
     expect(scoreMessageForThreats(fromNewDomain)).toContainEqual(
       expect.objectContaining({ kind: "brand-impersonation", brand: "paypal" }),
     );
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(JSON.stringify({ paypal: ["paypal-extra.example"] }), { status: 200 })),
-    );
-    expect(await refreshBrandDomains()).toBe(true);
+    await serve({ paypal: ["paypal-extra.example"] });
+    expect(await refreshBrandDomains(publicKeyB64)).toBe(true);
     expect(scoreMessageForThreats(fromNewDomain)).toEqual([]);
 
     // A patch naming a brand outside the bundled base list is rejected
     // wholesale (isValidBrandDomainsPatch fails the whole object, not just
-    // the bad key) -- a bad publish can't smuggle in a new "trusted" brand.
+    // the bad key) -- even a signed publish can't smuggle in a new "trusted" brand.
     vi.setSystemTime(7 * 60 * 60 * 1000); // past the minimum refresh interval
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        new Response(
-          JSON.stringify({ paypal: ["paypal-extra-2.example"], "totally new brand": ["evil.example"] }),
-          { status: 200 },
-        ),
-      ),
-    );
-    expect(await refreshBrandDomains()).toBe(false);
+    await serve({ paypal: ["paypal-extra-2.example"], "totally new brand": ["evil.example"] });
+    expect(await refreshBrandDomains(publicKeyB64)).toBe(false);
     // The rejected patch's own addition never took effect either.
     expect(
       scoreMessageForThreats(message({ fromDisplayName: "PayPal", fromAddress: "x@paypal-extra-2.example" })),
