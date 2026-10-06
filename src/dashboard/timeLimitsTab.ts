@@ -40,6 +40,35 @@ export function limitChoicesFor(bucket: SortBucket) {
   return bucket === "promotions" ? LIMIT_CHOICES : LIMIT_CHOICES.filter((c) => c.hours !== 0);
 }
 
+/** How each choice reads inside "… stay in your inbox ___". */
+function sentenceLabel(choice: { label: string; hours: number | null }): string {
+  if (choice.hours === null) return "until you move them";
+  if (choice.hours === 0) return "not at all";
+  return `for ${choice.label}`;
+}
+
+/** What each kind of mail is, in plain words, after its name. */
+const BUCKET_HINT: Record<SortBucket, string> = {
+  otp: "sign-in and verification codes",
+  receipt: "orders, invoices, payments",
+  shipping: "tracking and delivery",
+  newsletter: "lists you subscribed to",
+  social: "LinkedIn, Strava and similar",
+  promotions: "sales and marketing",
+  shopping: "stores you buy from",
+  travel: "airlines, hotels, bookings",
+  finance: "banks, cards, statements",
+  productivity: "Slack, GitHub, Notion and similar",
+  education: "courses and school",
+};
+
+/** The end of the sentence, naming the real Gmail label. */
+function sentenceTail(hours: number | null, labelName: string): string {
+  if (hours === null) return `and get the ${labelName} label.`;
+  if (hours === 0) return `and go straight to the ${labelName} label.`;
+  return `then move to the ${labelName} label.`;
+}
+
 function choiceValue(hours: number | null): string {
   return hours === null ? "stay" : String(hours);
 }
@@ -69,16 +98,31 @@ export function renderTimeLimits(): void {
   const cfg = ctx.settings.autoSort;
   toggleEl.checked = cfg.timeLimitsEnabled;
   rowsEl.innerHTML = "";
+  // Each row reads as one sentence: "Promotions (sales and marketing) stay
+  // in your inbox [for 1 day] then move to the 🏷 Promotions label."
   for (const bucket of ALL_SORT_BUCKETS) {
-    const row = document.createElement("label");
-    row.className = "time-limit-row";
-    const name = document.createElement("span");
-    name.textContent = categoryLabelName(bucket, ctx.settings.labelChoices);
+    const labelName = categoryLabelName(bucket, ctx.settings.labelChoices);
+    const plainName = labelName.replace(/^\S+\s/, "");
+    const row = document.createElement("div");
+    row.className = "limit-row";
+    const name = document.createElement("b");
+    name.textContent = plainName;
+    const hint = document.createElement("span");
+    hint.className = "muted";
+    hint.textContent = ` (${BUCKET_HINT[bucket]}) `;
+    const verb = document.createTextNode("stay in your inbox ");
     const select = document.createElement("select");
     select.id = `time-limit-${bucket}`;
-    for (const choice of limitChoicesFor(bucket)) select.add(new Option(choice.label, choiceValue(choice.hours)));
+    select.setAttribute("aria-label", `${plainName}: how long they stay in your inbox`);
+    for (const choice of limitChoicesFor(bucket)) select.add(new Option(sentenceLabel(choice), choiceValue(choice.hours)));
     select.value = choiceValue(cfg.inboxHoursByBucket[bucket] ?? null);
-    row.append(name, select);
+    const tail = document.createElement("span");
+    tail.className = "limit-tail";
+    tail.textContent = ` ${sentenceTail(parseChoice(select.value), labelName)}`;
+    select.addEventListener("change", () => {
+      tail.textContent = ` ${sentenceTail(parseChoice(select.value), labelName)}`;
+    });
+    row.append(name, hint, verb, select, tail);
     rowsEl.appendChild(row);
   }
   lastRunEl.textContent =

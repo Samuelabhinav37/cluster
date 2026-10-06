@@ -221,11 +221,16 @@
               <div class="page-titles">
                 <h1 class="page-title">Clear out</h1>
                 <p class="lead">
-                  Everything here ends in Trash. Ranked by how you actually read mail, with one
-                  recommended action each — the rest are one tap deeper.
+                  Mail you can get rid of now, ranked by how you actually read it. It goes to Trash,
+                  and Gmail keeps Trash for 30 days, so you can change your mind.
                 </p>
               </div>
             </div>
+            <p class="trust-line">
+              <span>Starred and
+                <span class="term" tabindex="0">protected mail<span class="term-tip" role="tooltip">Receipts, bills, travel, codes you might still need, and anything from people you write to. Cluster never moves these to Trash.</span></span>
+                is skipped</span><span>Trash keeps it 30 days</span><span>Undo from Activity</span>
+            </p>
 
             <div id="suggested-metric-band"></div>
 
@@ -320,7 +325,10 @@
               <div class="page-titles">
                 <h1 class="page-title">Sorting</h1>
                 <p class="lead">
-                  Nothing here deletes anything — file, sort, mute, or unsubscribe instead.
+                  Choose how long each kind of mail stays in your inbox. After that it moves to its
+                  own
+                  <span class="term" tabindex="0">label<span class="term-tip" role="tooltip">Like a folder in Gmail. Mail with a label is out of your inbox, but it's still in search and in All Mail.</span></span>,
+                  where search still finds it. Nothing on this page deletes anything.
                 </p>
               </div>
             </div>
@@ -352,15 +360,21 @@
             </section>
 
             <section id="time-limits-section">
-              <h3 class="section-label">Inbox time limits</h3>
-              <p class="hint">
-                New mail stays in your inbox for this long, then moves into its label. Nothing is
-                deleted. Starred mail and mail from people you write to always stay. Gmail filters label
-                mail the moment it arrives, even with Chrome closed; moving it out happens every 15
-                minutes while Chrome is open. Gmail only for now.
+              <div class="section-head"><h2 class="section-label">How long mail stays in your inbox</h2></div>
+              <label class="toggle-card">
+                <span class="tc-text">
+                  <b>Move mail out of my inbox when its time is up</b>
+                  <span class="tc-sub">
+                    Starred mail and mail from people you write to always stay. Gmail only for now.
+                  </span>
+                </span>
+                <input type="checkbox" class="switch" role="switch" id="time-limits-toggle" />
+              </label>
+              <p class="note-strip">
+                New mail gets its label straight away, even with Chrome closed. Moving it out of your
+                inbox when its time is up happens every 15 minutes while Chrome is open.
               </p>
-              <label class="check-label"><input type="checkbox" id="time-limits-toggle" /> <span>Use inbox time limits</span></label>
-              <div id="time-limits-rows" class="time-limit-grid"></div>
+              <div id="time-limits-rows" class="limit-rows"></div>
               <div class="tidy-actions">
                 <button type="button" id="time-limits-save" class="btn btn-accent">Save time limits</button>
                 <button type="button" id="time-limits-backlog-btn" class="btn" hidden>Apply to mail already in my inbox…</button>
@@ -444,6 +458,13 @@
                 <p class="lead" id="senders-lead">
                   Every sender Cluster saw, heaviest first. Nothing here is acted on until you say so.
                 </p>
+                <p class="lead">
+                  Two ways to stop a sender:
+                  <span class="term" tabindex="0">Unsubscribe<span class="term-tip" role="tooltip">Cluster asks the sender to take you off their list. Most stop within a few days. Some ignore it, so you can also mute them.</span></span>
+                  asks them to stop, and
+                  <span class="term" tabindex="0">Mute<span class="term-tip" role="tooltip">Their new mail skips your inbox and goes to the Muted label. They can still email you, and you can unmute any time.</span></span>
+                  hides their mail even if they don't.
+                </p>
               </div>
             </div>
 
@@ -469,8 +490,10 @@
               <div class="page-titles">
                 <h1 class="page-title">Subscriptions</h1>
                 <p class="lead">
-                  Mailing lists, grouped by how often they arrive. Cluster only uses a verified
-                  one-click unsubscribe — it never fills in a form on your behalf.
+                  Mailing lists you're on, grouped by how often they arrive. Cluster only presses a
+                  sender's
+                  <span class="term" tabindex="0">verified unsubscribe<span class="term-tip" role="tooltip">A standard unsubscribe link the sender has signed, so Cluster can press it for you safely. It never fills in a form for you.</span></span>
+                  link.
                 </p>
               </div>
             </div>

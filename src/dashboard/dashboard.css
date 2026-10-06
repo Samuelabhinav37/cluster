@@ -2447,7 +2447,7 @@ input.switch:disabled {
   color: var(--label-4);
 }
 
-.trust-line span::before {
+.trust-line > span::before {
   content: "✓";
   margin-right: 6px;
   color: var(--success-text);
@@ -2616,5 +2616,58 @@ input.switch:disabled {
   font: 400 13px/1.4 var(--font);
   color: var(--label-4);
   overflow-wrap: anywhere;
+}
+
+/* ══ v4 Organize pages (stage 3) ══════════════════════════════════════════ */
+
+.note-strip {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--glass);
+  font: 400 13.5px/1.45 var(--font);
+  color: var(--label-3);
+}
+
+.limit-rows {
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-list);
+  background: var(--glass);
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.limit-row {
+  padding: 12px 16px;
+  border-top: 1px solid var(--separator);
+  font: 400 15px/2.1 var(--font);
+  color: var(--label);
+}
+
+.limit-row:first-child {
+  border-top: 0;
+}
+
+.limit-row b {
+  font-weight: 650;
+}
+
+.limit-row .muted {
+  color: var(--label-4);
+}
+
+.limit-row select {
+  display: inline-block;
+  width: auto;
+  min-height: 0;
+  height: 32px;
+  margin: 0 2px;
+  padding: 0 10px;
+  vertical-align: baseline;
+}
+
+#time-limits-section:has(#time-limits-toggle:not(:checked)) .limit-row {
+  color: var(--label-4);
 }
 
