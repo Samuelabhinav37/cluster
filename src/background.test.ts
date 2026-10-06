@@ -179,23 +179,25 @@ describe("alarm routing", () => {
 
   it("the triage alarm resurfaces due snoozes and starts a triage pass", async () => {
     alarmListener!({ name: "cluster-triage" });
-    expect(resurfaceDueSnoozed).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(resurfaceDueSnoozed).toHaveBeenCalledTimes(1));
     await settleTriage();
   });
 
-  it("the athena alarm flushes queued events and nothing else", () => {
+  it("the athena alarm flushes queued events and nothing else", async () => {
     alarmListener!({ name: "cluster-athena-flush" });
-    expect(flushAthenaSecurityEvents).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(flushAthenaSecurityEvents).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(resurfaceDueSnoozed).not.toHaveBeenCalled();
   });
 
-  it("the jobs alarm resumes interrupted durable jobs", () => {
+  it("the jobs alarm resumes interrupted durable jobs", async () => {
     alarmListener!({ name: "cluster-jobs" });
-    expect(resumeInterruptedJobs).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(resumeInterruptedJobs).toHaveBeenCalledTimes(1));
   });
 
-  it("ignores an unknown alarm name", () => {
+  it("ignores an unknown alarm name", async () => {
     alarmListener!({ name: "something-else" });
+    await new Promise((resolve) => setTimeout(resolve, 0)); // let the routing run
     expect(resurfaceDueSnoozed).not.toHaveBeenCalled();
     expect(flushAthenaSecurityEvents).not.toHaveBeenCalled();
     expect(resumeInterruptedJobs).not.toHaveBeenCalled();

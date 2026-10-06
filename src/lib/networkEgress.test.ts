@@ -56,6 +56,7 @@ const ALLOWED_FETCH_CALLERS = [
   "lib/athenaIntegration.ts", // managed-policy Athena URL, opt-in only
   "lib/httpRetry.ts", // the shared wrapper every fixed-endpoint API call flows through
   "lib/providers/msalAuth.ts", // login.microsoftonline.com token endpoint
+  "lib/publicSuffix.ts", // the extension's own bundled data file (chrome.runtime.getURL), never the network
   "lib/remoteDataset.ts", // Cluster's own published reference datasets -- see its header comment
   "lib/unsubscribe.ts", // user-approved unsubscribe origin, one click at a time
 ];

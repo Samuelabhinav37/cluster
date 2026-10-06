@@ -32,7 +32,9 @@ function makeFetchImpl(real: typeof fetch): typeof fetch {
 
 function unsubscribeCalls(fetchImpl: typeof fetch) {
   return (fetchImpl as ReturnType<typeof vi.fn>).mock.calls.filter(
-    (call: unknown[]) => !String(call[0]).includes("googleapis.com"),
+    // Gmail API calls and the dashboard's startup load of its own bundled
+    // Public Suffix List file aren't unsubscribe requests.
+    (call: unknown[]) => !String(call[0]).includes("googleapis.com") && !String(call[0]).endsWith("public-suffix.json"),
   );
 }
 

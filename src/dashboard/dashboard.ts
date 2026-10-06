@@ -15,6 +15,7 @@ import {
 import { buildDigestInput, checkDigestAvailability, generateDigest } from "../lib/aiDigest";
 import { aiVerdictAllowed, checkMessageKindAiAvailability, classifyOtherSubjects } from "../lib/aiMessageKind";
 import { DOMAIN_CATEGORY_LABELS, type DomainCategory } from "../lib/domainCategories";
+import { loadPublicSuffixList } from "../lib/publicSuffix";
 import { buildDomainGroups, type DomainGroup } from "../lib/domainGrouping";
 import {
   buildExpiryBuckets,
@@ -424,7 +425,9 @@ function wireThemeSelect() {
 
 async function main() {
   statusEl.textContent = "Connecting…";
-  ctx.settings = await getSettings();
+  // Domain matching needs the Public Suffix List (a local file, quick to load).
+  const [settings] = await Promise.all([getSettings(), loadPublicSuffixList()]);
+  ctx.settings = settings;
   applyTheme(ctx.settings.theme);
   wireThemeSelect();
   wireNav();

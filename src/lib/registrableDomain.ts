@@ -9,6 +9,8 @@
 // independent-but-equivalent versions can't drift, and the one real gap
 // (rules.ts) gets the same correct behaviour for free.
 
+import { registrableDomainOf } from "./publicSuffix";
+
 export function normalizeDomain(value: string): string {
   return value.trim().toLowerCase().replace(/^www\./, "").replace(/\.$/, "");
 }
@@ -23,19 +25,31 @@ export function isSameOrSubdomain(domain: string, candidate: string): boolean {
   return a === b || a.endsWith(`.${b}`);
 }
 
-/** `domain` and each of its parent domains, most specific first, stopping
- * before the bare TLD so a set that happened to contain e.g. "com" could
- * never match everything: mail.evil.example -> ["mail.evil.example",
- * "evil.example"]. Empty array for an empty/unparseable domain. */
+/** `domain` and each of its parent domains, most specific first, stopping at
+ * the registrable domain (publicSuffix.ts) so a set that happened to contain
+ * a public suffix like "com" or "co.uk" could never match everything:
+ * mail.evil.co.uk -> ["mail.evil.co.uk", "evil.co.uk"]. Before the suffix
+ * list has loaded this stops before the bare TLD instead. A domain that is
+ * itself a public suffix yields just itself. Empty array for an empty domain. */
 export function registrableDomainCandidates(domain: string): string[] {
   const normalized = normalizeDomain(domain);
   if (!normalized) return [];
+  const registrable = registrableDomainOf(normalized);
+  if (!registrable) return [normalized];
   const labels = normalized.split(".");
+  const stop = labels.length - registrable.split(".").length;
   const candidates = [normalized];
-  for (let i = 1; i < labels.length - 1; i++) {
+  for (let i = 1; i <= stop; i++) {
     candidates.push(labels.slice(i).join("."));
   }
   return candidates;
+}
+
+/** The registrable domain of `domain` (example.co.uk for mail.example.co.uk),
+ * or the normalized domain itself when it is a public suffix. */
+export function registrableDomain(domain: string): string {
+  const normalized = normalizeDomain(domain);
+  return registrableDomainOf(normalized) ?? normalized;
 }
 
 /** True if `domain` or any parent of it is a member of `set` (already-

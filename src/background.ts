@@ -25,6 +25,7 @@ import { loadMetadataCache, saveMetadataCache } from "./lib/metadataCache";
 import { resumeInterruptedJobs } from "./lib/durableJobs";
 import { updateEngagementObservations } from "./lib/engagementModel";
 import { getRuleCompletionKeys, recordRuleCompletions } from "./lib/ruleCompletionLedger";
+import { loadPublicSuffixList } from "./lib/publicSuffix";
 
 async function openDashboard() {
   const url = chrome.runtime.getURL("src/dashboard/index.html");
@@ -78,6 +79,12 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
+  // Domain matching needs the Public Suffix List. It's a local file and
+  // loads once per service-worker start, so waiting for it is quick.
+  void loadPublicSuffixList().then(() => handleAlarm(alarm));
+});
+
+function handleAlarm(alarm: chrome.alarms.Alarm): void {
   if (alarm.name === TRIAGE_ALARM) {
     resurfaceDueSnoozed(gmailProvider).catch((err) => log.error("Resurfacing snoozed mail failed", err));
     runBackgroundTriage();
@@ -88,7 +95,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
   if (alarm.name === DATASET_ALARM) void refreshPublicDatasets();
   if (alarm.name === INBOX_LIMITS_ALARM) void runInboxTimeLimitsIfQuota();
-});
+}
 
 async function runInboxTimeLimitsIfQuota(): Promise<void> {
   try {
