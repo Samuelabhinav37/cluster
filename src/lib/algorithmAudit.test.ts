@@ -187,7 +187,8 @@ describe("phishing / threat scoring", () => {
   });
 
   // False positives.
-  it.fails("KNOWN BUG: real Facebook mail (facebookmail.com, DMARC pass) is flagged as impersonation", () => {
+  // Fixed: facebookmail.com is now on Facebook's brand list.
+  it("real Facebook mail (facebookmail.com, DMARC pass) isn't flagged as impersonation", () => {
     expect(threats({ fromAddress: "notification@facebookmail.com", fromDisplayName: "Facebook" })).toEqual([]);
   });
   it.fails("KNOWN BUG: a person named Chase on gmail.com is scored HIGH risk as a Chase-bank claim", () => {

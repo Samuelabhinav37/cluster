@@ -5,7 +5,7 @@
 import { log } from "../lib/log";
 import { findBlocklistedLinkTargets, findMismatchedLinks } from "../lib/linkMismatch";
 import { isBlockedDomain } from "../lib/blocklist";
-import { MAX_REASONS, senderVerdict, type Verdict, type VerdictTier } from "../lib/verdict";
+import { brandName, MAX_REASONS, senderVerdict, type Verdict, type VerdictTier } from "../lib/verdict";
 import { knownSenderSet } from "../lib/screener";
 import { queueAthenaSecurityEvent } from "../lib/athenaIntegration";
 import { mutateSettings } from "../lib/settingsStore";
@@ -250,7 +250,7 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
   const claim = compareCell(
     "compare-cell",
     "Claims to be",
-    claimedBrand ?? (sender.displayName || "someone you know"),
+    claimedBrand ? brandName(claimedBrand) : sender.displayName || "someone you know",
     sender.firstContact
       ? "New since Cluster started tracking"
       : "Display name matches a contact or a known brand",

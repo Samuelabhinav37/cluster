@@ -156,6 +156,12 @@ describe("scoreMessageForThreats: lookalike-domain", () => {
     ]);
   });
 
+  it("doesn't flag Facebook's real notification domain (facebookmail.com)", () => {
+    expect(
+      scoreMessageForThreats(message({ fromDisplayName: "Facebook", fromAddress: "notification@facebookmail.com" })),
+    ).toEqual([]);
+  });
+
   it("does not flag a legitimate brand domain as its own lookalike", () => {
     expect(scoreMessageForThreats(message({ fromDisplayName: "Notice", fromAddress: "x@paypal.com" }))).toEqual([]);
   });

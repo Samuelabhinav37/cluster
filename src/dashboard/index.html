@@ -531,12 +531,13 @@
 
             <label class="check-label" id="auto-quarantine-row">
               <input type="checkbox" id="auto-quarantine-toggle" />
-              <span>Auto-quarantine high-risk senders in the background</span>
+              <span>Move emails that look like scams out of my inbox</span>
             </label>
             <p class="hint">
-              When on, the 6-hourly background pass labels mail from HIGH-risk senders "Possible
-              Phishing" and files it out of your inbox. Gmail only, never deleted, reversible from
-              Recently done. Off by default.
+              When on, Cluster checks your mail every 6 hours and moves emails that look like scams
+              to the "🚨 Possible phishing" label. It needs two separate warning signs on the same
+              email, or one certain one. Only those emails move, never a sender's other mail. Nothing
+              is deleted, and you can move any email back. Works with Gmail and Outlook. Off by default.
             </p>
 
             <section id="quarantine-review-section" hidden>
