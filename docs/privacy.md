@@ -55,6 +55,12 @@ Cluster gets better at spotting scams from what you do: releasing an email, or c
 That learning stays in your browser. It is never uploaded, and it is never used to train a shared
 model. Cluster does not train shared AI on your Gmail.
 
+Cluster also keeps a short history of each sender in your browser: when they first wrote, how often,
+and which domains their mail is usually signed by and asks for replies at. That is how it notices
+when a familiar sender suddenly changes, a common sign of invoice fraud or a hacked account. It holds
+domain names and counts, never subjects or message text, and forgets senders who haven't written in
+over a year.
+
 Three features (a plain-English summary, drafting a rule from a sentence you type, and sorting mail
 Cluster can't otherwise categorise) use Chrome's **built-in, on-device** AI. It runs on your own
 computer. Nothing about your mail goes to an AI company. If your computer doesn't support it, those
