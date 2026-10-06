@@ -61,6 +61,16 @@ function skipSender(sender: SenderSummary, known: Set<string>): boolean {
   return known.has(sender.address.toLowerCase()) || riskTier(senderRiskScore(sender.threatSignals)) === "high";
 }
 
+/** Ids the sweep must leave in the inbox, newest last and capped: mail it
+ * already decided to keep, plus anything the user put back with Undo (which
+ * would otherwise be past its limit and moved out again on the next run). */
+export const KEPT_IDS_CAP = 2000;
+
+export function pinInInbox(keptIds: string[], ids: string[]): string[] {
+  const added = new Set(ids);
+  return [...keptIds.filter((id) => !added.has(id)), ...ids].slice(-KEPT_IDS_CAP);
+}
+
 export interface TagResult {
   tagged: number;
   byBucket: Partial<Record<SortBucket, number>>;

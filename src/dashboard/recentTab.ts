@@ -16,6 +16,7 @@ import { recordEngagementFeedback } from "../lib/engagementModel";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { senderTile } from "./senderTile";
 import { ctx, providerById, rescan } from "./state";
+import { pinInInbox } from "../lib/inboxTimeLimits";
 
 const recentListEl = document.getElementById("recent-list") as HTMLDivElement;
 
@@ -61,6 +62,13 @@ async function undoEntry(entry: ActionLogEntry) {
   } else if (entry.undo.via === "unarchive") {
     if (!provider.unarchiveMessages) throw new Error("This provider cannot restore archived messages");
     await provider.unarchiveMessages(token, entry.undo.ids);
+    // Mail put back in the inbox stays there: without this, the time-limit
+    // sweep would see it still past its limit and move it out again.
+    const restored = entry.undo.ids;
+    ctx.settings = await mutateSettings((current) => ({
+      ...current,
+      autoSort: { ...current.autoSort, keptInInboxIds: pinInInbox(current.autoSort.keptInInboxIds, restored) },
+    }));
   } else if (entry.undo.via === "unmute" && entry.undo.fromAddress) {
     if (!provider.unmuteSender) throw new Error("This provider cannot unmute senders");
     await provider.unmuteSender(token, entry.undo.fromAddress, entry.undo.ids);

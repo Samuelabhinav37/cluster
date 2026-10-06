@@ -5,15 +5,19 @@
 import { appendActionLog, makeLogId } from "./actionLog";
 import { categoryLabelName } from "./categoryFilters";
 import { batchModify, findLabelIds, getOrCreateLabel, listMessageIds } from "./gmailApi";
-import { sweepExpiredInbox, tagUntaggedInbox, type CategoryLimit, type InboxLimitsApi } from "./inboxTimeLimits";
+import {
+  pinInInbox,
+  sweepExpiredInbox,
+  tagUntaggedInbox,
+  type CategoryLimit,
+  type InboxLimitsApi,
+} from "./inboxTimeLimits";
 import { loadMetadataCache, saveMetadataCache } from "./metadataCache";
 import { gmailProvider } from "./providers/gmailProvider";
 import { knownSenderSet } from "./screener";
 import { buildSenderSummariesFromStubs } from "./senderModel";
 import { getSettings, mutateSettings } from "./settingsStore";
 import { ALL_SORT_BUCKETS } from "./sortTaxonomy";
-
-const KEPT_IDS_CAP = 2000;
 
 export interface TimeLimitRun {
   tagged: number;
@@ -65,7 +69,7 @@ export async function runInboxTimeLimits(now = Date.now()): Promise<TimeLimitRun
     autoSort: {
       ...current.autoSort,
       lastSweep: { at: now, moved: sweep.movedIds.length },
-      keptInInboxIds: [...new Set([...current.autoSort.keptInInboxIds, ...sweep.keptIds])].slice(-KEPT_IDS_CAP),
+      keptInInboxIds: pinInInbox(current.autoSort.keptInInboxIds, sweep.keptIds),
     },
   }));
   if (sweep.movedIds.length > 0) {
