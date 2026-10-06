@@ -1,0 +1,1257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cluster mockup v4</title>
+<meta name="description" content="Mockup v4 of the Cluster dashboard: v3 plus plain-language explainers, a sentence-style Sorting page, first-run setup, simple mode, held scams with reasons, and a scam report." />
+<script>
+  // Theme before first paint (Moat theme-boot.js pattern): stored choice, else the system.
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem("cluster-v4-theme"); } catch (e) {}
+    if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+<style>
+/* =============================================================================
+   Cluster mockup v3 (UI team, 2026-10-05). Built on Moat's approved settings
+   design (C:\Users\samue\projects\moat). Tokens copied from
+   src/options/options.html:17-87 and src/ui/theme.css:1-32. Neutral greys,
+   one blue accent, no gradients, no glass, no blur. Static review artifact.
+   ============================================================================= */
+:root {
+  color-scheme: dark;
+  /* Moat dark (options.html:17-50, theme.css:1-32) */
+  --blue: #3f6fd1; --blue-deep: #2f57ad; --blue-lt: #6f9be0;
+  --tint: rgba(111,155,224,.15); --tint-line: rgba(111,155,224,.45);
+  --page: #141317; --panel: #1b191d; --panel-2: #222027; --panel-3: #2a2730;
+  --line: #2e2b33; --line-2: #3a3640; --sw-off: #4a4650; --tip-bg: #0d0c10;
+  --fg: #eceef0; --muted: #a7a1ac;
+  --ok: #43c13a; --caution: #e0b16f; --danger: #fa6d6d;
+  --danger-bg: rgba(250,109,109,.12); --danger-line: rgba(250,109,109,.4);
+  --spark: #6b6672;
+  --inverse: #eceef0; --inverse-fg: #141317; --inverse-act: #2f57ad;
+  --shadow: 0 12px 40px rgba(0,0,0,.5);
+  --plate: #ffffff;
+  --ease: cubic-bezier(.2,.8,.2,1);
+  --side: 248px; --top: 60px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  /* Moat light (options.html:53-87) */
+  --blue: #3563c7; --blue-deep: #2a4fa3; --blue-lt: #2f5fc4;
+  --tint: rgba(53,99,199,.1); --tint-line: rgba(53,99,199,.35);
+  --page: #f6f5f8; --panel: #ffffff; --panel-2: #f1eff4; --panel-3: #e9e6ee;
+  --line: #e2dfe7; --line-2: #d3cfd9; --sw-off: #c4bfcb; --tip-bg: #ffffff;
+  --fg: #1d1b20; --muted: #625d68;
+  --ok: #15875f; --caution: #8a5a00; --danger: #b42e2e;
+  --danger-bg: rgba(180,46,46,.07); --danger-line: rgba(180,46,46,.35);
+  --spark: #b9b4bf;
+  --inverse: #1d1b20; --inverse-fg: #f6f5f8; --inverse-act: #9cbaf0;
+  --shadow: 0 12px 40px rgba(30,25,45,.14);
+}
+:root[data-theme="dark"] { --inverse-act: #2f57ad; }
+
+/* ── Base ─────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+[hidden] { display: none !important; } /* Moat options.html:89-91 */
+html, body { margin: 0; }
+body { background: var(--page); color: var(--fg); font: 14px/1.5 var(--font); font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+a { color: var(--blue-lt); text-decoration: none; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--blue-lt); outline-offset: 2px; border-radius: 6px; }
+h1, h2, h3 { margin: 0; }
+.ico { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.muted { color: var(--muted); }
+
+/* ── Top bar (Moat options.html:1611-1629 + nav toggle 3796-3839) ─────── */
+.topbar { position: sticky; top: 0; z-index: 20; height: var(--top); display: grid; grid-template-columns: var(--side) minmax(0,1fr) auto; align-items: center; background: var(--page); border-bottom: 1px solid var(--line); }
+.brandbox { display: flex; align-items: center; gap: 6px; padding-left: 12px; min-width: 0; }
+.nav-toggle { display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 10px; background: none; color: var(--muted); cursor: pointer; flex: none; }
+.nav-toggle:hover { background: var(--panel-2); color: var(--fg); }
+.brand { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 650; letter-spacing: -.01em; white-space: nowrap; }
+.brand svg { width: 22px; height: 22px; }
+.top-search { position: relative; max-width: 560px; width: 100%; padding-left: 32px; justify-self: start; }
+.top-search .ico { position: absolute; left: 44px; top: 50%; translate: 0 -50%; color: var(--muted); width: 16px; height: 16px; }
+.top-search input { width: 100%; height: 36px; padding: 0 12px 0 36px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); font-size: 14px; }
+.top-search input::placeholder { color: var(--muted); }
+.top-right { display: flex; align-items: center; gap: 8px; padding: 0 16px; }
+.status { position: relative; }
+.status-btn { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); font-size: 13px; color: var(--fg); cursor: pointer; white-space: nowrap; }
+.status-btn:hover { border-color: var(--line-2); }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--muted); }
+.dot.ok { background: var(--ok); } .dot.warn { background: var(--caution); } .dot.bad { background: var(--danger); }
+.dot.hollow { background: none; box-shadow: inset 0 0 0 1.5px var(--muted); }
+.ring { width: 12px; height: 12px; border-radius: 50%; border: 1.75px solid var(--line-2); border-top-color: var(--blue-lt); animation: spin .9s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.popover { position: absolute; right: 0; top: calc(100% + 8px); width: 340px; z-index: 30; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); font-size: 13px; }
+.popover dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; }
+.popover dt { color: var(--muted); } .popover dd { margin: 0; }
+.popover .foot { display: flex; gap: 8px; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.icon-btn { display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 10px; background: none; color: var(--muted); cursor: pointer; }
+.icon-btn:hover { background: var(--panel-2); color: var(--fg); }
+.avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--panel-3); color: var(--fg); font-size: 12px; font-weight: 650; border: 1px solid var(--line); }
+
+/* ── Rail (Moat options.html:1630-1707) ───────────────────────────────── */
+.rail { position: fixed; top: var(--top); left: 0; bottom: 0; z-index: 15; width: var(--side); padding: 16px 14px; border-right: 1px solid var(--line); background: var(--page); overflow-y: auto; display: flex; flex-direction: column; }
+.nav-group { margin: 18px 12px 6px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.rail a { position: relative; display: flex; align-items: center; gap: 12px; padding: 5px 10px; border-radius: 8px; color: var(--fg); font-size: 14px; }
+.rail a:hover { background: var(--panel); }
+.rail a[aria-current="page"] { background: var(--panel-2); font-weight: 600; }
+.rail .tile { box-sizing: border-box; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line); color: var(--muted); flex: none; }
+.rail .tile .ico { width: 16px; height: 16px; stroke-width: 1.75; }
+.rail a:hover .tile { color: var(--fg); }
+.rail a[aria-current="page"] .tile { background: var(--blue); color: #fff; box-shadow: none; }
+.rail .count { margin-left: auto; font-size: 12.5px; color: var(--muted); }
+.rail .nav-dot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+.nav-sep { height: 1px; margin: 14px 10px 10px; background: var(--line); }
+.rail .spacer { flex: 1; min-height: 12px; }
+.rail-note { margin: 12px 10px 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
+/* Icon rail (Moat options.html:3846-3889) */
+body[data-nav="icons"] { --side: 72px; }
+body[data-nav="icons"] .rail { padding: 16px 12px; overflow: visible; }
+body[data-nav="icons"] .rail .nav-name, body[data-nav="icons"] .rail .count, body[data-nav="icons"] .rail-note { display: none; }
+body[data-nav="icons"] .rail .nav-dot { position: absolute; top: 4px; right: 10px; }
+body[data-nav="icons"] .nav-group { height: 1px; margin: 12px 8px; overflow: hidden; font-size: 0; background: var(--line); }
+body[data-nav="icons"] .rail a { justify-content: center; padding: 6px 0; }
+body[data-nav="icons"] .rail a:hover::after, body[data-nav="icons"] .rail a:focus-visible::after {
+  content: attr(data-tip); position: absolute; z-index: 40; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+  padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--tip-bg); color: var(--fg); font-size: 13px; font-weight: 600; white-space: nowrap; pointer-events: none; }
+body[data-nav="icons"] .brand span { display: none; }
+body[data-nav="icons"] .topbar { grid-template-columns: auto minmax(0,1fr) auto; }
+/* Drawer (Moat options.html:3891-3907) */
+body[data-nav="drawer"] { --side: 0px; }
+body[data-nav="drawer"] .topbar { grid-template-columns: auto minmax(0,1fr) auto; }
+body[data-nav="drawer"] .rail { width: min(300px, 86vw); transform: translateX(-102%); visibility: hidden; box-shadow: var(--shadow); transition: transform .26s var(--ease), visibility 0s linear .26s; z-index: 35; }
+body[data-nav="drawer"].nav-open .rail { transform: none; visibility: visible; transition: transform .26s var(--ease); }
+body.nav-open[data-nav="icons"] .rail { width: 280px; padding: 16px 14px; box-shadow: var(--shadow); z-index: 35; }
+body.nav-open[data-nav="icons"] .rail .nav-name, body.nav-open[data-nav="icons"] .rail .count, body.nav-open[data-nav="icons"] .rail-note { display: revert; }
+body.nav-open[data-nav="icons"] .rail a { justify-content: flex-start; padding: 5px 10px; }
+body.nav-open[data-nav="icons"] .nav-group { height: auto; margin: 18px 12px 6px; font-size: 12.5px; background: none; }
+body.nav-open[data-nav="icons"] .rail a:hover::after { content: none; }
+.nav-scrim { position: fixed; inset: var(--top) 0 0 0; z-index: 30; background: rgba(0,0,0,.45); }
+body.nav-ready .rail { transition: width .24s var(--ease), transform .26s var(--ease); }
+body.nav-ready main { transition: margin-left .24s var(--ease); }
+
+/* ── Main ─────────────────────────────────────────────────────────────── */
+main { margin-left: var(--side); padding: 32px 40px 96px; min-height: calc(100vh - var(--top)); }
+.page { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.page-head { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.page-head > div:first-child { flex: 1; min-width: 240px; }
+.page-head h1 { font-size: 30px; font-weight: 700; letter-spacing: -.025em; line-height: 1.15; }
+.page-head p { margin: 6px 0 0; color: var(--muted); font-size: 15px; max-width: 64ch; }
+.card { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+.card-pad { padding: 18px 20px; }
+.card-head { display: flex; align-items: baseline; gap: 10px; padding: 16px 20px 10px; }
+.card-head h2 { font-size: 15px; font-weight: 650; }
+.card-head .sub { font-size: 13px; color: var(--muted); }
+.card-head .grow { flex: 1; }
+.grid-2 { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(0,1fr); gap: 16px; }
+
+/* ── Buttons, chips, switch, select ──────────────────────────────────── */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel); color: var(--fg); font-size: 13.5px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: background .14s, border-color .14s, transform .12s; }
+.btn:hover { background: var(--panel-2); }
+.btn:active { transform: scale(.98); }
+.btn:disabled { opacity: .55; cursor: default; }
+.btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 600; }
+.btn.primary:hover { background: var(--blue-deep); border-color: var(--blue-deep); }
+.btn.danger { background: var(--danger-bg); border-color: var(--danger-line); color: var(--danger); font-weight: 600; }
+.btn.ghost { border-color: transparent; background: none; color: var(--muted); }
+.btn.ghost:hover { color: var(--fg); background: var(--panel-2); }
+.btn .ring { width: 11px; height: 11px; }
+.seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; display: inline-grid; grid-auto-flow: column; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
+.seg button { height: 28px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.seg button[aria-pressed="true"] { background: var(--panel); color: var(--fg); box-shadow: inset 0 0 0 1px var(--line-2); }
+.seg .n { font-weight: 500; margin-left: 4px; color: var(--muted); }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel-2); font-size: 12px; color: var(--muted); white-space: nowrap; }
+.chip .dot { width: 6px; height: 6px; }
+.chip.bad { color: var(--danger); border-color: var(--danger-line); background: var(--danger-bg); }
+.switch { position: relative; width: 36px; height: 20px; flex: none; border: 0; border-radius: 999px; background: var(--sw-off); cursor: pointer; padding: 0; transition: background .16s; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: left .18s var(--ease); }
+.switch[aria-checked="true"] { background: var(--blue); }
+.switch[aria-checked="true"]::after { left: 18px; }
+.switch-hit { display: grid; place-items: center; width: 44px; height: 32px; }
+.select { appearance: none; height: 32px; width: 100%; padding: 0 28px 0 10px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel) no-repeat right 9px center / 10px 6px; font-size: 13.5px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23888' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.select:disabled { opacity: .5; cursor: default; }
+.check { appearance: none; width: 16px; height: 16px; margin: 0; border: 1.5px solid var(--line-2); border-radius: 4px; background: var(--panel); cursor: pointer; display: grid; place-items: center; }
+.check:checked { background: var(--blue); border-color: var(--blue); }
+.check:checked::after { content: ""; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: translateY(-1px) rotate(45deg); }
+.check-hit { display: grid; place-items: center; width: 28px; height: 28px; cursor: pointer; }
+.search { position: relative; flex: 1; min-width: 200px; max-width: 360px; }
+.search .ico { position: absolute; left: 10px; top: 50%; translate: 0 -50%; width: 16px; height: 16px; color: var(--muted); }
+.search input { width: 100%; height: 32px; padding: 0 10px 0 32px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel); font-size: 13.5px; }
+.toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.toolbar .grow { flex: 1; }
+
+/* ── KPI cards (Moat options.html:2248-2298; flat, grey spark per owner) ── */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 16px; }
+.kpi { overflow: hidden; padding: 16px 20px 0; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+.kpi-label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.kpi-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; margin-top: 2px; }
+.kpi-value { font-size: 30px; font-weight: 700; letter-spacing: -.02em; }
+.kpi-delta { font-size: 13px; color: var(--muted); }
+.kpi-delta b { color: var(--fg); font-weight: 600; }
+.spark { display: block; width: calc(100% + 40px); height: 40px; margin: 6px -20px 0; }
+.spark path { fill: none; stroke: var(--spark); stroke-width: 1.5; }
+
+/* ── Status strip (Moat .ov-status, options.html:1805-1823; neutral) ─── */
+.strip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 11px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); font-size: 14px; }
+.strip .grow { flex: 1; }
+.strip .progress { flex: 1 1 200px; max-width: 280px; }
+
+/* ── Rows ─────────────────────────────────────────────────────────────── */
+.rows { display: flex; flex-direction: column; }
+.row { display: grid; grid-template-columns: auto minmax(0,1fr) auto auto auto; align-items: center; column-gap: 12px; min-height: 52px; padding: 6px 16px; border-top: 1px solid var(--line); transition: background .14s; }
+.rows > .row:first-child { border-top: 0; }
+.row:hover { background: var(--panel-2); }
+.row.compact { grid-template-columns: minmax(0,1fr) auto auto; min-height: 48px; }
+.row .main-col { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.row .t { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .s { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .text { min-width: 0; }
+.row .meta { font-size: 13px; color: var(--muted); white-space: nowrap; text-align: right; }
+.row .chev { width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; }
+.row .chev:hover { background: var(--panel-3); color: var(--fg); }
+.row.pending { opacity: .6; } .row.pending .btn { pointer-events: none; }
+.row.leaving { animation: out .26s var(--ease) forwards; overflow: hidden; }
+.row.entering { animation: in .26s var(--ease); }
+@keyframes out { 0% { opacity: 1; } 60% { opacity: 0; transform: translateX(12px); } 100% { opacity: 0; min-height: 0; max-height: 0; padding-block: 0; border-top-width: 0; } }
+@keyframes in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+.row-err { grid-column: 2 / -1; font-size: 12.5px; color: var(--danger); padding-bottom: 4px; }
+.numcol { min-width: 64px; text-align: right; font-size: 13px; color: var(--muted); }
+
+/* Logos (Moat brandIcons.ts + siteIcon.ts) */
+.logo { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; flex: none; background: var(--plate); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
+.logo svg { width: 16px; height: 16px; }
+.logo.mono { background: var(--panel-3); color: var(--fg); font-size: 12.5px; font-weight: 700; box-shadow: inset 0 0 0 1px var(--line); }
+.logo.warn { background: var(--danger-bg); color: var(--danger); box-shadow: inset 0 0 0 1px var(--danger-line); }
+body.gray-logos .row .logo svg { filter: grayscale(1); opacity: .7; transition: filter .14s, opacity .14s; }
+body.gray-logos .row:hover .logo svg { filter: none; opacity: 1; }
+.glyph { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; flex: none; background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line); color: var(--muted); }
+.glyph .ico { width: 16px; height: 16px; }
+
+/* ── Sorting table ───────────────────────────────────────────────────── */
+.cat-head, .cat-row { display: grid; grid-template-columns: 44px minmax(170px,1.2fr) minmax(130px,.75fr) minmax(130px,.8fr) 56px minmax(210px,1.1fr); align-items: center; column-gap: 14px; padding: 0 16px; }
+.cat-head { height: 36px; font-size: 12.5px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--line); }
+.cat-row { min-height: 52px; border-top: 1px solid var(--line); }
+.cat-row:first-child { border-top: 0; }
+.cat-row:hover { background: var(--panel-2); }
+.cat-name { font-size: 14px; font-weight: 600; }
+.cat-name { display: flex; align-items: center; gap: 10px; }
+.cat-name .d { display: block; font-size: 12.5px; font-weight: 400; color: var(--muted); }
+.cat-row[data-on="false"] .cat-name { color: var(--muted); }
+.cat-chip { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line); font-size: 12.5px; color: var(--fg); white-space: nowrap; }
+.cat-chip .ico { width: 13px; height: 13px; color: var(--muted); }
+.cat-chip.plain { height: auto; padding: 0; background: none; box-shadow: none; font-size: inherit; gap: 6px; }
+.cat-chip.plain .ico { width: 15px; height: 15px; }
+.cat-row .now { text-align: right; font-size: 14px; }
+.fixed { padding: 0 10px; font-size: 13.5px; color: var(--muted); }
+.st { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.st.bad { color: var(--danger); }
+.hl { display: none; }
+.confirm { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 16px 12px 74px; padding: 10px 12px; border: 1px solid var(--danger-line); border-radius: 10px; background: var(--danger-bg); font-size: 13px; }
+.confirm .grow { flex: 1 1 320px; }
+.presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 12px; margin-top: 14px; }
+.preset { display: grid; gap: 4px; align-content: start; text-align: left; padding: 14px 16px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel); cursor: pointer; font-size: 13px; color: var(--muted); }
+.preset b { font-size: 15px; color: var(--fg); }
+.preset:hover { border-color: var(--blue-lt); }
+.preset[aria-pressed="true"] { border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); }
+details.more { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+details.more > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 14px 18px; font-weight: 600; }
+details.more > summary .ico { transition: transform .16s; color: var(--muted); }
+details.more[open] > summary .ico { transform: rotate(90deg); }
+details.more .inner { padding: 0 18px 16px; color: var(--muted); font-size: 13.5px; }
+.progress { height: 4px; border-radius: 2px; background: var(--panel-3); overflow: hidden; }
+.progress > span { display: block; height: 100%; background: var(--blue); transition: width .2s linear; }
+
+/* ── Bulk bar, sheet, toast ──────────────────────────────────────────── */
+.bulk { position: sticky; bottom: 16px; z-index: 12; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px 8px 16px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); }
+.bulk b { margin-right: auto; font-weight: 600; }
+.scrim { position: fixed; inset: 0; z-index: 44; background: rgba(0,0,0,.35); }
+.sheet { position: fixed; top: 0; right: 0; bottom: 0; z-index: 45; width: min(420px, 100vw); display: flex; flex-direction: column; border-left: 1px solid var(--line); background: var(--panel); box-shadow: var(--shadow); transform: translateX(16px); opacity: 0; transition: transform .24s var(--ease), opacity .16s; }
+.sheet.show { transform: none; opacity: 1; }
+.sheet-head { display: flex; align-items: center; gap: 12px; padding: 16px 16px 14px 20px; border-bottom: 1px solid var(--line); }
+.sheet-head .logo { width: 36px; height: 36px; border-radius: 9px; } .sheet-head .logo svg { width: 20px; height: 20px; }
+.sheet-head .t { font-size: 17px; font-weight: 650; }
+.sheet-body { flex: 1; overflow-y: auto; padding: 4px 20px 20px; display: flex; flex-direction: column; gap: 18px; }
+.sheet h3 { margin: 14px 0 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.radios { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.radios label { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-top: 1px solid var(--line); cursor: pointer; font-size: 14px; }
+.radios label:first-child { border-top: 0; }
+.radios label:hover { background: var(--panel-2); }
+.radios input { accent-color: var(--blue); width: 16px; height: 16px; margin: 0; }
+.radios .hint { margin-left: auto; font-size: 12.5px; color: var(--muted); }
+.why { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 1.7; }
+.stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+.stats div { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.stats b { display: block; font-size: 17px; }
+.stats span { font-size: 12px; color: var(--muted); }
+.toasts { position: fixed; left: calc(var(--side) + 24px); bottom: 20px; z-index: 60; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { pointer-events: auto; position: relative; overflow: hidden; display: flex; align-items: center; gap: 10px; min-width: 300px; max-width: 480px; padding: 9px 8px 9px 14px; border-radius: 10px; background: var(--inverse); color: var(--inverse-fg); box-shadow: var(--shadow); font-size: 13.5px; animation: tin .22s var(--ease); }
+.toast .ico { width: 16px; height: 16px; }
+.toast .msg { flex: 1; min-width: 0; }
+.toast .act { border: 0; background: none; color: var(--inverse-act); font-weight: 650; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.toast .x { border: 0; background: none; color: inherit; opacity: .6; width: 26px; height: 26px; border-radius: 6px; cursor: pointer; display: grid; place-items: center; }
+.toast .timer { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--inverse-act); opacity: .6; transform-origin: left; }
+.toast.out { animation: tout .16s ease forwards; }
+@keyframes tin { from { opacity: 0; transform: translateY(6px); } }
+@keyframes tout { to { opacity: 0; transform: translateY(4px); } }
+.empty { padding: 36px 20px; text-align: center; color: var(--muted); }
+.empty b { display: block; color: var(--fg); font-size: 15px; margin-bottom: 4px; }
+.sk { display: block; border-radius: 6px; background: var(--panel-3); }
+.sk-row { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 16px; border-top: 1px solid var(--line); }
+.sk-row:first-child { border-top: 0; }
+@media (prefers-reduced-motion: no-preference) { .sk { animation: pulse 1.4s ease-in-out infinite; } }
+@keyframes pulse { 50% { opacity: .55; } }
+
+/* ── Settings page ───────────────────────────────────────────────────── */
+.set-sec { display: grid; grid-template-columns: 220px minmax(0,1fr); gap: 24px; padding: 20px; border-top: 1px solid var(--line); }
+.set-sec:first-child { border-top: 0; }
+.set-sec h2 { font-size: 15px; font-weight: 650; }
+.set-sec .lead { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.set-row { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+.set-row + .set-row { border-top: 1px solid var(--line); }
+.set-row .grow { flex: 1; min-width: 0; }
+.set-row .s { font-size: 13px; color: var(--muted); }
+
+/* Reviewer controls (mockup only) */
+.demo { position: fixed; right: 16px; bottom: 16px; z-index: 40; font-size: 12.5px; }
+.demo > summary { list-style: none; cursor: pointer; padding: 6px 12px; border: 1px dashed var(--line-2); border-radius: 999px; background: var(--panel); color: var(--muted); }
+.demo .panel { position: absolute; right: 0; bottom: calc(100% + 8px); width: 280px; display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); }
+.demo .g { display: flex; flex-wrap: wrap; gap: 6px; }
+.demo .btn { height: 26px; padding: 0 8px; font-size: 12px; }
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+/* ── v4: plain-language terms ─────────────────────────────────────── */
+.term { position: relative; border-bottom: 1px dashed var(--muted); cursor: help; color: inherit; }
+.term:focus-visible { outline-offset: 1px; }
+.term-tip { position: absolute; left: 0; top: calc(100% + 8px); z-index: 30; width: min(300px, 80vw); padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--tip-bg); color: var(--fg); box-shadow: var(--shadow); font-size: 13px; font-weight: 400; line-height: 1.45; display: none; }
+.term.flip .term-tip { left: auto; right: 0; }
+.term:hover .term-tip, .term:focus .term-tip, .term:focus-within .term-tip { display: block; }
+.trust { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); }
+.trust span { display: inline-flex; align-items: center; gap: 6px; }
+.trust .ico { width: 15px; height: 15px; color: var(--ok); }
+
+/* ── v4: Sorting as sentences ──────────────────────────────────────── */
+.sentence-row { display: grid; grid-template-columns: 44px 28px minmax(0,1fr) auto; align-items: start; column-gap: 12px; padding: 14px 16px; border-top: 1px solid var(--line); }
+.sentence-row:first-child { border-top: 0; }
+.sentence-row .switch-hit { padding-top: 4px; }
+.sentence-row .glyph { margin-top: 2px; }
+.sentence { font-size: 15px; line-height: 2.1; }
+.sentence b { font-weight: 650; }
+.sentence .select { width: auto; height: 30px; display: inline-block; margin: 0 2px; vertical-align: baseline; }
+.sentence .then-line { display: block; font-size: 14px; color: var(--muted); line-height: 2; }
+.sentence-row .now { font-size: 13px; color: var(--muted); white-space: nowrap; padding-top: 6px; text-align: right; }
+.sentence-row[data-on="false"] .sentence { color: var(--muted); }
+.sentence-row .row-err { grid-column: 3 / -1; }
+
+/* ── v4: held scams ────────────────────────────────────────────────── */
+.held { display: grid; gap: 12px; padding: 18px 20px; border-top: 1px solid var(--line); }
+.held:first-child { border-top: 0; }
+.held.leaving { animation: out .26s var(--ease) forwards; overflow: hidden; }
+.held-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.held-head .text { flex: 1; min-width: 200px; }
+.held-head .t { font-size: 15px; font-weight: 650; }
+.held-head .s { font-size: 13px; color: var(--muted); }
+.chip.warn { color: var(--caution); border-color: color-mix(in srgb, var(--caution) 45%, transparent); background: color-mix(in srgb, var(--caution) 10%, transparent); }
+.reasons { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.reasons li { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
+.reasons li::before { content: ""; width: 6px; height: 6px; margin-top: 8px; border-radius: 50%; background: var(--danger); flex: none; }
+.reasons li.trustr::before { background: var(--ok); }
+.callback { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--panel-2); font-size: 14px; }
+.callback .ico { width: 20px; height: 20px; color: var(--blue-lt); flex: none; margin-top: 1px; }
+.report-steps { margin: 0; padding: 12px 14px 12px 34px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); font-size: 14px; display: grid; gap: 6px; }
+
+/* ── v4: scam report charts (single series, one hue) ───────────────── */
+.chart-card { padding: 16px 20px 18px; }
+.chart-card h2 { font-size: 15px; font-weight: 650; }
+.chart-card .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.vbars { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; align-items: end; gap: 2px; height: 160px; margin-top: 16px; border-bottom: 1px solid var(--line-2); }
+.vbar { position: relative; height: 100%; display: flex; align-items: flex-end; justify-content: center; cursor: default; }
+.vbar i { display: block; width: min(28px, 70%); background: var(--blue); border-radius: 4px 4px 0 0; }
+.vbar:hover i, .vbar:focus-visible i { background: var(--blue-lt); }
+.vbar .val { position: absolute; font-size: 12px; color: var(--fg); font-weight: 600; transform: translateY(-4px); }
+.vlabels { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; margin-top: 6px; font-size: 11.5px; color: var(--muted); text-align: center; }
+.hbars { display: grid; gap: 10px; margin-top: 14px; }
+.hbar { display: grid; grid-template-columns: minmax(110px, 180px) minmax(0,1fr) 28px; align-items: center; gap: 10px; font-size: 13.5px; }
+.hbar .track { height: 14px; }
+.hbar .fill { height: 100%; background: var(--blue); border-radius: 0 4px 4px 0; }
+.hbar:hover .fill { background: var(--blue-lt); }
+.hbar .n { text-align: right; font-weight: 600; }
+.chart-tip { position: fixed; z-index: 60; pointer-events: none; padding: 6px 9px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--tip-bg); box-shadow: var(--shadow); font-size: 12.5px; }
+table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 10px; }
+table.data th, table.data td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--line); }
+table.data td:last-child, table.data th:last-child { text-align: right; }
+
+/* ── v4: first-run setup ───────────────────────────────────────────── */
+.personas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; }
+.persona { display: grid; gap: 8px; align-content: start; text-align: left; padding: 16px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel); cursor: pointer; }
+.persona:hover { background: var(--panel-2); }
+.persona[aria-pressed="true"] { border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); background: var(--tint); }
+.persona b { font-size: 16px; }
+.persona span { font-size: 13.5px; color: var(--muted); }
+.persona ul { margin: 2px 0 0; padding-left: 18px; font-size: 13px; color: var(--fg); display: grid; gap: 2px; }
+.steps-note { font-size: 13px; color: var(--muted); }
+
+/* ── v4: simple mode ───────────────────────────────────────────────── */
+.simple-only { display: none !important; }
+body.simple .simple-only { display: flex !important; }
+body.simple { font-size: 17px; }
+body.simple .rail a:not([data-simple]), body.simple .rail .nav-group, body.simple .rail .nav-sep { display: none !important; }
+body.simple .top-search { visibility: hidden; }
+body.simple .page-head h1 { font-size: 36px; }
+body.simple .page-head p { font-size: 18px; }
+body.simple .btn { height: 44px; padding: 0 18px; font-size: 16px; }
+body.simple .held-head .t, body.simple .reasons li { font-size: 17px; }
+.big-status { display: flex; align-items: center; gap: 16px; padding: 22px 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); }
+.big-status .ico { width: 36px; height: 36px; color: var(--ok); }
+.big-status b { font-size: 24px; display: block; }
+.big-status span { color: var(--muted); font-size: 17px; }
+.big-action { display: grid; gap: 10px; padding: 22px 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); font-size: 18px; }
+.big-action .btn { justify-self: start; }
+
+@media (max-width: 1240px) { .grid-2 { grid-template-columns: minmax(0,1fr); } }
+.sort-card { container-type: inline-size; }
+@container (max-width: 860px) {
+  .cat-head { display: none; }
+  .cat-row { grid-template-columns: 44px minmax(0,1fr) minmax(0,1fr) 40px; grid-template-areas: "sw name name now" ". inbox then ." ". st st st"; row-gap: 8px; padding-block: 10px; }
+  .cat-row > :nth-child(1) { grid-area: sw; } .cat-row > :nth-child(2) { grid-area: name; } .cat-row > :nth-child(3) { grid-area: inbox; }
+  .cat-row > :nth-child(4) { grid-area: then; } .cat-row > :nth-child(5) { grid-area: now; } .cat-row > :nth-child(6) { grid-area: st; }
+  .hl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+  .confirm.then { margin-left: 16px; }
+}
+@media (max-width: 1000px) { .set-sec { grid-template-columns: minmax(0,1fr); gap: 8px; } }
+@media (max-width: 719px) {
+  main { padding: 20px 16px 96px; }
+  .top-search { display: none; }
+  .topbar { grid-template-columns: auto 1fr auto !important; }
+  .status-btn .long { display: none; }
+  .row { grid-template-columns: auto minmax(0,1fr) auto auto; padding-inline: 10px; }
+  .row .numcol, .row .meta { display: none; }
+  .toasts { left: 12px; right: 12px; } .toast { min-width: 0; }
+  .kpis { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+  .kpi { padding: 12px 12px 0; } .kpi-value { font-size: 22px; } .spark { width: calc(100% + 24px); margin: 4px -12px 0; height: 28px; }
+  .page-head h1 { font-size: 26px; }
+  .stats { grid-template-columns: 1fr 1fr 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+  .toast .timer { display: none; }
+}
+</style>
+</head>
+<body>
+<!-- Lucide-style line icons (ISC), 24px grid, 1.5px stroke -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-overview" viewBox="0 0 24 24"><path d="M4 13h6V4H4zM14 20h6v-9h-6zM14 4h6v4h-6zM4 20h6v-3H4z"/></symbol>
+    <symbol id="i-sorting" viewBox="0 0 24 24"><path d="M3 6h18M6 12h12M10 18h4"/></symbol>
+    <symbol id="i-senders" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.4c1.8.8 3 2.8 3 5.6"/></symbol>
+    <symbol id="i-subs" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/></symbol>
+    <symbol id="i-clean" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></symbol>
+    <symbol id="i-storage" viewBox="0 0 24 24"><ellipse cx="12" cy="5.5" rx="8" ry="2.8"/><path d="M4 5.5v13c0 1.5 3.6 2.8 8 2.8s8-1.3 8-2.8v-13M4 12c0 1.5 3.6 2.8 8 2.8s8-1.3 8-2.8"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.7-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.8-7.5-9.5V6z"/><path d="M12 8.5v4M12 15.5v.5"/></symbol>
+    <symbol id="i-screener" viewBox="0 0 24 24"><path d="M3.5 5h17l-6.5 7.5V19l-4 2v-8.5z"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3.5V8h4.5M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.5a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6M12 17v.3"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5 9.5 17 19 7.5"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5"/></symbol>
+    <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3 13h5l1.5 2.5h5L16 13h5"/><path d="M5.5 5h13l2.5 8v5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18v-5z"/></symbol>
+    <symbol id="i-card" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h3"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4"/><path d="m10.5 12.5 9-9M16 7l2.5 2.5M18.5 4.5 21 7"/></symbol>
+    <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M5 3v18l2.5-1.5L10 21l2-1.5 2 1.5 2.5-1.5L19 21V3l-2.5 1.5L14 3l-2 1.5L10 3 7.5 4.5z"/><path d="M9 9h6M9 13h6"/></symbol>
+    <symbol id="i-package" viewBox="0 0 24 24"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9M8 5.3l8 4.5"/></symbol>
+    <symbol id="i-news" viewBox="0 0 24 24"><path d="M4 5h13v13a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v9a2 2 0 0 1-4 0M7.5 9h6M7.5 12.5h6M7.5 16h4"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20.5 12a8 8 0 0 1-11.8 7L3.5 20.5 5 15.8A8 8 0 1 1 20.5 12z"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3.5 12.6V4.5a1 1 0 0 1 1-1h8.1l8.4 8.4a1.4 1.4 0 0 1 0 2l-7.1 7.1a1.4 1.4 0 0 1-2 0z"/><circle cx="8" cy="8" r="1.3"/></symbol>
+    <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 8h14l-1 12.5H6z"/><path d="M9 10.5V7a3 3 0 0 1 6 0v3.5"/></symbol>
+    <symbol id="i-luggage" viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="12.5" rx="2"/><path d="M9 7V4.5h6V7M9.5 10.5v6M14.5 10.5v6M8 19.5v1.5M16 19.5v1.5"/></symbol>
+    <symbol id="i-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v2M3 12.5h18"/></symbol>
+    <symbol id="i-cap" viewBox="0 0 24 24"><path d="M2.5 9.5 12 5l9.5 4.5L12 14z"/><path d="M6.5 11.5V16c1.5 1.5 3.5 2.3 5.5 2.3s4-.8 5.5-2.3v-4.5M21.5 9.5v5"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 5 6.5 9H3.5v6h3l4.5 4z"/><path d="m16 9.5 5 5M21 9.5l-5 5"/></symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V11M11 10V4a1.5 1.5 0 0 1 3 0v6M14 10V5.5a1.5 1.5 0 0 1 3 0V12M17 9.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-1a6 6 0 0 1-4.6-2.2L4 15.5a1.6 1.6 0 0 1 2.4-2.1L8 15"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 16v-5M12 16V7M17 16v-8"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><path d="M6.5 3.5h3l1.5 4-2 1.5a11 11 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2 2A16 16 0 0 1 4.5 5.5a2 2 0 0 1 2-2z"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-6.5 8 6.5"/><path d="M6 9.5V20h12V9.5"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></symbol>
+  </defs>
+</svg>
+
+<header class="topbar">
+  <div class="brandbox">
+    <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Collapse menu" aria-expanded="true"><svg class="ico" style="width:22px;height:22px"><use href="#i-menu"/></svg></button>
+    <span class="brand"><svg viewBox="0 0 256 256" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M 110.68,26 Q 128,16 145.32,26 L 207.67,62 Q 224.99,72 224.99,92 L 224.99,164 Q 224.99,184 207.67,194 L 145.32,230 Q 128,240 110.68,230 L 48.33,194 Q 31.01,184 31.01,164 L 31.01,92 Q 31.01,72 48.33,62 Z M 81 88 h 94 a 12 12 0 0 1 12 12 v 56 a 12 12 0 0 1 -12 12 h -94 a 12 12 0 0 1 -12 -12 v -56 a 12 12 0 0 1 12 -12 Z M 75 96 L 128 129.6 L 181 96 L 181 82 L 75 82 Z"/></svg><span>Cluster</span></span>
+  </div>
+  <label class="top-search"><svg class="ico"><use href="#i-search"/></svg><input type="search" id="global-search" placeholder="Search senders, categories and settings" aria-label="Search" /></label>
+  <div class="top-right">
+    <div class="status">
+      <button class="status-btn" id="status-btn" type="button" aria-expanded="false" aria-controls="status-pop"><span id="status-mark" class="dot ok" aria-hidden="true"></span><span id="status-text">Up to date<span class="long"> · 2 min ago</span></span></button>
+      <div class="popover" id="status-pop" role="dialog" aria-label="Sync status" hidden>
+        <dl>
+          <dt>Last checked</dt><dd>10:42, 2 min ago</dd>
+          <dt>Next check</dt><dd>About 10:47</dd>
+          <dt>Index</dt><dd>All mail, 18,412 messages</dd>
+          <dt>Sorting</dt><dd>Moved 12 messages in the last hour</dd>
+          <dt>Chrome closed</dt><dd>Gmail filters keep labelling new mail. Timed moves out of the inbox wait until Chrome is open.</dd>
+        </dl>
+        <div class="foot"><button class="btn" type="button" data-status="busy">Check now</button><span style="flex:1"></span><a href="#settings">Sync settings</a></div>
+      </div>
+    </div>
+    <button class="icon-btn" id="theme-btn" type="button" aria-label="Switch to light theme"><svg class="ico"><use href="#i-sun"/></svg></button>
+    <span class="avatar" title="sam.abhinav@gmail.com" aria-label="Signed in as sam.abhinav@gmail.com">SA</span>
+  </div>
+</header>
+
+<div class="nav-scrim" id="nav-scrim" hidden></div>
+<nav class="rail" id="rail" aria-label="Main">
+  <a href="#simple" data-page="simple" data-simple class="simple-only"><span class="tile"><svg class="ico"><use href="#i-home"/></svg></span><span class="nav-name">Home</span></a>
+  <a href="#overview" data-page="overview"><span class="tile"><svg class="ico"><use href="#i-overview"/></svg></span><span class="nav-name">Overview</span></a>
+  <p class="nav-group">Organize</p>
+  <a href="#sorting" data-page="sorting"><span class="tile"><svg class="ico"><use href="#i-sorting"/></svg></span><span class="nav-name">Sorting</span></a>
+  <a href="#senders" data-page="senders"><span class="tile"><svg class="ico"><use href="#i-senders"/></svg></span><span class="nav-name">Senders</span><span class="count" id="nc-senders">6</span></a>
+  <a href="#subscriptions" data-page="subscriptions"><span class="tile"><svg class="ico"><use href="#i-subs"/></svg></span><span class="nav-name">Subscriptions</span><span class="count" id="nc-subs">7</span></a>
+  <p class="nav-group">Clean up</p>
+  <a href="#suggestions" data-page="suggestions"><span class="tile"><svg class="ico"><use href="#i-clean"/></svg></span><span class="nav-name">Clear out</span><span class="count">852</span></a>
+  <a href="#storage" data-page="storage"><span class="tile"><svg class="ico"><use href="#i-storage"/></svg></span><span class="nav-name">Storage</span></a>
+  <p class="nav-group">Protect</p>
+  <a href="#phishing" data-page="phishing" data-simple><span class="tile"><svg class="ico"><use href="#i-shield"/></svg></span><span class="nav-name">Scams</span><span class="count" id="nc-held">2</span></a>
+  <a href="#screener" data-page="screener"><span class="tile"><svg class="ico"><use href="#i-screener"/></svg></span><span class="nav-name">New senders</span><span class="count" id="nc-screener">3</span></a>
+  <a href="#report" data-page="report"><span class="tile"><svg class="ico"><use href="#i-chart"/></svg></span><span class="nav-name">Scam report</span></a>
+  <div class="spacer"></div>
+  <div class="nav-sep" aria-hidden="true"></div>
+  <a href="#activity" data-page="activity"><span class="tile"><svg class="ico"><use href="#i-activity"/></svg></span><span class="nav-name">Activity</span></a>
+  <a href="#settings" data-page="settings" data-simple><span class="tile"><svg class="ico"><use href="#i-settings"/></svg></span><span class="nav-name">Settings</span></a>
+  <a href="#help" data-page="help" data-simple><span class="tile"><svg class="ico"><use href="#i-help"/></svg></span><span class="nav-name">Help</span></a>
+  <p class="rail-note">Cluster reads senders, subjects and dates. Never message bodies.</p>
+</nav>
+
+<main id="main" tabindex="-1">
+  <!-- ══ Overview ═════════════════════════════════════════════════════ -->
+  <section class="page" data-page="overview" aria-labelledby="h-overview">
+    <div class="page-head"><div><h1 id="h-overview">Overview</h1><p>What Cluster did this week, and what needs you.</p></div>
+      <div class="seg" role="group" aria-label="Period"><button type="button" aria-pressed="true">7 days</button><button type="button" aria-pressed="false">30 days</button></div></div>
+
+    <p class="strip" id="ov-strip"><span class="dot ok" aria-hidden="true"></span><b>Sorting is on</b><span class="muted">7 categories leave your inbox on a timer. Gmail filters label new mail even with Chrome closed.</span></p>
+    <div class="strip" id="ov-reading" hidden><span class="ring" aria-hidden="true"></span><b>Reading your mail… 4,180 of 18,412</b><span class="muted">This happens once. You can use Cluster while it runs.</span><span class="grow"></span><div class="progress" role="progressbar" aria-label="Reading your mail" aria-valuemin="0" aria-valuemax="18412" aria-valuenow="4180"><span style="width:23%"></span></div></div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head"><h2>Needs you</h2><span class="sub">4 items</span></div>
+        <div class="rows" id="needs">
+          <div class="row compact"><div class="main-col"><span class="logo warn" aria-hidden="true">!</span><div class="text"><div class="t">2 emails were held as possible scams</div><div class="s">One pretends to be PayPal. One asks you to pay a new bank account.</div></div></div><span class="chip bad"><span class="dot bad"></span>Held</span><a class="btn" href="#phishing">Review</a></div>
+          <div class="row compact"><div class="main-col"><span class="glyph"><svg class="ico"><use href="#i-screener"/></svg></span><div class="text"><div class="t">3 new senders are waiting</div><div class="s">Priya Raman, Figma and Ridgeline Dental</div></div></div><span></span><a class="btn" href="#screener">Review</a></div>
+          <div class="row compact"><div class="main-col"><span class="glyph"><svg class="ico"><use href="#i-clean"/></svg></span><div class="text"><div class="t">852 messages are ready for Trash</div><div class="s">Mostly from 18 senders you never open</div></div></div><span></span><a class="btn" href="#suggestions">Review</a></div>
+          <div class="row compact" data-dismissable><div class="main-col"><span class="logo" data-brand="netflix" aria-hidden="true"></span><div class="text"><div class="t">Netflix renews in 3 days</div><div class="s">$15.49 on 8 Oct, from a billing email on 8 Sep</div></div></div><span></span><button class="btn ghost" type="button" data-dismiss>Dismiss</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Recent activity</h2><span class="grow"></span><a href="#activity" style="font-size:13px">View all</a></div>
+        <div class="rows">
+          <div class="row compact"><div class="main-col"><span class="glyph"><svg class="ico"><use href="#i-sorting"/></svg></span><div class="text"><div class="t">Sorting moved 38 messages</div><div class="s">2 hours ago, out of your inbox into their labels</div></div></div><span></span><button class="btn ghost" type="button" data-undo="Put 38 messages back in your inbox">Undo</button></div>
+          <div class="row compact"><div class="main-col"><span class="logo" data-brand="medium" aria-hidden="true"></span><div class="text"><div class="t">You unsubscribed from Medium</div><div class="s">Yesterday, verified one-click</div></div></div><span></span><span class="muted" style="font-size:12.5px">Can't undo</span></div>
+          <div class="row compact"><div class="main-col"><span class="logo" data-brand="duolingo" aria-hidden="true"></span><div class="text"><div class="t">You muted Duolingo</div><div class="s">Yesterday, future mail skips the inbox</div></div></div><span></span><button class="btn ghost" type="button" data-undo="Unmuted Duolingo">Undo</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Busiest senders</h2><span class="sub">This week</span><span class="grow"></span><a href="#senders" style="font-size:13px">All senders</a></div>
+      <div class="rows" id="busiest"></div>
+    </div>
+  </section>
+
+  <!-- ══ Sorting ══════════════════════════════════════════════════════ -->
+  <section class="page" data-page="sorting" aria-labelledby="h-sorting" hidden>
+    <div class="page-head"><div><h1 id="h-sorting">Sorting</h1><p>Choose how long each kind of mail stays in your inbox. After that it moves to its own <span class="term" tabindex="0">label<span class="term-tip" role="tooltip">Like a folder in Gmail. Mail with a label is out of your inbox, but it's still in search and in All Mail.</span></span>, where search still finds it. Nothing is deleted unless you choose that on a row. Changes save as you make them.</p></div>
+      <button class="btn" type="button" id="apply-existing">Sort mail already in my inbox…</button></div>
+
+    <div class="card card-pad" id="preset-card" hidden>
+      <b style="font-size:17px">Pick a starting point</b>
+      <div class="muted" style="margin-top:2px">None of these moves anything to Trash. You can change every row afterwards.</div>
+      <div class="presets" role="group" aria-label="Starting point">
+        <button class="preset" type="button" data-preset="Calm inbox"><b>Calm inbox</b><span>Codes, shipping, newsletters and promotions leave your inbox after a day or a few days. Everything is kept in its label.</span><span class="chip" style="justify-self:start;margin-top:6px">Recommended</span></button>
+        <button class="preset" type="button" data-preset="Just label things"><b>Just label things</b><span>Every category gets its label. Nothing leaves your inbox.</span></button>
+        <button class="preset" type="button" data-preset="I'll set it up myself"><b>I'll set it up myself</b><span>Start with everything off and turn on the rows you want.</span></button>
+      </div>
+    </div>
+
+    <div class="card card-pad" id="apply-progress" hidden>
+      <div class="toolbar" style="margin-bottom:10px"><b>Sorting mail already in your inbox</b><span class="muted" id="apply-count">0 of 214</span><span class="grow"></span><button class="btn ghost" type="button" id="apply-stop">Stop</button></div>
+      <div class="progress" role="progressbar" aria-label="Sorting existing mail" aria-valuemin="0" aria-valuemax="214" aria-valuenow="0"><span id="apply-bar" style="width:0"></span></div>
+    </div>
+
+    <p class="strip"><span class="dot ok" aria-hidden="true"></span><span>New mail gets its label straight away, even with Chrome closed. Moving it out of your inbox when its time is up happens while Chrome is open.</span></p>
+    <div class="card"><div id="cat-rows" role="list" aria-label="Kinds of mail"></div></div>
+    <div class="toolbar" style="font-size:13px"><span class="muted">Last checked 4 min ago. Moved 12 messages out of the inbox.</span><button class="btn ghost" type="button" data-undo="Put 12 messages back in your inbox">Undo</button></div>
+
+    <details class="more"><summary><svg class="ico"><use href="#i-chev"/></svg>Custom rules <span class="chip">2</span></summary>
+      <div class="inner">Archive unread newsletters older than 14 days. Label mail from harvard.edu as 🎓 Education. The rule composer lives here.</div></details>
+  </section>
+
+  <!-- ══ Senders ══════════════════════════════════════════════════════ -->
+  <section class="page" data-page="senders" aria-labelledby="h-senders" hidden>
+    <div class="page-head"><div><h1 id="h-senders">Senders</h1><p>Everyone who emails you, busiest first. Decide once and Cluster remembers. Two ways to stop a sender: <span class="term" tabindex="0">Unsubscribe<span class="term-tip" role="tooltip">Cluster asks the sender to take you off their list. Most stop within a few days. Some ignore it, so you can also mute them.</span></span> asks them to stop, and <span class="term" tabindex="0">Mute<span class="term-tip" role="tooltip">Their new mail skips your inbox and goes to the Muted label. They can still email you, and you can unmute any time.</span></span> hides their mail even if they don't.</p></div></div>
+    <div class="toolbar">
+      <label class="search"><svg class="ico"><use href="#i-search"/></svg><input type="search" id="sender-search" placeholder="Search senders" aria-label="Search senders" /></label>
+      <span class="grow"></span>
+      <div class="seg" role="group" aria-label="Filter senders" id="sender-seg"></div>
+    </div>
+    <div class="card"><div class="rows" id="sender-list"></div><div class="rows" id="sender-skel" hidden aria-hidden="true"></div></div>
+    <div class="bulk" id="bulk" hidden><b id="bulk-n">2 selected</b><button class="btn" type="button" data-bulk="unsub">Unsubscribe</button><button class="btn" type="button" data-bulk="mute">Mute</button>
+      <select class="select" style="width:auto" aria-label="Send selected senders to a category"><option>Send to…</option><option>Shopping</option><option>Newsletters</option><option>Promotions</option></select><button class="btn ghost" type="button" id="bulk-clear">Clear</button></div>
+  </section>
+
+  <!-- ══ Subscriptions ════════════════════════════════════════════════ -->
+  <section class="page" data-page="subscriptions" aria-labelledby="h-subs" hidden>
+    <div class="page-head"><div><h1 id="h-subs">Subscriptions</h1><p>Mailing lists you're on, busiest first. Cluster only presses a sender's <span class="term" tabindex="0">verified unsubscribe<span class="term-tip" role="tooltip">A standard unsubscribe link the sender has signed, so Cluster can press it for you safely. Lists without one show a link to their own page instead.</span></span> link.</p></div>
+      <button class="btn primary" type="button" id="unsub-all">Unsubscribe from 4 you never open</button></div>
+    <div class="card"><div class="rows" id="subs-list"></div></div>
+  </section>
+
+  <!-- ══ Suggestions ══════════════════════════════════════════════════ -->
+  <section class="page" data-page="suggestions" aria-labelledby="h-sugg" hidden>
+    <div class="page-head"><div><h1 id="h-sugg">Clear out</h1><p>Mail you can get rid of now. It goes to Trash, and Gmail keeps Trash for 30 days, so you can change your mind.</p></div></div>
+    <div class="card">
+      <div class="rows" id="sugg">
+        <div class="row"><label class="check-hit"><input type="checkbox" class="check" checked data-n="640" aria-label="Include senders you never open"></label><div class="main-col"><div class="text"><div class="t">18 senders you never open</div><div class="s">640 messages, none opened in 90 days</div></div></div><span class="numcol">640</span><span></span><button class="chev" type="button" aria-label="Review senders you never open"><svg class="ico"><use href="#i-chev"/></svg></button></div>
+        <div class="row"><label class="check-hit"><input type="checkbox" class="check" checked data-n="212" aria-label="Include expired codes and old newsletters"></label><div class="main-col"><div class="text"><div class="t">Expired codes and old newsletters</div><div class="s">Codes older than 2 days, newsletters older than 30</div></div></div><span class="numcol">212</span><span></span><button class="chev" type="button" aria-label="Review expired mail"><svg class="ico"><use href="#i-chev"/></svg></button></div>
+        <div class="row"><label class="check-hit"><input type="checkbox" class="check" data-n="40" aria-label="Include senders on a spam list"></label><div class="main-col"><div class="text"><div class="t">6 senders on a public spam list</div><div class="s">Off by default. Check them first.</div></div></div><span class="numcol">40</span><span></span><button class="chev" type="button" aria-label="Review spam-list senders"><svg class="ico"><use href="#i-chev"/></svg></button></div>
+      </div>
+    </div>
+    <div class="toolbar"><div class="trust"><span><svg class="ico"><use href="#i-check"/></svg>Starred and <span class="term" tabindex="0">protected mail<span class="term-tip" role="tooltip">Receipts, bills, travel, codes you might still need, and anything from people you write to. Cluster never moves these to Trash.</span></span> is skipped</span><span><svg class="ico"><use href="#i-check"/></svg>Trash keeps it 30 days</span><span><svg class="ico"><use href="#i-check"/></svg>Undo from Activity</span></div><span class="grow"></span><button class="btn primary" type="button" id="sugg-go">Move 852 to Trash…</button></div>
+    <div class="confirm" id="sugg-confirm" style="margin:0" hidden><span class="grow">Move 852 messages to Trash? Starred and protected mail is skipped. You can undo this from Activity for 30 days.</span><button class="btn danger" type="button" id="sugg-yes">Move 852 to Trash</button><button class="btn ghost" type="button" id="sugg-no">Cancel</button></div>
+  </section>
+
+  <!-- ══ Storage ══════════════════════════════════════════════════════ -->
+  <section class="page" data-page="storage" aria-labelledby="h-storage" hidden>
+    <div class="page-head"><div><h1 id="h-storage">Storage</h1><p>Find old and large mail to clear. Pick a filter to see what matches.</p></div></div>
+    <div class="seg" role="group" aria-label="Find" style="justify-self:start;width:max-content"><button type="button" aria-pressed="true">Older than 1 year</button><button type="button" aria-pressed="false">Larger than 2 MB</button><button type="button" aria-pressed="false">By website</button></div>
+    <div class="card"><div class="empty"><b>Not built in this mockup</b>Same rows as Senders, with a checkbox each and one "Move N to Trash…" button.</div></div>
+  </section>
+
+  <!-- ══ Scams (was Phishing) ═════════════════════════════════════════ -->
+  <section class="page" data-page="phishing" aria-labelledby="h-phish" hidden>
+    <div class="page-head"><div><h1 id="h-phish">Scams</h1><p>Emails that look like scams are <span class="term" tabindex="0">held<span class="term-tip" role="tooltip">Moved out of your inbox into the "🚨 Possible phishing" label. Never deleted. One tap brings it back.</span></span> out of your inbox, so you see them only when you choose to. You decide what happens next.</p></div></div>
+    <div class="card"><div class="set-row" style="padding:0 16px"><span class="glyph"><svg class="ico"><use href="#i-shield"/></svg></span><div class="grow"><b>Hold emails that look like scams</b><div class="s">Needs two separate warning signs on the same email, or one certain one. Only that email moves, never a sender's other mail.</div></div><span class="switch-hit"><button class="switch" role="switch" aria-checked="true" aria-label="Hold emails that look like scams" data-sw="Scam protection"></button></span></div></div>
+    <div class="trust"><span><svg class="ico"><use href="#i-check"/></svg>Checked on your computer</span><span><svg class="ico"><use href="#i-check"/></svg>Nothing deleted</span><span><svg class="ico"><use href="#i-check"/></svg>One tap to put it back</span></div>
+
+    <div class="card">
+      <div class="card-head"><h2>Held for you</h2><span class="sub" id="held-n">2 emails</span></div>
+      <div id="held-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Check before you act</h2><span class="sub">Left in your inbox with a warning label</span></div>
+      <div id="warn-list"></div>
+    </div>
+  </section>
+
+  <!-- ══ Scam report ══════════════════════════════════════════════════ -->
+  <section class="page" data-page="report" aria-labelledby="h-report" hidden>
+    <div class="page-head"><div><h1 id="h-report">Scam report</h1><p>What Cluster caught over the last 8 weeks. It's worked out on your computer from your own mail, and nothing here is sent anywhere.</p></div></div>
+    <div class="kpis" id="report-kpis"></div>
+    <div class="card chart-card">
+      <h2>Emails held each week</h2><div class="sub">Last 8 weeks</div>
+      <div class="vbars" id="held-bars" role="img" aria-label="Emails held each week, last 8 weeks"></div>
+      <div class="vlabels" id="held-labels" aria-hidden="true"></div>
+    </div>
+    <div class="grid-2">
+      <div class="card chart-card"><h2>Who they pretended to be</h2><div class="sub">Brands in held emails</div><div class="hbars" id="brand-bars"></div></div>
+      <div class="card chart-card"><h2>How they tried</h2><div class="sub">The warning signs Cluster saw</div><div class="hbars" id="kind-bars"></div></div>
+    </div>
+    <details class="more"><summary><svg class="ico"><use href="#i-chev"/></svg>Show the numbers as a table</summary><div class="inner" id="report-table"></div></details>
+  </section>
+
+  <!-- ══ Screener ═════════════════════════════════════════════════════ -->
+  <section class="page" data-page="screener" aria-labelledby="h-screener" hidden>
+    <div class="page-head"><div><h1 id="h-screener">New senders</h1><p>Mail from people you've never written to waits here until you let them in. They aren't told. People you've emailed always get straight through.</p></div></div>
+    <div class="card"><div class="set-row" style="padding:0 16px"><div class="grow"><b>Hold mail from new senders</b><div class="s">Anyone you've emailed gets through. Everyone else waits here.</div></div><span class="switch-hit"><button class="switch" role="switch" aria-checked="true" aria-label="Hold mail from new senders" data-sw="Screener"></button></span></div></div>
+    <div class="card"><div class="card-head"><h2>Waiting</h2><span class="sub" id="scr-n">3 senders</span></div><div class="rows" id="screen-list"></div></div>
+  </section>
+
+  <!-- ══ Activity ═════════════════════════════════════════════════════ -->
+  <section class="page" data-page="activity" aria-labelledby="h-activity" hidden>
+    <div class="page-head"><div><h1 id="h-activity">Activity</h1><p>Everything done by you or automatically, with a way to put it back.</p></div>
+      <div class="seg" role="group" aria-label="Show"><button type="button" aria-pressed="true">All</button><button type="button" aria-pressed="false">By you</button><button type="button" aria-pressed="false">Automatic</button></div></div>
+    <div class="card"><div class="card-head"><h2>Today</h2></div><div class="rows">
+      <div class="row compact"><div class="main-col"><span class="glyph"><svg class="ico"><use href="#i-sorting"/></svg></span><div class="text"><div class="t">Sorting moved 12 codes out of your inbox</div><div class="s">10:30, automatic</div></div></div><span></span><button class="btn ghost" type="button" data-undo="Put 12 codes back in your inbox">Undo</button></div>
+      <div class="row compact"><div class="main-col"><span class="logo" data-brand="groupon" aria-hidden="true"></span><div class="text"><div class="t">You muted Groupon</div><div class="s">09:58, 214 messages</div></div></div><span></span><button class="btn ghost" type="button" data-undo="Unmuted Groupon">Undo</button></div>
+      <div class="row compact"><div class="main-col"><span class="logo" data-brand="substack" aria-hidden="true"></span><div class="text"><div class="t">You unsubscribed from a Substack list</div><div class="s">09:41. Unsubscribe requests can't be recalled.</div></div></div><span></span><button class="btn ghost" type="button" data-toast="Muted that list as well">Mute instead</button></div>
+    </div></div>
+  </section>
+
+  <!-- ══ Settings ═════════════════════════════════════════════════════ -->
+  <section class="page" data-page="settings" aria-labelledby="h-settings" hidden>
+    <div class="page-head"><div><h1 id="h-settings">Settings</h1><p>Things you set once. Every change applies right away.</p></div></div>
+    <div class="card">
+      <div class="set-sec"><div><h2>Setup</h2><div class="lead">What describes you</div></div><div>
+        <div class="set-row"><div class="grow">Calm inbox<div class="s">Promotions out after a day, school and job mail protected.</div></div><a class="btn" href="#setup">Change</a></div></div></div>
+      <div class="set-sec"><div><h2>Accounts</h2><div class="lead">Where Cluster works</div></div><div>
+        <div class="set-row"><span class="logo" data-brand="google" aria-hidden="true"></span><div class="grow">Gmail<div class="s">sam.abhinav@gmail.com</div></div><button class="btn ghost" type="button">Sign out</button></div>
+        <div class="set-row"><span class="glyph"><svg class="ico"><use href="#i-inbox"/></svg></span><div class="grow">Outlook<div class="s">Not connected. Gmail comes first for now.</div></div><button class="btn" type="button">Connect</button></div></div></div>
+      <div class="set-sec"><div><h2>Sync</h2><div class="lead">How Cluster reads your mail</div></div><div>
+        <div class="set-row"><div class="grow">Reads all your mail<div class="s" id="sync-line">18,412 messages. Up to date.</div></div><button class="btn" type="button" data-toast="Rebuilding the index. You can keep using Cluster.">Rebuild index</button></div></div></div>
+      <div class="set-sec"><div><h2>Appearance</h2><div class="lead">How Cluster looks</div></div><div>
+        <div class="set-row"><div class="grow">Simple mode<div class="s">Bigger text, fewer screens, one thing at a time.</div></div><span class="switch-hit"><button class="switch" role="switch" aria-checked="false" aria-label="Simple mode" id="simple-sw"></button></span></div>
+        <div class="set-row"><div class="grow">Theme</div><div class="seg" role="group" aria-label="Theme" id="theme-seg"><button type="button" data-t="system">System</button><button type="button" data-t="light">Light</button><button type="button" data-t="dark">Dark</button></div></div></div></div>
+      <div class="set-sec"><div><h2>Deleting</h2><div class="lead">What Trash means</div></div><div>
+        <div class="set-row"><div class="grow">Delete forever instead of Trash<div class="s">Skips Trash. This can't be undone. Needs one more permission.</div></div><span class="switch-hit"><button class="switch" role="switch" aria-checked="false" aria-label="Delete forever instead of Trash" data-sw="Delete forever"></button></span></div></div></div>
+      <div class="set-sec"><div><h2>Smart features</h2><div class="lead">Run on this device</div></div><div>
+        <div class="set-row"><div class="grow">Classify unclear mail with Chrome's on-device model</div><span class="switch-hit"><button class="switch" role="switch" aria-checked="true" aria-label="On-device classify" data-sw="On-device classify"></button></span></div></div></div>
+      <div class="set-sec"><div><h2>Maintenance</h2><div class="lead">Once in a while</div></div><div>
+        <div class="set-row"><div class="grow">Tidy up Cluster's labels<div class="s">1 label from an older version can be renamed</div></div><button class="btn" type="button">Review</button></div></div></div>
+    </div>
+  </section>
+
+  <!-- ══ First-run setup ═════════════════════════════════════════════ -->
+  <section class="page" data-page="setup" aria-labelledby="h-setup" hidden>
+    <div class="page-head"><div><h1 id="h-setup">What describes you?</h1><p>Pick the closest one. Cluster sets sensible defaults, and you can change anything later.</p></div></div>
+    <div class="personas" role="group" aria-label="What describes you" id="personas">
+      <button class="persona" type="button" data-persona="Calm inbox" aria-pressed="false"><b>I get too many promotions</b><span>Signed up for everything. Want a calm inbox.</span><ul><li>Promotions and codes leave after 1 day</li><li>School, job and bank mail stay put</li><li>Unsubscribe from lists you never open</li></ul></button>
+      <button class="persona" type="button" data-persona="Business" aria-pressed="false"><b>I run a business</b><span>Bills, suppliers, customers.</span><ul><li>Invoices and bills get their own label</li><li>Warns when a supplier's details change</li><li>Never moves a bill to Trash</li></ul></button>
+      <button class="persona" type="button" data-persona="Keep me safe" aria-pressed="false"><b>Keep me safe</b><span>For yourself or someone you care for.</span><ul><li>Scam protection on, strongest setting</li><li>Simple mode: bigger text, fewer screens</li><li>Plain reasons for every held email</li></ul></button>
+      <button class="persona" type="button" data-persona="Busy inbox" aria-pressed="false"><b>Lots of people email me</b><span>Pitches, partners, fans.</span><ul><li>Pitches and collabs get their own label</li><li>New senders are sorted, not held</li><li>Warns about risky attachments</li></ul></button>
+    </div>
+    <div class="card card-pad" id="setup-preview" hidden>
+      <b style="font-size:17px" id="setup-title">Here's what would change</b>
+      <ul class="why" id="setup-list" style="margin-top:8px"></ul>
+      <div class="trust" style="margin:10px 0 14px"><span><svg class="ico"><use href="#i-check"/></svg>Runs on your computer</span><span><svg class="ico"><use href="#i-check"/></svg>Nothing is deleted</span><span><svg class="ico"><use href="#i-check"/></svg>Undo anything</span></div>
+      <div class="toolbar"><button class="btn primary" type="button" id="setup-go">Turn it on</button><a class="btn ghost" href="#overview">I'll set it up myself</a></div>
+    </div>
+  </section>
+
+  <!-- ══ Simple mode home ═════════════════════════════════════════════ -->
+  <section class="page" data-page="simple" aria-labelledby="h-simple" hidden>
+    <div class="page-head"><div><h1 id="h-simple">Hello</h1><p>Here's your email today.</p></div></div>
+    <div class="big-status"><svg class="ico"><use href="#i-shield"/></svg><div><b>You're protected</b><span>Cluster is checking your email for scams.</span></div></div>
+    <div class="big-action"><b>2 emails looked like scams. Cluster moved them away from your inbox.</b><span class="muted">You don't need to do anything. Look at them only if you were expecting something.</span><a class="btn primary" href="#phishing">See them</a></div>
+    <div class="big-action"><b>Before you pay anyone or share a code</b><span class="muted">Call the person or company on a number you already have, never one from the email. Real banks never ask for a code by email.</span></div>
+    <div class="toolbar"><button class="btn ghost" type="button" id="simple-off">Turn off Simple mode</button></div>
+  </section>
+
+  <!-- ══ Help ═════════════════════════════════════════════════════════ -->
+  <section class="page" data-page="help" aria-labelledby="h-help" hidden>
+    <div class="page-head"><div><h1 id="h-help">Help</h1><p>Short answers to the questions people ask first.</p></div></div>
+    <details class="more"><summary><svg class="ico"><use href="#i-chev"/></svg>What does Cluster read?</summary><div class="inner">Senders, subjects, dates, labels and sender-check headers. Never message bodies.</div></details>
+    <details class="more"><summary><svg class="ico"><use href="#i-chev"/></svg>Does it work with Chrome closed?</summary><div class="inner">Gmail filters label new mail at any time. Moving mail out of the inbox after a time limit happens while Chrome is open.</div></details>
+    <details class="more"><summary><svg class="ico"><use href="#i-chev"/></svg>How do I undo something?</summary><div class="inner">Use Undo on the message that appears, or open Activity. Trash can be undone for 30 days.</div></details>
+  </section>
+</main>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-t" hidden>
+  <div class="sheet-head"><span class="logo" id="sh-logo" aria-hidden="true"></span><div style="flex:1;min-width:0"><div class="t" id="sh-t">Groupon</div><div class="muted" id="sh-a" style="font-size:13px">deals@r.groupon.com</div></div><button class="icon-btn" id="sh-close" type="button" aria-label="Close"><svg class="ico"><use href="#i-x"/></svg></button></div>
+  <div class="sheet-body">
+    <div class="stats" style="margin-top:14px"><div><b id="sh-c">214</b><span>messages</span></div><div><b id="sh-o">0%</b><span>opened</span></div><div><b id="sh-w">30</b><span>a week</span></div></div>
+    <section><h3 id="fm">Future mail</h3><div class="radios" role="radiogroup" aria-labelledby="fm" id="sh-future">
+      <label><input type="radio" name="fm" value="inbox"> Inbox</label>
+      <label><input type="radio" name="fm" value="cat" checked> <span id="sh-cat"></span><span class="hint">Follows its Sorting row</span></label>
+      <label><input type="radio" name="fm" value="muted"> <span class="cat-chip plain"><svg class="ico"><use href="#i-mute"/></svg>Muted</span><span class="hint">Skips the inbox</span></label></div></section>
+    <section><h3>Unsubscribe</h3><div class="toolbar"><button class="btn" type="button" id="sh-unsub">Unsubscribe</button><span class="chip"><span class="dot ok"></span>Verified one-click</span></div></section>
+    <section><h3>Mail already here</h3><div class="toolbar" id="sh-exist"><button class="btn" type="button" id="sh-trash">Move 214 to Trash…</button><button class="btn" type="button" id="sh-keep">Keep newest 3…</button></div>
+      <div class="confirm" id="sh-confirm" style="margin:0" hidden><span class="grow" id="sh-confirm-t">Move 214 messages to Trash? Starred mail is skipped.</span><button class="btn danger" type="button" id="sh-yes">Move to Trash</button><button class="btn ghost" type="button" id="sh-no">Cancel</button></div></section>
+    <section><h3>Why we suggest this</h3><ul class="why" id="sh-why"></ul></section>
+  </div>
+</aside>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<details class="demo"><summary>Mockup states</summary><div class="panel">
+  <span class="muted">Reviewer controls. Not part of the design.</span>
+  <b>Status</b><div class="g"><button class="btn" type="button" data-status="idle">Up to date</button><button class="btn" type="button" data-status="reading">Reading all mail</button><button class="btn" type="button" data-status="busy">Checking</button><button class="btn" type="button" data-status="offline">Offline</button><button class="btn" type="button" data-status="auth">Signed out</button></div>
+  <b>States</b><div class="g"><button class="btn" type="button" id="d-skel">Loading rows</button><button class="btn" type="button" id="d-err">Row error</button><button class="btn" type="button" id="d-preset">Preset card</button><button class="btn" type="button" id="d-fail">Filter failed</button></div>
+  <b>v4</b><div class="g"><button class="btn" type="button" id="d-setup">First-run setup</button><button class="btn" type="button" id="d-simple">Simple mode</button></div>
+  <b>Logos</b><div class="g"><button class="btn" type="button" id="d-gray">Grayscale until hover</button></div>
+</div></details>
+
+<script>
+/* Brand marks: Simple Icons 16.33.0 (CC0), same source as Moat src/options/brandIcons.ts. [hex, path] */
+const BRANDS = {"paypal":["002991","M15.607 4.653H8.941L6.645 19.251H1.82L4.862 0h7.995c3.754 0 6.375 2.294 6.473 5.513-.648-.478-2.105-.86-3.722-.86m6.57 5.546c0 3.41-3.01 6.853-6.958 6.853h-2.493L11.595 24H6.74l1.845-11.538h3.592c4.208 0 7.346-3.634 7.153-6.949a5.24 5.24 0 0 1 2.848 4.686M9.653 5.546h6.408c.907 0 1.942.222 2.363.541-.195 2.741-2.655 5.483-6.441 5.483H8.714Z"],"netflix":["E50914","m5.398 0 8.348 23.602c2.346.059 4.856.398 4.856.398L10.113 0H5.398zm8.489 0v9.172l4.715 13.33V0h-4.715zM5.398 1.5V24c1.873-.225 2.81-.312 4.715-.398V14.83L5.398 1.5z"],"substack":["FF6719","M22.539 8.242H1.46V5.406h21.08v2.836zM1.46 10.812V24L12 18.11 22.54 24V10.812H1.46zM22.54 0H1.46v2.836h21.08V0z"],"uber":["000000","M0 7.97v4.958c0 1.867 1.302 3.101 3 3.101.826 0 1.562-.316 2.094-.87v.736H6.27V7.97H5.082v4.888c0 1.257-.85 2.106-1.947 2.106-1.11 0-1.946-.827-1.946-2.106V7.971H0zm7.44 0v7.925h1.13v-.725c.521.532 1.257.86 2.06.86a3.006 3.006 0 0 0 3.034-3.01 3.01 3.01 0 0 0-3.033-3.024 2.86 2.86 0 0 0-2.049.861V7.971H7.439zm9.869 2.038c-1.687 0-2.965 1.37-2.965 3 0 1.72 1.334 3.01 3.066 3.01 1.053 0 1.913-.463 2.49-1.233l-.826-.611c-.43.577-.996.847-1.664.847-.973 0-1.753-.7-1.912-1.64h4.697v-.373c0-1.72-1.222-3-2.886-3zm6.295.068c-.634 0-1.098.294-1.381.758v-.713h-1.131v5.774h1.142V12.61c0-.894.544-1.47 1.291-1.47H24v-1.065h-.396zm-6.319.928c.85 0 1.564.588 1.756 1.47H15.52c.203-.882.916-1.47 1.765-1.47zm-6.732.012c1.086 0 1.98.883 1.98 2.004a1.993 1.993 0 0 1-1.98 2.001A1.989 1.989 0 0 1 8.56 13.02a1.99 1.99 0 0 1 1.992-2.004z"],"github":["181717","M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"],"google":["4285F4","M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"],"duolingo":["58CC02","M14.484 18.213c1.142 1.033 2.657 1.662 4.316 1.662l.294-.001c1.985-.038 3.749-.976 4.905-2.422v1.98c0 2.522-2.043 4.568-4.567 4.568H4.569C2.045 23.998.002 21.954.002 19.43v-1.92c1.181 1.443 2.976 2.365 4.985 2.365l.35-.001c1.61-.027 3.076-.646 4.191-1.648.555.764 1.456 1.26 2.473 1.26 1.023 0 1.928-.502 2.483-1.273zm-5.349-.996c-.989 1.022-2.375 1.658-3.909 1.658h-.239c-2.229 0-4.146-1.343-4.987-3.262v-7.16c.281-.64.68-1.216 1.169-1.699-.035-.731.132-1.469.511-2.128.256-.44.867-.504 1.21-.124l.766.851c.007-.003.014-.003.021-.005-.098-.78.037-1.587.419-2.308.24-.45.757-.53 1.114-.164 0 0 3.939 3.979 4.035 4.084 1.542 1.348 4.066 1.287 5.686-.18.002-.003.007-.005.009-.007.042-.042 3.855-3.9 3.855-3.9.3361-.3451.8619-.3101 1.113.164.385.724.518 1.535.417 2.32.002.001.003.001.004.002l.007.002c.001 0 .002 0 .003.001l.776-.86c.342-.38.954-.316 1.207.124.387.673.553 1.427.509 2.173.496.501.897 1.099 1.169 1.762v6.941c-.816 1.978-2.761 3.373-5.032 3.373H18.8c-1.547 0-2.945-.648-3.936-1.686a.8386.8386 0 0 0-.009-.067c.313-.017.528-.162.688-.33.152-.16.299-.397.299-.776 0 0-.022-.312-.024-.324.693.767 1.696 1.249 2.811 1.249 2.092 0 3.787-1.696 3.787-3.787v-2.243c0-2.092-1.697-3.787-3.787-3.787-2.093 0-3.787 1.695-3.787 3.787v2.243c0 .266.027.526.079.776-.712-.784-1.744-1.278-2.842-1.278-1.239 0-2.339.523-3.064 1.355.063-.274.097-.56.097-.853v-2.243c0-2.092-1.697-3.787-3.788-3.787-2.09 0-3.787 1.695-3.787 3.787v2.243c0 2.093 1.697 3.787 3.787 3.787 1.151 0 2.182-.513 2.876-1.322-.008.035-.039.395-.039.395 0 .378.147.616.298.775.16.168.374.312.688.331a.7783.7783 0 0 0-.012.097zm.997.073c.729.131 1.733.305 1.792.305h.157c.059 0 1.789-.303 1.789-.303-.327.705-1.041 1.194-1.869 1.194-.829 0-1.543-.49-1.869-1.196zm-.971-1.379c.246-1.313 1.462-2.259 2.918-2.259 1.324 0 2.521.97 2.763 2.259v.105c0 .082-.029.115-.103.106l-2.658.473h-.157l-2.66-.476c-.075.01-.103-.023-.103-.105Zm8.023-6.392c.255-.14.549-.22.861-.22.992 0 1.798.804 1.798 1.798v1.919c0 .991-.804 1.797-1.798 1.797-.991 0-1.797-.803-1.797-1.797v-1.542c.034.003.068.005.103.005.64 0 1.16-.518 1.16-1.156 0-.312-.125-.596-.327-.804zM5.162 9.461c.227-.104.48-.162.746-.162.991 0 1.798.804 1.798 1.798v1.919c0 .991-.804 1.797-1.798 1.797-.991 0-1.797-.803-1.797-1.797v-1.571c.089.022.182.034.278.034.641 0 1.16-.518 1.16-1.156 0-.342-.149-.65-.387-.862ZM.002 6.554V4.568C.002 2.044 2.045 0 4.569 0h14.865c2.522 0 4.565 2.044 4.565 4.568v2.041a5.1847 5.1847 0 0 0-.164-.197 4.8592 4.8592 0 0 0-.646-2.284c-.433-.754-1.315-1.037-2.07-.786a4.785 4.785 0 0 0-.327-.774h-.001c-.287-.54-.758-.835-1.248-.908-.493-.073-1.033.072-1.464.515l-3.82 3.864c-1.226 1.11-3.127 1.199-4.313.205-.103-.109-4.025-4.071-4.025-4.071-.427-.438-.966-.584-1.46-.51-.489.073-.961.367-1.248.907v.002c-.133.25-.241.508-.327.771-.753-.252-1.635.029-2.071.782 0 0-.001.001-.001.002-.4.694-.613 1.459-.645 2.23-.057.065-.113.13-.167.197z"],"spotify":["1ED760","M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"],"doordash":["FF3008","M23.071 8.409a6.09 6.09 0 00-5.396-3.228H.584A.589.589 0 00.17 6.184L3.894 9.93a1.752 1.752 0 001.242.516h12.049a1.554 1.554 0 11.031 3.108H8.91a.589.589 0 00-.415 1.003l3.725 3.747a1.75 1.75 0 001.242.516h3.757c4.887 0 8.584-5.225 5.852-10.413"],"medium":["000000","M4.21 0A4.201 4.201 0 0 0 0 4.21v15.58A4.201 4.201 0 0 0 4.21 24h15.58A4.201 4.201 0 0 0 24 19.79v-1.093c-.137.013-.278.02-.422.02-2.577 0-4.027-2.146-4.09-4.832a7.592 7.592 0 0 1 .022-.708c.093-1.186.475-2.241 1.105-3.022a3.885 3.885 0 0 1 1.395-1.1c.468-.237 1.127-.367 1.664-.367h.023c.101 0 .202.004.303.01V4.211A4.201 4.201 0 0 0 19.79 0Zm.198 5.583h4.165l3.588 8.435 3.59-8.435h3.864v.146l-.019.004c-.705.16-1.063.397-1.063 1.254h-.003l.003 10.274c.06.676.424.885 1.063 1.03l.02.004v.145h-4.923v-.145l.019-.005c.639-.144.994-.353 1.054-1.03V7.267l-4.745 11.15h-.261L6.15 7.569v9.445c0 .857.358 1.094 1.063 1.253l.02.004v.147H4.405v-.147l.019-.004c.705-.16 1.065-.397 1.065-1.253V6.987c0-.857-.358-1.094-1.064-1.254l-.018-.004zm19.25 3.668c-1.086.023-1.733 1.323-1.813 3.124H24V9.298a1.378 1.378 0 0 0-.342-.047Zm-1.862 3.632c-.1 1.756.86 3.239 2.204 3.634v-3.634z"],"figma":["F24E1E","M15.852 8.981h-4.588V0h4.588c2.476 0 4.49 2.014 4.49 4.49s-2.014 4.491-4.49 4.491zM12.735 7.51h3.117c1.665 0 3.019-1.355 3.019-3.019s-1.355-3.019-3.019-3.019h-3.117V7.51zm0 1.471H8.148c-2.476 0-4.49-2.014-4.49-4.49S5.672 0 8.148 0h4.588v8.981zm-4.587-7.51c-1.665 0-3.019 1.355-3.019 3.019s1.354 3.02 3.019 3.02h3.117V1.471H8.148zm4.587 15.019H8.148c-2.476 0-4.49-2.014-4.49-4.49s2.014-4.49 4.49-4.49h4.588v8.98zM8.148 8.981c-1.665 0-3.019 1.355-3.019 3.019s1.355 3.019 3.019 3.019h3.117V8.981H8.148zM8.172 24c-2.489 0-4.515-2.014-4.515-4.49s2.014-4.49 4.49-4.49h4.588v4.441c0 2.503-2.047 4.539-4.563 4.539zm-.024-7.51a3.023 3.023 0 0 0-3.019 3.019c0 1.665 1.365 3.019 3.044 3.019 1.705 0 3.093-1.376 3.093-3.068v-2.97H8.148zm7.704 0h-.098c-2.476 0-4.49-2.014-4.49-4.49s2.014-4.49 4.49-4.49h.098c2.476 0 4.49 2.014 4.49 4.49s-2.014 4.49-4.49 4.49zm-.097-7.509c-1.665 0-3.019 1.355-3.019 3.019s1.355 3.019 3.019 3.019h.098c1.665 0 3.019-1.355 3.019-3.019s-1.355-3.019-3.019-3.019h-.098z"],"notion":["000000","M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952L12.21 19s0 .84-1.168.84l-3.222.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.456-.233 4.764 7.279v-6.44l-1.215-.139c-.093-.514.28-.887.747-.933zM1.936 1.035l13.31-.98c1.634-.14 2.055-.047 3.082.7l4.249 2.986c.7.513.934.653.934 1.213v16.378c0 1.026-.373 1.634-1.68 1.726l-15.458.934c-.98.047-1.448-.093-1.962-.747l-3.129-4.06c-.56-.747-.793-1.306-.793-1.96V2.667c0-.839.374-1.54 1.447-1.632z"],"groupon":["53A318","M3.316 20.334C5.618 22.736 8.554 24 12.012 24c3.988 0 7.739-1.95 9.978-5.163 1.353-1.95 2.01-4.158 2.01-6.755 0-.484-.032-1.006-.063-1.529H10.595v4.61h6.687c-1.155 2.012-3.094 3.12-5.27 3.12-3.229 0-6.125-2.824-6.125-6.497 0-3.315 2.699-6.069 6.125-6.069 1.844 0 3.355.749 4.811 2.239h6.52C21.468 3.019 17.084 0 12.083 0c-3.323 0-6.22 1.17-8.53 3.409C1.25 5.647 0 8.572 0 11.754c-.008 3.417 1.108 6.271 3.316 8.58z"],"strava":["FC4C02","M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"],"coursera":["0056D2","M11.374 23.977c-4.183-.21-8.006-2.626-9.959-6.347-2.097-3.858-1.871-8.864.732-12.454C4.748 1.338 9.497-.698 14.281.23c4.583.857 8.351 4.494 9.358 8.911 1.122 4.344-.423 9.173-3.925 12.04-2.289 1.953-5.295 2.956-8.34 2.797zm7.705-8.05a588.737 588.737 0 0 0-3.171-1.887c-.903 1.483-2.885 2.248-4.57 1.665-2.024-.639-3.394-2.987-2.488-5.134.801-2.009 2.79-2.707 4.357-2.464a4.19 4.19 0 0 1 2.623 1.669c1.077-.631 2.128-1.218 3.173-1.855-2.03-3.118-6.151-4.294-9.656-2.754-3.13 1.423-4.89 4.68-4.388 7.919.54 3.598 3.73 6.486 7.716 6.404a7.664 7.664 0 0 0 6.404-3.563z"],"airbnb":["FF5A5F","M12.001 18.275c-1.353-1.697-2.148-3.184-2.413-4.457-.263-1.027-.16-1.848.291-2.465.477-.71 1.188-1.056 2.121-1.056s1.643.345 2.12 1.063c.446.61.558 1.432.286 2.465-.291 1.298-1.085 2.785-2.412 4.458zm9.601 1.14c-.185 1.246-1.034 2.28-2.2 2.783-2.253.98-4.483-.583-6.392-2.704 3.157-3.951 3.74-7.028 2.385-9.018-.795-1.14-1.933-1.695-3.394-1.695-2.944 0-4.563 2.49-3.927 5.382.37 1.565 1.352 3.343 2.917 5.332-.98 1.085-1.91 1.856-2.732 2.333-.636.344-1.245.558-1.828.609-2.679.399-4.778-2.2-3.825-4.88.132-.345.395-.98.845-1.961l.025-.053c1.464-3.178 3.242-6.79 5.285-10.795l.053-.132.58-1.116c.45-.822.635-1.19 1.351-1.643.346-.21.77-.315 1.246-.315.954 0 1.698.558 2.016 1.007.158.239.345.557.582.953l.558 1.089.08.159c2.041 4.004 3.821 7.608 5.279 10.794l.026.025.533 1.22.318.764c.243.613.294 1.222.213 1.858zm1.22-2.39c-.186-.583-.505-1.271-.9-2.094v-.03c-1.889-4.006-3.642-7.608-5.307-10.844l-.111-.163C15.317 1.461 14.468 0 12.001 0c-2.44 0-3.476 1.695-4.535 3.898l-.081.16c-1.669 3.236-3.421 6.843-5.303 10.847v.053l-.559 1.22c-.21.504-.317.768-.345.847C-.172 20.74 2.611 24 5.98 24c.027 0 .132 0 .265-.027h.372c1.75-.213 3.554-1.325 5.384-3.317 1.829 1.989 3.635 3.104 5.382 3.317h.372c.133.027.239.027.265.027 3.37.003 6.152-3.261 4.802-6.975z"],"fedex":["4D148C","M22.498 14.298c-.016-.414.345-.751.75-.755a.745.745 0 0 1 .752.755.755.755 0 0 1-.751.745c-.395.002-.759-.346-.751-.745zm.759-.083c.067-.02.164-.042.162-.13.007-.09-.086-.133-.162-.134h-.163v.263c0 .001.165-.002.163.001zm-.163.107v.418h-.14v-.91h.327c.156-.021.294.092.286.253a.218.218 0 0 1-.156.19c.162.083.108.322.173.467h-.156a2.355 2.355 0 0 1-.04-.205c-.018-.093-.047-.229-.17-.213h-.124zm.76-.024a.603.603 0 0 0-.605-.632c-.338-.012-.62.302-.605.632a.619.619 0 0 0 .605.622.61.61 0 0 0 .605-.622zm-5.052-.579l-.878 1.008h-1.306l1.559-1.745-1.56-1.75h1.355l.902.997.878-.998h1.306l-1.543 1.743 1.559 1.753h-1.371l-.901-1.008zm-4.703-.352v-.827h1.904v-1.506l1.724 1.948-1.724 1.941v-1.556h-1.904zm1.56 1.36h-3.2V9.044h3.224v1.024H13.77v1.163h1.888v.958h-1.904v1.522h1.904v1.016zm-5.705-.655c-.54.017-.878-.552-.877-1.04-.01-.507.307-1.123.878-1.105.579-.025.871.6.845 1.103.023.501-.29 1.062-.846 1.042zM4.743 12.41c.076-.358.403-.67.78-.663a.788.788 0 0 1 .803.663H4.743zm15.182.564l1.815-2.047h-2.125l-.74.844-.763-.844h-4.037v-.548h1.912V8.741H10.84v2.58c-.362-.448-.981-.559-1.526-.492-.782.123-1.427.762-1.634 1.514-.254-.958-1.179-1.588-2.157-1.554-.781.009-1.6.365-1.987 1.071v-.818h-1.87v-.9h2.043v-1.4H0v6.287h1.666v-2.644h1.666a7.59 7.59 0 0 0-.082.622c-.013 1.232 1.042 2.27 2.274 2.236a2.204 2.204 0 0 0 2.157-1.432H6.254c-.14.268-.441.38-.73.36-.457.009-.83-.417-.829-.86h2.914c.083 1.027.988 1.966 2.043 1.947a1.53 1.53 0 0 0 1.19-.639v.41h7.215l.754-.86.754.86h2.192l-1.832-2.055z"],"ups":["150400","M11.668 14.544l-.028-5.226c.138-.055.387-.111.608-.111.995 0 1.41.774 1.41 2.682 0 1.853-.47 2.765-1.438 2.765-.22 0-.441-.055-.552-.11zM3.124 7.438c4.203-3.843 9.29-4.866 14.018-4.866 1.3 0 2.544.083 3.76.194h-.028v11.253c0 2.184-.774 3.926-2.295 5.171-1.355 1.134-5.447 2.959-6.581 3.456-1.161-.525-5.253-2.378-6.581-3.456-1.493-1.244-2.295-3.014-2.295-5.171V7.438zm12.664 2.599c.028.912.276 1.576 1.687 2.406.747.442 1.051.747 1.051 1.272 0 .581-.387.94-1.023.94-.553 0-1.189-.304-1.631-.691v1.576c.553.304 1.217.525 1.88.525 1.687 0 2.433-1.189 2.461-2.267.028-.995-.249-1.742-1.659-2.571-.608-.387-1.134-.636-1.106-1.244 0-.581.525-.802.995-.802.581 0 1.161.332 1.521.691V8.378c-.304-.221-.94-.581-1.88-.553-1.135.028-2.296.829-2.296 2.212zm-5.834 9.484h1.714l-.028-3.594c.166.028.415.083.774.083 1.908 0 2.986-1.687 2.986-4.175 0-2.461-1.106-4.009-3.152-4.009-.94 0-1.687.221-2.295.608v11.087zm-5.945-6.166c0 1.797.829 2.71 2.516 2.71 1.051 0 1.908-.249 2.571-.691V7.991H7.41v6.387c-.194.138-.47.221-.802.221-.774 0-.885-.719-.885-1.189V7.991H4.009v5.364zM22.12 2.295v11.723c0 2.516-.94 4.645-2.765 6.111-1.549 1.3-6.332 3.429-7.355 3.871-1.023-.442-5.806-2.571-7.355-3.843-1.797-1.465-2.765-3.594-2.765-6.111V2.295C4.756.747 8.074 0 12 0s7.244.747 10.12 2.295zm-.304.221c-2.71-1.465-6-2.184-9.788-2.184s-7.079.746-9.788 2.184v11.502c0 2.433.912 4.452 2.627 5.862 1.576 1.3 6.581 3.484 7.161 3.76.581-.249 5.585-2.433 7.161-3.733 1.714-1.41 2.627-3.429 2.627-5.862V2.516zm-2.433 20.295c0 .47-.387.829-.829.829a.831.831 0 0 1-.829-.829c0-.47.387-.829.829-.829.441 0 .801.359.829.829zm-.166 0a.679.679 0 0 0-.664-.691c-.359 0-.664.332-.664.691 0 .359.304.664.664.664a.673.673 0 0 0 .664-.664zm-.553.055c.028.055.304.442.304.442h-.221s-.276-.387-.276-.415h-.028v.415h-.194v-.995l.304-.028c.249 0 .332.166.332.304s-.083.25-.221.277zm.027-.276c0-.055 0-.138-.166-.138h-.083v.304h.028c.194 0 .221-.083.221-.166z"]};
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const icon = (id) => `<svg class="ico"><use href="#i-${id}"/></svg>`;
+  /* Categories show line icons in the UI. The emoji stay only where text names the real Gmail label. */
+  const CAT_ICON = { "🔑": "key", "🧾": "receipt", "📦": "package", "📰": "news", "💬": "chat", "🏷": "tag", "🛍": "bag", "🧳": "luggage", "💳": "card", "💼": "briefcase", "🎓": "cap", "🔇": "mute", "✋": "hand" };
+  const catName = (label) => label.replace(/^\S+\s/, "");
+  const catIcon = (label) => icon(CAT_ICON[label.split(" ")[0]] || "inbox");
+  const catChip = (label) => `<span class="cat-chip">${catIcon(label)}${catName(label)}</span>`;
+
+  /* Brand logos (Simple Icons, CC0) or a letter tile (Moat siteIcon.ts) */
+  function logoHTML(brand, name) {
+    const b = brand && BRANDS[brand];
+    if (!b) return `<span class="logo mono" aria-hidden="true">${(name || "?").replace(/[^A-Za-z0-9]/g, "")[0]?.toUpperCase() || "?"}</span>`;
+    return `<span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="#${b[0]}" d="${b[1]}"/></svg></span>`;
+  }
+  function paintLogos(root = document) { $$("[data-brand]", root).forEach(el => { const b = BRANDS[el.dataset.brand]; if (b && !el.firstChild) el.innerHTML = `<svg viewBox="0 0 24 24"><path fill="#${b[0]}" d="${b[1]}"/></svg>`; }); }
+
+  /* ── Theme: system + toggle ─────────────────────────────────────── */
+  function setTheme(t, save = true) {
+    const real = t === "system" ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : t;
+    document.documentElement.dataset.theme = real;
+    if (save) { try { t === "system" ? localStorage.removeItem("cluster-v4-theme") : localStorage.setItem("cluster-v4-theme", t); } catch (e) {} }
+    $("#theme-btn").innerHTML = icon(real === "dark" ? "sun" : "moon");
+    $("#theme-btn").setAttribute("aria-label", real === "dark" ? "Switch to light theme" : "Switch to dark theme");
+    let stored = null; try { stored = localStorage.getItem("cluster-v4-theme"); } catch (e) {}
+    $$("#theme-seg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.t === (stored || "system"))));
+  }
+  $("#theme-btn").onclick = () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+  $("#theme-seg").onclick = e => { const b = e.target.closest("[data-t]"); if (b) setTheme(b.dataset.t); };
+
+  /* ── Nav modes (Moat navMode.ts): full ≥1100, icons 720-1099, drawer <720 ── */
+  const DRAWER_BELOW = 720, ICONS_BELOW = 1100;
+  let pref = "full"; try { if (localStorage.getItem("cluster-v3-nav") === "icons") pref = "icons"; } catch (e) {}
+  let mode = "full";
+  const body = document.body, toggle = $("#nav-toggle"), scrimNav = $("#nav-scrim");
+  const overlay = () => mode === "drawer" || (mode === "icons" && innerWidth < ICONS_BELOW);
+  const isOpen = () => body.classList.contains("nav-open");
+  function label() {
+    const t = overlay() ? (isOpen() ? "Close menu" : "Open menu") : mode === "full" ? "Collapse menu" : "Expand menu";
+    toggle.setAttribute("aria-label", t); toggle.title = t;
+    toggle.setAttribute("aria-expanded", String(overlay() ? isOpen() : mode === "full"));
+  }
+  function setOpen(open, ret) { body.classList.toggle("nav-open", open && overlay()); scrimNav.hidden = !(open && overlay()); label(); if (!open && ret) toggle.focus(); }
+  function applyMode() {
+    const next = innerWidth < DRAWER_BELOW ? "drawer" : innerWidth < ICONS_BELOW ? "icons" : pref;
+    if (next !== mode || body.dataset.nav !== next) { mode = next; body.dataset.nav = mode; setOpen(false); }
+    label();
+  }
+  toggle.onclick = () => {
+    if (overlay()) return setOpen(!isOpen());
+    pref = pref === "full" ? "icons" : "full"; try { localStorage.setItem("cluster-v3-nav", pref); } catch (e) {}
+    applyMode();
+  };
+  scrimNav.onclick = () => setOpen(false);
+  $$("#rail a").forEach(a => a.dataset.tip = a.querySelector(".nav-name").textContent);
+  addEventListener("resize", applyMode);
+
+  /* ── Pages ──────────────────────────────────────────────────────── */
+  const PAGES = $$("main > .page").map(p => p.dataset.page);
+  function show(page, focus = true) {
+    if (!PAGES.includes(page)) page = "overview";
+    if (body.classList.contains("simple") && page === "overview") page = "simple";
+    if (!body.classList.contains("simple") && page === "simple") page = "overview";
+    closeSheet(false); $("#status-pop").hidden = true;
+    $$("main > .page").forEach(p => p.hidden = p.dataset.page !== page);
+    $$("#rail a").forEach(a => a.dataset.page === page ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
+    if (mode === "drawer" || isOpen()) setOpen(false);
+    if (focus) { const h = $(`main > .page[data-page="${page}"] h1`); h.tabIndex = -1; h.focus({ preventScroll: true }); scrollTo(0, 0); }
+  }
+  addEventListener("hashchange", () => show(location.hash.slice(1)));
+
+  /* ── Toasts: bottom left, max 3, 10 s, pause on hover/focus ─────── */
+  function toast(msg, { action = "Undo", onAction } = {}) {
+    const box = $("#toasts");
+    while (box.children.length >= 3) box.firstElementChild.remove();
+    const el = document.createElement("div"); el.className = "toast";
+    el.innerHTML = `${icon("check")}<span class="msg"></span>${action ? `<button class="act" type="button">${action}</button>` : ""}<button class="x" type="button" aria-label="Dismiss">${icon("x")}</button><span class="timer" aria-hidden="true"></span>`;
+    $(".msg", el).textContent = msg; box.appendChild(el);
+    const MS = 10000; let left = MS, start = 0, tm, paused = false;
+    const anim = $(".timer", el).animate([{ transform: "scaleX(1)" }, { transform: "scaleX(0)" }], { duration: MS, fill: "forwards" });
+    const close = () => { clearTimeout(tm); el.classList.add("out"); setTimeout(() => el.remove(), 170); };
+    const run = () => { start = performance.now(); tm = setTimeout(close, left); anim.play(); };
+    const pause = () => { if (paused) return; paused = true; clearTimeout(tm); left -= performance.now() - start; anim.pause(); };
+    const resume = () => { if (!paused) return; paused = false; run(); };
+    el.addEventListener("mouseenter", pause); el.addEventListener("mouseleave", resume);
+    el.addEventListener("focusin", pause); el.addEventListener("focusout", resume);
+    $(".x", el).onclick = close;
+    if (action) $(".act", el).onclick = () => { close(); onAction && onAction(); };
+    run();
+  }
+  addEventListener("keydown", e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { const a = $$("#toasts .act").pop(); if (a) { e.preventDefault(); a.click(); } }
+    if (e.key === "Escape") { $("#status-pop").hidden = true; if (!$("#sheet").hidden) closeSheet(true); else if (isOpen()) setOpen(false, true); }
+  });
+  document.addEventListener("click", e => {
+    const u = e.target.closest("[data-undo]"); if (u) { u.disabled = true; u.textContent = "Undone"; toast(u.dataset.undo + ".", { action: null }); }
+    const t = e.target.closest("[data-toast]"); if (t) toast(t.dataset.toast);
+    const d = e.target.closest("[data-dismiss]"); if (d) removeRow(d.closest(".row"), () => toast("Dismissed from Overview"));
+    const sw = e.target.closest(".switch[data-sw]");
+    if (sw) { const v = sw.getAttribute("aria-checked") !== "true"; sw.setAttribute("aria-checked", v); toast(`${sw.dataset.sw} ${v ? "on" : "off"}`, { onAction: () => sw.click() }); }
+    const seg = e.target.closest(".seg:not(#sender-seg):not(#theme-seg) button");
+    if (seg) $$("button", seg.parentElement).forEach(b => b.setAttribute("aria-pressed", String(b === seg)));
+  });
+  function removeRow(row, after) {
+    if (!row) return;
+    if (reduced()) { row.remove(); after && after(); return; }
+    row.style.maxHeight = row.offsetHeight + "px"; row.classList.add("leaving");
+    row.addEventListener("animationend", () => { row.remove(); after && after(); }, { once: true });
+  }
+
+  /* ── Status pill ────────────────────────────────────────────────── */
+  const ST = {
+    idle: ["dot ok", 'Up to date<span class="long"> · 2 min ago</span>'],
+    reading: ["ring", 'Reading your mail…<span class="long"> 4,180 of 18,412</span>'],
+    busy: ["ring", 'Checking for new mail…'],
+    offline: ["dot hollow", 'Offline<span class="long"> · showing mail from 10:42</span>'],
+    auth: ["dot bad", 'Gmail sign-in expired<span class="long"> · Reconnect</span>'],
+  };
+  function setStatus(k) {
+    $("#status-mark").className = ST[k][0]; $("#status-text").innerHTML = ST[k][1];
+    $("#ov-reading").hidden = k !== "reading"; $("#ov-strip").hidden = k === "reading";
+    $("#sync-line").textContent = k === "reading" ? "Reading your mail… 4,180 of 18,412. This happens once." : "18,412 messages. Up to date.";
+    if (k === "busy") setTimeout(() => setStatus("idle"), 2000);
+  }
+  $("#status-btn").onclick = () => { const p = $("#status-pop"); p.hidden = !p.hidden; $("#status-btn").setAttribute("aria-expanded", String(!p.hidden)); };
+  document.addEventListener("click", e => { const s = e.target.closest("[data-status]"); if (s) { setStatus(s.dataset.status); $("#status-pop").hidden = true; } });
+
+  /* ── Overview KPIs (Moat overviewView.ts: label, value, change, trend) ── */
+  const KPIS = [
+    ["Moved out of your inbox", "312", "+18%", [22,30,28,41,39,52,47,53]],
+    ["Unsubscribed", "9", "+5", [0,1,0,2,1,3,1,1]],
+    ["In your inbox now", "214", "−38", [270,262,255,249,240,231,222,214]],
+    ["Unread", "61", "−12%", [80,77,75,70,69,66,63,61]],
+  ];
+  function spark(vals) {
+    const max = Math.max(...vals), min = Math.min(...vals), w = 200, h = 40;
+    const pts = vals.map((v, i) => `${(i / (vals.length - 1)) * w},${h - 6 - ((v - min) / (max - min || 1)) * (h - 12)}`);
+    return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path vector-effect="non-scaling-stroke" d="M${pts.join("L")}"/></svg>`;
+  }
+  $("#kpis").innerHTML = KPIS.map(([l, v, d, s]) => `<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-row"><span class="kpi-value">${v}</span><span class="kpi-delta"><b>${d}</b> <span class="vs">vs last week</span></span></div>${spark(s)}</div>`).join("");
+
+  /* ── Data ───────────────────────────────────────────────────────── */
+  const senders = [
+    { k: "groupon", n: "Groupon", a: "deals@r.groupon.com", c: 214, o: 0, w: 30, cat: "🛍 Shopping", tags: ["decide", "never", "news"], act: "Mute" },
+    { k: "medium", n: "Medium Daily Digest", a: "noreply@medium.com", c: 88, o: 4, w: 7, cat: "📰 Newsletters", tags: ["decide", "news"], act: "Unsubscribe" },
+    { k: "duolingo", n: "Duolingo", a: "hello@duolingo.com", c: 61, o: 0, w: 7, cat: "🏷 Promotions", tags: ["decide", "never"], act: "Mute" },
+    { k: null, n: "LinkedIn", a: "messages-noreply@linkedin.com", c: 54, o: 12, w: 9, cat: "💬 Social", tags: ["decide"], act: "Mute" },
+    { k: null, n: "Old Navy", a: "oldnavy@email.oldnavy.com", c: 47, o: 0, w: 6, cat: "🛍 Shopping", tags: ["decide", "never", "news"], act: "Unsubscribe" },
+    { k: "doordash", n: "DoorDash", a: "no-reply@doordash.com", c: 29, o: 3, w: 4, cat: "🛍 Shopping", tags: ["decide"], act: "Mute" },
+    { k: "substack", n: "Lenny's Newsletter", a: "lenny@substack.com", c: 22, o: 68, w: 2, cat: "📰 Newsletters", tags: ["news"], act: "Keep" },
+    { k: "spotify", n: "Spotify", a: "no-reply@spotify.com", c: 19, o: 0, w: 3, cat: "🏷 Promotions", tags: ["never", "news"], act: "Unsubscribe" },
+    { k: "strava", n: "Strava", a: "no-reply@strava.com", c: 17, o: 21, w: 3, cat: "💬 Social", tags: ["news"], act: "Unsubscribe" },
+    { k: "uber", n: "Uber Receipts", a: "noreply@uber.com", c: 15, o: 40, w: 2, cat: "🧾 Receipts", tags: [], act: "Keep" },
+    { k: "github", n: "GitHub", a: "notifications@github.com", c: 41, o: 55, w: 6, cat: "💼 Work", tags: [], act: "Keep" },
+    { k: "coursera", n: "Coursera", a: "no-reply@coursera.org", c: 12, o: 0, w: 2, cat: "🎓 Education", tags: ["never", "news"], act: "Unsubscribe" },
+    { k: null, n: "NYT Cooking", a: "cooking@nytimes.com", c: 41, o: 0, w: 5, cat: "🔇 Muted", tags: ["muted"], act: "Unmute" },
+  ];
+  const newSenders = [
+    { k: null, n: "Priya Raman", a: "priya@northwind.io", c: 2, subj: "Lunch next week?" },
+    { k: "figma", n: "Figma", a: "no-reply@figma.com", c: 3, subj: "Welcome to your team space" },
+    { k: null, n: "Ridgeline Dental", a: "appointments@ridgelinedental.com", c: 1, subj: "Your appointment on Thursday" },
+  ];
+
+  /* Busiest senders (Overview) */
+  $("#busiest").innerHTML = [...senders].filter(s => !s.tags.includes("muted")).sort((a, b) => b.w - a.w).slice(0, 5).map(s =>
+    `<div class="row compact"><div class="main-col">${logoHTML(s.k, s.n)}<div class="text"><div class="t">${s.n}</div><div class="s">${s.a}</div></div></div><span class="numcol">${s.w} this week</span><button class="chev" type="button" data-open="${s.n}" aria-label="Open ${s.n}">${icon("chev")}</button></div>`).join("");
+
+  /* ── Sorting (defaults per decision record) ─────────────────────── */
+  const INBOX = ["1 hour", "1 day", "2 days", "3 days", "7 days", "14 days", "30 days", "Stays in inbox"];
+  const THEN_CODES = ["Keep", "Move to Trash after 2 days", "Move to Trash after 7 days"];
+  const THEN_LISTS = ["Keep", "Move to Trash after 7 days", "Move to Trash after 30 days"];
+  const cats = [
+    ["🔑 One-time codes", "Sign-in and verification codes", "1 day", THEN_CODES, 4],
+    ["🧾 Receipts", "Orders, invoices, payments", "7 days", null, 14],
+    ["📦 Orders & shipping", "Tracking and delivery", "7 days", null, 11],
+    ["📰 Newsletters", "Lists you subscribed to", "3 days", THEN_LISTS, 9],
+    ["💬 Social", "LinkedIn, Strava and similar", "2 days", THEN_LISTS, 7],
+    ["🏷 Promotions", "Sales and marketing", "1 day", THEN_LISTS, 12],
+    ["🛍 Shopping", "Stores you buy from", "3 days", null, 11],
+    ["🧳 Travel", "Airlines, hotels, bookings", "Stays in inbox", null, 3],
+    ["💳 Finance", "Banks, cards, statements", "Stays in inbox", null, 5],
+    ["💼 Work", "Slack, GitHub, Notion", "Stays in inbox", null, 18],
+    ["🎓 Education", "Courses and school", "Stays in inbox", null, 2],
+  ];
+  const opt = (list, v) => list.map(([val, text]) => `<option value="${val}"${val === v ? " selected" : ""}>${text}</option>`).join("");
+  const STAY = INBOX.map(v => [v, v === "Stays in inbox" ? "until you move them" : `for ${v}`]);
+  const thenText = (v) => v === "Keep" ? "keep them in their label" : v.replace("Move to Trash after", "move them to Trash after");
+  function tail(name, inbox) {
+    if (inbox === "Stays in inbox") return `and get the ${name} label.`;
+    if (inbox === "Leaves at once") return `and go straight to the ${name} label.`;
+    return `then move to the ${name} label.`;
+  }
+  const catRows = $("#cat-rows");
+  cats.forEach(([label, desc, inbox0, thenOpts, now]) => {
+    let on = true, inbox = inbox0, then = "Keep";
+    const name = label.replace(/^\S+\s/, "");
+    const r = document.createElement("div"); r.className = "sentence-row"; r.setAttribute("role", "listitem"); r.dataset.on = "true";
+    const stayOpts = name === "Promotions" ? [["Leaves at once", "not at all"], ...STAY] : STAY;
+    r.innerHTML = `<span class="switch-hit"><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Sort ${name}"></button></span>
+      <span class="glyph" aria-hidden="true">${catIcon(label)}</span>
+      <div class="sentence"><span class="on-text"><b>${name}</b> <span class="muted">(${desc.charAt(0).toLowerCase() + desc.slice(1)})</span> stay in your inbox
+        <select class="select" data-in aria-label="${name}: how long they stay in your inbox">${opt(stayOpts, inbox)}</select>
+        <span class="tail">${tail(name, inbox)}</span></span>
+        <span class="off-text" hidden><b>${name}</b> aren't sorted. They stay in your inbox with no label.</span>
+        ${thenOpts ? `<span class="then-line">After that,
+          <select class="select" data-then aria-label="${name}: after they leave your inbox">${opt(thenOpts.map(t => [t, thenText(t)]), "Keep")}</select></span>` : `<span class="then-line">Cluster never moves ${name.toLowerCase()} to Trash.</span>`}
+      </div>
+      <span class="now">${now} in your inbox</span>`;
+    catRows.appendChild(r);
+    const sw = $(".switch", r), inSel = $("[data-in]", r), thSel = $("[data-then]", r);
+    const paint = (failed) => {
+      r.dataset.on = on; inSel.disabled = !on; if (thSel) thSel.disabled = !on;
+      $(".on-text", r).hidden = !on; $(".off-text", r).hidden = on; $(".tail", r).textContent = tail(name, inbox);
+      $(".now", r).textContent = on ? `${now} in your inbox` : "";
+      $$(".row-err", r).forEach(e => e.remove());
+      if (failed) { const er = document.createElement("div"); er.className = "row-err"; er.setAttribute("role", "alert"); er.innerHTML = `Gmail didn't save the filter for ${name}, so new mail isn't labelled yet. <button class="btn ghost" type="button" data-retry style="height:26px">Try again</button>`; r.appendChild(er); }
+    };
+    r._fail = () => paint(true);
+    sw.onclick = () => { on = !on; sw.setAttribute("aria-checked", on); paint(); toast(on ? `Sorting ${name} again` : `${name} are no longer sorted`, { onAction: () => sw.click() }); };
+    inSel.onchange = () => { const prev = inbox; inbox = inSel.value; paint();
+      toast(inbox === "Stays in inbox" ? `${name} now stay in your inbox` : inbox === "Leaves at once" ? `${name} now skip your inbox` : `${name} now leave your inbox after ${inbox}`, { onAction: () => { inbox = prev; inSel.value = prev; paint(); } }); };
+    if (thSel) thSel.onchange = () => {
+      $$(".confirm.then", catRows).forEach(c => c.remove());
+      if (thSel.value === "Keep") { then = "Keep"; toast(`${name} are kept in their label`, { action: null }); return; }
+      const days = thSel.value.match(/\d+/)[0];
+      const cf = document.createElement("div"); cf.className = "confirm then"; cf.setAttribute("role", "group"); cf.setAttribute("aria-label", `Confirm Trash rule for ${name}`); cf.style.margin = "0 16px 14px";
+      cf.innerHTML = `<span class="grow">Move ${name.toLowerCase()} to Trash ${days} days after they leave your inbox? Starred and protected mail is skipped. Gmail keeps Trash for 30 days.</span><button class="btn danger" type="button" data-yes>Move to Trash after ${days} days</button><button class="btn ghost" type="button" data-no>Keep them</button>`;
+      r.after(cf); $("[data-yes]", cf).focus();
+      $("[data-no]", cf).onclick = () => { thSel.value = then; cf.remove(); thSel.focus(); };
+      $("[data-yes]", cf).onclick = () => { const prev = then; then = thSel.value; cf.remove(); thSel.focus(); toast(`${name} will move to Trash ${days} days after leaving your inbox`, { onAction: () => { then = prev; thSel.value = prev; } }); };
+    };
+    r.addEventListener("click", e => { if (e.target.closest("[data-retry]")) { paint(); toast(`The Gmail filter for ${name} works again`, { action: null }); } });
+  });
+  $("#apply-existing").onclick = () => {
+    const card = $("#apply-progress"), btn = $("#apply-existing"); card.hidden = false; btn.disabled = true;
+    let n = 0; const total = 214;
+    const tick = setInterval(() => { n = Math.min(total, n + 23); $("#apply-count").textContent = `${n} of ${total}`; $("#apply-bar").style.width = n / total * 100 + "%";
+      if (n >= total) { clearInterval(tick); setTimeout(() => { card.hidden = true; btn.disabled = false; }, 300); toast("Sorted 214 messages. 131 left your inbox."); } }, 200);
+    $("#apply-stop").onclick = () => { clearInterval(tick); card.hidden = true; btn.disabled = false; toast(`Stopped after ${n} of ${total}. The rest are untouched.`, { action: null }); };
+  };
+  document.addEventListener("click", e => {
+    const p = e.target.closest("[data-preset]"); if (!p) return;
+    $$("[data-preset]").forEach(b => b.setAttribute("aria-pressed", String(b === p)));
+    setTimeout(() => { $("#preset-card").hidden = true; toast(`Started from ${p.dataset.preset}. Change any row below.`); }, 250);
+  });
+
+  /* ── Senders ────────────────────────────────────────────────────── */
+  const FILTERS = [["decide", "Needs a decision"], ["never", "Never opened"], ["muted", "Muted"], ["all", "All"]];
+  let filter = "decide"; const selected = new Set();
+  const inF = (s, f) => f === "all" ? !s.tags.includes("muted") && !s.done : s.tags.includes(f) && !s.done;
+  function renderSeg() {
+    $("#sender-seg").innerHTML = FILTERS.map(([k, l]) => `<button type="button" data-f="${k}" aria-pressed="${k === filter}">${l}${k === "muted" ? "" : `<span class="n">${senders.filter(s => inF(s, k)).length}</span>`}</button>`).join("");
+    $("#nc-senders").textContent = senders.filter(s => inF(s, "decide")).length;
+    $("#nc-subs").textContent = senders.filter(s => inF(s, "news")).length;
+  }
+  $("#sender-seg").onclick = e => { const b = e.target.closest("[data-f]"); if (b) { filter = b.dataset.f; selected.clear(); renderSeg(); renderSenders(); } };
+  function senderRow(s, { checkable = true, action = s.act } = {}) {
+    const r = document.createElement("div"); r.className = "row"; r.dataset.n = s.n;
+    r.innerHTML = `${checkable ? `<label class="check-hit"><input type="checkbox" class="check" aria-label="Select ${s.n}" ${selected.has(s.n) ? "checked" : ""}></label>` : "<span></span>"}
+      <div class="main-col">${logoHTML(s.k, s.n)}<div class="text"><div class="t">${s.n}</div><div class="s">${s.c} messages · ${s.o}% opened · ${s.a}</div></div></div>
+      <span class="meta">${catChip(s.cat)}</span>
+      <button class="btn${action === "Keep" ? " ghost" : ""}" type="button" data-act>${action}</button>
+      <button class="chev" type="button" data-open="${s.n}" aria-label="Open ${s.n}">${icon("chev")}</button>`;
+    if (checkable) $("input", r).onchange = e => { e.target.checked ? selected.add(s.n) : selected.delete(s.n); bulk(); };
+    $("[data-act]", r).onclick = () => act(s, r, action);
+    return r;
+  }
+  function renderSenders() {
+    const q = $("#sender-search").value.trim().toLowerCase();
+    const list = $("#sender-list"); list.innerHTML = "";
+    const v = senders.filter(s => inF(s, filter) && (!q || (s.n + s.a).toLowerCase().includes(q)));
+    if (!v.length) list.innerHTML = `<div class="empty"><b>Nothing here</b>No senders match. Try All.</div>`;
+    v.forEach(s => list.appendChild(senderRow(s)));
+    bulk();
+  }
+  $("#sender-search").oninput = renderSenders;
+  function bulk() { $("#bulk").hidden = !selected.size; $("#bulk-n").textContent = `${selected.size} selected`; }
+  $("#bulk-clear").onclick = () => { selected.clear(); renderSenders(); };
+  $("#bulk").addEventListener("click", e => {
+    const b = e.target.closest("[data-bulk]"); if (!b) return;
+    const hit = senders.filter(s => selected.has(s.n)); const mute = b.dataset.bulk === "mute";
+    hit.forEach(s => { s._prev = [...s.tags]; s.done = true; removeRow($(`#sender-list .row[data-n="${CSS.escape(s.n)}"]`)); });
+    selected.clear(); bulk(); setTimeout(renderSeg, 280);
+    toast(mute ? `Muted ${hit.length} senders. Future mail skips the inbox.` : `Unsubscribed from ${hit.length} senders`, { action: mute ? "Undo" : "Also mute",
+      onAction: () => { if (mute) { hit.forEach(s => s.done = false); renderSeg(); renderSenders(); } else toast(`Muted ${hit.length} senders`, { action: null }); } });
+  });
+  const ING = { Mute: "Muting…", Unsubscribe: "Unsubscribing…", Keep: "Keeping…", Unmute: "Unmuting…", "Let in": "Letting in…" };
+  function act(s, row, action) {
+    const btn = $("[data-act]", row);
+    row.classList.add("pending"); btn.innerHTML = `<span class="ring" aria-hidden="true"></span>${ING[action]}`;
+    const fail = row.dataset.fail; delete row.dataset.fail;
+    setTimeout(() => {
+      if (fail) { row.classList.remove("pending"); btn.textContent = "Retry"; const er = document.createElement("div"); er.className = "row-err"; er.setAttribute("role", "alert"); er.textContent = `Couldn't ${action.toLowerCase()}. Gmail didn't answer. Nothing changed.`; row.appendChild(er); return; }
+      s.done = true;
+      removeRow(row, () => { renderSeg(); renderScreener(); renderSubs(); });
+      const msg = { Mute: `Muted ${s.n}. Future mail skips the inbox.`, Unsubscribe: `Unsubscribed from ${s.n}`, Keep: `Keeping ${s.n}. We won't suggest it again.`, Unmute: `Unmuted ${s.n}`, "Let in": `Let in ${s.n}. Future mail reaches your inbox.` }[action];
+      toast(msg, { action: action === "Unsubscribe" ? "Also mute" : "Undo", onAction: () => {
+        if (action === "Unsubscribe") return toast(`Muted ${s.n}`, { action: null });
+        s.done = false; renderSeg(); renderSenders(); renderScreener(); renderSubs();
+        const back = $(`.row[data-n="${CSS.escape(s.n)}"]`); if (back) back.classList.add("entering"); } });
+    }, fail ? 900 : 500);
+  }
+
+  /* Subscriptions + Screener reuse the same row */
+  function renderSubs() {
+    const list = $("#subs-list"); list.innerHTML = "";
+    senders.filter(s => inF(s, "news")).sort((a, b) => b.c - a.c).forEach(s => list.appendChild(senderRow(s, { checkable: false, action: s.o > 30 ? "Keep" : "Unsubscribe" })));
+  }
+  $("#unsub-all").onclick = e => { const n = senders.filter(s => inF(s, "news") && s.o === 0); n.forEach(s => { s.done = true; removeRow($(`#subs-list .row[data-n="${CSS.escape(s.n)}"]`)); });
+    e.currentTarget.disabled = true; setTimeout(renderSeg, 280); toast(`Unsubscribed from ${n.length} lists you never open`, { action: "Also mute", onAction: () => toast("Muted them as well", { action: null }) }); };
+  function renderScreener() {
+    const list = $("#screen-list"); list.innerHTML = "";
+    const v = newSenders.filter(s => !s.done);
+    v.forEach(s => {
+      const r = document.createElement("div"); r.className = "row compact"; r.dataset.n = s.n;
+      r.innerHTML = `<div class="main-col">${logoHTML(s.k, s.n)}<div class="text"><div class="t">${s.n}</div><div class="s"></div></div></div>
+        <button class="btn ghost" type="button" data-block>Block</button><button class="btn" type="button" data-act>Let in</button>`;
+      $(".s", r).textContent = `"${s.subj}" · ${s.c} email${s.c === 1 ? "" : "s"} · ${s.a}`;
+      $("[data-act]", r).onclick = () => act(s, r, "Let in");
+      $("[data-block]", r).onclick = () => { s.done = true; removeRow(r, renderScreener); toast(`Blocked ${s.n}. Their mail goes to Trash from now on.`, { onAction: () => { s.done = false; renderScreener(); } }); };
+      list.appendChild(r);
+    });
+    if (!v.length) list.innerHTML = `<div class="empty"><b>No one is waiting</b>Everyone who wrote recently is someone you've emailed or let in.</div>`;
+    $("#scr-n").textContent = `${v.length} sender${v.length === 1 ? "" : "s"}`; $("#nc-screener").textContent = v.length || "";
+  }
+
+  /* Terms: open the tooltip leftward when there's no room on the right. */
+  const placeTip = e => { const t = e.target.closest?.(".term"); if (!t) return; t.classList.toggle("flip", t.getBoundingClientRect().left + Math.min(300, innerWidth * .8) > innerWidth - 16); };
+  document.addEventListener("mouseover", placeTip); document.addEventListener("focusin", placeTip);
+
+  /* ── Scams: held emails with plain reasons (verdict.ts wording) ─── */
+  const held = [
+    { k: "paypal", from: "PayPal", addr: "service@paypa1-secure.co", subj: "Your account is limited", when: "Today, 09:12", tier: "held",
+      reasons: ["The address looks like PayPal's, but it isn't the same.", "It failed the check that proves it really came from paypa1-secure.co.", "The subject pushes you to act fast or to sign in."] },
+    { k: null, from: "Acme Supplies", addr: "billing@acme-supplies.com", subj: "Updated bank details for invoice #4471", when: "Yesterday, 16:40", tier: "held",
+      reasons: ["This sender's mail usually comes from the same place. This one is signed by, or asks for replies at, acme-payments.net.", "If you press Reply, your answer goes to a different address (gmail.com)."],
+      trust: "You've written to Acme before, so only this one email was held. Their other mail is untouched.", callback: true },
+  ];
+  const warned = [
+    { k: null, from: "Coinbase", addr: "rewards@email.coinbase-rewards.io", subj: "Claim your staking reward", when: "Monday", tier: "warn",
+      reasons: ["It says it's from Coinbase, but the address isn't one Coinbase uses."] },
+  ];
+  function heldCard(m, inList) {
+    const el = document.createElement("div"); el.className = "held";
+    el.innerHTML = `<div class="held-head">${logoHTML(m.k, m.from)}<div class="text"><div class="t"></div><div class="s"></div></div>
+        ${m.tier === "held" ? '<span class="chip bad"><span class="dot bad"></span>Held</span>' : '<span class="chip warn"><span class="dot warn"></span>Check before you act</span>'}</div>
+      <ul class="reasons"></ul>
+      ${m.callback ? `<div class="callback">${icon("phone")}<div><b>Before you pay anything</b><br>Call Acme on a number you already have, not one in this email. A change of bank details by email is the most common invoice scam.</div></div>` : ""}
+      <ol class="report-steps" hidden><li>Open the email in Gmail. <a href="#phishing">Open in Gmail</a></li><li>Press <b>⋮ More</b>, then <b>Report phishing</b>. Google learns from it and protects everyone.</li><li>Optional: forward it as an attachment to reportphishing@apwg.org, which shares it with banks and browsers.</li><li class="muted" style="list-style:none;margin-left:-20px">Cluster never sends anything for you.</li></ol>
+      <div class="toolbar"><button class="btn" type="button" data-safe>${m.tier === "held" ? "Not a scam, put it back" : "It's fine"}</button><button class="btn ghost" type="button" data-report>${icon("flag")}Report it…</button><span class="grow"></span><button class="btn danger" type="button" data-block>Block sender</button></div>`;
+    $(".t", el).textContent = `"${m.subj}"`;
+    $(".s", el).textContent = `From ${m.from} <${m.addr}> · ${m.when}`;
+    const ul = $(".reasons", el);
+    m.reasons.forEach(t => { const li = document.createElement("li"); li.textContent = t; ul.appendChild(li); });
+    if (m.trust) { const li = document.createElement("li"); li.className = "trustr"; li.textContent = m.trust; ul.appendChild(li); }
+    $("[data-report]", el).onclick = () => { const st = $(".report-steps", el); st.hidden = !st.hidden; };
+    $("[data-safe]", el).onclick = () => { m.done = true; removeRow(el, renderHeld); toast(m.tier === "held" ? `Moved "${m.subj}" back to your inbox. Cluster will remember ${m.from} is fine.` : `Marked as fine. Cluster will remember ${m.from}.`, { onAction: () => { m.done = false; renderHeld(); } }); };
+    $("[data-block]", el).onclick = () => { m.done = true; removeRow(el, renderHeld); toast(`Blocked ${m.addr.split("@")[1]}. Future mail from it is held.`, { onAction: () => { m.done = false; renderHeld(); } }); };
+    return el;
+  }
+  function renderHeld() {
+    const hl = $("#held-list"), wl = $("#warn-list"); hl.innerHTML = ""; wl.innerHTML = "";
+    const h = held.filter(m => !m.done), w = warned.filter(m => !m.done);
+    h.forEach(m => hl.appendChild(heldCard(m)));
+    w.forEach(m => wl.appendChild(heldCard(m)));
+    if (!h.length) hl.innerHTML = `<div class="empty"><b>Nothing held</b>Emails that look like scams will appear here.</div>`;
+    if (!w.length) wl.innerHTML = `<div class="empty"><b>Nothing to check</b>You're all caught up.</div>`;
+    $("#held-n").textContent = `${h.length} email${h.length === 1 ? "" : "s"}`; $("#nc-held").textContent = h.length || "";
+  }
+
+  /* ── Scam report: one hue, one series per chart, hover + table view ─ */
+  const WEEKS = [["1 Sep", 1], ["8 Sep", 3], ["15 Sep", 0], ["22 Sep", 2], ["29 Sep", 1], ["6 Oct", 4], ["13 Oct", 2], ["This week", 2]];
+  const BRANDS_FAKED = [["PayPal", 4], ["Amazon", 3], ["Netflix", 2], ["DHL", 2], ["Apple", 1]];
+  const KINDS = [["Address looks like a brand", 5], ["Failed the sender check", 4], ["Brand name from a free email account", 2], ["Pushes you to act fast", 4], ["Bank details changed", 1]];
+  $("#report-kpis").innerHTML = [["Emails held", 15, "last 8 weeks"], ["You marked safe", 1, "Cluster learned from it"], ["You reported", 3, "to Google and APWG"]]
+    .map(([l, v, d]) => `<div class="kpi" style="padding-bottom:16px"><div class="kpi-label">${l}</div><div class="kpi-row"><span class="kpi-value">${v}</span><span class="kpi-delta">${d}</span></div></div>`).join("");
+  const tip = document.createElement("div"); tip.className = "chart-tip"; tip.hidden = true; document.body.appendChild(tip);
+  const showTip = (e, text) => { tip.textContent = text; tip.hidden = false; const x = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8); tip.style.left = x + "px"; tip.style.top = (e.clientY - 36) + "px"; };
+  const hideTip = () => tip.hidden = true;
+  const maxW = Math.max(...WEEKS.map(w => w[1]));
+  $("#held-bars").innerHTML = WEEKS.map(([w, n], i) => `<div class="vbar" tabindex="0" data-tip="Week of ${w}: ${n} held" aria-label="Week of ${w}: ${n} held"><i style="height:${Math.max(n / maxW * 100, n ? 4 : 0)}%"></i>${i === WEEKS.length - 1 || n === maxW ? `<span class="val" style="bottom:${n / maxW * 100}%">${n}</span>` : ""}</div>`).join("");
+  $("#held-labels").innerHTML = WEEKS.map(([w], i) => `<span>${i % 2 === 1 || i === WEEKS.length - 1 ? w : ""}</span>`).join("");
+  const hbars = (list, unit) => { const m = Math.max(...list.map(x => x[1])); return list.map(([l, n]) => `<div class="hbar" data-tip="${l}: ${n} ${unit}"><span>${l}</span><div class="track"><div class="fill" style="width:${n / m * 100}%"></div></div><span class="n">${n}</span></div>`).join(""); };
+  $("#brand-bars").innerHTML = hbars(BRANDS_FAKED, "held emails");
+  $("#kind-bars").innerHTML = hbars(KINDS, "held emails");
+  document.addEventListener("mousemove", e => { const t = e.target.closest("[data-tip]"); t ? showTip(e, t.dataset.tip) : hideTip(); });
+  const table = (title, rows) => `<table class="data"><caption style="text-align:left;font-weight:650">${title}</caption><tr><th>Item</th><th>Count</th></tr>${rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join("")}</table>`;
+  $("#report-table").innerHTML = table("Held each week", WEEKS) + table("Who they pretended to be", BRANDS_FAKED) + table("How they tried", KINDS);
+
+  /* ── First-run setup ────────────────────────────────────────────── */
+  const SETUP = {
+    "Calm inbox": ["Promotions and one-time codes leave your inbox after 1 day", "Newsletters after 3 days, shopping after 3 days", "School, job, bank and travel mail stay in your inbox", "18 lists you never open are ready to unsubscribe"],
+    "Business": ["Invoices, bills and statements get a Bills label and stay in your inbox", "Supplier promotions leave after 3 days", "A warning when a supplier's bank details or address change", "Bills are never moved to Trash"],
+    "Keep me safe": ["Scam protection on: emails that look like scams are held", "Simple mode: bigger text and three screens", "Every held email says why, in plain words", "Nothing is ever deleted"],
+    "Busy inbox": ["Pitches and collaboration requests get a Pitches label", "New senders are sorted into labels instead of held", "Risky attachments (.zip, .iso, .html) are flagged", "Contracts and payments stay in your inbox"],
+  };
+  let persona = null;
+  $("#personas").onclick = e => {
+    const b = e.target.closest("[data-persona]"); if (!b) return;
+    persona = b.dataset.persona; $$("[data-persona]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    $("#setup-title").textContent = "Here's what would change";
+    $("#setup-list").innerHTML = SETUP[persona].map(t => `<li>${t}</li>`).join("");
+    $("#setup-preview").hidden = false; $("#setup-go").focus({ preventScroll: true }); $("#setup-preview").scrollIntoView({ block: "nearest", behavior: reduced() ? "auto" : "smooth" });
+  };
+  $("#setup-go").onclick = () => { if (persona === "Keep me safe") setSimple(true); location.hash = persona === "Keep me safe" ? "simple" : "overview"; toast(`Set up for "${$(`[data-persona="${persona}"] b`).textContent}". Change anything in Settings.`); };
+
+  /* ── Simple mode ────────────────────────────────────────────────── */
+  function setSimple(on) {
+    body.classList.toggle("simple", on); $("#simple-sw").setAttribute("aria-checked", String(on));
+    try { on ? localStorage.setItem("cluster-v4-simple", "1") : localStorage.removeItem("cluster-v4-simple"); } catch (e) {}
+  }
+  $("#simple-sw").onclick = () => { const on = !body.classList.contains("simple"); setSimple(on); if (on) location.hash = "simple"; toast(on ? "Simple mode on" : "Simple mode off", { onAction: () => $("#simple-sw").click() }); };
+  $("#simple-off").onclick = () => { setSimple(false); location.hash = "overview"; toast("Simple mode off", { onAction: () => { setSimple(true); location.hash = "simple"; } }); };
+
+  /* ── Sender sheet ───────────────────────────────────────────────── */
+  let lastFocus = null;
+  document.addEventListener("click", e => { const o = e.target.closest("[data-open]"); if (o) openSheet(o.dataset.open, o); });
+  function openSheet(name, from) {
+    const s = senders.find(x => x.n === name) || newSenders.find(x => x.n === name); if (!s) return;
+    lastFocus = from;
+    $("#sh-logo").outerHTML = logoHTML(s.k, s.n).replace('class="logo', 'id="sh-logo" class="logo');
+    $("#sh-t").textContent = s.n; $("#sh-a").textContent = s.a;
+    $("#sh-c").textContent = s.c; $("#sh-o").textContent = (s.o ?? 0) + "%"; $("#sh-w").textContent = s.w ?? 1;
+    $("#sh-cat").innerHTML = catChip(s.cat && !/Muted|Screener/.test(s.cat) ? s.cat : "🛍 Shopping").replace("cat-chip", "cat-chip plain");
+    $$("#sh-future input").forEach(i => i.checked = i.value === (s.tags?.includes("muted") ? "muted" : "cat"));
+    $("#sh-trash").textContent = `Move ${s.c} to Trash…`; $("#sh-yes").textContent = `Move ${s.c} to Trash`;
+    $("#sh-confirm-t").textContent = `Move ${s.c} messages from ${s.n} to Trash? Starred mail is skipped. Gmail keeps Trash for 30 days.`;
+    $("#sh-confirm").hidden = true; $("#sh-exist").hidden = false;
+    $("#sh-why").innerHTML = s.o === 0 ? `<li>You haven't opened any of the last ${s.c}</li><li>About ${s.w ?? 1} a week</li><li>Has a verified one-click unsubscribe</li>` : `<li>You opened ${s.o}% of the last ${s.c}</li><li>About ${s.w ?? 1} a week</li>`;
+    $("#scrim").hidden = false; $("#sheet").hidden = false;
+    requestAnimationFrame(() => { $("#sheet").classList.add("show"); $("#sh-close").focus(); });
+  }
+  function closeSheet(ret) { const sh = $("#sheet"); if (sh.hidden) return; sh.classList.remove("show"); $("#scrim").hidden = true; setTimeout(() => sh.hidden = true, reduced() ? 0 : 200); if (ret && lastFocus) lastFocus.focus(); }
+  $("#sh-close").onclick = () => closeSheet(true); $("#scrim").onclick = () => closeSheet(true);
+  $("#sheet").addEventListener("keydown", e => { if (e.key !== "Tab") return; const f = $$("button, input, select", $("#sheet")).filter(x => x.offsetParent);
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f.at(-1).focus(); } else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); } });
+  $("#sh-future").onchange = e => toast(`Future mail from ${$("#sh-t").textContent} goes to ${e.target.closest("label").childNodes[1].textContent.trim() || e.target.closest("label").textContent.trim()}`);
+  $("#sh-unsub").onclick = e => { const b = e.currentTarget; b.disabled = true; b.innerHTML = '<span class="ring"></span>Unsubscribing…'; setTimeout(() => { b.textContent = "Unsubscribed"; toast(`Unsubscribed from ${$("#sh-t").textContent}`, { action: "Also mute" }); }, 600); };
+  $("#sh-trash").onclick = () => { $("#sh-exist").hidden = true; $("#sh-confirm").hidden = false; $("#sh-yes").focus(); };
+  $("#sh-no").onclick = () => { $("#sh-confirm").hidden = true; $("#sh-exist").hidden = false; $("#sh-trash").focus(); };
+  $("#sh-yes").onclick = () => { $("#sh-confirm").hidden = true; $("#sh-exist").hidden = false; toast(`Moved ${$("#sh-c").textContent} messages to Trash`); };
+  $("#sh-keep").onclick = () => toast(`Kept the newest 3 from ${$("#sh-t").textContent}. The rest moved to Trash.`);
+
+  /* ── Suggestions ────────────────────────────────────────────────── */
+  const suggTotal = () => $$("#sugg .check").filter(c => c.checked).reduce((a, c) => a + +c.dataset.n, 0);
+  $("#sugg").onchange = () => { const n = suggTotal(); $("#sugg-go").textContent = `Move ${n} to Trash…`; $("#sugg-go").disabled = !n; };
+  $("#sugg-go").onclick = () => { const n = suggTotal(); $("#sugg-confirm .grow").textContent = `Move ${n} messages to Trash? Starred and protected mail is skipped. You can undo this from Activity for 30 days.`; $("#sugg-yes").textContent = `Move ${n} to Trash`; $("#sugg-confirm").hidden = false; $("#sugg-yes").focus(); };
+  $("#sugg-no").onclick = () => { $("#sugg-confirm").hidden = true; $("#sugg-go").focus(); };
+  $("#sugg-yes").onclick = () => { $("#sugg-confirm").hidden = true; toast(`Moved ${suggTotal()} messages to Trash`); };
+
+  /* ── Reviewer controls ──────────────────────────────────────────── */
+  $("#sender-skel").innerHTML = Array.from({ length: 6 }, () => `<div class="sk-row"><span class="sk" style="width:16px;height:16px"></span><span class="sk" style="width:28px;height:28px;border-radius:7px"></span><div style="flex:1;display:grid;gap:6px"><span class="sk" style="width:30%;height:12px"></span><span class="sk" style="width:55%;height:10px"></span></div><span class="sk" style="width:84px;height:28px;border-radius:8px"></span></div>`).join("");
+  $("#d-skel").onclick = () => { location.hash = "senders"; $("#sender-list").hidden = true; $("#sender-skel").hidden = false; setStatus("busy"); setTimeout(() => { $("#sender-list").hidden = false; $("#sender-skel").hidden = true; }, 2000); };
+  $("#d-err").onclick = () => { location.hash = "senders"; setTimeout(() => { const r = $("#sender-list .row"); if (r) { r.dataset.fail = "1"; $("[data-act]", r).click(); } }, 50); };
+  $("#d-preset").onclick = () => { location.hash = "sorting"; $("#preset-card").hidden = false; };
+  $("#d-fail").onclick = () => { location.hash = "sorting"; $$(".sentence-row")[6]._fail(); };
+  $("#d-gray").onclick = () => body.classList.toggle("gray-logos");
+  $("#d-setup").onclick = () => { location.hash = "setup"; };
+  $("#d-simple").onclick = () => $("#simple-sw").click();
+
+  /* ── Boot ───────────────────────────────────────────────────────── */
+  paintLogos(); setTheme((() => { try { return localStorage.getItem("cluster-v4-theme") || "system"; } catch (e) { return "system"; } })(), false);
+  try { if (localStorage.getItem("cluster-v4-simple") === "1" || new URLSearchParams(location.search).has("simple")) setSimple(true); } catch (e) {}
+  renderSeg(); renderSenders(); renderSubs(); renderScreener(); renderHeld(); applyMode();
+  show(location.hash.slice(1) || "overview", false);
+  setTimeout(() => body.classList.add("nav-ready"), 300);
+  window.__open = openSheet; // used by the screenshot script
+})();
+</script>
+</body>
+</html>

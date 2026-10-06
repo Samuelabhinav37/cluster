@@ -944,3 +944,38 @@ Checked in headless Chrome at 1440 × 900 (light and dark), 1024 × 768 (icon ra
 sender chips and the sender sheet now use line icons from the same set as the nav. The emoji stay
 only where the text names a real Gmail label, such as the phishing toast and the custom-rule
 example, because those label names do carry the emoji since Phase 1.
+
+
+---
+
+## v4 (2026-10-06)
+
+`mockup-v4.html` keeps v3 as the base and changes only what the owner asked for after v3, plus the
+security and persona work done since. v3 is unchanged. Screenshots are in `v4-shots/`.
+
+- **Plain words.** Each page opens with one plain sentence about what happens to your mail. Terms
+  that confuse people (label, Unsubscribe, Mute, verified unsubscribe, held, protected mail) have a
+  hover or focus hint. Nav names: Suggestions is now **Clear out**, Phishing is **Scams**, Screener
+  is **New senders**.
+- **Sorting reads as sentences.** "Promotions (sales and marketing) stay in your inbox [for 1 day],
+  then move to the Promotions label. After that, [keep them in their label]." The Status column is
+  gone. One note at the top says what works with Chrome closed. A failed Gmail filter shows as a
+  plain error on its row.
+- **First-run setup.** "What describes you?" with four answers (too many promotions, business,
+  keep me safe, lots of people email me). Each shows what it would change before anything is
+  turned on, with the trust line: runs on your computer, nothing deleted, undo anything.
+- **Simple mode.** Settings → Appearance, the "Keep me safe" answer, or `?simple`. Bigger text, a
+  three-item nav (Home, Scams, Settings, Help), and a home page with one status, one action and one
+  safety tip.
+- **Scams page.** Held emails, one card per email, with up to three plain reasons in the exact
+  wording of `src/lib/verdict.ts`, a green reason when trust was weighed (a known correspondent), a
+  call-back card for a changed bank account, guided reporting (Gmail Report phishing, APWG), "Not a
+  scam, put it back" and Block. A second list for "Check before you act" (warned, left in inbox).
+- **Scam report.** Three stat tiles and three single-series charts in one hue (held per week,
+  brands faked, warning signs seen), with hover values and a table view. Built on device, nothing
+  sent.
+- **New senders** rows show the first subject line and offer Let in or Block. The "Screener" chip and
+  "0% opened" are gone.
+
+Checked: no page scrolls sideways at 390 px (all 12 pages, including simple mode), no console
+errors, light and dark themes.
