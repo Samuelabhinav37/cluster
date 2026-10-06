@@ -28,7 +28,8 @@
 import type { NormalizedMessageMetadata } from "./providers/emailProvider";
 import { parseAuthenticationResults } from "./emailAuth";
 import { isBlockedDomain } from "./blocklist";
-import { isSameOrSubdomain } from "./registrableDomain";
+import { domainToUnicode } from "./punycode";
+import { isSameOrSubdomain, registrableDomain } from "./registrableDomain";
 import { getDataset, refreshDataset } from "./remoteDataset";
 import brandDomainsFallback from "./data/brandDomains.json";
 
@@ -206,30 +207,62 @@ function editDistance(a: string, b: string): number {
   return previousRow[b.length];
 }
 
-function findLookalikeBrand(senderDomain: string): string | null {
-  if (senderDomain.length < LOOKALIKE_MIN_DOMAIN_LENGTH) return null;
-  const skeleton = asciiSkeleton(senderDomain);
-  for (const [brand, domains] of Object.entries(BRAND_DOMAINS)) {
-    // Check every one of this brand's own legitimate domains BEFORE any
-    // edit-distance comparison against them individually -- some brands
-    // (Amazon) have several real domains that are a small edit distance
-    // from each other (amazon.in / amazon.ca), so a domain that's genuinely
-    // on the list must never get flagged as a lookalike of a DIFFERENT
-    // entry on that same list just because the loop reaches it first.
+// Words that turn "brand name inside a domain" from coincidence into a
+// scam pattern ("combosquatting"): paypal-secure-login.com, amazon-account-
+// verify.co.uk. A brand token alone isn't enough (paper-chase.com is not
+// Chase), so a combosquat needs the brand as a whole hyphen-separated word
+// plus at least one of these.
+const COMBOSQUAT_LURE_WORDS = new Set([
+  "secure", "security", "login", "logon", "signin", "verify", "verification", "account", "accounts",
+  "support", "billing", "update", "alert", "alerts", "service", "services", "help", "auth", "wallet",
+  "confirm", "unlock", "recovery", "refund", "payment", "invoice", "customer", "care", "id",
+]);
+
+type LookalikeMatch = { brand: string; confidence: "high" | "medium" };
+
+function findLookalikeBrand(senderDomain: string): LookalikeMatch | null {
+  // One of any brand's own domains is never a lookalike of another brand's,
+  // or of a sibling domain on the same brand's list (amazon.in / amazon.ca).
+  for (const domains of Object.values(BRAND_DOMAINS)) {
     if (domains.some((d) => isSameOrSubdomain(senderDomain, d))) return null;
+  }
+  // Compare the part someone registered, so a subdomain can't hide the
+  // lookalike: mail.paypa1.com is checked as paypa1.com.
+  const registrable = registrableDomain(senderDomain);
+  if (registrable.length < LOOKALIKE_MIN_DOMAIN_LENGTH) return null;
+  // Headers carry internationalised domains as punycode (xn--pypl-53dc.com),
+  // so decode before the confusables map can see the Cyrillic letters.
+  const skeleton = asciiSkeleton(domainToUnicode(registrable));
+  for (const [brand, domains] of Object.entries(BRAND_DOMAINS)) {
     for (const legitDomain of domains) {
       if (legitDomain.split(".")[0].length < LOOKALIKE_MIN_BRAND_LABEL_LENGTH) continue;
       // Confusable-normalised exact match: the domain renders identically to
       // the brand's real one but isn't it -- a Cyrillic 'а' in pаypаl.com, a
       // digit 1 in paypa1.com. The strongest lookalike case, and one raw
       // edit distance misses entirely for the homoglyph variant.
-      if (skeleton === legitDomain && senderDomain !== legitDomain) return brand;
-      if (editDistanceWithin(senderDomain, legitDomain, LOOKALIKE_MAX_DISTANCE)) return brand;
+      if (skeleton === legitDomain && registrable !== legitDomain) return { brand, confidence: "high" };
+      if (editDistanceWithin(registrable, legitDomain, LOOKALIKE_MAX_DISTANCE)) return { brand, confidence: "high" };
       // A homoglyph swap plus an ordinary typo can push the raw string past
       // the threshold while the skeleton stays close -- check that too.
-      if (skeleton !== senderDomain && editDistanceWithin(skeleton, legitDomain, LOOKALIKE_MAX_DISTANCE)) {
-        return brand;
+      if (skeleton !== registrable && editDistanceWithin(skeleton, legitDomain, LOOKALIKE_MAX_DISTANCE)) {
+        return { brand, confidence: "high" };
       }
+    }
+  }
+  const combosquat = findCombosquatBrand(registrable);
+  return combosquat ? { brand: combosquat, confidence: "medium" } : null;
+}
+
+/** paypal-secure-login.com -> "paypal": the brand's own label as one
+ * hyphen-separated word of the registered name, next to a scam word. */
+function findCombosquatBrand(registrable: string): string | null {
+  const name = registrable.split(".")[0];
+  const words = name.split("-").filter(Boolean);
+  if (words.length < 2 || !words.some((word) => COMBOSQUAT_LURE_WORDS.has(word))) return null;
+  for (const [brand, domains] of Object.entries(BRAND_DOMAINS)) {
+    for (const legitDomain of domains) {
+      const brandLabel = registrableDomain(legitDomain).split(".")[0];
+      if (brandLabel.length >= 3 && !COMBOSQUAT_LURE_WORDS.has(brandLabel) && words.includes(brandLabel)) return brand;
     }
   }
   return null;
@@ -261,8 +294,8 @@ function brandSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
 
 function lookalikeSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
   const senderDomain = domainOf(message.fromAddress);
-  const brand = findLookalikeBrand(senderDomain);
-  return brand ? { kind: "lookalike-domain", brand, confidence: "high" } : null;
+  const match = findLookalikeBrand(senderDomain);
+  return match ? { kind: "lookalike-domain", brand: match.brand, confidence: match.confidence } : null;
 }
 
 function authenticationSignal(message: NormalizedMessageMetadata): ThreatSignal | null {

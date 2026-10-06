@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { refreshBrandDomains, riskTier, scoreMessageForThreats, senderRiskScore } from "./threatSignals";
 import type { NormalizedMessageMetadata } from "./providers/emailProvider";
+import publicSuffixData from "../../public/data/public-suffix.json";
+import { setPublicSuffixRules } from "./publicSuffix";
 
 // The real blocklist is the empty vendored slice plus a (shipped-empty)
 // hand seed; stub a single known-bad host so the blocklisted-domain signal
@@ -105,6 +107,43 @@ describe("scoreMessageForThreats: brand-impersonation / freemail-brand-claim", (
 });
 
 describe("scoreMessageForThreats: lookalike-domain", () => {
+  it("still catches a lookalike behind a subdomain (mail.paypa1.com)", () => {
+    expect(
+      scoreMessageForThreats(message({ fromDisplayName: "Account Update", fromAddress: "billing@mail.paypa1.com" })),
+    ).toEqual([{ kind: "lookalike-domain", brand: "paypal", confidence: "high" }]);
+  });
+
+  it("catches a homoglyph domain in the punycode form mail headers actually carry", () => {
+    // xn--pypl-53dc.com is pаypаl.com with two Cyrillic a's.
+    expect(
+      scoreMessageForThreats(message({ fromDisplayName: "Account", fromAddress: "security@xn--pypl-53dc.com" })),
+    ).toContainEqual({ kind: "lookalike-domain", brand: "paypal", confidence: "high" });
+  });
+
+  it("catches a brand name plus scam words in the domain (paypal-secure-login.com)", () => {
+    expect(
+      scoreMessageForThreats(message({ fromDisplayName: "Account Security", fromAddress: "no-reply@paypal-secure-login.com" })),
+    ).toEqual([{ kind: "lookalike-domain", brand: "paypal", confidence: "medium" }]);
+  });
+
+  it("catches brand plus scam words behind a subdomain and a country suffix", () => {
+    setPublicSuffixRules(publicSuffixData);
+    expect(
+      scoreMessageForThreats(message({ fromDisplayName: "Support", fromAddress: "x@mail.amazon-account-verify.co.uk" })),
+    ).toEqual([{ kind: "lookalike-domain", brand: "amazon", confidence: "medium" }]);
+    setPublicSuffixRules(null);
+  });
+
+  it("doesn't flag a brand word in a domain without a scam word (paper-chase.com)", () => {
+    expect(scoreMessageForThreats(message({ fromDisplayName: "Newsletter", fromAddress: "hello@paper-chase.com" }))).toEqual([]);
+  });
+
+  it("doesn't flag a brand name glued inside a longer word (amazonia-tours.com)", () => {
+    expect(
+      scoreMessageForThreats(message({ fromDisplayName: "Trips", fromAddress: "book@amazonia-tours-support.com" })),
+    ).toEqual([]);
+  });
+
   it("flags a single-character-substitution lookalike even without the brand name in the display name", () => {
     expect(scoreMessageForThreats(message({ fromDisplayName: "Account Update", fromAddress: "billing@paypa1.com" }))).toEqual([
       { kind: "lookalike-domain", brand: "paypal", confidence: "high" },
