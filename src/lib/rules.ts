@@ -232,7 +232,7 @@ export function ruleGuardWarning(rule: ClusterRule): string | null {
   if (!ruleActions(rule).some((spec) => spec.action === "trash")) return null;
   const c = rule.conditions;
   if (c.fromAddress || c.fromDomain || c.fromDomainCategory || c.kind) return null;
-  return "A Trash rule needs a targeting condition — a specific sender, domain, category, or message kind. As written it would move everything matching only its age / read-state / unsubscribe filter to Trash, and keep doing it on every sweep.";
+  return "A Trash rule needs a target: a sender, domain, category or kind of mail. Without one it would trash everything that matches its age or read filter.";
 }
 
 export function orderedRules(rules: ClusterRule[]): ClusterRule[] {

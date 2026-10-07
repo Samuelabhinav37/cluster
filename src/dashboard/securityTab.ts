@@ -129,7 +129,7 @@ export function renderQuarantineReview(senders: SenderSummary[] = []) {
       const sub = document.createElement("div");
       sub.className = "scam-from";
       const n = record.messageIds.length;
-      sub.textContent = `${n} email${n === 1 ? "" : "s"} held ${timeAgo(record.at)}. They're in the "${clusterLabelName("suspicious")}" label.`;
+      sub.textContent = `${n} held ${timeAgo(record.at)}, in "${clusterLabelName("suspicious")}"`;
       id.append(title, sub);
       const chip = document.createElement("span");
       chip.className = "risk-chip hold";
@@ -235,9 +235,8 @@ function reportSteps(): { button: HTMLButtonElement; steps: HTMLOListElement } {
   steps.hidden = true;
   for (const text of [
     "Open the email in Gmail or Outlook.",
-    "Gmail: press ⋮ More, then Report phishing. Outlook: Report, then Report phishing. This teaches their filter and protects everyone.",
-    "Optional: forward it as an attachment to reportphishing@apwg.org, which shares it with banks and browser makers.",
-    "Cluster never sends anything for you.",
+    "Gmail: ⋮ More, then Report phishing. Outlook: Report, then Report phishing.",
+    "Optional: forward it as an attachment to reportphishing@apwg.org.",
   ]) {
     const li = document.createElement("li");
     li.textContent = text;
@@ -331,7 +330,7 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
     b.textContent = "Before you pay anything";
     const text = document.createElement("span");
     text.textContent =
-      "Call them on a number you already have, not one in this email. A change of bank details by email is the most common invoice scam.";
+      "Call them on a number you already have, not one in this email.";
     const wrap = document.createElement("div");
     wrap.append(b, text);
     card.appendChild(wrap);
@@ -348,7 +347,7 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
   const genuine = document.createElement("button");
   genuine.className = "btn";
   genuine.textContent = "It's fine";
-  genuine.title = "Cluster will weigh this sender's warnings less from now on";
+  genuine.title = "Cluster will remember this sender";
   genuine.onclick = async () => {
     genuine.disabled = true;
     ctx.settings = await mutateSettings((current) => ({

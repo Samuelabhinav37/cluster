@@ -130,7 +130,7 @@ function renderSortBucketToggles() {
     inc.onchange = updateSortInboxCount;
 
     const text = document.createElement("span");
-    text.textContent = ` ${SORT_BUCKET_LABELS[entry.bucket]} — ${entry.count} `;
+    text.textContent = ` ${SORT_BUCKET_LABELS[entry.bucket]}: ${entry.count} `;
 
     const keep = document.createElement("label");
     keep.className = "hint";
@@ -154,7 +154,7 @@ function renderSortBucketToggles() {
     if (ruleCount > 0) parts.push(`${ruleCount} Outlook rule${ruleCount === 1 ? "" : "s"}`);
     const note = document.createElement("p");
     note.className = "hint";
-    note.textContent = `${parts.join(" and ")} label new mail as it arrives. You can see or remove them in your mail settings.`;
+    note.textContent = `${parts.join(" and ")} label new mail as it arrives.`;
     sortInboxBucketsEl.appendChild(note);
   }
 
@@ -296,7 +296,7 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
     chosen.flatMap((e) => e.messages).filter((m) => !excludedSortIds.has(m.id)).length;
   const refreshApplyLabel = () => {
     const n = includedCount();
-    applyBtn.textContent = `Apply — ${n} message${n === 1 ? "" : "s"}`;
+    applyBtn.textContent = `Apply to ${n} message${n === 1 ? "" : "s"}`;
     applyBtn.disabled = n === 0;
   };
 
@@ -305,7 +305,7 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
     bucketEl.className = "sort-preview-bucket";
     bucketEl.open = true;
     const summary = document.createElement("summary");
-    summary.textContent = `${entry.label} — ${entry.count} · ${
+    summary.textContent = `${entry.label}: ${entry.count} · ${
       entry.fileOut ? "filed out of the inbox" : "labelled in place"
     }`;
     bucketEl.appendChild(summary);
@@ -321,7 +321,7 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
       const senderEl = document.createElement("details");
       senderEl.className = "sort-preview-sender";
       const sSummary = document.createElement("summary");
-      sSummary.append(document.createTextNode(`${msgs[0].displayName || address} — ${msgs.length} `));
+      sSummary.append(document.createTextNode(`${msgs[0].displayName || address}: ${msgs.length} `));
 
       const select = document.createElement("select");
       select.title = "Sort this sender differently";
@@ -637,7 +637,7 @@ async function maybeShowSeedCard() {
   sortSeedCardEl.innerHTML = "";
   const intro = document.createElement("p");
   intro.textContent =
-    "Cluster noticed some of your existing Gmail setup. Reuse it so “Sort my inbox” works with your organisation, not against it:";
+    "Cluster found labels you already use. Reuse them:";
   sortSeedCardEl.appendChild(intro);
 
   if (labelCandidates.length > 0) {

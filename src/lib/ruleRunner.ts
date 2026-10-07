@@ -192,7 +192,7 @@ export async function applyRules(
         at: Date.now(),
         kind: "rule",
         summary:
-          `Rule "${rule.name}": ${describeRule(rule)} — ${total} message${total === 1 ? "" : "s"} actioned` +
+          `Rule "${rule.name}": ${describeRule(rule)}: ${total} message${total === 1 ? "" : "s"} actioned` +
           (partialProviders.length > 0
             ? `; partial action sequence for ${partialProviders.join(", ")}`
             : "") +

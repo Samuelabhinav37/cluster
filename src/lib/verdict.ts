@@ -110,7 +110,7 @@ export function reasonText(signal: ThreatSignal): string {
     case "reply-to-mismatch":
       return `If you press Reply, your answer goes to a different address (${signal.brand}).`;
     case "punycode-domain":
-      return `The address (${signal.brand}) uses special characters that can make it look like another site.`;
+      return `The address (${signal.brand}) uses look-alike characters.`;
     case "lure-language":
       return "The subject pushes you to act fast or to sign in.";
     case "link-mismatch":
@@ -118,7 +118,7 @@ export function reasonText(signal: ThreatSignal): string {
     case "risky-attachment":
       return "It has an attachment of a type often used to spread malware.";
     case "identity-change":
-      return `This sender's mail usually comes from the same place. This one is signed by, or asks for replies at, ${signal.brand}.`;
+      return `This sender doesn't usually use ${signal.brand}.`;
     default: {
       const unreachable: never = signal.kind;
       return unreachable;
@@ -151,7 +151,7 @@ export function senderVerdict(sender: SenderSummary, context: VerdictContext): V
     if (kept.length !== signals.length || signals.length === 0) {
       trustReasons.push({
         kind: "known-correspondent",
-        text: "You've written to this address before, so a name that looks like a brand isn't counted.",
+        text: "You've written to them before.",
         points: 0,
       });
     }

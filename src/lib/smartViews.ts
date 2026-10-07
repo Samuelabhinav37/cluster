@@ -25,7 +25,7 @@ export const SMART_VIEWS: SmartView[] = [
   },
   {
     id: "large",
-    label: "Large — over 2 MB",
+    label: "Large: over 2 MB",
     hint: "Big messages taking up quota",
     match: (m) => m.sizeBytes > 2 * MB,
   },

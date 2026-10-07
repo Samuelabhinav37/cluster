@@ -105,7 +105,7 @@ export function buildInboxHealth(input: {
       id: "flagged-senders",
       label: "Flagged senders",
       value: flaggedSenders,
-      hint: "Possible impersonation — header checks only.",
+      hint: "Some senders may not be who they say.",
       tab: "security",
       attentionWhenPositive: true,
     },

@@ -231,7 +231,7 @@ function renderBacklogPreview(token: string, rows: BacklogRow[]): void {
   const intro = document.createElement("p");
   intro.className = "hint";
   intro.textContent =
-    "This labels mail already in your inbox. It stays in the inbox for now; mail past its time moves into its label over the next few checks, and mail from people you write to stays.";
+    "This labels mail already in your inbox. Mail past its time moves out over the next few checks.";
   backlogEl.appendChild(intro);
 
   const boxes = new Map<SortBucket, HTMLInputElement>();

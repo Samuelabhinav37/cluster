@@ -93,10 +93,10 @@ describe("ruleGuardWarning", () => {
   it("blocks a Trash rule that only filters by age / read-state / unsubscribe", () => {
     expect(
       ruleGuardWarning(rule({ action: "trash", conditions: { olderThanDays: 30 } })),
-    ).toMatch(/targeting condition/);
+    ).toMatch(/needs a target/);
     expect(
       ruleGuardWarning(rule({ action: "trash", conditions: { unread: true, hasUnsubscribe: true } })),
-    ).toMatch(/targeting condition/);
+    ).toMatch(/needs a target/);
   });
 
   it("allows a Trash rule that targets a sender, domain, category, or kind", () => {
@@ -123,7 +123,7 @@ describe("ruleGuardWarning", () => {
           actions: [{ action: "markRead" }, { action: "trash" }],
         }),
       ),
-    ).toMatch(/targeting condition/);
+    ).toMatch(/needs a target/);
   });
 });
 

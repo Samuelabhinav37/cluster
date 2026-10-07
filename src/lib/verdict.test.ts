@@ -115,9 +115,7 @@ describe("reasons", () => {
   });
 
   it("names the new domain in an identity change", () => {
-    expect(reasonText(identity)).toBe(
-      "This sender's mail usually comes from the same place. This one is signed by, or asks for replies at, acme-pay.example.",
-    );
+    expect(reasonText(identity)).toBe("This sender doesn't usually use acme-pay.example.");
   });
 
   it("capitalises brand names the way people write them", () => {

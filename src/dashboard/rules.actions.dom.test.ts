@@ -35,7 +35,7 @@ describe("Rules screen — manual rule composer", () => {
     (dash.el("rule-older-days") as HTMLInputElement).value = "30";
     (dash.el("rule-add-btn") as HTMLButtonElement).click();
 
-    expect(dash.el("rule-form-error").textContent).toMatch(/targeting condition/i);
+    expect(dash.el("rule-form-error").textContent).toMatch(/needs a target/i);
     expect(dash.storedSettings().rules ?? []).toHaveLength(0);
   });
 

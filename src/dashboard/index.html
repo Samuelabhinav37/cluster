@@ -125,10 +125,7 @@
           <section id="connect-gate" class="connect-gate" aria-labelledby="connect-title" hidden>
             <div class="glass-card connect-card">
               <h1 class="page-title" id="connect-title">Connect Gmail to get started</h1>
-              <p class="lead" id="connect-lead">
-                Cluster finds mail you can clear out, sorts the rest, and flags senders that look like
-                phishing. It runs entirely in your browser.
-              </p>
+              <p class="lead" id="connect-lead">Clean up, sort and protect your Gmail. It runs in your browser.</p>
               <ul class="connect-points">
                 <li>
                   <strong>What it reads.</strong> Senders, subjects, dates, labels and the
@@ -143,17 +140,12 @@
                   move to Trash and create filters when you tell it to.
                 </li>
               </ul>
-              <p class="hint" id="connect-testing-note">
-                Cluster is still in testing, so Google will show a "Google hasn't verified this app"
-                screen first. Choose <strong>Continue</strong> to reach the permission screen.
-              </p>
+              <p class="hint" id="connect-testing-note">Google will say the app isn't verified yet. Choose Continue.</p>
               <div class="connect-actions">
                 <button type="button" id="connect-gmail-btn" class="btn-accent-solid">Connect Gmail</button>
                 <span id="connect-error" class="connect-error" role="alert"></span>
               </div>
-              <p class="hint" id="connect-pin-tip" hidden>
-                Tip: pin Cluster from the puzzle-piece menu in Chrome's toolbar so it's one click away.
-              </p>
+              <p class="hint" id="connect-pin-tip" hidden>Tip: pin Cluster from Chrome's puzzle-piece menu.</p>
             </div>
           </section>
 
@@ -161,18 +153,16 @@
 
           <div id="onboarding-banner" class="banner" hidden>
             <p>
-              Cluster sorts and cleans up mail using only what your inbox already tells it — subjects,
-              senders, dates, and starred/flagged status, never message bodies. Nothing is deleted
-              without you confirming first, and everything runs from your own sign-in.
+              Cluster reads senders, subjects and dates, never message bodies. Nothing is deleted
+              without your OK.
             </p>
             <button type="button" id="onboarding-dismiss-btn" class="btn btn-accent">Got it</button>
           </div>
           <div id="label-tidy-banner" class="banner" hidden></div>
           <div id="athena-section" class="banner" hidden>
             <p>
-              <strong>Athena email security is available for this managed installation.</strong>
-              Enabling the connection sends only minimized security evidence to your organization's
-              Athena server. Mailbox cleanup stays local and suspicious mail is never auto-deleted.
+              <strong>Your organization can receive Cluster's security warnings.</strong>
+              Only the warnings are sent, never your mail.
             </p>
             <button type="button" id="athena-connect-btn" class="btn btn-accent">
               Allow Athena connection
@@ -185,16 +175,14 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Overview</h1>
-                <p class="lead">
-                  Everything Cluster found, and the things it will not decide without you.
-                </p>
+                <p class="lead">What Cluster found, and what needs you.</p>
               </div>
             </div>
 
             <div class="setup-banner" id="setup-banner" hidden>
               <div class="tc-text">
                 <b>Set Cluster up for you</b>
-                <span class="tc-sub">Answer one question and Cluster picks sensible defaults. You can change anything later.</span>
+                <span class="tc-sub">Answer one question to get sensible defaults.</span>
               </div>
               <button type="button" class="btn btn-accent-solid" id="setup-banner-start">Start</button>
               <button type="button" class="btn btn-ghost" id="setup-banner-dismiss">Not now</button>
@@ -208,16 +196,13 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Clear out</h1>
-                <p class="lead">
-                  Mail you can get rid of now, ranked by how you actually read it. It goes to Trash,
-                  and Gmail keeps Trash for 30 days, so you can change your mind.
-                </p>
+                <p class="lead">Mail you can get rid of now. Trash keeps it for 30 days.</p>
               </div>
             </div>
             <p class="trust-line">
               <span>Starred and
                 <span class="term" tabindex="0">protected mail<span class="term-tip" role="tooltip">Receipts, bills, travel, codes you might still need, and anything from people you write to. Cluster never moves these to Trash.</span></span>
-                is skipped</span><span>Trash keeps it 30 days</span><span>Undo from Activity</span>
+                is skipped</span><span>Undo from Activity</span>
             </p>
 
             <div id="suggested-metric-band"></div>
@@ -233,10 +218,7 @@
                    re-skinned into the plan list screen-by-screen. -->
               <section id="never-read-section" class="review-panel" hidden>
                 <h3 class="section-label">Personalized cleanup suggestions</h3>
-                <p class="hint">
-                  Cluster learns from changed unread patterns and your corrections, entirely on this
-                  device. Starred or flagged senders are excluded; nothing moves until you confirm.
-                </p>
+                <p class="hint">Senders you never open. Starred senders are left out.</p>
                 <div id="never-read-bulk-bar" class="toolbar">
                   <span id="never-read-count"></span>
                   <span id="never-read-mute-slot"><button id="never-read-mute-btn" class="btn btn-accent">Mute suggested…</button></span>
@@ -247,11 +229,7 @@
 
               <section id="spam-section" class="review-panel" hidden>
                 <h3 class="section-label">Suggested spam</h3>
-                <p class="hint">
-                  Senders whose domain is on a public spam or throwaway-email list, or the extension's
-                  own known-bad list. Nothing moves to Trash until you confirm; starred mail is left
-                  out. <span id="spam-list-size" class="hint"></span>
-                </p>
+                <p class="hint">Senders on a public spam or throwaway-email list.</p>
                 <div id="spam-bulk-bar" class="toolbar">
                   <label class="check-label"><input type="checkbox" id="spam-select-all" class="check" checked /> <span>Select all</span></label>
                   <span id="spam-count"></span>
@@ -262,11 +240,7 @@
 
               <section id="expiry-section" class="review-panel" hidden>
                 <h3 class="section-label">Ready to clean up</h3>
-                <p class="hint">
-                  Messages that likely served their purpose — one-time codes, old shipping updates,
-                  newsletters past their window — judged only by how long ago they arrived.
-                  Starred/flagged mail is always skipped.
-                </p>
+                <p class="hint">Codes, shipping updates and newsletters past their use.</p>
                 <div id="expiry-bar" class="confirm-slot">
                   <span id="expiry-breakdown"></span>
                   <span id="expiry-cleanup-slot"><button id="expiry-cleanup-btn" class="btn btn-accent">Clean up</button></span>
@@ -275,11 +249,8 @@
             </section>
 
             <details class="disclosure" id="keep-newest-section">
-              <summary>Trim to newest — keep only the last few from each sender</summary>
-              <p class="hint">
-                Keep only the newest few messages from each sender and trash the rest. Starred
-                messages are always skipped.
-              </p>
+              <summary>Keep only each sender's newest mail</summary>
+              <p class="hint">Keep each sender's newest few messages and trash the rest.</p>
               <div id="keep-newest-bar" class="confirm-slot">
                 <label>
                   Trim each sender to its newest
@@ -292,10 +263,6 @@
 
             <section id="domain-groups" hidden>
               <h3 class="section-label">By domain</h3>
-              <p class="hint">
-                Senders grouped by base domain and bucketed into categories. Deleting moves mail to
-                Trash — starred messages are always skipped.
-              </p>
               <div id="domain-bulk-bar" class="toolbar" hidden>
                 <button id="select-safe-domains" class="btn">Select safe</button>
                 <span id="domain-selected-count">0 selected</span>
@@ -312,12 +279,7 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Sorting</h1>
-                <p class="lead">
-                  Choose how long each kind of mail stays in your inbox. After that it moves to its
-                  own
-                  <span class="term" tabindex="0">label<span class="term-tip" role="tooltip">Like a folder in Gmail. Mail with a label is out of your inbox, but it's still in search and in All Mail.</span></span>,
-                  where search still finds it. Nothing on this page deletes anything.
-                </p>
+                <p class="lead">Choose how long each kind of mail stays in your inbox.</p>
               </div>
             </div>
 
@@ -352,9 +314,7 @@
               <label class="toggle-card">
                 <span class="tc-text">
                   <b>Move mail out of my inbox when its time is up</b>
-                  <span class="tc-sub">
-                    Starred mail and mail from people you write to always stay. Gmail only for now.
-                  </span>
+                  <span class="tc-sub">Starred mail and people you write to stay put. Gmail only.</span>
                 </span>
                 <input type="checkbox" class="switch" role="switch" id="time-limits-toggle" />
               </label>
@@ -374,11 +334,7 @@
 
             <section id="sort-inbox-section">
               <h3 class="section-label">Sort my inbox</h3>
-              <p class="hint">
-                Files your recent mail under labels like 🔑 One-time codes, 🧾 Receipts and
-                🛍 Shopping, based on what each email is or who sent it. Starred mail is left alone.
-                You see a preview first, and nothing moves until you press Apply.
-              </p>
+              <p class="hint">Files recent mail into labels. You see a preview first.</p>
               <div id="sort-inbox-bar" class="confirm-slot">
                 <span id="sort-inbox-slot"><button id="sort-inbox-btn" class="btn btn-accent">Sort my inbox…</button></span>
                 <span id="sort-inbox-count" class="hint"></span>
@@ -388,12 +344,7 @@
                 <div id="sort-inbox-buckets"></div>
                 <label class="check-label"><input type="checkbox" id="sort-keep-sorting" /> <span>Keep doing this for new mail</span></label>
                 <label class="check-label"><input type="checkbox" id="sort-expire-otp" /> <span>Also move one-time codes to Trash after 2 days</span></label>
-                <p class="hint">
-                  For sender-based labels (Shopping, Travel, Finance and so on), Cluster adds a Gmail
-                  filter, so new mail gets its label the moment it arrives, even with Chrome closed. You
-                  can see them in Gmail under Settings, then Filters. One-time codes, receipts and
-                  shipping updates are sorted by Cluster's background check while Chrome is open.
-                </p>
+                <p class="hint">Sender-based labels use Gmail filters, so they work with Chrome closed.</p>
               </details>
               <section id="sort-seed-card" class="banner" hidden></section>
               <div id="sort-inbox-preview"></div>
@@ -409,14 +360,11 @@
             </section>
 
             <details class="disclosure" id="more-tools">
-              <summary>More tools — digest, AI classify</summary>
+              <summary>More tools</summary>
 
               <section id="digest-section" hidden>
                 <h3 class="section-label">Digest</h3>
-                <p class="hint">
-                  A quick on-device summary of what's in your inbox right now — generated locally by
-                  Chrome from the counts below, nothing sent anywhere.
-                </p>
+                <p class="hint">A short summary of your inbox, made on this device.</p>
                 <div id="digest-bar" class="confirm-slot">
                   <button id="generate-digest-btn" class="btn" disabled>Generate digest</button>
                   <span id="digest-status" role="status"></span>
@@ -426,10 +374,7 @@
 
               <section id="ai-kind-section" hidden>
                 <h3 class="section-label">Classify ambiguous mail</h3>
-                <p class="hint">
-                  Uses Chrome's on-device model as a second opinion for subject lines the built-in
-                  rules gave up on — locally, this session only, never overriding a rule.
-                </p>
+                <p class="hint">Uses on-device AI on subjects the rules couldn't sort.</p>
                 <div id="ai-kind-bar" class="confirm-slot">
                   <button id="classify-other-btn" class="btn" disabled>Classify ambiguous mail</button>
                   <span id="ai-kind-status" role="status"></span>
@@ -443,16 +388,8 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Senders</h1>
-                <p class="lead" id="senders-lead">
-                  Every sender Cluster saw, heaviest first. Nothing here is acted on until you say so.
-                </p>
-                <p class="lead">
-                  Two ways to stop a sender:
-                  <span class="term" tabindex="0">Unsubscribe<span class="term-tip" role="tooltip">Cluster asks the sender to take you off their list. Most stop within a few days. Some ignore it, so you can also mute them.</span></span>
-                  asks them to stop, and
-                  <span class="term" tabindex="0">Mute<span class="term-tip" role="tooltip">Their new mail skips your inbox and goes to the Muted label. They can still email you, and you can unmute any time.</span></span>
-                  hides their mail even if they don't.
-                </p>
+                <p class="lead" id="senders-lead">Everyone who emails you, busiest first.</p>
+                <p class="lead"><span class="term" tabindex="0">Unsubscribe<span class="term-tip" role="tooltip">Most senders stop within a few days.</span></span> asks a sender to stop. <span class="term" tabindex="0">Mute<span class="term-tip" role="tooltip">Their mail skips your inbox. You can unmute any time.</span></span> hides their mail.</p>
               </div>
             </div>
 
@@ -477,12 +414,7 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Subscriptions</h1>
-                <p class="lead">
-                  Mailing lists you're on, grouped by how often they arrive. Cluster only presses a
-                  sender's
-                  <span class="term" tabindex="0">verified unsubscribe<span class="term-tip" role="tooltip">A standard unsubscribe link the sender has signed, so Cluster can press it for you safely. It never fills in a form for you.</span></span>
-                  link.
-                </p>
+                <p class="lead">Mailing lists you're on, grouped by how often they arrive.</p>
               </div>
             </div>
 
@@ -490,11 +422,7 @@
               <div class="section-head">
                 <h2 class="section-label">Paid subscriptions &amp; trials</h2>
               </div>
-              <p class="hint">
-                Services detected from trial/renewal wording or a recognized subscription domain,
-                most urgent first. Awareness only — Cluster can't cancel a paid plan the way it
-                unsubscribes from a newsletter, so there's no action here.
-              </p>
+              <p class="hint">Found from trial and renewal emails. Cancel these with the company.</p>
               <div id="paid-subscriptions-list" class="scroll-x"></div>
             </section>
 
@@ -502,12 +430,7 @@
               <div class="section-head">
                 <h2 class="section-label">Newsletters</h2>
               </div>
-              <p class="hint">
-                Every sender with an unsubscribe option, problems first. "Unsubscribe + clean" moves
-                only newsletter-classified messages to Trash and keeps transactional, sensitive,
-                starred, and ambiguous mail. "Read later" files them into a reversible Cluster label
-                instead.
-              </p>
+              <p class="hint">“Unsubscribe + clean” also trashes their old newsletters. “Read later” files them in a label.</p>
               <div id="subscriptions-bulk-bar" class="toolbar" hidden>
                 <span id="subs-count">0 senders</span>
                 <span id="subs-unsub-all-slot"><button id="subs-unsub-all-btn" class="btn btn-accent">Unsubscribe all verified one-click</button></span>
@@ -533,22 +456,14 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Scams</h1>
-                <p class="lead">
-                  Emails that look like scams can be
-                  <span class="term" tabindex="0">held<span class="term-tip" role="tooltip">Moved out of your inbox into the "🚨 Possible phishing" label. Never deleted. One tap brings it back.</span></span>
-                  out of your inbox, so you see them only when you choose to. You decide what happens next.
-                </p>
+                <p class="lead">Emails that look like scams, <span class="term" tabindex="0">held<span class="term-tip" role="tooltip">Moved to the 🚨 Possible phishing label. Never deleted.</span></span> out of your inbox.</p>
               </div>
             </div>
 
             <label class="toggle-card" id="auto-quarantine-row">
               <span class="tc-text">
                 <b>Hold emails that look like scams</b>
-                <span class="tc-sub">
-                  Cluster checks every 6 hours. It needs two separate warning signs on the same email,
-                  or one certain one. Only that email moves, never a sender's other mail. Works with
-                  Gmail and Outlook.
-                </span>
+                <span class="tc-sub">Only the suspicious email moves. Checked every 6 hours.</span>
               </span>
               <input type="checkbox" class="switch" role="switch" id="auto-quarantine-toggle" />
             </label>
@@ -572,11 +487,6 @@
               <div id="security-sender-list" class="stack"></div>
             </section>
             <p id="security-empty" class="empty-state">Nothing looks like a scam right now.</p>
-            <p class="caveat">
-              Cluster checks who sent each email and how it was sent, never what it says. Treat a
-              warning as a reason to look closely, and when money is involved, call the sender on a
-              number you already have.
-            </p>
           </section>
 
 
@@ -585,10 +495,7 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Rules</h1>
-                <p class="lead">
-                  Standing instructions that run on new mail as it arrives. Describe one in plain
-                  words and Cluster writes the conditions.
-                </p>
+                <p class="lead">Rules that run on new mail. Describe one in plain words.</p>
               </div>
             </div>
 
@@ -608,11 +515,7 @@
                 <button type="button" id="rule-save-draft-btn" class="btn" disabled>Save reviewed draft</button>
               </div>
               <span id="rule-draft-status" class="hint"></span>
-              <p class="hint">
-                The on-device model receives only the instruction above — not email content — and can
-                only draft constrained rule JSON. Cluster validates and previews it; nothing runs
-                until you save and apply. A deterministic parser is used when the model is unavailable.
-              </p>
+              <p class="hint">Drafted by on-device AI. Nothing runs until you save.</p>
             </div>
 
             <div id="rules-list"></div>
@@ -671,18 +574,14 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">New senders</h1>
-                <p class="lead">
-                  Mail from people you've never written to waits here until you let them in. They
-                  aren't told, and nothing is deleted. People you've emailed always get straight
-                  through.
-                </p>
+                <p class="lead">People you've never emailed wait here until you let them in.</p>
               </div>
             </div>
 
             <label class="toggle-card" id="screener-toggle-row">
               <span class="tc-text">
                 <b>Hold mail from new senders</b>
-                <span class="tc-sub">Anyone you've emailed gets through. Everyone else waits here.</span>
+                <span class="tc-sub">They aren't told they're waiting.</span>
               </span>
               <input type="checkbox" class="switch" role="switch" id="screener-toggle" />
             </label>
@@ -707,7 +606,7 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Settings</h1>
-                <p class="lead">Things you set once. Every change applies right away.</p>
+                <p class="lead">Set once. Changes apply right away.</p>
               </div>
             </div>
 
@@ -726,7 +625,7 @@
                 <div><h2>Appearance</h2><p class="lead-sm">How Cluster looks</p></div>
                 <div class="set-rows">
                   <label class="set-row">
-                    <span class="grow">Simple mode<span class="sub">Bigger text, three screens, one thing at a time.</span></span>
+                    <span class="grow">Simple mode<span class="sub">Bigger text, fewer screens.</span></span>
                     <input type="checkbox" class="switch" role="switch" id="simple-mode-toggle" />
                   </label>
                   <label class="set-row">
@@ -748,7 +647,7 @@
                     <input type="number" id="scan-window-input" min="1" max="3650" />
                   </label>
                   <label class="set-row">
-                    <span class="grow">Most messages per account<span class="sub">More is slower, because Gmail limits how fast Cluster can read.</span></span>
+                    <span class="grow">Most messages per account<span class="sub">More is slower.</span></span>
                     <input type="number" id="max-messages-input" min="50" max="5000" step="50" />
                   </label>
                 </div>
@@ -758,7 +657,7 @@
                 <div><h2>Deleting</h2><p class="lead-sm">What Trash means</p></div>
                 <div class="set-rows">
                   <label class="set-row" id="fast-delete-toggle-label">
-                    <span class="grow">Delete forever instead of Trash<span class="sub">Skips Trash, so it can't be undone. Applies to bulk Clear out too. Needs one more Gmail permission.</span></span>
+                    <span class="grow">Delete forever instead of Trash<span class="sub">Can't be undone. Needs an extra Gmail permission.</span></span>
                     <input type="checkbox" class="switch" role="switch" id="fast-delete-toggle" />
                   </label>
                 </div>
@@ -785,7 +684,7 @@
             </div>
             <div class="big-card">
               <b>Before you pay anyone or share a code</b>
-              <span>Call the person or company on a number you already have, never one from the email. Real banks never ask for a code by email.</span>
+              <span>Call them on a number you already have, not one in the email.</span>
             </div>
             <div><button type="button" class="btn btn-ghost" id="simple-off">Turn off Simple mode</button></div>
           </section>
@@ -795,7 +694,7 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">What describes you?</h1>
-                <p class="lead">Pick the closest one. Cluster sets sensible defaults, and you can change anything later.</p>
+                <p class="lead">Pick the closest one. You can change it later.</p>
               </div>
             </div>
             <div class="personas" role="group" aria-label="What describes you">
@@ -820,10 +719,7 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Scam report</h1>
-                <p class="lead">
-                  What Cluster caught. It's worked out on your computer from your own mail, and
-                  nothing here is sent anywhere.
-                </p>
+                <p class="lead">What Cluster caught, worked out on your computer.</p>
               </div>
             </div>
             <div class="report-kpis" id="report-kpis"></div>
@@ -856,10 +752,7 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Activity</h1>
-                <p class="lead">
-                  Everything you or Cluster did, newest first. Use Undo on any entry that has it.
-                  Mail moved to Trash stays there for 30 days. Mail deleted forever can't come back.
-                </p>
+                <p class="lead">What you and Cluster did, newest first.</p>
               </div>
             </div>
             <div id="recent-list"></div>

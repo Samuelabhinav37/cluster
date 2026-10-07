@@ -56,7 +56,7 @@ export function renderRulesTab() {
   if (ctx.settings.rules.length === 0) {
     const p = document.createElement("p");
     p.className = "empty-state";
-    p.textContent = "No rules yet — add one below.";
+    p.textContent = "No rules yet. Add one below.";
     rulesListEl.appendChild(p);
     return;
   }
@@ -148,7 +148,7 @@ function renderRuleDryRun() {
   const wrapper = document.createElement("details");
   wrapper.className = "disclosure";
   const wrapperSummary = document.createElement("summary");
-  wrapperSummary.textContent = `Dry run — ${report.predictedRuleApplicationCount} predicted application${report.predictedRuleApplicationCount === 1 ? "" : "s"} touching ${report.uniqueMatchedMessageCount} message${report.uniqueMatchedMessageCount === 1 ? "" : "s"}`;
+  wrapperSummary.textContent = `Dry run: ${report.predictedRuleApplicationCount} predicted application${report.predictedRuleApplicationCount === 1 ? "" : "s"} touching ${report.uniqueMatchedMessageCount} message${report.uniqueMatchedMessageCount === 1 ? "" : "s"}`;
   wrapper.appendChild(wrapperSummary);
   rulePreviewEl.appendChild(wrapper);
 
@@ -161,7 +161,7 @@ function renderRuleDryRun() {
     const details = document.createElement("details");
     details.className = "rule-preview-row";
     const title = document.createElement("summary");
-    title.textContent = `${impact.rule.name} — ${impact.actionableMessageCount} predicted action${impact.actionableMessageCount === 1 ? "" : "s"} across ${impact.senders.length} sender${impact.senders.length === 1 ? "" : "s"}`;
+    title.textContent = `${impact.rule.name}: ${impact.actionableMessageCount} predicted action${impact.actionableMessageCount === 1 ? "" : "s"} across ${impact.senders.length} sender${impact.senders.length === 1 ? "" : "s"}`;
     details.appendChild(title);
 
     const explanation = document.createElement("p");
@@ -384,7 +384,7 @@ export function wireRulesTab() {
           0,
         );
         await rescan();
-        return `Applied — ${moved} message${moved === 1 ? "" : "s"} actioned${deferred > 0 ? `, ${deferred} deferred by safety limits` : ""}${protectionSkipped > 0 ? `, skipped ${protectionSkipped} you starred since the scan` : ""}`;
+        return `Applied to ${moved} message${moved === 1 ? "" : "s"} actioned${deferred > 0 ? `, ${deferred} deferred by safety limits` : ""}${protectionSkipped > 0 ? `, skipped ${protectionSkipped} you starred since the scan` : ""}`;
       },
     );
   };

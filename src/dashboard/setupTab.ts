@@ -34,20 +34,20 @@ export const PERSONAS: Record<Persona, PersonaPlan> = {
   calm: {
     title: "I get too many promotions",
     changes: [
-      "Promotions and one-time codes leave your inbox after 1 day",
-      "Newsletters and shopping after 3 days, social after 2",
-      "School, work, bank and travel mail stay in your inbox",
-      "You press Save on the Sorting page before Gmail changes",
+      "Promotions and codes leave your inbox after a day",
+      "Newsletters and shopping after 3 days",
+      "Work, bank and travel mail stay",
+      "You review it on Sorting before it's saved",
     ],
     hours: { promotions: DAY, otp: DAY, newsletter: 3 * DAY, shopping: 3 * DAY, social: 2 * DAY, receipt: 7 * DAY, shipping: 7 * DAY, travel: null, finance: null, productivity: null, education: null },
   },
   business: {
     title: "I run a business",
     changes: [
-      "Emails that look like scams are held, including a familiar supplier suddenly asking to be paid somewhere new",
+      "Scam holding on, including fake supplier invoices",
       "Receipts and bank mail stay in your inbox",
       "Promotions and newsletters leave after 3 days",
-      "You press Save on the Sorting page before Gmail changes",
+      "You review it on Sorting before it's saved",
     ],
     hours: { receipt: null, finance: null, promotions: 3 * DAY, newsletter: 3 * DAY },
     holdScams: true,
@@ -55,10 +55,9 @@ export const PERSONAS: Record<Persona, PersonaPlan> = {
   safe: {
     title: "Keep me safe",
     changes: [
-      "Emails that look like scams are held, out of your inbox",
-      "Simple mode: bigger text and three screens",
-      "Every held email says why, in plain words",
-      "Nothing is ever deleted",
+      "Scam holding on",
+      "Simple mode: bigger text, fewer screens",
+      "Every held email says why",
     ],
     holdScams: true,
     simpleMode: true,
@@ -66,10 +65,10 @@ export const PERSONAS: Record<Persona, PersonaPlan> = {
   busy: {
     title: "Lots of people email me",
     changes: [
-      "Promotions and social updates leave your inbox after 1 day",
+      "Promotions and social updates leave after a day",
       "Newsletters after 3 days",
-      "New senders still reach your inbox, so you don't miss a first email",
-      "You press Save on the Sorting page before Gmail changes",
+      "New senders still reach your inbox",
+      "You review it on Sorting before it's saved",
     ],
     hours: { promotions: DAY, social: DAY, newsletter: 3 * DAY },
   },
@@ -120,8 +119,8 @@ export function renderSimpleHome(securitySenders: SenderSummary[]): void {
     const on = ctx.settings.autoQuarantineHighRisk;
     status.textContent = on ? "You're protected" : "Scam protection is off";
     statusSub.textContent = on
-      ? "Cluster checks your email for scams and moves them away from your inbox."
-      : "Turn it on in Scams, or ask the person who set this up for you.";
+      ? "Cluster is checking your email for scams."
+      : "Turn it on in Scams.";
   }
   const heldSub = $("simple-held-sub");
   if (heldSub) {
@@ -171,7 +170,7 @@ async function applyPersona(persona: Persona, select: (screen: string) => Promis
   renderSettingsSetup();
   if (plan.hours) {
     await select("organize");
-    proposeTimeLimits(plan.hours, `Suggested by your setup ("${plan.title}"). Press Save to apply it to Gmail.`);
+    proposeTimeLimits(plan.hours, "Suggested by your setup. Press Save to apply it.");
     document.getElementById("time-limits-section")?.scrollIntoView({ block: "start" });
   } else {
     await select(plan.simpleMode ? "simple" : "overview");

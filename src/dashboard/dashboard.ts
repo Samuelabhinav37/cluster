@@ -326,7 +326,7 @@ function showConnectGate(): Promise<string> {
     titleEl.textContent = "Reconnect Gmail";
     const lead = document.getElementById("connect-lead") as HTMLElement;
     lead.textContent =
-      "Your Google sign-in has expired. Reconnect to pick up where you left off. Your rules and settings are still here.";
+      "Your Google sign-in expired. Reconnect to continue. Your settings are kept.";
   }
   void showPinTip();
 
@@ -520,7 +520,7 @@ function wireOfflineHandling() {
 
   window.addEventListener("offline", () => {
     statusEl.hidden = false;
-    statusEl.textContent = "You're offline — reconnect to continue";
+    statusEl.textContent = "You're offline. Reconnect to continue.";
     setActionsDisabled(true);
   });
 
@@ -788,7 +788,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
     const capNote = document.createElement("p");
     capNote.className = "text-meta";
     capNote.style.margin = "0";
-    capNote.textContent = `Counts below cover the most recent ${ctx.settings.maxMessagesPerProvider.toLocaleString()} messages per account across ${ctx.settings.scanWindowDays} days — widen the scan in Settings for the full picture.`;
+    capNote.textContent = `Based on your latest ${ctx.settings.maxMessagesPerProvider.toLocaleString()} messages per account. Change this in Settings.`;
     stack.appendChild(capNote);
   }
 
@@ -816,7 +816,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
   explain.style.margin = "12px 0 0";
   explain.style.maxWidth = "40ch";
   explain.textContent =
-    "A few minutes of decisions. Everything stays reversible for 30 days.";
+    "A few minutes of decisions.";
   readyBody.append(heroLine, explain);
   if (organizeCount > 0) {
     const organizeLine = document.createElement("p");
@@ -829,7 +829,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
       e.preventDefault();
       void selectScreen("organize");
     };
-    organizeLine.append(organizeLink, document.createTextNode(" — mute, keep sorted, or unsubscribe"));
+    organizeLine.append(organizeLink, document.createTextNode(": mute, sort or unsubscribe"));
     readyBody.appendChild(organizeLine);
   }
   const readyActions = document.createElement("div");
@@ -913,7 +913,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
     const soon = document.createElement("p");
     soon.className = "row-sub wrap";
     soon.style.margin = "0";
-    soon.textContent = "The 12-week trend fills in as you keep using Cluster — check back next week.";
+    soon.textContent = "The trend fills in over the next few weeks.";
     healthCard.appendChild(soon);
   }
   const healthFoot = document.createElement("p");
@@ -966,7 +966,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
         makeNeedsRow(
           tile,
           `${screenerQ} first-time sender${screenerQ === 1 ? "" : "s"} waiting in the screener`,
-          "Held out of the inbox until you decide — they are not told.",
+          "Held out of the inbox until you decide. They aren't told.",
           "Screen now",
           "btn btn-accent",
           () => void selectScreen("screener"),
@@ -1195,7 +1195,7 @@ function renderCategoryGroups<T>(
     const table = document.createElement("table");
     const caption = document.createElement("caption");
     caption.className = "sr-only";
-    caption.textContent = `${DOMAIN_CATEGORY_LABELS[group.category]} — ${group.items.length} ${itemNoun}, ${group.total} messages`;
+    caption.textContent = `${DOMAIN_CATEGORY_LABELS[group.category]}: ${group.items.length} ${itemNoun}, ${group.total} messages`;
     table.appendChild(caption);
     const thead = document.createElement("thead");
     thead.appendChild(headerRow(headers));
@@ -1328,7 +1328,7 @@ function renderCleanupPlan(senders: SenderSummary[]) {
       id: "never-opened",
       checked: true,
       title: `${engagement.length} sender${engagement.length === 1 ? "" : "s"} you have never opened`,
-      sub: `${neverMsgs} message${neverMsgs === 1 ? "" : "s"}, none opened recently · muting files them out without deleting`,
+      sub: `${neverMsgs} message${neverMsgs === 1 ? "" : "s"}, none opened recently`,
       primaryLabel: "Mute all",
       primaryClass: "btn btn-accent",
       onPrimary: () => confirmIn("never-read-section", neverReadMuteBtn),
@@ -1357,7 +1357,7 @@ function renderCleanupPlan(senders: SenderSummary[]) {
       id: "spam",
       checked: false,
       title: `${spam.length} sender${spam.length === 1 ? "" : "s"} on a spam or throwaway list`,
-      sub: `${spamMsgs} message${spamMsgs === 1 ? "" : "s"} · off by default, because a public list is a signal, not proof`,
+      sub: `${spamMsgs} message${spamMsgs === 1 ? "" : "s"} · off by default`,
       badge: "Needs review",
       primaryLabel: `Review ${spam.length}`,
       primaryClass: "btn btn-danger",
@@ -1693,7 +1693,7 @@ function buildMuteCell(sender: SenderSummary): HTMLDivElement {
   const cell = document.createElement("div");
   const provider = providerById.get(sender.provider);
   if (!provider?.muteSender) {
-    cell.textContent = "—";
+    cell.textContent = "";
     return cell;
   }
 
@@ -1785,8 +1785,8 @@ function renderSuggestedFloatingBar() {
   // Honest about Trash: with fast permanent delete on, the expired-mail
   // cleanup skips Trash entirely.
   sub.textContent = ctx.settings.fastPermanentDeleteEnabled
-    ? "Expired mail is deleted forever (fast delete is on in Settings). Muting can be undone."
-    : "Moves mail to Trash, where Gmail keeps it for 30 days. Muting can be undone.";
+    ? "Expired mail is deleted forever, because fast delete is on."
+    : "Moves mail to Trash for 30 days. Muting can be undone.";
 
   const clear = document.createElement("button");
   clear.className = "btn btn-ghost";
@@ -1863,7 +1863,7 @@ function renderAllSenders(senders: SenderSummary[]) {
   const lead = document.getElementById("senders-lead");
   if (lead) {
     lead.textContent = lastScanCapHit
-      ? `The ${senders.length} senders in this scan — the most recent ${ctx.settings.maxMessagesPerProvider.toLocaleString()} messages per account over ${ctx.settings.scanWindowDays} days. Nothing here is acted on until you say so.`
+      ? `The ${senders.length} senders in this scan, from the most recent ${ctx.settings.maxMessagesPerProvider.toLocaleString()} messages per account over ${ctx.settings.scanWindowDays} days. Nothing here is acted on until you say so.`
       : `Every sender Cluster saw in the last ${ctx.settings.scanWindowDays} days, heaviest first. Nothing here is acted on until you say so.`;
   }
   const rows = filteredSenders(senders).sort((a, b) => b.count - a.count);
@@ -2046,7 +2046,7 @@ function buildKeepSortedCell(sender: SenderSummary): HTMLDivElement {
   const btn = document.createElement("button");
   btn.textContent = "Keep sorted";
   const labelName = sender.displayName || sender.address;
-  btn.title = `New mail from ${sender.address} will skip your inbox and go to a label named "${labelName}". A Gmail filter does this, even with Chrome closed. You can remove it in Gmail under Settings, then Filters.`;
+  btn.title = `New mail from ${sender.address} skips your inbox and goes to "${labelName}".`;
   btn.onclick = async () => {
     const provider = providerById.get(sender.provider);
     if (!provider?.keepSorted) {
@@ -2189,7 +2189,7 @@ function buildDomainRow(group: DomainGroup): HTMLTableRowElement {
   row.appendChild(countCell);
 
   const protectedCell = document.createElement("td");
-  protectedCell.textContent = group.protectedCount > 0 ? `${group.protectedCount} protected` : "—";
+  protectedCell.textContent = group.protectedCount > 0 ? `${group.protectedCount} protected` : "None";
   row.appendChild(protectedCell);
 
   row.appendChild(buildDeleteDomainCell(group));
@@ -2468,7 +2468,7 @@ async function executeSmartDelete(merged: Map<ProviderId, string[]>): Promise<Sm
     log.error("Elevated permanent-delete failed, falling back to Trash", err);
     await executeBulkDeleteDomains(merged, providerById);
     return {
-      message: `Fast delete unavailable — moved ${gmailCount + otherCount} to Trash instead ✓`,
+      message: `Fast delete wasn't available, so ${gmailCount + otherCount} moved to Trash instead ✓`,
       undoableGmailIds: merged.get("gmail") ?? [],
     };
   }
@@ -2638,7 +2638,7 @@ async function applySmartView(view: SmartView, action: "archive" | "trash"): Pro
   const via = action === "trash" ? "untrash" : "unarchive";
   await logAction(
     action === "trash" ? "trash" : "archive",
-    `View "${view.label}": ${action} — ${total} message${total === 1 ? "" : "s"}`,
+    `View "${view.label}": ${action}, ${total} message${total === 1 ? "" : "s"}`,
     gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via } : undefined,
   );
   await scanAndRender();
@@ -2672,7 +2672,7 @@ function openSmartView(view: SmartView, msgCount: number, senderCount: number) {
   // nothing or quietly excluding every message.
   if (view.id === "shipping") {
     trashBtn.disabled = true;
-    trashBtn.title = "Order confirmations are never auto-trashed — archive instead.";
+    trashBtn.title = "Order confirmations aren't trashed automatically. Archive them instead.";
   } else {
     trashBtn.onclick = () =>
       renderConfirmStep(smartViewResultSlot, clearSmartViewResult, `Move ${msgCount} to Trash?`, true, () =>
@@ -2717,7 +2717,7 @@ function wireKeepNewest() {
       renderConfirmStep(
         keepNewestSlot,
         resetKeepNewestSlot,
-        `Nothing to trim — no sender has more than ${n}.`,
+        `Nothing to trim. No sender has more than ${n}.`,
         false,
         async () => "",
       );
@@ -2738,7 +2738,7 @@ function wireKeepNewest() {
         }
         await logAction(
           "trash",
-          `Trimmed to newest ${n} per sender — ${total} message${total === 1 ? "" : "s"}`,
+          `Trimmed to the newest ${n} per sender: ${total} message${total === 1 ? "" : "s"}`,
           gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "untrash" } : undefined,
         );
         await scanAndRender();
@@ -2774,13 +2774,13 @@ function wireBulkHandlers() {
   bulkUnsubscribeBtn.onclick = () => {
     const selected = ctx.senders.filter((s) => selectedSenderKeys.has(s.key));
     const { automatable, manual } = partitionForUnsubscribe(selected);
-    const summaryText = `${automatable.length} will be unsubscribed automatically, ${manual.length} need manual review — no verified link`;
+    const summaryText = `${automatable.length} will be unsubscribed automatically, ${manual.length} have no verified link and need a manual look`;
 
     renderConfirmStep(unsubscribeBulkSlot, resetUnsubscribeBulkSlot, summaryText, false, async (summary) => {
-      if (automatable.length === 0) return `Nothing to automate — ${manual.length} need manual review`;
+      if (automatable.length === 0) return `Nothing to automate. ${manual.length} need a manual look`;
       summary.textContent = "Requesting permission…";
       const granted = await ensureOriginsPermission(automatable.map((s) => s.unsubscribe.postUrl!));
-      if (!granted) return "Permission denied — nothing was unsubscribed";
+      if (!granted) return "Permission denied, so nothing was unsubscribed";
       summary.textContent = "Unsubscribing…";
       const { succeeded, failed } = await executeBulkUnsubscribe(automatable, fireOneClickUnsubscribe);
       await recordUnsubscribeRequests(succeeded);
@@ -2821,7 +2821,7 @@ function wireBulkHandlers() {
     const { eligible, unsupported } = partitionForSnooze(selected, providerById);
     const days = Number(snoozeDurationSelect.value);
     const resurfaceAt = Date.now() + days * 24 * 60 * 60 * 1000;
-    const summaryText = `${eligible.length} will be snoozed for ${snoozeDurationSelect.options[snoozeDurationSelect.selectedIndex].textContent}, ${unsupported.length} skipped — not supported for this provider`;
+    const summaryText = `${eligible.length} will be snoozed for ${snoozeDurationSelect.options[snoozeDurationSelect.selectedIndex].textContent}, ${unsupported.length} skipped because they're not supported for this provider`;
 
     renderConfirmStep(snoozeBulkSlot, resetSnoozeBulkSlot, summaryText, false, async () => {
       const { succeeded, failed } = await executeBulkSnooze(eligible, providerById);
@@ -2946,7 +2946,7 @@ function wireBulkHandlers() {
       async () => {
         const { safe } = await filterOutProtected(new Map([["gmail", ids]]), providerById);
         const targetIds = safe.get("gmail") ?? [];
-        if (targetIds.length === 0) return "Nothing to trash — all were starred since the scan";
+        if (targetIds.length === 0) return "Nothing to trash. They were all starred after the scan";
         const job = await createDurableJob({ provider: "gmail", operation: "trash", targetIds });
         const result = await runDurableJob(job.id, providerById);
         const succeededIds = new Set(result.succeededIds);

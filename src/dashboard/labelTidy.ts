@@ -69,9 +69,7 @@ export async function maybeShowLabelTidyCard(): Promise<void> {
   cardEl.innerHTML = "";
   const intro = document.createElement("p");
   intro.innerHTML =
-    "<strong>Tidy up Cluster's labels.</strong> Older versions of Cluster nested its labels under " +
-    "“Cluster/” or “Declutter/”. Cluster now uses plain names with an icon, so they're easy to spot " +
-    "next to your own. Your mail and Gmail filters move with the label. Nothing is deleted.";
+    "<strong>Tidy up Cluster's labels.</strong> Rename labels left by older versions. Nothing is deleted.";
   cardEl.appendChild(intro);
 
   const list = document.createElement("div");

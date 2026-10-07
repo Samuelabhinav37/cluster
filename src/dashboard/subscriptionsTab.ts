@@ -161,9 +161,9 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
           true,
           async () => {
             const ok = await fireOneClickUnsubscribe(u.postUrl!);
-            if (!ok) return "Unsubscribe failed — no mail was moved";
+            if (!ok) return "Unsubscribe failed, so no mail was moved";
             const provider = providerById.get(sender.provider);
-            if (!provider) return "Provider unavailable — no mail was moved";
+            if (!provider) return "Couldn't reach your mail, so nothing was moved";
             const { safe, skipped } = await filterOutProtected(
               new Map([[sender.provider, cleanup.safeNewsletterIds]]),
               providerById,
@@ -291,7 +291,7 @@ function renderSubsFloatingBar(oneClickCount: number) {
       : `${oneClickCount} verified one-click`;
   const sub = document.createElement("span");
   sub.className = "fb-sub";
-  sub.textContent = "existing mail stays put — only the subscription stops";
+  sub.textContent = "Only future mail stops. What you have stays.";
   const allBtn = document.createElement("button");
   allBtn.className = "btn-accent-solid";
   allBtn.textContent = selected > 0 ? "Unsubscribe selected" : "Unsubscribe all";
@@ -560,7 +560,7 @@ export function wireSubscriptionsTab() {
       async (summary) => {
         summary.textContent = "Requesting permission…";
         const granted = await ensureOriginsPermission(oneClick.map((s) => s.unsubscribe.postUrl!));
-        if (!granted) return "Permission denied — nothing sent";
+        if (!granted) return "Permission denied, so nothing was sent";
         summary.textContent = "Unsubscribing…";
         const { succeeded, failed } = await executeBulkUnsubscribe(oneClick, fireOneClickUnsubscribe);
         await recordUnsubscribeRequests(succeeded);

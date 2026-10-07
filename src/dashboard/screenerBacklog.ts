@@ -77,8 +77,7 @@ export async function renderScreenerBacklog(): Promise<void> {
   intro.append(
     headline,
     " ",
-    "They never reached your inbox. Cluster can read who sent each one and file it where it belongs: " +
-      "newsletters under Newsletters, codes under One-time codes, and mail from people you know back in your inbox.",
+    "They never reached your inbox. Cluster can file each one where it belongs.",
   );
   const start = button("Sort the held mail…", true);
   const status = document.createElement("span");
