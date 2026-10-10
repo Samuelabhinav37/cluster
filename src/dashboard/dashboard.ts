@@ -90,6 +90,7 @@ import {
 import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib/inboxHealth";
 import { senderTile, type TileSize } from "./senderTile";
 import { wireAccountMenu, wireHeaderSearch } from "./accountMenu";
+import { homeHeadline, renderHomeTop, type HomeFacts } from "./homeTab";
 import { listGroup, listRow } from "./listRow";
 import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
@@ -109,6 +110,7 @@ let engagementSuggestions: EngagementSuggestion[] = [];
 const SECURITY_SCAN_MAX_MESSAGES = 250;
 
 const statusEl = document.getElementById("status") as HTMLParagraphElement;
+const homeLeadEl = document.getElementById("home-lead");
 const overviewContentEl = document.getElementById("overview-content") as HTMLDivElement;
 const overviewHeadlineEl = document.getElementById("overview-headline") as HTMLParagraphElement;
 const senderGroupsEl = document.getElementById("sender-groups") as HTMLDivElement;
@@ -720,59 +722,9 @@ function setPhishingNavSeverity(securitySenders: SenderSummary[]) {
 }
 
 // ── Overview screen (v3) ────────────────────────────────────────────────
-// A landing screen with two glass cards (what's waiting / inbox-health score +
-// 12-week trend), a "needs a person" list of the things Cluster won't decide
-// alone, a "working while you were away" summary, and a Recently-done preview.
-// Every number is deterministic and already computed elsewhere.
-const ICON_WARNING =
-  '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M10 5.6v5M10 13.6h.01"></path><circle cx="10" cy="10" r="7"></circle></svg>';
-const ICON_SEARCH =
-  '<svg viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.4"></circle><path d="M13 13l4 4"></path></svg>';
-const ICON_UP =
-  '<svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9.5V2.5M3 5.5 6 2.5l3 3"></path></svg>';
-const ICON_DOWN =
-  '<svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2.5v7M3 6.5 6 9.5l3-3"></path></svg>';
-
-function makeCard(sectionLabel: string): HTMLDivElement {
-  const card = document.createElement("div");
-  card.className = "glass-card";
-  const label = document.createElement("div");
-  label.className = "section-label";
-  label.textContent = sectionLabel;
-  card.appendChild(label);
-  return card;
-}
-
-/** A "needs a person" style row: tile + title/sub + one action button. */
-function makeNeedsRow(
-  tile: HTMLElement,
-  title: string,
-  sub: string,
-  actionLabel: string,
-  actionClass: string,
-  onAction: () => void,
-): HTMLDivElement {
-  const row = document.createElement("div");
-  row.className = "list-row";
-  row.style.gridTemplateColumns = "34px minmax(0,1fr) max-content";
-  const text = document.createElement("div");
-  text.className = "row-title-wrap";
-  const t = document.createElement("div");
-  t.className = "row-title";
-  t.style.whiteSpace = "normal";
-  t.textContent = title;
-  const s = document.createElement("div");
-  s.className = "row-sub wrap";
-  s.textContent = sub;
-  text.append(t, s);
-  const btn = document.createElement("button");
-  btn.className = actionClass;
-  btn.textContent = actionLabel;
-  btn.onclick = onAction;
-  row.append(tile, text, btn);
-  return row;
-}
-
+// Home: a headline, status pills and recommendations (homeTab.ts), then a
+// "working while you were away" summary and a Recently-done preview. Every
+// number is deterministic and already computed elsewhere.
 function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary[]) {
   const health = buildInboxHealth({ senders, securitySenders, settings: ctx.settings });
   const byId = new Map(health.metrics.map((m) => [m.id, m.value]));
@@ -791,214 +743,42 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
     0,
   );
   const planTotal = expiryTotal + spamMsgs + neverReadMsgs;
-  const planGroups = [expiryTotal, spamMsgs, neverReadMsgs].filter((n) => n > 0).length;
   const organizeCount = pickDecisionSenders(senders).decide.length;
 
   overviewContentEl.innerHTML = "";
   const stack = document.createElement("div");
   stack.className = "stack";
 
-  if (lastScanCapHit) {
-    const capNote = document.createElement("p");
-    capNote.className = "text-meta";
-    capNote.style.margin = "0";
-    capNote.textContent = `Based on your latest ${ctx.settings.maxMessagesPerProvider.toLocaleString()} messages per account. Change this in Settings.`;
-    stack.appendChild(capNote);
-  }
-
-  // ── Two-up: "Ready when you are" + "Inbox health" ──
-  const topGrid = document.createElement("div");
-  topGrid.className = "two-up";
-
-  const readyCard = makeCard("Ready when you are");
-  const readyBody = document.createElement("div");
-  const heroLine = document.createElement("div");
-  heroLine.style.display = "flex";
-  heroLine.style.alignItems = "baseline";
-  heroLine.style.gap = "10px";
-  heroLine.style.flexWrap = "wrap";
-  const hero = document.createElement("span");
-  hero.className = "metric-hero";
-  hero.textContent = planTotal.toLocaleString();
-  const heroCap = document.createElement("span");
-  heroCap.className = "row-sub";
-  heroCap.style.color = "var(--label-2)";
-  heroCap.textContent = `messages across ${planGroups || 0} group${planGroups === 1 ? "" : "s"}`;
-  heroLine.append(hero, heroCap);
-  const explain = document.createElement("p");
-  explain.className = "row-sub wrap";
-  explain.style.margin = "12px 0 0";
-  explain.style.maxWidth = "40ch";
-  explain.textContent =
-    "A few minutes of decisions.";
-  readyBody.append(heroLine, explain);
-  if (organizeCount > 0) {
-    const organizeLine = document.createElement("p");
-    organizeLine.className = "row-sub wrap";
-    organizeLine.style.margin = "8px 0 0";
-    const organizeLink = document.createElement("a");
-    organizeLink.href = "#";
-    organizeLink.textContent = `${organizeCount} sender${organizeCount === 1 ? "" : "s"} worth a decision`;
-    organizeLink.onclick = (e) => {
-      e.preventDefault();
-      void selectScreen("organize");
-    };
-    organizeLine.append(organizeLink, document.createTextNode(": mute, sort or unsubscribe"));
-    readyBody.appendChild(organizeLine);
-  }
-  const readyActions = document.createElement("div");
-  readyActions.style.display = "flex";
-  readyActions.style.gap = "12px";
-  readyActions.style.alignItems = "center";
-  readyActions.style.flexWrap = "wrap";
-  readyActions.style.marginTop = "auto";
-  const startBtn = document.createElement("button");
-  startBtn.className = "btn-accent-solid";
-  startBtn.textContent = "Start cleanup";
-  startBtn.onclick = () => void selectScreen("delete");
-  const reviewLink = document.createElement("a");
-  reviewLink.href = "#";
-  reviewLink.textContent = "Review suggestions";
-  reviewLink.onclick = (e) => {
-    e.preventDefault();
-    void selectScreen("delete");
+  // ── Headline, status pills, recommendations (homeTab.ts) ──
+  const facts: HomeFacts = {
+    suspicious: byId.get("flagged-senders") ?? 0,
+    waiting: byId.get("screener-queue") ?? 0,
+    cleanupMessages: planTotal,
+    decisionSenders: organizeCount,
+    unsubscribable: byId.get("unsubscribe-capable") ?? 0,
+    holdingOn: ctx.settings.autoQuarantineHighRisk,
+    sortingOn: ctx.settings.autoSort.timeLimitsEnabled || ctx.settings.autoSort.keepSorting,
   };
-  readyActions.append(startBtn, reviewLink);
-  readyCard.append(readyBody, readyActions);
+  if (homeLeadEl) homeLeadEl.textContent = homeHeadline(facts);
+  renderHomeTop(stack, facts, (screen, focus) => {
+    void selectScreen(screen).then(() => {
+      if (focus) document.getElementById(focus)?.scrollIntoView({ block: "start" });
+    });
+  });
 
-  // ── Inbox health ──
+  // One quiet line for the health score and the scan size, at the bottom.
   const score = inboxHealthScore(senders);
   const history = ctx.settings.healthHistory;
   const prev = history.length >= 2 ? history[history.length - 2].score : undefined;
-  const delta = prev === undefined ? undefined : score - prev;
-
-  const healthCard = makeCard("Inbox health");
-  const healthHead = healthCard.firstElementChild as HTMLElement;
-  healthHead.style.display = "flex";
-  healthHead.style.alignItems = "center";
-  healthHead.style.gap = "10px";
-  if (delta !== undefined && delta !== 0) {
-    const spacer = document.createElement("span");
-    spacer.style.flex = "1";
-    const deltaPill = document.createElement("span");
-    deltaPill.className = `pill ${delta > 0 ? "success" : "danger"}`;
-    deltaPill.innerHTML = `${delta > 0 ? ICON_UP : ICON_DOWN}${Math.abs(delta)}`;
-    healthHead.append(spacer, deltaPill);
-  }
-  const scoreLine = document.createElement("div");
-  scoreLine.style.display = "flex";
-  scoreLine.style.alignItems = "baseline";
-  scoreLine.style.gap = "8px";
-  const scoreN = document.createElement("span");
-  scoreN.className = "metric-hero";
-  scoreN.textContent = String(score);
-  const scoreCap = document.createElement("span");
-  scoreCap.className = "row-sub";
-  scoreCap.style.color = "var(--label-2)";
-  scoreCap.textContent = "of 100";
-  scoreLine.append(scoreN, scoreCap);
-  healthCard.appendChild(scoreLine);
-
-  const points = [...history.map((h) => h.score)];
-  if (points.length >= 2) {
-    const trendWrap = document.createElement("div");
-    const trend = document.createElement("div");
-    trend.className = "trend";
-    trend.setAttribute("role", "img");
-    const first = points[0];
-    const last = points[points.length - 1];
-    const dir = last > first ? "up" : last < first ? "down" : "flat";
-    trend.setAttribute(
-      "aria-label",
-      `Inbox health over the last ${points.length} weeks: ${first} to ${last}, trending ${dir}.`,
-    );
-    points.forEach((p, i) => {
-      const bar = document.createElement("span");
-      bar.className = i === points.length - 1 ? "peak" : "on";
-      bar.style.height = `${Math.max(8, Math.min(100, p))}%`;
-      trend.appendChild(bar);
-    });
-    const axis = document.createElement("div");
-    axis.className = "trend-axis";
-    axis.innerHTML = `<span>${points.length} weeks ago</span><span>This week</span>`;
-    trendWrap.append(trend, axis);
-    healthCard.appendChild(trendWrap);
-  } else {
-    const soon = document.createElement("p");
-    soon.className = "row-sub wrap";
-    soon.style.margin = "0";
-    soon.textContent = "The trend fills in over the next few weeks.";
-    healthCard.appendChild(soon);
-  }
-  const healthFoot = document.createElement("p");
-  healthFoot.className = "recent-detail";
-  healthFoot.style.margin = "auto 0 0";
-  healthFoot.textContent = "Unread ratio, sender count and subscription load.";
-  healthCard.appendChild(healthFoot);
-
-  topGrid.append(readyCard, healthCard);
-  stack.appendChild(topGrid);
-
-  // ── Needs a person ──
-  const flagged = byId.get("flagged-senders") ?? 0;
-  const screenerQ = byId.get("screener-queue") ?? 0;
-  if (flagged > 0 || screenerQ > 0) {
-    const wrap = document.createElement("div");
-    const head = document.createElement("div");
-    head.className = "section-head";
-    const h2 = document.createElement("h2");
-    h2.className = "section-label";
-    h2.textContent = "Needs a person";
-    const cnt = document.createElement("span");
-    cnt.className = "muted";
-    const items = (flagged > 0 ? 1 : 0) + (screenerQ > 0 ? 1 : 0);
-    cnt.textContent = `${items} item${items === 1 ? "" : "s"} Cluster won't decide for you`;
-    head.append(h2, cnt);
-    const list = document.createElement("div");
-    list.className = "grouped-list";
-    const rows: HTMLElement[] = [];
-    if (flagged > 0) {
-      const tile = document.createElement("span");
-      tile.className = "tile-danger";
-      tile.innerHTML = ICON_WARNING;
-      rows.push(
-        makeNeedsRow(
-          tile,
-          `${flagged} sender${flagged === 1 ? "" : "s"} may be impersonating people you know`,
-          "Display name matches a known contact, the domain does not.",
-          "Inspect",
-          "btn btn-danger",
-          () => void selectScreen("impersonation"),
-        ),
-      );
-    }
-    if (screenerQ > 0) {
-      const tile = document.createElement("span");
-      tile.className = "tile-neutral";
-      tile.innerHTML = ICON_SEARCH;
-      rows.push(
-        makeNeedsRow(
-          tile,
-          `${screenerQ} first-time sender${screenerQ === 1 ? "" : "s"} waiting in the screener`,
-          "Held out of the inbox until you decide. They aren't told.",
-          "Screen now",
-          "btn btn-accent",
-          () => void selectScreen("screener"),
-        ),
-      );
-    }
-    rows.forEach((row, i) => {
-      if (i > 0) {
-        const sep = document.createElement("div");
-        sep.className = "row-sep";
-        sep.style.marginLeft = "66px";
-        list.appendChild(sep);
-      }
-      list.appendChild(row);
-    });
-    wrap.append(head, list);
-    stack.appendChild(wrap);
-  }
+  const delta = prev === undefined ? 0 : score - prev;
+  const footNote = document.createElement("p");
+  footNote.className = "text-meta home-foot";
+  footNote.textContent =
+    `Inbox health ${score} of 100` +
+    (delta > 0 ? `, up ${delta} since last week.` : delta < 0 ? `, down ${-delta} since last week.` : ".") +
+    (lastScanCapHit
+      ? ` Based on your latest ${ctx.settings.maxMessagesPerProvider.toLocaleString()} messages per account.`
+      : "");
 
   // ── Bottom two-up: "Working while you were away" + "Recently done" ──
   const bottomGrid = document.createElement("div");
@@ -1114,6 +894,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
   bottomGrid.appendChild(recentWrap);
 
   stack.appendChild(bottomGrid);
+  stack.appendChild(footNote);
   overviewContentEl.appendChild(stack);
 }
 
