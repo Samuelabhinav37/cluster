@@ -3402,3 +3402,15 @@ body {
   margin: 0;
   color: var(--label-4);
 }
+
+/* Settings (stage 5): rarely changed options tucked under Advanced */
+.settings-advanced > summary {
+  padding: 14px 4px;
+  font: 600 17px/1.3 var(--font);
+  letter-spacing: -0.015em;
+  cursor: pointer;
+}
+
+.settings-advanced[open] > summary {
+  margin-bottom: 8px;
+}
