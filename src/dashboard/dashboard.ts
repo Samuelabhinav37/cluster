@@ -221,6 +221,17 @@ function showScreen(name: string) {
     // move between the rest.
     btn.tabIndex = active ? 0 : -1;
   }
+  // Two-level sidebar: an area's sub-items show only while one of its
+  // screens is open.
+  for (const area of Array.from(document.querySelectorAll<HTMLElement>("#sidebar .nav-area"))) {
+    const open = Boolean(area.querySelector(`button[data-screen="${target}"]`));
+    area.classList.toggle("open", open);
+  }
+}
+
+/** A sidebar item that is neither hidden nor tucked inside a closed area. */
+function navItemShown(btn: HTMLButtonElement): boolean {
+  return !btn.hidden && !btn.closest(".nav-area:not(.open) .nav-children");
 }
 
 async function selectScreen(name: string) {
@@ -256,7 +267,7 @@ function wireNav() {
           : 0;
     let next: number | undefined;
     // Simple mode hides most items; arrow keys skip what isn't shown.
-    const shown = navButtons.filter((b) => !b.hidden);
+    const shown = navButtons.filter(navItemShown);
     if (delta !== 0) {
       const current = shown.findIndex((b) => b.getAttribute("aria-selected") === "true");
       next = (current + delta + shown.length) % shown.length;

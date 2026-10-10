@@ -3267,3 +3267,74 @@ body {
     display: none;
   }
 }
+
+/* Sidebar (stage 3): five areas, sub-items only for the open one */
+.nav-area {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-children {
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 6px;
+}
+
+.nav-area.open .nav-children {
+  display: flex;
+}
+
+.nav-item.nav-child {
+  min-height: 34px;
+  padding-left: 50px;
+  font-weight: 400;
+  color: var(--label-3);
+}
+
+.nav-item.nav-child.active {
+  font-weight: 600;
+  color: var(--label);
+}
+
+/* The area's own item keeps its blue tile while one of its sub-pages is open */
+.nav-area.open > .nav-item:not(.active) svg {
+  background: var(--accent);
+  box-shadow: none;
+  color: #ffffff;
+}
+
+.nav-area.open > .nav-item:not(.active) {
+  font-weight: 600;
+}
+
+.sidebar > .nav-item,
+.sidebar > .nav-area {
+  margin-bottom: 2px;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    width: 100%;
+    height: auto;
+    top: 60px;
+    padding: 8px 16px;
+    border-right: 0;
+  }
+
+  .nav-area {
+    display: contents;
+  }
+
+  .nav-area.open .nav-children {
+    display: contents;
+  }
+
+  .nav-item.nav-child {
+    padding-left: 12px;
+  }
+
+  .nav-sep {
+    display: none;
+  }
+}
