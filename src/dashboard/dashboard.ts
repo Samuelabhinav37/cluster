@@ -89,6 +89,7 @@ import {
 } from "./subscriptionsTab";
 import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib/inboxHealth";
 import { senderTile, type TileSize } from "./senderTile";
+import { wireAccountMenu, wireHeaderSearch } from "./accountMenu";
 import { listGroup, listRow } from "./listRow";
 import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
@@ -440,6 +441,8 @@ async function main() {
   renderSettingsSetup();
   wireThemeSelect();
   wireNav();
+  wireAccountMenu();
+  wireHeaderSearch(() => void selectScreen("senders"));
   wireAllSendersControls();
   fastDeleteToggle.checked = ctx.settings.fastPermanentDeleteEnabled;
   wireFastDeleteToggle();
@@ -2314,7 +2317,7 @@ function wireScanSettings() {
       await scanAndRender({ refresh: true });
     } finally {
       applyScanSettingsBtn.disabled = false;
-      applyScanSettingsBtn.textContent = "Rescan";
+      applyScanSettingsBtn.textContent = "Rescan mail";
     }
   };
 }

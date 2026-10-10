@@ -28,23 +28,23 @@
           <span class="brand-word">Cluster</span>
         </span>
 
-        <span class="header-spacer"></span>
+        <label class="header-search">
+          <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.4"></circle><path d="M13 13l4 4"></path></svg>
+          <input type="search" id="header-search" placeholder="Search senders" aria-label="Search senders" autocomplete="off" />
+          <kbd aria-hidden="true">/</kbd>
+        </label>
 
-        <span class="account-pill" id="account-pill" hidden>
-          <span class="avatar" id="account-avatar">SA</span>
-          <span class="email" id="account-email"></span>
-        </span>
-
-        <button type="button" id="connect-outlook" class="pill-btn">Connect Outlook</button>
-
-        <button type="button" id="apply-scan-settings-btn" class="pill-btn">
-          <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
-            <path d="M16.5 6.5A7 7 0 1 0 17 10"></path>
-            <path d="M17 3.2v3.6h-3.6"></path>
-          </svg>
-          Rescan
-        </button>
-
+        <div class="account-wrap">
+          <button type="button" class="account-pill" id="account-pill" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu">
+            <span class="avatar" id="account-avatar" aria-hidden="true"></span>
+            <span class="email" id="account-email">Account</span>
+            <svg viewBox="0 0 20 20" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 8 4 4 4-4"></path></svg>
+          </button>
+          <div class="account-menu" id="account-menu" role="menu" aria-label="Account" hidden>
+            <button type="button" id="apply-scan-settings-btn" class="menu-item" role="menuitem">Rescan mail</button>
+            <button type="button" id="connect-outlook" class="menu-item" role="menuitem">Connect Outlook</button>
+          </div>
+        </div>
       </header>
 
       <div class="app-body">
@@ -151,25 +151,6 @@
 
           <p id="status" class="status-line" role="status">Loading your senders…</p>
 
-          <div id="onboarding-banner" class="banner" hidden>
-            <p>
-              Cluster reads senders, subjects and dates, never message bodies. Nothing is deleted
-              without your OK.
-            </p>
-            <button type="button" id="onboarding-dismiss-btn" class="btn btn-accent">Got it</button>
-          </div>
-          <div id="label-tidy-banner" class="banner" hidden></div>
-          <div id="athena-section" class="banner" hidden>
-            <p>
-              <strong>Your organization can receive Cluster's security warnings.</strong>
-              Only the warnings are sent, never your mail.
-            </p>
-            <button type="button" id="athena-connect-btn" class="btn btn-accent">
-              Allow Athena connection
-            </button>
-            <span id="athena-status" role="status" class="hint"></span>
-          </div>
-
           <!-- ══ Overview ═══════════════════════════════════════════════ -->
           <section class="screen" data-screen="overview" role="tabpanel" hidden>
             <div class="page-head">
@@ -177,6 +158,25 @@
                 <h1 class="page-title">Overview</h1>
                 <p class="lead">What Cluster found, and what needs you.</p>
               </div>
+            </div>
+
+            <div id="onboarding-banner" class="banner" hidden>
+              <p>
+                Cluster reads senders, subjects and dates, never message bodies. Nothing is deleted
+                without your OK.
+              </p>
+              <button type="button" id="onboarding-dismiss-btn" class="btn btn-accent">Got it</button>
+            </div>
+            <div id="label-tidy-banner" class="banner" hidden></div>
+            <div id="athena-section" class="banner" hidden>
+              <p>
+                <strong>Your organization can receive Cluster's security warnings.</strong>
+                Only the warnings are sent, never your mail.
+              </p>
+              <button type="button" id="athena-connect-btn" class="btn btn-accent">
+                Allow Athena connection
+              </button>
+              <span id="athena-status" role="status" class="hint"></span>
             </div>
 
             <div class="setup-banner" id="setup-banner" hidden>
