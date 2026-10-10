@@ -11,25 +11,25 @@
 :root {
   color-scheme: light;
 
-  /* v4 palette (research/team-2026-10-05/mockup-v4.html), taken from Moat's
-     options page. Neutral greys, one blue accent, no gradients or glass. The
+  /* Neutral greys from Moat's redesigned Settings (the "website look"
+     layer in Moat's options.css). Neutral greys, one blue accent, no gradients or glass. The
      token names are the old ones, so every component restyles itself. */
-  --canvas: #f6f5f8;
-  --ambient: #f6f5f8;
+  --canvas: #f5f5f7;
+  --ambient: #f5f5f7;
 
   --glass: #ffffff;
   --glass-solid: #ffffff;
   --glass-toolbar: #ffffff;
   --glass-bar: #ffffff;
 
-  --hairline: #e2dfe7;
-  --separator: #e2dfe7;
+  --hairline: #e3e3e8;
+  --separator: #e3e3e8;
   --specular: 0 0 0 0 transparent;
 
-  --label: #1d1b20;
-  --label-2: #3d3a42;
-  --label-3: #514d57;
-  --label-4: #625d68; /* 5.9:1 on white */
+  --label: #1d1d1f;
+  --label-2: #3a3a3c;
+  --label-3: #4a4a4f;
+  --label-4: #636369; /* 5.9:1 on white */
 
   --accent: #3563c7;
   --accent-text: #2f5fc4; /* 5.6:1 on white */
@@ -52,16 +52,16 @@
   --caution-fill: rgba(138, 90, 0, 0.08);
   --caution-border: rgba(138, 90, 0, 0.35);
 
-  --neutral-fill: #f1eff4;
-  --neutral-fill-hover: #e9e6ee;
-  --neutral-border: #d3cfd9;
+  --neutral-fill: #f2f2f5;
+  --neutral-fill-hover: #e8e8ed;
+  --neutral-border: #d2d2d8;
 
   --success-fill: rgba(21, 135, 95, 0.1);
   --success-border: rgba(21, 135, 95, 0.35);
   --success-text: #15875f;
 
   --logo-ground: #ffffff;
-  --row-hover: #f1eff4;
+  --row-hover: #f2f2f5;
   --disabled-fg: #9a95a0;
   --focus-ring: #2f5fc4;
   /* Form control edges need 3:1 against the surface (WCAG 1.4.11). */
@@ -83,30 +83,30 @@
   --r-sm: 8px;
   --r-pill: 980px;
 
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-  --font-display: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, "Segoe UI", sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, "Segoe UI", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
 
-    --canvas: #141317;
-    --ambient: #141317;
+    --canvas: #0a0a0c;
+    --ambient: #0a0a0c;
 
-    --glass: #1b191d;
-    --glass-solid: #1b191d;
-    --glass-toolbar: #1b191d;
-    --glass-bar: #222027;
+    --glass: #161618;
+    --glass-solid: #161618;
+    --glass-toolbar: #161618;
+    --glass-bar: #1f1f22;
 
-    --hairline: #2e2b33;
-    --separator: #2e2b33;
+    --hairline: #262629;
+    --separator: #262629;
     --specular: 0 0 0 0 transparent;
 
-    --label: #eceef0;
-    --label-2: #d6d3da;
-    --label-3: #b9b4bf;
-    --label-4: #a7a1ac; /* 6.6:1 on the panel */
+    --label: #f5f5f7;
+    --label-2: #dcdce0;
+    --label-3: #bdbdc3;
+    --label-4: #a1a1a8; /* 6.6:1 on the panel */
 
     --accent: #3f6fd1;
     --accent-text: #6f9be0;
@@ -128,15 +128,15 @@
     --caution-fill: rgba(224, 177, 111, 0.12);
     --caution-border: rgba(224, 177, 111, 0.4);
 
-    --neutral-fill: #222027;
-    --neutral-fill-hover: #2a2730;
-    --neutral-border: #3a3640;
+    --neutral-fill: #1f1f22;
+    --neutral-fill-hover: #28282c;
+    --neutral-border: #36363b;
 
     --success-fill: rgba(67, 193, 58, 0.14);
     --success-border: rgba(67, 193, 58, 0.4);
     --success-text: #7fdc78;
 
-    --row-hover: #222027;
+    --row-hover: #1f1f22;
     --logo-ground: #ffffff;
     --disabled-fg: #6b6672;
     --focus-ring: #6f9be0;
@@ -152,22 +152,22 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --canvas: #141317;
-  --ambient: #141317;
+  --canvas: #0a0a0c;
+  --ambient: #0a0a0c;
 
-  --glass: #1b191d;
-  --glass-solid: #1b191d;
-  --glass-toolbar: #1b191d;
-  --glass-bar: #222027;
+  --glass: #161618;
+  --glass-solid: #161618;
+  --glass-toolbar: #161618;
+  --glass-bar: #1f1f22;
 
-  --hairline: #2e2b33;
-  --separator: #2e2b33;
+  --hairline: #262629;
+  --separator: #262629;
   --specular: 0 0 0 0 transparent;
 
-  --label: #eceef0;
-  --label-2: #d6d3da;
-  --label-3: #b9b4bf;
-  --label-4: #a7a1ac; /* 6.6:1 on the panel */
+  --label: #f5f5f7;
+  --label-2: #dcdce0;
+  --label-3: #bdbdc3;
+  --label-4: #a1a1a8; /* 6.6:1 on the panel */
 
   --accent: #3f6fd1;
   --accent-text: #6f9be0;
@@ -189,15 +189,15 @@
   --caution-fill: rgba(224, 177, 111, 0.12);
   --caution-border: rgba(224, 177, 111, 0.4);
 
-  --neutral-fill: #222027;
-  --neutral-fill-hover: #2a2730;
-  --neutral-border: #3a3640;
+  --neutral-fill: #1f1f22;
+  --neutral-fill-hover: #28282c;
+  --neutral-border: #36363b;
 
   --success-fill: rgba(67, 193, 58, 0.14);
   --success-border: rgba(67, 193, 58, 0.4);
   --success-text: #7fdc78;
 
-  --row-hover: #222027;
+  --row-hover: #1f1f22;
   --logo-ground: #ffffff;
   --disabled-fg: #6b6672;
   --focus-ring: #6f9be0;
@@ -3013,3 +3013,126 @@ table.data th:last-child {
   text-align: right;
 }
 
+
+/* ══ Apple-style layer (docs/apple-redesign-plan.md stage 1) ════════════════
+   Moat's redesigned Settings look: system type at Apple sizes, soft 22px
+   tiles with an inset hairline instead of a border, pill buttons, and quiet
+   row actions. Colour only where it means something. Restyles only.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+body {
+  font-size: 15px;
+  letter-spacing: -0.008em;
+  -webkit-font-smoothing: antialiased;
+  background: var(--canvas);
+}
+
+.sidebar {
+  background: var(--canvas);
+}
+
+/* Page titles and leads */
+.screen {
+  gap: 28px;
+  padding-top: 40px;
+}
+
+.page-title {
+  font: 600 clamp(30px, 3vw, 40px)/1.06 var(--font-display);
+  letter-spacing: -0.03em;
+}
+
+.lead {
+  margin-top: 6px;
+  font: 500 17px/1.4 var(--font);
+  color: var(--label-4);
+  max-width: 62ch;
+}
+
+.section-label {
+  font: 600 17px/1.3 var(--font);
+  letter-spacing: -0.015em;
+  color: var(--label);
+}
+
+/* Tiles: soft corners, an inset line, more room */
+.glass-card,
+.grouped-list,
+.toggle-card,
+.metric-band,
+.setup-banner,
+.scam-card,
+.banner {
+  border: 0;
+  border-radius: 22px;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.glass-card {
+  padding: 26px 28px;
+}
+
+.toggle-card {
+  padding: 18px 22px;
+}
+
+/* Buttons: pills */
+.btn,
+.btn-sm,
+.btn-accent-solid,
+.pill-btn,
+.account-pill {
+  border-radius: var(--r-pill);
+}
+
+.btn {
+  border-color: transparent;
+}
+
+.btn-accent-solid {
+  font-size: 15px;
+  padding: 11px 20px;
+}
+
+/* Row actions read as links until hovered, so a list is not a column of boxes */
+.row-actions .btn:not(.btn-accent-solid),
+.scam-card .btn-danger {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  font-weight: 590;
+}
+
+.row-actions .btn:not(.btn-accent-solid):not(.btn-danger) {
+  color: var(--accent-text);
+}
+
+.row-actions .btn:not(.btn-accent-solid):hover {
+  background: var(--neutral-fill);
+}
+
+.btn-danger,
+.scam-card .btn-danger {
+  color: var(--danger-text);
+}
+
+.scam-card .btn-danger:hover {
+  background: var(--danger-fill);
+}
+
+/* Sidebar counts stay grey; red is kept for scams (.alert) */
+.nav-count,
+.nav-count.accent {
+  color: var(--label-4);
+  font-weight: 500;
+}
+
+.nav-item.active .nav-count {
+  color: var(--label-3);
+}
+
+/* Reassurance lines are not a success state */
+.trust-line > span::before {
+  color: var(--label-4);
+  font-weight: 400;
+}
