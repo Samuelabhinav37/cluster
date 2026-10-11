@@ -216,6 +216,63 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
 
 .caption { font-size: 13px; color: var(--fg-3); margin: 0; }
 
+/* Sign-in, after account.apple.com: one 440px column, no card, 28/17/12 type, 56px floating-label field */
+.auth { flex: 1; display: flex; justify-content: center; align-items: flex-start; padding-inline: 16px; padding-block: clamp(32px, 7vh, 72px) 48px; background: var(--panel); position: relative; }
+.col { width: min(440px, 100%); display: flex; flex-direction: column; align-items: center; text-align: center; }
+.halo { width: 168px; height: 168px; display: grid; place-items: center; position: relative; }
+.halo svg.dots { position: absolute; inset: 0; width: 100%; height: 100%; animation: drift 120s linear infinite; }
+.halo .core { width: 64px; height: 64px; border-radius: 18px; background: var(--fg); color: var(--panel); display: grid; place-items: center; position: relative; transition: background 0.4s; }
+.halo .core svg { width: 38px; height: 38px; }
+.halo.ok .core { background: var(--ok); color: var(--panel); }
+.halo.wait svg.dots { animation-duration: 14s; }
+@keyframes drift { to { transform: rotate(360deg); } }
+.a-title { margin: 26px 0 0; font: 600 28px/32px var(--display); letter-spacing: 0.007em; text-wrap: balance; }
+.a-sub { margin: 8px 0 0; font: 400 17px/25px var(--font); letter-spacing: -0.022em; color: var(--fg-2); text-wrap: balance; }
+.a-feat { margin: 14px 0 0; display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; font-size: 13px; color: var(--fg-3); }
+.a-feat span { display: inline-flex; gap: 6px; align-items: center; }
+.a-feat svg { width: 15px; height: 15px; }
+.a-form { width: 100%; margin-top: 30px; display: flex; flex-direction: column; text-align: left; }
+.fl { position: relative; }
+.fl input { width: 100%; height: 56px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--panel); color: var(--fg); font: 400 17px/21px var(--font); letter-spacing: -0.022em; padding: 22px 16px 5px; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+.fl input:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.fl label { position: absolute; left: 17px; top: 18px; font-size: 17px; color: var(--fg-3); pointer-events: none; transition: top 0.15s, font-size 0.15s; }
+.fl input:focus + label, .fl input:not(:placeholder-shown) + label { top: 8px; font-size: 12px; }
+.fl.joined input { border-radius: 12px 12px 0 0; }
+.choose { border: 1px solid var(--line-2); border-top: 0; border-radius: 0 0 12px 12px; overflow: hidden; }
+.choose p { margin: 0; padding: 12px 16px 6px; font-size: 13px; color: var(--fg-3); }
+.opt { width: 100%; border: 0; background: transparent; display: flex; align-items: center; gap: 12px; padding: 12px 16px; text-align: left; cursor: pointer; font-size: 15px; }
+.opt + .opt { border-top: 1px solid var(--line); }
+.opt:hover { background: var(--panel-2); }
+.opt .pmark { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; font: 700 12px/1 var(--font); background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line-2); flex: none; }
+.opt span.sub { margin-left: auto; font-size: 12.5px; color: var(--fg-3); }
+.fine { margin: 22px 0 0; display: flex; gap: 12px; align-items: flex-start; text-align: left; font: 400 12px/16px var(--font); letter-spacing: -0.01em; color: var(--fg-2); }
+.fine svg { width: 28px; height: 28px; flex: none; color: var(--accent-text); }
+.fine a { color: var(--accent-text); text-decoration: none; }
+.a-actions { width: 100%; margin-top: 26px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.cta { width: 100%; height: 44px; border: 0; border-radius: 980px; background: var(--accent); color: #fff; font: 590 15px/1 var(--font); letter-spacing: -0.01em; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 10px; transition: opacity 0.2s, filter 0.2s; }
+.cta:hover:not(:disabled) { filter: brightness(1.08); }
+.cta:disabled { opacity: 0.35; cursor: default; }
+.cta .ring { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; animation: sp 0.8s linear infinite; }
+.textlink { border: 0; background: none; color: var(--accent-text); font-size: 14px; cursor: pointer; padding: 4px; }
+.links { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; }
+.asks { width: 100%; margin-top: 26px; text-align: left; border-radius: 14px; background: var(--panel-2); padding: 6px 16px; }
+.asks div { display: flex; gap: 12px; padding: 11px 0; font-size: 14px; }
+.asks div + div { border-top: 1px solid var(--line); }
+.asks b { display: block; font-weight: 600; color: var(--fg); }
+.asks span { color: var(--fg-3); font-size: 13px; }
+.asks svg { width: 18px; height: 18px; flex: none; margin-top: 1px; color: var(--fg-3); }
+.using { margin-top: 12px; display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 980px; background: var(--panel-2); font-size: 13px; color: var(--fg-2); }
+.using .pmark { width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; font: 700 10px/1 var(--font); background: var(--panel); box-shadow: inset 0 0 0 1px var(--line-2); }
+.dotsrow { margin-top: 26px; display: flex; gap: 6px; }
+.dotsrow i { width: 6px; height: 6px; border-radius: 50%; background: var(--line-2); animation: pulse 1.2s ease-in-out infinite; }
+.dotsrow i:nth-child(2) { animation-delay: 0.2s; } .dotsrow i:nth-child(3) { animation-delay: 0.4s; }
+.fade { animation: fadeup 0.45s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes fadeup { from { opacity: 0; transform: translateY(8px); } }
+.detail .acts { display: flex; gap: 8px; }
+.detail .acts button { border: 0; border-radius: 980px; padding: 6px 12px; font-size: 12.5px; font-weight: 590; background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; }
+.detail .acts button.warn { color: var(--danger); }
+.detail .confirm { background: var(--panel-2); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; }
+
 @media (max-width: 760px) {
   .app { grid-template-columns: minmax(0, 1fr); }
   .side { border-right: 0; border-bottom: 1px solid var(--line); flex-direction: row; flex-wrap: wrap; gap: 4px; }
@@ -231,7 +288,7 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
   .tab { max-width: 160px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .spin, .skel { animation: none; }
+  .spin, .skel, .halo svg.dots, .fade, .dotsrow i, .cta .ring { animation: none; }
   .bar-fill { transition: none; }
 }
 </style>
@@ -239,11 +296,11 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
 <div class="wrap">
   <div class="review">
     <h1>Cluster first run</h1>
-    <p>Mockup. Click through it like a new user, or jump to a step. Google's and Microsoft's windows are illustrations, not their real pages.</p>
+    <p>Mockup v2, sign-in modelled on Apple's. Click through it like a new user, or jump to a step. Google's and Microsoft's windows are illustrations.</p>
     <div class="steps" role="group" aria-label="Jump to a step">
       <button class="chip" data-jump="welcome">1 Welcome</button>
       <button class="chip" data-jump="connect">2 Choose email</button>
-      <button class="chip" data-jump="provider">3 Sign in</button>
+      <button class="chip" data-jump="provider">3 Sign in and welcome</button>
       <button class="chip" data-jump="app">4 Dashboard and scan</button>
       <button class="chip" data-jump="away">5 Leave and come back</button>
       <button class="chip ghost" id="speed" aria-pressed="false">Speed 1x</button>
@@ -328,6 +385,7 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
     let last = performance.now();
     timer = setInterval(() => {
       const now = performance.now(); const dt = ((now - last) / 1000) * S.speed; last = now;
+      if (S.userPaused || S.stopped) { tick(); return; }
       if (S.paused > 0) { S.paused -= dt; if (S.paused <= 0) S.paused = 0; tick(); return; }
       if (!S.pausedNotice && frac() > 0.55) { S.pausedNotice = true; S.paused = 4; tick(); return; }
       const rate = 70 + Math.random() * 25;
@@ -348,7 +406,7 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
   // ── Chrome chrome: tab title, favicon ring, extension badge ─────────
   function chrome() {
     const pct = Math.floor(frac() * 100);
-    if (S.screen === "welcome" || S.screen === "connect" || S.screen === "provider") {
+    if (S.screen === "welcome" || S.screen === "connect" || S.screen === "provider" || S.screen === "hello") {
       tabTitle.textContent = "Welcome to Cluster"; omni.textContent = "chrome-extension://cluster/welcome.html";
       tabFav.innerHTML = MARK; badge.hidden = true; return;
     }
@@ -366,18 +424,33 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
   }
 
   // ── Screens ─────────────────────────────────────────────────────────
+  // A quiet halo of dots around the Cluster mark (Cluster's own take on the symbol above Apple's sign-in title).
+  function halo(state = "") {
+    let dots = "";
+    const rings = [[54, 22, 2.2], [66, 30, 2.6], [78, 38, 3]];
+    rings.forEach(([r, n, size], ri) => {
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2 + ri * 0.21;
+        const t = i / n;
+        const hue = 215 + Math.sin(t * Math.PI * 2) * 22 - ri * 6;
+        const light = 58 + ri * 4;
+        dots += `<circle cx="${(84 + Math.cos(a) * r).toFixed(1)}" cy="${(84 + Math.sin(a) * r).toFixed(1)}" r="${size}" fill="hsl(${hue.toFixed(0)} 70% ${light}%)" opacity="${(0.45 + 0.5 * Math.abs(Math.sin(t * Math.PI * 3 + ri))).toFixed(2)}"/>`;
+      }
+    });
+    const core = state === "ok" ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17l9-10"/></svg>' : MARK;
+    return `<div class="halo ${state}" aria-hidden="true"><svg class="dots" viewBox="0 0 168 168">${dots}</svg><div class="core">${core}</div></div>`;
+  }
+
+  const GLYPH_PRIVACY = '<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="8" width="18" height="13" rx="2.5"/><path d="M5.6 9 14 15l8.4-6"/><path d="M19.5 4.5 22 7l3.5-4"/></svg>';
+
   function welcome() {
-    return `<div class="center"><div class="card">
-      <div class="brand">${MARK}Cluster</div>
-      <h2 class="big">A calmer inbox, without reading your mail for you.</h2>
-      <p class="lead">Cluster clears out junk, sorts what's left and holds back scams.</p>
-      <div class="trio">
-        <div>${I.trash}<b>Clear out</b><span>Remove piles of old mail in one go.</span></div>
-        <div>${I.layers}<b>Sort</b><span>Receipts, newsletters and codes go where they belong.</span></div>
-        <div>${I.shield}<b>Protect</b><span>Emails that look like scams wait for you to check.</span></div>
-      </div>
-      <button class="btn primary wide" data-go="connect">Get started</button>
-      <p class="note">${I.lock}<span>Everything runs on your computer. Your mail is never sent anywhere.</span></p>
+    return `<div class="auth"><div class="col fade">
+      ${halo()}
+      <h2 class="a-title">Cluster</h2>
+      <p class="a-sub">A calmer inbox. Clear out the clutter, sort the rest and catch scams before you click.</p>
+      <div class="a-feat"><span>${I.trash}Clear out</span><span>${I.layers}Sort</span><span>${I.shield}Protect</span></div>
+      <div class="a-actions"><button class="cta" data-go="connect">Get started</button></div>
+      <p class="fine">${GLYPH_PRIVACY}<span>Cluster runs on your computer. It reads senders, subjects and dates to sort your mail, and never sends your mail anywhere. <a href="#" data-noop>How Cluster uses your mail</a></span></p>
     </div></div>`;
   }
 
@@ -387,54 +460,85 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
     if (/^(outlook|hotmail|live|msn)\.[a-z.]+$/.test(d)) return "Microsoft";
     return null;
   }
+  const valid = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
+  function ctaLabel() {
+    const found = detect(S.email);
+    if (S.opening) return `<span class="ring"></span>Opening ${S.provider}…`;
+    return found ? `Continue with ${found}` : "Continue";
+  }
 
   function connect() {
-    const found = detect(S.email);
-    return `<div class="center"><div class="card">
-      <div class="brand">${MARK}Cluster</div>
-      <h2 class="big">Which email should Cluster look after?</h2>
-      ${S.cancelled ? `<p class="msg">No problem. Connect whenever you're ready.</p>` : ""}
-      <div class="field">
-        <label for="email">Email address</label>
-        <input id="email" type="email" autocomplete="email" placeholder="you@gmail.com" value="${S.email}">
-        <p class="hint ${found ? "found" : ""}" id="email-hint">${found ? `${found} account. You'll sign in on ${found}'s own page.` : "Type it, or pick your provider below."}</p>
+    const ask = S.askProvider && valid(S.email) && !detect(S.email);
+    return `<div class="auth"><div class="col fade">
+      ${halo()}
+      <h2 class="a-title">Sign in to your email</h2>
+      <p class="a-sub">Cluster works with Gmail and Outlook.</p>
+      ${S.cancelled ? `<p class="a-sub" style="font-size:14px;color:var(--fg-3)">Sign-in was cancelled. Nothing was shared.</p>` : ""}
+      <form class="a-form" id="email-form" novalidate>
+        <div class="fl ${ask ? "joined" : ""}">
+          <input id="email" type="email" autocomplete="email" placeholder=" " value="${S.email}" aria-describedby="fine-connect">
+          <label for="email">Email address</label>
+        </div>
+        ${ask ? `<div class="choose fade" role="group" aria-label="Which service is this address on?">
+          <p>Which service is ${S.email.split("@")[1]} on?</p>
+          <button type="button" class="opt" data-provider="Google"><span class="pmark">G</span>Google<span class="sub">Gmail, Google Workspace</span></button>
+          <button type="button" class="opt" data-provider="Microsoft"><span class="pmark">M</span>Microsoft<span class="sub">Outlook, Microsoft 365</span></button>
+        </div>` : ""}
+      </form>
+      <p class="fine" id="fine-connect">${GLYPH_PRIVACY}<span>You'll sign in on Google's or Microsoft's own page, so Cluster never sees your password. You can remove Cluster's access at any time.</span></p>
+      <div class="a-actions">
+        <button class="cta" id="cta" ${valid(S.email) && !ask && !S.opening ? "" : "disabled"} data-continue>${ctaLabel()}</button>
+        <button class="textlink" data-go="welcome">Back</button>
       </div>
-      <div class="stack">
-        <button class="btn ${found === "Google" || !found ? "primary" : ""} wide" data-provider="Google"><span class="pmark">G</span>Continue with Google</button>
-        <button class="btn ${found === "Microsoft" ? "primary" : ""} wide" data-provider="Microsoft"><span class="pmark">M</span>Continue with Microsoft</button>
+    </div></div>`;
+  }
+
+  function waiting() {
+    const P = S.provider;
+    return `<div class="auth"><div class="col fade">
+      ${halo("wait")}
+      <h2 class="a-title">Finish signing in with ${P}</h2>
+      <p class="a-sub">A ${P} window is open. Choose your account there, then allow Cluster.</p>
+      <div class="asks">
+        <div>${I.inbox}<span><b>Read and organize your email</b>So Cluster can label, move and clear mail when you ask.</span></div>
+        <div>${I.layers}<span><b>Manage your filters</b>So new mail is sorted even when Chrome is closed.</span></div>
       </div>
-      <p class="note">${I.lock}<span>You type your password on ${found || "Google's or Microsoft's"}${found ? "'s" : ""} own page. Cluster never sees it.</span></p>
+      <div class="a-actions"><div class="links"><button class="textlink" data-pstep="choose">Open the window again</button><button class="textlink" data-go="connect">Use a different email</button></div></div>
     </div></div>`;
   }
 
   function provider() {
-    const step = S.pstep || "pre";
-    if (step === "pre") {
-      return connect() + `<div class="scrim"><div class="pwin"><div class="body">
-        <h3>One more thing first</h3>
-        <p class="lead" style="font-size:15px">${S.provider} will ask if Cluster may read and change your mail. That's so Cluster can label, move and clear mail when you tell it to.</p>
-        <p class="note">${I.info}<span>You can remove Cluster's access any time, from Cluster or from your ${S.provider} account.</span></p>
-        <div class="row-end"><button class="btn" data-go="connect">Back</button><button class="btn primary" data-pstep="choose">Open ${S.provider} sign-in</button></div>
-      </div></div></div>`;
-    }
+    const step = S.pstep || "waiting";
+    if (step === "waiting") return waiting();
     const host = S.provider === "Google" ? "accounts.google.com" : "login.microsoftonline.com";
     const bar = `<div class="bar">${I.lock}${host}</div>`;
     const ill = `<p class="ill">Illustration of ${S.provider}'s own window. Their real design and wording will differ.</p>`;
     if (step === "choose") {
       const mail = S.email || (S.provider === "Google" ? "sam@gmail.com" : "sam@outlook.com");
-      return connect() + `<div class="scrim"><div class="pwin">${bar}<div class="body">
+      return waiting() + `<div class="scrim"><div class="pwin fade">${bar}<div class="body">
         ${ill}<h3>Choose an account</h3><p class="hint">to continue to Cluster</p>
         <button class="acct" data-pstep="consent"><span class="av" style="background:#3563c7">S</span><span><b>Sam</b><span>${mail}</span></span></button>
-        <button class="acct" data-pstep="consent"><span class="av" style="background:#7a6a58">W</span><span><b>Work</b><span>sam@company.com</span></span></button>
         <button class="acct" data-pstep="consent"><span class="av" style="background:var(--panel-2);color:var(--fg-3)">+</span><span><b>Use another account</b><span>Password and two-step sign-in happen here</span></span></button>
+        <div class="row-end"><button class="btn" data-cancel>Cancel</button></div>
       </div></div></div>`;
     }
-    return connect() + `<div class="scrim"><div class="pwin">${bar}<div class="body">
+    return waiting() + `<div class="scrim"><div class="pwin fade">${bar}<div class="body">
       ${ill}<h3>Cluster wants access to your account</h3>
       <ul class="perm"><li>Read, organize and delete your email</li><li>Manage your email filters</li></ul>
       <p class="hint">Make sure you trust Cluster. You can remove access in your account settings.</p>
-      <div class="row-end"><button class="btn" data-cancel>Cancel</button><button class="btn primary" data-go="app">Allow</button></div>
+      <div class="row-end"><button class="btn" data-cancel>Cancel</button><button class="btn primary" data-allow>Allow</button></div>
     </div></div></div>`;
+  }
+
+  function hello() {
+    const mail = S.email || (S.provider === "Google" ? "sam@gmail.com" : "sam@outlook.com");
+    return `<div class="auth"><div class="col fade">
+      ${halo("ok")}
+      <h2 class="a-title">Welcome, Sam.</h2>
+      <p class="a-sub">Cluster is ready. Your mail stays where it is until you decide.</p>
+      <span class="using"><span class="pmark">${S.provider[0]}</span>Using ${S.provider} · ${mail}</span>
+      <div class="dotsrow" aria-label="Opening your dashboard"><i></i><i></i><i></i></div>
+    </div></div>`;
   }
 
   function nav(id, label, icon, n = "") {
@@ -444,19 +548,26 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
   function pill() {
     const si = stageIndex();
     const pct = Math.floor(frac() * 100);
-    const top = S.done ? "Scan complete" : "Scanning your mail";
-    const sub = S.done ? `${TOTAL.toLocaleString()} emails checked · Updated just now` : `${Math.floor(S.count).toLocaleString()} of ${TOTAL.toLocaleString()} · ${eta()}`;
+    const top = S.done ? "Scan complete" : S.userPaused ? "Scan paused" : S.stopped ? "Scan stopped" : `${STAGES[si].name}`;
+    const sub = S.done ? `${TOTAL.toLocaleString()} emails checked · Updated just now`
+      : S.userPaused || S.stopped ? `${Math.floor(S.count).toLocaleString()} of ${TOTAL.toLocaleString()} · results so far are kept`
+      : `${Math.floor(S.count).toLocaleString()} of ${TOTAL.toLocaleString()} · ${eta()}`;
+    const stages = STAGES.map((s, i) => {
+      const st = S.done || i < si ? "ok" : i === si ? "now" : "";
+      const c = st === "ok" ? "Done" : st === "now" ? `${pct}%` : "";
+      return `<div class="stage ${st}"><span class="dot">${st === "ok" ? "✓" : ""}</span>${s.name}<span class="c">${c}</span></div>`;
+    }).join("");
+    const acts = S.done || S.stopped ? "" : S.confirmStop
+      ? `<div class="confirm"><span>Stop scanning? What Cluster found so far is kept, and you can scan again later.</span><div class="acts"><button data-scan="keep">Keep scanning</button><button class="warn" data-scan="stop">Stop</button></div></div>`
+      : `<div class="acts"><button data-scan="${S.userPaused ? "resume" : "pause"}">${S.userPaused ? "Resume" : "Pause"}</button><button class="warn" data-scan="ask-stop">Stop</button></div>`;
     const detail = S.detailOpen ? `<div class="detail" role="dialog" aria-label="Scan details">
         <h4>${S.done ? "Your mail is ready" : "What Cluster is doing"}</h4>
-        ${STAGES.map((s, i) => {
-          const st = S.done || i < si ? "ok" : i === si ? "now" : "";
-          const c = st === "ok" ? "Done" : st === "now" ? `${pct}%` : "";
-          return `<div class="stage ${st}"><span class="dot">${st === "ok" ? "✓" : ""}</span>${s.name}<span class="c">${c}</span></div>`;
-        }).join("")}
-        <p>You can close this tab. Cluster keeps going and puts a ✓ on its icon when it's done.</p>
+        <div class="stages">${stages}</div>
+        <p class="dsub">You can close this tab. Cluster keeps going and puts a ✓ on its icon when it's done.</p>
+        ${acts}
       </div>` : "";
     return `<div style="position:relative" id="pill-wrap">${detail}<button class="pill ${S.done ? "done" : ""}" id="scan-pill" aria-expanded="${S.detailOpen}">
-      <span class="top"><span class="spin" aria-hidden="true"></span>${top}</span>
+      <span class="top"><span class="spin" aria-hidden="true" ${S.userPaused || S.stopped ? 'style="animation:none"' : ""}></span><span class="tt">${top}</span></span>
       <span class="bar-track"><span class="bar-fill" style="width:${pct}%"></span></span>
       <span class="sub">${sub}</span></button></div>`;
   }
@@ -597,10 +708,11 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
     const focusId = document.activeElement && document.activeElement.id;
     tabCluster.classList.toggle("on", !S.away); tabOther.classList.toggle("on", S.away);
     if (S.away) vp.innerHTML = away();
-    else vp.innerHTML = { welcome, connect, provider, app }[S.screen]();
+    else vp.innerHTML = { welcome, connect, provider, hello, app }[S.screen]();
     if (S.screen === "app" && !S.away) placeTour();
     chrome();
-    document.querySelectorAll("[data-jump]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.jump === (S.away ? "away" : S.screen))));
+    const stepKey = S.away ? "away" : S.screen === "hello" ? "provider" : S.screen;
+    document.querySelectorAll("[data-jump]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.jump === stepKey)));
     caption.textContent = CAPTIONS[S.away ? "away" : S.screen];
     if (focusId === "email") { const e = document.getElementById("email"); if (e) { e.focus(); e.setSelectionRange(e.value.length, e.value.length); } }
   }
@@ -610,7 +722,7 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
   function tick() {
     if (S.screen !== "app") return;
     if (S.away) { chrome(); if (S.toast && !vp.querySelector(".toast")) render(); return; }
-    const key = `${stageIndex()}|${S.done}|${has.scams()}|${has.senders()}|${has.subs()}`;
+    const key = `${stageIndex()}|${S.userPaused}|${S.stopped}|${S.confirmStop}|${S.done}|${has.scams()}|${has.senders()}|${has.subs()}`;
     if (key !== lastKey) { lastKey = key; render(); return; }
     const wrap = document.getElementById("pill-wrap");
     if (wrap) {
@@ -618,17 +730,19 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
       const next = tmp.firstElementChild;
       wrap.querySelector(".bar-fill").style.width = next.querySelector(".bar-fill").style.width;
       wrap.querySelector(".sub").textContent = next.querySelector(".sub").textContent;
-      const d = wrap.querySelector(".detail"), nd = next.querySelector(".detail");
+      wrap.querySelector(".tt").textContent = next.querySelector(".tt").textContent;
+      const d = wrap.querySelector(".stages"), nd = next.querySelector(".stages");
       if (d && nd) d.innerHTML = nd.innerHTML;
     }
     chrome();
   }
 
   const CAPTIONS = {
-    welcome: "1. Opens by itself right after install. One sentence, three pictures, one button.",
-    connect: "2. Typing the address picks Google or Microsoft. Cluster never asks for the password.",
-    provider: "3. A short heads-up, then Google's or Microsoft's own window: choose an account, then allow.",
-    app: "4. The dashboard opens at once. The scan runs in the bottom-left pill, results fill in live, and the tour runs meanwhile. Click the pill for details.",
+    welcome: "1. Opens by itself after install. Modelled on Apple's sign-in: one column, a quiet symbol, one sentence, one button, small honest fine print.",
+    connect: "2. One field with a floating label. Continue stays pale until the address is valid, then names the provider. Try a work address like sam@company.com to see the follow-up question.",
+    provider: "3. Cluster waits calmly and says what Google or Microsoft will ask. Their own window opens over it (illustrated). Allow leads to a short welcome, then the dashboard.",
+    hello: "3. Welcomed straight away, with the sign-in method shown (Using Google). The dashboard opens by itself.",
+    app: "4. The dashboard opens at once. The scan pill names what it's doing, keeps moving, and offers Pause and Stop. Results fill in live while the tour runs.",
     away: "5. Leave the tab: the tab title counts up, the toolbar icon shows the percent, then a ✓ and a notification when it's done.",
   };
 
@@ -636,25 +750,40 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
   document.addEventListener("input", (e) => {
     if (e.target.id !== "email") return;
     S.email = e.target.value.trim();
-    const found = detect(S.email);
-    const hint = document.getElementById("email-hint");
-    hint.className = `hint ${found ? "found" : ""}`;
-    hint.textContent = found ? `${found} account. You'll sign in on ${found}'s own page.` : "Type it, or pick your provider below.";
-    document.querySelectorAll("[data-provider]").forEach((b) => b.classList.toggle("primary", found ? b.dataset.provider === found : b.dataset.provider === "Google"));
+    if (S.askProvider) { S.askProvider = false; render(); return; }
+    const cta = document.getElementById("cta");
+    if (cta) { cta.disabled = !valid(S.email); cta.innerHTML = ctaLabel(); }
   });
+  document.addEventListener("submit", (e) => { e.preventDefault(); const c = document.getElementById("cta"); if (c && !c.disabled) c.click(); });
+
+  function openProvider(p) {
+    S.provider = p; S.cancelled = false; S.opening = true; render();
+    setTimeout(() => { S.opening = false; S.screen = "provider"; S.pstep = "waiting"; render();
+      setTimeout(() => { if (S.screen === "provider" && S.pstep === "waiting") { S.pstep = "choose"; render(); } }, 1400); }, 700);
+  }
 
   document.addEventListener("click", (e) => {
     const t = e.target.closest("button");
-    if (!t) { if (S.detailOpen && !e.target.closest(".detail")) { S.detailOpen = false; render(); } return; }
+    if (!t) { if (e.target.closest("[data-noop]")) e.preventDefault(); if (S.detailOpen && !e.target.closest(".detail")) { S.detailOpen = false; render(); } return; }
     const d = t.dataset;
     if (d.jump) return jump(d.jump);
     if (t.id === "restart") return reset();
     if (t.id === "speed") { S.speed = S.speed === 1 ? 6 : 1; t.textContent = `Speed ${S.speed}x`; t.setAttribute("aria-pressed", String(S.speed > 1)); return; }
-    if (d.go === "connect") { S.screen = "connect"; S.pstep = null; return render(); }
-    if (d.provider) { S.provider = d.provider; S.cancelled = false; S.screen = "provider"; S.pstep = "pre"; return render(); }
+    if (d.go === "welcome") { S.screen = "welcome"; return render(); }
+    if (d.go === "connect") { S.screen = "connect"; S.pstep = null; S.askProvider = false; return render(); }
+    if ("continue" in d) { const f = detect(S.email); if (f) return openProvider(f); S.askProvider = true; return render(); }
+    if (d.provider) { S.askProvider = false; return openProvider(d.provider); }
     if (d.pstep) { S.pstep = d.pstep; return render(); }
     if ("cancel" in d) { S.screen = "connect"; S.cancelled = true; S.pstep = null; return render(); }
-    if (d.go === "app") { S.screen = "app"; S.page = "home"; render(); startScan(); return; }
+    if ("allow" in d) { S.screen = "hello"; render(); setTimeout(() => { if (S.screen === "hello") { S.screen = "app"; S.page = "home"; render(); startScan(); } }, 1800 / S.speed); return; }
+    if (d.scan) {
+      if (d.scan === "pause") S.userPaused = true;
+      if (d.scan === "resume") S.userPaused = false;
+      if (d.scan === "ask-stop") S.confirmStop = true;
+      if (d.scan === "keep") S.confirmStop = false;
+      if (d.scan === "stop") { S.confirmStop = false; S.stopped = true; S.userPaused = false; }
+      return render();
+    }
     if (d.page) { S.page = d.page; return render(); }
     if (t.id === "scan-pill") { S.detailOpen = !S.detailOpen; return render(); }
     if ("tourStart" in d) { S.tourOffered = true; S.tour = 0; S.page = TOUR[0].page; return render(); }
@@ -672,12 +801,13 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
   function reset() {
     stopScan();
     Object.assign(S, { screen: "welcome", email: "", cancelled: false, scanning: false, done: false, count: 0, samples: [], paused: 0,
-      pausedNotice: false, tour: -1, tourOffered: false, page: "home", detailOpen: false, leaveSeen: false, away: false, toast: false, whyOpen: -1, pstep: null });
+      pausedNotice: false, tour: -1, tourOffered: false, page: "home", detailOpen: false, leaveSeen: false, away: false, toast: false, whyOpen: -1, pstep: null,
+      askProvider: false, opening: false, userPaused: false, stopped: false, confirmStop: false });
     render();
   }
   function jump(step) {
     if (step === "welcome" || step === "connect") { reset(); S.screen = step; return render(); }
-    if (step === "provider") { reset(); S.screen = "provider"; S.pstep = "choose"; return render(); }
+    if (step === "provider") { reset(); S.email = "sam@gmail.com"; S.provider = "Google"; S.screen = "provider"; S.pstep = "waiting"; render(); setTimeout(() => { if (S.screen === "provider" && S.pstep === "waiting") { S.pstep = "choose"; render(); } }, 1400); return; }
     if (step === "app") { reset(); S.screen = "app"; render(); startScan(); return; }
     if (step === "away") { if (S.screen !== "app") { reset(); S.screen = "app"; startScan(); } S.tourOffered = true; S.tour = -2; S.leaveSeen = true; S.away = true; return render(); }
   }
