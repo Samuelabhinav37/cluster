@@ -51,17 +51,17 @@
         <!-- ── Sidebar ───────────────────────────────────────────────── -->
         <nav class="sidebar" id="sidebar" aria-label="Sections">
           <button type="button" class="nav-item" data-screen="overview">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.2 8.6 10 3.3l6.8 5.3v7.2a1 1 0 0 1-1 1h-3.4v-4.6H7.6v4.6H4.2a1 1 0 0 1-1-1z"></path></svg>
+            <svg class="nav-icon ni-home" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"></path><path class="ni-door" d="M10 20v-5.2h4V20"></path></svg>
             Home
           </button>
           <button type="button" class="nav-item" data-screen="delete">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.2 6h11.6"></path><path d="M8.2 6V4.6a1 1 0 0 1 1-1h1.6a1 1 0 0 1 1 1V6"></path><path d="M6.6 6 7.3 15a1 1 0 0 0 1 .9h3.4a1 1 0 0 0 1-.9L13.4 6"></path></svg>
+            <svg class="nav-icon ni-bin" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 8.5 7.4 19a1.2 1.2 0 0 0 1.2 1.1h6.8a1.2 1.2 0 0 0 1.2-1.1l.9-10.5"></path><g class="ni-lid"><path d="M4.5 6.5h15"></path><path d="M9.5 6.5V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5"></path></g></svg>
             Clear out
             <span class="nav-count" id="nav-count-delete"></span>
           </button>
           <div class="nav-area" data-area="senders">
             <button type="button" class="nav-item" data-screen="senders">
-              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.4h3.2l1.1 1.8h5.4l1.1-1.8H17"></path><path d="M4.4 5.2h11.2l1.4 6.2v3.2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3.2z"></path></svg>
+              <svg class="nav-icon ni-tray" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 13.5h4.2l1.4 2.4h5.8l1.4-2.4h4.2"></path><path d="M5.6 7 3.5 13.5V19a1 1 0 0 0 1 1h15a1 1 0 0 0 1-1v-5.5L18.4 7"></path><g class="ni-env"><rect x="8.5" y="3.5" width="7" height="5.2" rx=".8"></rect><path d="M8.8 4l3.2 2.3L15.2 4"></path></g></svg>
               Senders
             </button>
             <div class="nav-children">
@@ -72,7 +72,7 @@
           </div>
           <div class="nav-area" data-area="sorting">
             <button type="button" class="nav-item" data-screen="organize">
-              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3.4 3.2 7.4 10 11.4 16.8 7.4Z"></path><path d="M3.2 11 10 15 16.8 11"></path></svg>
+              <svg class="nav-icon ni-layers" viewBox="0 0 24 24" aria-hidden="true"><path class="ni-l1" d="M12 4 4 8.5 12 13l8-4.5Z"></path><path d="M4 12.5 12 17l8-4.5"></path><path class="ni-l3" d="M4 16.5 12 21l8-4.5"></path></svg>
               Sorting
             </button>
             <div class="nav-children">
@@ -83,7 +83,7 @@
           </div>
           <div class="nav-area" data-area="safety">
             <button type="button" class="nav-item" data-screen="impersonation">
-              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2.9 4.2 5v4.6c0 3.2 2.3 6 5.8 7.5 3.5-1.5 5.8-4.3 5.8-7.5V5z"></path><path d="M10 7.6v3M10 13.1h.01"></path></svg>
+              <svg class="nav-icon ni-shield" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 5 6v5.4c0 4 2.8 7.3 7 9.1 4.2-1.8 7-5.1 7-9.1V6z"></path><path class="ni-tick" d="M9 12.2l2.1 2.1L15.2 10"></path></svg>
               Safety
               <span class="nav-count" id="nav-count-impersonation"></span>
             </button>
@@ -101,15 +101,15 @@
           <span class="sidebar-spacer"></span>
           <div class="nav-sep" aria-hidden="true"></div>
           <button type="button" class="nav-item" data-screen="recent">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="6.6"></circle><path d="M10 6.4V10l2.6 1.6"></path></svg>
+            <svg class="nav-icon ni-clock" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><path class="ni-hand" d="M12 12V7.5"></path><path d="M12 12l3 2"></path></svg>
             Activity
           </button>
           <button type="button" class="nav-item" data-screen="settings">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="2.6"></circle><path d="M10 3.4v1.4M10 15.2v1.4M4.9 4.9l1 1M14.1 14.1l1 1M3.4 10h1.4M15.2 10h1.4M4.9 15.1l1-1M14.1 5.9l1-1"></path></svg>
+            <svg class="nav-icon ni-gear" viewBox="0 0 24 24" aria-hidden="true"><g class="ni-cog"><path d="M18.80 10.34 L21.07 10.44 L21.07 13.56 L18.80 13.66 L17.98 15.63 L19.51 17.31 L17.31 19.51 L15.63 17.98 L13.66 18.80 L13.56 21.07 L10.44 21.07 L10.34 18.80 L8.37 17.98 L6.69 19.51 L4.49 17.31 L6.02 15.63 L5.20 13.66 L2.93 13.56 L2.93 10.44 L5.20 10.34 L6.02 8.37 L4.49 6.69 L6.69 4.49 L8.37 6.02 L10.34 5.20 L10.44 2.93 L13.56 2.93 L13.66 5.20 L15.63 6.02 L17.31 4.49 L19.51 6.69 L17.98 8.37 Z"></path><circle cx="12" cy="12" r="2.8"></circle></g></svg>
             Settings
           </button>
           <button type="button" class="nav-item nav-simple-home" data-screen="simple" hidden>
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.2 8.6 10 3.3l6.8 5.3v7.2a1 1 0 0 1-1 1h-3.4v-4.6H7.6v4.6H4.2a1 1 0 0 1-1-1z"></path></svg>
+            <svg class="nav-icon ni-home" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"></path><path class="ni-door" d="M10 20v-5.2h4V20"></path></svg>
             Home
           </button>
           <p class="sidebar-note">
