@@ -217,8 +217,11 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
 .caption { font-size: 13px; color: var(--fg-3); margin: 0; }
 
 /* Sign-in, after account.apple.com: one 440px column, no card, 28/17/12 type, 56px floating-label field */
-.auth { flex: 1; display: flex; justify-content: center; align-items: flex-start; padding-inline: 16px; padding-block: clamp(32px, 7vh, 72px) 48px; background: var(--panel); position: relative; }
+.auth { flex: 1; display: flex; justify-content: center; align-items: center; padding-inline: 16px; padding-block: 48px; background: var(--panel); position: relative; }
 .col { width: min(440px, 100%); display: flex; flex-direction: column; align-items: center; text-align: center; }
+.lockup { display: inline-flex; align-items: center; gap: 14px; font: 600 36px/1 var(--display); letter-spacing: -0.025em; }
+.lk-mark { width: 56px; height: 56px; border-radius: 15px; background: var(--fg); color: var(--panel); display: grid; place-items: center; }
+.lk-mark svg { width: 36px; height: 36px; }
 .halo { width: 168px; height: 168px; display: grid; place-items: center; position: relative; }
 .halo svg.dots { position: absolute; inset: 0; width: 100%; height: 100%; animation: drift 120s linear infinite; }
 .halo .core { width: 64px; height: 64px; border-radius: 18px; background: var(--fg); color: var(--panel); display: grid; place-items: center; position: relative; transition: background 0.4s; }
@@ -226,7 +229,7 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
 .halo.ok .core { background: var(--ok); color: var(--panel); }
 .halo.wait svg.dots { animation-duration: 14s; }
 @keyframes drift { to { transform: rotate(360deg); } }
-.a-title { margin: 26px 0 0; font: 600 28px/32px var(--display); letter-spacing: 0.007em; text-wrap: balance; }
+.a-title { margin: 36px 0 0; font: 600 28px/32px var(--display); letter-spacing: 0.007em; text-wrap: balance; }
 .a-sub { margin: 8px 0 0; font: 400 17px/25px var(--font); letter-spacing: -0.022em; color: var(--fg-2); text-wrap: balance; }
 .a-feat { margin: 14px 0 0; display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; font-size: 13px; color: var(--fg-3); }
 .a-feat span { display: inline-flex; gap: 6px; align-items: center; }
@@ -424,31 +427,17 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
   }
 
   // ── Screens ─────────────────────────────────────────────────────────
-  // A quiet halo of dots around the Cluster mark (Cluster's own take on the symbol above Apple's sign-in title).
-  function halo(state = "") {
-    let dots = "";
-    const rings = [[54, 22, 2.2], [66, 30, 2.6], [78, 38, 3]];
-    rings.forEach(([r, n, size], ri) => {
-      for (let i = 0; i < n; i++) {
-        const a = (i / n) * Math.PI * 2 + ri * 0.21;
-        const t = i / n;
-        const hue = 215 + Math.sin(t * Math.PI * 2) * 22 - ri * 6;
-        const light = 58 + ri * 4;
-        dots += `<circle cx="${(84 + Math.cos(a) * r).toFixed(1)}" cy="${(84 + Math.sin(a) * r).toFixed(1)}" r="${size}" fill="hsl(${hue.toFixed(0)} 70% ${light}%)" opacity="${(0.45 + 0.5 * Math.abs(Math.sin(t * Math.PI * 3 + ri))).toFixed(2)}"/>`;
-      }
-    });
-    const core = state === "ok" ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17l9-10"/></svg>' : MARK;
-    return `<div class="halo ${state}" aria-hidden="true"><svg class="dots" viewBox="0 0 168 168">${dots}</svg><div class="core">${core}</div></div>`;
+  // The Cluster lockup: mark and name side by side, the only branding on the sign-in screens.
+  function halo() {
+    return `<div class="lockup"><span class="lk-mark">${MARK}</span><span>Cluster</span></div>`;
   }
 
-  const GLYPH_PRIVACY = '<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="8" width="18" height="13" rx="2.5"/><path d="M5.6 9 14 15l8.4-6"/><path d="M19.5 4.5 22 7l3.5-4"/></svg>';
+  const GLYPH_PRIVACY = '<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="12.5" width="15" height="11" rx="2.5"/><path d="M9.5 12.5V9a4.5 4.5 0 0 1 9 0v3.5"/><path d="M14 17v2.5"/></svg>';
 
   function welcome() {
     return `<div class="auth"><div class="col fade">
       ${halo()}
-      <h2 class="a-title">Cluster</h2>
-      <p class="a-sub">A calmer inbox. Clear out the clutter, sort the rest and catch scams before you click.</p>
-      <div class="a-feat"><span>${I.trash}Clear out</span><span>${I.layers}Sort</span><span>${I.shield}Protect</span></div>
+      <p class="a-sub" style="margin-top:22px">Clear out the clutter, sort the rest and catch scams before you click.</p>
       <div class="a-actions"><button class="cta" data-go="connect">Get started</button></div>
       <p class="fine">${GLYPH_PRIVACY}<span>Cluster runs on your computer. It reads senders, subjects and dates to sort your mail, and never sends your mail anywhere. <a href="#" data-noop>How Cluster uses your mail</a></span></p>
     </div></div>`;
@@ -496,7 +485,7 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
   function waiting() {
     const P = S.provider;
     return `<div class="auth"><div class="col fade">
-      ${halo("wait")}
+      ${halo()}
       <h2 class="a-title">Finish signing in with ${P}</h2>
       <p class="a-sub">A ${P} window is open. Choose your account there, then allow Cluster.</p>
       <div class="asks">
@@ -533,7 +522,7 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
   function hello() {
     const mail = S.email || (S.provider === "Google" ? "sam@gmail.com" : "sam@outlook.com");
     return `<div class="auth"><div class="col fade">
-      ${halo("ok")}
+      ${halo()}
       <h2 class="a-title">Welcome, Sam.</h2>
       <p class="a-sub">Cluster is ready. Your mail stays where it is until you decide.</p>
       <span class="using"><span class="pmark">${S.provider[0]}</span>Using ${S.provider} · ${mail}</span>
@@ -738,7 +727,7 @@ h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); lette
   }
 
   const CAPTIONS = {
-    welcome: "1. Opens by itself after install. Modelled on Apple's sign-in: one column, a quiet symbol, one sentence, one button, small honest fine print.",
+    welcome: "1. Opens by itself after install. Modelled on Apple's sign-in: one centred column, the Cluster logo and name, one sentence, one button, small honest fine print.",
     connect: "2. One field with a floating label. Continue stays pale until the address is valid, then names the provider. Try a work address like sam@company.com to see the follow-up question.",
     provider: "3. Cluster waits calmly and says what Google or Microsoft will ask. Their own window opens over it (illustrated). Allow leads to a short welcome, then the dashboard.",
     hello: "3. Welcomed straight away, with the sign-in method shown (Using Google). The dashboard opens by itself.",
