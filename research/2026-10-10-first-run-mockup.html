@@ -1,0 +1,687 @@
+<title>Cluster First Run</title>
+<style>
+/* Layout: a review bar on top, then a pretend Chrome window holding Cluster's real-size UI. */
+:root {
+  --page: #e9e9ee;
+  --bg: #f5f5f7;
+  --panel: #ffffff;
+  --panel-2: #f2f2f5;
+  --line: #e3e3e8;
+  --line-2: #d2d2d8;
+  --fg: #1d1d1f;
+  --fg-2: #3a3a3c;
+  --fg-3: #636369;
+  --accent: #3563c7;
+  --accent-text: #2f5fc4;
+  --accent-fill: rgba(53, 99, 199, 0.1);
+  --danger: #b42e2e;
+  --danger-fill: rgba(180, 46, 46, 0.08);
+  --ok: #15875f;
+  --chrome: #dee1e6;
+  --chrome-tab: #ffffff;
+  --shadow: 0 18px 50px rgba(20, 20, 40, 0.18);
+  --skel: #ececf0;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, "Segoe UI", sans-serif;
+  --display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #050506; --bg: #0a0a0c; --panel: #161618; --panel-2: #1f1f22; --line: #262629; --line-2: #36363b;
+    --fg: #f5f5f7; --fg-2: #dcdce0; --fg-3: #a1a1a8; --accent: #3f6fd1; --accent-text: #6f9be0;
+    --accent-fill: rgba(111, 155, 224, 0.15); --danger: #fa6d6d; --danger-fill: rgba(250, 109, 109, 0.12);
+    --ok: #7fdc78; --chrome: #202124; --chrome-tab: #35363a; --shadow: 0 18px 50px rgba(0, 0, 0, 0.6); --skel: #222226;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #050506; --bg: #0a0a0c; --panel: #161618; --panel-2: #1f1f22; --line: #262629; --line-2: #36363b;
+  --fg: #f5f5f7; --fg-2: #dcdce0; --fg-3: #a1a1a8; --accent: #3f6fd1; --accent-text: #6f9be0;
+  --accent-fill: rgba(111, 155, 224, 0.15); --danger: #fa6d6d; --danger-fill: rgba(250, 109, 109, 0.12);
+  --ok: #7fdc78; --chrome: #202124; --chrome-tab: #35363a; --shadow: 0 18px 50px rgba(0, 0, 0, 0.6); --skel: #222226;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--fg); font: 15px/1.45 var(--font); letter-spacing: -0.008em; -webkit-font-smoothing: antialiased; }
+.wrap { padding-inline: 16px; padding-block: 16px 40px; max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+button { font: inherit; color: inherit; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Review bar */
+.review { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.review h1 { margin: 0; font: 600 17px/1.2 var(--display); letter-spacing: -0.02em; }
+.review p { margin: 0; color: var(--fg-3); font-size: 13.5px; flex: 1 1 260px; min-width: 0; }
+.steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 0; border-radius: 980px; padding: 6px 12px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--line); font-size: 13px; cursor: pointer; color: var(--fg-2); }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); box-shadow: none; }
+.chip.ghost { background: transparent; }
+.chip.ghost[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+
+/* Browser frame */
+.browser { border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); background: var(--bg); display: flex; flex-direction: column; min-height: 720px; position: relative; }
+.tabs { background: var(--chrome); display: flex; align-items: flex-end; gap: 2px; padding: 8px 10px 0; min-width: 0; }
+.dots { display: flex; gap: 6px; padding: 0 10px 12px 2px; }
+.dots i { width: 11px; height: 11px; border-radius: 50%; background: var(--line-2); display: block; }
+.tab { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 240px; flex: 1 1 200px; padding: 8px 12px; border-radius: 9px 9px 0 0; font-size: 12.5px; color: var(--fg-3); background: transparent; border: 0; cursor: pointer; text-align: left; }
+.tab.on { background: var(--chrome-tab); color: var(--fg); }
+.tab span.t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.tab .fav { width: 16px; height: 16px; flex: none; position: relative; color: var(--fg); }
+.tab .fav .ring { position: absolute; inset: -3px; }
+.toolbar { background: var(--chrome-tab); display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-bottom: 1px solid var(--line); }
+.omni { flex: 1; min-width: 0; background: var(--panel-2); border-radius: 980px; padding: 6px 14px; font-size: 12.5px; color: var(--fg-3); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ext { position: relative; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: var(--fg-2); border: 0; background: transparent; cursor: pointer; }
+.ext svg { width: 18px; height: 18px; }
+.badge { position: absolute; right: -6px; bottom: -3px; min-width: 18px; height: 15px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: #fff; font: 700 9.5px/15px var(--font); text-align: center; font-variant-numeric: tabular-nums; }
+.badge.done { background: var(--ok); color: #06210f; }
+.badge[hidden] { display: none; }
+.viewport { flex: 1; position: relative; display: flex; min-height: 0; background: var(--bg); }
+
+/* Welcome and connect */
+.center { flex: 1; display: grid; place-items: center; padding: 40px 16px; }
+.card { width: min(560px, 100%); background: var(--panel); border-radius: 22px; box-shadow: inset 0 0 0 1px var(--line); padding: 36px 36px 30px; display: flex; flex-direction: column; gap: 20px; }
+.brand { display: flex; align-items: center; gap: 10px; font: 600 17px/1 var(--display); letter-spacing: -0.02em; }
+.brand svg { width: 26px; height: 26px; }
+h2.big { margin: 0; font: 600 clamp(26px, 3.2vw, 34px)/1.1 var(--display); letter-spacing: -0.03em; text-wrap: balance; }
+.lead { margin: 0; color: var(--fg-3); font-size: 16px; font-weight: 500; }
+.trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.trio div { background: var(--panel-2); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.trio svg { width: 22px; height: 22px; color: var(--accent-text); }
+.trio b { font-size: 14px; }
+.trio span { font-size: 12.5px; color: var(--fg-3); }
+.btn { border: 0; border-radius: 980px; padding: 11px 20px; font-weight: 590; cursor: pointer; background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line); display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; }
+.btn.primary { background: var(--accent); color: #fff; box-shadow: none; }
+.btn.wide { width: 100%; }
+.btn .pmark { width: 20px; height: 20px; border-radius: 5px; display: grid; place-items: center; font: 700 11px/1 var(--font); background: var(--panel); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--fg-2); }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 13px; font-weight: 600; color: var(--fg-2); }
+.field input { border: 0; border-radius: 12px; padding: 12px 14px; font: inherit; background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line); color: var(--fg); min-height: 46px; }
+.hint { font-size: 13px; color: var(--fg-3); margin: 0; }
+.hint.found { color: var(--accent-text); }
+.note { font-size: 13px; color: var(--fg-3); margin: 0; display: flex; gap: 8px; align-items: flex-start; }
+.note svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+.or { display: flex; align-items: center; gap: 10px; color: var(--fg-3); font-size: 12.5px; }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.msg { background: var(--accent-fill); color: var(--fg-2); border-radius: 12px; padding: 10px 14px; font-size: 13.5px; margin: 0; }
+
+/* Provider window (illustration) */
+.scrim { position: absolute; inset: 0; background: rgba(10, 10, 20, 0.35); display: grid; place-items: center; padding: 16px; z-index: 30; }
+.pwin { width: min(440px, 100%); background: var(--panel); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+.pwin .bar { background: var(--panel-2); padding: 8px 12px; font-size: 12px; color: var(--fg-3); display: flex; gap: 8px; align-items: center; }
+.pwin .bar svg { width: 12px; height: 12px; }
+.pwin .body { padding: 22px 24px 20px; display: flex; flex-direction: column; gap: 14px; }
+.pwin h3 { margin: 0; font: 600 20px/1.2 var(--display); }
+.ill { font-size: 11.5px; color: var(--fg-3); background: var(--panel-2); border-radius: 8px; padding: 6px 10px; margin: 0; }
+.acct { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; border: 0; background: transparent; box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; text-align: left; width: 100%; }
+.acct:hover { background: var(--panel-2); }
+.av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 600 13px/1 var(--font); flex: none; }
+.acct b { display: block; font-size: 14px; }
+.acct span { font-size: 12.5px; color: var(--fg-3); }
+.perm { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--fg-2); }
+.row-end { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+
+/* App */
+.app { flex: 1; display: grid; grid-template-columns: 220px minmax(0, 1fr); min-width: 0; }
+.side { border-right: 1px solid var(--line); padding: 16px 12px; display: flex; flex-direction: column; gap: 2px; position: relative; }
+.nav { display: flex; align-items: center; gap: 11px; padding: 6px 10px; border-radius: 10px; border: 0; background: transparent; cursor: pointer; font-weight: 500; font-size: 14px; text-align: left; color: var(--fg); position: relative; }
+.nav svg { width: 28px; height: 28px; padding: 6px; border-radius: 7px; background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line); color: var(--fg-3); flex: none; }
+.nav.on { background: var(--panel-2); font-weight: 600; }
+.nav.on svg { background: var(--accent); color: #fff; box-shadow: none; }
+.nav .n { margin-left: auto; font-size: 12.5px; color: var(--fg-3); font-variant-numeric: tabular-nums; }
+.nav .n.red { color: var(--danger); font-weight: 600; }
+.side .grow { flex: 1; }
+
+/* Scan pill, bottom left */
+.pill { border: 0; width: 100%; text-align: left; cursor: pointer; background: var(--panel); box-shadow: inset 0 0 0 1px var(--line); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; position: relative; }
+.pill .top { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; }
+.pill .sub { font-size: 12px; color: var(--fg-3); font-variant-numeric: tabular-nums; }
+.bar-track { display: block; height: 5px; border-radius: 3px; background: var(--panel-2); overflow: hidden; }
+.bar-fill { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 3px; transition: width 0.4s linear; }
+.pill.done .bar-fill { background: var(--ok); }
+.spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line-2); border-top-color: var(--accent); animation: sp 0.9s linear infinite; flex: none; }
+.pill.done .spin { animation: none; border-color: var(--ok); background: var(--ok); }
+@keyframes sp { to { transform: rotate(360deg); } }
+.detail { position: absolute; left: 12px; bottom: calc(100% + 8px); width: 280px; background: var(--panel); border-radius: 14px; box-shadow: var(--shadow), inset 0 0 0 1px var(--line); padding: 14px; display: flex; flex-direction: column; gap: 10px; z-index: 12; }
+.detail h4 { margin: 0; font-size: 13.5px; }
+.stage { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.stage .dot { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--line-2); flex: none; display: grid; place-items: center; font-size: 10px; color: #fff; }
+.stage.now .dot { box-shadow: inset 0 0 0 1.5px var(--accent); border-top: 0; }
+.stage.ok .dot { background: var(--ok); box-shadow: none; color: #06210f; }
+.stage .c { margin-left: auto; color: var(--fg-3); font-variant-numeric: tabular-nums; font-size: 12px; }
+.detail p { margin: 0; font-size: 12px; color: var(--fg-3); }
+
+/* Main column */
+.main { padding: 28px 32px 40px; display: flex; flex-direction: column; gap: 22px; min-width: 0; overflow: auto; }
+.ptitle { margin: 0; font: 600 clamp(28px, 3vw, 36px)/1.06 var(--display); letter-spacing: -0.03em; }
+.plead { margin: 6px 0 0; color: var(--fg-3); font-size: 16px; font-weight: 500; min-height: 1.4em; }
+.leave { display: flex; gap: 12px; align-items: center; background: var(--accent-fill); border-radius: 16px; padding: 12px 16px; flex-wrap: wrap; }
+.leave p { margin: 0; flex: 1 1 260px; min-width: 0; font-size: 14px; color: var(--fg-2); }
+.leave .btn { min-height: 36px; padding: 7px 14px; font-size: 13.5px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.tile { background: var(--panel); border-radius: 18px; box-shadow: inset 0 0 0 1px var(--line); padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tile .k { font-size: 12.5px; color: var(--fg-3); font-weight: 500; }
+.tile .v { font: 600 28px/1.1 var(--display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.tile .v.red { color: var(--danger); }
+.skel { display: inline-block; height: 1em; width: 3.2em; border-radius: 6px; background: var(--skel); animation: pulse 1.4s ease-in-out infinite; vertical-align: middle; }
+.skel.line { display: block; width: 100%; height: 12px; }
+@keyframes pulse { 50% { opacity: 0.45; } }
+.sec h3 { margin: 0 0 10px; font: 600 17px/1.3 var(--font); letter-spacing: -0.015em; }
+.list { background: var(--panel); border-radius: 18px; box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
+.li { display: flex; align-items: center; gap: 12px; padding: 13px 16px; min-width: 0; }
+.li + .li { border-top: 1px solid var(--line); }
+.li .tx { flex: 1; min-width: 0; }
+.li .tx b { display: block; font-size: 14.5px; }
+.li .tx span { font-size: 13px; color: var(--fg-3); }
+.li .btn { min-height: 34px; padding: 6px 14px; font-size: 13px; }
+.li.red b { color: var(--danger); }
+.logo { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: #fff; font: 700 13px/1 var(--font); flex: none; }
+.stackl { display: flex; }
+.stackl .logo { width: 26px; height: 26px; border-radius: 8px; font-size: 11px; box-shadow: 0 0 0 2px var(--panel); }
+.stackl .logo + .logo { margin-left: -7px; }
+.chart { background: var(--panel); border-radius: 18px; box-shadow: inset 0 0 0 1px var(--line); padding: 16px 18px 12px; }
+.chart .head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--fg-3); margin-bottom: 8px; }
+.chart .head b { color: var(--fg); font-size: 14.5px; }
+.chart svg { width: 100%; height: auto; display: block; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--fg-3); margin-top: 6px; }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.sg { background: var(--panel); border-radius: 18px; box-shadow: inset 0 0 0 1px var(--line); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sg b { font-size: 15px; }
+.sg span { font-size: 13px; color: var(--fg-3); }
+.sg .btn { align-self: flex-start; min-height: 36px; padding: 7px 16px; font-size: 13.5px; }
+.why { font-size: 13px; color: var(--fg-2); background: var(--panel-2); border-radius: 12px; padding: 10px 12px; margin: 0; }
+
+/* Tour */
+.tour { position: absolute; z-index: 25; width: 300px; max-width: calc(100% - 32px); background: var(--fg); color: var(--bg); border-radius: 16px; padding: 16px 16px 14px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px; }
+.tour .step { font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.7; }
+.tour b { font-size: 15px; }
+.tour p { margin: 0; font-size: 13.5px; opacity: 0.9; }
+.tour .row { display: flex; gap: 8px; justify-content: space-between; align-items: center; }
+.tour button { border: 0; border-radius: 980px; padding: 7px 14px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.tour .go { background: var(--bg); color: var(--fg); }
+.tour .skip { background: transparent; color: var(--bg); opacity: 0.75; }
+.tour::before { content: ""; position: absolute; left: -7px; top: 18px; border: 7px solid transparent; border-left: 0; border-right-color: var(--fg); }
+.tour.below::before { left: 22px; top: -7px; border: 7px solid transparent; border-top: 0; border-bottom-color: var(--fg); }
+.spot { box-shadow: 0 0 0 3px var(--accent) !important; border-radius: 10px; }
+
+/* Other tab and notification */
+.other { flex: 1; padding: 40px 16px; display: grid; place-items: center; }
+.other .art { width: min(620px, 100%); display: flex; flex-direction: column; gap: 12px; }
+.toast { position: absolute; right: 16px; bottom: 16px; z-index: 40; width: min(330px, calc(100% - 32px)); background: var(--panel); border-radius: 14px; box-shadow: var(--shadow), inset 0 0 0 1px var(--line); padding: 14px; display: flex; gap: 12px; cursor: pointer; text-align: left; border: 0; }
+.toast .brand-sq { width: 34px; height: 34px; border-radius: 9px; background: var(--fg); color: var(--bg); display: grid; place-items: center; flex: none; }
+.toast .brand-sq svg { width: 20px; height: 20px; }
+.toast b { display: block; font-size: 14px; }
+.toast span { font-size: 13px; color: var(--fg-3); }
+.toast small { display: block; font-size: 11.5px; color: var(--fg-3); margin-bottom: 2px; }
+
+.caption { font-size: 13px; color: var(--fg-3); margin: 0; }
+
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .side { border-right: 0; border-bottom: 1px solid var(--line); flex-direction: row; flex-wrap: wrap; gap: 4px; }
+  .side .grow { display: none; }
+  .nav { padding: 4px 8px; }
+  .nav svg { width: 24px; height: 24px; padding: 5px; }
+  .pill { order: -1; }
+  .detail { left: 0; bottom: auto; top: calc(100% + 8px); width: min(280px, 90vw); }
+  .main { padding: 20px 16px 32px; }
+  .trio { grid-template-columns: minmax(0, 1fr); }
+  .card { padding: 24px 20px; }
+  .tour::before { display: none; }
+  .tab { max-width: 160px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin, .skel { animation: none; }
+  .bar-fill { transition: none; }
+}
+</style>
+
+<div class="wrap">
+  <div class="review">
+    <h1>Cluster first run</h1>
+    <p>Mockup. Click through it like a new user, or jump to a step. Google's and Microsoft's windows are illustrations, not their real pages.</p>
+    <div class="steps" role="group" aria-label="Jump to a step">
+      <button class="chip" data-jump="welcome">1 Welcome</button>
+      <button class="chip" data-jump="connect">2 Choose email</button>
+      <button class="chip" data-jump="provider">3 Sign in</button>
+      <button class="chip" data-jump="app">4 Dashboard and scan</button>
+      <button class="chip" data-jump="away">5 Leave and come back</button>
+      <button class="chip ghost" id="speed" aria-pressed="false">Speed 1x</button>
+      <button class="chip ghost" id="restart">Restart</button>
+    </div>
+  </div>
+
+  <div class="browser" id="browser">
+    <div class="tabs">
+      <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+      <button class="tab on" id="tab-cluster">
+        <span class="fav" id="tab-fav"></span><span class="t" id="tab-title">Welcome to Cluster</span>
+      </button>
+      <button class="tab" id="tab-other">
+        <span class="fav"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M4.5 6h7M4.5 9h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span><span class="t">The Morning Read</span>
+      </button>
+    </div>
+    <div class="toolbar">
+      <span class="omni" id="omni">chrome-extension://cluster/welcome.html</span>
+      <button class="ext" title="Extensions" aria-label="Extensions"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 3.5h4v3a1.5 1.5 0 1 0 3 0h1.5v4h-2a1.5 1.5 0 1 0 0 3h2v3h-13v-13H8"/></svg></button>
+      <button class="ext" id="ext-cluster" title="Cluster" aria-label="Cluster">
+        <span class="cl-mark"></span>
+        <span class="badge" id="ext-badge" hidden></span>
+      </button>
+    </div>
+    <div class="viewport" id="viewport"></div>
+  </div>
+  <p class="caption" id="caption"></p>
+</div>
+
+<script>
+(function () {
+  const MARK = '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M 110.68,26 Q 128,16 145.32,26 L 207.67,62 Q 224.99,72 224.99,92 L 224.99,164 Q 224.99,184 207.67,194 L 145.32,230 Q 128,240 110.68,230 L 48.33,194 Q 31.01,184 31.01,164 L 31.01,92 Q 31.01,72 48.33,62 Z M 81 88 h 94 a 12 12 0 0 1 12 12 v 56 a 12 12 0 0 1 -12 12 h -94 a 12 12 0 0 1 -12 -12 v -56 a 12 12 0 0 1 12 -12 Z M 75 96 L 128 129.6 L 181 96 L 181 82 L 75 82 Z" fill="currentColor" fill-rule="evenodd"/></svg>';
+  const I = {
+    home: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.6 10 3.3l6.8 5.3v7.2a1 1 0 0 1-1 1h-3.4v-4.6H7.6v4.6H4.2a1 1 0 0 1-1-1z"/></svg>',
+    trash: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.2 6h11.6"/><path d="M8.2 6V4.6a1 1 0 0 1 1-1h1.6a1 1 0 0 1 1 1V6"/><path d="M6.6 6 7.3 15a1 1 0 0 0 1 .9h3.4a1 1 0 0 0 1-.9L13.4 6"/></svg>',
+    inbox: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.4h3.2l1.1 1.8h5.4l1.1-1.8H17"/><path d="M4.4 5.2h11.2l1.4 6.2v3.2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3.2z"/></svg>',
+    layers: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.4 3.2 7.4 10 11.4 16.8 7.4Z"/><path d="M3.2 11 10 15 16.8 11"/></svg>',
+    shield: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.9 4.2 5v4.6c0 3.2 2.3 6 5.8 7.5 3.5-1.5 5.8-4.3 5.8-7.5V5z"/></svg>',
+    lock: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="8.5" width="11" height="8" rx="2"/><path d="M7 8.5V6.5a3 3 0 0 1 6 0v2"/></svg>',
+    info: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="10" cy="10" r="7"/><path d="M10 9v4.5M10 6.6h.01"/></svg>',
+  };
+  document.querySelectorAll(".cl-mark").forEach((el) => (el.innerHTML = MARK));
+
+  const vp = document.getElementById("viewport");
+  const caption = document.getElementById("caption");
+  const tabTitle = document.getElementById("tab-title");
+  const tabFav = document.getElementById("tab-fav");
+  const omni = document.getElementById("omni");
+  const badge = document.getElementById("ext-badge");
+  const tabCluster = document.getElementById("tab-cluster");
+  const tabOther = document.getElementById("tab-other");
+  const speedBtn = document.getElementById("speed");
+
+  // ── Scan simulation ─────────────────────────────────────────────────
+  const TOTAL = 3120;
+  const STAGES = [
+    { name: "Looking for scams", until: 0.15 },
+    { name: "Reading senders", until: 0.7 },
+    { name: "Finding subscriptions", until: 0.85 },
+    { name: "Building clean-up suggestions", until: 1 },
+  ];
+  const S = { screen: "welcome", provider: "Google", email: "", cancelled: false, scanning: false, done: false,
+    count: 0, started: 0, samples: [], paused: 0, pausedNotice: false, speed: 1, tour: -1, tourOffered: false,
+    page: "home", detailOpen: false, leaveSeen: false, away: false, toast: false, whyOpen: -1 };
+  let timer = null;
+
+  function frac() { return S.count / TOTAL; }
+  function stageIndex() { const f = frac(); return STAGES.findIndex((s) => f < s.until || s.until === 1); }
+  function eta() {
+    if (S.paused > 0) return `Gmail asked us to slow down · resuming in ${Math.ceil(S.paused)}s`;
+    if (S.samples.length < 6) return "Estimating time left…";
+    const a = S.samples[0], b = S.samples[S.samples.length - 1];
+    const rate = (b.c - a.c) / Math.max(0.001, b.t - a.t);
+    const left = Math.max(1, Math.round((TOTAL - S.count) / Math.max(1, rate)));
+    return left > 60 ? `about ${Math.ceil(left / 60)} min left` : `about ${left}s left`;
+  }
+
+  function startScan() {
+    if (S.scanning || S.done) return;
+    S.scanning = true; S.started = performance.now();
+    let last = performance.now();
+    timer = setInterval(() => {
+      const now = performance.now(); const dt = ((now - last) / 1000) * S.speed; last = now;
+      if (S.paused > 0) { S.paused -= dt; if (S.paused <= 0) S.paused = 0; tick(); return; }
+      if (!S.pausedNotice && frac() > 0.55) { S.pausedNotice = true; S.paused = 4; tick(); return; }
+      const rate = 70 + Math.random() * 25;
+      S.count = Math.min(TOTAL, S.count + rate * dt);
+      S.samples.push({ t: now / 1000 * S.speed, c: S.count }); if (S.samples.length > 12) S.samples.shift();
+      if (S.count >= TOTAL) { S.count = TOTAL; S.done = true; S.scanning = false; clearInterval(timer); if (S.away) S.toast = true; }
+      tick();
+    }, 250);
+  }
+  function stopScan() { clearInterval(timer); timer = null; }
+
+  // ── Fake results, revealed as the scan passes each stage ────────────
+  const has = { scams: () => frac() >= 0.15, senders: () => frac() >= 0.7, subs: () => frac() >= 0.85, plan: () => S.done };
+  const LOGOS = [["M", "#1d1d1f"], ["G", "#53a318"], ["O", "#1d4f91"], ["N", "#111111"], ["A", "#f08804"], ["T", "#cc0000"]];
+  const logo = (l, c, cls = "logo") => `<span class="${cls}" style="background:${c}">${l}</span>`;
+  const skel = (w = "3.2em") => `<span class="skel" style="width:${w}"></span>`;
+
+  // ── Chrome chrome: tab title, favicon ring, extension badge ─────────
+  function chrome() {
+    const pct = Math.floor(frac() * 100);
+    if (S.screen === "welcome" || S.screen === "connect" || S.screen === "provider") {
+      tabTitle.textContent = "Welcome to Cluster"; omni.textContent = "chrome-extension://cluster/welcome.html";
+      tabFav.innerHTML = MARK; badge.hidden = true; return;
+    }
+    omni.textContent = "chrome-extension://cluster/dashboard.html";
+    if (S.done) {
+      tabTitle.textContent = "✓ Ready · Cluster";
+      tabFav.innerHTML = MARK + '<svg class="ring" viewBox="0 0 22 22"><circle cx="18" cy="18" r="4" fill="var(--ok)"/></svg>';
+      badge.hidden = false; badge.textContent = "✓"; badge.classList.add("done");
+    } else {
+      tabTitle.textContent = `${pct}% scanning · Cluster`;
+      const c = 2 * Math.PI * 9.5;
+      tabFav.innerHTML = MARK + `<svg class="ring" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9.5" fill="none" stroke="var(--line-2)" stroke-width="1.6"/><circle cx="11" cy="11" r="9.5" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - frac())}" transform="rotate(-90 11 11)"/></svg>`;
+      badge.hidden = false; badge.textContent = `${pct}%`; badge.classList.remove("done");
+    }
+  }
+
+  // ── Screens ─────────────────────────────────────────────────────────
+  function welcome() {
+    return `<div class="center"><div class="card">
+      <div class="brand">${MARK}Cluster</div>
+      <h2 class="big">A calmer inbox, without reading your mail for you.</h2>
+      <p class="lead">Cluster clears out junk, sorts what's left and holds back scams.</p>
+      <div class="trio">
+        <div>${I.trash}<b>Clear out</b><span>Remove piles of old mail in one go.</span></div>
+        <div>${I.layers}<b>Sort</b><span>Receipts, newsletters and codes go where they belong.</span></div>
+        <div>${I.shield}<b>Protect</b><span>Emails that look like scams wait for you to check.</span></div>
+      </div>
+      <button class="btn primary wide" data-go="connect">Get started</button>
+      <p class="note">${I.lock}<span>Everything runs on your computer. Your mail is never sent anywhere.</span></p>
+    </div></div>`;
+  }
+
+  function detect(email) {
+    const d = (email.split("@")[1] || "").toLowerCase();
+    if (/^(gmail|googlemail)\.com$/.test(d)) return "Google";
+    if (/^(outlook|hotmail|live|msn)\.[a-z.]+$/.test(d)) return "Microsoft";
+    return null;
+  }
+
+  function connect() {
+    const found = detect(S.email);
+    return `<div class="center"><div class="card">
+      <div class="brand">${MARK}Cluster</div>
+      <h2 class="big">Which email should Cluster look after?</h2>
+      ${S.cancelled ? `<p class="msg">No problem. Connect whenever you're ready.</p>` : ""}
+      <div class="field">
+        <label for="email">Email address</label>
+        <input id="email" type="email" autocomplete="email" placeholder="you@gmail.com" value="${S.email}">
+        <p class="hint ${found ? "found" : ""}" id="email-hint">${found ? `${found} account. You'll sign in on ${found}'s own page.` : "Type it, or pick your provider below."}</p>
+      </div>
+      <div class="stack">
+        <button class="btn ${found === "Google" || !found ? "primary" : ""} wide" data-provider="Google"><span class="pmark">G</span>Continue with Google</button>
+        <button class="btn ${found === "Microsoft" ? "primary" : ""} wide" data-provider="Microsoft"><span class="pmark">M</span>Continue with Microsoft</button>
+      </div>
+      <p class="note">${I.lock}<span>You type your password on ${found || "Google's or Microsoft's"}${found ? "'s" : ""} own page. Cluster never sees it.</span></p>
+    </div></div>`;
+  }
+
+  function provider() {
+    const step = S.pstep || "pre";
+    if (step === "pre") {
+      return connect() + `<div class="scrim"><div class="pwin"><div class="body">
+        <h3>One more thing first</h3>
+        <p class="lead" style="font-size:15px">${S.provider} will ask if Cluster may read and change your mail. That's so Cluster can label, move and clear mail when you tell it to.</p>
+        <p class="note">${I.info}<span>You can remove Cluster's access any time, from Cluster or from your ${S.provider} account.</span></p>
+        <div class="row-end"><button class="btn" data-go="connect">Back</button><button class="btn primary" data-pstep="choose">Open ${S.provider} sign-in</button></div>
+      </div></div></div>`;
+    }
+    const host = S.provider === "Google" ? "accounts.google.com" : "login.microsoftonline.com";
+    const bar = `<div class="bar">${I.lock}${host}</div>`;
+    const ill = `<p class="ill">Illustration of ${S.provider}'s own window. Their real design and wording will differ.</p>`;
+    if (step === "choose") {
+      const mail = S.email || (S.provider === "Google" ? "sam@gmail.com" : "sam@outlook.com");
+      return connect() + `<div class="scrim"><div class="pwin">${bar}<div class="body">
+        ${ill}<h3>Choose an account</h3><p class="hint">to continue to Cluster</p>
+        <button class="acct" data-pstep="consent"><span class="av" style="background:#3563c7">S</span><span><b>Sam</b><span>${mail}</span></span></button>
+        <button class="acct" data-pstep="consent"><span class="av" style="background:#7a6a58">W</span><span><b>Work</b><span>sam@company.com</span></span></button>
+        <button class="acct" data-pstep="consent"><span class="av" style="background:var(--panel-2);color:var(--fg-3)">+</span><span><b>Use another account</b><span>Password and two-step sign-in happen here</span></span></button>
+      </div></div></div>`;
+    }
+    return connect() + `<div class="scrim"><div class="pwin">${bar}<div class="body">
+      ${ill}<h3>Cluster wants access to your account</h3>
+      <ul class="perm"><li>Read, organize and delete your email</li><li>Manage your email filters</li></ul>
+      <p class="hint">Make sure you trust Cluster. You can remove access in your account settings.</p>
+      <div class="row-end"><button class="btn" data-cancel>Cancel</button><button class="btn primary" data-go="app">Allow</button></div>
+    </div></div></div>`;
+  }
+
+  function nav(id, label, icon, n = "") {
+    return `<button class="nav ${S.page === id ? "on" : ""}" data-page="${id}" id="nav-${id}">${icon}${label}${n}</button>`;
+  }
+
+  function pill() {
+    const si = stageIndex();
+    const pct = Math.floor(frac() * 100);
+    const top = S.done ? "Scan complete" : "Scanning your mail";
+    const sub = S.done ? `${TOTAL.toLocaleString()} emails checked · Updated just now` : `${Math.floor(S.count).toLocaleString()} of ${TOTAL.toLocaleString()} · ${eta()}`;
+    const detail = S.detailOpen ? `<div class="detail" role="dialog" aria-label="Scan details">
+        <h4>${S.done ? "Your mail is ready" : "What Cluster is doing"}</h4>
+        ${STAGES.map((s, i) => {
+          const st = S.done || i < si ? "ok" : i === si ? "now" : "";
+          const c = st === "ok" ? "Done" : st === "now" ? `${pct}%` : "";
+          return `<div class="stage ${st}"><span class="dot">${st === "ok" ? "✓" : ""}</span>${s.name}<span class="c">${c}</span></div>`;
+        }).join("")}
+        <p>You can close this tab. Cluster keeps going and puts a ✓ on its icon when it's done.</p>
+      </div>` : "";
+    return `<div style="position:relative" id="pill-wrap">${detail}<button class="pill ${S.done ? "done" : ""}" id="scan-pill" aria-expanded="${S.detailOpen}">
+      <span class="top"><span class="spin" aria-hidden="true"></span>${top}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${pct}%"></span></span>
+      <span class="sub">${sub}</span></button></div>`;
+  }
+
+  function headline() {
+    if (!has.scams()) return "Checking your mail. Results appear as they're found.";
+    if (!S.done) return "2 emails look like scams. More results are on the way.";
+    return "2 emails look like scams. 412 emails can be cleared out.";
+  }
+
+  function weekChart() {
+    const days = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
+    const data = [[12, 18, 6], [9, 14, 4], [22, 25, 9], [19, 30, 7], [24, 21, 11], [17, 27, 8], [21, 33, 10]];
+    const max = 70, W = 560, H = 170, pad = 28, bw = 38;
+    const gap = (W - pad - bw * 7) / 7;
+    const colors = ["var(--accent)", "#c4508c", "#c48a1d"];
+    let bars = "";
+    data.forEach((d, i) => {
+      let y = H - 22; const x = pad + gap / 2 + i * (bw + gap);
+      d.forEach((v, k) => { const h = (v / max) * (H - 40); y -= h; bars += `<rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="3" fill="${colors[k]}"/>`; });
+      bars += `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle" font-size="11" fill="var(--fg-3)">${days[i]}</text>`;
+    });
+    const grid = [0, 35, 70].map((v) => { const y = H - 22 - (v / max) * (H - 40); return `<line x1="${pad}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${pad - 6}" y="${y + 4}" text-anchor="end" font-size="10" fill="var(--fg-3)">${v}</text>`; }).join("");
+    return `<div class="chart"><div class="head"><b>Most of this week's mail was promotions</b><span>Emails per day</span></div>
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Emails per day this week, split into promotions, newsletters and receipts.">${grid}${bars}</svg>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Newsletters 124</span><span><i style="background:#c4508c"></i>Promotions 168</span><span><i style="background:#c48a1d"></i>Receipts 55</span></div></div>`;
+  }
+
+  function homePage() {
+    return `
+      <div><h2 class="ptitle">Home</h2><p class="plead">${headline()}</p></div>
+      ${!S.leaveSeen ? `<div class="leave"><p><b>You don't have to wait here.</b> Cluster keeps scanning if you switch tabs or close this one, and puts a ✓ on its icon when it's ready.</p><button class="btn" data-leave>Try switching tabs</button><button class="btn" data-leave-ok>Got it</button></div>` : ""}
+      <div class="tiles">
+        <div class="tile"><span class="k">Look like scams</span><span class="v ${has.scams() ? "red" : ""}">${has.scams() ? "2" : skel()}</span></div>
+        <div class="tile"><span class="k">Can be cleared out</span><span class="v">${S.done ? "412" : skel()}</span></div>
+        <div class="tile"><span class="k">Subscriptions</span><span class="v">${has.subs() ? "31" : skel()}</span></div>
+      </div>
+      ${has.senders() ? weekChart() : `<div class="chart"><div class="head"><b>This week's mail</b><span>Filling in…</span></div><span class="skel line" style="height:150px"></span></div>`}
+      <div class="sec"><h3>Recommendations</h3><div class="list">
+        ${has.scams() ? `<div class="li red"><div class="tx"><b>Check 2 emails that look like scams</b><span>They claim to be PayPal and Netflix.</span></div><button class="btn" data-page="safety">Review</button></div>` : `<div class="li"><div class="tx"><span class="skel line" style="width:60%"></span></div></div>`}
+        ${S.done ? `<div class="li"><div class="tx"><b>Clear out 412 emails</b><span>From 18 senders you never open.</span></div><button class="btn" data-page="clear">Review</button></div>` : `<div class="li"><div class="tx"><span class="skel line" style="width:45%"></span></div></div>`}
+        ${has.subs() ? `<div class="li"><div class="tx"><b>Leave 9 newsletters</b><span>One step each.</span></div><button class="btn">Review</button></div>` : `<div class="li"><div class="tx"><span class="skel line" style="width:52%"></span></div></div>`}
+      </div></div>`;
+  }
+
+  function clearPage() {
+    const card = (t, s, logos, btn) => `<div class="sg"><div class="stackl">${logos.map(([l, c]) => logo(l, c)).join("")}</div><b>${t}</b><span>${s}</span><button class="btn primary">${btn}</button></div>`;
+    return `<div><h2 class="ptitle">Clear out</h2><p class="plead">${S.done ? "Three groups. One choice each." : "Suggestions appear here as the scan finds them."}</p></div>
+      ${S.done ? `<div class="cards">
+        ${card("Never opened", "18 senders · 412 emails", LOGOS.slice(0, 4), "Clear out")}
+        ${card("Old promotions", "Older than 3 months · 290 emails", LOGOS.slice(2, 6), "Clear out")}
+        ${card("Expired codes", "Sign-in codes older than 2 days · 46", [["#", "#636369"]], "Clear out")}
+      </div>` : `<div class="cards">${[1, 2, 3].map(() => `<div class="sg"><span class="skel line" style="width:40%"></span><span class="skel line"></span><span class="skel line" style="width:70%"></span></div>`).join("")}</div>`}`;
+  }
+
+  function sortPage() {
+    const cats = [["Updates", "Newsletters and social", "1 week"], ["Promotions", "Sales and offers", "1 day"], ["Orders", "Shipping and tracking", "Until delivered"], ["Receipts", "Bills and payments", "Keep in inbox"], ["Codes", "Sign-in codes", "1 day"]];
+    return `<div><h2 class="ptitle">Sorting</h2><p class="plead">Where each kind of mail goes, and how long it stays.</p></div>
+      <div class="cards">${cats.map(([n, d, t]) => `<div class="sg"><b>${n}</b><span>${d}</span><span>Stays in inbox: <b style="font-size:13px">${t}</b></span></div>`).join("")}</div>`;
+  }
+
+  function safetyPage() {
+    const item = (i, who, subj, reasons) => `<div class="sg"><b>${subj}</b><span>From ${who}</span>
+      ${S.whyOpen === i ? `<p class="why">${reasons}</p>` : ""}
+      <div class="row-end" style="justify-content:flex-start"><button class="btn" data-why="${i}">${S.whyOpen === i ? "Hide why" : "Why is this suspicious?"}</button><button class="btn">It's fine</button><button class="btn" style="color:var(--danger)">Block</button></div></div>`;
+    return `<div><h2 class="ptitle">Safety</h2><p class="plead">${has.scams() ? "2 emails look like scams. They're still in your inbox." : "Checking for scams first. This takes a few seconds."}</p></div>
+      ${has.scams() ? `<div class="stack">${item(0, "PayPal Security (paypa1-secure.com)", "Action required: verify your identity", "It says it's from PayPal, but the address isn't one PayPal uses. It also failed the check that proves who sent it.")}${item(1, "Netflix (netflix-account-update.xyz)", "Payment declined: update your billing", "The sender's address isn't Netflix's, and the subject pushes you to act fast.")}</div>` : `<div class="sg"><span class="skel line" style="width:50%"></span><span class="skel line"></span></div>`}`;
+  }
+
+  function sendersPage() {
+    const rows = [["Medium Daily Digest", "12 emails · never opened", "M", "#1d1d1f"], ["Groupon", "7 emails · never opened", "G", "#53a318"], ["Old Navy", "5 emails · never opened", "O", "#1d4f91"], ["Amazon", "14 emails · 2 addresses", "A", "#f08804"]];
+    return `<div><h2 class="ptitle">Senders</h2><p class="plead">${has.senders() ? "Everyone who emails you, busiest first." : "Senders appear here as they're read."}</p></div>
+      <div class="list">${(has.senders() ? rows : rows.map(() => null)).map((r) => r ? `<div class="li">${logo(r[2], r[3])}<div class="tx"><b>${r[0]}</b><span>${r[1]}</span></div></div>` : `<div class="li"><span class="skel" style="width:32px;height:32px;border-radius:9px"></span><div class="tx"><span class="skel line" style="width:40%"></span></div></div>`).join("")}</div>`;
+  }
+
+  const TOUR = [
+    { el: "nav-home", page: "home", t: "Home", d: () => "Your inbox at a glance. The most important thing is always at the top." },
+    { el: "nav-clear", page: "clear", t: "Clear out", d: () => S.done ? "412 emails you can get rid of. One click per group." : "Suggestions show up here as the scan finds them." },
+    { el: "nav-sorting", page: "sorting", t: "Sorting", d: () => "Pick how long each kind of mail stays in your inbox. Cluster does the rest." },
+    { el: "nav-safety", page: "safety", t: "Safety", d: () => has.scams() ? "2 emails look like scams. Tap one to see why." : "Scams are checked first, so this fills in quickly." },
+    { el: "scan-pill", page: null, t: "Scan status", d: () => S.done ? "Done. Cluster checks again every few hours on its own." : "This shows Cluster working. You can leave, and the icon gets a ✓ when it's done." },
+  ];
+
+  function app() {
+    const page = { home: homePage, clear: clearPage, sorting: sortPage, safety: safetyPage, senders: sendersPage }[S.page]();
+    return `<div class="app">
+      <nav class="side" aria-label="Sections">
+        ${nav("home", "Home", I.home)}
+        ${nav("clear", "Clear out", I.trash, S.done ? '<span class="n">412</span>' : "")}
+        ${nav("senders", "Senders", I.inbox)}
+        ${nav("sorting", "Sorting", I.layers)}
+        ${nav("safety", "Safety", I.shield, has.scams() ? '<span class="n red">2</span>' : "")}
+        <span class="grow"></span>
+        ${pill()}
+      </nav>
+      <main class="main">${page}</main>
+    </div>${tourBubble()}`;
+  }
+
+  function tourBubble() {
+    if (S.tour === -1 && !S.tourOffered) {
+      return `<div class="tour below" id="tour" style="right:20px;top:20px">
+        <span class="step">While we scan</span><b>Want a 30-second tour?</b>
+        <p>Your results fill in as you go.</p>
+        <div class="row"><button class="skip" data-tour-skip>Skip</button><button class="go" data-tour-start>Show me</button></div></div>`;
+    }
+    if (S.tour < 0 || S.tour >= TOUR.length) return "";
+    const s = TOUR[S.tour];
+    return `<div class="tour" id="tour"><span class="step">${S.tour + 1} of ${TOUR.length}</span><b>${s.t}</b><p>${s.d()}</p>
+      <div class="row"><button class="skip" data-tour-skip>End tour</button><button class="go" data-tour-next>${S.tour === TOUR.length - 1 ? "Done" : "Next"}</button></div></div>`;
+  }
+
+  function placeTour() {
+    const tour = document.getElementById("tour");
+    if (!tour || S.tour < 0) return;
+    const target = document.getElementById(TOUR[S.tour].el);
+    if (!target) return;
+    target.classList.add("spot");
+    const vr = vp.getBoundingClientRect(), r = target.getBoundingClientRect();
+    if (vr.width < 760) { tour.classList.add("below"); tour.style.left = "16px"; tour.style.top = `${r.bottom - vr.top + 10}px`; return; }
+    tour.style.left = `${r.right - vr.left + 14}px`;
+    tour.style.top = `${Math.min(r.top - vr.top - 6, vr.height - tour.offsetHeight - 16)}px`;
+  }
+
+  function away() {
+    return `<div class="other"><div class="art">
+      <h2 class="big" style="font-size:28px">Ten small habits for a quieter week</h2>
+      <p class="lead">You're on another tab. Watch the Cluster tab title and the Cluster icon in the toolbar.</p>
+      ${[90, 100, 80, 95, 60].map((w) => `<span class="skel line" style="width:${w}%;animation:none"></span>`).join("")}
+      <p class="hint">Click the Cluster tab, the Cluster icon or the notification to go back.</p>
+    </div></div>
+    ${S.toast ? `<button class="toast" data-back><span class="brand-sq">${MARK}</span><span><small>Cluster · now</small><b>Your inbox is ready</b><span>2 emails look like scams. 412 can be cleared out.</span></span></button>` : ""}`;
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────
+  function render() {
+    document.querySelectorAll(".spot").forEach((e) => e.classList.remove("spot"));
+    const focusId = document.activeElement && document.activeElement.id;
+    tabCluster.classList.toggle("on", !S.away); tabOther.classList.toggle("on", S.away);
+    if (S.away) vp.innerHTML = away();
+    else vp.innerHTML = { welcome, connect, provider, app }[S.screen]();
+    if (S.screen === "app" && !S.away) placeTour();
+    chrome();
+    document.querySelectorAll("[data-jump]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.jump === (S.away ? "away" : S.screen))));
+    caption.textContent = CAPTIONS[S.away ? "away" : S.screen];
+    if (focusId === "email") { const e = document.getElementById("email"); if (e) { e.focus(); e.setSelectionRange(e.value.length, e.value.length); } }
+  }
+  // A full redraw only when results change (a stage finishes); otherwise just
+  // the pill and the tab, so buttons are never replaced under the pointer.
+  let lastKey = "";
+  function tick() {
+    if (S.screen !== "app") return;
+    if (S.away) { chrome(); if (S.toast && !vp.querySelector(".toast")) render(); return; }
+    const key = `${stageIndex()}|${S.done}|${has.scams()}|${has.senders()}|${has.subs()}`;
+    if (key !== lastKey) { lastKey = key; render(); return; }
+    const wrap = document.getElementById("pill-wrap");
+    if (wrap) {
+      const tmp = document.createElement("div"); tmp.innerHTML = pill();
+      const next = tmp.firstElementChild;
+      wrap.querySelector(".bar-fill").style.width = next.querySelector(".bar-fill").style.width;
+      wrap.querySelector(".sub").textContent = next.querySelector(".sub").textContent;
+      const d = wrap.querySelector(".detail"), nd = next.querySelector(".detail");
+      if (d && nd) d.innerHTML = nd.innerHTML;
+    }
+    chrome();
+  }
+
+  const CAPTIONS = {
+    welcome: "1. Opens by itself right after install. One sentence, three pictures, one button.",
+    connect: "2. Typing the address picks Google or Microsoft. Cluster never asks for the password.",
+    provider: "3. A short heads-up, then Google's or Microsoft's own window: choose an account, then allow.",
+    app: "4. The dashboard opens at once. The scan runs in the bottom-left pill, results fill in live, and the tour runs meanwhile. Click the pill for details.",
+    away: "5. Leave the tab: the tab title counts up, the toolbar icon shows the percent, then a ✓ and a notification when it's done.",
+  };
+
+  // ── Events ──────────────────────────────────────────────────────────
+  document.addEventListener("input", (e) => {
+    if (e.target.id !== "email") return;
+    S.email = e.target.value.trim();
+    const found = detect(S.email);
+    const hint = document.getElementById("email-hint");
+    hint.className = `hint ${found ? "found" : ""}`;
+    hint.textContent = found ? `${found} account. You'll sign in on ${found}'s own page.` : "Type it, or pick your provider below.";
+    document.querySelectorAll("[data-provider]").forEach((b) => b.classList.toggle("primary", found ? b.dataset.provider === found : b.dataset.provider === "Google"));
+  });
+
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest("button");
+    if (!t) { if (S.detailOpen && !e.target.closest(".detail")) { S.detailOpen = false; render(); } return; }
+    const d = t.dataset;
+    if (d.jump) return jump(d.jump);
+    if (t.id === "restart") return reset();
+    if (t.id === "speed") { S.speed = S.speed === 1 ? 6 : 1; t.textContent = `Speed ${S.speed}x`; t.setAttribute("aria-pressed", String(S.speed > 1)); return; }
+    if (d.go === "connect") { S.screen = "connect"; S.pstep = null; return render(); }
+    if (d.provider) { S.provider = d.provider; S.cancelled = false; S.screen = "provider"; S.pstep = "pre"; return render(); }
+    if (d.pstep) { S.pstep = d.pstep; return render(); }
+    if ("cancel" in d) { S.screen = "connect"; S.cancelled = true; S.pstep = null; return render(); }
+    if (d.go === "app") { S.screen = "app"; S.page = "home"; render(); startScan(); return; }
+    if (d.page) { S.page = d.page; return render(); }
+    if (t.id === "scan-pill") { S.detailOpen = !S.detailOpen; return render(); }
+    if ("tourStart" in d) { S.tourOffered = true; S.tour = 0; S.page = TOUR[0].page; return render(); }
+    if ("tourSkip" in d) { S.tourOffered = true; S.tour = -2; return render(); }
+    if ("tourNext" in d) { S.tour += 1; if (S.tour >= TOUR.length) S.tour = -2; else if (TOUR[S.tour].page) S.page = TOUR[S.tour].page; return render(); }
+    if ("leave" in d) { S.leaveSeen = true; S.away = true; return render(); }
+    if ("leaveOk" in d) { S.leaveSeen = true; return render(); }
+    if (d.why !== undefined) { S.whyOpen = S.whyOpen === Number(d.why) ? -1 : Number(d.why); return render(); }
+    if ("back" in d || t.id === "tab-cluster" || t.id === "ext-cluster") { if (S.screen === "app" || S.away) { S.away = false; S.toast = false; if (S.done) S.page = "home"; } return render(); }
+    if (t.id === "tab-other") { if (S.screen === "app") { S.away = true; S.leaveSeen = true; if (S.done) S.toast = true; render(); } return; }
+  });
+
+  window.addEventListener("resize", () => { if (S.screen === "app" && !S.away) render(); });
+
+  function reset() {
+    stopScan();
+    Object.assign(S, { screen: "welcome", email: "", cancelled: false, scanning: false, done: false, count: 0, samples: [], paused: 0,
+      pausedNotice: false, tour: -1, tourOffered: false, page: "home", detailOpen: false, leaveSeen: false, away: false, toast: false, whyOpen: -1, pstep: null });
+    render();
+  }
+  function jump(step) {
+    if (step === "welcome" || step === "connect") { reset(); S.screen = step; return render(); }
+    if (step === "provider") { reset(); S.screen = "provider"; S.pstep = "choose"; return render(); }
+    if (step === "app") { reset(); S.screen = "app"; render(); startScan(); return; }
+    if (step === "away") { if (S.screen !== "app") { reset(); S.screen = "app"; startScan(); } S.tourOffered = true; S.tour = -2; S.leaveSeen = true; S.away = true; return render(); }
+  }
+
+  render();
+})();
+</script>
