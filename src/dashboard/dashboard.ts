@@ -95,6 +95,7 @@ import { listGroup, listRow } from "./listRow";
 import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import { evaluateUnsubscribeOutcome } from "../lib/unsubscribeOutcome";
+import { CLUSTER_FIRST_ON, CLUSTER_QUESTIONS, initKaiGuide } from "./kaiGuide";
 
 const selectedSenderKeys = new Set<string>();
 const selectedDomainKeys = new Set<string>();
@@ -444,6 +445,12 @@ function wireThemeSelect() {
 }
 
 async function main() {
+  // Kai in the corner, from the first screen (even before Gmail is connected).
+  initKaiGuide(document, {
+    questions: CLUSTER_QUESTIONS,
+    firstOn: CLUSTER_FIRST_ON,
+    currentScreen: () => document.querySelector<HTMLElement>("#sidebar .nav-item.active")?.dataset.screen ?? "overview",
+  });
   statusEl.textContent = "Connecting…";
   // Domain matching needs the Public Suffix List (a local file, quick to load).
   const [settings] = await Promise.all([getSettings(), loadPublicSuffixList()]);
