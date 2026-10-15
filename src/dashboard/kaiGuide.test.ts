@@ -16,9 +16,9 @@ function setup(screen = "overview") {
   });
   const button = document.querySelector<HTMLButtonElement>(".kai-button")!;
   const panel = document.getElementById("kai-chat")!;
-  const chips = () => [...panel.querySelectorAll(".kai-q")].map((b) => b.textContent);
-  const chip = (text: string) => [...panel.querySelectorAll<HTMLButtonElement>(".kai-q")].find((b) => b.textContent === text)!;
-  const said = () => [...panel.querySelectorAll(".kg-msg.kg-kai:not(.typing)")].map((m) => m.firstChild?.textContent ?? "");
+  const chips = () => Array.from(panel.querySelectorAll(".kai-q")).map((b) => b.textContent);
+  const chip = (text: string) => Array.from(panel.querySelectorAll<HTMLButtonElement>(".kai-q")).find((b) => b.textContent === text)!;
+  const said = () => Array.from(panel.querySelectorAll(".kg-msg.kg-kai:not(.typing)")).map((m) => m.firstChild?.textContent ?? "");
   const open = () => { button.click(); vi.advanceTimersByTime(2000); };
   return { button, panel, chips, chip, said, open, navClick };
 }
