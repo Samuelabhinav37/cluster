@@ -25,7 +25,9 @@ const KB = 1024;
 const BUDGETS = {
   "service worker JS": 340 * KB,
   "dashboard JS": 500 * KB,
-  "dashboard CSS": 50 * KB,
+  // 2026-10-16: +10 KB for Kai's corner guide and chat (dashboard.css Kai
+  // section, ~8 KB raw / 1.5 KB gzip), on top of 47 KB before Kai.
+  "dashboard CSS": 60 * KB,
 };
 
 function file(name) {
