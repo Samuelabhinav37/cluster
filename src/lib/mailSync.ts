@@ -23,6 +23,11 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Without a change feed, mail this recent is re-read so read/flag state is current. */
 export const REFRESH_WINDOW_MS = 7 * DAY_MS;
 const WRITE_BATCH = 25;
+/** First list page, read before the full listing so the first screen is quick. */
+const FIRST_PAGE = 500;
+/** 150 headers cost 3,000 of Gmail's ~5,500 units a minute, so the first
+ * screen fits inside one minute's quota with room for the page's own calls. */
+export const DEFAULT_QUICK_COUNT = 150;
 const FETCH_CONCURRENCY = 4;
 
 export type SyncPhase = "listing" | "reading" | "updating" | "done";
@@ -145,10 +150,35 @@ async function buildFromListing(
   now: () => number,
   signalQuick: () => void,
 ): Promise<SyncResult> {
+  const quickCount = Math.min(options.quickCount ?? DEFAULT_QUICK_COUNT, cap);
   options.onProgress?.({ phase: "listing", done: 0, total: 0 });
-  const stubs = await provider.listCandidateMessages(token, cap, options.windowDays, "combined");
+
+  // Quick view first: one list page, then the newest unread-by-us messages,
+  // unpaced. Listing all 20,000 ids first would delay the first screen by
+  // dozens of list calls.
+  const firstPage = await provider.listCandidateMessages(
+    token,
+    Math.min(cap, FIRST_PAGE),
+    options.windowDays,
+    "combined",
+  );
+  let known = await store.ids(provider.id);
+  const quickIds = firstPage
+    .slice(0, quickCount)
+    .filter((stub) => !known.has(stub.id))
+    .map((stub) => stub.id);
+  let quickRead = 0;
+  if (quickIds.length > 0) {
+    quickRead = await readInto(provider, token, store, quickIds, options, false);
+  }
+  signalQuick();
+
+  const stubs =
+    firstPage.length < Math.min(cap, FIRST_PAGE)
+      ? firstPage
+      : await provider.listCandidateMessages(token, cap, options.windowDays, "combined");
   const listed = new Set(stubs.map((stub) => stub.id));
-  const known = await store.ids(provider.id);
+  known = await store.ids(provider.id);
 
   // Gone from the listing: trashed, archived out of every lane, or aged out.
   const gone = [...known].filter((id) => !listed.has(id));
@@ -165,16 +195,11 @@ async function buildFromListing(
     stale = new Set(rows.filter((row) => row.receivedAt >= cutoff).map((row) => row.id));
   }
 
-  // Listing order is newest first, so the newest mail is readable soonest.
+  // Listing order is newest first. The rest is paced so the person's own
+  // clicks keep some of Gmail's per-minute quota.
   const toRead = stubs.filter((stub) => !known.has(stub.id) || stale.has(stub.id)).map((s) => s.id);
-  const quickCount = options.quickCount ?? 300;
-  const alreadyHave = stubs.length - toRead.length;
-  if (alreadyHave >= Math.min(quickCount, stubs.length)) signalQuick();
-
-  const read = await readInto(provider, token, store, toRead, options, (doneCount) => {
-    if (alreadyHave + doneCount >= Math.min(quickCount, stubs.length)) signalQuick();
-  });
-  return { mode: "build", read, removed: gone.length, updated: 0 };
+  const read = await readInto(provider, token, store, toRead, options, true);
+  return { mode: "build", read: quickRead + read, removed: gone.length, updated: 0 };
 }
 
 async function applyChanges(
@@ -216,7 +241,7 @@ async function applyChanges(
 
   await store.put(updates);
   await store.remove(provider.id, dropped);
-  const read = await readInto(provider, token, store, [...toRead], options, () => {});
+  const read = await readInto(provider, token, store, [...toRead], options, false);
   return { mode: "changes", read, removed: dropped.length, updated: updates.length };
 }
 
@@ -249,11 +274,11 @@ async function readInto(
   store: MailIndexStore,
   ids: string[],
   options: SyncOptions,
-  onBatch: (doneCount: number) => void,
+  paced: boolean,
 ): Promise<number> {
   let doneCount = 0;
   for (let start = 0; start < ids.length; start += WRITE_BATCH) {
-    await options.waitForHeadroom?.();
+    if (paced) await options.waitForHeadroom?.();
     const batch = ids.slice(start, start + WRITE_BATCH);
     const rows = await mapWithConcurrency(batch, FETCH_CONCURRENCY, async (id) => {
       try {
@@ -270,7 +295,6 @@ async function readInto(
     );
     await store.put(found);
     doneCount += batch.length;
-    onBatch(doneCount);
     options.onProgress?.({ phase: "reading", done: doneCount, total: ids.length });
   }
   return doneCount;

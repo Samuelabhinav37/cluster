@@ -287,3 +287,26 @@ describe("syncMailIndex: scan window", () => {
     expect(provider.getMessageMetadata).toHaveBeenCalledWith("t", "b");
   });
 });
+
+describe("syncMailIndex: pacing", () => {
+  it("reads the first screen's worth without waiting for headroom, then paces the rest", async () => {
+    const mailbox = Array.from({ length: 80 }, (_, i) => message(`m${i}`, ["INBOX"], i));
+    const { provider } = fakeGmail(mailbox);
+    const store = createMemoryMailIndex();
+    const events: string[] = [];
+    const waitForHeadroom = vi.fn(async () => {
+      events.push("wait");
+    });
+
+    await syncMailIndex(provider, "t", store, {
+      ...options,
+      quickCount: 30,
+      waitForHeadroom,
+      onQuickReady: () => events.push("quick"),
+    });
+
+    expect(events[0]).toBe("quick");
+    expect(waitForHeadroom).toHaveBeenCalled();
+    expect(provider.getMessageMetadata).toHaveBeenCalledTimes(80);
+  });
+});

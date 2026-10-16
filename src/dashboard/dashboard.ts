@@ -30,6 +30,7 @@ import { clearMetadataCache } from "../lib/metadataCache";
 import { MAIL_INDEX_CAP, openMailIndex } from "../lib/mailIndex";
 import {
   catchUpIndex,
+  DEFAULT_QUICK_COUNT,
   readMailIndex,
   syncChangedIndex,
   syncMailIndex,
@@ -581,11 +582,15 @@ interface IndexRun {
   done: Promise<SyncResult | null>;
   error?: unknown;
   progress?: SyncProgress;
+  /** When progress last moved, to tell a quota pause from a stall. */
+  progressAt?: number;
   settled?: boolean;
 }
 const indexRuns = new Map<ProviderId, IndexRun>();
 const indexStatusEl = document.getElementById("index-status") as HTMLParagraphElement;
-const QUICK_READY_COUNT = 300;
+const QUICK_READY_COUNT = DEFAULT_QUICK_COUNT;
+// No progress for this long while reading means Gmail's rate limit is pacing us.
+const QUOTA_PAUSE_MS = 4000;
 const CHANGES_WAIT_MS = 4000;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // Leave room in Gmail's per-minute quota for the person's own clicks.
@@ -617,6 +622,7 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
           onQuickReady: resolveQuick,
           onProgress: (progress) => {
             run.progress = progress;
+            run.progressAt = Date.now();
             updateIndexStatus();
           },
           waitForHeadroom: provider.id === "gmail" ? waitForGmailHeadroom : undefined,
@@ -642,7 +648,7 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
 function updateIndexStatus() {
   const reading = [...indexRuns.values()]
     .map((run) => run.progress)
-    .filter((p): p is SyncProgress => p?.phase === "reading" && p.total > QUICK_READY_COUNT);
+    .filter((p): p is SyncProgress => p?.phase === "reading");
   if (reading.length === 0 || !statusEl.hidden) {
     indexStatusEl.hidden = true;
     return;
@@ -697,6 +703,14 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
     return { provider, run, wasRunning, builtBefore: builtBefore[i] };
   });
   const showProgress = () => {
+    const paused = runs.some(
+      ({ run }) => run.progressAt !== undefined && Date.now() - run.progressAt > QUOTA_PAUSE_MS,
+    );
+    if (paused) {
+      statusEl.textContent =
+        "Gmail limits how fast apps can read mail. Cluster will continue in a moment…";
+      return;
+    }
     const reading = runs.map(({ run }) => run.progress).filter((p) => p?.phase === "reading");
     if (reading.length === 0) return;
     const done = reading.reduce((sum, p) => sum + Math.min(p!.done, QUICK_READY_COUNT), 0);
