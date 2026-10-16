@@ -45,6 +45,7 @@ import { gmailProvider } from "../lib/providers/gmailProvider";
 import { outlookProvider } from "../lib/providers/outlookProvider";
 import { OutlookReauthRequired } from "../lib/providers/msalAuth";
 import { summarizeCombined, type SenderSummary } from "../lib/senderModel";
+import { applyCensus, senderUnread, senderVolume } from "../lib/census";
 import {
   getSettings,
   mutateSettings,
@@ -581,6 +582,9 @@ interface IndexRun {
   done: Promise<SyncResult | null>;
   error?: unknown;
   progress?: SyncProgress;
+  /** Resolves when every sender has been found and counted (a build only). */
+  counted: Promise<void>;
+  countedDone?: boolean;
   /** When progress last moved, to tell a quota pause from a stall. */
   progressAt?: number;
   settled?: boolean;
@@ -605,8 +609,10 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
   const existing = indexRuns.get(provider.id);
   if (existing) return existing;
   let resolveQuick: () => void = () => {};
+  let resolveCounted: () => void = () => {};
   const run: IndexRun = {
     quick: new Promise<void>((resolve) => (resolveQuick = resolve)),
+    counted: new Promise<void>((resolve) => (resolveCounted = resolve)),
     done: Promise.resolve(null),
   };
   run.done = (async () => {
@@ -628,6 +634,10 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
           onSentReady: () => updateCorrespondentsFromIndex(provider).catch((err) =>
             log.error("Could not update people you write to", err),
           ),
+          onCounted: () => {
+            run.countedDone = true;
+            resolveCounted();
+          },
         }),
       );
       await updateCorrespondentsFromIndex(provider).catch((err) =>
@@ -652,18 +662,25 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
 
 /** Quiet line under the status while older or sent mail is still being read. */
 function updateIndexStatus() {
+  if (indexOfferShown) return;
   const active = [...indexRuns.values()]
     .map((run) => run.progress)
-    .filter((p): p is SyncProgress => p?.phase === "reading" || p?.phase === "sent");
+    .filter(
+      (p): p is SyncProgress => p?.phase === "reading" || p?.phase === "sent" || p?.phase === "detail",
+    );
   if (active.length === 0 || !statusEl.hidden) {
     indexStatusEl.hidden = true;
     return;
   }
   const done = active.reduce((sum, p) => sum + p.done, 0);
   const total = active.reduce((sum, p) => sum + p.total, 0);
-  const what = active.some((p) => p.phase === "sent") ? "your sent mail" : "older mail";
+  const of = `${done.toLocaleString()} of ${total.toLocaleString()}`;
   indexStatusEl.hidden = false;
-  indexStatusEl.textContent = `Still reading ${what}: ${done.toLocaleString()} of ${total.toLocaleString()}.`;
+  indexStatusEl.textContent = active.some((p) => p.phase === "sent")
+    ? `Still reading your sent mail: ${of}.`
+    : active.some((p) => p.phase === "reading")
+      ? `Finding everyone who emails you: ${of}.`
+      : `All senders found. Reading their mail in detail: ${of}.`;
 }
 
 /** Everyone in the sent store joins the "people you write to" list that
@@ -674,22 +691,35 @@ async function updateCorrespondentsFromIndex(provider: EmailProvider) {
 }
 
 /** After a render, offer the newer picture once a sync changes the index. */
+// True while a "Show it" offer is on screen, so progress text doesn't replace it.
+let indexOfferShown = false;
+
+function showIndexOffer(text: string) {
+  if (!statusEl.hidden) return;
+  indexOfferShown = true;
+  indexStatusEl.hidden = false;
+  indexStatusEl.textContent = `${text} `;
+  const show = document.createElement("button");
+  show.type = "button";
+  show.className = "btn-link";
+  show.textContent = "Show it";
+  show.onclick = () => {
+    indexStatusEl.hidden = true;
+    indexOfferShown = false;
+    void scanAndRender();
+  };
+  indexStatusEl.appendChild(show);
+}
+
 function offerUpdatedView(run: IndexRun) {
   // Already finished: this render includes everything it read.
   if (run.settled) return;
+  if (!run.countedDone) {
+    void run.counted.then(() => showIndexOffer("Cluster has found and counted all your mail."));
+  }
   void run.done.then((result) => {
-    if (!result || !syncChangedIndex(result) || !statusEl.hidden) return;
-    indexStatusEl.hidden = false;
-    indexStatusEl.textContent = "Cluster has read more of your mail. ";
-    const show = document.createElement("button");
-    show.type = "button";
-    show.className = "btn-link";
-    show.textContent = "Show it";
-    show.onclick = () => {
-      indexStatusEl.hidden = true;
-      void scanAndRender();
-    };
-    indexStatusEl.appendChild(show);
+    if (!result || !syncChangedIndex(result)) return;
+    showIndexOffer("Cluster has read more of your mail.");
   });
 }
 
@@ -768,6 +798,11 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
     SECURITY_SCAN_MAX_MESSAGES,
     metas.length >= MAIL_INDEX_CAP * providers.length,
   );
+  // Real per-sender totals, counted by search, for senders not fully read yet.
+  const censusRows = (await Promise.all(providers.map((p) => store.allCensus(p.id)))).flat();
+  applyCensus(combined.cleanup, censusRows);
+  applyCensus(combined.security, censusRows);
+  indexOfferShown = false;
   for (const { run } of runs) offerUpdatedView(run);
   let senders = combined.cleanup;
   const securitySenders = combined.security;
@@ -1444,11 +1479,9 @@ function revealLegacySection(id: string) {
 type PrimaryAct = "unsubscribe" | "mute" | "keepSorted";
 
 function decisionReason(sender: SenderSummary): string {
-  const unread = sender.messages.filter((m) => m.unread).length;
-  const base =
-    unread === sender.count
-      ? `nothing opened of ${sender.count}`
-      : `${unread} unread of ${sender.count}`;
+  const unread = senderUnread(sender);
+  const total = senderVolume(sender);
+  const base = unread === total ? `nothing opened of ${total}` : `${unread} unread of ${total}`;
   if (sender.unsubscribe.postUrl) return `${base} · verified one-click unsubscribe`;
   if (sender.firstContact) return `${base} · new since Cluster started tracking`;
   return base;
@@ -1486,8 +1519,10 @@ function pickDecisionSenders(senders: SenderSummary[]): { decide: SenderSummary[
     const aEng = engagementKeys.has(a.key) ? 1 : 0;
     const bEng = engagementKeys.has(b.key) ? 1 : 0;
     if (aEng !== bEng) return bEng - aEng;
-    const aScore = (a.messages.filter((m) => m.unread).length / Math.max(1, a.count)) * Math.log2(a.count + 1);
-    const bScore = (b.messages.filter((m) => m.unread).length / Math.max(1, b.count)) * Math.log2(b.count + 1);
+    const score = (s: SenderSummary) =>
+      (senderUnread(s) / Math.max(1, senderVolume(s))) * Math.log2(senderVolume(s) + 1);
+    const aScore = score(a);
+    const bScore = score(b);
     return bScore - aScore;
   });
   const protectedOne = senders
@@ -1848,7 +1883,7 @@ function renderAllSenders(senders: SenderSummary[]) {
       ? `The ${senders.length} senders in this scan, from the most recent ${MAIL_INDEX_CAP.toLocaleString()} messages per account over ${ctx.settings.scanWindowDays} days. Nothing here is acted on until you say so.`
       : `Every sender Cluster saw in the last ${ctx.settings.scanWindowDays} days, heaviest first. Nothing here is acted on until you say so.`;
   }
-  const rows = filteredSenders(senders).sort((a, b) => b.count - a.count);
+  const rows = filteredSenders(senders).sort((a, b) => senderVolume(b) - senderVolume(a));
   const shown = rows.slice(0, allSendersLimit);
 
   allSendersListEl.innerHTML = "";
@@ -1885,11 +1920,12 @@ function renderAllSenders(senders: SenderSummary[]) {
 }
 
 function buildAllSendersRow(sender: SenderSummary): HTMLElement {
-  const unread = sender.messages.filter((m) => m.unread).length;
+  const unread = senderUnread(sender);
+  const total = senderVolume(sender);
   const sub =
-    unread === sender.count
+    unread === total
       ? `nothing opened${sender.displayName ? ` · ${sender.address}` : ""}`
-      : `${unread} of ${sender.count} unread${sender.displayName ? ` · ${sender.address}` : ""}`;
+      : `${unread} of ${total} unread${sender.displayName ? ` · ${sender.address}` : ""}`;
 
   // Count + engagement bar (unread ratio).
   const count = document.createElement("div");
@@ -1897,8 +1933,8 @@ function buildAllSendersRow(sender: SenderSummary): HTMLElement {
   const n = document.createElement("div");
   n.className = "row-title";
   n.style.fontSize = "15px";
-  n.textContent = `${sender.count} msg`;
-  const ratio = sender.count > 0 ? unread / sender.count : 0;
+  n.textContent = `${total} msg`;
+  const ratio = total > 0 ? unread / total : 0;
   const bar = document.createElement("div");
   bar.className = "eng-bar";
   const fill = document.createElement("span");

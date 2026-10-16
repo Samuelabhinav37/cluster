@@ -30,7 +30,9 @@ const FIRST_PAGE = 500;
 export const DEFAULT_QUICK_COUNT = 150;
 const FETCH_CONCURRENCY = 4;
 
-export type SyncPhase = "listing" | "reading" | "sent" | "updating" | "done";
+/** "reading" finds every sender (counting their mail as it goes); "detail"
+ * then reads the counted mail one by one, at low priority. */
+export type SyncPhase = "listing" | "reading" | "sent" | "detail" | "updating" | "done";
 
 export interface SyncProgress {
   phase: SyncPhase;
@@ -55,6 +57,9 @@ export interface SyncOptions {
   /** Called when the Sent folder has been read, before older received mail,
    * so "people you write to" can be used without waiting for the whole build. */
   onSentReady?: () => Promise<void> | void;
+  /** Called once every listed sender has been found and counted, before the
+   * counted mail is read in detail. */
+  onCounted?: () => Promise<void> | void;
   /** Only apply the change feed; never list, backfill or re-read rows. For
    * the background worker, which has minutes, not the hour a build can take.
    * Does nothing for an index that isn't built or has no usable cursor. */
@@ -295,11 +300,19 @@ async function buildFromListing(
     else if (!provider.listChangesSince && row.receivedAt >= cutoff) stale.add(row.id);
   }
 
-  // Newest first: unknown and stale mail, then older-shape rows last.
+  // Newest first: unknown and stale mail, counting senders as they appear;
+  // then the counted mail in detail, and older-shape rows last.
   const fresh = stubs.filter((stub) => !known.has(stub.id) || stale.has(stub.id)).map((s) => s.id);
   const upgrade = stubs.filter((stub) => outdated.has(stub.id)).map((s) => s.id);
-  const read = await readInto(provider, token, store, [...fresh, ...upgrade], options, true);
-  return { mode: "build", read: quickRead + sentRead + read, removed: gone.length, updated: 0 };
+  const discovery = await discoverAndCount(provider, token, store, fresh, listed, options, now);
+  const rest = [...discovery.pending, ...upgrade];
+  const detail = await readInto(provider, token, store, rest, options, true, "detail");
+  return {
+    mode: "build",
+    read: quickRead + sentRead + discovery.read + detail,
+    removed: gone.length,
+    updated: 0,
+  };
 }
 
 async function applyChanges(
@@ -383,29 +396,155 @@ async function readInto(
   ids: string[],
   options: SyncOptions,
   paced: boolean,
+  phase: SyncPhase = "reading",
 ): Promise<number> {
   let doneCount = 0;
   for (let start = 0; start < ids.length; start += WRITE_BATCH) {
     if (paced) await options.waitForHeadroom?.();
-    const batch = ids.slice(start, start + WRITE_BATCH);
-    const rows = await mapWithConcurrency(batch, FETCH_CONCURRENCY, async (id) => {
-      try {
-        return await provider.getMessageMetadata(token, id);
-      } catch (error) {
-        log.error(`mailSync: could not read message ${id}`, error);
-        return undefined;
-      }
-    });
-    // A message trashed or moved to spam since it was listed doesn't belong.
-    const found = rows.filter(
-      (row): row is NormalizedMessageMetadata =>
-        Boolean(row) && (!row?.labelIds || inScope(provider, row.labelIds)),
-    );
-    await store.put(found);
-    doneCount += batch.length;
-    options.onProgress?.({ phase: "reading", done: doneCount, total: ids.length });
+    await readRows(provider, token, store, ids.slice(start, start + WRITE_BATCH));
+    doneCount += Math.min(WRITE_BATCH, ids.length - start);
+    options.onProgress?.({ phase, done: doneCount, total: ids.length });
   }
   return doneCount;
+}
+
+/** Reads one batch of headers and stores the ones still in scope. */
+async function readRows(
+  provider: EmailProvider,
+  token: string,
+  store: MailIndexStore,
+  batch: string[],
+): Promise<NormalizedMessageMetadata[]> {
+  const rows = await mapWithConcurrency(batch, FETCH_CONCURRENCY, async (id) => {
+    try {
+      return await provider.getMessageMetadata(token, id);
+    } catch (error) {
+      log.error(`mailSync: could not read message ${id}`, error);
+      return undefined;
+    }
+  });
+  // A message trashed or moved to spam since it was listed doesn't belong.
+  const found = rows.filter(
+    (row): row is NormalizedMessageMetadata =>
+      Boolean(row) && (!row?.labelIds || inScope(provider, row.labelIds)),
+  );
+  await store.put(found);
+  return found;
+}
+
+/** Most ids counted for one sender. */
+const CENSUS_MAX_PER_SENDER = 5_000;
+/** Census rows are saved this often (in batches read) so screens get them early. */
+const CENSUS_SAVE_EVERY = 25;
+/** Smaller batches while finding senders: a batch is read before any of its
+ * senders can be counted, so a big one wastes reads on the same sender. */
+const DISCOVERY_BATCH = 8;
+const BULK_CATEGORIES = new Set(["CATEGORY_UPDATES", "CATEGORY_SOCIAL", "CATEGORY_FORUMS"]);
+
+/** Whether one search to count a sender's mail is likely to pay for itself
+ * (5 units against 20 per message read): bulk mail, or a second message. */
+function worthCounting(row: NormalizedMessageMetadata, seen: number): boolean {
+  if (seen >= 2) return true;
+  const { postUrl, httpUrl, mailto } = row.unsubscribe;
+  if (row.listId || postUrl || httpUrl || mailto || row.gmailPromotion) return true;
+  if (row.precedence && /bulk|list|junk/i.test(row.precedence)) return true;
+  if (row.autoSubmitted && row.autoSubmitted.toLowerCase() !== "no") return true;
+  return Boolean(row.labelIds?.some((label) => BULK_CATEGORIES.has(label)));
+}
+
+/**
+ * "Fetch one, count many." Reads listed messages newest first, but skips any
+ * message already counted under its sender. When a read message comes from a
+ * sender worth counting, one search lists all of that sender's mail in the
+ * listing, so it isn't read one by one just to learn who sent it. Every
+ * sender shows up, with its real volume, after reading roughly one message
+ * per sender instead of every message. Returns how many were read, and the
+ * counted messages still to read in detail.
+ */
+async function discoverAndCount(
+  provider: EmailProvider,
+  token: string,
+  store: MailIndexStore,
+  queue: string[],
+  listed: Set<string>,
+  options: SyncOptions,
+  now: () => number,
+): Promise<{ read: number; pending: string[] }> {
+  if (!provider.listMessageIdsFrom) {
+    return { read: 0, pending: queue };
+  }
+  const labelled = async (label: "unread" | "starred") => {
+    try {
+      return await provider.listLabelledIds?.(token, label, listed.size, options.windowDays);
+    } catch (error) {
+      log.error(`mailSync: could not list ${label} mail`, error);
+      return undefined;
+    }
+  };
+  const unreadIds = await labelled("unread");
+  const starredIds = await labelled("starred");
+
+  const counted = new Map<string, Set<string>>();
+  const claimed = new Set<string>();
+  const seen = new Map<string, number>();
+  const readIds = new Set<string>();
+  let position = 0;
+  let batches = 0;
+
+  const saveCensus = async () => {
+    const at = now();
+    const countIn = (ids: Set<string>, set: Set<string> | undefined) =>
+      set ? [...ids].filter((id) => set.has(id)).length : -1;
+    await store.putCensus(
+      [...counted].map(([address, ids]) => ({
+        provider: provider.id,
+        address,
+        ids: [...ids],
+        unread: countIn(ids, unreadIds),
+        starred: countIn(ids, starredIds),
+        countedAt: at,
+      })),
+    );
+  };
+
+  while (position < queue.length) {
+    const batch: string[] = [];
+    while (batch.length < DISCOVERY_BATCH && position < queue.length) {
+      const id = queue[position++];
+      if (!claimed.has(id)) batch.push(id);
+    }
+    if (batch.length === 0) break;
+    await options.waitForHeadroom?.();
+    const rows = await readRows(provider, token, store, batch);
+    for (const id of batch) readIds.add(id);
+    for (const row of rows) {
+      const address = row.fromAddress;
+      if (!address) continue;
+      const times = (seen.get(address) ?? 0) + 1;
+      seen.set(address, times);
+      if (counted.has(address) || !worthCounting(row, times)) continue;
+      try {
+        const found = await provider.listMessageIdsFrom(
+          token,
+          address,
+          CENSUS_MAX_PER_SENDER,
+          options.windowDays,
+        );
+        const ids = new Set(found.filter((id) => listed.has(id)));
+        ids.add(row.id);
+        counted.set(address, ids);
+        for (const id of ids) claimed.add(id);
+      } catch (error) {
+        log.error(`mailSync: could not count mail from ${address}`, error);
+      }
+    }
+    options.onProgress?.({ phase: "reading", done: position, total: queue.length });
+    batches += 1;
+    if (batches % CENSUS_SAVE_EVERY === 0) await saveCensus();
+  }
+  await saveCensus();
+  await options.onCounted?.();
+  return { read: readIds.size, pending: queue.filter((id) => !readIds.has(id)) };
 }
 
 async function refreshRiskyIds(

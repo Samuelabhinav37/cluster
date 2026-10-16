@@ -240,6 +240,16 @@ export interface EmailProvider {
   listSentMessageIds?(token: string, maxResults: number): Promise<string[]>;
   getSentRecord?(token: string, id: string): Promise<SentRecord>;
   isSentLabels?(labelIds: string[]): boolean;
+  /** "Fetch one, count many": every message id from one address within the
+   * window, by search (5 quota units per 500 ids instead of 20 per message),
+   * and the ids carrying a label (unread, starred) across the window. */
+  listMessageIdsFrom?(token: string, address: string, maxResults: number, windowDays: number): Promise<string[]>;
+  listLabelledIds?(
+    token: string,
+    label: "unread" | "starred",
+    maxResults: number,
+    windowDays: number,
+  ): Promise<Set<string>>;
   getChangeCursor?(token: string): Promise<string>;
   listChangesSince?(token: string, cursor: string): Promise<MailboxChanges>;
   applyLabelIds?(

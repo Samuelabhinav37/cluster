@@ -204,6 +204,17 @@ export const gmailProvider: EmailProvider = {
     return labelIds.includes("SENT") && !labelIds.includes("DRAFT");
   },
 
+  async listMessageIdsFrom(token, address, maxResults, windowDays) {
+    const stubs = await listMessageIds(token, `from:(${address}) newer_than:${windowDays}d`, maxResults);
+    return stubs.map((stub) => stub.id);
+  },
+
+  async listLabelledIds(token, label, maxResults, windowDays) {
+    const term = label === "unread" ? "is:unread" : "is:starred";
+    const stubs = await listMessageIds(token, `${term} newer_than:${windowDays}d`, maxResults);
+    return new Set(stubs.map((stub) => stub.id));
+  },
+
   async getAccountId(token) {
     return (await getProfileEmail(token)).toLowerCase();
   },

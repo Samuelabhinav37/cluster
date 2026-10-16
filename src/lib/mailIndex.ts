@@ -43,6 +43,18 @@ export interface MailIndexState {
   riskyIds?: string[];
 }
 
+/** One sender's mail as counted with a search ("fetch one, count many"):
+ * every listed message from the address, read or not. Counts are a snapshot
+ * from the build that took them; actions never use these ids directly. */
+export interface CensusRow {
+  provider: ProviderId;
+  address: string;
+  ids: string[];
+  unread: number;
+  starred: number;
+  countedAt: number;
+}
+
 export interface MailIndexStore {
   all(provider: ProviderId): Promise<NormalizedMessageMetadata[]>;
   ids(provider: ProviderId): Promise<Set<string>>;
@@ -58,11 +70,14 @@ export interface MailIndexStore {
   sentIds(provider: ProviderId): Promise<Set<string>>;
   putSent(rows: SentRecord[]): Promise<void>;
   removeSent(provider: ProviderId, ids: string[]): Promise<void>;
+  allCensus(provider: ProviderId): Promise<CensusRow[]>;
+  putCensus(rows: CensusRow[]): Promise<void>;
 }
 
 export function createMemoryMailIndex(): MailIndexStore {
   const rows = new Map<string, NormalizedMessageMetadata>();
   const sent = new Map<string, SentRecord>();
+  const census = new Map<string, CensusRow>();
   const states = new Map<ProviderId, MailIndexState>();
   const key = (provider: ProviderId, id: string) => `${provider}:${id}`;
   return {
@@ -87,6 +102,7 @@ export function createMemoryMailIndex(): MailIndexStore {
     async clear(provider) {
       for (const [k, row] of rows) if (row.provider === provider) rows.delete(k);
       for (const [k, row] of sent) if (row.provider === provider) sent.delete(k);
+      for (const [k, row] of census) if (row.provider === provider) census.delete(k);
       states.delete(provider);
     },
     async allSent(provider) {
@@ -101,6 +117,12 @@ export function createMemoryMailIndex(): MailIndexStore {
     async removeSent(provider, ids) {
       for (const id of ids) sent.delete(key(provider, id));
     },
+    async allCensus(provider) {
+      return [...census.values()].filter((row) => row.provider === provider).map((row) => ({ ...row }));
+    },
+    async putCensus(list) {
+      for (const row of list) census.set(key(row.provider, row.address), { ...row });
+    },
     async getState(provider) {
       const state = states.get(provider);
       return state ? { ...state } : undefined;
@@ -112,10 +134,11 @@ export function createMemoryMailIndex(): MailIndexStore {
 }
 
 const DB_NAME = "cluster-mail-index";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const MESSAGES = "messages";
 const STATE = "state";
 const SENT = "sent";
+const CENSUS = "census";
 
 function request<T>(req: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -142,6 +165,10 @@ function openDb(factory: IDBFactory): Promise<IDBDatabase> {
         store.createIndex("provider", "provider");
       }
       if (!db.objectStoreNames.contains(STATE)) db.createObjectStore(STATE, { keyPath: "provider" });
+      if (!db.objectStoreNames.contains(CENSUS)) {
+        const store = db.createObjectStore(CENSUS, { keyPath: ["provider", "address"] });
+        store.createIndex("provider", "provider");
+      }
       if (!db.objectStoreNames.contains(SENT)) {
         const store = db.createObjectStore(SENT, { keyPath: ["provider", "id"] });
         store.createIndex("provider", "provider");
@@ -191,8 +218,8 @@ function createIdbMailIndex(db: IDBDatabase): MailIndexStore {
       await done(tx);
     },
     async clear(provider) {
-      const tx = db.transaction([MESSAGES, SENT, STATE], "readwrite");
-      for (const name of [MESSAGES, SENT]) {
+      const tx = db.transaction([MESSAGES, SENT, CENSUS, STATE], "readwrite");
+      for (const name of [MESSAGES, SENT, CENSUS]) {
         const store = tx.objectStore(name);
         const keys = await request(store.index("provider").getAllKeys(provider));
         for (const k of keys) store.delete(k);
@@ -222,6 +249,16 @@ function createIdbMailIndex(db: IDBDatabase): MailIndexStore {
       const tx = db.transaction(SENT, "readwrite");
       const store = tx.objectStore(SENT);
       for (const id of ids) store.delete([provider, id]);
+      await done(tx);
+    },
+    async allCensus(provider) {
+      return await request(read(CENSUS).index("provider").getAll(provider) as IDBRequest<CensusRow[]>);
+    },
+    async putCensus(rows) {
+      if (rows.length === 0) return;
+      const tx = db.transaction(CENSUS, "readwrite");
+      const store = tx.objectStore(CENSUS);
+      for (const row of rows) store.put(row);
       await done(tx);
     },
     async getState(provider) {

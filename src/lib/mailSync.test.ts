@@ -435,3 +435,68 @@ describe("syncMailIndex: changes only", () => {
     expect((await store.ids("gmail")).size).toBe(0);
   });
 });
+
+describe("syncMailIndex: fetch one, count many", () => {
+  function bulk(id: string, from: string, ageDays: number, labels = ["CATEGORY_PROMOTIONS", "UNREAD"]) {
+    return { ...message(id, labels, ageDays), fromAddress: from, unsubscribe: { mailto: "u@x.com" } };
+  }
+
+  it("reads one message per bulk sender, counts the rest by search, then reads them in detail", async () => {
+    const shop = Array.from({ length: 40 }, (_, i) => bulk(`shop${i}`, "deals@shop.com", i + 1));
+    const people = [message("p1", ["INBOX"], 0), message("p2", ["INBOX"], 50)];
+    const mailbox = [...people, ...shop];
+    const fake = fakeGmail(mailbox);
+    const listFrom = vi.fn(async (_t: string, address: string) =>
+      mailbox.filter((m) => m.fromAddress === address).map((m) => m.id),
+    );
+    const provider = Object.assign(fake.provider, {
+      listMessageIdsFrom: listFrom,
+      listLabelledIds: vi.fn(
+        async (_t: string, label: string) =>
+          new Set(mailbox.filter((m) => (label === "unread" ? m.unread : m.isProtected)).map((m) => m.id)),
+      ),
+    });
+    const store = createMemoryMailIndex();
+    const readAtCount: number[] = [];
+
+    await syncMailIndex(provider, "t", store, {
+      ...options,
+      quickCount: 1,
+      onCounted: () => {
+        readAtCount.push(provider.getMessageMetadata.mock.calls.length);
+      },
+    });
+
+    // Counting happened after reading one shop message (plus the people),
+    // not all 40, and the shop was counted with a single search.
+    expect(readAtCount[0]).toBeLessThanOrEqual(1 + 8 + 1);
+    expect(listFrom).toHaveBeenCalledTimes(1);
+    const census = await store.allCensus("gmail");
+    expect(census).toHaveLength(1);
+    expect(census[0]).toMatchObject({ address: "deals@shop.com", unread: 40, starred: 0 });
+    expect(census[0].ids).toHaveLength(40);
+    // People's one-off messages aren't counted by search.
+    expect(listFrom).not.toHaveBeenCalledWith("t", "p1@example.com", expect.anything(), expect.anything());
+    // The detail pass still reads everything in the end.
+    expect((await store.ids("gmail")).size).toBe(42);
+  });
+
+  it("counts a person once they've written twice", async () => {
+    const mailbox = [
+      { ...message("a1", ["INBOX"], 1), fromAddress: "pal@x.com" },
+      { ...message("a2", ["INBOX"], 2), fromAddress: "pal@x.com" },
+      { ...message("a3", ["INBOX"], 3), fromAddress: "pal@x.com" },
+    ];
+    const fake = fakeGmail(mailbox);
+    const listFrom = vi.fn(async () => ["a1", "a2", "a3"]);
+    const provider = Object.assign(fake.provider, { listMessageIdsFrom: listFrom });
+    const store = createMemoryMailIndex();
+
+    await syncMailIndex(provider, "t", store, { ...options, quickCount: 0 });
+
+    expect(listFrom).toHaveBeenCalledTimes(1);
+    const [row] = await store.allCensus("gmail");
+    expect(row.ids.sort()).toEqual(["a1", "a2", "a3"]);
+    expect(row.unread).toBe(-1);
+  });
+});

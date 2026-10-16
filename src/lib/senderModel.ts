@@ -72,6 +72,11 @@ export interface SenderSummary {
   /** True when this sender is new since Cluster initialized its local ledger
    * (set by firstContact.ts, not by buildSenderSummaries). */
   firstContact: boolean;
+  /** All of this sender's mail, counted by search (census.ts), when that is
+   * more than was read. For describing and ranking only, never for actions. */
+  totalCount?: number;
+  /** Unread among totalCount, when known. */
+  totalUnread?: number;
 }
 
 function hasUnsubscribe(info: UnsubscribeInfo): boolean {
