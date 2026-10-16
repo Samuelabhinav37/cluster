@@ -9,7 +9,7 @@ function setup(screen = "overview") {
   const sortNav = document.querySelector<HTMLButtonElement>('.nav-item[data-screen="organize"]')!;
   const navClick = vi.fn();
   sortNav.addEventListener("click", navClick);
-  initKaiGuide(document, {
+  const kai = initKaiGuide(document, {
     questions: CLUSTER_QUESTIONS,
     firstOn: CLUSTER_FIRST_ON,
     currentScreen: () => document.querySelector<HTMLElement>("#sidebar .nav-item.active")?.dataset.screen ?? "overview",
@@ -20,16 +20,45 @@ function setup(screen = "overview") {
   const chip = (text: string) => Array.from(panel.querySelectorAll<HTMLButtonElement>(".kai-q")).find((b) => b.textContent === text)!;
   const said = () => Array.from(panel.querySelectorAll(".kg-msg.kg-kai:not(.typing)")).map((m) => m.firstChild?.textContent ?? "");
   const open = () => { button.click(); vi.advanceTimersByTime(2000); };
-  return { button, panel, chips, chip, said, open, navClick };
+  return { kai, button, panel, chips, chip, said, open, navClick };
 }
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => {
   vi.useRealTimers();
+  sessionStorage.clear();
   document.body.replaceChildren();
 });
 
 describe("Kai's guide in Cluster", () => {
+  it("says Ask Kai once per visit, then folds the bubble away", () => {
+    setup();
+    const guide = () => document.querySelector(".kai-guide")!;
+    vi.advanceTimersByTime(800);
+    expect(guide().classList.contains("tag-on")).toBe(true);
+    vi.advanceTimersByTime(8000);
+    expect(guide().classList.contains("tag-on")).toBe(false);
+    document.body.replaceChildren();
+    setup();
+    vi.advanceTimersByTime(2000);
+    expect(guide().classList.contains("tag-on")).toBe(false);
+  });
+
+  it("comes back when you look stuck, naming the screen, but not while the chat is open", () => {
+    const { kai, open, button } = setup("rules");
+    const guide = document.querySelector(".kai-guide")!;
+    vi.advanceTimersByTime(13000);
+    open();
+    kai.watch!.flip("x"); kai.watch!.flip("x"); kai.watch!.flip("x");
+    expect(guide.classList.contains("tag-on")).toBe(false);
+    button.click();
+    kai.watch!.flip("x"); kai.watch!.flip("x"); kai.watch!.flip("x");
+    expect(guide.classList.contains("tag-on")).toBe(true);
+    expect(document.querySelector(".kg-tag")!.textContent).toBe("Need help with Here?");
+    vi.advanceTimersByTime(7100);
+    expect(guide.classList.contains("tag-on")).toBe(false);
+  });
+
   it("puts the live Kai in the corner with Ask Kai above it", () => {
     const { button } = setup();
     expect(document.querySelector(".kg-tag")!.textContent).toBe("Ask Kai");

@@ -4,7 +4,7 @@ import prettier from "eslint-config-prettier";
 import globals from "globals";
 
 export default tseslint.config(
-  { ignores: ["dist/**", "node_modules/**", "src/lib/data/**", "src/dashboard/kai/kaiLife.js"] },
+  { ignores: ["dist/**", "node_modules/**", "src/lib/data/**", "src/dashboard/kai/kaiLife.js", "src/dashboard/kai/kaiWatch.js"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   prettier,
