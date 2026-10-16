@@ -20,6 +20,9 @@ const buildIncrementalSenderSummaries = vi.fn(async () => ({
   changedMessageCount: 0,
 }));
 const applyRules = vi.fn(async () => []);
+const refreshIndexForBackground = vi.fn(async (): Promise<unknown[]> => []);
+const readIndexedSenders = vi.fn(async () => ({ cleanup: [] as unknown[], security: [] as unknown[] }));
+const applyIndexedCorrespondents = vi.fn(async (): Promise<unknown> => undefined);
 const updateSettings = vi.fn(async (_patch?: Record<string, unknown>) => ({}));
 const mutateSettings = vi.fn(async (_fn?: (s: unknown) => unknown) => ({}));
 
@@ -42,6 +45,11 @@ const SETTINGS = {
 let gmailConnected = true;
 
 vi.mock("./lib/snoozeResurface", () => ({ resurfaceDueSnoozed }));
+vi.mock("./lib/indexTriage", () => ({
+  refreshIndexForBackground,
+  readIndexedSenders,
+  applyIndexedCorrespondents,
+}));
 vi.mock("./lib/athenaIntegration", () => ({
   flushAthenaSecurityEvents,
   queueAthenaSecurityEvents,
@@ -253,6 +261,19 @@ describe("runBackgroundTriage guard rails", () => {
     // of screenerEnabled (SETTINGS above has it false) -- it feeds the
     // general protection gate, not just the opt-in Screener.
     expect(refreshSentCorrespondents).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads a built mail index instead of scanning Gmail", async () => {
+    const { gmailProvider } = await import("./lib/providers/gmailProvider");
+    refreshIndexForBackground.mockResolvedValueOnce([gmailProvider]);
+    alarmListener!({ name: "cluster-triage" });
+    await settleTriage();
+
+    expect(readIndexedSenders).toHaveBeenCalledTimes(1);
+    expect(buildSenderSummaries).not.toHaveBeenCalled();
+    expect(buildIncrementalSenderSummaries).not.toHaveBeenCalled();
+    expect(applyIndexedCorrespondents).toHaveBeenCalledWith([gmailProvider]);
+    expect(applyRules).toHaveBeenCalledTimes(1);
   });
 
   it("swallows a scan failure instead of letting it reject out of the alarm", async () => {

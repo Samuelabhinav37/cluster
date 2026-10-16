@@ -14,7 +14,7 @@ import {
   listMessageIdsInLabel,
 } from "../lib/gmailApi";
 import { log } from "../lib/log";
-import { loadMetadataCache, saveMetadataCache } from "../lib/metadataCache";
+import { indexSeededCache } from "../lib/indexTriage";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { knownSenderSet } from "../lib/screener";
 import {
@@ -110,7 +110,13 @@ async function readAndPreview(
     // Each message is one metadata read; Gmail's per-minute limit paces this.
     const minutes = Math.max(1, Math.ceil((stubs.length * 20) / 5500));
     status.textContent = `Reading ${plural(stubs.length, "held message")} (about ${plural(minutes, "minute")})…`;
-    const cache = await loadMetadataCache();
+    // Held mail is outside the inbox, so the mail index rarely has it, but any
+    // it does have isn't read again. Not saved back: held mail isn't part of
+    // what the index tracks.
+    const { cache } = await indexSeededCache(
+      gmailProvider,
+      stubs.map((stub) => stub.id),
+    );
     const senders = await buildSenderSummariesFromStubs(
       [{ provider: gmailProvider, token, stubs }],
       (done, all) => {
@@ -118,7 +124,6 @@ async function readAndPreview(
       },
       cache,
     );
-    void saveMetadataCache(cache);
     const plan = planScreenerRelease(senders, knownSenderSet(ctx.settings), ctx.settings.sortOverrides);
     renderPreview(token, labelIds, plan, total > MAX_BACKLOG);
   } catch (err) {

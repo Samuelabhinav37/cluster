@@ -55,6 +55,10 @@ export interface SyncOptions {
   /** Called when the Sent folder has been read, before older received mail,
    * so "people you write to" can be used without waiting for the whole build. */
   onSentReady?: () => Promise<void> | void;
+  /** Only apply the change feed; never list, backfill or re-read rows. For
+   * the background worker, which has minutes, not the hour a build can take.
+   * Does nothing for an index that isn't built or has no usable cursor. */
+  changesOnly?: boolean;
   now?: () => number;
 }
 
@@ -118,6 +122,16 @@ export async function syncMailIndex(
       applied = true;
       await store.setState(state);
     }
+  }
+
+  if (options.changesOnly) {
+    if (applied) {
+      await refreshRiskyIds(provider, token, state, options.windowDays);
+      await enforceLimits(provider, store, cap, options.windowDays, now);
+      await store.setState({ ...state, lastSyncAt: now() });
+    }
+    options.onProgress?.({ phase: "done", done: result.read, total: result.read });
+    return result;
   }
 
   // 2. Re-list when there's no cursor, the scan window changed, or rows were

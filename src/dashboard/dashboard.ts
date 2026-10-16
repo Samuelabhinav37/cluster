@@ -38,7 +38,7 @@ import {
   type SyncResult,
 } from "../lib/mailSync";
 import { gmailQuotaHeadroom } from "../lib/gmailQuotaLedger";
-import { buildCorrespondents, mergeCorrespondentAddresses } from "../lib/correspondents";
+import { applyIndexedCorrespondents, mailIndexLockKey } from "../lib/indexTriage";
 import { withStorageLock } from "../lib/storageLock";
 import type { EmailProvider, ProviderId } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
@@ -160,7 +160,6 @@ const themeSelect = document.getElementById("theme-select") as HTMLSelectElement
 const autoQuarantineToggle = document.getElementById("auto-quarantine-toggle") as HTMLInputElement;
 
 const scanWindowInput = document.getElementById("scan-window-input") as HTMLInputElement;
-const maxMessagesInput = document.getElementById("max-messages-input") as HTMLInputElement;
 const applyScanSettingsBtn = document.getElementById("apply-scan-settings-btn") as HTMLButtonElement;
 
 const onboardingBanner = document.getElementById("onboarding-banner") as HTMLDivElement;
@@ -484,7 +483,6 @@ async function main() {
     ctx.settings = await updateSettings({ autoQuarantineHighRisk: autoQuarantineToggle.checked });
   };
   scanWindowInput.value = String(ctx.settings.scanWindowDays);
-  maxMessagesInput.value = String(ctx.settings.maxMessagesPerProvider);
   wireScanSettings();
   await wireAthenaConnection();
 
@@ -615,7 +613,7 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
     try {
       const store = await openMailIndex();
       const authToken = token ?? (await provider.getAuthToken(false));
-      const result = await withStorageLock(`mail-index:${provider.id}`, () =>
+      const result = await withStorageLock(mailIndexLockKey(provider), () =>
         syncMailIndex(provider, authToken, store, {
           windowDays: ctx.settings.scanWindowDays,
           cap: MAIL_INDEX_CAP,
@@ -671,18 +669,8 @@ function updateIndexStatus() {
 /** Everyone in the sent store joins the "people you write to" list that
  * protection, the Screener and scam checks read. */
 async function updateCorrespondentsFromIndex(provider: EmailProvider) {
-  const store = await openMailIndex();
-  const records = await store.allSent(provider.id);
-  if (records.length === 0) return;
-  const state = await store.getState(provider.id);
-  const correspondents = buildCorrespondents(records, state?.accountId ? [state.accountId] : []);
-  ctx.settings = await mutateSettings((current) => ({
-    ...current,
-    sentCorrespondents: {
-      addresses: mergeCorrespondentAddresses(current.sentCorrespondents.addresses, correspondents),
-      fetchedAt: Date.now(),
-    },
-  }));
+  const written = await applyIndexedCorrespondents([provider]);
+  if (written) ctx.settings = written;
 }
 
 /** After a render, offer the newer picture once a sync changes the index. */
@@ -976,7 +964,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
     `Inbox health ${score} of 100` +
     (delta > 0 ? `, up ${delta} since last week.` : delta < 0 ? `, down ${-delta} since last week.` : ".") +
     (lastScanCapHit
-      ? ` Based on your latest ${ctx.settings.maxMessagesPerProvider.toLocaleString()} messages per account.`
+      ? ` Based on your latest ${MAIL_INDEX_CAP.toLocaleString()} messages per account.`
       : "");
 
   // ── Bottom two-up: "Working while you were away" + "Recently done" ──
@@ -1857,7 +1845,7 @@ function renderAllSenders(senders: SenderSummary[]) {
   const lead = document.getElementById("senders-lead");
   if (lead) {
     lead.textContent = lastScanCapHit
-      ? `The ${senders.length} senders in this scan, from the most recent ${ctx.settings.maxMessagesPerProvider.toLocaleString()} messages per account over ${ctx.settings.scanWindowDays} days. Nothing here is acted on until you say so.`
+      ? `The ${senders.length} senders in this scan, from the most recent ${MAIL_INDEX_CAP.toLocaleString()} messages per account over ${ctx.settings.scanWindowDays} days. Nothing here is acted on until you say so.`
       : `Every sender Cluster saw in the last ${ctx.settings.scanWindowDays} days, heaviest first. Nothing here is acted on until you say so.`;
   }
   const rows = filteredSenders(senders).sort((a, b) => b.count - a.count);
@@ -2293,18 +2281,13 @@ function wireScanSettings() {
       3650,
       Math.max(1, Number(scanWindowInput.value) || ctx.settings.scanWindowDays),
     );
-    const maxMessagesPerProvider = Math.min(
-      5000,
-      Math.max(50, Number(maxMessagesInput.value) || ctx.settings.maxMessagesPerProvider),
-    );
     scanWindowInput.value = String(scanWindowDays);
-    maxMessagesInput.value = String(maxMessagesPerProvider);
 
     applyScanSettingsBtn.disabled = true;
     applyScanSettingsBtn.textContent = "Rescanning…";
     try {
-      ctx.settings = await updateSettings({ scanWindowDays, maxMessagesPerProvider });
-      // Explicit user "Rescan" — drop the warm metadata cache and re-fetch.
+      ctx.settings = await updateSettings({ scanWindowDays });
+      // A new window re-lists the index; known mail isn't read again.
       await scanAndRender({ refresh: true });
     } finally {
       applyScanSettingsBtn.disabled = false;

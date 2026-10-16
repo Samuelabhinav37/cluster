@@ -23,6 +23,7 @@ import { buildIncrementalSenderSummaries } from "./lib/incrementalSync";
 import { gmailQuotaHeadroom } from "./lib/gmailQuotaLedger";
 import { runInboxTimeLimits } from "./lib/inboxTimeLimitsRunner";
 import { loadMetadataCache, saveMetadataCache } from "./lib/metadataCache";
+import { applyIndexedCorrespondents, readIndexedSenders, refreshIndexForBackground } from "./lib/indexTriage";
 import { resumeInterruptedJobs } from "./lib/durableJobs";
 import { updateEngagementObservations } from "./lib/engagementModel";
 import { getRuleCompletionKeys, recordRuleCompletions } from "./lib/ruleCompletionLedger";
@@ -321,26 +322,51 @@ async function runBackgroundTriage() {
     // rebuild) is fetched once — and seeded from the warm cache the dashboard
     // and previous triage runs persist, so a 6-hourly pass mostly pays only
     // for mail that arrived since.
+    // Providers with a built mail index are read from it, after a cheap
+    // change-feed refresh. Only the rest (index not built yet, or no change
+    // feed) are scanned the old way.
+    const indexed = await refreshIndexForBackground(connected, settings.scanWindowDays);
+    const scanned = connected.filter((p) => !indexed.includes(p));
+    const fromIndex =
+      indexed.length > 0
+        ? await readIndexedSenders(indexed, {
+            scanWindowDays: settings.scanWindowDays,
+            securityWindowDays: Math.min(settings.scanWindowDays, SECURITY_SCAN_WINDOW_DAYS),
+            securityMax: SECURITY_SCAN_MAX_MESSAGES,
+          })
+        : { cleanup: [], security: [] };
+
     const scanCache = await loadMetadataCache();
-    let senders = await buildSenderSummaries(
-      connected,
-      settings.maxMessagesPerProvider,
-      settings.scanWindowDays,
-      undefined,
-      "cleanup",
-      scanCache,
-    );
-    const securitySync = await buildIncrementalSenderSummaries(
-      connected,
-      settings.incrementalSyncCursors,
-      Math.min(settings.maxMessagesPerProvider, SECURITY_SCAN_MAX_MESSAGES),
-      Math.min(settings.scanWindowDays, SECURITY_SCAN_WINDOW_DAYS),
-      "security",
-      undefined,
-      scanCache,
-    );
-    const securitySenders = securitySync.senders;
-    void saveMetadataCache(scanCache);
+    let senders = [...fromIndex.cleanup];
+    let securitySync: Awaited<ReturnType<typeof buildIncrementalSenderSummaries>> = {
+      senders: [],
+      cursors: {},
+      resetProviders: [],
+      changedMessageCount: 0,
+    };
+    if (scanned.length > 0) {
+      senders.push(
+        ...(await buildSenderSummaries(
+          scanned,
+          settings.maxMessagesPerProvider,
+          settings.scanWindowDays,
+          undefined,
+          "cleanup",
+          scanCache,
+        )),
+      );
+      securitySync = await buildIncrementalSenderSummaries(
+        scanned,
+        settings.incrementalSyncCursors,
+        Math.min(settings.maxMessagesPerProvider, SECURITY_SCAN_MAX_MESSAGES),
+        Math.min(settings.scanWindowDays, SECURITY_SCAN_WINDOW_DAYS),
+        "security",
+        undefined,
+        scanCache,
+      );
+      void saveMetadataCache(scanCache);
+    }
+    const securitySenders = [...fromIndex.security, ...securitySync.senders];
     const activeSnoozedIds = new Set(
       Object.entries(settings.snoozedMessages)
         .filter(([, v]) => v.resurfaceAt > Date.now())
@@ -404,7 +430,13 @@ async function runBackgroundTriage() {
     const ruleDeferred = ruleResults.reduce((sum, result) => sum + result.deferredByLimitCount, 0);
     const ruleSkipped = ruleResults.reduce((sum, result) => sum + result.previouslyCompletedCount, 0);
 
-    const sentCorrespondents = await refreshSentCorrespondents(settings, providerById);
+    // The index's sent store keeps "people you write to" current; the old
+    // weekly 150-message sent scan only runs while no index has sent mail.
+    const fromSent = await applyIndexedCorrespondents(indexed).catch((err: unknown) => {
+      log.error("Could not update people you write to from the index", err);
+      return undefined;
+    });
+    const sentCorrespondents = await refreshSentCorrespondents(fromSent ?? settings, providerById);
     const held = await runScreener(settings, senders, sentCorrespondents);
     const total = totalExpiryCount(buildExpiryBuckets(senders));
 

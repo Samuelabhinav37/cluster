@@ -410,3 +410,28 @@ describe("syncMailIndex: row upgrades", () => {
     expect(await store.getState("gmail")).toMatchObject({ rowVersion: MAIL_ROW_VERSION, cursor: "h1" });
   });
 });
+
+describe("syncMailIndex: changes only", () => {
+  it("never lists or backfills, even when rows are outdated or Sent isn't read", async () => {
+    const fake = fakeGmail([message("a", ["INBOX"])]);
+    const store = createMemoryMailIndex();
+    await store.put([{ ...message("a", ["INBOX"]), v: undefined }]);
+    await store.setState({ provider: "gmail", complete: true, cursor: "h1", accountId: "me@example.com" });
+
+    await syncMailIndex(fake.provider, "t", store, { ...options, changesOnly: true });
+
+    expect(fake.provider.listChangesSince).toHaveBeenCalledTimes(1);
+    expect(fake.provider.listCandidateMessages).not.toHaveBeenCalled();
+    expect(fake.provider.getMessageMetadata).not.toHaveBeenCalled();
+  });
+
+  it("does nothing for an index that was never built", async () => {
+    const fake = fakeGmail([message("a", ["INBOX"])]);
+    const store = createMemoryMailIndex();
+
+    await syncMailIndex(fake.provider, "t", store, { ...options, changesOnly: true });
+
+    expect(fake.provider.listCandidateMessages).not.toHaveBeenCalled();
+    expect((await store.ids("gmail")).size).toBe(0);
+  });
+});
