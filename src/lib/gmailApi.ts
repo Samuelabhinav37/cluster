@@ -273,6 +273,81 @@ export async function listInboxMessageIdsSince(
   return { messageIds: [...ids], historyId, expired: false };
 }
 
+export interface GmailMailboxChanges {
+  added: string[];
+  removed: string[];
+  labelUpdates: { id: string; labelIds: string[] }[];
+  historyId: string;
+  expired: boolean;
+}
+
+/** Everything that changed since `startHistoryId`: new mail, deleted mail and
+ * label changes, across the whole mailbox. The mail index applies these
+ * instead of re-reading messages (2 units a page against 20 per message).
+ * Label entries carry the message's full current label set, so the last one
+ * seen for an id wins. A stale checkpoint returns `expired: true`. */
+export async function listMailboxChangesSince(
+  token: string,
+  startHistoryId: string,
+): Promise<GmailMailboxChanges> {
+  const added = new Set<string>();
+  const removed = new Set<string>();
+  const labels = new Map<string, string[]>();
+  let pageToken: string | undefined;
+  let historyId = startHistoryId;
+  type HistoryMessage = { message?: { id?: string; labelIds?: string[] } };
+  try {
+    do {
+      const params = new URLSearchParams({ startHistoryId, maxResults: "500" });
+      for (const type of ["messageAdded", "messageDeleted", "labelAdded", "labelRemoved"]) {
+        params.append("historyTypes", type);
+      }
+      if (pageToken) params.set("pageToken", pageToken);
+      const data = await gmailFetch<{
+        history?: Array<{
+          messagesAdded?: HistoryMessage[];
+          messagesDeleted?: HistoryMessage[];
+          labelsAdded?: HistoryMessage[];
+          labelsRemoved?: HistoryMessage[];
+        }>;
+        historyId?: string;
+        nextPageToken?: string;
+      }>(`/users/me/history?${params}`, token);
+      for (const entry of data.history ?? []) {
+        for (const { message } of entry.messagesAdded ?? []) {
+          if (!message?.id) continue;
+          added.add(message.id);
+          removed.delete(message.id);
+          labels.set(message.id, message.labelIds ?? []);
+        }
+        for (const { message } of [...(entry.labelsAdded ?? []), ...(entry.labelsRemoved ?? [])]) {
+          if (message?.id) labels.set(message.id, message.labelIds ?? []);
+        }
+        for (const { message } of entry.messagesDeleted ?? []) {
+          if (!message?.id) continue;
+          removed.add(message.id);
+          added.delete(message.id);
+          labels.delete(message.id);
+        }
+      }
+      if (data.historyId) historyId = data.historyId;
+      pageToken = data.nextPageToken;
+    } while (pageToken);
+  } catch (error) {
+    if (error instanceof GmailApiError && error.status === 404) {
+      return { added: [], removed: [], labelUpdates: [], historyId: startHistoryId, expired: true };
+    }
+    throw error;
+  }
+  return {
+    added: [...added],
+    removed: [...removed],
+    labelUpdates: [...labels].map(([id, labelIds]) => ({ id, labelIds })),
+    historyId,
+    expired: false,
+  };
+}
+
 export interface RawMessageMetadata {
   headers: Record<string, string>;
   /** All duplicates are retained so a forged sender-added header cannot hide
