@@ -16,8 +16,8 @@
 // cursor captured before the first attempt is kept until a build finishes.
 import { mapWithConcurrency } from "./concurrency";
 import { log } from "./log";
-import { MAIL_INDEX_CAP, type MailIndexState, type MailIndexStore } from "./mailIndex";
-import type { EmailProvider, NormalizedMessageMetadata } from "./providers/emailProvider";
+import { MAIL_INDEX_CAP, MAIL_ROW_VERSION, type MailIndexState, type MailIndexStore } from "./mailIndex";
+import type { EmailProvider, NormalizedMessageMetadata, SentRecord } from "./providers/emailProvider";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Without a change feed, mail this recent is re-read so read/flag state is current. */
@@ -30,7 +30,7 @@ const FIRST_PAGE = 500;
 export const DEFAULT_QUICK_COUNT = 150;
 const FETCH_CONCURRENCY = 4;
 
-export type SyncPhase = "listing" | "reading" | "updating" | "done";
+export type SyncPhase = "listing" | "reading" | "sent" | "updating" | "done";
 
 export interface SyncProgress {
   phase: SyncPhase;
@@ -52,6 +52,9 @@ export interface SyncOptions {
   /** Awaited between batches; lets the caller hold the run back while user
    * actions need the quota. */
   waitForHeadroom?: () => Promise<void>;
+  /** Called when the Sent folder has been read, before older received mail,
+   * so "people you write to" can be used without waiting for the whole build. */
+  onSentReady?: () => Promise<void> | void;
   now?: () => number;
 }
 
@@ -102,49 +105,125 @@ export async function syncMailIndex(
   // On failure nothing is signalled: the caller decides what to show.
   if (state.complete) signalQuick();
 
-  {
-    const sameWindow = state.windowDays === undefined || state.windowDays === options.windowDays;
-    if (state.complete && state.cursor && sameWindow && provider.listChangesSince) {
-      const changes = await provider.listChangesSince(token, state.cursor);
-      if (!changes.expired) {
-        const result = await applyChanges(provider, token, store, changes, options);
-        await refreshRiskyIds(provider, token, state, options.windowDays);
-        await enforceLimits(provider, store, cap, options.windowDays, now);
-        await store.setState({ ...state, cursor: changes.cursor, lastSyncAt: now() });
-        options.onProgress?.({ phase: "done", done: result.read, total: result.read });
-        return result;
-      }
-      // Too long since the last pass: rebuild from a fresh listing below.
+  // 1. Apply what changed since last time, when there's a usable cursor.
+  let result: SyncResult = { mode: "changes", read: 0, removed: 0, updated: 0 };
+  let applied = false;
+  if (state.complete && state.cursor && provider.listChangesSince) {
+    const changes = await provider.listChangesSince(token, state.cursor);
+    if (changes.expired) {
       state = { ...state, cursor: undefined };
+    } else {
+      result = await applyChanges(provider, token, store, changes, options);
+      state = { ...state, cursor: changes.cursor };
+      applied = true;
+      await store.setState(state);
     }
+  }
 
-    if (provider.getChangeCursor && !state.pendingCursor) {
+  // 2. Re-list when there's no cursor, the scan window changed, or rows were
+  //    stored before a field was added. Known mail isn't read again, except
+  //    rows of an older shape.
+  const windowChanged = state.windowDays !== undefined && state.windowDays !== options.windowDays;
+  const rowsOutdated = state.complete && (state.rowVersion ?? 1) < MAIL_ROW_VERSION;
+  if (!applied || windowChanged || rowsOutdated) {
+    if (applied) {
+      // Changes up to the cursor are already applied; replay from there.
+      state.pendingCursor = state.cursor;
+    } else if (provider.getChangeCursor && !state.pendingCursor) {
       // Captured before listing, so mail arriving mid-build is replayed next time.
       state.pendingCursor = await provider.getChangeCursor(token);
     }
     await store.setState(state);
-
-    const result = await buildFromListing(provider, token, store, cap, options, now, signalQuick);
-    await refreshRiskyIds(provider, token, state, options.windowDays);
-    await enforceLimits(provider, store, cap, options.windowDays, now);
-    await store.setState({
+    const build = await buildFromListing(provider, token, store, state, cap, options, now, signalQuick);
+    result = {
+      mode: "build",
+      read: result.read + build.read,
+      removed: result.removed + build.removed,
+      updated: result.updated + build.updated,
+    };
+    state = {
       ...state,
       complete: true,
       windowDays: options.windowDays,
+      rowVersion: MAIL_ROW_VERSION,
       cursor: state.pendingCursor ?? state.cursor,
       pendingCursor: undefined,
-      lastSyncAt: now(),
-    });
-    signalQuick();
-    options.onProgress?.({ phase: "done", done: result.read, total: result.read });
-    return result;
+    };
+  } else if (!state.sentComplete) {
+    // An index built before sent mail was indexed: read the Sent folder now.
+    result.read += await backfillSent(provider, token, store, state, options);
   }
+
+  await refreshRiskyIds(provider, token, state, options.windowDays);
+  await enforceLimits(provider, store, cap, options.windowDays, now);
+  await store.setState({ ...state, lastSyncAt: now() });
+  signalQuick();
+  options.onProgress?.({ phase: "done", done: result.read, total: result.read });
+  return result;
+}
+
+/** Most sent messages read for "people you write to". */
+export const SENT_CAP = 5_000;
+
+/**
+ * Reads the Sent folder (newest first, up to SENT_CAP) into the sent store,
+ * skipping what's already there, paced like the rest of the backfill. Marks
+ * the state once the listing has been read. Returns how many were read.
+ */
+async function backfillSent(
+  provider: EmailProvider,
+  token: string,
+  store: MailIndexStore,
+  state: MailIndexState,
+  options: SyncOptions,
+): Promise<number> {
+  if (!provider.listSentMessageIds || !provider.getSentRecord) {
+    state.sentComplete = true;
+    return 0;
+  }
+  const ids = await provider.listSentMessageIds(token, SENT_CAP);
+  const known = await store.sentIds(provider.id);
+  const toRead = ids.filter((id) => !known.has(id));
+  const read = await readSentInto(provider, token, store, toRead, options, true);
+  state.sentComplete = true;
+  await store.setState(state);
+  await options.onSentReady?.();
+  return read;
+}
+
+async function readSentInto(
+  provider: EmailProvider,
+  token: string,
+  store: MailIndexStore,
+  ids: string[],
+  options: SyncOptions,
+  paced: boolean,
+): Promise<number> {
+  if (!provider.getSentRecord) return 0;
+  let doneCount = 0;
+  for (let start = 0; start < ids.length; start += WRITE_BATCH) {
+    if (paced) await options.waitForHeadroom?.();
+    const batch = ids.slice(start, start + WRITE_BATCH);
+    const rows = await mapWithConcurrency(batch, FETCH_CONCURRENCY, async (id) => {
+      try {
+        return await provider.getSentRecord?.(token, id);
+      } catch (error) {
+        log.error(`mailSync: could not read sent message ${id}`, error);
+        return undefined;
+      }
+    });
+    await store.putSent(rows.filter((row): row is SentRecord => Boolean(row)));
+    doneCount += batch.length;
+    options.onProgress?.({ phase: "sent", done: doneCount, total: ids.length });
+  }
+  return doneCount;
 }
 
 async function buildFromListing(
   provider: EmailProvider,
   token: string,
   store: MailIndexStore,
+  state: MailIndexState,
   cap: number,
   options: SyncOptions,
   now: () => number,
@@ -153,9 +232,9 @@ async function buildFromListing(
   const quickCount = Math.min(options.quickCount ?? DEFAULT_QUICK_COUNT, cap);
   options.onProgress?.({ phase: "listing", done: 0, total: 0 });
 
-  // Quick view first: one list page, then the newest unread-by-us messages,
-  // unpaced. Listing all 20,000 ids first would delay the first screen by
-  // dozens of list calls.
+  // Quick view first: one list page, then the newest messages the index
+  // doesn't have, unpaced. Listing all 20,000 ids first would delay the first
+  // screen by dozens of list calls.
   const firstPage = await provider.listCandidateMessages(
     token,
     Math.min(cap, FIRST_PAGE),
@@ -173,6 +252,10 @@ async function buildFromListing(
   }
   signalQuick();
 
+  // Who you write to matters more than older bulk mail, so Sent goes next.
+  let sentRead = 0;
+  if (!state.sentComplete) sentRead = await backfillSent(provider, token, store, state, options);
+
   const stubs =
     firstPage.length < Math.min(cap, FIRST_PAGE)
       ? firstPage
@@ -184,22 +267,25 @@ async function buildFromListing(
   const gone = [...known].filter((id) => !listed.has(id));
   await store.remove(provider.id, gone);
 
-  // Without a change feed, recent rows are re-read for current read/flag state.
-  let stale = new Set<string>();
-  if (!provider.listChangesSince) {
-    const cutoff = now() - REFRESH_WINDOW_MS;
-    const rows = await store.get(
-      provider.id,
-      stubs.filter((stub) => known.has(stub.id)).map((stub) => stub.id),
-    );
-    stale = new Set(rows.filter((row) => row.receivedAt >= cutoff).map((row) => row.id));
+  // Rows to read again: an older stored shape, or (without a change feed)
+  // recent mail whose read/flag state may have moved.
+  const cutoff = now() - REFRESH_WINDOW_MS;
+  const knownRows = await store.get(
+    provider.id,
+    stubs.filter((stub) => known.has(stub.id)).map((stub) => stub.id),
+  );
+  const outdated = new Set<string>();
+  const stale = new Set<string>();
+  for (const row of knownRows) {
+    if ((row.v ?? 1) < MAIL_ROW_VERSION) outdated.add(row.id);
+    else if (!provider.listChangesSince && row.receivedAt >= cutoff) stale.add(row.id);
   }
 
-  // Listing order is newest first. The rest is paced so the person's own
-  // clicks keep some of Gmail's per-minute quota.
-  const toRead = stubs.filter((stub) => !known.has(stub.id) || stale.has(stub.id)).map((s) => s.id);
-  const read = await readInto(provider, token, store, toRead, options, true);
-  return { mode: "build", read: quickRead + read, removed: gone.length, updated: 0 };
+  // Newest first: unknown and stale mail, then older-shape rows last.
+  const fresh = stubs.filter((stub) => !known.has(stub.id) || stale.has(stub.id)).map((s) => s.id);
+  const upgrade = stubs.filter((stub) => outdated.has(stub.id)).map((s) => s.id);
+  const read = await readInto(provider, token, store, [...fresh, ...upgrade], options, true);
+  return { mode: "build", read: quickRead + sentRead + read, removed: gone.length, updated: 0 };
 }
 
 async function applyChanges(
@@ -242,7 +328,15 @@ async function applyChanges(
   await store.put(updates);
   await store.remove(provider.id, dropped);
   const read = await readInto(provider, token, store, [...toRead], options, false);
-  return { mode: "changes", read, removed: dropped.length, updated: updates.length };
+
+  // Mail you sent since last time feeds "people you write to".
+  const sentAdded = changes.added.filter((id) => {
+    const labelIds = labelsById.get(id);
+    return Boolean(labelIds && provider.isSentLabels?.(labelIds));
+  });
+  await store.removeSent(provider.id, [...removed]);
+  const sentRead = await readSentInto(provider, token, store, sentAdded, options, false);
+  return { mode: "changes", read: read + sentRead, removed: dropped.length, updated: updates.length };
 }
 
 function inScope(provider: EmailProvider, labelIds: string[]): boolean {

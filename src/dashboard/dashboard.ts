@@ -38,6 +38,7 @@ import {
   type SyncResult,
 } from "../lib/mailSync";
 import { gmailQuotaHeadroom } from "../lib/gmailQuotaLedger";
+import { buildCorrespondents, mergeCorrespondentAddresses } from "../lib/correspondents";
 import { withStorageLock } from "../lib/storageLock";
 import type { EmailProvider, ProviderId } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
@@ -614,7 +615,7 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
     try {
       const store = await openMailIndex();
       const authToken = token ?? (await provider.getAuthToken(false));
-      return await withStorageLock(`mail-index:${provider.id}`, () =>
+      const result = await withStorageLock(`mail-index:${provider.id}`, () =>
         syncMailIndex(provider, authToken, store, {
           windowDays: ctx.settings.scanWindowDays,
           cap: MAIL_INDEX_CAP,
@@ -626,8 +627,15 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
             updateIndexStatus();
           },
           waitForHeadroom: provider.id === "gmail" ? waitForGmailHeadroom : undefined,
+          onSentReady: () => updateCorrespondentsFromIndex(provider).catch((err) =>
+            log.error("Could not update people you write to", err),
+          ),
         }),
       );
+      await updateCorrespondentsFromIndex(provider).catch((err) =>
+        log.error("Could not update people you write to", err),
+      );
+      return result;
     } catch (err) {
       run.error = err;
       log.error(`Mail index sync failed for ${provider.id}`, err);
@@ -644,19 +652,37 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
   return run;
 }
 
-/** Quiet line under the status while older mail is still being read. */
+/** Quiet line under the status while older or sent mail is still being read. */
 function updateIndexStatus() {
-  const reading = [...indexRuns.values()]
+  const active = [...indexRuns.values()]
     .map((run) => run.progress)
-    .filter((p): p is SyncProgress => p?.phase === "reading");
-  if (reading.length === 0 || !statusEl.hidden) {
+    .filter((p): p is SyncProgress => p?.phase === "reading" || p?.phase === "sent");
+  if (active.length === 0 || !statusEl.hidden) {
     indexStatusEl.hidden = true;
     return;
   }
-  const done = reading.reduce((sum, p) => sum + p.done, 0);
-  const total = reading.reduce((sum, p) => sum + p.total, 0);
+  const done = active.reduce((sum, p) => sum + p.done, 0);
+  const total = active.reduce((sum, p) => sum + p.total, 0);
+  const what = active.some((p) => p.phase === "sent") ? "your sent mail" : "older mail";
   indexStatusEl.hidden = false;
-  indexStatusEl.textContent = `Still reading older mail: ${done.toLocaleString()} of ${total.toLocaleString()}.`;
+  indexStatusEl.textContent = `Still reading ${what}: ${done.toLocaleString()} of ${total.toLocaleString()}.`;
+}
+
+/** Everyone in the sent store joins the "people you write to" list that
+ * protection, the Screener and scam checks read. */
+async function updateCorrespondentsFromIndex(provider: EmailProvider) {
+  const store = await openMailIndex();
+  const records = await store.allSent(provider.id);
+  if (records.length === 0) return;
+  const state = await store.getState(provider.id);
+  const correspondents = buildCorrespondents(records, state?.accountId ? [state.accountId] : []);
+  ctx.settings = await mutateSettings((current) => ({
+    ...current,
+    sentCorrespondents: {
+      addresses: mergeCorrespondentAddresses(current.sentCorrespondents.addresses, correspondents),
+      fetchedAt: Date.now(),
+    },
+  }));
 }
 
 /** After a render, offer the newer picture once a sync changes the index. */

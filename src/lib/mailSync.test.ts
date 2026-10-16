@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createMemoryMailIndex } from "./mailIndex";
+import { createMemoryMailIndex, MAIL_ROW_VERSION } from "./mailIndex";
 import { catchUpIndex, readMailIndex, syncMailIndex } from "./mailSync";
 import type { EmailProvider, MailboxChanges, NormalizedMessageMetadata } from "./providers/emailProvider";
 import { gmailLabelFields, inIndexScope } from "./providers/gmailProvider";
@@ -19,6 +19,7 @@ function message(id: string, labelIds: string[], ageDays = 1): NormalizedMessage
     unsubscribe: {},
     receivedAt: NOW - ageDays * DAY,
     ...gmailLabelFields(labelIds),
+    v: MAIL_ROW_VERSION,
   };
 }
 
@@ -308,5 +309,104 @@ describe("syncMailIndex: pacing", () => {
     expect(events[0]).toBe("quick");
     expect(waitForHeadroom).toHaveBeenCalled();
     expect(provider.getMessageMetadata).toHaveBeenCalledTimes(80);
+  });
+});
+
+describe("syncMailIndex: sent mail", () => {
+  function withSent(fake: ReturnType<typeof fakeGmail>, sentIds: string[]) {
+    const provider = Object.assign(fake.provider, {
+      listSentMessageIds: vi.fn(async () => sentIds),
+      getSentRecord: vi.fn(async (_t: string, id: string) => ({
+        id,
+        provider: "gmail" as const,
+        sentAt: NOW,
+        to: [{ address: `${id}@friend.com`, name: id }],
+        cc: [],
+        bcc: [],
+      })),
+      isSentLabels: (labelIds: string[]) => labelIds.includes("SENT"),
+    });
+    return provider;
+  }
+
+  it("reads the Sent folder after the first screen, then tells the caller", async () => {
+    const fake = fakeGmail([message("a", ["INBOX"])]);
+    const provider = withSent(fake, ["s1", "s2"]);
+    const store = createMemoryMailIndex();
+    const order: string[] = [];
+
+    await syncMailIndex(provider, "t", store, {
+      ...options,
+      onQuickReady: () => order.push("quick"),
+      onSentReady: () => {
+        order.push("sent");
+      },
+    });
+
+    expect(order).toEqual(["quick", "sent"]);
+    expect([...(await store.sentIds("gmail"))].sort()).toEqual(["s1", "s2"]);
+    expect((await store.getState("gmail"))?.sentComplete).toBe(true);
+  });
+
+  it("reads Sent for an index built before sent mail was kept", async () => {
+    const fake = fakeGmail([message("a", ["INBOX"])]);
+    const provider = withSent(fake, ["s1"]);
+    const store = createMemoryMailIndex();
+    await store.put([message("a", ["INBOX"])]);
+    await store.setState({
+      provider: "gmail",
+      complete: true,
+      cursor: "h1",
+      rowVersion: MAIL_ROW_VERSION,
+      accountId: "me@example.com",
+    });
+
+    await syncMailIndex(provider, "t", store, options);
+
+    expect(provider.listCandidateMessages).not.toHaveBeenCalled();
+    expect([...(await store.sentIds("gmail"))]).toEqual(["s1"]);
+  });
+
+  it("adds newly sent mail from the change feed", async () => {
+    const fake = fakeGmail([message("a", ["INBOX"])]);
+    const provider = withSent(fake, []);
+    const store = createMemoryMailIndex();
+    await syncMailIndex(provider, "t", store, options);
+    fake.state.changes = {
+      added: ["s9"],
+      removed: [],
+      labelUpdates: [{ id: "s9", labelIds: ["SENT"] }],
+      cursor: "h2",
+      expired: false,
+    };
+
+    await syncMailIndex(provider, "t", store, options);
+
+    expect([...(await store.sentIds("gmail"))]).toEqual(["s9"]);
+    // Sent-only mail never becomes a received row.
+    expect((await store.ids("gmail")).has("s9")).toBe(false);
+  });
+});
+
+describe("syncMailIndex: row upgrades", () => {
+  it("re-reads rows stored before the current shape, after applying changes", async () => {
+    const fake = fakeGmail([message("a", ["INBOX"])]);
+    const store = createMemoryMailIndex();
+    await store.put([{ ...message("a", ["INBOX"]), v: undefined }]);
+    await store.setState({
+      provider: "gmail",
+      complete: true,
+      cursor: "h1",
+      sentComplete: true,
+      accountId: "me@example.com",
+    });
+
+    await syncMailIndex(fake.provider, "t", store, options);
+
+    expect(fake.provider.listChangesSince).toHaveBeenCalledWith("t", "h1");
+    expect(fake.provider.getMessageMetadata).toHaveBeenCalledWith("t", "a");
+    const [row] = await store.get("gmail", ["a"]);
+    expect(row.v).toBe(MAIL_ROW_VERSION);
+    expect(await store.getState("gmail")).toMatchObject({ rowVersion: MAIL_ROW_VERSION, cursor: "h1" });
   });
 });

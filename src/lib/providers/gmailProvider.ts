@@ -8,6 +8,8 @@ import {
   getMessageMetadata as fetchGmailMessageMetadata,
   getCurrentHistoryId,
   getProfileEmail,
+  getSentRecord as apiGetSentRecord,
+  listSentMessageIds as apiListSentMessageIds,
   listMailboxChangesSince,
   findLabelIds,
   getOrCreateLabel,
@@ -30,6 +32,8 @@ import {
   untrashMessages as apiUntrashMessages,
 } from "../gmailApi";
 import { parseListUnsubscribe } from "../unsubscribe";
+import { relationshipFields } from "../headerFields";
+import { MAIL_ROW_VERSION } from "../mailIndex";
 import { clusterLabelName } from "../clusterLabels";
 import { selectTrustedAuthenticationResults } from "../emailAuth";
 import type {
@@ -151,8 +155,16 @@ export const gmailProvider: EmailProvider = {
   },
 
   async getMessageMetadata(token, id): Promise<NormalizedMessageMetadata> {
-    const { headers, authenticationResultsHeaders, dkimSignatures, labelIds, internalDate, sizeEstimate } =
-      await fetchGmailMessageMetadata(token, id);
+    const {
+      headers,
+      authenticationResultsHeaders,
+      dkimSignatures,
+      labelIds,
+      internalDate,
+      sizeEstimate,
+      threadId,
+      header,
+    } = await fetchGmailMessageMetadata(token, id);
     const { address, displayName } = parseFrom(headers.From ?? "");
     const authenticationResults = selectTrustedAuthenticationResults("gmail", authenticationResultsHeaders);
     return {
@@ -174,7 +186,22 @@ export const gmailProvider: EmailProvider = {
       authenticationResults,
       precedence: headers.Precedence,
       autoSubmitted: headers["Auto-Submitted"],
+      ...relationshipFields(header),
+      threadId,
+      v: MAIL_ROW_VERSION,
     };
+  },
+
+  listSentMessageIds(token, maxResults) {
+    return apiListSentMessageIds(token, maxResults);
+  },
+
+  getSentRecord(token, id) {
+    return apiGetSentRecord(token, id);
+  },
+
+  isSentLabels(labelIds) {
+    return labelIds.includes("SENT") && !labelIds.includes("DRAFT");
   },
 
   async getAccountId(token) {

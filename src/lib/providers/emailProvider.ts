@@ -1,3 +1,4 @@
+import type { RelationshipFields } from "../headerFields";
 import type { UnsubscribeInfo } from "../unsubscribe";
 
 export type ProviderId = "gmail" | "outlook";
@@ -24,7 +25,7 @@ export interface IncrementalMessageResult {
   reset: boolean;
 }
 
-export interface NormalizedMessageMetadata {
+export interface NormalizedMessageMetadata extends Partial<RelationshipFields> {
   id: string;
   provider: ProviderId;
   fromAddress: string;
@@ -80,6 +81,24 @@ export interface NormalizedMessageMetadata {
    * can re-derive the label fields above from a history event without
    * fetching the message again (see EmailProvider.applyLabelIds). */
   labelIds?: string[];
+  /** Provider thread id (Gmail threadId, Graph conversationId). */
+  threadId?: string;
+  /** Shape version of a stored row (mailIndex.MAIL_ROW_VERSION). Rows read
+   * before a field was added are re-read once, in the background. */
+  v?: number;
+}
+
+/** One message you sent: who it went to, and where it sits in a thread. */
+export interface SentRecord {
+  id: string;
+  provider: ProviderId;
+  threadId?: string;
+  sentAt: number;
+  to: { address: string; name: string }[];
+  cc: { address: string; name: string }[];
+  bcc: { address: string; name: string }[];
+  messageIdHeader?: string;
+  inReplyTo?: string;
 }
 
 /** What changed in a mailbox since a provider cursor (Gmail history). */
@@ -215,6 +234,12 @@ export interface EmailProvider {
    * left the index's scope (trashed, spam, archived out of every lane).
    */
   getAccountId?(token: string): Promise<string>;
+  /** Sent mail, for "people you write to": ids newest first, and one
+   * message's recipients (To/Cc/Bcc with names). isSentLabels says whether a
+   * change-feed label set belongs to sent mail. */
+  listSentMessageIds?(token: string, maxResults: number): Promise<string[]>;
+  getSentRecord?(token: string, id: string): Promise<SentRecord>;
+  isSentLabels?(labelIds: string[]): boolean;
   getChangeCursor?(token: string): Promise<string>;
   listChangesSince?(token: string, cursor: string): Promise<MailboxChanges>;
   applyLabelIds?(

@@ -27,9 +27,22 @@ Only these, via the API's metadata format — **never the message body**:
 - `List-Unsubscribe`, `List-Unsubscribe-Post`
 - `Authentication-Results`
 - `DKIM-Signature` (only to verify RFC 8058 one-click header coverage)
+- `Precedence`, `Auto-Submitted` (bulk and automated mail)
+- `To`, `Cc`, `Message-ID`, `In-Reply-To`, `References` (who mail is between,
+  and which thread it belongs to)
+- `List-Id`, `Return-Path`, `Feedback-ID`, `Sender` (which list or sending
+  service it came through)
+
+For sent mail, only `To`, `Cc`, `Bcc`, `Message-ID` and `In-Reply-To`, to
+learn who you write to.
 
 Plus non-header metadata the same API call returns: label IDs (e.g. `STARRED`,
-`UNREAD`, `INBOX`), the internal received timestamp, and the size estimate.
+`UNREAD`, `INBOX`), the thread ID, the internal received timestamp, and the
+size estimate.
+
+These are kept in a local mail index (IndexedDB, on this device only, up to
+20,000 received messages and 5,000 sent per account) so Cluster doesn't
+re-read mail it already knows. Signing into a different account clears it.
 
 ### The one exception: "Deep scan"
 

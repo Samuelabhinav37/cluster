@@ -8,10 +8,15 @@
 // unusual runtimes) an in-memory store keeps the same behaviour for the life
 // of the page.
 import { log } from "./log";
-import type { NormalizedMessageMetadata, ProviderId } from "./providers/emailProvider";
+import type { NormalizedMessageMetadata, ProviderId, SentRecord } from "./providers/emailProvider";
 
 /** Most messages the index keeps per account. Oldest go first past this. */
 export const MAIL_INDEX_CAP = 20_000;
+
+/** Shape version of a stored message row. Bump when a provider starts
+ * filling a new field; older rows are re-read once, paced, in the background.
+ * 2: relationship headers (To/Cc, thread, List-Id, Return-Path, Feedback-ID). */
+export const MAIL_ROW_VERSION = 2;
 
 export interface MailIndexState {
   provider: ProviderId;
@@ -29,6 +34,10 @@ export interface MailIndexState {
   lastSyncAt?: number;
   /** Scan window the last listing used. A different window re-lists. */
   windowDays?: number;
+  /** MAIL_ROW_VERSION of the last full listing; older rows get re-read. */
+  rowVersion?: number;
+  /** True once the Sent folder has been read into the sent store. */
+  sentComplete?: boolean;
   /** Message ids with a risky attachment shape, from the last sync. Applied
    * when the index is read, so the flag stays current without rewriting rows. */
   riskyIds?: string[];
@@ -43,10 +52,17 @@ export interface MailIndexStore {
   clear(provider: ProviderId): Promise<void>;
   getState(provider: ProviderId): Promise<MailIndexState | undefined>;
   setState(state: MailIndexState): Promise<void>;
+  /** Sent mail: who you wrote to. Kept apart from the received-mail rows so
+   * it never shows up as a "sender" on any screen. */
+  allSent(provider: ProviderId): Promise<SentRecord[]>;
+  sentIds(provider: ProviderId): Promise<Set<string>>;
+  putSent(rows: SentRecord[]): Promise<void>;
+  removeSent(provider: ProviderId, ids: string[]): Promise<void>;
 }
 
 export function createMemoryMailIndex(): MailIndexStore {
   const rows = new Map<string, NormalizedMessageMetadata>();
+  const sent = new Map<string, SentRecord>();
   const states = new Map<ProviderId, MailIndexState>();
   const key = (provider: ProviderId, id: string) => `${provider}:${id}`;
   return {
@@ -70,7 +86,20 @@ export function createMemoryMailIndex(): MailIndexStore {
     },
     async clear(provider) {
       for (const [k, row] of rows) if (row.provider === provider) rows.delete(k);
+      for (const [k, row] of sent) if (row.provider === provider) sent.delete(k);
       states.delete(provider);
+    },
+    async allSent(provider) {
+      return [...sent.values()].filter((row) => row.provider === provider).map((row) => ({ ...row }));
+    },
+    async sentIds(provider) {
+      return new Set([...sent.values()].filter((row) => row.provider === provider).map((row) => row.id));
+    },
+    async putSent(list) {
+      for (const row of list) sent.set(key(row.provider, row.id), { ...row });
+    },
+    async removeSent(provider, ids) {
+      for (const id of ids) sent.delete(key(provider, id));
     },
     async getState(provider) {
       const state = states.get(provider);
@@ -83,9 +112,10 @@ export function createMemoryMailIndex(): MailIndexStore {
 }
 
 const DB_NAME = "cluster-mail-index";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const MESSAGES = "messages";
 const STATE = "state";
+const SENT = "sent";
 
 function request<T>(req: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -112,6 +142,10 @@ function openDb(factory: IDBFactory): Promise<IDBDatabase> {
         store.createIndex("provider", "provider");
       }
       if (!db.objectStoreNames.contains(STATE)) db.createObjectStore(STATE, { keyPath: "provider" });
+      if (!db.objectStoreNames.contains(SENT)) {
+        const store = db.createObjectStore(SENT, { keyPath: ["provider", "id"] });
+        store.createIndex("provider", "provider");
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -157,11 +191,37 @@ function createIdbMailIndex(db: IDBDatabase): MailIndexStore {
       await done(tx);
     },
     async clear(provider) {
-      const tx = db.transaction([MESSAGES, STATE], "readwrite");
-      const messages = tx.objectStore(MESSAGES);
-      const keys = await request(messages.index("provider").getAllKeys(provider));
-      for (const k of keys) messages.delete(k);
+      const tx = db.transaction([MESSAGES, SENT, STATE], "readwrite");
+      for (const name of [MESSAGES, SENT]) {
+        const store = tx.objectStore(name);
+        const keys = await request(store.index("provider").getAllKeys(provider));
+        for (const k of keys) store.delete(k);
+      }
       tx.objectStore(STATE).delete(provider);
+      await done(tx);
+    },
+    async allSent(provider) {
+      return await request(read(SENT).index("provider").getAll(provider) as IDBRequest<SentRecord[]>);
+    },
+    async sentIds(provider) {
+      const keys = (await request(read(SENT).index("provider").getAllKeys(provider))) as unknown as [
+        ProviderId,
+        string,
+      ][];
+      return new Set(keys.map((k) => k[1]));
+    },
+    async putSent(rows) {
+      if (rows.length === 0) return;
+      const tx = db.transaction(SENT, "readwrite");
+      const store = tx.objectStore(SENT);
+      for (const row of rows) store.put(row);
+      await done(tx);
+    },
+    async removeSent(provider, ids) {
+      if (ids.length === 0) return;
+      const tx = db.transaction(SENT, "readwrite");
+      const store = tx.objectStore(SENT);
+      for (const id of ids) store.delete([provider, id]);
       await done(tx);
     },
     async getState(provider) {
