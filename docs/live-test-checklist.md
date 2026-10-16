@@ -1,7 +1,14 @@
 # Cluster — live test checklist
 
-Everything below is verified only in a real browser against a real inbox. The
-unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
+Everything below is verified only in a real browser against a real inbox — OAuth,
+real Gmail/Graph calls, real quota, and CSP under real Chrome.
+
+The **DOM wiring and action flows** for every tab (a mute / rule / unsubscribe /
+label / sort actually firing, undo, offline, the quota-403 UI) are now covered by
+`src/dashboard/*.dom.test.ts` — see [`testing.md`](./testing.md). Treat the
+per-tab sections below as a spot-check of those against a real mailbox plus the
+genuinely un-automatable items (consent screens, `criteria.from` limits, live
+Graph `messageRules`, `dmarc=fail` visibility).
 
 > The "Sort my inbox" feature now lives in `src/dashboard/sortInbox.ts` (moved
 > out of `dashboard.ts` behind the `src/dashboard/state.ts` seam). Behaviour is

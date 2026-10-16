@@ -25,7 +25,13 @@ function rel(path: string): string {
 }
 
 const nonTestFiles = Object.entries(sources).filter(
-  ([path]) => !path.endsWith(".test.ts") && !path.endsWith(".d.ts"),
+  ([path]) =>
+    !path.endsWith(".test.ts") &&
+    !path.endsWith(".d.ts") &&
+    // Test-only jsdom harness: never in the build graph (nothing outside
+    // *.test.ts imports it), and it uses dynamic import() on purpose to
+    // (re)boot the dashboard module under test.
+    !path.endsWith("/testHarness.ts"),
 );
 
 // Markup / stylesheet sources, scanned for asset references that would pull
