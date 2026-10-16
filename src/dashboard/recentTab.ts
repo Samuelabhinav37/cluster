@@ -24,6 +24,8 @@ export async function logAction(kind: ActionLogKind, summary: string, undo?: Act
   await appendActionLog([{ id: makeLogId(kind), at: Date.now(), kind, summary, undo }]);
   ctx.settings = await getSettings();
   renderRecentTab();
+  // Kai reacts to what Cluster just did (kaiGuide.ts listens)
+  document.dispatchEvent(new CustomEvent("cluster:action", { detail: { kind } }));
 }
 
 // Undo (Gmail-first). Only ever offered for ids that were moved to Trash /
@@ -41,6 +43,7 @@ export function appendUndoButton(container: HTMLElement, gmailIds: string[]) {
       const token = await gmailProvider.getAuthToken(false);
       await gmailProvider.untrashMessages!(token, gmailIds);
       undoBtn.textContent = "Restored ✓";
+      document.dispatchEvent(new CustomEvent("cluster:undo"));
       await rescan();
     } catch (err) {
       undoBtn.disabled = false;
@@ -221,6 +224,7 @@ export function renderRecentTab() {
         undoBtn.textContent = "Undoing…";
         try {
           await undoEntry(entry);
+          document.dispatchEvent(new CustomEvent("cluster:undo"));
         } catch (err) {
           undoBtn.disabled = false;
           undoBtn.textContent = "Undo failed, try again";

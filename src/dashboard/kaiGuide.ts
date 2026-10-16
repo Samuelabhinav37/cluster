@@ -64,7 +64,7 @@ function closeIcon(doc: Document): SVGSVGElement {
 /** A Kai that does nothing, where the engine can't run (tests without it). */
 const STILL_KAI: Omit<KaiInstance, "root"> = {
   mood: "neutral", thinking: false,
-  setMood() {}, do() {}, blink() {}, lookAt() {}, talk() {}, think() {}, lightAntenna() {}, react() {},
+  setMood() {}, do() {}, blink() {}, lookAt() {}, pointAt() {}, talk() {}, think() {}, lightAntenna() {}, react() {},
 };
 
 function makeKai(host: HTMLElement, src: string): KaiInstance {
@@ -72,20 +72,35 @@ function makeKai(host: HTMLElement, src: string): KaiInstance {
   return factory ? factory(host, { src, imgWidth: 320, calm: true }) : { ...STILL_KAI, root: host };
 }
 
-/** Scroll to `selector` and outline it briefly. */
-export function pointAt(doc: Document, selector: string): boolean {
+/** Scroll to `selector` and outline it briefly. With `kai`, Kai first
+ * looks at the spot and leans its antenna toward it, then the ring follows
+ * (anticipation, then the action). */
+export function pointAt(doc: Document, selector: string, kai?: KaiInstance): boolean {
   const target = doc.querySelector<HTMLElement>(selector);
   if (!target) return false;
-  const reduced = doc.defaultView?.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  const win = doc.defaultView;
+  const reduced = win?.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
   target.scrollIntoView?.({ behavior: reduced ? "auto" : "smooth", block: "center" });
-  target.classList.remove("kai-here");
-  void target.offsetWidth;
-  target.classList.add("kai-here");
-  doc.defaultView?.setTimeout(() => target.classList.remove("kai-here"), 2600);
+  const ring = () => {
+    target.classList.remove("kai-here");
+    void target.offsetWidth;
+    target.classList.add("kai-here");
+    win?.setTimeout(() => target.classList.remove("kai-here"), 2600);
+  };
+  if (!kai || reduced || !win) { ring(); return true; }
+  win.setTimeout(() => kai.pointAt(target), 380);
+  win.setTimeout(ring, 680);
   return true;
 }
 
-export function initKaiGuide(doc: Document, options: KaiOptions): { open: () => void; close: () => void; isOpen: () => boolean; watch: KaiWatch | undefined } {
+export interface KaiGuide {
+  open: () => void;
+  close: () => void;
+  isOpen: () => boolean;
+  watch: KaiWatch | undefined;
+}
+
+export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
   const win = doc.defaultView ?? window;
   const reduced = win.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
   const wait = (ms: number) => (reduced ? 0 : ms);
@@ -155,7 +170,7 @@ export function initKaiGuide(doc: Document, options: KaiOptions): { open: () => 
       hide();
       doc.querySelector<HTMLButtonElement>(`.nav-item[data-screen="${q.screen}"]`)?.click();
       const target = q.target;
-      if (target) win.setTimeout(() => pointAt(doc, target), 250);
+      if (target) win.setTimeout(() => pointAt(doc, target, kai), 250);
     });
     return b;
   };
@@ -241,18 +256,25 @@ export function initKaiGuide(doc: Document, options: KaiOptions): { open: () => 
     watch?.opened();
     tagFold();
     kai.do("wave");
-    // Each time it opens, Kai starts afresh with this screen's questions.
+    // Back within 10 minutes: the conversation is still there. Otherwise
+    // Kai starts afresh with this screen's questions.
+    if (log.childElementCount && Date.now() - closedAt < 10 * 60000) {
+      win.setTimeout(() => panel.querySelector<HTMLButtonElement>(".kai-q")?.focus(), wait(400));
+      return;
+    }
     log.replaceChildren();
     asked.clear();
     busy = true;
-    say("Hi, I'm Kai. Ask me anything about Cluster.", null, () => {
+    say("Hi, I'm Kai. I'm small, but I know Cluster inside out. What can I help with?", null, () => {
       busy = false;
       choices(firstIds(), true);
     });
     win.setTimeout(() => panel.querySelector<HTMLButtonElement>(".kai-q")?.focus(), wait(400));
   };
+  let closedAt = 0;
   const hide = () => {
     if (panel.hidden) return;
+    closedAt = Date.now();
     panel.hidden = true;
     root.classList.remove("open", "thinking");
     button.setAttribute("aria-expanded", "false");
@@ -294,6 +316,8 @@ export function initKaiGuide(doc: Document, options: KaiOptions): { open: () => 
   };
   const react: Record<KaiNudgeKind, () => void> = {
     welcome: () => { kai.setMood("happy", 2200); kai.do("wave"); },
+    back: () => { kai.do("peek"); },
+    say: () => {},
     stuck: () => { kai.setMood("curious", 2400); kai.do("tilt"); },
     looking: () => { kai.do("lookAround"); win.setTimeout(() => { kai.lookAt(null); kai.setMood("happy", 1600); }, 900); },
     unsure: () => { kai.setMood("curious", 2400); kai.do("tilt"); },
@@ -314,7 +338,8 @@ export function initKaiGuide(doc: Document, options: KaiOptions): { open: () => 
     if ((event.target as Element | null)?.closest?.("#sidebar .nav-item")) win.setTimeout(onScreen, 50);
   });
   tag.addEventListener("click", show);
-  // "Ask Kai" once per visit, with a wave, then the bubble folds away.
+  // "Ask Kai" at most once a day, with a wave, then the bubble folds away.
+  // A later day gets "Welcome back." with a peek, the same day nothing.
   win.setTimeout(() => {
     if (!watch) tagSay("Ask Kai");
     else watch.welcome();
@@ -341,7 +366,7 @@ export function initKaiGuide(doc: Document, options: KaiOptions): { open: () => 
         if (!watch?.isShowing()) {
           hint = true;
           kai.setMood("happy", 1500);
-          tagSay("Need help?");
+          tagSay("Need a hand?");
         }
       } else if (near && d > 260) {
         near = false;
@@ -372,6 +397,48 @@ export function initKaiGuide(doc: Document, options: KaiOptions): { open: () => 
   // answer before the click reaches the document.
   doc.addEventListener("click", (event) => {
     if (isOpen() && !event.composedPath().includes(root)) hide();
+  });
+
+  // "Got it": a small nod when a setting changes, once per control per visit.
+  const nodded = new Set<string>();
+  const gotIt = (control: Element | null) => {
+    if (!control || root.contains(control) || isOpen()) return;
+    const id = control.id || control.getAttribute("name") || control.getAttribute("aria-label") || "";
+    if (!id || nodded.has(id)) return;
+    nodded.add(id);
+    kai.do("nodSmall");
+  };
+  doc.addEventListener("change", (event) => {
+    if (event.isTrusted) gotIt(event.target as Element | null);
+  });
+
+  // Moments (kai-character.md): Kai reacts to what Cluster just did. The
+  // action log announces each action (recentTab.ts). Unsubscribes come one
+  // per sender, so they are counted and answered once they stop.
+  const line = (text: string) => { hint = false; watch?.say(text); };
+  let unsubs = 0;
+  let unsubTimer = 0;
+  doc.addEventListener("cluster:action", (event) => {
+    const kind = (event as CustomEvent<{ kind: string }>).detail?.kind;
+    if (kind === "sort") { kai.do("celebrate"); line("All sorted."); }
+    else if (kind === "unsubscribe") {
+      unsubs++;
+      win.clearTimeout(unsubTimer);
+      unsubTimer = win.setTimeout(() => {
+        kai.do("bye");
+        line(unsubs === 1 ? "Unsubscribed. One less sender." : `Bye to ${unsubs} senders.`);
+        unsubs = 0;
+      }, 1500);
+    } else kai.do("nodSmall");
+  });
+  doc.addEventListener("cluster:undo", () => { kai.do("nodSmall"); line("Undone."); });
+  // Opening the screen of senders that look like someone else: a squint,
+  // once per visit.
+  let squinted = false;
+  doc.addEventListener("click", (event) => {
+    if (squinted || !(event.target as Element | null)?.closest?.('#sidebar .nav-item[data-screen="impersonation"]')) return;
+    squinted = true;
+    win.setTimeout(() => kai.do("squint"), 300);
   });
 
   return { open: show, close: hide, isOpen, watch };

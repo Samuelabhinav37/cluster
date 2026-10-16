@@ -27,6 +27,7 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => {
   vi.useRealTimers();
   sessionStorage.clear();
+  localStorage.clear();
   document.body.replaceChildren();
 });
 
@@ -54,7 +55,7 @@ describe("Kai's guide in Cluster", () => {
     button.click();
     kai.watch!.flip("x"); kai.watch!.flip("x"); kai.watch!.flip("x");
     expect(guide.classList.contains("tag-on")).toBe(true);
-    expect(document.querySelector(".kg-tag")!.textContent).toBe("Need help with Here?");
+    expect(document.querySelector(".kg-tag")!.textContent).toBe("Need a hand with Here?");
     vi.advanceTimersByTime(7100);
     expect(guide.classList.contains("tag-on")).toBe(false);
   });
@@ -69,7 +70,7 @@ describe("Kai's guide in Cluster", () => {
   it("greets and lists this screen's questions first", () => {
     const { open, said, chips } = setup("organize");
     open();
-    expect(said()).toEqual(["Hi, I'm Kai. Ask me anything about Cluster."]);
+    expect(said()).toEqual(["Hi, I'm Kai. I'm small, but I know Cluster inside out. What can I help with?"]);
     expect(chips().slice(0, 2)).toEqual(["How do I sort my inbox?", "Can Cluster keep new mail sorted?"]);
     expect(chips().at(-1)).toBe("Ask something else");
   });
@@ -86,7 +87,10 @@ describe("Kai's guide in Cluster", () => {
     panel.querySelector<HTMLButtonElement>(".kg-go")!.click();
     expect(navClick).toHaveBeenCalledOnce();
     expect(panel.hidden).toBe(true);
+    // Kai looks at the spot first, then the ring appears
     vi.advanceTimersByTime(300);
+    expect(document.getElementById("sort-inbox-section")!.classList.contains("kai-here")).toBe(false);
+    vi.advanceTimersByTime(700);
     expect(document.getElementById("sort-inbox-section")!.classList.contains("kai-here")).toBe(true);
   });
 
@@ -114,5 +118,30 @@ describe("Kai's guide in Cluster", () => {
     const screens = new Set(["overview", "delete", "senders", "subscriptions", "organize", "rules", "impersonation", "screener", "report", "recent"]);
     for (const q of CLUSTER_QUESTIONS) if (q.screen) expect(screens.has(q.screen), q.id).toBe(true);
     for (const ids of Object.values(CLUSTER_FIRST_ON)) for (const id of ids) expect(CLUSTER_QUESTIONS.some((q) => q.id === id), id).toBe(true);
+  });
+  it("reacts to what Cluster did: sorted, unsubscribed (counted), undone", () => {
+    setup();
+    vi.advanceTimersByTime(9000);
+    const tag = () => document.querySelector(".kg-tag")!.textContent;
+    const fire = (kind: string) => document.dispatchEvent(new CustomEvent("cluster:action", { detail: { kind } }));
+    fire("sort");
+    expect(tag()).toBe("All sorted.");
+    vi.advanceTimersByTime(4000);
+    fire("unsubscribe"); fire("unsubscribe"); fire("unsubscribe");
+    vi.advanceTimersByTime(1600);
+    expect(tag()).toBe("Bye to 3 senders.");
+    vi.advanceTimersByTime(4000);
+    document.dispatchEvent(new CustomEvent("cluster:undo"));
+    expect(tag()).toBe("Undone.");
+  });
+
+  it("keeps the conversation when reopened within 10 minutes", () => {
+    const { open, button, said } = setup();
+    open();
+    const before = said();
+    button.click();
+    vi.advanceTimersByTime(5 * 60000);
+    open();
+    expect(said()).toEqual(before);
   });
 });
