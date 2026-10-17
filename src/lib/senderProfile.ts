@@ -65,6 +65,8 @@ export interface SenderProfile {
   machine: boolean;
   kind: SenderKind;
   tier: SenderTier;
+  /** Their most common List-Id, if their mail carries one. */
+  listId?: string;
   /** Registrable domain of an authenticated company sender; null otherwise. */
   companyKey: string | null;
   /** Repeated templates, most first, each with TEMPLATE_MIN or more. */
@@ -154,6 +156,14 @@ function majority(votes: Map<string, number>, total: number): SenderKind {
   }
   if (!best || total === 0 || bestCount / total < KIND_MAJORITY) return "mixed";
   return best as SenderKind;
+}
+
+function mostCommon(values: (string | undefined)[]): string | undefined {
+  const counts = new Map<string, number>();
+  for (const v of values) if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
+  let best: string | undefined;
+  for (const [v, n] of counts) if (!best || n > counts.get(best)!) best = v;
+  return best;
 }
 
 function median(values: number[]): number {
@@ -281,6 +291,7 @@ export function buildSenderProfiles(inputs: ProfileInputs): Map<string, SenderPr
       replied,
       machine: bulkCount * 2 > rows.length,
       kind: majority(votes, voted),
+      listId: mostCommon(rows.map((m) => m.listId)),
       companyKey: companyKeyFor(address, rows),
       templates: buildTemplates(rows),
       duplicates: dupIds.length,

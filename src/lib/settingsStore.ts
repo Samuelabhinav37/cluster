@@ -18,6 +18,8 @@ export interface UnsubscribeRequestRecord {
   /** The address a mailto request was sent from. */
   from?: string;
   sentMessageId?: string;
+  /** The Gmail filter that files their later list mail (unsubscribeBackstop.ts). */
+  filterId?: string;
 }
 
 export interface ClusterSettings {
