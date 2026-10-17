@@ -3,7 +3,9 @@ import {
   hasVerifiedOneClickSignature,
   isAllowedOneClickUrl,
   originPattern,
+  listUnsubscribeItems,
   parseListUnsubscribe,
+  parseMailto,
   fireOneClickUnsubscribe,
   type OneClickVerificationContext,
 } from "./unsubscribe";
@@ -181,5 +183,53 @@ describe("fireOneClickUnsubscribe", () => {
         referrerPolicy: "no-referrer",
       }),
     );
+  });
+});
+
+describe("listUnsubscribeItems (RFC 2369)", () => {
+  it("keeps commas inside a URL and drops whitespace inside the brackets", () => {
+    expect(listUnsubscribeItems("<https://x.example/u?l=a,b>, <mailto:u@x.example>")).toEqual([
+      "https://x.example/u?l=a,b",
+      "mailto:u@x.example",
+    ]);
+    expect(listUnsubscribeItems("<https://x.example/very/\r\n long>")).toEqual(["https://x.example/very/long"]);
+  });
+
+  it("stops at the first item that isn't well formed", () => {
+    expect(listUnsubscribeItems("<mailto:a@x.example>, junk, <https://x.example/u>")).toEqual(["mailto:a@x.example"]);
+    expect(listUnsubscribeItems("<https://x.example/u")).toEqual([]);
+  });
+
+  it("keeps the first mailto, not the last", () => {
+    const info = parseListUnsubscribe("<mailto:first@x.example>, <mailto:second@x.example>", undefined);
+    expect(info.mailtoParts?.to).toBe("first@x.example");
+  });
+});
+
+describe("parseMailto (RFC 6068)", () => {
+  it("reads the address, subject and body, decoding once", () => {
+    expect(parseMailto("mailto:list-leave@x.example?subject=unsubscribe%20me&body=leave%0D%0Anow")).toEqual({
+      to: "list-leave@x.example",
+      subject: "unsubscribe me",
+      body: "leave\r\nnow",
+    });
+    expect(parseMailto("mailto:a+b@x.example?subject=a+b")).toEqual({ to: "a+b@x.example", subject: "a+b" });
+    expect(parseMailto("mailto:u@x.example?subject=%2520")).toEqual({ to: "u@x.example", subject: "%20" });
+  });
+
+  it("refuses anything that would add recipients or headers", () => {
+    expect(parseMailto("mailto:a@x.example,b@x.example")).toBeUndefined();
+    expect(parseMailto("mailto:a@x.example?cc=victim@y.example")).toBeUndefined();
+    expect(parseMailto("mailto:a@x.example?bcc=victim@y.example")).toBeUndefined();
+    expect(parseMailto("mailto:a@x.example?to=victim@y.example")).toBeUndefined();
+    expect(parseMailto("mailto:a@x.example?attach=/etc/passwd")).toBeUndefined();
+    expect(parseMailto("mailto:a@x.example?subject=hi%0D%0ABcc:%20v@y.example")).toBeUndefined();
+  });
+
+  it("refuses malformed addresses and encodings", () => {
+    expect(parseMailto("mailto:")).toBeUndefined();
+    expect(parseMailto("mailto:not-an-address")).toBeUndefined();
+    expect(parseMailto("mailto:a@x.example?subject=%E0%A4%A")).toBeUndefined();
+    expect(parseMailto("https://x.example")).toBeUndefined();
   });
 });

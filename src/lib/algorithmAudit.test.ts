@@ -293,9 +293,10 @@ describe("List-Unsubscribe parsing", () => {
     expect(parseListUnsubscribe("<http://x.example/u>, <https://x.example/u>, <mailto:u@x.example>", undefined)).toEqual({
       httpUrl: "https://x.example/u",
       mailto: "mailto:u@x.example",
+      mailtoParts: { to: "u@x.example" },
     });
   });
-  it.fails("KNOWN BUG: a comma inside a URL drops the https unsubscribe link", () => {
+  it("a comma inside a URL stays part of the https unsubscribe link", () => {
     expect(parseListUnsubscribe("<https://x.example/u?lists=a,b&id=9>", undefined).httpUrl).toBe(
       "https://x.example/u?lists=a,b&id=9",
     );
