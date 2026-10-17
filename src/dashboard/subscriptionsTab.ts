@@ -4,8 +4,6 @@
 // recordUnsubscribeRequests is exported because the Clean-up tab's sender
 // table also records a request when its inline Unsubscribe button fires.
 import { senderVolume } from "../lib/census";
-import { mutateSettings } from "../lib/settingsStore";
-import { recordEngagementFeedback } from "../lib/engagementModel";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
 import { executeBulkUnsubscribe, filterOutProtected } from "../lib/bulkActions";
 import {
@@ -26,6 +24,8 @@ import { senderTile } from "./senderTile";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
 import { clusterLabelName } from "../lib/clusterLabels";
+import { recordUnsubscribeRequests } from "./unsubscribeRecord";
+import { openUnsubscribeSheet } from "./unsubscribeSheet";
 
 const READ_LATER_LABEL = clusterLabelName("readLater");
 
@@ -77,26 +77,7 @@ function renderPaidSubscriptions(senders: SenderSummary[]) {
   paidSubscriptionsListEl.appendChild(listGroup(rows));
 }
 
-// Persisted so "already requested" survives a reload — senders can take up
-// to 10 business days to stop, so re-requesting isn't blocked, just labeled.
-export async function recordUnsubscribeRequests(senders: SenderSummary[]) {
-  if (senders.length === 0) return;
-  const now = Date.now();
-  ctx.settings = await mutateSettings((current) => {
-    const requests = { ...current.unsubscribeRequests };
-    for (const sender of senders) requests[sender.key] = { requestedAt: now, provider: sender.provider };
-    return {
-      ...current,
-      unsubscribeRequests: requests,
-      senderEngagement: recordEngagementFeedback(
-        current.senderEngagement,
-        senders.map((sender) => sender.key),
-        "accept",
-        now,
-      ),
-    };
-  });
-}
+export { recordUnsubscribeRequests };
 
 function unsubMethodLabel(u: SenderSummary["unsubscribe"]): string {
   if (u.postUrl) return "one-click";
@@ -202,11 +183,10 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
       cell.append(" ", cleanSlot);
     }
   } else if (u.mailto) {
-    const a = document.createElement("a");
-    a.href = u.mailto;
-    a.textContent = "Email";
-    a.target = "_blank";
-    cell.appendChild(a);
+    const button = document.createElement("button");
+    button.textContent = "Unsubscribe by email";
+    button.onclick = () => void openUnsubscribeSheet([sender], () => renderSubscriptionsTab(ctx.senders));
+    cell.appendChild(button);
   } else if (u.httpUrl) {
     const a = document.createElement("a");
     a.href = u.httpUrl;

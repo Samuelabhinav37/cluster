@@ -62,6 +62,7 @@ import { resurfaceDueSnoozed } from "../lib/snoozeResurface";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
 import { athenaOriginPatterns, getAthenaConfig } from "../lib/athenaIntegration";
 import { recordEngagementFeedback, type EngagementFeedback } from "../lib/engagementModel";
+import { openUnsubscribeSheet } from "./unsubscribeSheet";
 import { buildSuggestions, SUGGESTION_ACTION_LABELS, unopenedSuggestions, type Suggestion } from "../lib/suggestions";
 import { markFirstContact } from "../lib/firstContact";
 import { log } from "../lib/log";
@@ -2044,11 +2045,10 @@ function buildUnsubscribeCell(sender: SenderSummary): HTMLDivElement {
     applyState();
     cell.append(statusEl, btn);
   } else if (sender.unsubscribe.mailto) {
-    const link = document.createElement("a");
-    link.href = sender.unsubscribe.mailto;
-    link.textContent = "Unsubscribe via email";
-    link.target = "_blank";
-    cell.appendChild(link);
+    const button = document.createElement("button");
+    button.textContent = "Unsubscribe by email";
+    button.onclick = () => void openUnsubscribeSheet([sender], () => renderDeleteScreen(ctx.senders));
+    cell.appendChild(button);
   } else if (sender.unsubscribe.httpUrl) {
     const link = document.createElement("a");
     link.href = sender.unsubscribe.httpUrl;
@@ -2784,10 +2784,12 @@ function wireBulkHandlers() {
   bulkUnsubscribeBtn.onclick = () => {
     const selected = ctx.senders.filter((s) => selectedSenderKeys.has(s.key));
     const { automatable, manual } = partitionForUnsubscribe(selected);
-    const summaryText = `${automatable.length} will be unsubscribed automatically, ${manual.length} have no verified link and need a manual look`;
+    const byEmail = manual.filter((s) => s.unsubscribe.mailto);
+    const summaryText = `${automatable.length} will be unsubscribed with one click. ${byEmail.length} need an email you check first. ${manual.length - byEmail.length} need a manual look.`;
 
     renderConfirmStep(unsubscribeBulkSlot, resetUnsubscribeBulkSlot, summaryText, false, async (summary) => {
-      if (automatable.length === 0) return `Nothing to automate. ${manual.length} need a manual look`;
+      if (byEmail.length > 0) void openUnsubscribeSheet(byEmail, () => renderDeleteScreen(ctx.senders));
+      if (automatable.length === 0) return `Nothing to send with one click. ${manual.length - byEmail.length} need a manual look`;
       summary.textContent = "Requesting permission…";
       const granted = await ensureOriginsPermission(automatable.map((s) => s.unsubscribe.postUrl!));
       if (!granted) return "Permission denied, so nothing was unsubscribed";
@@ -2798,7 +2800,7 @@ function wireBulkHandlers() {
         await logAction("unsubscribe", `Bulk unsubscribed from ${succeeded.length} senders`);
       renderDeleteScreen(ctx.senders);
       renderOrganizeScreen(ctx.senders);
-      return `Unsubscribed ${succeeded.length}, failed ${failed.length}, skipped ${manual.length} (no verified link)`;
+      return `Unsubscribed ${succeeded.length}, failed ${failed.length}, skipped ${manual.length - byEmail.length} (no verified link)`;
     });
   };
 

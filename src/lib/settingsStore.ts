@@ -8,6 +8,18 @@ import type { QuarantineReviewMap } from "./quarantineReview";
 import { withStorageLock } from "./storageLock";
 import { migrateStoredLabelNames } from "./clusterLabels";
 
+export type UnsubscribeMethod = "one-click" | "mailto";
+
+export interface UnsubscribeRequestRecord {
+  requestedAt: number;
+  provider: ProviderId;
+  /** How it was asked. Older records have none and were one-click. */
+  method?: UnsubscribeMethod;
+  /** The address a mailto request was sent from. */
+  from?: string;
+  sentMessageId?: string;
+}
+
 export interface ClusterSettings {
   schemaVersion: number;
   scanWindowDays: number;
@@ -15,7 +27,7 @@ export interface ClusterSettings {
   collapsedSenderCategories: string[];
   collapsedDomainCategories: string[];
   // Keyed the same way SenderSummary.key is built (`${provider}:${address}`).
-  unsubscribeRequests: Record<string, { requestedAt: number; provider: ProviderId }>;
+  unsubscribeRequests: Record<string, UnsubscribeRequestRecord>;
   fastPermanentDeleteEnabled: boolean;
   onboardingDismissed: boolean;
   // Gmail-only — keyed by message id (see gmailApi.snoozeMessages).
