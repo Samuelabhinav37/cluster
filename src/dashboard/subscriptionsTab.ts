@@ -7,7 +7,6 @@ import { senderVolume } from "../lib/census";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
 import { executeBulkUnsubscribe, filterOutProtected } from "../lib/bulkActions";
 import {
-  evaluateUnsubscribeOutcome,
   unsubscribeOutcomeRank,
   type UnsubscribeOutcomeState,
 } from "../lib/unsubscribeOutcome";
@@ -24,7 +23,7 @@ import { senderTile } from "./senderTile";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
 import { clusterLabelName } from "../lib/clusterLabels";
-import { recordUnsubscribeRequests } from "./unsubscribeRecord";
+import { recordUnsubscribeRequests, unsubscribeOutcomeFor } from "./unsubscribeRecord";
 import { openUnsubscribeSheet } from "./unsubscribeSheet";
 
 const READ_LATER_LABEL = clusterLabelName("readLater");
@@ -106,7 +105,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
     const btn = document.createElement("button");
     const tracked = ctx.settings.unsubscribeRequests[sender.key];
     btn.textContent = tracked
-      ? evaluateUnsubscribeOutcome(sender, tracked).state === "still-sending"
+      ? unsubscribeOutcomeFor(sender.key, sender).state === "still-sending"
         ? "Retry unsubscribe"
         : "Request again"
       : "Unsubscribe";
@@ -284,7 +283,12 @@ function renderSubsFloatingBar(oneClickCount: number) {
 
 function selectedUnsubscribeOutcome(): "all" | UnsubscribeOutcomeState {
   const value = subsOutcomeFilter.value;
-  return value === "pending" || value === "quiet" || value === "still-sending" || value === "untracked"
+  return value === "pending" ||
+    value === "quiet" ||
+    value === "still-sending" ||
+    value === "untracked" ||
+    value === "failed" ||
+    value === "needs-you"
     ? value
     : "all";
 }
@@ -309,7 +313,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
   const currentRows = available
     .map((sender) => ({
       sender,
-      outcome: evaluateUnsubscribeOutcome(sender, ctx.settings.unsubscribeRequests[sender.key]),
+      outcome: unsubscribeOutcomeFor(sender.key, sender),
     }))
     .sort(
       (a, b) =>
@@ -323,7 +327,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
       key,
       request,
       sender: senderByKey.get(key),
-      outcome: evaluateUnsubscribeOutcome(senderByKey.get(key), request),
+      outcome: unsubscribeOutcomeFor(key, senderByKey.get(key)),
     }))
     .sort(
       (a, b) =>

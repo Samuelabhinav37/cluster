@@ -130,7 +130,12 @@ async function send(rows: ReadyRow[]): Promise<{ summary: string; fallback: Queu
   await recordUnsubscribeRequests(
     sentSenders,
     "mailto",
-    Object.fromEntries(run.sent.map((i) => [i.senderKey, { from: i.from, sentMessageId: i.sentMessageId }])),
+    Object.fromEntries(
+      run.sent.map((i) => [
+        i.senderKey,
+        { from: i.from, to: i.to, sentMessageId: i.sentMessageId, sentThreadId: i.sentThreadId },
+      ]),
+    ),
   );
   if (run.sent.length > 0) {
     await logAction(

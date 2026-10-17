@@ -18,6 +18,10 @@ export interface UnsubscribeRequestRecord {
   /** The address a mailto request was sent from. */
   from?: string;
   sentMessageId?: string;
+  /** Thread of the sent request, where a bounce would land. */
+  sentThreadId?: string;
+  /** The address a mailto request went to. */
+  to?: string;
   /** The Gmail filter that files their later list mail (unsubscribeBackstop.ts). */
   filterId?: string;
 }

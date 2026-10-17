@@ -63,6 +63,7 @@ import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubsc
 import { athenaOriginPatterns, getAthenaConfig } from "../lib/athenaIntegration";
 import { recordEngagementFeedback, type EngagementFeedback } from "../lib/engagementModel";
 import { openUnsubscribeSheet } from "./unsubscribeSheet";
+import { readUnsubscribeReplies, unsubscribeOutcomeFor } from "./unsubscribeRecord";
 import { buildSuggestions, SUGGESTION_ACTION_LABELS, unopenedSuggestions, type Suggestion } from "../lib/suggestions";
 import { markFirstContact } from "../lib/firstContact";
 import { log } from "../lib/log";
@@ -105,7 +106,6 @@ import { homeHeadline, renderHomeTop, type HomeFacts } from "./homeTab";
 import { listGroup, listRow } from "./listRow";
 import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
-import { evaluateUnsubscribeOutcome } from "../lib/unsubscribeOutcome";
 import { CLUSTER_FIRST_ON, CLUSTER_QUESTIONS, initKaiGuide } from "./kaiGuide";
 
 const selectedSenderKeys = new Set<string>();
@@ -808,6 +808,7 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
       .filter(Boolean),
     knownSenders: buildProtectionContext(ctx.settings).knownSenders,
   });
+  readUnsubscribeReplies(metas);
   indexOfferShown = false;
   for (const { run } of runs) offerUpdatedView(run);
   let senders = combined.cleanup;
@@ -2011,7 +2012,7 @@ function buildUnsubscribeCell(sender: SenderSummary): HTMLDivElement {
     const applyState = () => {
       const tracked = ctx.settings.unsubscribeRequests[sender.key];
       if (tracked) {
-        const outcome = evaluateUnsubscribeOutcome(sender, tracked);
+        const outcome = unsubscribeOutcomeFor(sender.key, sender);
         statusEl.textContent = `${outcome.label} · requested ${formatRelativeTime(tracked.requestedAt)}`;
         statusEl.title = outcome.detail;
         btn.textContent = outcome.state === "still-sending" ? "Retry unsubscribe" : "Request again";
@@ -2034,7 +2035,7 @@ function buildUnsubscribeCell(sender: SenderSummary): HTMLDivElement {
         statusEl.textContent = "Request failed, try again";
         const tracked = ctx.settings.unsubscribeRequests[sender.key];
         btn.textContent = tracked
-          ? evaluateUnsubscribeOutcome(sender, tracked).state === "still-sending"
+          ? unsubscribeOutcomeFor(sender.key, sender).state === "still-sending"
             ? "Retry unsubscribe"
             : "Request again"
           : "Unsubscribe (verified one-click)";

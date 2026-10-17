@@ -39,6 +39,8 @@ export interface QueueItem extends UnsubscribeMail {
   createdAt: number;
   sentAt?: number;
   sentMessageId?: string;
+  /** Thread of the sent copy; a bounce lands in the same thread. */
+  sentThreadId?: string;
   error?: string;
 }
 
@@ -50,7 +52,7 @@ export interface NewQueueItem extends UnsubscribeMail {
 export type SendErrorKind = "blocked" | "limit" | "other";
 
 export interface QueueDeps {
-  send(item: QueueItem): Promise<{ id: string }>;
+  send(item: QueueItem): Promise<{ id: string; threadId?: string }>;
   /** Whether a copy already went out (checked for items cut off mid-send). */
   alreadySent(item: QueueItem): Promise<boolean>;
   /** Sorts a send error: blocked by an admin, over a sending limit, or other. */
@@ -159,8 +161,8 @@ async function runLocked(deps: QueueDeps): Promise<QueueRunResult> {
 
     await update(next.key, { status: "sending", sentAt: now() });
     try {
-      const { id } = await deps.send(next);
-      const done = { ...next, status: "sent" as const, sentAt: now(), sentMessageId: id };
+      const { id, threadId } = await deps.send(next);
+      const done = { ...next, status: "sent" as const, sentAt: now(), sentMessageId: id, sentThreadId: threadId };
       await update(next.key, done);
       out.sent.push(done);
       failuresInRow = 0;

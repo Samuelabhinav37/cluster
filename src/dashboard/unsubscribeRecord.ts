@@ -7,12 +7,16 @@ import { gmailProvider } from "../lib/providers/gmailProvider";
 import { addGmailBackstop } from "../lib/unsubscribeBackstop";
 import type { SenderSummary } from "../lib/senderModel";
 import { mutateSettings, type UnsubscribeMethod } from "../lib/settingsStore";
+import type { NormalizedMessageMetadata } from "../lib/providers/emailProvider";
+import { evaluateUnsubscribeOutcome, type UnsubscribeOutcome } from "../lib/unsubscribeOutcome";
+import { markUnsubscribeBounced, queueKey } from "../lib/unsubscribeQueue";
+import { repliesTo } from "../lib/unsubscribeReplies";
 import { ctx } from "./state";
 
 export async function recordUnsubscribeRequests(
   senders: SenderSummary[],
   method: UnsubscribeMethod = "one-click",
-  details: Record<string, { from?: string; sentMessageId?: string }> = {},
+  details: Record<string, { from?: string; to?: string; sentMessageId?: string; sentThreadId?: string }> = {},
 ): Promise<void> {
   if (senders.length === 0) return;
   const now = Date.now();
@@ -60,4 +64,33 @@ async function addBackstops(senders: SenderSummary[]): Promise<Map<string, strin
     log.error("Could not add the unsubscribe filter", err);
   }
   return out;
+}
+
+/** Reads replies to every request from the index rows; a bounce also stops
+ * the send queue from mailing more lists in the same run. */
+export function readUnsubscribeReplies(rows: readonly NormalizedMessageMetadata[]): void {
+  const replies = new Map<string, ReturnType<typeof repliesTo>>();
+  for (const [key, request] of Object.entries(ctx.settings.unsubscribeRequests)) {
+    if (request.method !== "mailto") continue;
+    const address = key.slice(key.indexOf(":") + 1);
+    const found = repliesTo(request, address, rows);
+    if (found.length === 0) continue;
+    replies.set(key, found);
+    if (found.includes("bounce") && request.to) {
+      void markUnsubscribeBounced(queueKey(request.provider, request.to, request.requestedAt)).catch((err) =>
+        log.error("Could not mark a bounced unsubscribe", err),
+      );
+    }
+  }
+  ctx.unsubscribeReplies = replies;
+}
+
+/** The outcome of the request for this sender key, with its replies. */
+export function unsubscribeOutcomeFor(key: string, sender: SenderSummary | undefined): UnsubscribeOutcome {
+  return evaluateUnsubscribeOutcome(
+    sender,
+    ctx.settings.unsubscribeRequests[key],
+    Date.now(),
+    ctx.unsubscribeReplies.get(key),
+  );
 }

@@ -104,7 +104,12 @@ describe("unsubscribe sheet", () => {
     await vi.waitFor(() => expect(sheet().textContent).toContain("Sent 1."));
     expect(sendRawMessage).toHaveBeenCalledTimes(1);
     expect(recordUnsubscribeRequests).toHaveBeenCalledWith([news], "mailto", {
-      "gmail:news@shop.example": { from: "me@gmail.com", sentMessageId: "sent-1" },
+      "gmail:news@shop.example": {
+        from: "me@gmail.com",
+        to: "leave@shop.example",
+        sentMessageId: "sent-1",
+        sentThreadId: undefined,
+      },
     });
   });
 

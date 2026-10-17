@@ -853,14 +853,17 @@ export async function listSendAs(token: string): Promise<SendAsIdentity[]> {
 
 /** Sends one message (users.messages.send, 100 units). `raw` is base64url
  * RFC 5322. Gmail files the sent copy under SENT. */
-export async function sendRawMessage(token: string, raw: string): Promise<{ id: string; labelIds: string[] }> {
-  const data = await gmailFetch<{ id?: string; labelIds?: string[] }>("/users/me/messages/send", token, {
+export async function sendRawMessage(
+  token: string,
+  raw: string,
+): Promise<{ id: string; threadId?: string; labelIds: string[] }> {
+  const data = await gmailFetch<{ id?: string; threadId?: string; labelIds?: string[] }>("/users/me/messages/send", token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ raw }),
   });
   if (!data.id) throw new Error("Gmail send returned no message id");
-  return { id: data.id, labelIds: data.labelIds ?? [] };
+  return { id: data.id, threadId: data.threadId, labelIds: data.labelIds ?? [] };
 }
 
 /** True when a sent message to `to` already exists from the last day, used
