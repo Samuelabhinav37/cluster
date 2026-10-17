@@ -1985,8 +1985,8 @@ function renderAllSenders(senders: SenderSummary[]) {
   const lead = document.getElementById("senders-lead");
   if (lead) {
     lead.textContent = lastScanCapHit
-      ? `The ${senders.length} senders in this scan, from the most recent ${MAIL_INDEX_CAP.toLocaleString()} messages per account over ${ctx.settings.scanWindowDays} days. Nothing here is acted on until you say so.`
-      : `Every sender Cluster saw in the last ${ctx.settings.scanWindowDays} days. Nothing here is acted on until you say so.`;
+      ? `Who emailed you, from your latest ${MAIL_INDEX_CAP.toLocaleString()} messages.`
+      : `Who emailed you in the last ${ctx.settings.scanWindowDays} days.`;
   }
   if (allSendersFilter === "companies") {
     renderCompanyRows(filteredSenders(senders));
