@@ -48,6 +48,14 @@ import { summarizeCombined, type SenderSummary } from "../lib/senderModel";
 import { applyCensus, senderUnread, senderVolume } from "../lib/census";
 import { buildSenderProfiles } from "../lib/senderProfile";
 import {
+  groupByCompany,
+  isPerson,
+  mainTemplate,
+  profileLine,
+  sortSenders,
+  type SenderSortId,
+} from "../lib/senderListView";
+import {
   getSettings,
   mutateSettings,
   updateSettings,
@@ -1838,8 +1846,9 @@ function renderSuggestedFloatingBar() {
 // A flat, searchable, filterable list of every scanned sender. The pixel
 // exact "engagement bar + one action" row treatment lands in the All-senders
 // screen commit; this keeps the screen populated and the controls live.
-type SenderFilterId = "all" | "never" | "subs" | "muted";
+type SenderFilterId = "all" | "people" | "companies" | "subs" | "never" | "quiet" | "muted";
 let allSendersFilter: SenderFilterId = "all";
+let allSendersSort: SenderSortId = "volume";
 let allSendersQuery = "";
 let allSendersLimit = 25;
 
@@ -1851,6 +1860,12 @@ function wireAllSendersControls() {
   const search = document.getElementById("sender-search") as HTMLInputElement | null;
   search?.addEventListener("input", () => {
     allSendersQuery = search.value.trim().toLowerCase();
+    allSendersLimit = 25;
+    renderAllSenders(ctx.senders);
+  });
+  const sort = document.getElementById("sender-sort") as HTMLSelectElement | null;
+  sort?.addEventListener("change", () => {
+    allSendersSort = sort.value as SenderSortId;
     allSendersLimit = 25;
     renderAllSenders(ctx.senders);
   });
@@ -1870,7 +1885,10 @@ function wireAllSendersControls() {
 function filteredSenders(senders: SenderSummary[]): SenderSummary[] {
   const neverKeys = new Set(neverReadSenders(senders, buildProtectionContext(ctx.settings)).map((s) => s.key));
   return senders.filter((s) => {
+    const profile = ctx.profiles.get(s.key);
     if (allSendersFilter === "never" && !neverKeys.has(s.key)) return false;
+    if (allSendersFilter === "people" && !isPerson(profile)) return false;
+    if (allSendersFilter === "quiet" && (!profile || profile.stillSending)) return false;
     if (allSendersFilter === "subs" && !hasAnyUnsubscribe(s.unsubscribe)) return false;
     if (allSendersFilter === "muted" && !ctx.settings.mutedSenders.includes(s.address)) return false;
     if (allSendersQuery) {
@@ -1881,15 +1899,53 @@ function filteredSenders(senders: SenderSummary[]): SenderSummary[] {
   });
 }
 
+/** The company view: one row per authenticated company, opt in through the
+ * Companies filter. "Show senders" narrows the list to that company. */
+function renderCompanyRows(senders: SenderSummary[]) {
+  if (!allSendersListEl) return;
+  const groups = groupByCompany(senders, ctx.profiles);
+  allSendersListEl.innerHTML = "";
+  if (groups.length === 0) {
+    allSendersListEl.appendChild(Object.assign(document.createElement("p"), {
+      className: "empty-state",
+      textContent: "No company senders match this filter.",
+    }));
+    return;
+  }
+  const rows = groups.slice(0, allSendersLimit).map((group) => {
+    const show = document.createElement("button");
+    show.className = "btn btn-sm";
+    show.textContent = "Show senders";
+    show.onclick = () => {
+      const search = document.getElementById("sender-search") as HTMLInputElement | null;
+      if (search) search.value = group.key;
+      allSendersQuery = group.key;
+      document.querySelector<HTMLButtonElement>('#sender-filter button[data-filter="all"]')?.click();
+    };
+    const opens = group.openRate === null ? "" : ` · opens ${Math.round(group.openRate * 100)}%`;
+    return listRow({
+      lead: makeLogoTile(group.senders[0], "sz-34"),
+      title: group.key,
+      sub: `${group.senders.length} address${group.senders.length === 1 ? "" : "es"} · ${group.total.toLocaleString()} messages${opens}`,
+      actions: [show],
+    });
+  });
+  allSendersListEl.appendChild(listGroup(rows));
+}
+
 function renderAllSenders(senders: SenderSummary[]) {
   if (!allSendersListEl) return;
   const lead = document.getElementById("senders-lead");
   if (lead) {
     lead.textContent = lastScanCapHit
       ? `The ${senders.length} senders in this scan, from the most recent ${MAIL_INDEX_CAP.toLocaleString()} messages per account over ${ctx.settings.scanWindowDays} days. Nothing here is acted on until you say so.`
-      : `Every sender Cluster saw in the last ${ctx.settings.scanWindowDays} days, heaviest first. Nothing here is acted on until you say so.`;
+      : `Every sender Cluster saw in the last ${ctx.settings.scanWindowDays} days. Nothing here is acted on until you say so.`;
   }
-  const rows = filteredSenders(senders).sort((a, b) => senderVolume(b) - senderVolume(a));
+  if (allSendersFilter === "companies") {
+    renderCompanyRows(filteredSenders(senders));
+    return;
+  }
+  const rows = sortSenders(filteredSenders(senders), ctx.profiles, allSendersSort);
   const shown = rows.slice(0, allSendersLimit);
 
   allSendersListEl.innerHTML = "";
@@ -1928,10 +1984,13 @@ function renderAllSenders(senders: SenderSummary[]) {
 function buildAllSendersRow(sender: SenderSummary): HTMLElement {
   const unread = senderUnread(sender);
   const total = senderVolume(sender);
-  const sub =
-    unread === total
-      ? `nothing opened${sender.displayName ? ` · ${sender.address}` : ""}`
-      : `${unread} of ${total} unread${sender.displayName ? ` · ${sender.address}` : ""}`;
+  const profile = ctx.profiles.get(sender.key);
+  const template = profile && mainTemplate(profile);
+  const summary =
+    profileLine(profile) ?? (unread === total ? "nothing opened" : `${unread} of ${total} unread`);
+  const sub = [summary, template ? `mostly "${template.key}" ×${template.count}` : "", sender.displayName ? sender.address : ""]
+    .filter(Boolean)
+    .join(" · ");
 
   // Count + engagement bar (unread ratio).
   const count = document.createElement("div");

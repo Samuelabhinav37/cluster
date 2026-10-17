@@ -3707,3 +3707,12 @@ body {
   gap: 8px;
   padding-top: 6px;
 }
+
+/* Senders screen: seven filters wrap instead of overflowing; sort menu. */
+#sender-filter {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+}
+.sender-sort select {
+  min-height: 44px;
+}
