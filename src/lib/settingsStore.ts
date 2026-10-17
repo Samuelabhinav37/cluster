@@ -2,7 +2,7 @@ import type { ScamWeek } from "./scamHistory";
 import type { ProviderId } from "./providers/emailProvider";
 import type { ClusterRule } from "./rules";
 import type { ActionLogEntry } from "./actionLog";
-import type { SenderEngagementMap } from "./engagementModel";
+import { normalizeEngagementRecord, type SenderEngagementMap } from "./engagementModel";
 import { DEFAULT_INBOX_HOURS, type SortOverride } from "./sortTaxonomy";
 import type { QuarantineReviewMap } from "./quarantineReview";
 import { withStorageLock } from "./storageLock";
@@ -145,7 +145,7 @@ export interface HealthSnapshot {
 }
 
 const STORAGE_KEY = "clusterSettings";
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 13;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 14;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -292,6 +292,17 @@ function migrateSettings(value: unknown): Record<string, unknown> {
         autoSort: { ...autoSort, filterSpecByBucket: {}, timeLimitsEnabled: false },
       };
       version = 13;
+    } else if (version === 13) {
+      // Engagement now comes from the mail index; keep only the feedback
+      // counts of each sender's record.
+      const engagement = isRecord(stored.senderEngagement) ? stored.senderEngagement : {};
+      const feedback: SenderEngagementMap = {};
+      for (const [key, record] of Object.entries(engagement)) {
+        const normalized = normalizeEngagementRecord(record);
+        if (normalized) feedback[key] = normalized;
+      }
+      stored = { ...stored, schemaVersion: 14, senderEngagement: feedback };
+      version = 14;
     }
   }
   return stored;

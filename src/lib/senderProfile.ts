@@ -43,6 +43,8 @@ export interface SenderProfile {
   unread: number;
   starred: number;
   important: number;
+  /** Sampled messages still in the inbox (Gmail INBOX label). */
+  inInbox: number;
   /** Messages read into the index, after duplicate copies are dropped. */
   sampled: number;
   /** Read share of sampled mail older than the grace period; null if none. */
@@ -264,6 +266,7 @@ export function buildSenderProfiles(inputs: ProfileInputs): Map<string, SenderPr
       unread: counted && counted.ids.length > rows.length && counted.unread >= 0 ? counted.unread : unreadRead,
       starred: rows.filter((m) => m.isProtected).length,
       important: rows.filter((m) => m.providerMarkedPersonal).length,
+      inInbox: rows.filter((m) => m.labelIds?.includes("INBOX")).length,
       sampled: rows.length,
       openRate: judgedRows.length > 0 ? opened / judgedRows.length : null,
       judged: judgedRows.length,

@@ -4,7 +4,7 @@ import type { MessageRecord, SenderSummary } from "./senderModel";
 
 function msg(over: Partial<MessageRecord> & { id: string }): MessageRecord {
   return {
-    receivedAt: Date.now(),
+    receivedAt: Date.now() - 10 * 86_400_000,
     kind: "newsletter",
     isProtected: false,
     unread: true,
@@ -62,6 +62,11 @@ describe("neverReadSenders", () => {
       msg({ id: "s2", isProtected: true }),
     ]);
     expect(neverReadSenders([enough, notEnough])).toEqual([enough]);
+  });
+
+  it("doesn't count mail from the last 3 days as never opened", () => {
+    const fresh = sender("news@x.com", [1, 2, 3].map((n) => msg({ id: String(n), receivedAt: Date.now() - 86_400_000 })));
+    expect(neverReadSenders([fresh])).toEqual([]);
   });
 
   it("excludes a sender the user has emailed before or Gmail/Outlook marked personal", () => {

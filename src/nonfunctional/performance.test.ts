@@ -16,7 +16,8 @@ import { buildSenderCleanupPlan } from "../lib/protectionPolicy";
 import { inboxHealthScore } from "../lib/inboxHealth";
 import { scoreMessageForThreats } from "../lib/threatSignals";
 import { isSpamDomain } from "../lib/spamList";
-import { updateEngagementObservations, buildEngagementSuggestions } from "../lib/engagementModel";
+import { buildSenderProfiles } from "../lib/senderProfile";
+import { buildSuggestions } from "../lib/suggestions";
 
 const SUBJECTS = [
   "Deals picked for you",
@@ -76,11 +77,10 @@ describe("performance budgets at the 5,000-message scan ceiling", () => {
     expect(ms, `took ${ms.toFixed(0)} ms`).toBeLessThan(500);
   });
 
-  it("engagement update + suggestions over 1,000 senders stay under 300 ms", async () => {
+  it("sender profiles + suggestions over 1,000 senders stay under 300 ms", async () => {
     const list = await senders(mailbox);
     const { ms } = time(() => {
-      const obs = updateEngagementObservations({}, list, NOW);
-      buildEngagementSuggestions(list, updateEngagementObservations(obs, list, NOW + DAY), undefined, NOW + DAY);
+      buildSuggestions(list, buildSenderProfiles({ rows: mailbox, now: NOW }), {}, undefined, NOW);
     });
     expect(ms, `took ${ms.toFixed(0)} ms`).toBeLessThan(300);
   });

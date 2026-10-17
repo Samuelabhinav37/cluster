@@ -25,7 +25,6 @@ import { runInboxTimeLimits } from "./lib/inboxTimeLimitsRunner";
 import { loadMetadataCache, saveMetadataCache } from "./lib/metadataCache";
 import { applyIndexedCorrespondents, readIndexedSenders, refreshIndexForBackground } from "./lib/indexTriage";
 import { resumeInterruptedJobs } from "./lib/durableJobs";
-import { updateEngagementObservations } from "./lib/engagementModel";
 import { getRuleCompletionKeys, recordRuleCompletions } from "./lib/ruleCompletionLedger";
 import { loadPublicSuffixList } from "./lib/publicSuffix";
 import { applySenderLedger } from "./lib/senderLedgerStore";
@@ -373,11 +372,6 @@ async function runBackgroundTriage() {
         .map(([id]) => id),
     );
     senders = excludeSnoozedMessages(senders, activeSnoozedIds);
-
-    await mutateSettings((current) => ({
-      ...current,
-      senderEngagement: updateEngagementObservations(current.senderEngagement, senders),
-    }));
 
     const firstContact = markFirstContact(
       securitySenders,

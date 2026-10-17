@@ -61,13 +61,8 @@ import { excludeSnoozedMessages } from "../lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "../lib/snoozeResurface";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
 import { athenaOriginPatterns, getAthenaConfig } from "../lib/athenaIntegration";
-import {
-  buildEngagementSuggestions,
-  recordEngagementFeedback,
-  updateEngagementObservations,
-  type EngagementFeedback,
-  type EngagementSuggestion,
-} from "../lib/engagementModel";
+import { recordEngagementFeedback, type EngagementFeedback } from "../lib/engagementModel";
+import { buildSuggestions, SUGGESTION_ACTION_LABELS, unopenedSuggestions, type Suggestion } from "../lib/suggestions";
 import { markFirstContact } from "../lib/firstContact";
 import { log } from "../lib/log";
 import { isAuthCancelled } from "../lib/chromeError";
@@ -120,7 +115,7 @@ let currentExpiryBuckets: ExpiryBucket[] = [];
 // True when the cleanup scan filled its per-account candidate cap — every
 // derived count is then a sample of the most-recent N, not an inbox total.
 let lastScanCapHit = false;
-let engagementSuggestions: EngagementSuggestion[] = [];
+let engagementSuggestions: Suggestion[] = [];
 // The security lane re-uses messages already fetched for cleanup (no extra
 // quota) — cap how many feed the per-sender threat scoring, newest first.
 const SECURITY_SCAN_MAX_MESSAGES = 250;
@@ -824,10 +819,6 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   );
   senders = excludeSnoozedMessages(senders, activeSnoozedIds);
 
-  ctx.settings = await mutateSettings((current) => ({
-    ...current,
-    senderEngagement: updateEngagementObservations(current.senderEngagement, senders),
-  }));
 
   const firstContact = markFirstContact(
     securitySenders,
@@ -970,7 +961,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
     (n, s) => n + s.messageCount,
     0,
   );
-  const neverReadMsgs = buildEngagementSuggestions(senders, ctx.settings.senderEngagement, protectionCtx).reduce(
+  const neverReadMsgs = unopenedSuggestions(currentSuggestions(senders)).reduce(
     (n, s) => n + s.safeMessageIds.length,
     0,
   );
@@ -1250,6 +1241,11 @@ function renderCategoryGroups<T>(
 }
 
 // ── Sender table ─────────────────────────────────────────────────────────
+/** Clean-up suggestions for these senders, from their profiles. */
+function currentSuggestions(senders: SenderSummary[]): Suggestion[] {
+  return buildSuggestions(senders, ctx.profiles, ctx.settings.senderEngagement, buildProtectionContext(ctx.settings));
+}
+
 // ── Suggested cleanup: metric band ─────────────────────────────────────
 function renderSuggestedMetricBand(senders: SenderSummary[]) {
   const band = document.getElementById("suggested-metric-band");
@@ -1260,7 +1256,7 @@ function renderSuggestedMetricBand(senders: SenderSummary[]) {
     (n, s) => n + s.messageCount,
     0,
   );
-  const neverReadMsgs = buildEngagementSuggestions(senders, ctx.settings.senderEngagement, protectionCtx).reduce(
+  const neverReadMsgs = unopenedSuggestions(currentSuggestions(senders)).reduce(
     (n, s) => n + s.safeMessageIds.length,
     0,
   );
@@ -1343,7 +1339,7 @@ function renderCleanupPlan(senders: SenderSummary[]) {
   const protectionCtx = buildProtectionContext(ctx.settings);
   const expiryBuckets = buildExpiryBuckets(senders, protectionCtx);
   const expiryCount = totalExpiryCount(expiryBuckets);
-  const engagement = buildEngagementSuggestions(senders, ctx.settings.senderEngagement, protectionCtx);
+  const engagement = unopenedSuggestions(currentSuggestions(senders));
   const neverMsgs = engagement.reduce((n, s) => n + s.safeMessageIds.length, 0);
   const spam = suggestSpamSenders(senders, undefined, protectionCtx);
   const spamMsgs = spam.reduce((n, s) => n + s.messageCount, 0);
@@ -1354,8 +1350,8 @@ function renderCleanupPlan(senders: SenderSummary[]) {
     rows.push({
       id: "never-opened",
       checked: true,
-      title: `${engagement.length} sender${engagement.length === 1 ? "" : "s"} you have never opened`,
-      sub: `${neverMsgs} message${neverMsgs === 1 ? "" : "s"}, none opened recently`,
+      title: `${engagement.length} sender${engagement.length === 1 ? "" : "s"} you don't open`,
+      sub: `${neverMsgs} message${neverMsgs === 1 ? "" : "s"}, almost none opened`,
       primaryLabel: "Mute all",
       primaryClass: "btn btn-accent",
       onPrimary: () => confirmIn("never-read-section", neverReadMuteBtn),
@@ -1489,6 +1485,8 @@ function revealLegacySection(id: string) {
 type PrimaryAct = "unsubscribe" | "mute" | "keepSorted";
 
 function decisionReason(sender: SenderSummary): string {
+  const suggestion = currentSuggestions([sender])[0];
+  if (suggestion) return suggestion.reasons.join(" ");
   const unread = senderUnread(sender);
   const total = senderVolume(sender);
   const base = unread === total ? `nothing opened of ${total}` : `${unread} unread of ${total}`;
@@ -1519,11 +1517,7 @@ function buildActionGroups(sender: SenderSummary): Array<{ act: string; label: s
 }
 
 function pickDecisionSenders(senders: SenderSummary[]): { decide: SenderSummary[]; protectedOne?: SenderSummary } {
-  const engagementKeys = new Set(
-    buildEngagementSuggestions(senders, ctx.settings.senderEngagement, buildProtectionContext(ctx.settings)).map(
-      (s) => s.sender.key,
-    ),
-  );
+  const engagementKeys = new Set(currentSuggestions(senders).map((s) => s.sender.key));
   const eligible = senders.filter((s) => s.protectedMessageIds.length === 0);
   const ranked = [...eligible].sort((a, b) => {
     const aEng = engagementKeys.has(a.key) ? 1 : 0;
@@ -2510,21 +2504,17 @@ function resetNeverReadSlots() {
 }
 
 function renderNeverReadSection(senders: SenderSummary[]) {
-  engagementSuggestions = buildEngagementSuggestions(
-    senders,
-    ctx.settings.senderEngagement,
-    buildProtectionContext(ctx.settings),
-  );
+  engagementSuggestions = unopenedSuggestions(currentSuggestions(senders));
   neverReadSectionEl.hidden = engagementSuggestions.length === 0;
   if (engagementSuggestions.length === 0) return;
 
   const totalMsgs = engagementSuggestions.reduce((count, item) => count + item.safeMessageIds.length, 0);
-  neverReadCountEl.textContent = `${engagementSuggestions.length} suggestion${engagementSuggestions.length === 1 ? "" : "s"}, ${totalMsgs} safe message${totalMsgs === 1 ? "" : "s"}`;
+  neverReadCountEl.textContent = `${engagementSuggestions.length} suggestion${engagementSuggestions.length === 1 ? "" : "s"}, ${totalMsgs} message${totalMsgs === 1 ? "" : "s"}`;
 
   neverReadListEl.innerHTML = "";
   const table = document.createElement("table");
   const thead = document.createElement("thead");
-  thead.appendChild(headerRow(["Sender", "Fit", "Why", "Suggested", "Feedback"]));
+  thead.appendChild(headerRow(["Sender", "Why", "Suggested", "Feedback"]));
   table.appendChild(thead);
   const tbody = document.createElement("tbody");
   for (const suggestion of engagementSuggestions) {
@@ -2532,24 +2522,21 @@ function renderNeverReadSection(senders: SenderSummary[]) {
     const row = document.createElement("tr");
     const nameCell = document.createElement("td");
     nameCell.textContent = sender.displayName ? `${sender.displayName} <${sender.address}>` : sender.address;
-    const fitCell = document.createElement("td");
-    fitCell.textContent = `${suggestion.score}/100 · ${suggestion.confidence}`;
-    fitCell.title = "Deterministic fit score, not a probability";
     const reasonCell = document.createElement("td");
-    reasonCell.textContent = suggestion.reasons.join("; ");
+    reasonCell.textContent = suggestion.reasons.join(" ");
     const actionCell = document.createElement("td");
-    actionCell.textContent = suggestion.suggestedAction;
+    actionCell.textContent = SUGGESTION_ACTION_LABELS[suggestion.action];
     const feedbackCell = document.createElement("td");
     const dismissBtn = document.createElement("button");
     dismissBtn.textContent = "Not useful";
-    dismissBtn.title = "Hide this suggestion for 30 days and use that correction in future scoring";
+    dismissBtn.title = "Hide this suggestion for 30 days";
     dismissBtn.onclick = async () => {
       dismissBtn.disabled = true;
       await saveEngagementFeedback([sender.key], "dismiss");
       renderNeverReadSection(ctx.senders);
     };
     feedbackCell.appendChild(dismissBtn);
-    row.append(nameCell, fitCell, reasonCell, actionCell, feedbackCell);
+    row.append(nameCell, reasonCell, actionCell, feedbackCell);
     tbody.appendChild(row);
   }
   table.appendChild(tbody);
@@ -2927,7 +2914,7 @@ function wireBulkHandlers() {
       false,
       async () => {
         const token = await gmailProvider.getAuthToken(false);
-        const succeeded: EngagementSuggestion[] = [];
+        const succeeded: Suggestion[] = [];
         for (const target of targets) {
           try {
             await gmailProvider.muteSender!(token, target.sender.address, target.safeMessageIds);
