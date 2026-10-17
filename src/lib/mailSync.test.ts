@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createMemoryMailIndex, MAIL_ROW_VERSION } from "./mailIndex";
+import { createMemoryMailIndex, INDEX_SCOPE_VERSION, MAIL_ROW_VERSION } from "./mailIndex";
 import { catchUpIndex, readMailIndex, syncMailIndex } from "./mailSync";
 import type { EmailProvider, MailboxChanges, NormalizedMessageMetadata } from "./providers/emailProvider";
 import { gmailLabelFields, inIndexScope } from "./providers/gmailProvider";
@@ -358,6 +358,7 @@ describe("syncMailIndex: sent mail", () => {
       complete: true,
       cursor: "h1",
       rowVersion: MAIL_ROW_VERSION,
+      scopeVersion: INDEX_SCOPE_VERSION,
       accountId: "me@example.com",
     });
 
@@ -365,6 +366,26 @@ describe("syncMailIndex: sent mail", () => {
 
     expect(provider.listCandidateMessages).not.toHaveBeenCalled();
     expect([...(await store.sentIds("gmail"))]).toEqual(["s1"]);
+  });
+
+  it("lists once more when the index scope widened, reading only new mail", async () => {
+    const fake = fakeGmail([message("a", ["INBOX"])]);
+    const provider = withSent(fake, []);
+    const store = createMemoryMailIndex();
+    await store.put([message("a", ["INBOX"])]);
+    await store.setState({
+      provider: "gmail",
+      complete: true,
+      cursor: "h1",
+      rowVersion: MAIL_ROW_VERSION,
+      sentComplete: true,
+      accountId: "me@example.com",
+    });
+
+    await syncMailIndex(provider, "t", store, options);
+
+    expect(provider.listCandidateMessages).toHaveBeenCalled();
+    expect((await store.getState("gmail"))?.scopeVersion).toBe(INDEX_SCOPE_VERSION);
   });
 
   it("adds newly sent mail from the change feed", async () => {

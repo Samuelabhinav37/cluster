@@ -17,6 +17,9 @@ export const MAIL_INDEX_CAP = 20_000;
  * filling a new field; older rows are re-read once, paced, in the background.
  * 2: relationship headers (To/Cc, thread, List-Id, Return-Path, Feedback-ID). */
 export const MAIL_ROW_VERSION = 2;
+/** 2: Social and Forums mail joined the index (it was Inbox, Promotions and
+ * Updates only). */
+export const INDEX_SCOPE_VERSION = 2;
 
 export interface MailIndexState {
   provider: ProviderId;
@@ -36,6 +39,9 @@ export interface MailIndexState {
   windowDays?: number;
   /** MAIL_ROW_VERSION of the last full listing; older rows get re-read. */
   rowVersion?: number;
+  /** Which mail the listing covered (INDEX_SCOPE_VERSION). A wider scope
+   * re-lists once; only mail the index lacks is read. */
+  scopeVersion?: number;
   /** True once the Sent folder has been read into the sent store. */
   sentComplete?: boolean;
   /** Message ids with a risky attachment shape, from the last sync. Applied

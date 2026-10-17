@@ -49,18 +49,21 @@ const SUSPICIOUS_LABEL_NAME = clusterLabelName("suspicious");
 export function gmailQueryForPurpose(purpose: CandidateScope, windowDays: number): string {
   const age = `newer_than:${windowDays}d`;
   if (purpose === "security") return `in:inbox ${age}`;
-  if (purpose === "combined")
-    return `(category:promotions OR category:updates OR in:inbox) ${age}`;
-  return `(category:promotions OR category:updates) ${age}`;
+  const machine = "category:promotions OR category:updates OR category:social OR category:forums";
+  if (purpose === "combined") return `(${machine} OR in:inbox) ${age}`;
+  return `(${machine}) ${age}`;
 }
 
 /** Which scan lane(s) a message belongs to, from its Gmail labels. */
+const CLEANUP_CATEGORIES = ["CATEGORY_PROMOTIONS", "CATEGORY_UPDATES", "CATEGORY_SOCIAL", "CATEGORY_FORUMS"];
+
 export function lanesFromLabelIds(labelIds: readonly string[]): ScanPurpose[] {
   const lanes: ScanPurpose[] = [];
   if (labelIds.includes("INBOX")) lanes.push("security");
-  if (labelIds.includes("CATEGORY_PROMOTIONS") || labelIds.includes("CATEGORY_UPDATES")) {
-    lanes.push("cleanup");
-  }
+  // Every Gmail tab except Primary is machine mail worth cleaning up. Social
+  // (LinkedIn, Facebook) and Forums used to be left out, so those senders
+  // never reached Senders, Clear out or Subscriptions.
+  if (CLEANUP_CATEGORIES.some((c) => labelIds.includes(c))) lanes.push("cleanup");
   // A message returned by the combined query that matched neither bucket (an
   // archived promo Gmail no longer tags, say) still belongs in cleanup.
   return lanes.length > 0 ? lanes : ["cleanup"];
@@ -74,9 +77,7 @@ const OUT_OF_SCOPE_LABELS = ["TRASH", "SPAM", "DRAFT"];
 export function inIndexScope(labelIds: readonly string[]): boolean {
   if (OUT_OF_SCOPE_LABELS.some((label) => labelIds.includes(label))) return false;
   return (
-    labelIds.includes("INBOX") ||
-    labelIds.includes("CATEGORY_PROMOTIONS") ||
-    labelIds.includes("CATEGORY_UPDATES")
+    labelIds.includes("INBOX") || CLEANUP_CATEGORIES.some((c) => labelIds.includes(c))
   );
 }
 

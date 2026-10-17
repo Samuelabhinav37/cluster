@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { gmailQueryForPurpose } from "./gmailProvider";
 
 describe("gmailQueryForPurpose", () => {
-  it("applies the age boundary to both cleanup categories", () => {
+  it("applies the age boundary to every non-Primary category", () => {
     expect(gmailQueryForPurpose("cleanup", 180)).toBe(
-      "(category:promotions OR category:updates) newer_than:180d",
+      "(category:promotions OR category:updates OR category:social OR category:forums) newer_than:180d",
     );
   });
 
