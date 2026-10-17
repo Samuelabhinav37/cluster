@@ -925,13 +925,7 @@ function safeRender(screen: string, fn: () => void) {
 function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummary[]) {
   const health = buildInboxHealth({ senders, securitySenders, settings: ctx.settings });
   const byId = new Map(health.metrics.map((m) => [m.id, m.value]));
-  setNavCount(
-    "delete",
-    (byId.get("ready-to-clean-up") ?? 0) +
-      (byId.get("never-opened") ?? 0) +
-      (byId.get("suspected-spam") ?? 0),
-    true,
-  );
+  setNavCount("delete", clearOutPlan(senders).total, true, "emails to clear out");
   setNavCount("organize", pickDecisionSenders(senders).decide.length, true, "to review");
   setNavCount("senders", senders.length);
   setNavCount("subscriptions", byId.get("unsubscribe-capable") ?? 0, true);
@@ -974,17 +968,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
     health.scannedSenders === 1 ? "" : "s"
   } · ${health.scannedMessages} message${health.scannedMessages === 1 ? "" : "s"}`;
 
-  const protectionCtx = buildProtectionContext(ctx.settings);
-  const expiryTotal = totalExpiryCount(buildExpiryBuckets(senders, protectionCtx));
-  const spamMsgs = suggestSpamSenders(senders, undefined, protectionCtx).reduce(
-    (n, s) => n + s.messageCount,
-    0,
-  );
-  const neverReadMsgs = unopenedSuggestions(currentSuggestions(senders)).reduce(
-    (n, s) => n + s.safeMessageIds.length,
-    0,
-  );
-  const planTotal = expiryTotal + spamMsgs + neverReadMsgs;
+  const planTotal = clearOutPlan(senders).total;
   const organizeCount = pickDecisionSenders(senders).decide.length;
 
   overviewContentEl.innerHTML = "";
@@ -1265,10 +1249,9 @@ function currentSuggestions(senders: SenderSummary[]): Suggestion[] {
   return buildSuggestions(senders, ctx.profiles, ctx.settings.senderEngagement, buildProtectionContext(ctx.settings));
 }
 
-// ── Suggested cleanup: metric band ─────────────────────────────────────
-function renderSuggestedMetricBand(senders: SenderSummary[]) {
-  const band = document.getElementById("suggested-metric-band");
-  if (!band) return;
+/** Messages in the Clear out plan. Home, the metric band and the sidebar
+ * badge all show this one total, so they never disagree. */
+function clearOutPlan(senders: SenderSummary[]) {
   const protectionCtx = buildProtectionContext(ctx.settings);
   const expiryTotal = totalExpiryCount(buildExpiryBuckets(senders, protectionCtx));
   const spamMsgs = suggestSpamSenders(senders, undefined, protectionCtx).reduce(
@@ -1279,7 +1262,14 @@ function renderSuggestedMetricBand(senders: SenderSummary[]) {
     (n, s) => n + s.safeMessageIds.length,
     0,
   );
-  const planTotal = expiryTotal + spamMsgs + neverReadMsgs;
+  return { expiryTotal, spamMsgs, neverReadMsgs, total: expiryTotal + spamMsgs + neverReadMsgs };
+}
+
+// ── Suggested cleanup: metric band ─────────────────────────────────────
+function renderSuggestedMetricBand(senders: SenderSummary[]) {
+  const band = document.getElementById("suggested-metric-band");
+  if (!band) return;
+  const { expiryTotal, spamMsgs, neverReadMsgs, total: planTotal } = clearOutPlan(senders);
   const scanned = senders.reduce((n, s) => n + s.count, 0);
   const pct = scanned > 0 ? Math.round((planTotal / scanned) * 100) : 0;
 
