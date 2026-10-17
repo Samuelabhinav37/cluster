@@ -10,12 +10,13 @@
  *   ?deny      the interactive sign-in fails as if the user cancelled it
  *   ?offline   every Gmail call fails with a network error
  *   ?pinned    report the toolbar icon as pinned (hides the pin tip)
+ *   ?big       about 2,000 messages, for scan speed and grouping at scale
  * Not a test of Gmail itself: real quota, real headers and the real consent
  * screen still need the reload-unpacked checklist.
  */
 (function () {
   const qs = new URLSearchParams(location.search);
-  if (qs.has("reset")) { localStorage.clear(); }
+  if (qs.has("reset")) { localStorage.clear(); indexedDB.deleteDatabase("cluster-mail-index"); }
   const LS_KEY = "__preview_storage_";
 
   // ── storage ──────────────────────────────────────────────────────────
@@ -142,6 +143,10 @@
     ["Morning Brew", "crew@morningbrew.com", "U", 18, 0.35, true, ["☕ Rate cut fallout", "☕ The chip war heats up"]],
     ["The Verge", "newsletter@theverge.com", "U", 9, 0.4, true, ["Verge Deals", "Installer: the best new apps"]],
     ["LinkedIn", "notifications-noreply@linkedin.com", "S", 22, 0.1, true, ["You appeared in 14 searches this week", "Priya Sharma viewed your profile", "New jobs for you"]],
+    ["LinkedIn Job Alerts", "jobalerts-noreply@linkedin.com", "S", 14, 0.2, true, ["30+ new jobs for Product Designer", "Software Engineer at Stripe and 9 more"]],
+    ["LinkedIn", "messages-noreply@linkedin.com", "S", 8, 0.6, true, ["Alex sent you a message", "You have 2 new messages"]],
+    ["LinkedIn", "invitations@linkedin.com", "S", 6, 0.3, true, ["Sam Rivera wants to connect", "Invitation to connect"]],
+    ["LinkedIn News", "editors-noreply@linkedin.com", "S", 9, 0.05, true, ["Top stories this week", "Your weekly LinkedIn News"]],
     ["Facebook", "notification@facebookmail.com", "S", 10, 0.05, true, ["You have 3 new notifications", "Memories from 5 years ago"]],
     ["Quora Digest", "digest-noreply@quora.com", "S", 15, 0, true, ["What is the best programming language to learn?", "Why do cats knead?"]],
     ["Reddit", "noreply@redditmail.com", "S", 9, 0.2, true, ["Trending on r/programming", "u/someone replied to your comment"]],
@@ -178,11 +183,13 @@
 
   const MSGS = {}; const ORDER = [];
   let idc = 1000;
-  for (const [name, addr, cat, count, read, unsub, subjects, opts = {}] of S) {
+  const SCALE = qs.has("big") ? 5 : 1;
+  for (const [name, addr, cat, baseCount, read, unsub, subjects, opts = {}] of S) {
     const domain = addr.split("@")[1];
+    const count = opts.firstContact || opts.phish ? baseCount : baseCount * SCALE;
     for (let i = 0; i < count; i++) {
       const id = (idc++).toString(16) + "a" + Math.floor(rnd() * 1e6).toString(16);
-      const age = opts.firstContact || opts.phish ? rnd() * 6 : Math.pow(rnd(), 1.4) * 88;
+      const age = opts.firstContact || opts.phish ? rnd() * 6 : Math.pow(rnd(), 1.4) * 88 * SCALE;
       const labels = ["INBOX"];
       if (cat === "P") labels.push("CATEGORY_PROMOTIONS");
       if (cat === "U") labels.push("CATEGORY_UPDATES");
@@ -195,8 +202,11 @@
         { name: "From", value: `"${name}" <${addr}>` },
         { name: "Subject", value: pick(subjects) },
         { name: "Authentication-Results", value: AUTH(domain, !opts.phish) },
+        { name: "To", value: "you@example.com" },
+        { name: "Message-ID", value: `<${id}@${domain}>` },
       ];
-      if (!opts.phish) headers.push({ name: "DKIM-Signature", value: `v=1; a=rsa-sha256; d=${domain}; s=s1; b=abc` });
+      if (unsub) headers.push({ name: "List-Id", value: `<${addr.split("@")[0]}.${domain}>` });
+      if (!opts.phish) headers.push({ name: "DKIM-Signature", value: `v=1; a=rsa-sha256; d=${domain}; s=s1; h=from:to:subject:list-unsubscribe:list-unsubscribe-post; b=abc` });
       if (unsub) {
         headers.push({ name: "List-Unsubscribe", value: `<https://${domain}/unsubscribe?u=${id}>, <mailto:unsubscribe@${domain}?subject=unsubscribe>` });
         if (rnd() < 0.8) headers.push({ name: "List-Unsubscribe-Post", value: "List-Unsubscribe=One-Click" });
@@ -254,6 +264,8 @@
       return neg ? !r : r;
     };
     // split top-level: parenthesized groups are OR-lists
+    // "from:(a@b)" is one term, not an OR-group.
+    q = q.replace(/(^|\s)(-?)(from|to|list):\(([^()\s]*)\)/g, "$1$2$3:$4");
     const groups = []; let rest = q.replace(/\(([^()]*)\)/g, (_s, inner) => { groups.push(inner); return " "; });
     for (const g of groups) { if (!g.split(/\s+OR\s+|\s*\{|\}/).some((t) => t.trim().split(/\s+/).every(term))) return false; }
     if (/\sOR\s/.test(rest)) return rest.split(/\s+OR\s+/).some((p) => p.trim().split(/\s+/).every(term));
@@ -275,6 +287,7 @@
       window.__previewLog.push(method + " " + p + (url.search.length < 200 ? url.search : ""));
       if (p === "/profile") return json({ emailAddress: "you@example.com", historyId: "9001", messagesTotal: ORDER.length });
       if (p === "/history") return json({ historyId: "9001", history: [] });
+      if (p === "/settings/sendAs") return json({ sendAs: [{ sendAsEmail: "you@example.com", isPrimary: true, verificationStatus: "accepted" }] });
       if (p === "/messages" && method === "GET") {
         const q = url.searchParams.get("q") || ""; const max = Number(url.searchParams.get("maxResults") || 100);
         const start = Number(url.searchParams.get("pageToken") || 0);
