@@ -22,6 +22,8 @@ const WINDOW_MS = 60_000;
 // re-reserving, a few ×20 units) and Google's window not aligning with ours.
 // 500 units is plenty for that; going lower just slows every scan down.
 const BUDGET = 5500;
+/** The per-minute ceiling Cluster holds itself to across all contexts. */
+export const GMAIL_QUOTA_BUDGET = BUDGET;
 
 /** [epoch ms, cost in quota units] */
 type Spend = [number, number];
@@ -135,6 +137,22 @@ export async function gmailQuotaHeadroom(deps: LedgerDeps = {}): Promise<number>
     const ledger = await readLedger();
     prune(ledger, now());
     return Math.max(0, currentBudget() - usedUnits(ledger));
+  });
+}
+
+/**
+ * Units spent in the last `windowMs` (at most the 60s window). Lets a long
+ * build spread its share over the minute instead of spending it in one burst
+ * and then sitting still.
+ */
+export async function gmailQuotaUsedWithin(windowMs: number, deps: LedgerDeps = {}): Promise<number> {
+  const now = deps.now ?? Date.now;
+  return withStorageLock(LOCK_KEY, async () => {
+    const ledger = await readLedger();
+    const t = now();
+    return ledger.spends
+      .filter(([at]) => t - at < Math.min(windowMs, WINDOW_MS))
+      .reduce((sum, [, cost]) => sum + cost, 0);
   });
 }
 

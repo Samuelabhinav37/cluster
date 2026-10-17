@@ -37,7 +37,7 @@ import {
   type SyncProgress,
   type SyncResult,
 } from "../lib/mailSync";
-import { gmailQuotaHeadroom } from "../lib/gmailQuotaLedger";
+import { GMAIL_QUOTA_BUDGET, gmailQuotaHeadroom, gmailQuotaUsedWithin } from "../lib/gmailQuotaLedger";
 import { applyIndexedCorrespondents, mailIndexLockKey } from "../lib/indexTriage";
 import { withStorageLock } from "../lib/storageLock";
 import type { EmailProvider, ProviderId } from "../lib/providers/emailProvider";
@@ -604,9 +604,19 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // Leave room in Gmail's per-minute quota for the person's own clicks.
 const BUILD_HEADROOM_UNITS = 1500;
 
+// Spend the build's share evenly: half of it per thirty seconds, with room
+// left for the next batch (25 reads at 20 units). Progress then moves every
+// few seconds instead of bursting and stalling each minute.
+const BUILD_SLICE_MS = 30_000;
+const BUILD_BATCH_UNITS = 500;
+const BUILD_SLICE_UNITS = (GMAIL_QUOTA_BUDGET - BUILD_HEADROOM_UNITS) / 2 - BUILD_BATCH_UNITS;
+
 async function waitForGmailHeadroom() {
-  while ((await gmailQuotaHeadroom()) < BUILD_HEADROOM_UNITS) {
-    await delay(3000);
+  while (
+    (await gmailQuotaHeadroom()) < BUILD_HEADROOM_UNITS ||
+    (await gmailQuotaUsedWithin(BUILD_SLICE_MS)) > BUILD_SLICE_UNITS
+  ) {
+    await delay(1000);
   }
 }
 

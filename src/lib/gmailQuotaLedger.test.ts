@@ -3,6 +3,7 @@ import {
   _internals,
   clearGmailQuotaLedger,
   gmailQuotaHeadroom,
+  gmailQuotaUsedWithin,
   penalizeGmailQuota,
   reserveGmailQuota,
 } from "./gmailQuotaLedger";
@@ -72,6 +73,17 @@ describe("gmailQuotaLedger", () => {
     await penalizeGmailQuota(clock);
     const waited = await reserveGmailQuota(5, clock);
     expect(waited).toBeGreaterThanOrEqual(60_000);
+  });
+
+  it("gmailQuotaUsedWithin counts only the recent part of the window", async () => {
+    const clock = makeClock();
+    await reserveGmailQuota(300, clock);
+    await clock.sleep(20_000);
+    await reserveGmailQuota(200, clock);
+    expect(await gmailQuotaUsedWithin(10_000, clock)).toBe(200);
+    expect(await gmailQuotaUsedWithin(30_000, clock)).toBe(500);
+    await clock.sleep(45_000);
+    expect(await gmailQuotaUsedWithin(120_000, clock)).toBe(200);
   });
 
   it("lets a single call larger than the whole budget through rather than deadlock", async () => {
