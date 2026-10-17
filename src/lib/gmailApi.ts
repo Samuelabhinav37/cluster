@@ -43,6 +43,7 @@ export function gmailQuotaCost(path: string, method: string): number {
   if (/\/labels\/[^/]+$/.test(p)) return 5; // labels.get/update/delete
   if (p.endsWith("/settings/filters")) return method === "POST" ? 5 : 1; // create : list
   if (/\/settings\/filters\/[^/]+$/.test(p)) return 5; // filters.get/delete
+  if (p.endsWith("/settings/sendAs")) return 1; // sendAs.list
   return DEFAULT_CALL_COST;
 }
 
@@ -832,4 +833,20 @@ export async function getMessageLinks(token: string, id: string): Promise<Extrac
   const htmlData = data.payload ? findHtmlPartData(data.payload) : null;
   if (!htmlData) return [];
   return extractLinksFromHtml(decodeBase64Url(htmlData));
+}
+
+export interface SendAsIdentity {
+  address: string;
+  isPrimary: boolean;
+}
+
+/** The addresses this Gmail account can send as (settings.sendAs.list).
+ * Only verified aliases are returned; the primary address always is. */
+export async function listSendAs(token: string): Promise<SendAsIdentity[]> {
+  const data = await gmailFetch<{
+    sendAs?: { sendAsEmail?: string; isPrimary?: boolean; verificationStatus?: string }[];
+  }>("/users/me/settings/sendAs", token);
+  return (data.sendAs ?? [])
+    .filter((s) => s.sendAsEmail && (s.isPrimary || s.verificationStatus === "accepted"))
+    .map((s) => ({ address: s.sendAsEmail!.toLowerCase(), isPrimary: Boolean(s.isPrimary) }));
 }
