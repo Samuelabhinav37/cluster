@@ -226,6 +226,38 @@ async function getUnsubscribeDetails(token: string, id: string): Promise<Unsubsc
   };
 }
 
+/** The signed-in Outlook account's own addresses. */
+export async function outlookAccountAddresses(token: string): Promise<string[]> {
+  const me = await graphFetch<{ mail?: string; userPrincipalName?: string }>(
+    "/me?$select=mail,userPrincipalName",
+    token,
+  );
+  return [...new Set([me.mail, me.userPrincipalName].filter((a): a is string => Boolean(a?.includes("@"))))].map(
+    (a) => a.toLowerCase(),
+  );
+}
+
+/**
+ * Saves an unsubscribe email as a draft (Mail.ReadWrite, no send permission)
+ * and returns its Outlook on the web link, so the user sends it themselves.
+ */
+export async function createOutlookDraft(
+  token: string,
+  mail: { to: string; subject: string; body: string },
+): Promise<{ id: string; webLink?: string }> {
+  const draft = await graphFetch<{ id?: string; webLink?: string }>("/me/messages", token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      subject: mail.subject,
+      body: { contentType: "Text", content: mail.body },
+      toRecipients: [{ emailAddress: { address: mail.to } }],
+    }),
+  });
+  if (!draft.id) throw new Error("Outlook returned no draft id");
+  return { id: draft.id, webLink: draft.webLink };
+}
+
 interface GraphBatchRequest {
   method: "POST" | "PATCH" | "GET" | "DELETE";
   url: string;

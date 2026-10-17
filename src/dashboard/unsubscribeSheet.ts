@@ -8,7 +8,9 @@ import { listSendAs, type SendAsIdentity } from "../lib/gmailApi";
 import { isFreeMailDomain } from "../lib/freeMail";
 import { log } from "../lib/log";
 import { checkMailtoUnsubscribe, MAILTO_REFUSAL_TEXT } from "../lib/mailtoGate";
+import type { EmailProvider } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
+import { createOutlookDraft, outlookAccountAddresses, outlookProvider } from "../lib/providers/outlookProvider";
 import type { SenderSummary } from "../lib/senderModel";
 import { gmailQueueDeps } from "../lib/unsubscribeGmail";
 import { IDENTITY_QUESTION, pickUnsubscribeIdentity } from "../lib/unsubscribeIdentity";
@@ -19,6 +21,8 @@ import { recordUnsubscribeRequests } from "./unsubscribeRecord";
 
 interface ReadyRow {
   sender: SenderSummary;
+  /** Gmail sends; Outlook saves a draft the user sends from Outlook. */
+  draft: boolean;
   mail: UnsubscribeMail;
   question?: string;
 }
@@ -45,43 +49,47 @@ export function gmailComposeUrl(mail: UnsubscribeMail): string {
   return `https://mail.google.com/mail/?authuser=${encodeURIComponent(mail.from)}&${params}`;
 }
 
+async function identitiesFor(provider: EmailProvider, token: string): Promise<SendAsIdentity[]> {
+  if (provider.id === "gmail") return listSendAs(token);
+  return (await outlookAccountAddresses(token)).map((address, i) => ({ address, isPrimary: i === 0 }));
+}
+
 async function prepare(senders: SenderSummary[]): Promise<{ ready: ReadyRow[]; needsYou: NeedsYouRow[] }> {
   const ready: ReadyRow[] = [];
   const needsYou: NeedsYouRow[] = [];
-  const gmail = senders.filter((s) => s.provider === "gmail");
-  for (const sender of senders.filter((s) => s.provider !== "gmail")) {
-    needsYou.push({
-      sender,
-      why: "Cluster can't send email from this account yet.",
-      link: sender.unsubscribe.mailto ? { href: sender.unsubscribe.mailto, text: "Write the email" } : undefined,
-    });
-  }
-  if (gmail.length === 0) return { ready, needsYou };
-
-  const token = await gmailProvider.getAuthToken(false);
-  const identities: SendAsIdentity[] = await listSendAs(token);
-  const own = identities.map((i) => i.address);
-  for (const sender of gmail) {
-    const page = sender.unsubscribe.httpUrl ? { href: sender.unsubscribe.httpUrl, text: "Open their page" } : undefined;
-    const id = newestMessageId(sender);
-    try {
-      if (!id) throw new Error("no message");
-      const details = await gmailProvider.getUnsubscribeDetails!(token, id);
-      const gate = checkMailtoUnsubscribe("gmail", details, own, isFreeMailDomain);
-      if (!gate.ok) {
-        needsYou.push({ sender, why: MAILTO_REFUSAL_TEXT[gate.reason], link: page });
-        continue;
+  for (const provider of [gmailProvider, outlookProvider]) {
+    const mine = senders.filter((s) => s.provider === provider.id);
+    if (mine.length === 0) continue;
+    const token = await provider.getAuthToken(false);
+    const identities = await identitiesFor(provider, token);
+    const own = identities.map((i) => i.address);
+    for (const sender of mine) {
+      const page = sender.unsubscribe.httpUrl ? { href: sender.unsubscribe.httpUrl, text: "Open their page" } : undefined;
+      const id = newestMessageId(sender);
+      try {
+        if (!id || !provider.getUnsubscribeDetails) throw new Error("no message");
+        const details = await provider.getUnsubscribeDetails(token, id);
+        const gate = checkMailtoUnsubscribe(provider.id, details, own, isFreeMailDomain);
+        if (!gate.ok) {
+          needsYou.push({ sender, why: MAILTO_REFUSAL_TEXT[gate.reason], link: page });
+          continue;
+        }
+        const identity = pickUnsubscribeIdentity(details.deliveredTo, identities);
+        const mail = identity && unsubscribeMailFor(identity.from, gate.parts);
+        if (!identity || !mail) {
+          needsYou.push({ sender, why: "Their unsubscribe email is longer than Cluster will send.", link: page });
+          continue;
+        }
+        ready.push({
+          sender,
+          draft: provider.id !== "gmail",
+          mail,
+          question: identity.sure ? undefined : IDENTITY_QUESTION[identity.why],
+        });
+      } catch (err) {
+        log.error("Could not prepare an unsubscribe email", err);
+        needsYou.push({ sender, why: "Cluster couldn't read their latest email.", link: page });
       }
-      const identity = pickUnsubscribeIdentity(details.deliveredTo, identities);
-      const mail = identity && unsubscribeMailFor(identity.from, gate.parts);
-      if (!identity || !mail) {
-        needsYou.push({ sender, why: "Their unsubscribe email is longer than Cluster will send.", link: page });
-        continue;
-      }
-      ready.push({ sender, mail, question: identity.sure ? undefined : IDENTITY_QUESTION[identity.why] });
-    } catch (err) {
-      log.error("Could not prepare an unsubscribe email", err);
-      needsYou.push({ sender, why: "Cluster couldn't read their latest email.", link: page });
     }
   }
   return { ready, needsYou };
@@ -121,8 +129,21 @@ function renderNeedsYou(list: HTMLElement, rows: NeedsYouRow[]) {
   }
 }
 
+/** Saves Outlook rows as drafts and returns links to finish each one. */
+async function draft(rows: ReadyRow[]): Promise<{ to: string; href: string }[]> {
+  if (rows.length === 0) return [];
+  const token = await outlookProvider.getAuthToken(false);
+  const links: { to: string; href: string }[] = [];
+  for (const row of rows) {
+    const saved = await createOutlookDraft(token, row.mail);
+    links.push({ to: row.mail.to, href: saved.webLink ?? "https://outlook.office.com/mail/drafts" });
+  }
+  return links;
+}
+
 /** Sends what was ticked and returns the summary line for the sheet. */
 async function send(rows: ReadyRow[]): Promise<{ summary: string; fallback: QueueItem[] }> {
+  if (rows.length === 0) return { summary: "", fallback: [] };
   await enqueueUnsubscribeMails(rows.map((r) => ({ ...r.mail, provider: "gmail", senderKey: r.sender.key })));
   const run = await runUnsubscribeQueue(gmailQueueDeps());
   const byKey = new Map(rows.map((r) => [r.sender.key, r.sender]));
@@ -192,17 +213,31 @@ export async function openUnsubscribeSheet(senders: SenderSummary[], onDone?: ()
     return;
   }
   const { ready, needsYou } = prepared;
+  const anyDraft = ready.some((r) => r.draft);
   lead.textContent =
-    ready.length > 0
-      ? "Cluster will send these from your account. They will show in Sent."
-      : "Cluster can't send any of these for you.";
+    ready.length === 0
+      ? "Cluster can't send any of these for you."
+      : anyDraft && ready.every((r) => r.draft)
+        ? "Cluster will save these as drafts in Outlook for you to send."
+        : anyDraft
+          ? "Cluster will send the Gmail ones from your account, where they show in Sent. Outlook ones are saved as drafts for you to send."
+          : "Cluster will send these from your account. They will show in Sent.";
 
   const ticked = new Set(ready.map((_, i) => i));
   const sendBtn = el("button", "btn-accent-solid");
   sendBtn.type = "button";
   const updateSend = () => {
-    sendBtn.textContent = `Send ${ticked.size} email${ticked.size === 1 ? "" : "s"}`;
-    sendBtn.disabled = ticked.size === 0;
+    const picked = ready.filter((_, i) => ticked.has(i));
+    const drafts = picked.filter((r) => r.draft).length;
+    const sends = picked.length - drafts;
+    const emails = (n: number) => `${n} email${n === 1 ? "" : "s"}`;
+    sendBtn.textContent =
+      drafts === 0
+        ? `Send ${emails(sends)}`
+        : sends === 0
+          ? `Save ${drafts} draft${drafts === 1 ? "" : "s"}`
+          : `Send ${emails(sends)}, save ${drafts} draft${drafts === 1 ? "" : "s"}`;
+    sendBtn.disabled = picked.length === 0;
   };
 
   ready.forEach((row, i) => {
@@ -235,12 +270,23 @@ export async function openUnsubscribeSheet(senders: SenderSummary[], onDone?: ()
   sendBtn.onclick = async () => {
     const chosen = ready.filter((_, i) => ticked.has(i));
     sendBtn.disabled = true;
-    sendBtn.textContent = "Sending…";
+    sendBtn.textContent = "Working…";
     list.querySelectorAll("input").forEach((box) => (box.disabled = true));
     try {
-      const { summary, fallback } = await send(chosen);
-      lead.textContent = summary;
+      const { summary, fallback } = await send(chosen.filter((r) => !r.draft));
+      const drafts = await draft(chosen.filter((r) => r.draft));
+      lead.textContent = [summary, drafts.length > 0 ? `Saved ${drafts.length} in Outlook drafts.` : ""]
+        .filter(Boolean)
+        .join(" ");
       list.innerHTML = "";
+      if (drafts.length > 0) {
+        list.append(el("h3", "unsub-section", "Send these from Outlook"));
+        for (const d of drafts) {
+          const row = el("div", "unsub-item");
+          row.append(el("div", "unsub-item-name", d.to), linkTo(d.href, "Open in Outlook"));
+          list.appendChild(row);
+        }
+      }
       if (fallback.length > 0) {
         list.append(el("h3", "unsub-section", "Send these yourself"));
         list.append(el("p", "row-sub", "Your account doesn't let apps send mail. Each opens ready to send."));

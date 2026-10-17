@@ -26,6 +26,12 @@ export async function addGmailBackstop(
   return createFilter(token, criteria, { addLabelIds: [labelId], removeLabelIds: ["INBOX"] });
 }
 
+/** For a sender still mailing after the grace period: their later mail from
+ * this exact address goes to Trash. Reversible by deleting the filter. */
+export async function addGmailTrashFilter(token: string, address: string): Promise<string> {
+  return createFilter(token, { from: address }, { addLabelIds: ["TRASH"], removeLabelIds: ["INBOX"] });
+}
+
 export async function removeGmailBackstop(token: string, filterId: string): Promise<void> {
   await deleteFilter(token, filterId);
 }

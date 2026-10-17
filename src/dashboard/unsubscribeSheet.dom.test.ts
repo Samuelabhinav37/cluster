@@ -26,6 +26,17 @@ vi.mock("../lib/providers/gmailProvider", () => ({
   },
 }));
 
+const createOutlookDraft = vi.fn(async () => ({ id: "d1", webLink: "https://outlook.office.com/mail/d1" }));
+vi.mock("../lib/providers/outlookProvider", () => ({
+  outlookProvider: {
+    id: "outlook",
+    getAuthToken: async () => "t",
+    getUnsubscribeDetails: async (_t: string, id: string) => details.get(id)!,
+  },
+  outlookAccountAddresses: async () => ["me@outlook.com"],
+  createOutlookDraft,
+}));
+
 const recordUnsubscribeRequests = vi.fn(async () => {});
 vi.mock("./unsubscribeRecord", () => ({ recordUnsubscribeRequests }));
 vi.mock("./state", () => ({ logAction: vi.fn(async () => {}) }));
@@ -34,7 +45,13 @@ const { openUnsubscribeSheet } = await import("./unsubscribeSheet");
 
 const AR = (d: string) => `mx.google.com; dkim=pass header.i=@${d}; spf=pass smtp.mailfrom=${d}; dmarc=pass header.from=${d}`;
 
-function sender(address: string, messageId: string, header: string, over: Partial<UnsubscribeDetails> = {}) {
+function sender(
+  address: string,
+  messageId: string,
+  header: string,
+  over: Partial<UnsubscribeDetails> = {},
+  provider: "gmail" | "outlook" = "gmail",
+) {
   const domain = address.split("@")[1];
   details.set(messageId, {
     messageId,
@@ -47,8 +64,8 @@ function sender(address: string, messageId: string, header: string, over: Partia
     ...over,
   });
   return {
-    key: `gmail:${address}`,
-    provider: "gmail",
+    key: `${provider}:${address}`,
+    provider,
     address,
     displayName: address.split("@")[0],
     count: 1,
@@ -120,6 +137,27 @@ describe("unsubscribe sheet", () => {
     box.click();
     const send = Array.from(sheet().querySelectorAll("button")).find((b) => b.textContent?.startsWith("Send"))!;
     expect(send.disabled).toBe(true);
+    expect(sendRawMessage).not.toHaveBeenCalled();
+  });
+
+  it("saves Outlook requests as drafts and never sends them", async () => {
+    const outlook = sender("news@shop.example", "o1", "<mailto:leave@shop.example>", {
+      authenticationResults: [
+        "outlook.com; dkim=pass header.d=shop.example; spf=pass smtp.mailfrom=shop.example; dmarc=pass header.from=shop.example",
+      ],
+      deliveredTo: ["me@outlook.com"],
+    }, "outlook");
+    await openUnsubscribeSheet([outlook]);
+    await vi.waitFor(() => expect(sheet().textContent).toContain("drafts in Outlook"));
+    const save = Array.from(sheet().querySelectorAll("button")).find((b) => b.textContent === "Save 1 draft")!;
+    save.click();
+    await vi.waitFor(() => expect(sheet().textContent).toContain("Open in Outlook"));
+    expect(createOutlookDraft).toHaveBeenCalledWith("t", {
+      from: "me@outlook.com",
+      to: "leave@shop.example",
+      subject: "unsubscribe",
+      body: "",
+    });
     expect(sendRawMessage).not.toHaveBeenCalled();
   });
 });

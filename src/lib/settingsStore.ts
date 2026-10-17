@@ -24,6 +24,8 @@ export interface UnsubscribeRequestRecord {
   to?: string;
   /** The Gmail filter that files their later list mail (unsubscribeBackstop.ts). */
   filterId?: string;
+  /** The Gmail filter sending their later mail to Trash, once they kept sending. */
+  trashFilterId?: string;
 }
 
 export interface ClusterSettings {

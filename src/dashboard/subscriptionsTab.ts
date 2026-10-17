@@ -23,7 +23,13 @@ import { senderTile } from "./senderTile";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
 import { clusterLabelName } from "../lib/clusterLabels";
-import { recordUnsubscribeRequests, unsubscribeOutcomeFor } from "./unsubscribeRecord";
+import {
+  recordUnsubscribeRequests,
+  trashStillSending,
+  undoUnsubscribe,
+  UNDO_UNSUBSCRIBE_COPY,
+  unsubscribeOutcomeFor,
+} from "./unsubscribeRecord";
 import { openUnsubscribeSheet } from "./unsubscribeSheet";
 
 const READ_LATER_LABEL = clusterLabelName("readLater");
@@ -96,6 +102,47 @@ function dominantKind(s: SenderSummary): string {
     }
   }
   return best;
+}
+
+/** Undo, and for a sender still mailing on Gmail, a way to send what keeps
+ * coming to Trash. Both act on Cluster's own filters only. */
+function requestActions(key: string, provider: string, state: string): HTMLElement[] {
+  const out: HTMLElement[] = [];
+  const request = ctx.settings.unsubscribeRequests[key];
+  if (state === "still-sending" && provider === "gmail" && !request?.trashFilterId) {
+    const slot = document.createElement("span");
+    const trash = document.createElement("button");
+    trash.className = "btn btn-sm";
+    trash.textContent = "Send their mail to Trash";
+    const reset = () => slot.replaceChildren(trash);
+    trash.onclick = () =>
+      renderConfirmStep(
+        slot,
+        reset,
+        `From now on, all mail from ${senderAddressFromKey(key)} goes to Trash. You can undo this.`,
+        true,
+        async () => {
+          await trashStillSending(key);
+          await logAction("unsubscribe", `Sending mail from ${senderAddressFromKey(key)} to Trash`);
+          renderSubscriptionsTab(ctx.senders);
+          return "Done";
+        },
+      );
+    reset();
+    out.push(slot);
+  }
+  const undo = document.createElement("button");
+  undo.className = "btn btn-sm";
+  undo.textContent = "Undo";
+  undo.title = UNDO_UNSUBSCRIBE_COPY;
+  undo.onclick = async () => {
+    undo.disabled = true;
+    await undoUnsubscribe(key);
+    await logAction("unsubscribe", UNDO_UNSUBSCRIBE_COPY);
+    renderSubscriptionsTab(ctx.senders);
+  };
+  out.push(undo);
+  return out;
 }
 
 function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
@@ -446,6 +493,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
         if (btn.textContent === "Unsubscribe") btn.className = "btn btn-accent btn-sm";
         else btn.classList.add("btn-sm");
       }
+      if (outcome.requestAt) for (const btn of requestActions(sender.key, sender.provider, outcome.state)) actions.appendChild(btn);
       const keep = document.createElement("button");
       keep.className = "btn btn-sm";
       keep.textContent = "Keep";
@@ -492,7 +540,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
     subscriptionsListEl.appendChild(heading);
     const table = document.createElement("table");
     const thead = document.createElement("thead");
-    thead.appendChild(headerRow(["Sender", "Provider", "Requested", "Outcome", "Evidence"]));
+    thead.appendChild(headerRow(["Sender", "Provider", "Requested", "Outcome", "Evidence", ""]));
     table.appendChild(thead);
     const tbody = document.createElement("tbody");
     for (const { key, request, outcome } of visibleTrackedOnlyRows) {
@@ -508,7 +556,9 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
       const evidenceCell = document.createElement("td");
       evidenceCell.className = "hint";
       evidenceCell.textContent = outcome.detail;
-      row.append(addressCell, providerCell, requestedCell, outcomeCell, evidenceCell);
+      const actionCell = document.createElement("td");
+      actionCell.append(...requestActions(key, request.provider, outcome.state));
+      row.append(addressCell, providerCell, requestedCell, outcomeCell, evidenceCell, actionCell);
       tbody.appendChild(row);
     }
     table.appendChild(tbody);

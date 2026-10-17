@@ -44,7 +44,8 @@ Being honest about the narrow list of places data does go:
   each one it would send (from, to, subject, body) and sends nothing until you press Send. It
   sends from your own Gmail account, to the address the sender gave, with the sender's own
   subject and body and nothing added. Each one shows in your Sent folder. Cluster won't send to
-  an address the sender didn't sign, or for mail in Spam.
+  an address the sender didn't sign, or for mail in Spam. On Outlook, Cluster can't send mail;
+  it saves the email as a draft in your Outlook account for you to send.
 - **Deep scan's link check**, described above — one outbound check of a link you're reviewing,
   guarded against private/internal addresses.
 - **Sorting and filtering.** Creating a Gmail filter or Outlook rule (for "keep sorted," "mute,"

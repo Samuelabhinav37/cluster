@@ -4,7 +4,7 @@
 import { recordEngagementFeedback } from "../lib/engagementModel";
 import { log } from "../lib/log";
 import { gmailProvider } from "../lib/providers/gmailProvider";
-import { addGmailBackstop } from "../lib/unsubscribeBackstop";
+import { addGmailBackstop, addGmailTrashFilter, removeGmailBackstop } from "../lib/unsubscribeBackstop";
 import type { SenderSummary } from "../lib/senderModel";
 import { mutateSettings, type UnsubscribeMethod } from "../lib/settingsStore";
 import type { NormalizedMessageMetadata } from "../lib/providers/emailProvider";
@@ -93,4 +93,42 @@ export function unsubscribeOutcomeFor(key: string, sender: SenderSummary | undef
     Date.now(),
     ctx.unsubscribeReplies.get(key),
   );
+}
+
+export const UNDO_UNSUBSCRIBE_COPY =
+  "Cluster stopped filtering. To get their emails again, re-subscribe on their site.";
+
+/** Forgets the request and removes Cluster's filters for it. The request
+ * the sender received can't be recalled. */
+export async function undoUnsubscribe(key: string): Promise<void> {
+  const request = ctx.settings.unsubscribeRequests[key];
+  if (!request) return;
+  const filters = [request.filterId, request.trashFilterId].filter((id): id is string => Boolean(id));
+  if (request.provider === "gmail" && filters.length > 0) {
+    const token = await gmailProvider.getAuthToken(false);
+    for (const id of filters) {
+      // A filter the user already deleted in Gmail is fine to skip.
+      await removeGmailBackstop(token, id).catch((err) => log.error("Could not remove an unsubscribe filter", err));
+    }
+  }
+  ctx.settings = await mutateSettings((current) => {
+    const requests = { ...current.unsubscribeRequests };
+    delete requests[key];
+    return { ...current, unsubscribeRequests: requests };
+  });
+}
+
+/** Sends a sender's later mail to Trash after they kept sending. */
+export async function trashStillSending(key: string): Promise<void> {
+  const request = ctx.settings.unsubscribeRequests[key];
+  if (!request || request.provider !== "gmail" || request.trashFilterId) return;
+  const token = await gmailProvider.getAuthToken(false);
+  const trashFilterId = await addGmailTrashFilter(token, key.slice(key.indexOf(":") + 1));
+  ctx.settings = await mutateSettings((current) => ({
+    ...current,
+    unsubscribeRequests: {
+      ...current.unsubscribeRequests,
+      [key]: { ...current.unsubscribeRequests[key], trashFilterId },
+    },
+  }));
 }
