@@ -46,6 +46,7 @@ import { outlookProvider } from "../lib/providers/outlookProvider";
 import { OutlookReauthRequired } from "../lib/providers/msalAuth";
 import { summarizeCombined, type SenderSummary } from "../lib/senderModel";
 import { applyCensus, senderUnread, senderVolume } from "../lib/census";
+import { buildSenderProfiles } from "../lib/senderProfile";
 import {
   getSettings,
   mutateSettings,
@@ -802,6 +803,15 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   const censusRows = (await Promise.all(providers.map((p) => store.allCensus(p.id)))).flat();
   applyCensus(combined.cleanup, censusRows);
   applyCensus(combined.security, censusRows);
+  ctx.profiles = buildSenderProfiles({
+    rows: metas,
+    sent: (await Promise.all(providers.map((p) => store.allSent(p.id)))).flat(),
+    census: censusRows,
+    ownAddresses: (await Promise.all(providers.map((p) => store.getState(p.id))))
+      .map((state) => state?.accountId ?? "")
+      .filter(Boolean),
+    knownSenders: buildProtectionContext(ctx.settings).knownSenders,
+  });
   indexOfferShown = false;
   for (const { run } of runs) offerUpdatedView(run);
   let senders = combined.cleanup;

@@ -258,7 +258,7 @@ describe("domain grouping", () => {
     expect(buildDomainGroups(list).filter((g) => g.domain === "substack.com")).toHaveLength(2);
   });
 
-  it.fails("KNOWN GAP: proton.me / me.com personal senders are grouped by domain", async () => {
+  it("proton.me / me.com personal senders are not grouped by domain (fixed by freeMail.ts)", async () => {
     const list = await senders([...many(2, { fromAddress: "a@proton.me" }), ...many(2, { fromAddress: "b@proton.me" })]);
     expect(buildDomainGroups(list).filter((g) => g.domain === "proton.me")).toHaveLength(2);
   });
