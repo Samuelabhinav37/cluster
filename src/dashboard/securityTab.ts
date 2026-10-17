@@ -227,8 +227,8 @@ function reasonList(verdict: Verdict): HTMLUListElement {
   return ul;
 }
 
-/** Guided reporting. Cluster has no send permission and never sends
- * anything itself: it shows the steps and the user acts in their own mail. */
+/** Guided reporting. Cluster never sends a report itself: it shows the
+ * steps and the user acts in their own mail. */
 function reportSteps(): { button: HTMLButtonElement; steps: HTMLOListElement } {
   const steps = document.createElement("ol");
   steps.className = "report-steps";
