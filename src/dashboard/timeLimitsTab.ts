@@ -1,7 +1,7 @@
 // "Inbox time limits" on the Organize screen: how long each category's new
 // mail stays in the inbox before it moves into its label. Saving syncs the
 // per-category Gmail filters and runs one sweep straight away; the background
-// alarm keeps it going every 15 minutes (see lib/inboxTimeLimits.ts).
+// alarm keeps it going every 5 minutes (see lib/inboxTimeLimits.ts).
 import { categoryQuery } from "../lib/categoryQueries";
 import { categoryLabelName, syncGmailCategoryFilters } from "../lib/categoryFilters";
 import { batchModify, getOrCreateLabel, listMessageIds } from "../lib/gmailApi";
@@ -24,6 +24,7 @@ const backlogEl = document.getElementById("time-limits-backlog") as HTMLDivEleme
 /** Select options: hours, or null for "stays in inbox". */
 export const LIMIT_CHOICES: { label: string; hours: number | null }[] = [
   { label: "Straight to label", hours: 0 },
+  { label: "10 minutes", hours: 1 / 6 },
   { label: "1 hour", hours: 1 },
   { label: "1 day", hours: 24 },
   { label: "2 days", hours: 48 },

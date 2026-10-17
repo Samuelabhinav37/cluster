@@ -1,6 +1,6 @@
 // Runs the inbox time limits against the live Gmail account: wires
 // inboxTimeLimits.ts to the Gmail API, the shared metadata cache and the
-// action log. Called by the 15-minute background alarm and by the dashboard
+// action log. Called by the 5-minute background alarm and by the dashboard
 // right after the user saves their limits.
 import { appendActionLog, makeLogId } from "./actionLog";
 import { categoryLabelName } from "./categoryFilters";

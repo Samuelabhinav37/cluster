@@ -26,6 +26,7 @@ import { loadMetadataCache, saveMetadataCache } from "./lib/metadataCache";
 import { applyIndexedCorrespondents, readIndexedSenders, refreshIndexForBackground } from "./lib/indexTriage";
 import { resumeInterruptedJobs } from "./lib/durableJobs";
 import { resumeUnsubscribeQueue } from "./lib/unsubscribeGmail";
+import { runUnsubscribedSweep } from "./lib/unsubscribedSweep";
 import { getRuleCompletionKeys, recordRuleCompletions } from "./lib/ruleCompletionLedger";
 import { loadPublicSuffixList } from "./lib/publicSuffix";
 import { applySenderLedger } from "./lib/senderLedgerStore";
@@ -54,6 +55,10 @@ const DATASET_ALARM = "cluster-dataset-refresh";
 // category's time is up out of the inbox (see inboxTimeLimits.ts). No-op
 // unless the user turned time limits on.
 const INBOX_LIMITS_ALARM = "cluster-inbox-limits";
+// Every 5 minutes, so mail with a 10-minute limit, or from a sender you
+// unsubscribed from, is filed within about 10 to 15 minutes. With the mail
+// index, a tick with no new mail costs a couple of quota units.
+const INBOX_SWEEP_MINUTES = 5;
 const SECURITY_SCAN_WINDOW_DAYS = 30;
 const SECURITY_SCAN_MAX_MESSAGES = 100;
 const providerById = new Map<ProviderId, EmailProvider>([
@@ -66,7 +71,7 @@ chrome.runtime.onInstalled.addListener((details) => {
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(DATASET_ALARM, { delayInMinutes: 10, periodInMinutes: 1440 });
-  chrome.alarms.create(INBOX_LIMITS_ALARM, { delayInMinutes: 2, periodInMinutes: 15 });
+  chrome.alarms.create(INBOX_LIMITS_ALARM, { delayInMinutes: 2, periodInMinutes: INBOX_SWEEP_MINUTES });
   // A fresh install used to open nothing, leaving the user to find an
   // unpinned icon in the puzzle menu. Open the dashboard, whose connect gate
   // is the welcome screen. Updates and Chrome updates stay silent.
@@ -78,7 +83,7 @@ chrome.runtime.onStartup.addListener(() => {
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(DATASET_ALARM, { delayInMinutes: 10, periodInMinutes: 1440 });
-  chrome.alarms.create(INBOX_LIMITS_ALARM, { delayInMinutes: 2, periodInMinutes: 15 });
+  chrome.alarms.create(INBOX_LIMITS_ALARM, { delayInMinutes: 2, periodInMinutes: INBOX_SWEEP_MINUTES });
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -98,13 +103,17 @@ function handleAlarm(alarm: chrome.alarms.Alarm): void {
     void resumeUnsubscribeQueue().catch((err) => log.error("Resuming unsubscribe emails failed", err));
   }
   if (alarm.name === DATASET_ALARM) void refreshPublicDatasets();
-  if (alarm.name === INBOX_LIMITS_ALARM) void runInboxTimeLimitsIfQuota();
+  if (alarm.name === INBOX_LIMITS_ALARM) {
+    void runInboxTimeLimitsIfQuota().then(() =>
+      runUnsubscribedSweep().catch((err) => log.error("Unsubscribed sweep failed", err)),
+    );
+  }
 }
 
 async function runInboxTimeLimitsIfQuota(): Promise<void> {
   try {
     // Same guard as triage: don't add to a scan already near Gmail's
-    // per-minute ceiling; the next 15-minute tick tries again.
+    // per-minute ceiling; the next 5-minute tick tries again.
     if ((await gmailQuotaHeadroom()) < 1500) return;
     await runInboxTimeLimits();
   } catch (err) {
