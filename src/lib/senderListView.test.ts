@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DAY, NOW, many, senders } from "../test/mailFixtures";
 import type { NormalizedMessageMetadata, SentRecord } from "./providers/emailProvider";
-import { groupByCompany, mainTemplate, profileLine, sortSenders } from "./senderListView";
+import { companyName, foldByCompany, groupByCompany, mainTemplate, profileLine, sortSenders } from "./senderListView";
 import { buildSenderProfiles } from "./senderProfile";
 
 async function setup(rows: NormalizedMessageMetadata[], sent: SentRecord[] = []) {
@@ -58,5 +58,25 @@ describe("groupByCompany", () => {
     const { list, profiles } = await setup(rows);
     const groups = groupByCompany(list, profiles);
     expect(groups.map((g) => [g.key, g.senders.length, g.total])).toEqual([["brand.example", 2, 5]]);
+  });
+});
+
+describe("foldByCompany", () => {
+  it("shows LinkedIn's addresses as one LinkedIn entry", async () => {
+    const li = (fromAddress: string, fromDisplayName: string, n: number) =>
+      many(n, { fromAddress, fromDisplayName, authenticationResults: signed("linkedin.com") });
+    const rows = [
+      ...li("notifications-noreply@linkedin.com", "LinkedIn", 6),
+      ...li("jobalerts-noreply@linkedin.com", "LinkedIn Job Alerts", 4),
+      ...li("invitations@linkedin.com", "LinkedIn", 2),
+      ...many(3, { fromAddress: "news@other.example" }),
+    ];
+    const { list, profiles } = await setup(rows);
+    const entries = foldByCompany(sortSenders(list, profiles, "volume"), profiles);
+    expect(entries.map((e) => e.kind)).toEqual(["company", "sender"]);
+    const company = entries[0];
+    if (company.kind !== "company") throw new Error("expected a company");
+    expect(company.group.senders).toHaveLength(3);
+    expect(companyName(company.group)).toBe("LinkedIn");
   });
 });

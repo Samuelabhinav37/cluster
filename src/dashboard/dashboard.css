@@ -3723,3 +3723,8 @@ body {
 .sender-sort select {
   min-height: 44px;
 }
+
+/* Senders: a company's addresses, shown under its row when opened. */
+.list-row--child {
+  padding-left: 40px;
+}

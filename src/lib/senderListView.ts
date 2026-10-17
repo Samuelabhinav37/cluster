@@ -102,3 +102,48 @@ export function groupByCompany(
     .map(({ judged, opened, ...g }) => ({ ...g, openRate: judged > 0 ? opened / judged : null }))
     .sort((a, b) => b.total - a.total);
 }
+
+/** The name a company goes by: the display name carrying the most mail. */
+export function companyName(group: CompanyGroup): string {
+  const byName = new Map<string, number>();
+  for (const s of group.senders) {
+    const name = s.displayName?.trim();
+    if (name) byName.set(name, (byName.get(name) ?? 0) + senderVolume(s));
+  }
+  let best = group.key;
+  let most = 0;
+  for (const [name, n] of byName) if (n > most) [best, most] = [name, n];
+  return best;
+}
+
+export type ListEntry = { kind: "sender"; sender: SenderSummary } | { kind: "company"; group: CompanyGroup };
+
+/**
+ * The Senders list with each company's addresses folded into one entry, in
+ * the order of the company's first address. A company with one address
+ * stays a plain sender row.
+ */
+export function foldByCompany(
+  sorted: readonly SenderSummary[],
+  profiles: ReadonlyMap<string, SenderProfile>,
+): ListEntry[] {
+  const groups = new Map(
+    groupByCompany(sorted, profiles)
+      .filter((g) => g.senders.length > 1)
+      .map((g) => [g.key, g] as const),
+  );
+  const out: ListEntry[] = [];
+  const placed = new Set<string>();
+  for (const sender of sorted) {
+    const key = profiles.get(sender.key)?.companyKey;
+    const group = key && !isPerson(profiles.get(sender.key)) ? groups.get(key) : undefined;
+    if (!group) {
+      out.push({ kind: "sender", sender });
+      continue;
+    }
+    if (placed.has(group.key)) continue;
+    placed.add(group.key);
+    out.push({ kind: "company", group });
+  }
+  return out;
+}

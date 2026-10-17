@@ -48,6 +48,9 @@ import { summarizeCombined, type SenderSummary } from "../lib/senderModel";
 import { applyCensus, senderUnread, senderVolume } from "../lib/census";
 import { buildSenderProfiles } from "../lib/senderProfile";
 import {
+  companyName,
+  foldByCompany,
+  type CompanyGroup,
   groupByCompany,
   isPerson,
   mainTemplate,
@@ -1851,6 +1854,36 @@ let allSendersFilter: SenderFilterId = "all";
 let allSendersSort: SenderSortId = "volume";
 let allSendersQuery = "";
 let allSendersLimit = 25;
+/** Companies opened to show their addresses on the Senders screen. */
+const openCompanies = new Set<string>();
+
+/** One row for a company, followed by its addresses when opened. */
+function buildCompanyEntry(group: CompanyGroup, all: SenderSummary[]): HTMLElement[] {
+  const open = openCompanies.has(group.key);
+  const toggle = document.createElement("button");
+  toggle.className = "btn btn-sm";
+  toggle.textContent = open ? "Hide addresses" : "Show addresses";
+  toggle.setAttribute("aria-expanded", String(open));
+  toggle.onclick = () => {
+    if (open) openCompanies.delete(group.key);
+    else openCompanies.add(group.key);
+    renderAllSenders(all);
+  };
+  const opens = group.openRate === null ? "" : ` · opens ${Math.round(group.openRate * 100)}%`;
+  const row = listRow({
+    lead: makeLogoTile(group.senders[0], "sz-34"),
+    title: companyName(group),
+    sub: `${group.senders.length} addresses · ${group.total.toLocaleString()} messages${opens}`,
+    actions: [toggle],
+  });
+  if (!open) return [row];
+  const children = group.senders.map((sender) => {
+    const child = buildAllSendersRow(sender);
+    child.classList.add("list-row--child");
+    return child;
+  });
+  return [row, ...children];
+}
 
 function hasAnyUnsubscribe(u: SenderSummary["unsubscribe"]): boolean {
   return Boolean(u.postUrl || u.httpUrl || u.mailto);
@@ -1945,11 +1978,18 @@ function renderAllSenders(senders: SenderSummary[]) {
     renderCompanyRows(filteredSenders(senders));
     return;
   }
-  const rows = sortSenders(filteredSenders(senders), ctx.profiles, allSendersSort);
+  // A company's addresses fold into one row (LinkedIn, not five LinkedIns).
+  const rows = foldByCompany(sortSenders(filteredSenders(senders), ctx.profiles, allSendersSort), ctx.profiles);
   const shown = rows.slice(0, allSendersLimit);
 
   allSendersListEl.innerHTML = "";
-  allSendersListEl.appendChild(listGroup(shown.map(buildAllSendersRow)));
+  allSendersListEl.appendChild(
+    listGroup(
+      shown.flatMap((entry) =>
+        entry.kind === "sender" ? [buildAllSendersRow(entry.sender)] : buildCompanyEntry(entry.group, senders),
+      ),
+    ),
+  );
 
   if (rows.length > shown.length) {
     const more = document.createElement("div");
