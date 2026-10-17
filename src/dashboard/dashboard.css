@@ -2649,40 +2649,41 @@ input.switch:disabled {
 }
 
 .limit-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  column-gap: 28px;
+  margin: 4px 0 10px;
+  padding: 4px 16px;
   border: 1px solid var(--hairline);
   border-radius: var(--r-list);
   background: var(--glass);
-  overflow: hidden;
-  margin: 10px 0;
 }
 
 .limit-row {
-  padding: 12px 16px;
-  border-top: 1px solid var(--separator);
-  font: 400 15px/2.1 var(--font);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--separator);
+  font: 500 15px/1.3 var(--font);
   color: var(--label);
+  cursor: default;
 }
 
-.limit-row:first-child {
-  border-top: 0;
-}
-
-.limit-row b {
-  font-weight: 650;
-}
-
-.limit-row .muted {
-  color: var(--label-4);
+.limit-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .limit-row select {
-  display: inline-block;
-  width: auto;
+  flex: none;
+  width: 9.5em;
   min-height: 0;
   height: 32px;
-  margin: 0 2px;
   padding: 0 10px;
-  vertical-align: baseline;
 }
 
 #time-limits-section:has(#time-limits-toggle:not(:checked)) .limit-row {
