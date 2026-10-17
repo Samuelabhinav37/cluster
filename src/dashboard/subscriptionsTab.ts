@@ -8,6 +8,7 @@ import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubsc
 import { executeBulkUnsubscribe, filterOutProtected } from "../lib/bulkActions";
 import {
   unsubscribeOutcomeRank,
+  unsubscribeTally,
   type UnsubscribeOutcomeState,
 } from "../lib/unsubscribeOutcome";
 import { buildProtectionContext, buildSenderCleanupPlan } from "../lib/protectionPolicy";
@@ -387,13 +388,13 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
   const visibleCurrentRows = currentRows.filter(({ outcome }) => matchesFilter(outcome.state));
   const visibleTrackedOnlyRows = trackedOnlyRows.filter(({ outcome }) => matchesFilter(outcome.state));
   const allOutcomes = [...currentRows, ...trackedOnlyRows].map(({ outcome }) => outcome);
-  const stillSendingCount = allOutcomes.filter(({ state }) => state === "still-sending").length;
   const trackedCount = Object.keys(ctx.settings.unsubscribeRequests).length;
   const oneClick = available.filter((sender) => sender.unsubscribe.postUrl);
 
   subscriptionsListEl.innerHTML = "";
   subsBulkBar.hidden = available.length === 0 && trackedCount === 0;
-  subsCountEl.textContent = `${available.length} available · ${trackedCount} tracked${stillSendingCount > 0 ? ` · ${stillSendingCount} still sending` : ""}`;
+  const tally = unsubscribeTally(allOutcomes);
+  subsCountEl.textContent = tally ? `${available.length} lists · ${tally}` : `${available.length} lists`;
   subsUnsubAllBtn.disabled = oneClick.length === 0;
   renderSubsFloatingBar(oneClick.length);
 

@@ -86,3 +86,14 @@ describe("evaluateUnsubscribeOutcome", () => {
     ).toEqual(["failed", "still-sending", "needs-you", "pending", "quiet", "untracked"]);
   });
 });
+
+describe("unsubscribeTally", () => {
+  it("counts requests by outcome and skips empty states", async () => {
+    const { unsubscribeTally } = await import("./unsubscribeOutcome");
+    const o = (state: string) => ({ state, label: "", detail: "", newerMessageCount: 0, lateMessageCount: 0 }) as never;
+    expect(unsubscribeTally([o("quiet"), o("quiet"), o("still-sending"), o("untracked")])).toBe(
+      "3 asked · 2 stopped · 1 still sending",
+    );
+    expect(unsubscribeTally([o("untracked")])).toBe("");
+  });
+});

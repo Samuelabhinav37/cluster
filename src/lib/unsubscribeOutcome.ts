@@ -119,3 +119,23 @@ export function unsubscribeOutcomeRank(state: UnsubscribeOutcomeState): number {
   const order: UnsubscribeOutcomeState[] = ["failed", "still-sending", "needs-you", "pending", "quiet", "untracked"];
   return order.indexOf(state);
 }
+
+/** "12 asked · 9 stopped · 2 still sending · 1 waiting": counted on this
+ * device from the requests and their outcomes, nothing sent anywhere. */
+export function unsubscribeTally(outcomes: readonly UnsubscribeOutcome[]): string {
+  const asked = outcomes.filter((o) => o.state !== "untracked");
+  if (asked.length === 0) return "";
+  const count = (state: UnsubscribeOutcomeState) => asked.filter((o) => o.state === state).length;
+  const parts: [number, string][] = [
+    [asked.length, "asked"],
+    [count("quiet"), "stopped"],
+    [count("still-sending"), "still sending"],
+    [count("pending"), "waiting"],
+    [count("needs-you"), "need your click"],
+    [count("failed"), "didn't reach them"],
+  ];
+  return parts
+    .filter(([n], i) => i === 0 || n > 0)
+    .map(([n, label]) => `${n} ${label}`)
+    .join(" · ");
+}
