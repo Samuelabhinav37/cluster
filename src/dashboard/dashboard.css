@@ -3275,15 +3275,13 @@ body {
   flex-direction: column;
 }
 
+/* Sub-items are always shown, so every page can be found without opening
+   its parent first. */
 .nav-children {
-  display: none;
+  display: flex;
   flex-direction: column;
   gap: 2px;
   margin: 2px 0 6px;
-}
-
-.nav-area.open .nav-children {
-  display: flex;
 }
 
 .nav-item.nav-child {
@@ -3314,10 +3312,19 @@ body {
   margin-bottom: 2px;
 }
 
+/* The sidebar is as tall as the window, not the page, so Activity and
+   Settings stay on screen at the bottom. */
+.sidebar {
+  align-self: flex-start;
+  height: calc(100vh - 60px);
+  overflow-y: auto;
+}
+
 @media (max-width: 900px) {
   .sidebar {
     width: 100%;
     height: auto;
+    overflow-y: visible;
     top: 60px;
     padding: 8px 16px;
     border-right: 0;
