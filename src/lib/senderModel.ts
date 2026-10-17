@@ -72,6 +72,11 @@ export interface SenderSummary {
   /** True when this sender is new since Cluster initialized its local ledger
    * (set by firstContact.ts, not by buildSenderSummaries). */
   firstContact: boolean;
+  /** All of this sender's mail, counted by search (census.ts), when that is
+   * more than was read. For describing and ranking only, never for actions. */
+  totalCount?: number;
+  /** Unread among totalCount, when known. */
+  totalUnread?: number;
 }
 
 function hasUnsubscribe(info: UnsubscribeInfo): boolean {
@@ -360,7 +365,19 @@ export async function buildCombinedSenderSummaries(
     metadataCache,
     riskyAttachmentIdsByProvider,
   );
+  return summarizeCombined(metas, securityMaxMessages, capHit);
+}
 
+/**
+ * Splits already-read messages into the cleanup and security lanes and rolls
+ * each up by sender. Pure: used by the combined scan above and by the
+ * dashboard reading the local mail index (no fetching at all).
+ */
+export function summarizeCombined(
+  metas: NormalizedMessageMetadata[],
+  securityMaxMessages: number,
+  capHit: boolean,
+): CombinedScanResult {
   const inLane = (meta: NormalizedMessageMetadata, lane: ScanPurpose) =>
     !meta.lanes || meta.lanes.includes(lane);
   const securityMetas = metas

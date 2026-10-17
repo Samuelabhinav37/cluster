@@ -148,6 +148,7 @@
           </section>
 
           <p id="status" class="status-line" role="status">Loading your senders…</p>
+          <p id="index-status" class="hint index-status" role="status" hidden></p>
 
           <!-- ══ Overview ═══════════════════════════════════════════════ -->
           <section class="screen" data-screen="overview" role="tabpanel" hidden>
@@ -642,15 +643,11 @@
               <summary>Advanced</summary>
               <div class="settings-list">
                 <div class="set-sec">
-                  <div><h2>Scanning</h2><p class="lead-sm">How much mail Cluster reads. Rescan from the account menu after a change.</p></div>
+                  <div><h2>Scanning</h2><p class="lead-sm">How far back Cluster looks. It keeps up to 20,000 messages per account on this device.</p></div>
                   <div class="set-rows">
                     <label class="set-row">
                       <span class="grow">Days of mail to look at</span>
                       <input type="number" id="scan-window-input" min="1" max="3650" />
-                    </label>
-                    <label class="set-row">
-                      <span class="grow">Most messages per account<span class="sub">More is slower.</span></span>
-                      <input type="number" id="max-messages-input" min="50" max="5000" step="50" />
                     </label>
                   </div>
                 </div>

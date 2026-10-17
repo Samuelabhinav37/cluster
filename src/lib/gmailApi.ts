@@ -1,4 +1,6 @@
 import { log } from "./log";
+import { parseAddressList, RELATIONSHIP_HEADERS, relationshipFields } from "./headerFields";
+import type { SentRecord } from "./providers/emailProvider";
 import { mapWithConcurrency } from "./concurrency";
 import { fetchWithRetry } from "./httpRetry";
 import { penalizeGmailQuota, reserveGmailQuota } from "./gmailQuotaLedger";
@@ -132,6 +134,7 @@ interface GmailHeader {
 }
 interface GmailMessageResource {
   id?: string;
+  threadId?: string;
   labelIds?: string[];
   internalDate?: string;
   sizeEstimate?: number;
@@ -273,6 +276,81 @@ export async function listInboxMessageIdsSince(
   return { messageIds: [...ids], historyId, expired: false };
 }
 
+export interface GmailMailboxChanges {
+  added: string[];
+  removed: string[];
+  labelUpdates: { id: string; labelIds: string[] }[];
+  historyId: string;
+  expired: boolean;
+}
+
+/** Everything that changed since `startHistoryId`: new mail, deleted mail and
+ * label changes, across the whole mailbox. The mail index applies these
+ * instead of re-reading messages (2 units a page against 20 per message).
+ * Label entries carry the message's full current label set, so the last one
+ * seen for an id wins. A stale checkpoint returns `expired: true`. */
+export async function listMailboxChangesSince(
+  token: string,
+  startHistoryId: string,
+): Promise<GmailMailboxChanges> {
+  const added = new Set<string>();
+  const removed = new Set<string>();
+  const labels = new Map<string, string[]>();
+  let pageToken: string | undefined;
+  let historyId = startHistoryId;
+  type HistoryMessage = { message?: { id?: string; labelIds?: string[] } };
+  try {
+    do {
+      const params = new URLSearchParams({ startHistoryId, maxResults: "500" });
+      for (const type of ["messageAdded", "messageDeleted", "labelAdded", "labelRemoved"]) {
+        params.append("historyTypes", type);
+      }
+      if (pageToken) params.set("pageToken", pageToken);
+      const data = await gmailFetch<{
+        history?: Array<{
+          messagesAdded?: HistoryMessage[];
+          messagesDeleted?: HistoryMessage[];
+          labelsAdded?: HistoryMessage[];
+          labelsRemoved?: HistoryMessage[];
+        }>;
+        historyId?: string;
+        nextPageToken?: string;
+      }>(`/users/me/history?${params}`, token);
+      for (const entry of data.history ?? []) {
+        for (const { message } of entry.messagesAdded ?? []) {
+          if (!message?.id) continue;
+          added.add(message.id);
+          removed.delete(message.id);
+          labels.set(message.id, message.labelIds ?? []);
+        }
+        for (const { message } of [...(entry.labelsAdded ?? []), ...(entry.labelsRemoved ?? [])]) {
+          if (message?.id) labels.set(message.id, message.labelIds ?? []);
+        }
+        for (const { message } of entry.messagesDeleted ?? []) {
+          if (!message?.id) continue;
+          removed.add(message.id);
+          added.delete(message.id);
+          labels.delete(message.id);
+        }
+      }
+      if (data.historyId) historyId = data.historyId;
+      pageToken = data.nextPageToken;
+    } while (pageToken);
+  } catch (error) {
+    if (error instanceof GmailApiError && error.status === 404) {
+      return { added: [], removed: [], labelUpdates: [], historyId: startHistoryId, expired: true };
+    }
+    throw error;
+  }
+  return {
+    added: [...added],
+    removed: [...removed],
+    labelUpdates: [...labels].map(([id, labelIds]) => ({ id, labelIds })),
+    historyId,
+    expired: false,
+  };
+}
+
 export interface RawMessageMetadata {
   headers: Record<string, string>;
   /** All duplicates are retained so a forged sender-added header cannot hide
@@ -286,6 +364,9 @@ export interface RawMessageMetadata {
   internalDate: number;
   /** Approx RFC822 size in bytes; Gmail returns this on the metadata format too. */
   sizeEstimate: number;
+  threadId?: string;
+  /** Case-insensitive header lookup (senders vary "Message-ID" / "Message-Id"). */
+  header: (name: string) => string | undefined;
 }
 
 export async function getMessageMetadata(token: string, id: string): Promise<RawMessageMetadata> {
@@ -300,6 +381,7 @@ export async function getMessageMetadata(token: string, id: string): Promise<Raw
     "DKIM-Signature",
     "Precedence",
     "Auto-Submitted",
+    ...RELATIONSHIP_HEADERS,
   ]) {
     params.append("metadataHeaders", header);
   }
@@ -321,6 +403,44 @@ export async function getMessageMetadata(token: string, id: string): Promise<Raw
     labelIds: data.labelIds ?? [],
     internalDate: Number(data.internalDate ?? 0),
     sizeEstimate: Number(data.sizeEstimate ?? 0),
+    threadId: data.threadId,
+    header: headerLookup(data.payload?.headers ?? []),
+  };
+}
+
+function headerLookup(headers: GmailHeader[]): (name: string) => string | undefined {
+  const byName = new Map<string, string>();
+  for (const h of headers) {
+    const key = h.name.toLowerCase();
+    if (!byName.has(key)) byName.set(key, h.value);
+  }
+  return (name) => byName.get(name.toLowerCase());
+}
+
+/** Sent mail ids, newest first (5 units per 500). */
+export async function listSentMessageIds(token: string, maxResults: number): Promise<string[]> {
+  return (await listMessageIds(token, "in:sent", maxResults)).map((stub) => stub.id);
+}
+
+/** One sent message's recipients with display names, for "people you write to". */
+export async function getSentRecord(token: string, id: string): Promise<SentRecord> {
+  const params = new URLSearchParams({ format: "metadata" });
+  for (const name of ["To", "Cc", "Bcc", "Message-ID", "In-Reply-To"]) {
+    params.append("metadataHeaders", name);
+  }
+  const data = await gmailFetch<GmailMessageResource>(`/users/me/messages/${id}?${params}`, token);
+  const header = headerLookup(data.payload?.headers ?? []);
+  const fields = relationshipFields(header);
+  return {
+    id,
+    provider: "gmail",
+    threadId: data.threadId,
+    sentAt: Number(data.internalDate ?? 0),
+    to: parseAddressList(header("To") ?? ""),
+    cc: parseAddressList(header("Cc") ?? ""),
+    bcc: parseAddressList(header("Bcc") ?? ""),
+    messageIdHeader: fields.messageIdHeader,
+    inReplyTo: fields.inReplyTo,
   };
 }
 
@@ -398,16 +518,6 @@ export async function allowSenderThrough(
   }
 }
 
-function parseAddressList(value: string): string[] {
-  return value
-    .split(",")
-    .map((part) => {
-      const m = part.match(/<([^>]+)>/);
-      return (m ? m[1] : part).trim().toLowerCase();
-    })
-    .filter((a) => a.includes("@") && !/\s/.test(a));
-}
-
 // Everyone the user has emailed recently — the implicit Screener allowlist.
 // Metadata-only (To/Cc headers of Sent mail); capped low because each message
 // is a 20-unit messages.get and this runs in the same background pass as a
@@ -425,7 +535,7 @@ export async function listSentCorrespondents(token: string, maxMessages = 150): 
       params.append("metadataHeaders", "Cc");
       const data = await gmailFetch<GmailMessageResource>(`/users/me/messages/${stub.id}?${params}`, token);
       for (const h of data.payload?.headers ?? []) {
-        for (const addr of parseAddressList(h.value ?? "")) addresses.add(addr);
+        for (const { address } of parseAddressList(h.value ?? "")) addresses.add(address);
       }
     } catch (err) {
       log.error("listSentCorrespondents: skipping a message", err);

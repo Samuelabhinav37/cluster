@@ -1,4 +1,6 @@
 import { mapWithConcurrency } from "../concurrency";
+import { relationshipFields } from "../headerFields";
+import { MAIL_ROW_VERSION } from "../mailIndex";
 import { fetchWithRetry } from "../httpRetry";
 import { parseListUnsubscribe } from "../unsubscribe";
 import { selectTrustedAuthenticationResults } from "../emailAuth";
@@ -73,6 +75,7 @@ interface GraphMessage {
   hasAttachments?: boolean;
   attachments?: { name?: string }[];
   inferenceClassification?: string;
+  conversationId?: string;
 }
 
 function isoDaysAgo(days: number): string {
@@ -135,7 +138,7 @@ async function listIncrementalMessages(
 
 async function getMessageMetadata(token: string, id: string): Promise<NormalizedMessageMetadata> {
   const data = await graphFetch<GraphMessage>(
-    `/me/messages/${id}?$select=sender,subject,flag,internetMessageHeaders,receivedDateTime,isRead,size,hasAttachments,inferenceClassification&$expand=attachments($select=name)`,
+    `/me/messages/${id}?$select=sender,subject,flag,internetMessageHeaders,receivedDateTime,isRead,size,hasAttachments,inferenceClassification,conversationId&$expand=attachments($select=name)`,
     token,
   );
   // No extra round trip -- $expand rides along on the same GET. Filenames
@@ -179,6 +182,9 @@ async function getMessageMetadata(token: string, id: string): Promise<Normalized
     providerMarkedPersonal: data.inferenceClassification === "focused",
     precedence: find("Precedence"),
     autoSubmitted: find("Auto-Submitted"),
+    ...relationshipFields(find),
+    threadId: data.conversationId,
+    v: MAIL_ROW_VERSION,
   };
 }
 

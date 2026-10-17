@@ -7,6 +7,10 @@ import {
   getMessageLinks as fetchGmailMessageLinks,
   getMessageMetadata as fetchGmailMessageMetadata,
   getCurrentHistoryId,
+  getProfileEmail,
+  getSentRecord as apiGetSentRecord,
+  listSentMessageIds as apiListSentMessageIds,
+  listMailboxChangesSince,
   findLabelIds,
   getOrCreateLabel,
   labelMessages as apiLabelMessages,
@@ -28,6 +32,8 @@ import {
   untrashMessages as apiUntrashMessages,
 } from "../gmailApi";
 import { parseListUnsubscribe } from "../unsubscribe";
+import { relationshipFields } from "../headerFields";
+import { MAIL_ROW_VERSION } from "../mailIndex";
 import { clusterLabelName } from "../clusterLabels";
 import { selectTrustedAuthenticationResults } from "../emailAuth";
 import type {
@@ -57,6 +63,33 @@ export function lanesFromLabelIds(labelIds: readonly string[]): ScanPurpose[] {
   // A message returned by the combined query that matched neither bucket (an
   // archived promo Gmail no longer tags, say) still belongs in cleanup.
   return lanes.length > 0 ? lanes : ["cleanup"];
+}
+
+/** Labels that take a message out of the mail index entirely. */
+const OUT_OF_SCOPE_LABELS = ["TRASH", "SPAM", "DRAFT"];
+
+/** Whether a message with these labels belongs in the mail index: the same
+ * population the combined scan lists (inbox, promotions, updates). */
+export function inIndexScope(labelIds: readonly string[]): boolean {
+  if (OUT_OF_SCOPE_LABELS.some((label) => labelIds.includes(label))) return false;
+  return (
+    labelIds.includes("INBOX") ||
+    labelIds.includes("CATEGORY_PROMOTIONS") ||
+    labelIds.includes("CATEGORY_UPDATES")
+  );
+}
+
+/** The fields of a normalized message that come from its Gmail labels. One
+ * place, so a fetched message and a history label change agree. */
+export function gmailLabelFields(labelIds: readonly string[]) {
+  return {
+    isProtected: labelIds.includes("STARRED"),
+    unread: labelIds.includes("UNREAD"),
+    lanes: lanesFromLabelIds(labelIds),
+    gmailPromotion: labelIds.includes("CATEGORY_PROMOTIONS"),
+    providerMarkedPersonal: labelIds.includes("IMPORTANT") || labelIds.includes("CATEGORY_PERSONAL"),
+    labelIds: [...labelIds],
+  };
 }
 
 function parseFrom(from: string): { address: string; displayName: string } {
@@ -122,8 +155,16 @@ export const gmailProvider: EmailProvider = {
   },
 
   async getMessageMetadata(token, id): Promise<NormalizedMessageMetadata> {
-    const { headers, authenticationResultsHeaders, dkimSignatures, labelIds, internalDate, sizeEstimate } =
-      await fetchGmailMessageMetadata(token, id);
+    const {
+      headers,
+      authenticationResultsHeaders,
+      dkimSignatures,
+      labelIds,
+      internalDate,
+      sizeEstimate,
+      threadId,
+      header,
+    } = await fetchGmailMessageMetadata(token, id);
     const { address, displayName } = parseFrom(headers.From ?? "");
     const authenticationResults = selectTrustedAuthenticationResults("gmail", authenticationResultsHeaders);
     return {
@@ -133,10 +174,7 @@ export const gmailProvider: EmailProvider = {
       fromDisplayName: displayName,
       replyToAddress: headers["Reply-To"] ? parseFrom(headers["Reply-To"]).address : "",
       subject: headers.Subject ?? "",
-      isProtected: labelIds.includes("STARRED"),
-      unread: labelIds.includes("UNREAD"),
-      lanes: lanesFromLabelIds(labelIds),
-      gmailPromotion: labelIds.includes("CATEGORY_PROMOTIONS"),
+      ...gmailLabelFields(labelIds),
       sizeBytes: sizeEstimate,
       unsubscribe: parseListUnsubscribe(headers["List-Unsubscribe"], headers["List-Unsubscribe-Post"], {
         provider: "gmail",
@@ -146,10 +184,59 @@ export const gmailProvider: EmailProvider = {
       }),
       receivedAt: internalDate,
       authenticationResults,
-      providerMarkedPersonal: labelIds.includes("IMPORTANT") || labelIds.includes("CATEGORY_PERSONAL"),
       precedence: headers.Precedence,
       autoSubmitted: headers["Auto-Submitted"],
+      ...relationshipFields(header),
+      threadId,
+      v: MAIL_ROW_VERSION,
     };
+  },
+
+  listSentMessageIds(token, maxResults) {
+    return apiListSentMessageIds(token, maxResults);
+  },
+
+  getSentRecord(token, id) {
+    return apiGetSentRecord(token, id);
+  },
+
+  isSentLabels(labelIds) {
+    return labelIds.includes("SENT") && !labelIds.includes("DRAFT");
+  },
+
+  async listMessageIdsFrom(token, address, maxResults, windowDays) {
+    const stubs = await listMessageIds(token, `from:(${address}) newer_than:${windowDays}d`, maxResults);
+    return stubs.map((stub) => stub.id);
+  },
+
+  async listLabelledIds(token, label, maxResults, windowDays) {
+    const term = label === "unread" ? "is:unread" : "is:starred";
+    const stubs = await listMessageIds(token, `${term} newer_than:${windowDays}d`, maxResults);
+    return new Set(stubs.map((stub) => stub.id));
+  },
+
+  async getAccountId(token) {
+    return (await getProfileEmail(token)).toLowerCase();
+  },
+
+  getChangeCursor(token) {
+    return getCurrentHistoryId(token);
+  },
+
+  async listChangesSince(token, cursor) {
+    const changes = await listMailboxChangesSince(token, cursor);
+    return {
+      added: changes.added,
+      removed: changes.removed,
+      labelUpdates: changes.labelUpdates,
+      cursor: changes.historyId,
+      expired: changes.expired,
+    };
+  },
+
+  applyLabelIds(meta, labelIds) {
+    if (!inIndexScope(labelIds)) return null;
+    return { ...meta, ...gmailLabelFields(labelIds) };
   },
 
   async listRiskyAttachmentMessageIds(token, windowDays) {

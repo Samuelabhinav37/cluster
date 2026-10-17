@@ -1,3 +1,4 @@
+import type { RelationshipFields } from "../headerFields";
 import type { UnsubscribeInfo } from "../unsubscribe";
 
 export type ProviderId = "gmail" | "outlook";
@@ -24,7 +25,7 @@ export interface IncrementalMessageResult {
   reset: boolean;
 }
 
-export interface NormalizedMessageMetadata {
+export interface NormalizedMessageMetadata extends Partial<RelationshipFields> {
   id: string;
   provider: ProviderId;
   fromAddress: string;
@@ -76,6 +77,42 @@ export interface NormalizedMessageMetadata {
   /** Raw Auto-Submitted header value, if present (RFC 3834, e.g.
    * "auto-generated", "auto-replied") -- same secondary signal as precedence. */
   autoSubmitted?: string;
+  /** Gmail only: the message's raw label ids, kept so the local mail index
+   * can re-derive the label fields above from a history event without
+   * fetching the message again (see EmailProvider.applyLabelIds). */
+  labelIds?: string[];
+  /** Provider thread id (Gmail threadId, Graph conversationId). */
+  threadId?: string;
+  /** Shape version of a stored row (mailIndex.MAIL_ROW_VERSION). Rows read
+   * before a field was added are re-read once, in the background. */
+  v?: number;
+}
+
+/** One message you sent: who it went to, and where it sits in a thread. */
+export interface SentRecord {
+  id: string;
+  provider: ProviderId;
+  threadId?: string;
+  sentAt: number;
+  to: { address: string; name: string }[];
+  cc: { address: string; name: string }[];
+  bcc: { address: string; name: string }[];
+  messageIdHeader?: string;
+  inReplyTo?: string;
+}
+
+/** What changed in a mailbox since a provider cursor (Gmail history). */
+export interface MailboxChanges {
+  /** Messages that arrived since the cursor. */
+  added: string[];
+  /** Messages deleted for good since the cursor. */
+  removed: string[];
+  /** Current full label set of each message whose labels changed. */
+  labelUpdates: { id: string; labelIds: string[] }[];
+  /** Checkpoint to store once these changes are applied. */
+  cursor: string;
+  /** The cursor is too old; the caller must rebuild from a fresh listing. */
+  expired: boolean;
 }
 
 export interface EmailProvider {
@@ -185,4 +222,38 @@ export interface EmailProvider {
    * scan by senderModel.ts before scoring each message's threat signals.
    */
   listRiskyAttachmentMessageIds?(token: string, windowDays: number): Promise<Set<string>>;
+  /**
+   * Local mail index support (mailSync.ts). All optional: a provider without
+   * them is kept current by re-listing and fetching only unknown messages.
+   *
+   * getAccountId names the signed-in mailbox, so an index built for one
+   * account is never shown for another. getChangeCursor / listChangesSince
+   * read only what changed (Gmail history: 2 quota units a page instead of
+   * 20 per message). applyLabelIds re-derives the label fields of a stored
+   * message from its new label set, and returns null once the message has
+   * left the index's scope (trashed, spam, archived out of every lane).
+   */
+  getAccountId?(token: string): Promise<string>;
+  /** Sent mail, for "people you write to": ids newest first, and one
+   * message's recipients (To/Cc/Bcc with names). isSentLabels says whether a
+   * change-feed label set belongs to sent mail. */
+  listSentMessageIds?(token: string, maxResults: number): Promise<string[]>;
+  getSentRecord?(token: string, id: string): Promise<SentRecord>;
+  isSentLabels?(labelIds: string[]): boolean;
+  /** "Fetch one, count many": every message id from one address within the
+   * window, by search (5 quota units per 500 ids instead of 20 per message),
+   * and the ids carrying a label (unread, starred) across the window. */
+  listMessageIdsFrom?(token: string, address: string, maxResults: number, windowDays: number): Promise<string[]>;
+  listLabelledIds?(
+    token: string,
+    label: "unread" | "starred",
+    maxResults: number,
+    windowDays: number,
+  ): Promise<Set<string>>;
+  getChangeCursor?(token: string): Promise<string>;
+  listChangesSince?(token: string, cursor: string): Promise<MailboxChanges>;
+  applyLabelIds?(
+    meta: NormalizedMessageMetadata,
+    labelIds: string[],
+  ): NormalizedMessageMetadata | null;
 }

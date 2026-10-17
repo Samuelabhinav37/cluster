@@ -21,13 +21,21 @@ function raw(over: {
   authenticationResultsHeaders?: string[];
   dkimSignatures?: string[];
 }) {
+  const headers: Record<string, string> = {
+    From: '"News" <hello@news.example>',
+    Subject: "Hello",
+    ...over.headers,
+  };
   return {
-    headers: { From: '"News" <hello@news.example>', Subject: "Hello", ...over.headers },
+    headers,
     authenticationResultsHeaders: over.authenticationResultsHeaders ?? [GOOGLE_AR],
     dkimSignatures: over.dkimSignatures ?? [],
     labelIds: over.labelIds ?? ["INBOX", "CATEGORY_PROMOTIONS", "UNREAD"],
     internalDate: 1_700_000_000_000,
     sizeEstimate: 12_345,
+    threadId: "t1",
+    header: (name: string) =>
+      Object.entries(headers).find(([key]) => key.toLowerCase() === name.toLowerCase())?.[1],
   };
 }
 
@@ -158,5 +166,27 @@ describe("authentication + unsubscribe", () => {
       dkimSignatures: ["v=1; d=esp.example; h=list-unsubscribe:list-unsubscribe-post; b=x"],
     });
     expect(m.unsubscribe.postUrl).toBeUndefined();
+  });
+});
+
+describe("relationship headers", () => {
+  it("keeps recipients, thread and list headers, whatever their case", async () => {
+    const meta = await normalize({
+      headers: {
+        To: '"Doe, Jo" <jo@home.example>',
+        "Message-Id": "<m1@news.example>",
+        "In-Reply-To": "<p@home.example>",
+        "List-ID": "<weekly.news.example>",
+      },
+    });
+    expect(meta).toMatchObject({
+      threadId: "t1",
+      toAddresses: ["jo@home.example"],
+      recipientCount: 1,
+      messageIdHeader: "<m1@news.example>",
+      inReplyTo: "<p@home.example>",
+      listId: "weekly.news.example",
+    });
+    expect(meta.v).toBeGreaterThanOrEqual(2);
   });
 });

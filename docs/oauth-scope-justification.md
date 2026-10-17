@@ -32,8 +32,10 @@ for the full data-flow.
 - `gmail.labels` covers label CRUD but not `batchModify` on messages or Trash.
 - The scan itself uses **only** the metadata format
   (`From`, `Reply-To`, `Subject`, `List-Unsubscribe`, `List-Unsubscribe-Post`,
-  `Authentication-Results`, `DKIM-Signature`) plus label IDs, internal date, and
-  size estimate. It never requests `format=full` except for the manual,
+  `Authentication-Results`, `DKIM-Signature`, `Precedence`, `Auto-Submitted`,
+  `To`, `Cc`, `Message-ID`, `In-Reply-To`, `References`, `List-Id`,
+  `Return-Path`, `Feedback-ID`, `Sender`; for sent mail `To`, `Cc`, `Bcc`) plus
+  label IDs, thread ID, internal date, and size estimate. It never requests `format=full` except for the manual,
   one-message-at-a-time Deep scan.
 
 ### Data handling

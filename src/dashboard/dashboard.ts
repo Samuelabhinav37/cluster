@@ -26,12 +26,26 @@ import {
 } from "../lib/expiryTriage";
 import { buildProtectionContext, idsSafeToMoveOut } from "../lib/protectionPolicy";
 import { getElevatedAuthToken, getProfileEmail, GmailApiError } from "../lib/gmailApi";
-import { clearMetadataCache, loadMetadataCache, saveMetadataCache } from "../lib/metadataCache";
-import type { ProviderId } from "../lib/providers/emailProvider";
+import { clearMetadataCache } from "../lib/metadataCache";
+import { MAIL_INDEX_CAP, openMailIndex } from "../lib/mailIndex";
+import {
+  catchUpIndex,
+  DEFAULT_QUICK_COUNT,
+  readMailIndex,
+  syncChangedIndex,
+  syncMailIndex,
+  type SyncProgress,
+  type SyncResult,
+} from "../lib/mailSync";
+import { gmailQuotaHeadroom } from "../lib/gmailQuotaLedger";
+import { applyIndexedCorrespondents, mailIndexLockKey } from "../lib/indexTriage";
+import { withStorageLock } from "../lib/storageLock";
+import type { EmailProvider, ProviderId } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { outlookProvider } from "../lib/providers/outlookProvider";
 import { OutlookReauthRequired } from "../lib/providers/msalAuth";
-import { buildCombinedSenderSummaries, type SenderSummary } from "../lib/senderModel";
+import { summarizeCombined, type SenderSummary } from "../lib/senderModel";
+import { applyCensus, senderUnread, senderVolume } from "../lib/census";
 import {
   getSettings,
   mutateSettings,
@@ -147,7 +161,6 @@ const themeSelect = document.getElementById("theme-select") as HTMLSelectElement
 const autoQuarantineToggle = document.getElementById("auto-quarantine-toggle") as HTMLInputElement;
 
 const scanWindowInput = document.getElementById("scan-window-input") as HTMLInputElement;
-const maxMessagesInput = document.getElementById("max-messages-input") as HTMLInputElement;
 const applyScanSettingsBtn = document.getElementById("apply-scan-settings-btn") as HTMLButtonElement;
 
 const onboardingBanner = document.getElementById("onboarding-banner") as HTMLDivElement;
@@ -471,7 +484,6 @@ async function main() {
     ctx.settings = await updateSettings({ autoQuarantineHighRisk: autoQuarantineToggle.checked });
   };
   scanWindowInput.value = String(ctx.settings.scanWindowDays);
-  maxMessagesInput.value = String(ctx.settings.maxMessagesPerProvider);
   wireScanSettings();
   await wireAthenaConnection();
 
@@ -482,12 +494,16 @@ async function main() {
   };
 
   const gmailToken = await connectGmail();
+  // Start reading mail into the local index right away, so it's ready (or
+  // nearly) by the time setup is done and the first screen renders.
+  startIndexSync(gmailProvider, gmailToken);
   resurfaceDueSnoozed(gmailProvider).catch((err) => log.error("Resurfacing snoozed mail failed", err));
   void showAccountPill(gmailToken);
 
   if (await outlookProvider.isConnected()) {
     activeProviders.push(outlookProvider);
     connectOutlookBtn.hidden = true;
+    startIndexSync(outlookProvider);
   }
 
   connectOutlookBtn.onclick = async () => {
@@ -555,42 +571,241 @@ function wireOfflineHandling() {
   });
 }
 
+// ── Local mail index ─────────────────────────────────────────────────────
+// Mail is read once into the on-device index (mailIndex.ts) and kept current
+// from Gmail's change history (mailSync.ts). The first build starts the
+// moment Gmail access is granted, so it runs while the person answers the
+// setup question; screens render from the index as soon as the newest mail
+// is in, and older mail keeps arriving behind them.
+interface IndexRun {
+  quick: Promise<void>;
+  done: Promise<SyncResult | null>;
+  error?: unknown;
+  progress?: SyncProgress;
+  /** Resolves when every sender has been found and counted (a build only). */
+  counted: Promise<void>;
+  countedDone?: boolean;
+  /** When progress last moved, to tell a quota pause from a stall. */
+  progressAt?: number;
+  settled?: boolean;
+}
+const indexRuns = new Map<ProviderId, IndexRun>();
+const indexStatusEl = document.getElementById("index-status") as HTMLParagraphElement;
+const QUICK_READY_COUNT = DEFAULT_QUICK_COUNT;
+// No progress for this long while reading means Gmail's rate limit is pacing us.
+const QUOTA_PAUSE_MS = 4000;
+const CHANGES_WAIT_MS = 4000;
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+// Leave room in Gmail's per-minute quota for the person's own clicks.
+const BUILD_HEADROOM_UNITS = 1500;
+
+async function waitForGmailHeadroom() {
+  while ((await gmailQuotaHeadroom()) < BUILD_HEADROOM_UNITS) {
+    await delay(3000);
+  }
+}
+
+function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
+  const existing = indexRuns.get(provider.id);
+  if (existing) return existing;
+  let resolveQuick: () => void = () => {};
+  let resolveCounted: () => void = () => {};
+  const run: IndexRun = {
+    quick: new Promise<void>((resolve) => (resolveQuick = resolve)),
+    counted: new Promise<void>((resolve) => (resolveCounted = resolve)),
+    done: Promise.resolve(null),
+  };
+  run.done = (async () => {
+    try {
+      const store = await openMailIndex();
+      const authToken = token ?? (await provider.getAuthToken(false));
+      const result = await withStorageLock(mailIndexLockKey(provider), () =>
+        syncMailIndex(provider, authToken, store, {
+          windowDays: ctx.settings.scanWindowDays,
+          cap: MAIL_INDEX_CAP,
+          quickCount: QUICK_READY_COUNT,
+          onQuickReady: resolveQuick,
+          onProgress: (progress) => {
+            run.progress = progress;
+            run.progressAt = Date.now();
+            updateIndexStatus();
+          },
+          waitForHeadroom: provider.id === "gmail" ? waitForGmailHeadroom : undefined,
+          onSentReady: () => updateCorrespondentsFromIndex(provider).catch((err) =>
+            log.error("Could not update people you write to", err),
+          ),
+          onCounted: () => {
+            run.countedDone = true;
+            resolveCounted();
+          },
+        }),
+      );
+      await updateCorrespondentsFromIndex(provider).catch((err) =>
+        log.error("Could not update people you write to", err),
+      );
+      return result;
+    } catch (err) {
+      run.error = err;
+      log.error(`Mail index sync failed for ${provider.id}`, err);
+      return null;
+    } finally {
+      run.settled = true;
+      resolveQuick();
+      indexRuns.delete(provider.id);
+      updateIndexStatus();
+    }
+  })();
+  indexRuns.set(provider.id, run);
+  updateIndexStatus();
+  return run;
+}
+
+/** Quiet line under the status while older or sent mail is still being read. */
+function updateIndexStatus() {
+  if (indexOfferShown) return;
+  const active = [...indexRuns.values()]
+    .map((run) => run.progress)
+    .filter(
+      (p): p is SyncProgress => p?.phase === "reading" || p?.phase === "sent" || p?.phase === "detail",
+    );
+  if (active.length === 0 || !statusEl.hidden) {
+    indexStatusEl.hidden = true;
+    return;
+  }
+  const done = active.reduce((sum, p) => sum + p.done, 0);
+  const total = active.reduce((sum, p) => sum + p.total, 0);
+  const of = `${done.toLocaleString()} of ${total.toLocaleString()}`;
+  indexStatusEl.hidden = false;
+  indexStatusEl.textContent = active.some((p) => p.phase === "sent")
+    ? `Still reading your sent mail: ${of}.`
+    : active.some((p) => p.phase === "reading")
+      ? `Finding everyone who emails you: ${of}.`
+      : `All senders found. Reading their mail in detail: ${of}.`;
+}
+
+/** Everyone in the sent store joins the "people you write to" list that
+ * protection, the Screener and scam checks read. */
+async function updateCorrespondentsFromIndex(provider: EmailProvider) {
+  const written = await applyIndexedCorrespondents([provider]);
+  if (written) ctx.settings = written;
+}
+
+/** After a render, offer the newer picture once a sync changes the index. */
+// True while a "Show it" offer is on screen, so progress text doesn't replace it.
+let indexOfferShown = false;
+
+function showIndexOffer(text: string) {
+  if (!statusEl.hidden) return;
+  indexOfferShown = true;
+  indexStatusEl.hidden = false;
+  indexStatusEl.textContent = `${text} `;
+  const show = document.createElement("button");
+  show.type = "button";
+  show.className = "btn-link";
+  show.textContent = "Show it";
+  show.onclick = () => {
+    indexStatusEl.hidden = true;
+    indexOfferShown = false;
+    void scanAndRender();
+  };
+  indexStatusEl.appendChild(show);
+}
+
+function offerUpdatedView(run: IndexRun) {
+  // Already finished: this render includes everything it read.
+  if (run.settled) return;
+  if (!run.countedDone) {
+    void run.counted.then(() => showIndexOffer("Cluster has found and counted all your mail."));
+  }
+  void run.done.then((result) => {
+    if (!result || !syncChangedIndex(result)) return;
+    showIndexOffer("Cluster has read more of your mail.");
+  });
+}
+
 async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   statusEl.hidden = false;
+  indexStatusEl.hidden = true;
   senderGroupsEl.hidden = true;
   domainSectionEl.hidden = true;
   expirySectionEl.hidden = true;
-  statusEl.textContent = "Scanning recent mail… the first run can take a minute.";
+  statusEl.textContent = "Getting your mailbox ready…";
 
-  // One pass, one quota window: fetch the union of the cleanup
-  // (category:promotions OR updates) and security (in:inbox) candidate sets,
-  // fetch each message's metadata once, then split by lane. The warm cache,
-  // seeded from the last scan, spares re-fetching (20 units each) anything
-  // unchanged; "Rescan" (refresh:true) drops it first.
+  const store = await openMailIndex();
+  // "Rescan" no longer throws the index away: the sync below picks up every
+  // change, and a new scan window re-lists. Only the old warm cache, still
+  // used by the background scans, is dropped.
   if (refresh) await clearMetadataCache();
-  const scanCache = await loadMetadataCache();
-  let combined: Awaited<ReturnType<typeof buildCombinedSenderSummaries>>;
-  try {
-    combined = await buildCombinedSenderSummaries(
-      activeProviders,
-      ctx.settings.maxMessagesPerProvider,
-      ctx.settings.scanWindowDays,
-      SECURITY_SCAN_MAX_MESSAGES,
-      (done, total) => {
-        statusEl.textContent =
-          total > 0 ? `Scanning recent mail… ${done}/${total} messages` : "Scanning recent mail…";
-      },
-      scanCache,
+
+  const providers = [...activeProviders];
+  const builtBefore = await Promise.all(
+    providers.map(async (provider) => Boolean((await store.getState(provider.id))?.complete)),
+  );
+  const runs = providers.map((provider, i) => {
+    const wasRunning = indexRuns.has(provider.id);
+    const run = startIndexSync(provider);
+    return { provider, run, wasRunning, builtBefore: builtBefore[i] };
+  });
+  const showProgress = () => {
+    const paused = runs.some(
+      ({ run }) => run.progressAt !== undefined && Date.now() - run.progressAt > QUOTA_PAUSE_MS,
     );
+    if (paused) {
+      statusEl.textContent =
+        "Gmail limits how fast apps can read mail. Cluster will continue in a moment…";
+      return;
+    }
+    const reading = runs.map(({ run }) => run.progress).filter((p) => p?.phase === "reading");
+    if (reading.length === 0) return;
+    const done = reading.reduce((sum, p) => sum + Math.min(p!.done, QUICK_READY_COUNT), 0);
+    const total = reading.reduce((sum, p) => sum + Math.min(p!.total, QUICK_READY_COUNT), 0);
+    statusEl.textContent = `Reading your mail… ${done}/${total} messages`;
+  };
+  const progressTimer = setInterval(showProgress, 250);
+  try {
+    await Promise.all(
+      runs.map(({ run, wasRunning, builtBefore: built }) =>
+        // A built index only needs the changes since last time, which is
+        // usually a moment. Wait briefly for them so an action's result shows.
+        built && !wasRunning ? Promise.race([run.done, delay(CHANGES_WAIT_MS)]) : run.quick,
+      ),
+    );
+  } finally {
+    clearInterval(progressTimer);
+  }
+
+  try {
+    for (const { provider, run, wasRunning } of runs) {
+      // A failure before anything was read is the old scan error.
+      if (run.error && (await store.ids(provider.id)).size === 0) throw run.error;
+      // A build already in progress hasn't replayed the person's own recent
+      // actions yet; apply them so trashed mail doesn't reappear.
+      if (wasRunning && indexRuns.has(provider.id)) {
+        const token = await provider.getAuthToken(false);
+        await catchUpIndex(provider, token, store).catch((err) =>
+          log.error("Could not catch up the mail index", err),
+        );
+      }
+    }
   } catch (err) {
     showScanError(err);
     return;
   }
+
+  const metas = (await readMailIndex(store, providers)).sort((a, b) => b.receivedAt - a.receivedAt);
+  const combined = summarizeCombined(
+    metas,
+    SECURITY_SCAN_MAX_MESSAGES,
+    metas.length >= MAIL_INDEX_CAP * providers.length,
+  );
+  // Real per-sender totals, counted by search, for senders not fully read yet.
+  const censusRows = (await Promise.all(providers.map((p) => store.allCensus(p.id)))).flat();
+  applyCensus(combined.cleanup, censusRows);
+  applyCensus(combined.security, censusRows);
+  indexOfferShown = false;
+  for (const { run } of runs) offerUpdatedView(run);
   let senders = combined.cleanup;
   const securitySenders = combined.security;
-
-  // Persist what we fetched so the next open only pays for new mail.
-  void saveMetadataCache(scanCache);
 
   const activeSnoozedIds = new Set(
     Object.entries(ctx.settings.snoozedMessages)
@@ -784,7 +999,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
     `Inbox health ${score} of 100` +
     (delta > 0 ? `, up ${delta} since last week.` : delta < 0 ? `, down ${-delta} since last week.` : ".") +
     (lastScanCapHit
-      ? ` Based on your latest ${ctx.settings.maxMessagesPerProvider.toLocaleString()} messages per account.`
+      ? ` Based on your latest ${MAIL_INDEX_CAP.toLocaleString()} messages per account.`
       : "");
 
   // ── Bottom two-up: "Working while you were away" + "Recently done" ──
@@ -1264,11 +1479,9 @@ function revealLegacySection(id: string) {
 type PrimaryAct = "unsubscribe" | "mute" | "keepSorted";
 
 function decisionReason(sender: SenderSummary): string {
-  const unread = sender.messages.filter((m) => m.unread).length;
-  const base =
-    unread === sender.count
-      ? `nothing opened of ${sender.count}`
-      : `${unread} unread of ${sender.count}`;
+  const unread = senderUnread(sender);
+  const total = senderVolume(sender);
+  const base = unread === total ? `nothing opened of ${total}` : `${unread} unread of ${total}`;
   if (sender.unsubscribe.postUrl) return `${base} · verified one-click unsubscribe`;
   if (sender.firstContact) return `${base} · new since Cluster started tracking`;
   return base;
@@ -1306,8 +1519,10 @@ function pickDecisionSenders(senders: SenderSummary[]): { decide: SenderSummary[
     const aEng = engagementKeys.has(a.key) ? 1 : 0;
     const bEng = engagementKeys.has(b.key) ? 1 : 0;
     if (aEng !== bEng) return bEng - aEng;
-    const aScore = (a.messages.filter((m) => m.unread).length / Math.max(1, a.count)) * Math.log2(a.count + 1);
-    const bScore = (b.messages.filter((m) => m.unread).length / Math.max(1, b.count)) * Math.log2(b.count + 1);
+    const score = (s: SenderSummary) =>
+      (senderUnread(s) / Math.max(1, senderVolume(s))) * Math.log2(senderVolume(s) + 1);
+    const aScore = score(a);
+    const bScore = score(b);
     return bScore - aScore;
   });
   const protectedOne = senders
@@ -1665,10 +1880,10 @@ function renderAllSenders(senders: SenderSummary[]) {
   const lead = document.getElementById("senders-lead");
   if (lead) {
     lead.textContent = lastScanCapHit
-      ? `The ${senders.length} senders in this scan, from the most recent ${ctx.settings.maxMessagesPerProvider.toLocaleString()} messages per account over ${ctx.settings.scanWindowDays} days. Nothing here is acted on until you say so.`
+      ? `The ${senders.length} senders in this scan, from the most recent ${MAIL_INDEX_CAP.toLocaleString()} messages per account over ${ctx.settings.scanWindowDays} days. Nothing here is acted on until you say so.`
       : `Every sender Cluster saw in the last ${ctx.settings.scanWindowDays} days, heaviest first. Nothing here is acted on until you say so.`;
   }
-  const rows = filteredSenders(senders).sort((a, b) => b.count - a.count);
+  const rows = filteredSenders(senders).sort((a, b) => senderVolume(b) - senderVolume(a));
   const shown = rows.slice(0, allSendersLimit);
 
   allSendersListEl.innerHTML = "";
@@ -1705,11 +1920,12 @@ function renderAllSenders(senders: SenderSummary[]) {
 }
 
 function buildAllSendersRow(sender: SenderSummary): HTMLElement {
-  const unread = sender.messages.filter((m) => m.unread).length;
+  const unread = senderUnread(sender);
+  const total = senderVolume(sender);
   const sub =
-    unread === sender.count
+    unread === total
       ? `nothing opened${sender.displayName ? ` · ${sender.address}` : ""}`
-      : `${unread} of ${sender.count} unread${sender.displayName ? ` · ${sender.address}` : ""}`;
+      : `${unread} of ${total} unread${sender.displayName ? ` · ${sender.address}` : ""}`;
 
   // Count + engagement bar (unread ratio).
   const count = document.createElement("div");
@@ -1717,8 +1933,8 @@ function buildAllSendersRow(sender: SenderSummary): HTMLElement {
   const n = document.createElement("div");
   n.className = "row-title";
   n.style.fontSize = "15px";
-  n.textContent = `${sender.count} msg`;
-  const ratio = sender.count > 0 ? unread / sender.count : 0;
+  n.textContent = `${total} msg`;
+  const ratio = total > 0 ? unread / total : 0;
   const bar = document.createElement("div");
   bar.className = "eng-bar";
   const fill = document.createElement("span");
@@ -2101,18 +2317,13 @@ function wireScanSettings() {
       3650,
       Math.max(1, Number(scanWindowInput.value) || ctx.settings.scanWindowDays),
     );
-    const maxMessagesPerProvider = Math.min(
-      5000,
-      Math.max(50, Number(maxMessagesInput.value) || ctx.settings.maxMessagesPerProvider),
-    );
     scanWindowInput.value = String(scanWindowDays);
-    maxMessagesInput.value = String(maxMessagesPerProvider);
 
     applyScanSettingsBtn.disabled = true;
     applyScanSettingsBtn.textContent = "Rescanning…";
     try {
-      ctx.settings = await updateSettings({ scanWindowDays, maxMessagesPerProvider });
-      // Explicit user "Rescan" — drop the warm metadata cache and re-fetch.
+      ctx.settings = await updateSettings({ scanWindowDays });
+      // A new window re-lists the index; known mail isn't read again.
       await scanAndRender({ refresh: true });
     } finally {
       applyScanSettingsBtn.disabled = false;

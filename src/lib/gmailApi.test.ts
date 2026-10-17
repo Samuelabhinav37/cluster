@@ -12,6 +12,7 @@ import {
   gmailQuotaCost,
   listFilters,
   listInboxMessageIdsSince,
+  listMailboxChangesSince,
   unmuteSender,
 } from "./gmailApi";
 
@@ -319,6 +320,50 @@ describe("Gmail history synchronization", () => {
       historyId: "old",
       expired: true,
     });
+  });
+});
+
+describe("listMailboxChangesSince", () => {
+  it("collects new, deleted and relabelled mail, with the last label set winning", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      json({
+        history: [
+          { messagesAdded: [{ message: { id: "new", labelIds: ["INBOX", "UNREAD"] } }] },
+          { labelsRemoved: [{ message: { id: "new", labelIds: ["INBOX"] } }] },
+          { labelsAdded: [{ message: { id: "old", labelIds: ["INBOX", "STARRED"] } }] },
+          { messagesAdded: [{ message: { id: "brief", labelIds: ["INBOX"] } }] },
+          { messagesDeleted: [{ message: { id: "brief" } }, { message: { id: "gone" } }] },
+        ],
+        historyId: "20",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await listMailboxChangesSince("token", "10");
+
+    expect(result).toEqual({
+      added: ["new"],
+      removed: ["brief", "gone"],
+      labelUpdates: [
+        { id: "new", labelIds: ["INBOX"] },
+        { id: "old", labelIds: ["INBOX", "STARRED"] },
+      ],
+      historyId: "20",
+      expired: false,
+    });
+    const url = String(fetchMock.mock.calls[0][0]);
+    for (const type of ["messageAdded", "messageDeleted", "labelAdded", "labelRemoved"]) {
+      expect(url).toContain(`historyTypes=${type}`);
+    }
+    expect(url).not.toContain("labelId=");
+  });
+
+  it("reports an expired checkpoint on Gmail's 404 response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => json({ error: "stale" }, 404)),
+    );
+    await expect(listMailboxChangesSince("token", "old")).resolves.toMatchObject({ expired: true });
   });
 });
 

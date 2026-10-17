@@ -3,6 +3,7 @@
 // later and the "unsubscribe all verified one-click" bulk action.
 // recordUnsubscribeRequests is exported because the Clean-up tab's sender
 // table also records a request when its inline Unsubscribe button fires.
+import { senderVolume } from "../lib/census";
 import { mutateSettings } from "../lib/settingsStore";
 import { recordEngagementFeedback } from "../lib/engagementModel";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
@@ -36,7 +37,7 @@ function subTile(sender: SenderSummary, size: "sz-30" | "sz-34" = "sz-34"): HTML
 
 function cadenceLabel(sender: SenderSummary): "Daily" | "Weekly" | "Monthly" {
   const weeks = Math.max(1, ctx.settings.scanWindowDays / 7);
-  const perWeek = sender.count / weeks;
+  const perWeek = senderVolume(sender) / weeks;
   if (perWeek >= 4) return "Daily";
   if (perWeek >= 0.9) return "Weekly";
   return "Monthly";
@@ -333,7 +334,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
     .sort(
       (a, b) =>
         unsubscribeOutcomeRank(a.outcome.state) - unsubscribeOutcomeRank(b.outcome.state) ||
-        b.sender.count - a.sender.count,
+        senderVolume(b.sender) - senderVolume(a.sender),
     );
   const availableKeys = new Set(available.map((sender) => sender.key));
   const trackedOnlyRows = Object.entries(ctx.settings.unsubscribeRequests)

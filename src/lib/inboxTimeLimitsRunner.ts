@@ -12,6 +12,7 @@ import {
   type CategoryLimit,
   type InboxLimitsApi,
 } from "./inboxTimeLimits";
+import { indexSeededCache, refreshIndexForBackground } from "./indexTriage";
 import { loadMetadataCache, saveMetadataCache } from "./metadataCache";
 import { gmailProvider } from "./providers/gmailProvider";
 import { knownSenderSet } from "./screener";
@@ -38,18 +39,26 @@ export async function runInboxTimeLimits(now = Date.now()): Promise<TimeLimitRun
     labelName: categoryLabelName(bucket, settings.labelChoices),
     hours: settings.autoSort.inboxHoursByBucket[bucket] ?? null,
   }));
-  const cache = await loadMetadataCache(now);
+  // Senders come from the mail index (kept current from Gmail's change feed);
+  // only inbox mail it doesn't have yet is read, then saved to it. Without
+  // a built index this falls back to the old warm cache.
+  const indexReady = (await refreshIndexForBackground([gmailProvider], settings.scanWindowDays)).length > 0;
+  const legacyCache = indexReady ? undefined : await loadMetadataCache(now);
   const api: InboxLimitsApi = {
     findLabelId: async (name) => (await findLabelIds(token, name))[0] ?? null,
     ensureLabelId: (name) => getOrCreateLabel(token, name),
     listIds: async (labelIds, query, max) =>
       (await listMessageIds(token, query, max, labelIds)).map((m) => m.id),
-    readSenders: (ids) =>
-      buildSenderSummariesFromStubs(
+    readSenders: async (ids) => {
+      const seeded = legacyCache ? undefined : await indexSeededCache(gmailProvider, ids);
+      const senders = await buildSenderSummariesFromStubs(
         [{ provider: gmailProvider, token, stubs: ids.map((id) => ({ id, provider: "gmail" as const })) }],
         undefined,
-        cache,
-      ),
+        seeded?.cache ?? legacyCache,
+      );
+      await seeded?.saveFetched();
+      return senders;
+    },
     batchModify: (ids, add, remove) => batchModify(token, ids, add, remove),
   };
   const ctx = {
@@ -62,7 +71,7 @@ export async function runInboxTimeLimits(now = Date.now()): Promise<TimeLimitRun
 
   const tag = await tagUntaggedInbox(ctx, api);
   const sweep = await sweepExpiredInbox(ctx, api);
-  void saveMetadataCache(cache);
+  if (legacyCache) void saveMetadataCache(legacyCache);
 
   await mutateSettings((current) => ({
     ...current,
