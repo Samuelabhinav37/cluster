@@ -22,6 +22,21 @@ import type {
   UnsubscribeInfo,
 } from "./providers/emailProvider";
 
+export type InboxTab = "primary" | "promotions" | "social" | "updates" | "forums";
+
+const TAB_LABELS: Array<[string, InboxTab]> = [
+  ["CATEGORY_PROMOTIONS", "promotions"],
+  ["CATEGORY_SOCIAL", "social"],
+  ["CATEGORY_UPDATES", "updates"],
+  ["CATEGORY_FORUMS", "forums"],
+];
+
+/** The Gmail tab a message's labels put it in. Mail with no category is Primary. */
+export function inboxTabOf(labelIds: readonly string[] | undefined): InboxTab | undefined {
+  if (!labelIds) return undefined;
+  return TAB_LABELS.find(([label]) => labelIds.includes(label))?.[1] ?? "primary";
+}
+
 export interface MessageRecord {
   id: string;
   /** Subject is retained in memory for explainable protection decisions. */
@@ -39,6 +54,8 @@ export interface MessageRecord {
   looksAutomated: boolean;
   /** Gmail put it in the Promotions tab (CATEGORY_PROMOTIONS). */
   promotion?: boolean;
+  /** The Gmail inbox tab it sits in. Unset for providers without tabs. */
+  tab?: InboxTab;
   /** Registrable domains of the DKIM signatures the provider says passed.
    * The sender ledger's signing baseline (senderLedger.ts). */
   dkimDomains?: string[];
@@ -137,6 +154,7 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     providerMarkedPersonal: meta.providerMarkedPersonal ?? false,
     looksAutomated: looksAutomated(hasUnsubscribe(meta.unsubscribe), meta.precedence, meta.autoSubmitted),
     promotion: meta.gmailPromotion ?? false,
+    tab: inboxTabOf(meta.labelIds),
     dkimDomains: [...new Set(passingDkimDomains(meta.authenticationResults).map(registrableDomain))],
     replyToDomain: meta.replyToAddress.includes("@")
       ? registrableDomain(meta.replyToAddress.slice(meta.replyToAddress.lastIndexOf("@") + 1))

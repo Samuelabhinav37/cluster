@@ -50,19 +50,22 @@
       <div class="app-body">
         <!-- ── Sidebar ───────────────────────────────────────────────── -->
         <nav class="sidebar" id="sidebar" aria-label="Sections">
-          <button type="button" class="nav-item" data-screen="overview">
-            <svg class="nav-icon ni-home" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"></path><path class="ni-door" d="M10 20v-5.2h4V20"></path></svg>
-            Home
-          </button>
-          <button type="button" class="nav-item" data-screen="delete">
-            <svg class="nav-icon ni-bin" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 8.5 7.4 19a1.2 1.2 0 0 0 1.2 1.1h6.8a1.2 1.2 0 0 0 1.2-1.1l.9-10.5"></path><g class="ni-lid"><path d="M4.5 6.5h15"></path><path d="M9.5 6.5V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5"></path></g></svg>
-            Clear out
-            <span class="nav-count" id="nav-count-delete"></span>
-          </button>
-          <div class="nav-area" data-area="senders">
-            <button type="button" class="nav-item" data-screen="senders">
-              <svg class="nav-icon ni-tray" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 13.5h4.2l1.4 2.4h5.8l1.4-2.4h4.2"></path><path d="M5.6 7 3.5 13.5V19a1 1 0 0 0 1 1h15a1 1 0 0 0 1-1v-5.5L18.4 7"></path><g class="ni-env"><rect x="8.5" y="3.5" width="7" height="5.2" rx=".8"></rect><path d="M8.8 4l3.2 2.3L15.2 4"></path></g></svg>
-              Senders
+          <div class="nav-area" data-area="home">
+            <button type="button" class="nav-item" data-screen="overview">
+              <svg class="nav-icon ni-home" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"></path><path class="ni-door" d="M10 20v-5.2h4V20"></path></svg>
+              Home
+            </button>
+            <div class="nav-children">
+              <button type="button" class="nav-item nav-child" data-screen="senders">
+                Senders
+              </button>
+            </div>
+          </div>
+          <div class="nav-area" data-area="clear">
+            <button type="button" class="nav-item" data-screen="delete">
+              <svg class="nav-icon ni-bin" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 8.5 7.4 19a1.2 1.2 0 0 0 1.2 1.1h6.8a1.2 1.2 0 0 0 1.2-1.1l.9-10.5"></path><g class="ni-lid"><path d="M4.5 6.5h15"></path><path d="M9.5 6.5V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5"></path></g></svg>
+              Clear out
+              <span class="nav-count" id="nav-count-delete"></span>
             </button>
             <div class="nav-children">
               <button type="button" class="nav-item nav-child" data-screen="subscriptions">
@@ -159,6 +162,8 @@
               </div>
             </div>
 
+            <p class="sr-only" id="overview-headline"></p>
+            <div id="overview-content"></div>
             <div id="onboarding-banner" class="banner" hidden>
               <p>
                 Cluster reads senders, subjects and dates, never message bodies. Nothing is deleted
@@ -186,8 +191,6 @@
               <button type="button" class="btn btn-accent-solid" id="setup-banner-start">Start</button>
               <button type="button" class="btn btn-ghost" id="setup-banner-dismiss">Not now</button>
             </div>
-            <p class="sr-only" id="overview-headline"></p>
-            <div id="overview-content"></div>
           </section>
 
           <!-- ══ Delete ════════════════════════════════════════════════ -->

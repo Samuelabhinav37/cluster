@@ -113,7 +113,8 @@ import {
 import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib/inboxHealth";
 import { senderTile, type TileSize } from "./senderTile";
 import { wireAccountMenu, wireHeaderSearch } from "./accountMenu";
-import { homeHeadline, renderHomeTop, type HomeFacts } from "./homeTab";
+import { homeHeadline, type HomeFacts } from "./homeTab";
+import { mailByTab, readRate, renderHomeDashboard, topCompanies, verifiedShare } from "./homeDashboard";
 import { listGroup, listRow } from "./listRow";
 import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
@@ -971,7 +972,7 @@ function setPhishingNavSeverity(securitySenders: SenderSummary[]) {
 }
 
 // ── Overview screen (v3) ────────────────────────────────────────────────
-// Home: a headline, status pills and recommendations (homeTab.ts), then a
+// Home: a headline (homeTab.ts) and six tiles (homeDashboard.ts), then a
 // "working while you were away" summary and a Recently-done preview. Every
 // number is deterministic and already computed elsewhere.
 function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary[]) {
@@ -981,43 +982,51 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
     health.scannedSenders === 1 ? "" : "s"
   } · ${health.scannedMessages} message${health.scannedMessages === 1 ? "" : "s"}`;
 
-  const planTotal = clearOutPlan(senders).total;
-  const organizeCount = pickDecisionSenders(senders).decide.length;
+  const plan = clearOutPlan(senders);
 
   overviewContentEl.innerHTML = "";
   const stack = document.createElement("div");
   stack.className = "stack";
 
-  // ── Headline, status pills, recommendations (homeTab.ts) ──
+  // ── Headline (homeTab.ts), then the tiles (homeDashboard.ts) ──
   const facts: HomeFacts = {
     suspicious: byId.get("flagged-senders") ?? 0,
     waiting: byId.get("screener-queue") ?? 0,
-    cleanupMessages: planTotal,
-    decisionSenders: organizeCount,
-    unsubscribable: byId.get("unsubscribe-capable") ?? 0,
-    holdingOn: ctx.settings.autoQuarantineHighRisk,
-    sortingOn: ctx.settings.autoSort.timeLimitsEnabled || ctx.settings.autoSort.keepSorting,
+    cleanupMessages: plan.total,
   };
   if (homeLeadEl) homeLeadEl.textContent = homeHeadline(facts);
-  renderHomeTop(stack, facts, (screen, focus) => {
-    void selectScreen(screen).then(() => {
-      if (focus) document.getElementById(focus)?.scrollIntoView({ block: "start" });
-    });
-  });
 
-  // One quiet line for the health score and the scan size, at the bottom.
   const score = inboxHealthScore(senders);
   const history = ctx.settings.healthHistory;
   const prev = history.length >= 2 ? history[history.length - 2].score : undefined;
-  const delta = prev === undefined ? 0 : score - prev;
+  const groups = groupByCompany(senders, ctx.profiles);
+  stack.appendChild(
+    renderHomeDashboard(
+      {
+        score,
+        scoreDelta: prev === undefined ? undefined : score - prev,
+        tabs: mailByTab(senders),
+        companies: topCompanies(groups, companyName),
+        companyCount: groups.length,
+        read: readRate(senders, Date.now()),
+        clear: { expired: plan.expiryTotal, spam: plan.spamMsgs, neverRead: plan.neverReadMsgs },
+        suspicious: facts.suspicious,
+        waiting: facts.waiting,
+        verified: verifiedShare(senders),
+        holdingOn: ctx.settings.autoQuarantineHighRisk,
+      },
+      (screen, focus) => {
+        void selectScreen(screen).then(() => {
+          if (focus) document.getElementById(focus)?.scrollIntoView({ block: "start" });
+        });
+      },
+    ),
+  );
+
   const footNote = document.createElement("p");
   footNote.className = "text-meta home-foot";
-  footNote.textContent =
-    `Inbox health ${score} of 100` +
-    (delta > 0 ? `, up ${delta} since last week.` : delta < 0 ? `, down ${-delta} since last week.` : ".") +
-    (lastScanCapHit
-      ? ` Based on your latest ${MAIL_INDEX_CAP.toLocaleString()} messages per account.`
-      : "");
+  footNote.hidden = !lastScanCapHit;
+  footNote.textContent = `Based on your latest ${MAIL_INDEX_CAP.toLocaleString()} messages per account.`;
 
   // ── Bottom two-up: "Working while you were away" + "Recently done" ──
   const bottomGrid = document.createElement("div");
