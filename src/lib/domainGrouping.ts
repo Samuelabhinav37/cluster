@@ -1,22 +1,8 @@
 import { categorizeDomain, type DomainCategory } from "./domainCategories";
+import { isFreeMailDomain } from "./freeMail";
 import type { ProviderId } from "./providers/emailProvider";
 import { emptyProtectionContext, protectionDecision, type ProtectionContext } from "./protectionPolicy";
 import type { SenderSummary } from "./senderModel";
-
-// Major free-mail providers are excluded from domain-level grouping: thousands
-// of unrelated individual senders share these domains, so grouping by domain
-// here would lump strangers' mail together instead of one brand's senders.
-const FREE_MAIL_EXCEPTIONS = new Set([
-  "gmail.com",
-  "yahoo.com",
-  "outlook.com",
-  "hotmail.com",
-  "live.com",
-  "msn.com",
-  "icloud.com",
-  "aol.com",
-  "protonmail.com",
-]);
 
 export interface DomainGroup {
   key: string;
@@ -41,7 +27,7 @@ function groupingKeyFor(sender: SenderSummary): {
   isFreeMailException: boolean;
 } {
   const domain = domainOf(sender.address);
-  const isFreeMailException = FREE_MAIL_EXCEPTIONS.has(domain);
+  const isFreeMailException = isFreeMailDomain(domain);
   const key = isFreeMailException ? `${sender.provider}:addr:${sender.address}` : `domain:${domain}`;
   return { key, domain, isFreeMailException };
 }

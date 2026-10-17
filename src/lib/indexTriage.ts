@@ -1,5 +1,5 @@
 // The background worker's view of the mail index. Instead of scanning mail
-// itself every 6 hours (and every 15 minutes for time limits), it brings the
+// itself every 6 hours (and every 5 minutes for time limits), it brings the
 // index up to date from the change feed, a couple of quota units, and reads
 // senders from it. A provider whose index isn't built yet, or that has no
 // change feed, is left to the old scans until the dashboard builds it.

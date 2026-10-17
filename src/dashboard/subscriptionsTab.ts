@@ -4,13 +4,11 @@
 // recordUnsubscribeRequests is exported because the Clean-up tab's sender
 // table also records a request when its inline Unsubscribe button fires.
 import { senderVolume } from "../lib/census";
-import { mutateSettings } from "../lib/settingsStore";
-import { recordEngagementFeedback } from "../lib/engagementModel";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
 import { executeBulkUnsubscribe, filterOutProtected } from "../lib/bulkActions";
 import {
-  evaluateUnsubscribeOutcome,
   unsubscribeOutcomeRank,
+  unsubscribeTally,
   type UnsubscribeOutcomeState,
 } from "../lib/unsubscribeOutcome";
 import { buildProtectionContext, buildSenderCleanupPlan } from "../lib/protectionPolicy";
@@ -26,6 +24,14 @@ import { senderTile } from "./senderTile";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
 import { clusterLabelName } from "../lib/clusterLabels";
+import {
+  recordUnsubscribeRequests,
+  trashStillSending,
+  undoUnsubscribe,
+  UNDO_UNSUBSCRIBE_COPY,
+  unsubscribeOutcomeFor,
+} from "./unsubscribeRecord";
+import { openUnsubscribeSheet } from "./unsubscribeSheet";
 
 const READ_LATER_LABEL = clusterLabelName("readLater");
 
@@ -77,26 +83,7 @@ function renderPaidSubscriptions(senders: SenderSummary[]) {
   paidSubscriptionsListEl.appendChild(listGroup(rows));
 }
 
-// Persisted so "already requested" survives a reload — senders can take up
-// to 10 business days to stop, so re-requesting isn't blocked, just labeled.
-export async function recordUnsubscribeRequests(senders: SenderSummary[]) {
-  if (senders.length === 0) return;
-  const now = Date.now();
-  ctx.settings = await mutateSettings((current) => {
-    const requests = { ...current.unsubscribeRequests };
-    for (const sender of senders) requests[sender.key] = { requestedAt: now, provider: sender.provider };
-    return {
-      ...current,
-      unsubscribeRequests: requests,
-      senderEngagement: recordEngagementFeedback(
-        current.senderEngagement,
-        senders.map((sender) => sender.key),
-        "accept",
-        now,
-      ),
-    };
-  });
-}
+export { recordUnsubscribeRequests };
 
 function unsubMethodLabel(u: SenderSummary["unsubscribe"]): string {
   if (u.postUrl) return "one-click";
@@ -118,6 +105,47 @@ function dominantKind(s: SenderSummary): string {
   return best;
 }
 
+/** Undo, and for a sender still mailing on Gmail, a way to send what keeps
+ * coming to Trash. Both act on Cluster's own filters only. */
+function requestActions(key: string, provider: string, state: string): HTMLElement[] {
+  const out: HTMLElement[] = [];
+  const request = ctx.settings.unsubscribeRequests[key];
+  if (state === "still-sending" && provider === "gmail" && !request?.trashFilterId) {
+    const slot = document.createElement("span");
+    const trash = document.createElement("button");
+    trash.className = "btn btn-sm";
+    trash.textContent = "Send their mail to Trash";
+    const reset = () => slot.replaceChildren(trash);
+    trash.onclick = () =>
+      renderConfirmStep(
+        slot,
+        reset,
+        `From now on, all mail from ${senderAddressFromKey(key)} goes to Trash. You can undo this.`,
+        true,
+        async () => {
+          await trashStillSending(key);
+          await logAction("unsubscribe", `Sending mail from ${senderAddressFromKey(key)} to Trash`);
+          renderSubscriptionsTab(ctx.senders);
+          return "Done";
+        },
+      );
+    reset();
+    out.push(slot);
+  }
+  const undo = document.createElement("button");
+  undo.className = "btn btn-sm";
+  undo.textContent = "Undo";
+  undo.title = UNDO_UNSUBSCRIBE_COPY;
+  undo.onclick = async () => {
+    undo.disabled = true;
+    await undoUnsubscribe(key);
+    await logAction("unsubscribe", UNDO_UNSUBSCRIBE_COPY);
+    renderSubscriptionsTab(ctx.senders);
+  };
+  out.push(undo);
+  return out;
+}
+
 function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
   const cell = document.createElement("td");
   const u = sender.unsubscribe;
@@ -125,7 +153,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
     const btn = document.createElement("button");
     const tracked = ctx.settings.unsubscribeRequests[sender.key];
     btn.textContent = tracked
-      ? evaluateUnsubscribeOutcome(sender, tracked).state === "still-sending"
+      ? unsubscribeOutcomeFor(sender.key, sender).state === "still-sending"
         ? "Retry unsubscribe"
         : "Request again"
       : "Unsubscribe";
@@ -202,11 +230,10 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
       cell.append(" ", cleanSlot);
     }
   } else if (u.mailto) {
-    const a = document.createElement("a");
-    a.href = u.mailto;
-    a.textContent = "Email";
-    a.target = "_blank";
-    cell.appendChild(a);
+    const button = document.createElement("button");
+    button.textContent = "Unsubscribe by email";
+    button.onclick = () => void openUnsubscribeSheet([sender], () => renderSubscriptionsTab(ctx.senders));
+    cell.appendChild(button);
   } else if (u.httpUrl) {
     const a = document.createElement("a");
     a.href = u.httpUrl;
@@ -304,7 +331,12 @@ function renderSubsFloatingBar(oneClickCount: number) {
 
 function selectedUnsubscribeOutcome(): "all" | UnsubscribeOutcomeState {
   const value = subsOutcomeFilter.value;
-  return value === "pending" || value === "quiet" || value === "still-sending" || value === "untracked"
+  return value === "pending" ||
+    value === "quiet" ||
+    value === "still-sending" ||
+    value === "untracked" ||
+    value === "failed" ||
+    value === "needs-you"
     ? value
     : "all";
 }
@@ -329,7 +361,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
   const currentRows = available
     .map((sender) => ({
       sender,
-      outcome: evaluateUnsubscribeOutcome(sender, ctx.settings.unsubscribeRequests[sender.key]),
+      outcome: unsubscribeOutcomeFor(sender.key, sender),
     }))
     .sort(
       (a, b) =>
@@ -343,7 +375,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
       key,
       request,
       sender: senderByKey.get(key),
-      outcome: evaluateUnsubscribeOutcome(senderByKey.get(key), request),
+      outcome: unsubscribeOutcomeFor(key, senderByKey.get(key)),
     }))
     .sort(
       (a, b) =>
@@ -356,13 +388,13 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
   const visibleCurrentRows = currentRows.filter(({ outcome }) => matchesFilter(outcome.state));
   const visibleTrackedOnlyRows = trackedOnlyRows.filter(({ outcome }) => matchesFilter(outcome.state));
   const allOutcomes = [...currentRows, ...trackedOnlyRows].map(({ outcome }) => outcome);
-  const stillSendingCount = allOutcomes.filter(({ state }) => state === "still-sending").length;
   const trackedCount = Object.keys(ctx.settings.unsubscribeRequests).length;
   const oneClick = available.filter((sender) => sender.unsubscribe.postUrl);
 
   subscriptionsListEl.innerHTML = "";
   subsBulkBar.hidden = available.length === 0 && trackedCount === 0;
-  subsCountEl.textContent = `${available.length} available · ${trackedCount} tracked${stillSendingCount > 0 ? ` · ${stillSendingCount} still sending` : ""}`;
+  const tally = unsubscribeTally(allOutcomes);
+  subsCountEl.textContent = tally ? `${available.length} lists · ${tally}` : `${available.length} lists`;
   subsUnsubAllBtn.disabled = oneClick.length === 0;
   renderSubsFloatingBar(oneClick.length);
 
@@ -462,6 +494,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
         if (btn.textContent === "Unsubscribe") btn.className = "btn btn-accent btn-sm";
         else btn.classList.add("btn-sm");
       }
+      if (outcome.requestAt) for (const btn of requestActions(sender.key, sender.provider, outcome.state)) actions.appendChild(btn);
       const keep = document.createElement("button");
       keep.className = "btn btn-sm";
       keep.textContent = "Keep";
@@ -508,7 +541,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
     subscriptionsListEl.appendChild(heading);
     const table = document.createElement("table");
     const thead = document.createElement("thead");
-    thead.appendChild(headerRow(["Sender", "Provider", "Requested", "Outcome", "Evidence"]));
+    thead.appendChild(headerRow(["Sender", "Provider", "Requested", "Outcome", "Evidence", ""]));
     table.appendChild(thead);
     const tbody = document.createElement("tbody");
     for (const { key, request, outcome } of visibleTrackedOnlyRows) {
@@ -524,7 +557,9 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
       const evidenceCell = document.createElement("td");
       evidenceCell.className = "hint";
       evidenceCell.textContent = outcome.detail;
-      row.append(addressCell, providerCell, requestedCell, outcomeCell, evidenceCell);
+      const actionCell = document.createElement("td");
+      actionCell.append(...requestActions(key, request.provider, outcome.state));
+      row.append(addressCell, providerCell, requestedCell, outcomeCell, evidenceCell, actionCell);
       tbody.appendChild(row);
     }
     table.appendChild(tbody);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAddressList, relationshipFields } from "./headerFields";
+import { deliveredToAddresses, parseAddressList, relationshipFields } from "./headerFields";
 
 describe("parseAddressList", () => {
   it("keeps a quoted name with a comma as one address", () => {
@@ -68,5 +68,22 @@ describe("relationshipFields", () => {
       feedbackId: undefined,
       senderHeaderAddress: undefined,
     });
+  });
+});
+
+describe("deliveredToAddresses", () => {
+  it("puts the delivery headers before To and Cc, each address once", () => {
+    const headers: Record<string, string> = {
+      "delivered-to": "me+news@x.example",
+      "x-original-to": "alias@x.example",
+      to: "Me <me@x.example>, alias@x.example",
+      cc: "team@x.example",
+    };
+    expect(deliveredToAddresses((name) => headers[name.toLowerCase()])).toEqual([
+      "me+news@x.example",
+      "alias@x.example",
+      "me@x.example",
+      "team@x.example",
+    ]);
   });
 });

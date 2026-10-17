@@ -190,3 +190,29 @@ describe("relationship headers", () => {
     expect(meta.v).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe("getUnsubscribeDetails", () => {
+  it("asks for the delivery headers and reports Spam and where the mail went", async () => {
+    getMessageMetadata.mockResolvedValueOnce(
+      raw({
+        headers: {
+          "List-Unsubscribe": "<mailto:leave@news.example?subject=unsubscribe>",
+          "Delivered-To": "me+shop@gmail.com",
+          To: "Me <me@gmail.com>",
+          "Return-Path": "<bounce@mail.news.example>",
+        },
+        labelIds: ["SPAM"],
+      }),
+    );
+    const d = await gmailProvider.getUnsubscribeDetails!("token", "m9");
+    expect(getMessageMetadata).toHaveBeenCalledWith("token", "m9", ["Delivered-To", "X-Original-To"]);
+    expect(d).toMatchObject({
+      messageId: "m9",
+      fromAddress: "hello@news.example",
+      inSpam: true,
+      returnPathDomain: "mail.news.example",
+      deliveredTo: ["me+shop@gmail.com", "me@gmail.com"],
+    });
+    expect(d.unsubscribe.mailtoParts).toEqual({ to: "leave@news.example", subject: "unsubscribe" });
+  });
+});

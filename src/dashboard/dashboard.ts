@@ -46,6 +46,15 @@ import { outlookProvider } from "../lib/providers/outlookProvider";
 import { OutlookReauthRequired } from "../lib/providers/msalAuth";
 import { summarizeCombined, type SenderSummary } from "../lib/senderModel";
 import { applyCensus, senderUnread, senderVolume } from "../lib/census";
+import { buildSenderProfiles } from "../lib/senderProfile";
+import {
+  groupByCompany,
+  isPerson,
+  mainTemplate,
+  profileLine,
+  sortSenders,
+  type SenderSortId,
+} from "../lib/senderListView";
 import {
   getSettings,
   mutateSettings,
@@ -60,13 +69,10 @@ import { excludeSnoozedMessages } from "../lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "../lib/snoozeResurface";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
 import { athenaOriginPatterns, getAthenaConfig } from "../lib/athenaIntegration";
-import {
-  buildEngagementSuggestions,
-  recordEngagementFeedback,
-  updateEngagementObservations,
-  type EngagementFeedback,
-  type EngagementSuggestion,
-} from "../lib/engagementModel";
+import { recordEngagementFeedback, type EngagementFeedback } from "../lib/engagementModel";
+import { openUnsubscribeSheet } from "./unsubscribeSheet";
+import { readUnsubscribeReplies, unsubscribeOutcomeFor } from "./unsubscribeRecord";
+import { buildSuggestions, SUGGESTION_ACTION_LABELS, unopenedSuggestions, type Suggestion } from "../lib/suggestions";
 import { markFirstContact } from "../lib/firstContact";
 import { log } from "../lib/log";
 import { isAuthCancelled } from "../lib/chromeError";
@@ -108,7 +114,6 @@ import { homeHeadline, renderHomeTop, type HomeFacts } from "./homeTab";
 import { listGroup, listRow } from "./listRow";
 import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
-import { evaluateUnsubscribeOutcome } from "../lib/unsubscribeOutcome";
 import { CLUSTER_FIRST_ON, CLUSTER_QUESTIONS, initKaiGuide } from "./kaiGuide";
 
 const selectedSenderKeys = new Set<string>();
@@ -119,7 +124,7 @@ let currentExpiryBuckets: ExpiryBucket[] = [];
 // True when the cleanup scan filled its per-account candidate cap — every
 // derived count is then a sample of the most-recent N, not an inbox total.
 let lastScanCapHit = false;
-let engagementSuggestions: EngagementSuggestion[] = [];
+let engagementSuggestions: Suggestion[] = [];
 // The security lane re-uses messages already fetched for cleanup (no extra
 // quota) — cap how many feed the per-sender threat scoring, newest first.
 const SECURITY_SCAN_MAX_MESSAGES = 250;
@@ -802,6 +807,16 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   const censusRows = (await Promise.all(providers.map((p) => store.allCensus(p.id)))).flat();
   applyCensus(combined.cleanup, censusRows);
   applyCensus(combined.security, censusRows);
+  ctx.profiles = buildSenderProfiles({
+    rows: metas,
+    sent: (await Promise.all(providers.map((p) => store.allSent(p.id)))).flat(),
+    census: censusRows,
+    ownAddresses: (await Promise.all(providers.map((p) => store.getState(p.id))))
+      .map((state) => state?.accountId ?? "")
+      .filter(Boolean),
+    knownSenders: buildProtectionContext(ctx.settings).knownSenders,
+  });
+  readUnsubscribeReplies(metas);
   indexOfferShown = false;
   for (const { run } of runs) offerUpdatedView(run);
   let senders = combined.cleanup;
@@ -814,10 +829,6 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   );
   senders = excludeSnoozedMessages(senders, activeSnoozedIds);
 
-  ctx.settings = await mutateSettings((current) => ({
-    ...current,
-    senderEngagement: updateEngagementObservations(current.senderEngagement, senders),
-  }));
 
   const firstContact = markFirstContact(
     securitySenders,
@@ -960,7 +971,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
     (n, s) => n + s.messageCount,
     0,
   );
-  const neverReadMsgs = buildEngagementSuggestions(senders, ctx.settings.senderEngagement, protectionCtx).reduce(
+  const neverReadMsgs = unopenedSuggestions(currentSuggestions(senders)).reduce(
     (n, s) => n + s.safeMessageIds.length,
     0,
   );
@@ -1240,6 +1251,11 @@ function renderCategoryGroups<T>(
 }
 
 // ── Sender table ─────────────────────────────────────────────────────────
+/** Clean-up suggestions for these senders, from their profiles. */
+function currentSuggestions(senders: SenderSummary[]): Suggestion[] {
+  return buildSuggestions(senders, ctx.profiles, ctx.settings.senderEngagement, buildProtectionContext(ctx.settings));
+}
+
 // ── Suggested cleanup: metric band ─────────────────────────────────────
 function renderSuggestedMetricBand(senders: SenderSummary[]) {
   const band = document.getElementById("suggested-metric-band");
@@ -1250,7 +1266,7 @@ function renderSuggestedMetricBand(senders: SenderSummary[]) {
     (n, s) => n + s.messageCount,
     0,
   );
-  const neverReadMsgs = buildEngagementSuggestions(senders, ctx.settings.senderEngagement, protectionCtx).reduce(
+  const neverReadMsgs = unopenedSuggestions(currentSuggestions(senders)).reduce(
     (n, s) => n + s.safeMessageIds.length,
     0,
   );
@@ -1333,7 +1349,7 @@ function renderCleanupPlan(senders: SenderSummary[]) {
   const protectionCtx = buildProtectionContext(ctx.settings);
   const expiryBuckets = buildExpiryBuckets(senders, protectionCtx);
   const expiryCount = totalExpiryCount(expiryBuckets);
-  const engagement = buildEngagementSuggestions(senders, ctx.settings.senderEngagement, protectionCtx);
+  const engagement = unopenedSuggestions(currentSuggestions(senders));
   const neverMsgs = engagement.reduce((n, s) => n + s.safeMessageIds.length, 0);
   const spam = suggestSpamSenders(senders, undefined, protectionCtx);
   const spamMsgs = spam.reduce((n, s) => n + s.messageCount, 0);
@@ -1344,8 +1360,8 @@ function renderCleanupPlan(senders: SenderSummary[]) {
     rows.push({
       id: "never-opened",
       checked: true,
-      title: `${engagement.length} sender${engagement.length === 1 ? "" : "s"} you have never opened`,
-      sub: `${neverMsgs} message${neverMsgs === 1 ? "" : "s"}, none opened recently`,
+      title: `${engagement.length} sender${engagement.length === 1 ? "" : "s"} you don't open`,
+      sub: `${neverMsgs} message${neverMsgs === 1 ? "" : "s"}, almost none opened`,
       primaryLabel: "Mute all",
       primaryClass: "btn btn-accent",
       onPrimary: () => confirmIn("never-read-section", neverReadMuteBtn),
@@ -1479,6 +1495,8 @@ function revealLegacySection(id: string) {
 type PrimaryAct = "unsubscribe" | "mute" | "keepSorted";
 
 function decisionReason(sender: SenderSummary): string {
+  const suggestion = currentSuggestions([sender])[0];
+  if (suggestion) return suggestion.reasons.join(" ");
   const unread = senderUnread(sender);
   const total = senderVolume(sender);
   const base = unread === total ? `nothing opened of ${total}` : `${unread} unread of ${total}`;
@@ -1509,11 +1527,7 @@ function buildActionGroups(sender: SenderSummary): Array<{ act: string; label: s
 }
 
 function pickDecisionSenders(senders: SenderSummary[]): { decide: SenderSummary[]; protectedOne?: SenderSummary } {
-  const engagementKeys = new Set(
-    buildEngagementSuggestions(senders, ctx.settings.senderEngagement, buildProtectionContext(ctx.settings)).map(
-      (s) => s.sender.key,
-    ),
-  );
+  const engagementKeys = new Set(currentSuggestions(senders).map((s) => s.sender.key));
   const eligible = senders.filter((s) => s.protectedMessageIds.length === 0);
   const ranked = [...eligible].sort((a, b) => {
     const aEng = engagementKeys.has(a.key) ? 1 : 0;
@@ -1832,8 +1846,9 @@ function renderSuggestedFloatingBar() {
 // A flat, searchable, filterable list of every scanned sender. The pixel
 // exact "engagement bar + one action" row treatment lands in the All-senders
 // screen commit; this keeps the screen populated and the controls live.
-type SenderFilterId = "all" | "never" | "subs" | "muted";
+type SenderFilterId = "all" | "people" | "companies" | "subs" | "never" | "quiet" | "muted";
 let allSendersFilter: SenderFilterId = "all";
+let allSendersSort: SenderSortId = "volume";
 let allSendersQuery = "";
 let allSendersLimit = 25;
 
@@ -1845,6 +1860,12 @@ function wireAllSendersControls() {
   const search = document.getElementById("sender-search") as HTMLInputElement | null;
   search?.addEventListener("input", () => {
     allSendersQuery = search.value.trim().toLowerCase();
+    allSendersLimit = 25;
+    renderAllSenders(ctx.senders);
+  });
+  const sort = document.getElementById("sender-sort") as HTMLSelectElement | null;
+  sort?.addEventListener("change", () => {
+    allSendersSort = sort.value as SenderSortId;
     allSendersLimit = 25;
     renderAllSenders(ctx.senders);
   });
@@ -1864,7 +1885,10 @@ function wireAllSendersControls() {
 function filteredSenders(senders: SenderSummary[]): SenderSummary[] {
   const neverKeys = new Set(neverReadSenders(senders, buildProtectionContext(ctx.settings)).map((s) => s.key));
   return senders.filter((s) => {
+    const profile = ctx.profiles.get(s.key);
     if (allSendersFilter === "never" && !neverKeys.has(s.key)) return false;
+    if (allSendersFilter === "people" && !isPerson(profile)) return false;
+    if (allSendersFilter === "quiet" && (!profile || profile.stillSending)) return false;
     if (allSendersFilter === "subs" && !hasAnyUnsubscribe(s.unsubscribe)) return false;
     if (allSendersFilter === "muted" && !ctx.settings.mutedSenders.includes(s.address)) return false;
     if (allSendersQuery) {
@@ -1875,15 +1899,53 @@ function filteredSenders(senders: SenderSummary[]): SenderSummary[] {
   });
 }
 
+/** The company view: one row per authenticated company, opt in through the
+ * Companies filter. "Show senders" narrows the list to that company. */
+function renderCompanyRows(senders: SenderSummary[]) {
+  if (!allSendersListEl) return;
+  const groups = groupByCompany(senders, ctx.profiles);
+  allSendersListEl.innerHTML = "";
+  if (groups.length === 0) {
+    allSendersListEl.appendChild(Object.assign(document.createElement("p"), {
+      className: "empty-state",
+      textContent: "No company senders match this filter.",
+    }));
+    return;
+  }
+  const rows = groups.slice(0, allSendersLimit).map((group) => {
+    const show = document.createElement("button");
+    show.className = "btn btn-sm";
+    show.textContent = "Show senders";
+    show.onclick = () => {
+      const search = document.getElementById("sender-search") as HTMLInputElement | null;
+      if (search) search.value = group.key;
+      allSendersQuery = group.key;
+      document.querySelector<HTMLButtonElement>('#sender-filter button[data-filter="all"]')?.click();
+    };
+    const opens = group.openRate === null ? "" : ` · opens ${Math.round(group.openRate * 100)}%`;
+    return listRow({
+      lead: makeLogoTile(group.senders[0], "sz-34"),
+      title: group.key,
+      sub: `${group.senders.length} address${group.senders.length === 1 ? "" : "es"} · ${group.total.toLocaleString()} messages${opens}`,
+      actions: [show],
+    });
+  });
+  allSendersListEl.appendChild(listGroup(rows));
+}
+
 function renderAllSenders(senders: SenderSummary[]) {
   if (!allSendersListEl) return;
   const lead = document.getElementById("senders-lead");
   if (lead) {
     lead.textContent = lastScanCapHit
       ? `The ${senders.length} senders in this scan, from the most recent ${MAIL_INDEX_CAP.toLocaleString()} messages per account over ${ctx.settings.scanWindowDays} days. Nothing here is acted on until you say so.`
-      : `Every sender Cluster saw in the last ${ctx.settings.scanWindowDays} days, heaviest first. Nothing here is acted on until you say so.`;
+      : `Every sender Cluster saw in the last ${ctx.settings.scanWindowDays} days. Nothing here is acted on until you say so.`;
   }
-  const rows = filteredSenders(senders).sort((a, b) => senderVolume(b) - senderVolume(a));
+  if (allSendersFilter === "companies") {
+    renderCompanyRows(filteredSenders(senders));
+    return;
+  }
+  const rows = sortSenders(filteredSenders(senders), ctx.profiles, allSendersSort);
   const shown = rows.slice(0, allSendersLimit);
 
   allSendersListEl.innerHTML = "";
@@ -1922,10 +1984,13 @@ function renderAllSenders(senders: SenderSummary[]) {
 function buildAllSendersRow(sender: SenderSummary): HTMLElement {
   const unread = senderUnread(sender);
   const total = senderVolume(sender);
-  const sub =
-    unread === total
-      ? `nothing opened${sender.displayName ? ` · ${sender.address}` : ""}`
-      : `${unread} of ${total} unread${sender.displayName ? ` · ${sender.address}` : ""}`;
+  const profile = ctx.profiles.get(sender.key);
+  const template = profile && mainTemplate(profile);
+  const summary =
+    profileLine(profile) ?? (unread === total ? "nothing opened" : `${unread} of ${total} unread`);
+  const sub = [summary, template ? `mostly "${template.key}" ×${template.count}` : "", sender.displayName ? sender.address : ""]
+    .filter(Boolean)
+    .join(" · ");
 
   // Count + engagement bar (unread ratio).
   const count = document.createElement("div");
@@ -2006,7 +2071,7 @@ function buildUnsubscribeCell(sender: SenderSummary): HTMLDivElement {
     const applyState = () => {
       const tracked = ctx.settings.unsubscribeRequests[sender.key];
       if (tracked) {
-        const outcome = evaluateUnsubscribeOutcome(sender, tracked);
+        const outcome = unsubscribeOutcomeFor(sender.key, sender);
         statusEl.textContent = `${outcome.label} · requested ${formatRelativeTime(tracked.requestedAt)}`;
         statusEl.title = outcome.detail;
         btn.textContent = outcome.state === "still-sending" ? "Retry unsubscribe" : "Request again";
@@ -2029,7 +2094,7 @@ function buildUnsubscribeCell(sender: SenderSummary): HTMLDivElement {
         statusEl.textContent = "Request failed, try again";
         const tracked = ctx.settings.unsubscribeRequests[sender.key];
         btn.textContent = tracked
-          ? evaluateUnsubscribeOutcome(sender, tracked).state === "still-sending"
+          ? unsubscribeOutcomeFor(sender.key, sender).state === "still-sending"
             ? "Retry unsubscribe"
             : "Request again"
           : "Unsubscribe (verified one-click)";
@@ -2040,11 +2105,10 @@ function buildUnsubscribeCell(sender: SenderSummary): HTMLDivElement {
     applyState();
     cell.append(statusEl, btn);
   } else if (sender.unsubscribe.mailto) {
-    const link = document.createElement("a");
-    link.href = sender.unsubscribe.mailto;
-    link.textContent = "Unsubscribe via email";
-    link.target = "_blank";
-    cell.appendChild(link);
+    const button = document.createElement("button");
+    button.textContent = "Unsubscribe by email";
+    button.onclick = () => void openUnsubscribeSheet([sender], () => renderDeleteScreen(ctx.senders));
+    cell.appendChild(button);
   } else if (sender.unsubscribe.httpUrl) {
     const link = document.createElement("a");
     link.href = sender.unsubscribe.httpUrl;
@@ -2500,21 +2564,17 @@ function resetNeverReadSlots() {
 }
 
 function renderNeverReadSection(senders: SenderSummary[]) {
-  engagementSuggestions = buildEngagementSuggestions(
-    senders,
-    ctx.settings.senderEngagement,
-    buildProtectionContext(ctx.settings),
-  );
+  engagementSuggestions = unopenedSuggestions(currentSuggestions(senders));
   neverReadSectionEl.hidden = engagementSuggestions.length === 0;
   if (engagementSuggestions.length === 0) return;
 
   const totalMsgs = engagementSuggestions.reduce((count, item) => count + item.safeMessageIds.length, 0);
-  neverReadCountEl.textContent = `${engagementSuggestions.length} suggestion${engagementSuggestions.length === 1 ? "" : "s"}, ${totalMsgs} safe message${totalMsgs === 1 ? "" : "s"}`;
+  neverReadCountEl.textContent = `${engagementSuggestions.length} suggestion${engagementSuggestions.length === 1 ? "" : "s"}, ${totalMsgs} message${totalMsgs === 1 ? "" : "s"}`;
 
   neverReadListEl.innerHTML = "";
   const table = document.createElement("table");
   const thead = document.createElement("thead");
-  thead.appendChild(headerRow(["Sender", "Fit", "Why", "Suggested", "Feedback"]));
+  thead.appendChild(headerRow(["Sender", "Why", "Suggested", "Feedback"]));
   table.appendChild(thead);
   const tbody = document.createElement("tbody");
   for (const suggestion of engagementSuggestions) {
@@ -2522,24 +2582,21 @@ function renderNeverReadSection(senders: SenderSummary[]) {
     const row = document.createElement("tr");
     const nameCell = document.createElement("td");
     nameCell.textContent = sender.displayName ? `${sender.displayName} <${sender.address}>` : sender.address;
-    const fitCell = document.createElement("td");
-    fitCell.textContent = `${suggestion.score}/100 · ${suggestion.confidence}`;
-    fitCell.title = "Deterministic fit score, not a probability";
     const reasonCell = document.createElement("td");
-    reasonCell.textContent = suggestion.reasons.join("; ");
+    reasonCell.textContent = suggestion.reasons.join(" ");
     const actionCell = document.createElement("td");
-    actionCell.textContent = suggestion.suggestedAction;
+    actionCell.textContent = SUGGESTION_ACTION_LABELS[suggestion.action];
     const feedbackCell = document.createElement("td");
     const dismissBtn = document.createElement("button");
     dismissBtn.textContent = "Not useful";
-    dismissBtn.title = "Hide this suggestion for 30 days and use that correction in future scoring";
+    dismissBtn.title = "Hide this suggestion for 30 days";
     dismissBtn.onclick = async () => {
       dismissBtn.disabled = true;
       await saveEngagementFeedback([sender.key], "dismiss");
       renderNeverReadSection(ctx.senders);
     };
     feedbackCell.appendChild(dismissBtn);
-    row.append(nameCell, fitCell, reasonCell, actionCell, feedbackCell);
+    row.append(nameCell, reasonCell, actionCell, feedbackCell);
     tbody.appendChild(row);
   }
   table.appendChild(tbody);
@@ -2787,10 +2844,12 @@ function wireBulkHandlers() {
   bulkUnsubscribeBtn.onclick = () => {
     const selected = ctx.senders.filter((s) => selectedSenderKeys.has(s.key));
     const { automatable, manual } = partitionForUnsubscribe(selected);
-    const summaryText = `${automatable.length} will be unsubscribed automatically, ${manual.length} have no verified link and need a manual look`;
+    const byEmail = manual.filter((s) => s.unsubscribe.mailto);
+    const summaryText = `${automatable.length} will be unsubscribed with one click. ${byEmail.length} need an email you check first. ${manual.length - byEmail.length} need a manual look.`;
 
     renderConfirmStep(unsubscribeBulkSlot, resetUnsubscribeBulkSlot, summaryText, false, async (summary) => {
-      if (automatable.length === 0) return `Nothing to automate. ${manual.length} need a manual look`;
+      if (byEmail.length > 0) void openUnsubscribeSheet(byEmail, () => renderDeleteScreen(ctx.senders));
+      if (automatable.length === 0) return `Nothing to send with one click. ${manual.length - byEmail.length} need a manual look`;
       summary.textContent = "Requesting permission…";
       const granted = await ensureOriginsPermission(automatable.map((s) => s.unsubscribe.postUrl!));
       if (!granted) return "Permission denied, so nothing was unsubscribed";
@@ -2801,7 +2860,7 @@ function wireBulkHandlers() {
         await logAction("unsubscribe", `Bulk unsubscribed from ${succeeded.length} senders`);
       renderDeleteScreen(ctx.senders);
       renderOrganizeScreen(ctx.senders);
-      return `Unsubscribed ${succeeded.length}, failed ${failed.length}, skipped ${manual.length} (no verified link)`;
+      return `Unsubscribed ${succeeded.length}, failed ${failed.length}, skipped ${manual.length - byEmail.length} (no verified link)`;
     });
   };
 
@@ -2917,7 +2976,7 @@ function wireBulkHandlers() {
       false,
       async () => {
         const token = await gmailProvider.getAuthToken(false);
-        const succeeded: EngagementSuggestion[] = [];
+        const succeeded: Suggestion[] = [];
         for (const target of targets) {
           try {
             await gmailProvider.muteSender!(token, target.sender.address, target.safeMessageIds);

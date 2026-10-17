@@ -23,6 +23,7 @@ for the full data-flow.
 | Clean up / Ready to clean up / Suggested spam / Smart Views / Trim to newest | `users.messages.batchModify` (add `TRASH`, remove `INBOX`) | Move mail the user selected to Trash. Always reversible; never permanent. |
 | Undo | `users.messages.batchModify` (remove `TRASH` / restore `INBOX`) | Reverse a Trash or Archive the user just did. |
 | Rules, "Sort my inbox", Read Later, Snooze, auto-quarantine | `users.messages.batchModify` (add/remove user labels and `INBOX`/`UNREAD`), `users.labels.list`, `users.labels.create` | Apply and remove labels; file mail out of and back into the inbox; mark read. |
+| Unsubscribe by email | `users.messages.send` | When a sender only accepts unsubscribe requests by email, send the email the sender's List-Unsubscribe header asks for, from the user's account, after the user reviews it in full and presses Send. Never automatic, never to an address the sender didn't sign. |
 | Deep scan (manual, one message) | `users.messages.get` (`format=full`) for that one message | Extract links from the body to check for target/text mismatch. The body is discarded immediately and never stored or transmitted. |
 
 ### Why nothing narrower works
@@ -60,6 +61,7 @@ authorization, requested the first time a filter-backed feature is used.)
 | Keep sorted | `users.settings.filters.create` | Create a standing `from:` filter so future mail from that sender is auto-labelled and filed. |
 | Mute (local BlackHole) | `users.settings.filters.create` / `.delete` | A standing filter that hides all future mail from an address; reversible. |
 | Screener | `users.settings.filters.create` / `.delete`, `users.settings.filters.list` | Hold future mail from unknown senders under a label; release reverses the filter. |
+| Unsubscribe by email | `users.settings.sendAs.list` | Find which of the user's own addresses a list was sent to, so the unsubscribe email goes from that address. |
 | "Sort my inbox" → keep sorting | `users.settings.filters.create` / `.list` / `.delete` | One standing filter per domain-category bucket so the background sweep keeps sorting new mail server-side. |
 
 ### Why nothing narrower works

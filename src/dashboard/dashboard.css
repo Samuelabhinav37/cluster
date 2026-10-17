@@ -3628,3 +3628,91 @@ body {
   .kai-guide .kg-tag, .kg-tag-text, .kg-panel, .kg-msg, .kg-msg.typing i, .kai-list, .kai-here { animation: none; transition: none; }
   .kai-guide.thinking .kg-panel::before { animation: none; }
 }
+
+/* ── Unsubscribe by email: confirmation sheet (unsubscribeSheet.ts) ── */
+.unsub-sheet {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(80vh, 720px);
+  padding: 22px 22px 16px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  background: var(--glass-solid);
+  color: var(--label);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.unsub-sheet:not([open]) {
+  display: none;
+}
+.unsub-sheet::backdrop {
+  background: rgba(0, 0, 0, 0.32);
+}
+.unsub-title {
+  margin: 0;
+  font-size: 18px;
+}
+.unsub-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.unsub-section {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--label-4);
+}
+.unsub-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-sm);
+}
+.unsub-mail {
+  justify-content: flex-start;
+  cursor: pointer;
+}
+.unsub-item-text {
+  flex: 1;
+  min-width: 0;
+}
+.unsub-item-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.unsub-field {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+}
+.unsub-field-label {
+  flex: none;
+  width: 56px;
+  color: var(--label-4);
+}
+.unsub-field-value {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.unsub-question {
+  margin-top: 6px;
+}
+.unsub-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 6px;
+}
+
+/* Senders screen: seven filters wrap instead of overflowing; sort menu. */
+#sender-filter {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+}
+.sender-sort select {
+  min-height: 44px;
+}

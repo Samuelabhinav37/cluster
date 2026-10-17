@@ -24,7 +24,8 @@ export type ClusterLabelKey =
   | "screener"
   | "snoozed"
   | "suspicious"
-  | "readLater";
+  | "readLater"
+  | "unsubscribed";
 
 export interface ClusterLabelSpec {
   name: string;
@@ -60,6 +61,7 @@ export const CLUSTER_LABELS: Record<ClusterLabelKey, ClusterLabelSpec> = {
   snoozed: spec("💤 Snoozed", "Snoozed"),
   suspicious: spec("🚨 Possible phishing", "Possible Phishing"),
   readLater: spec("📖 Read later", "Read Later"),
+  unsubscribed: spec("📭 Unsubscribed"),
 };
 
 export function clusterLabelName(key: ClusterLabelKey): string {

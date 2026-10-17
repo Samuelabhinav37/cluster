@@ -45,7 +45,9 @@ headers, never the body of your mail.
 **What leaves your device**
 
 Verified unsubscribe requests go straight to the sender's own unsubscribe link, never to
-Cluster. Deep scan makes one outbound check of a link you're actively reviewing. Sorting/rules
+Cluster. When a sender only accepts an unsubscribe email, Cluster shows you each email (from,
+to, subject, body) and sends it from your account only after you press Send. It shows in your
+Sent folder. Deep scan makes one outbound check of a link you're actively reviewing. Sorting/rules
 features create a filter or rule inside your own Gmail or Outlook account, the same as if you'd
 made it yourself. Signing in talks only to Google's or Microsoft's own servers. That's the
 complete list — full disclosure at
@@ -54,7 +56,7 @@ complete list — full disclosure at
 **Why the requested permissions**
 
 Cluster requests only the Gmail/Outlook scopes each feature needs and nothing else (no Drive,
-Calendar, Contacts, or send/compose access) — the full per-scope justification is in
+Calendar or Contacts access, and it sends mail only for unsubscribe emails you approve) — the full per-scope justification is in
 [`docs/oauth-scope-justification.md`](https://github.com/Samuelabhinav37/cluster/blob/master/docs/oauth-scope-justification.md).
 
 Source: https://github.com/Samuelabhinav37/cluster

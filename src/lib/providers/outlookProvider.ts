@@ -1,11 +1,11 @@
 import { mapWithConcurrency } from "../concurrency";
-import { relationshipFields } from "../headerFields";
+import { deliveredToAddresses, relationshipFields } from "../headerFields";
 import { MAIL_ROW_VERSION } from "../mailIndex";
 import { fetchWithRetry } from "../httpRetry";
 import { parseListUnsubscribe } from "../unsubscribe";
 import { selectTrustedAuthenticationResults } from "../emailAuth";
 import { isRiskyAttachmentFilename } from "../riskyAttachments";
-import type { EmailProvider, NormalizedMessageMetadata } from "./emailProvider";
+import type { EmailProvider, NormalizedMessageMetadata, UnsubscribeDetails } from "./emailProvider";
 import { forceRefreshOutlookToken, getOutlookToken, isOutlookConnected } from "./msalAuth";
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
@@ -186,6 +186,76 @@ async function getMessageMetadata(token: string, id: string): Promise<Normalized
     threadId: data.conversationId,
     v: MAIL_ROW_VERSION,
   };
+}
+
+let junkFolderId: Promise<string | undefined> | undefined;
+
+async function getUnsubscribeDetails(token: string, id: string): Promise<UnsubscribeDetails> {
+  junkFolderId ??= graphFetch<{ id?: string }>("/me/mailFolders/junkemail?$select=id", token)
+    .then((folder) => folder.id)
+    .catch(() => {
+      junkFolderId = undefined;
+      return undefined;
+    });
+  const data = await graphFetch<GraphMessage & { parentFolderId?: string }>(
+    `/me/messages/${id}?$select=sender,internetMessageHeaders,parentFolderId`,
+    token,
+  );
+  const headers: { name: string; value: string }[] = data.internetMessageHeaders ?? [];
+  const find = (name: string) => headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value;
+  const findAll = (name: string) =>
+    headers.filter((h) => h.name.toLowerCase() === name.toLowerCase()).map((h) => h.value);
+  const fromAddress = (data.sender?.emailAddress?.address ?? "").toLowerCase();
+  const authenticationResults = findAll("Authentication-Results");
+  const dkimSignatures = findAll("DKIM-Signature");
+  const junk = await junkFolderId;
+  return {
+    messageId: id,
+    fromAddress,
+    inSpam: Boolean(junk && data.parentFolderId === junk),
+    unsubscribe: parseListUnsubscribe(find("List-Unsubscribe"), find("List-Unsubscribe-Post"), {
+      provider: "outlook",
+      fromAddress,
+      authenticationResults,
+      dkimSignatures,
+    }),
+    dkimSignatures,
+    authenticationResults,
+    returnPathDomain: relationshipFields(find).returnPathDomain,
+    deliveredTo: deliveredToAddresses(find),
+  };
+}
+
+/** The signed-in Outlook account's own addresses. */
+export async function outlookAccountAddresses(token: string): Promise<string[]> {
+  const me = await graphFetch<{ mail?: string; userPrincipalName?: string }>(
+    "/me?$select=mail,userPrincipalName",
+    token,
+  );
+  return [...new Set([me.mail, me.userPrincipalName].filter((a): a is string => Boolean(a?.includes("@"))))].map(
+    (a) => a.toLowerCase(),
+  );
+}
+
+/**
+ * Saves an unsubscribe email as a draft (Mail.ReadWrite, no send permission)
+ * and returns its Outlook on the web link, so the user sends it themselves.
+ */
+export async function createOutlookDraft(
+  token: string,
+  mail: { to: string; subject: string; body: string },
+): Promise<{ id: string; webLink?: string }> {
+  const draft = await graphFetch<{ id?: string; webLink?: string }>("/me/messages", token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      subject: mail.subject,
+      body: { contentType: "Text", content: mail.body },
+      toRecipients: [{ emailAddress: { address: mail.to } }],
+    }),
+  });
+  if (!draft.id) throw new Error("Outlook returned no draft id");
+  return { id: draft.id, webLink: draft.webLink };
 }
 
 interface GraphBatchRequest {
@@ -615,6 +685,7 @@ export const outlookProvider: EmailProvider = {
   listCandidateMessages,
   listIncrementalMessages,
   getMessageMetadata,
+  getUnsubscribeDetails,
   trashMessages,
   untrashMessages,
   archiveMessages,

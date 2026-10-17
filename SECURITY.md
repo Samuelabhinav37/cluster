@@ -192,6 +192,17 @@ recipient addresses. The endpoint must be HTTPS. See `src/lib/athenaIntegration.
   connected provider; sender-injected copies are ignored. Automatic one-click
   unsubscribe additionally requires a passing aligned DKIM signature covering
   both RFC 8058 headers, uses a credential-free POST, and rejects redirects.
+- Mailto unsubscribe emails are sent only from a confirmation sheet that shows
+  each message in full, after the user presses Send; nothing is sent in the
+  background except to finish a run the user already approved. The mailto URL
+  must parse under RFC 6068 with one recipient and only subject and body (cc,
+  bcc, extra recipients, unknown fields and header line breaks are refused).
+  The message must not be in Spam, the provider's sender checks must not
+  fail, a provider-verified DKIM signature must cover `List-Unsubscribe`, and
+  the address must belong to the From domain, a passing signer, the SPF-passed
+  envelope domain or a listed mailing service. Sends are spaced 3 seconds
+  apart, capped at 20 a run and 100 a day, and stop on limits, failures or
+  bounces (`mailtoGate.ts`, `unsubscribeQueue.ts`).
 - "New since Cluster started tracking" is judged against a local provider +
   address ledger (`settingsStore.knownSenders`). The first scan seeds the
   baseline without labeling every existing sender as new.

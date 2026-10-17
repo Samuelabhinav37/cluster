@@ -258,7 +258,7 @@ describe("domain grouping", () => {
     expect(buildDomainGroups(list).filter((g) => g.domain === "substack.com")).toHaveLength(2);
   });
 
-  it.fails("KNOWN GAP: proton.me / me.com personal senders are grouped by domain", async () => {
+  it("proton.me / me.com personal senders are not grouped by domain (fixed by freeMail.ts)", async () => {
     const list = await senders([...many(2, { fromAddress: "a@proton.me" }), ...many(2, { fromAddress: "b@proton.me" })]);
     expect(buildDomainGroups(list).filter((g) => g.domain === "proton.me")).toHaveLength(2);
   });
@@ -293,9 +293,10 @@ describe("List-Unsubscribe parsing", () => {
     expect(parseListUnsubscribe("<http://x.example/u>, <https://x.example/u>, <mailto:u@x.example>", undefined)).toEqual({
       httpUrl: "https://x.example/u",
       mailto: "mailto:u@x.example",
+      mailtoParts: { to: "u@x.example" },
     });
   });
-  it.fails("KNOWN BUG: a comma inside a URL drops the https unsubscribe link", () => {
+  it("a comma inside a URL stays part of the https unsubscribe link", () => {
     expect(parseListUnsubscribe("<https://x.example/u?lists=a,b&id=9>", undefined).httpUrl).toBe(
       "https://x.example/u?lists=a,b&id=9",
     );

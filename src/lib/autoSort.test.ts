@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildSortPlan, totalPlanCount } from "./autoSort";
+import { buildSortPlan, kindFromSender, totalPlanCount } from "./autoSort";
+import { meta, senders } from "../test/mailFixtures";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import type { MessageKind } from "./messageKind";
 
@@ -115,5 +116,24 @@ describe("buildSortPlan", () => {
       { "hello@unknown.example": "finance" },
     );
     expect(plan.map((e) => e.bucket)).toEqual(["finance"]);
+  });
+});
+
+describe("buildSortPlan with sender kinds", () => {
+  it("files every message from a shipping sender together, never into codes", async () => {
+    const list = await senders([
+      meta({ fromAddress: "ship@store.example", subject: "Your order has shipped", unsubscribe: {} }),
+      meta({ fromAddress: "ship@store.example", subject: "Thanks for your receipt", unsubscribe: {} }),
+      meta({ fromAddress: "ship@store.example", subject: "Your verification code is 123456", unsubscribe: {} }),
+    ]);
+    const plan = buildSortPlan(list, {}, {}, new Map([["gmail:ship@store.example", "shipping" as const]]));
+    const byBucket = Object.fromEntries(plan.map((e) => [e.bucket, e.count]));
+    expect(byBucket).toEqual({ shipping: 2, otp: 1 });
+  });
+
+  it("leaves a mixed sender to each message's own kind", () => {
+    expect(kindFromSender("mixed", "receipt")).toBe("receipt");
+    expect(kindFromSender("list", "shipping")).toBe("newsletter");
+    expect(kindFromSender("otp", "other")).toBe("other");
   });
 });

@@ -11,6 +11,8 @@ import type { EmailProvider, ProviderId } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { outlookProvider } from "../lib/providers/outlookProvider";
 import type { SenderSummary } from "../lib/senderModel";
+import type { SenderProfile } from "../lib/senderProfile";
+import type { ReplyKind } from "../lib/unsubscribeReplies";
 import type { ClusterSettings } from "../lib/settingsStore";
 
 export const providerById = new Map<ProviderId, EmailProvider>([
@@ -21,9 +23,18 @@ export const providerById = new Map<ProviderId, EmailProvider>([
 // Gmail is always active; Outlook is pushed in once connected (main()).
 export const activeProviders: EmailProvider[] = [gmailProvider];
 
-export const ctx: { settings: ClusterSettings; senders: SenderSummary[] } = {
+export const ctx: {
+  settings: ClusterSettings;
+  senders: SenderSummary[];
+  /** Sender profiles from the mail index (senderProfile.ts), by sender key. */
+  profiles: Map<string, SenderProfile>;
+  /** Replies to each unsubscribe request, by sender key (unsubscribeReplies.ts). */
+  unsubscribeReplies: Map<string, ReplyKind[]>;
+} = {
   settings: undefined as never,
   senders: [],
+  profiles: new Map(),
+  unsubscribeReplies: new Map(),
 };
 
 export type LogActionFn = (

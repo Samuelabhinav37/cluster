@@ -43,6 +43,7 @@ export function gmailQuotaCost(path: string, method: string): number {
   if (/\/labels\/[^/]+$/.test(p)) return 5; // labels.get/update/delete
   if (p.endsWith("/settings/filters")) return method === "POST" ? 5 : 1; // create : list
   if (/\/settings\/filters\/[^/]+$/.test(p)) return 5; // filters.get/delete
+  if (p.endsWith("/settings/sendAs")) return 1; // sendAs.list
   return DEFAULT_CALL_COST;
 }
 
@@ -369,7 +370,14 @@ export interface RawMessageMetadata {
   header: (name: string) => string | undefined;
 }
 
-export async function getMessageMetadata(token: string, id: string): Promise<RawMessageMetadata> {
+/** Extra headers read only when the user unsubscribes (see getUnsubscribeDetails). */
+export const UNSUBSCRIBE_DETAIL_HEADERS = ["Delivered-To", "X-Original-To"];
+
+export async function getMessageMetadata(
+  token: string,
+  id: string,
+  extraHeaders: readonly string[] = [],
+): Promise<RawMessageMetadata> {
   const params = new URLSearchParams({ format: "metadata" });
   for (const header of [
     "From",
@@ -382,6 +390,7 @@ export async function getMessageMetadata(token: string, id: string): Promise<Raw
     "Precedence",
     "Auto-Submitted",
     ...RELATIONSHIP_HEADERS,
+    ...extraHeaders,
   ]) {
     params.append("metadataHeaders", header);
   }
@@ -824,4 +833,43 @@ export async function getMessageLinks(token: string, id: string): Promise<Extrac
   const htmlData = data.payload ? findHtmlPartData(data.payload) : null;
   if (!htmlData) return [];
   return extractLinksFromHtml(decodeBase64Url(htmlData));
+}
+
+export interface SendAsIdentity {
+  address: string;
+  isPrimary: boolean;
+}
+
+/** The addresses this Gmail account can send as (settings.sendAs.list).
+ * Only verified aliases are returned; the primary address always is. */
+export async function listSendAs(token: string): Promise<SendAsIdentity[]> {
+  const data = await gmailFetch<{
+    sendAs?: { sendAsEmail?: string; isPrimary?: boolean; verificationStatus?: string }[];
+  }>("/users/me/settings/sendAs", token);
+  return (data.sendAs ?? [])
+    .filter((s) => s.sendAsEmail && (s.isPrimary || s.verificationStatus === "accepted"))
+    .map((s) => ({ address: s.sendAsEmail!.toLowerCase(), isPrimary: Boolean(s.isPrimary) }));
+}
+
+/** Sends one message (users.messages.send, 100 units). `raw` is base64url
+ * RFC 5322. Gmail files the sent copy under SENT. */
+export async function sendRawMessage(
+  token: string,
+  raw: string,
+): Promise<{ id: string; threadId?: string; labelIds: string[] }> {
+  const data = await gmailFetch<{ id?: string; threadId?: string; labelIds?: string[] }>("/users/me/messages/send", token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ raw }),
+  });
+  if (!data.id) throw new Error("Gmail send returned no message id");
+  return { id: data.id, threadId: data.threadId, labelIds: data.labelIds ?? [] };
+}
+
+/** True when a sent message to `to` already exists from the last day, used
+ * to avoid sending twice after an interrupted send. */
+export async function hasRecentSentTo(token: string, to: string): Promise<boolean> {
+  const params = new URLSearchParams({ q: `in:sent to:(${to}) newer_than:1d`, maxResults: "1" });
+  const data = await gmailFetch<{ messages?: { id: string }[] }>(`/users/me/messages?${params}`, token);
+  return (data.messages ?? []).length > 0;
 }

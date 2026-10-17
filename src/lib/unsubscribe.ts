@@ -6,7 +6,17 @@ export interface UnsubscribeInfo {
   postUrl?: string;
   /** RFC 2369 link that only supports GET — opens a page, may need confirmation. */
   httpUrl?: string;
+  /** The mailto URL as the header gave it (RFC 2369). */
   mailto?: string;
+  /** That URL parsed under RFC 6068, when it is safe to send as is: one
+   * recipient, and no fields other than subject and body. */
+  mailtoParts?: MailtoParts;
+}
+
+export interface MailtoParts {
+  to: string;
+  subject?: string;
+  body?: string;
 }
 
 export interface OneClickVerificationContext {
@@ -51,26 +61,96 @@ function domainsAlign(a: string, b: string): boolean {
   return a === b || a.endsWith(`.${b}`) || b.endsWith(`.${a}`);
 }
 
+/**
+ * Signing domains of DKIM signatures that the provider says passed and that
+ * cover every one of `headers`. Only the provider's own
+ * Authentication-Results count, so a sender can't vouch for itself.
+ */
+export function passingSignersCovering(context: OneClickVerificationContext, headers: readonly string[]): string[] {
+  const passedDomains = passingDkimDomains(context);
+  if (passedDomains.size === 0) return [];
+  const out: string[] = [];
+  for (const signature of context.dkimSignatures) {
+    const signingDomain = dkimTag(signature, "d")?.toLowerCase().replace(/\.$/, "");
+    const signedHeaders = (dkimTag(signature, "h") ?? "").split(":").map((header) => header.trim().toLowerCase());
+    if (signingDomain && passedDomains.has(signingDomain) && headers.every((h) => signedHeaders.includes(h))) {
+      out.push(signingDomain);
+    }
+  }
+  return out;
+}
+
 /** Conservative RFC 8058 verification using only provider-supplied metadata. */
 export function hasVerifiedOneClickSignature(context: OneClickVerificationContext): boolean {
   const fromDomain = context.fromAddress.toLowerCase().split("@").pop() ?? "";
   if (!fromDomain) return false;
-  const passedDomains = passingDkimDomains(context);
-  if (passedDomains.size === 0) return false;
+  return passingSignersCovering(context, ["list-unsubscribe", "list-unsubscribe-post"]).some((domain) =>
+    domainsAlign(domain, fromDomain),
+  );
+}
 
-  return context.dkimSignatures.some((signature) => {
-    const signingDomain = dkimTag(signature, "d")?.toLowerCase().replace(/\.$/, "");
-    const signedHeaders = (dkimTag(signature, "h") ?? "")
-      .split(":")
-      .map((header) => header.trim().toLowerCase());
-    return Boolean(
-      signingDomain &&
-      passedDomains.has(signingDomain) &&
-      domainsAlign(signingDomain, fromDomain) &&
-      signedHeaders.includes("list-unsubscribe") &&
-      signedHeaders.includes("list-unsubscribe-post"),
-    );
-  });
+const ADDRESS_RE = /^[^\s@<>(),;:"[\]]+@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i;
+const LINE_BREAK = /[\r\n]/;
+
+function decodeOnce(value: string): string | undefined {
+  try {
+    // RFC 6068: percent-decode once, as UTF-8. A "+" is a literal plus.
+    return decodeURIComponent(value);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Reads a mailto URL under RFC 6068 and returns it only when it is safe to
+ * send for the user: exactly one recipient, and no header fields other than
+ * subject and body. Cc, bcc, extra recipients, unknown fields and line
+ * breaks outside the body are refused, as RFC 6068 asks clients to treat
+ * them as suspect.
+ */
+export function parseMailto(url: string): MailtoParts | undefined {
+  if (!/^mailto:/i.test(url)) return undefined;
+  const rest = url.slice("mailto:".length);
+  const q = rest.indexOf("?");
+  const toPart = q === -1 ? rest : rest.slice(0, q);
+  const recipients = toPart.split(",").map((a) => decodeOnce(a.trim()));
+  if (recipients.length !== 1 || !recipients[0]) return undefined;
+  const to = recipients[0].toLowerCase();
+  if (!ADDRESS_RE.test(to)) return undefined;
+  const parts: MailtoParts = { to };
+  if (q !== -1) {
+    for (const field of rest.slice(q + 1).split("&")) {
+      if (!field) continue;
+      const eq = field.indexOf("=");
+      const name = decodeOnce(eq === -1 ? field : field.slice(0, eq))?.toLowerCase();
+      const value = decodeOnce(eq === -1 ? "" : field.slice(eq + 1));
+      if (name === undefined || value === undefined) return undefined;
+      if (name === "subject" && parts.subject === undefined && !LINE_BREAK.test(value)) parts.subject = value;
+      else if (name === "body" && parts.body === undefined) parts.body = value;
+      else return undefined;
+    }
+  }
+  return parts;
+}
+
+/** The bracketed items of a List-Unsubscribe header, in order, stopping at
+ * the first one that isn't well formed (RFC 2369). Commas inside a URL stay
+ * part of it, and whitespace inside the brackets is dropped. */
+export function listUnsubscribeItems(headerValue: string): string[] {
+  const items: string[] = [];
+  let i = 0;
+  while (i < headerValue.length) {
+    while (i < headerValue.length && /[\s,]/.test(headerValue[i])) i += 1;
+    if (i >= headerValue.length) break;
+    if (headerValue[i] !== "<") break;
+    const close = headerValue.indexOf(">", i);
+    if (close === -1) break;
+    const value = headerValue.slice(i + 1, close).replace(/\s+/g, "");
+    if (!value) break;
+    items.push(value);
+    i = close + 1;
+  }
+  return items;
 }
 
 export function parseListUnsubscribe(
@@ -81,14 +161,14 @@ export function parseListUnsubscribe(
   const info: UnsubscribeInfo = {};
   if (!headerValue) return info;
 
-  for (const entry of headerValue.split(",").map((s) => s.trim())) {
-    const match = entry.match(/^<(.+)>$/);
-    if (!match) continue;
-    const value = match[1];
-    if (value.startsWith("mailto:")) {
+  for (const value of listUnsubscribeItems(headerValue)) {
+    if (/^mailto:/i.test(value)) {
+      if (info.mailto) continue;
       info.mailto = value;
-    } else if (value.startsWith("https:")) {
-      info.httpUrl = value;
+      const parts = parseMailto(value);
+      if (parts) info.mailtoParts = parts;
+    } else if (/^https:/i.test(value)) {
+      if (!info.httpUrl) info.httpUrl = value;
     }
     // A plain http:// unsubscribe link is dropped: RFC 8058 one-click requires
     // HTTPS, firing it would leak the unsubscribe token in cleartext, and it's

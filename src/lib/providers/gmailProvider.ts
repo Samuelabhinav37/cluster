@@ -6,6 +6,7 @@ import {
   getAuthToken as gmailGetAuthToken,
   getMessageLinks as fetchGmailMessageLinks,
   getMessageMetadata as fetchGmailMessageMetadata,
+  UNSUBSCRIBE_DETAIL_HEADERS,
   getCurrentHistoryId,
   getProfileEmail,
   getSentRecord as apiGetSentRecord,
@@ -32,7 +33,7 @@ import {
   untrashMessages as apiUntrashMessages,
 } from "../gmailApi";
 import { parseListUnsubscribe } from "../unsubscribe";
-import { relationshipFields } from "../headerFields";
+import { deliveredToAddresses, relationshipFields } from "../headerFields";
 import { MAIL_ROW_VERSION } from "../mailIndex";
 import { clusterLabelName } from "../clusterLabels";
 import { selectTrustedAuthenticationResults } from "../emailAuth";
@@ -189,6 +190,27 @@ export const gmailProvider: EmailProvider = {
       ...relationshipFields(header),
       threadId,
       v: MAIL_ROW_VERSION,
+    };
+  },
+
+  async getUnsubscribeDetails(token, id) {
+    const { headers, authenticationResultsHeaders, dkimSignatures, labelIds, header } =
+      await fetchGmailMessageMetadata(token, id, UNSUBSCRIBE_DETAIL_HEADERS);
+    const { address } = parseFrom(headers.From ?? "");
+    return {
+      messageId: id,
+      fromAddress: address,
+      inSpam: labelIds.includes("SPAM"),
+      unsubscribe: parseListUnsubscribe(headers["List-Unsubscribe"], headers["List-Unsubscribe-Post"], {
+        provider: "gmail",
+        fromAddress: address,
+        authenticationResults: authenticationResultsHeaders,
+        dkimSignatures,
+      }),
+      dkimSignatures,
+      authenticationResults: authenticationResultsHeaders,
+      returnPathDomain: relationshipFields(header).returnPathDomain,
+      deliveredTo: deliveredToAddresses(header),
     };
   },
 

@@ -2,11 +2,31 @@ import type { ScamWeek } from "./scamHistory";
 import type { ProviderId } from "./providers/emailProvider";
 import type { ClusterRule } from "./rules";
 import type { ActionLogEntry } from "./actionLog";
-import type { SenderEngagementMap } from "./engagementModel";
+import { normalizeEngagementRecord, type SenderEngagementMap } from "./engagementModel";
 import { DEFAULT_INBOX_HOURS, type SortOverride } from "./sortTaxonomy";
 import type { QuarantineReviewMap } from "./quarantineReview";
 import { withStorageLock } from "./storageLock";
 import { migrateStoredLabelNames } from "./clusterLabels";
+
+export type UnsubscribeMethod = "one-click" | "mailto";
+
+export interface UnsubscribeRequestRecord {
+  requestedAt: number;
+  provider: ProviderId;
+  /** How it was asked. Older records have none and were one-click. */
+  method?: UnsubscribeMethod;
+  /** The address a mailto request was sent from. */
+  from?: string;
+  sentMessageId?: string;
+  /** Thread of the sent request, where a bounce would land. */
+  sentThreadId?: string;
+  /** The address a mailto request went to. */
+  to?: string;
+  /** The Gmail filter that files their later list mail (unsubscribeBackstop.ts). */
+  filterId?: string;
+  /** The Gmail filter sending their later mail to Trash, once they kept sending. */
+  trashFilterId?: string;
+}
 
 export interface ClusterSettings {
   schemaVersion: number;
@@ -15,7 +35,7 @@ export interface ClusterSettings {
   collapsedSenderCategories: string[];
   collapsedDomainCategories: string[];
   // Keyed the same way SenderSummary.key is built (`${provider}:${address}`).
-  unsubscribeRequests: Record<string, { requestedAt: number; provider: ProviderId }>;
+  unsubscribeRequests: Record<string, UnsubscribeRequestRecord>;
   fastPermanentDeleteEnabled: boolean;
   onboardingDismissed: boolean;
   // Gmail-only — keyed by message id (see gmailApi.snoozeMessages).
@@ -145,7 +165,7 @@ export interface HealthSnapshot {
 }
 
 const STORAGE_KEY = "clusterSettings";
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 13;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 14;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -292,6 +312,17 @@ function migrateSettings(value: unknown): Record<string, unknown> {
         autoSort: { ...autoSort, filterSpecByBucket: {}, timeLimitsEnabled: false },
       };
       version = 13;
+    } else if (version === 13) {
+      // Engagement now comes from the mail index; keep only the feedback
+      // counts of each sender's record.
+      const engagement = isRecord(stored.senderEngagement) ? stored.senderEngagement : {};
+      const feedback: SenderEngagementMap = {};
+      for (const [key, record] of Object.entries(engagement)) {
+        const normalized = normalizeEngagementRecord(record);
+        if (normalized) feedback[key] = normalized;
+      }
+      stored = { ...stored, schemaVersion: 14, senderEngagement: feedback };
+      version = 14;
     }
   }
   return stored;

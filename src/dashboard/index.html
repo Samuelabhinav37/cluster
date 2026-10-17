@@ -319,7 +319,7 @@
               </label>
               <p class="note-strip">
                 New mail gets its label straight away, even with Chrome closed. Moving it out of your
-                inbox when its time is up happens every 15 minutes while Chrome is open.
+                inbox when its time is up happens every 5 minutes while Chrome is open.
               </p>
               <div id="time-limits-rows" class="limit-rows"></div>
               <div class="tidy-actions">
@@ -399,10 +399,23 @@
               </label>
               <div class="segmented" id="sender-filter" role="group" aria-label="Filter senders">
                 <button type="button" data-filter="all" aria-pressed="true">All</button>
-                <button type="button" data-filter="never" aria-pressed="false">Never opened</button>
+                <button type="button" data-filter="people" aria-pressed="false">People</button>
+                <button type="button" data-filter="companies" aria-pressed="false">Companies</button>
                 <button type="button" data-filter="subs" aria-pressed="false">Subscriptions</button>
+                <button type="button" data-filter="never" aria-pressed="false">Never opened</button>
+                <button type="button" data-filter="quiet" aria-pressed="false">Gone quiet</button>
                 <button type="button" data-filter="muted" aria-pressed="false">Muted</button>
               </div>
+              <label class="sender-sort">
+                <select id="sender-sort" aria-label="Sort senders">
+                  <option value="volume">Most mail</option>
+                  <option value="unread">Most unread</option>
+                  <option value="newest">Newest</option>
+                  <option value="leastOpened">Least opened</option>
+                  <option value="lastOpened">Longest since opened</option>
+                  <option value="people">People first</option>
+                </select>
+              </label>
             </div>
 
             <div id="all-senders-list"></div>
@@ -438,8 +451,10 @@
                   <select id="subs-outcome-filter">
                     <option value="all">all</option>
                     <option value="still-sending">still sending</option>
-                    <option value="pending">pending</option>
-                    <option value="quiet">quiet in scan</option>
+                    <option value="failed">didn't reach them</option>
+                    <option value="needs-you">needs your click</option>
+                    <option value="pending">waiting</option>
+                    <option value="quiet">stopped</option>
                     <option value="untracked">not requested</option>
                   </select>
                 </label>
