@@ -68,10 +68,16 @@ vi.mock("./lib/expiryTriage", () => ({
   totalExpiryCount: () => 0,
 }));
 vi.mock("./lib/snoozeFilter", () => ({ excludeSnoozedMessages: (s: unknown) => s }));
+const refreshSentCorrespondents = vi.fn(async (settings: { sentCorrespondents: unknown }) => settings.sentCorrespondents);
 vi.mock("./lib/screener", () => ({
-  knownSenderSet: () => new Set(),
+  // Same contract as the real knownSenderSet: allow-list plus sent-to addresses.
+  knownSenderSet: (s: { screenerAllowlist?: string[]; sentCorrespondents?: { addresses?: string[] } }) =>
+    new Set(
+      [...(s.screenerAllowlist ?? []), ...(s.sentCorrespondents?.addresses ?? [])].map((a) => a.toLowerCase()),
+    ),
   pendingScreenerSenders: () => [],
   sentCorrespondentsStale: () => false,
+  refreshSentCorrespondents,
 }));
 vi.mock("./lib/settingsStore", () => ({
   getSettings: async () => SETTINGS,
@@ -90,6 +96,15 @@ vi.mock("./lib/providers/gmailProvider", () => ({
 vi.mock("./lib/providers/outlookProvider", () => ({
   outlookProvider: { id: "outlook", isConnected: () => Promise.resolve(false) },
 }));
+const refreshBrandDomains = vi.fn(async () => true);
+vi.mock("./lib/threatSignals", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./lib/threatSignals")>();
+  return { ...actual, refreshBrandDomains };
+});
+const refreshMalwareBlocklist = vi.fn(async () => true);
+vi.mock("./lib/blocklist", () => ({ refreshMalwareBlocklist }));
+const refreshSpamList = vi.fn(async () => true);
+vi.mock("./lib/spamList", () => ({ refreshSpamList }));
 
 // ── chrome stub with listener capture ────────────────────────────────────
 type AlarmCb = (a: { name: string }) => void;
@@ -97,6 +112,9 @@ let alarmListener: AlarmCb | undefined;
 const setBadgeText = vi.fn(async () => {});
 const setBadgeBackgroundColor = vi.fn(async () => {});
 const alarmsCreate = vi.fn();
+type InstalledCb = (d?: { reason: string }) => void;
+let installedListener: InstalledCb | undefined;
+const tabsCreate = vi.fn();
 
 beforeEach(async () => {
   vi.clearAllMocks();
@@ -108,7 +126,12 @@ beforeEach(async () => {
   (globalThis as unknown as { chrome: unknown }).chrome = {
     runtime: {
       getURL: (p: string) => p,
-      onInstalled: { addListener: (fn: () => void) => fn() },
+      onInstalled: {
+        addListener: (fn: InstalledCb) => {
+          installedListener = fn;
+          fn(undefined);
+        },
+      },
       onStartup: { addListener: () => {} },
     },
     action: {
@@ -120,7 +143,7 @@ beforeEach(async () => {
       create: alarmsCreate,
       onAlarm: { addListener: (fn: AlarmCb) => (alarmListener = fn) },
     },
-    tabs: { query: async () => [], create: () => {}, update: () => {} },
+    tabs: { query: async () => [], create: tabsCreate, update: () => {} },
   };
 
   vi.resetModules();
@@ -130,35 +153,70 @@ beforeEach(async () => {
 const settleTriage = () =>
   vi.waitFor(() => expect(updateSettings).toHaveBeenCalled(), { timeout: 2000, interval: 10 });
 
+describe("install", () => {
+  it("opens the dashboard on a fresh install, so the welcome screen is the first thing seen", async () => {
+    installedListener?.({ reason: "install" });
+    await vi.waitFor(() =>
+      expect(tabsCreate).toHaveBeenCalledWith({ url: "src/dashboard/index.html" }),
+    );
+  });
+
+  it("stays silent on an extension or Chrome update", async () => {
+    installedListener?.({ reason: "update" });
+    installedListener?.({ reason: "chrome_update" });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(tabsCreate).not.toHaveBeenCalled();
+  });
+});
+
 describe("alarm routing", () => {
-  it("registers the three alarms on install", () => {
+  it("registers the four alarms on install", () => {
     expect(alarmsCreate).toHaveBeenCalledWith("cluster-triage", expect.any(Object));
     expect(alarmsCreate).toHaveBeenCalledWith("cluster-athena-flush", expect.any(Object));
     expect(alarmsCreate).toHaveBeenCalledWith("cluster-jobs", expect.any(Object));
+    expect(alarmsCreate).toHaveBeenCalledWith("cluster-dataset-refresh", expect.any(Object));
   });
 
   it("the triage alarm resurfaces due snoozes and starts a triage pass", async () => {
     alarmListener!({ name: "cluster-triage" });
-    expect(resurfaceDueSnoozed).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(resurfaceDueSnoozed).toHaveBeenCalledTimes(1));
     await settleTriage();
   });
 
-  it("the athena alarm flushes queued events and nothing else", () => {
+  it("the athena alarm flushes queued events and nothing else", async () => {
     alarmListener!({ name: "cluster-athena-flush" });
-    expect(flushAthenaSecurityEvents).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(flushAthenaSecurityEvents).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(resurfaceDueSnoozed).not.toHaveBeenCalled();
   });
 
-  it("the jobs alarm resumes interrupted durable jobs", () => {
+  it("the jobs alarm resumes interrupted durable jobs", async () => {
     alarmListener!({ name: "cluster-jobs" });
-    expect(resumeInterruptedJobs).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(resumeInterruptedJobs).toHaveBeenCalledTimes(1));
   });
 
-  it("ignores an unknown alarm name", () => {
+  it("ignores an unknown alarm name", async () => {
     alarmListener!({ name: "something-else" });
+    await new Promise((resolve) => setTimeout(resolve, 0)); // let the routing run
     expect(resurfaceDueSnoozed).not.toHaveBeenCalled();
     expect(flushAthenaSecurityEvents).not.toHaveBeenCalled();
     expect(resumeInterruptedJobs).not.toHaveBeenCalled();
+  });
+
+  it("the dataset-refresh alarm refreshes all three public datasets independently", async () => {
+    alarmListener!({ name: "cluster-dataset-refresh" });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(refreshBrandDomains).toHaveBeenCalledTimes(1);
+    expect(refreshMalwareBlocklist).toHaveBeenCalledTimes(1);
+    expect(refreshSpamList).toHaveBeenCalledTimes(1);
+  });
+
+  it("one dataset refresh failing does not block the others", async () => {
+    refreshBrandDomains.mockRejectedValueOnce(new Error("offline"));
+    alarmListener!({ name: "cluster-dataset-refresh" });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(refreshMalwareBlocklist).toHaveBeenCalledTimes(1);
+    expect(refreshSpamList).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -191,6 +249,10 @@ describe("runBackgroundTriage guard rails", () => {
     expect(summaryPatch?.lastTriageSummary).toContain("ready to clean up");
     // total + held = 0 → badge cleared, not set to a number
     expect(setBadgeText).toHaveBeenCalledWith({ text: "" });
+    // The known-correspondent refresh now runs every triage pass regardless
+    // of screenerEnabled (SETTINGS above has it false) -- it feeds the
+    // general protection gate, not just the opt-in Screener.
+    expect(refreshSentCorrespondents).toHaveBeenCalledTimes(1);
   });
 
   it("swallows a scan failure instead of letting it reject out of the alarm", async () => {
@@ -198,5 +260,123 @@ describe("runBackgroundTriage guard rails", () => {
     expect(() => alarmListener!({ name: "cluster-triage" })).not.toThrow();
     await new Promise((r) => setTimeout(r, 30));
     expect(setBadgeText).not.toHaveBeenCalled();
+  });
+});
+
+describe("auto-quarantine (opt-in)", () => {
+  const highRiskSender = (address: string) => ({
+    key: `gmail:${address}`,
+    provider: "gmail",
+    address,
+    displayName: "Chase Miller",
+    count: 2,
+    messageIds: ["q1", "q2"],
+    protectedMessageIds: [],
+    unsubscribe: {},
+    messages: [],
+    threatSignals: [{ kind: "freemail-brand-claim", brand: "chase", confidence: "high" }],
+    authVerdicts: { spf: "pass", dkim: "pass", dmarc: "pass" },
+    firstContact: false,
+  });
+
+  const labelSuspiciousSpy = async () =>
+    ((await import("./lib/providers/gmailProvider")).gmailProvider as unknown as { labelSuspicious: ReturnType<typeof vi.fn> })
+      .labelSuspicious;
+
+  async function triageWith(
+    sender: ReturnType<typeof highRiskSender>,
+    sentTo: string[],
+    extraSettings: Record<string, unknown> = {},
+  ) {
+    (await labelSuspiciousSpy()).mockClear();
+    const saved = { ...SETTINGS };
+    Object.assign(SETTINGS, {
+      autoQuarantineHighRisk: true,
+      quarantineReview: {},
+      quarantinedSenders: {},
+      sentCorrespondents: { addresses: sentTo, fetchedAt: Date.now() },
+      ...extraSettings,
+    });
+    buildIncrementalSenderSummaries.mockResolvedValueOnce({
+      senders: [sender] as never[],
+      cursors: {},
+      resetProviders: [],
+      changedMessageCount: 2,
+    });
+    try {
+      alarmListener!({ name: "cluster-triage" });
+      await settleTriage();
+      await new Promise((r) => setTimeout(r, 30));
+    } finally {
+      for (const k of Object.keys(SETTINGS)) delete (SETTINGS as Record<string, unknown>)[k];
+      Object.assign(SETTINGS, saved);
+    }
+  }
+
+  it("quarantines an unknown high-risk sender when the setting is on", async () => {
+    await triageWith(highRiskSender("stranger@gmail.com"), []);
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"]);
+  });
+
+  // Audit finding (fixed in R0 B8): someone you email, here a friend whose
+  // name contains a brand word, was filed out of the inbox as phishing.
+  it("leaves mail from someone the user corresponds with alone", async () => {
+    await triageWith(highRiskSender("chase.miller@gmail.com"), ["chase.miller@gmail.com"]);
+    expect(await labelSuspiciousSpy()).not.toHaveBeenCalled();
+  });
+
+  // A supplier you write to sends one email that is signed by a new domain
+  // and asks for replies elsewhere: hold that email, not their history.
+  const hijacked = (address: string) =>
+    ({
+      ...highRiskSender(address),
+      displayName: "Acme Billing",
+      messageIds: ["old1", "old2", "bad"],
+      threatSignals: [
+        { kind: "identity-change", brand: "acme-pay.example", confidence: "medium", messageIds: ["bad"] },
+        { kind: "reply-to-mismatch", brand: "gmail.com", confidence: "medium", messageIds: ["bad"] },
+      ],
+    }) as unknown as ReturnType<typeof highRiskSender>;
+
+  it("holds only the hijacked message from someone the user corresponds with", async () => {
+    await triageWith(hijacked("billing@acme.example"), ["billing@acme.example"]);
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["bad"]);
+  });
+
+  it("records what it held in the weekly scam history", async () => {
+    mutateSettings.mockClear();
+    await triageWith(hijacked("billing@acme.example"), ["billing@acme.example"]);
+    const base = { scamHistory: [], quarantinedSenders: {}, actionLog: [] };
+    const written = mutateSettings.mock.calls
+      .map(([fn]) => (fn ? (fn(base) as { scamHistory?: unknown[] }) : {}))
+      .find((next) => Array.isArray(next.scamHistory) && next.scamHistory.length > 0);
+    expect(written?.scamHistory).toEqual([
+      expect.objectContaining({ held: 1, kinds: { "identity-change": 1, "reply-to-mismatch": 1 }, brands: {} }),
+    ]);
+  });
+
+  it("doesn't hold a message when its two signals came from different messages", async () => {
+    const split = {
+      ...hijacked("billing@acme.example"),
+      threatSignals: [
+        { kind: "identity-change", brand: "acme-pay.example", confidence: "medium", messageIds: ["old1"] },
+        { kind: "reply-to-mismatch", brand: "gmail.com", confidence: "medium", messageIds: ["old2"] },
+      ],
+    } as unknown as ReturnType<typeof highRiskSender>;
+    await triageWith(split, []);
+    expect(await labelSuspiciousSpy()).not.toHaveBeenCalled();
+  });
+
+  it("doesn't label a message again once it's held, so moving it back in Gmail sticks", async () => {
+    await triageWith(highRiskSender("stranger@gmail.com"), [], {
+      quarantinedSenders: { "gmail:stranger@gmail.com": { at: 0, messageIds: ["q1"] } },
+    });
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q2"]);
+  });
+
+  it("still quarantines a known address when its authentication fails", async () => {
+    const spoofed = { ...highRiskSender("chase.miller@gmail.com"), authVerdicts: { spf: "fail", dkim: "fail", dmarc: "fail" } };
+    await triageWith(spoofed, ["chase.miller@gmail.com"]);
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"]);
   });
 });

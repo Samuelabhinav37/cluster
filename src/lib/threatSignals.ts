@@ -28,7 +28,10 @@
 import type { NormalizedMessageMetadata } from "./providers/emailProvider";
 import { parseAuthenticationResults } from "./emailAuth";
 import { isBlockedDomain } from "./blocklist";
-import { isSameOrSubdomain } from "./registrableDomain";
+import { domainToUnicode } from "./punycode";
+import { isSameOrSubdomain, registrableDomain } from "./registrableDomain";
+import { getDataset, refreshDataset } from "./remoteDataset";
+import brandDomainsFallback from "./data/brandDomains.json";
 
 // "link-mismatch" is never produced by scoreMessageForThreats below -- it's
 // only ever reported by the dashboard's manual "Deep scan" action (see
@@ -45,7 +48,8 @@ export type ThreatSignalKind =
   | "punycode-domain"
   | "lure-language"
   | "link-mismatch"
-  | "risky-attachment";
+  | "risky-attachment"
+  | "identity-change";
 
 export interface ThreatSignal {
   kind: ThreatSignalKind;
@@ -54,6 +58,12 @@ export interface ThreatSignal {
    * to name. */
   brand: string;
   confidence: "high" | "medium";
+  /** The messages this signal came from, when it's about individual
+   * messages (failed authentication, a lure subject, a redirected Reply-To,
+   * a risky attachment, an identity change). Absent when it's about the
+   * sender's address itself (lookalike, brand claim, list hit), so it covers
+   * every message from them. Set by senderModel.ts and senderLedger.ts. */
+  messageIds?: string[];
 }
 
 // Deliberately hand-curated, same "no free/reliable API fits this project's
@@ -61,52 +71,57 @@ export interface ThreatSignal {
 // from it on purpose: domainCategories.ts answers "which label does mail
 // from this domain get filed under," a materially different question from
 // "which domains is this brand actually allowed to send phishing-relevant
-// mail from." Grouped by category so it's obvious what's covered and what
-// isn't -- expand deliberately, one verified legitimate domain at a time.
-const BRAND_DOMAINS: Record<string, string[]> = {
-  // Payments / finance
-  paypal: ["paypal.com"],
-  venmo: ["venmo.com"],
-  "cash app": ["cash.app", "square.com"],
-  zelle: ["zellepay.com"],
-  "bank of america": ["bankofamerica.com"],
-  chase: ["chase.com"],
-  "wells fargo": ["wellsfargo.com"],
-  citibank: ["citi.com", "citibank.com"],
-  "capital one": ["capitalone.com"],
-  "american express": ["americanexpress.com", "aexp.com"],
-  amex: ["americanexpress.com", "aexp.com"],
-  coinbase: ["coinbase.com"],
-  robinhood: ["robinhood.com"],
-  fidelity: ["fidelity.com"],
-  discover: ["discover.com"],
-  usbank: ["usbank.com"],
-  // Shipping / delivery
-  ups: ["ups.com"],
-  fedex: ["fedex.com"],
-  usps: ["usps.com"],
-  dhl: ["dhl.com"],
-  amazon: ["amazon.com", "amazon.co.uk", "amazon.ca", "amazon.de"],
-  // Tech / cloud
-  microsoft: ["microsoft.com", "microsoftonline.com", "outlook.com", "office.com", "office365.com"],
-  apple: ["apple.com", "icloud.com"],
-  google: ["google.com", "gmail.com"],
-  adobe: ["adobe.com"],
-  dropbox: ["dropbox.com"],
-  docusign: ["docusign.com", "docusign.net"],
-  zoom: ["zoom.us"],
-  linkedin: ["linkedin.com"],
-  facebook: ["facebook.com", "fb.com", "meta.com"],
-  netflix: ["netflix.com"],
-  // Telecom
-  verizon: ["verizon.com"],
-  "at&t": ["att.com"],
-  "t-mobile": ["t-mobile.com"],
-  // Government
-  irs: ["irs.gov"],
-  "social security": ["ssa.gov"],
-  uscis: ["uscis.gov"],
-};
+// mail from." Grouped by category in data/brandDomains.json so it's obvious
+// what's covered and what isn't -- expand deliberately, one verified
+// legitimate domain at a time (see the audit trail in the project plan for
+// how each entry was verified).
+//
+// BRAND_DOMAINS_BASE is the bundled snapshot, always complete enough on its
+// own -- everything works exactly as before if the fetch below never
+// succeeds. BRAND_DOMAINS is a mutable binding: refreshBrandDomains (called
+// by the background alarm, see background.ts) can widen a KNOWN brand's
+// domain list from a live-published copy of this same file, but can never
+// introduce a brand that wasn't already here -- see isValidBrandDomainsPatch.
+// This keeps a bad publish from being able to add a new "trusted" identity,
+// only ever additional domains for brands this file already vouches for.
+const BRAND_DOMAINS_BASE: Record<string, string[]> = brandDomainsFallback;
+let BRAND_DOMAINS: Record<string, string[]> = BRAND_DOMAINS_BASE;
+
+function isValidBrandDomainsPatch(data: unknown): data is Record<string, string[]> {
+  if (typeof data !== "object" || data === null) return false;
+  return Object.entries(data).every(
+    ([brand, domains]) =>
+      brand in BRAND_DOMAINS_BASE && Array.isArray(domains) && domains.every((d) => typeof d === "string"),
+  );
+}
+
+function mergeBrandDomains(patch: Record<string, string[]>): Record<string, string[]> {
+  const merged: Record<string, string[]> = {};
+  for (const [brand, domains] of Object.entries(BRAND_DOMAINS_BASE)) {
+    merged[brand] = [...new Set([...domains, ...(patch[brand] ?? [])])];
+  }
+  return merged;
+}
+
+// Hydrate from any existing cache at module load -- local storage only,
+// never blocks on network, so this can't slow anything down. If nothing is
+// cached yet (fresh install, or the alarm hasn't fired), this is a no-op and
+// BRAND_DOMAINS just stays BRAND_DOMAINS_BASE.
+void getDataset<Record<string, string[]>>("brandDomains", {}).then((patch) => {
+  if (isValidBrandDomainsPatch(patch)) BRAND_DOMAINS = mergeBrandDomains(patch);
+});
+
+/** Called by the background alarm on a schedule (see background.ts) -- never
+ * from the interactive scan path. Returns whether the cache changed. */
+export async function refreshBrandDomains(publicKeyB64?: string): Promise<boolean> {
+  // An allow-list: only a signed copy is taken (see datasetSignature.ts).
+  const updated = await refreshDataset("brandDomains", "brandDomains.json", isValidBrandDomainsPatch, "allow", publicKeyB64);
+  if (updated) {
+    const patch = await getDataset<Record<string, string[]>>("brandDomains", {});
+    if (isValidBrandDomainsPatch(patch)) BRAND_DOMAINS = mergeBrandDomains(patch);
+  }
+  return updated;
+}
 
 // Real senders sometimes legitimately use these for bulk mail (e.g. a small
 // business emailing from a Gmail account) -- flagging "freemail-brand-claim"
@@ -199,30 +214,71 @@ function editDistance(a: string, b: string): number {
   return previousRow[b.length];
 }
 
-function findLookalikeBrand(senderDomain: string): string | null {
-  if (senderDomain.length < LOOKALIKE_MIN_DOMAIN_LENGTH) return null;
-  const skeleton = asciiSkeleton(senderDomain);
+// Words that turn "brand name inside a domain" from coincidence into a
+// scam pattern ("combosquatting"): paypal-secure-login.com, amazon-account-
+// verify.co.uk. A brand token alone isn't enough (paper-chase.com is not
+// Chase), so a combosquat needs the brand as a whole hyphen-separated word
+// plus at least one of these.
+const COMBOSQUAT_LURE_WORDS = new Set([
+  "secure", "security", "login", "logon", "signin", "verify", "verification", "account", "accounts",
+  "support", "billing", "update", "alert", "alerts", "service", "services", "help", "auth", "wallet",
+  "confirm", "unlock", "recovery", "refund", "payment", "invoice", "customer", "care", "id",
+]);
+
+type LookalikeMatch = { brand: string; confidence: "high" | "medium" };
+
+function findLookalikeBrand(senderDomain: string): LookalikeMatch | null {
+  // One of any brand's own domains is never a lookalike of another brand's,
+  // or of a sibling domain on the same brand's list (amazon.in / amazon.ca).
+  for (const domains of Object.values(BRAND_DOMAINS)) {
+    if (domains.some((d) => isSameOrSubdomain(senderDomain, d))) return null;
+  }
+  // Compare the part someone registered, so a subdomain can't hide the
+  // lookalike: mail.paypa1.com is checked as paypa1.com.
+  const registrable = registrableDomain(senderDomain);
+  if (registrable.length < LOOKALIKE_MIN_DOMAIN_LENGTH) return null;
+  // Headers carry internationalised domains as punycode (xn--pypl-53dc.com),
+  // so decode before the confusables map can see the Cyrillic letters.
+  const skeleton = asciiSkeleton(domainToUnicode(registrable));
   for (const [brand, domains] of Object.entries(BRAND_DOMAINS)) {
     for (const legitDomain of domains) {
-      if (isSameOrSubdomain(senderDomain, legitDomain)) return null; // The real thing -- stop checking this sender entirely, not just this brand.
       if (legitDomain.split(".")[0].length < LOOKALIKE_MIN_BRAND_LABEL_LENGTH) continue;
       // Confusable-normalised exact match: the domain renders identically to
       // the brand's real one but isn't it -- a Cyrillic 'а' in pаypаl.com, a
       // digit 1 in paypa1.com. The strongest lookalike case, and one raw
       // edit distance misses entirely for the homoglyph variant.
-      if (skeleton === legitDomain && senderDomain !== legitDomain) return brand;
-      if (editDistanceWithin(senderDomain, legitDomain, LOOKALIKE_MAX_DISTANCE)) return brand;
+      if (skeleton === legitDomain && registrable !== legitDomain) return { brand, confidence: "high" };
+      if (editDistanceWithin(registrable, legitDomain, LOOKALIKE_MAX_DISTANCE)) return { brand, confidence: "high" };
       // A homoglyph swap plus an ordinary typo can push the raw string past
       // the threshold while the skeleton stays close -- check that too.
-      if (skeleton !== senderDomain && editDistanceWithin(skeleton, legitDomain, LOOKALIKE_MAX_DISTANCE)) {
-        return brand;
+      if (skeleton !== registrable && editDistanceWithin(skeleton, legitDomain, LOOKALIKE_MAX_DISTANCE)) {
+        return { brand, confidence: "high" };
       }
+    }
+  }
+  const combosquat = findCombosquatBrand(registrable);
+  return combosquat ? { brand: combosquat, confidence: "medium" } : null;
+}
+
+/** paypal-secure-login.com -> "paypal": the brand's own label as one
+ * hyphen-separated word of the registered name, next to a scam word. */
+function findCombosquatBrand(registrable: string): string | null {
+  const name = registrable.split(".")[0];
+  const words = name.split("-").filter(Boolean);
+  if (words.length < 2 || !words.some((word) => COMBOSQUAT_LURE_WORDS.has(word))) return null;
+  for (const [brand, domains] of Object.entries(BRAND_DOMAINS)) {
+    for (const legitDomain of domains) {
+      const brandLabel = registrableDomain(legitDomain).split(".")[0];
+      if (brandLabel.length >= 3 && !COMBOSQUAT_LURE_WORDS.has(brandLabel) && words.includes(brandLabel)) return brand;
     }
   }
   return null;
 }
 
 function editDistanceWithin(a: string, b: string, max: number): boolean {
+  // Edit distance is at least the length difference, so most brand domains
+  // are ruled out without building the full matrix.
+  if (Math.abs(a.length - b.length) > max) return false;
   const distance = editDistance(a, b);
   return distance > 0 && distance <= max;
 }
@@ -245,8 +301,8 @@ function brandSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
 
 function lookalikeSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
   const senderDomain = domainOf(message.fromAddress);
-  const brand = findLookalikeBrand(senderDomain);
-  return brand ? { kind: "lookalike-domain", brand, confidence: "high" } : null;
+  const match = findLookalikeBrand(senderDomain);
+  return match ? { kind: "lookalike-domain", brand: match.brand, confidence: match.confidence } : null;
 }
 
 function authenticationSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
@@ -396,6 +452,10 @@ const SIGNAL_WEIGHTS: Record<ThreatSignalKind, number> = {
   "punycode-domain": 2, // xn-- sender domain; rare for legitimate bulk mail
   "lure-language": 2, // corroborating only -- can't reach "elevated" alone
   "risky-attachment": 3, // risky-shaped attachment, only when unauthenticated
+  // A familiar sender now signed by, or asking for replies at, a new domain
+  // (senderLedger.ts). A warning on its own. With a second kind of evidence
+  // on the same message it holds that message only (verdict.ts).
+  "identity-change": 3,
 };
 
 export type RiskTier = "high" | "elevated" | "low";

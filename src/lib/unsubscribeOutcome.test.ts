@@ -14,6 +14,8 @@ function sender(receivedTimes: number[]): SenderSummary {
     isProtected: false,
     unread: true,
     sizeBytes: 0,
+    providerMarkedPersonal: false,
+    looksAutomated: false,
   }));
   return {
     key: "gmail:news@example.com",

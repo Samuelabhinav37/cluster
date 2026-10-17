@@ -1,12 +1,18 @@
 import { mapWithConcurrency } from "./concurrency";
-import { classifyMessageKind, type MessageKind } from "./messageKind";
+import { classifyMessageKind, looksAutomated, type MessageKind } from "./messageKind";
 import {
   scoreMessageAuthentication,
   scoreMessageContext,
   scoreSenderIdentity,
   type ThreatSignal,
 } from "./threatSignals";
-import { parseAuthenticationResults, type AuthenticationVerdicts, type AuthVerdict } from "./emailAuth";
+import {
+  parseAuthenticationResults,
+  passingDkimDomains,
+  type AuthenticationVerdicts,
+  type AuthVerdict,
+} from "./emailAuth";
+import { registrableDomain } from "./registrableDomain";
 import type {
   EmailProvider,
   NormalizedMessageMetadata,
@@ -25,6 +31,19 @@ export interface MessageRecord {
   isProtected: boolean;
   unread: boolean;
   sizeBytes: number;
+  /** Gmail/Outlook's own per-user importance signal -- see
+   * NormalizedMessageMetadata.providerMarkedPersonal. */
+  providerMarkedPersonal: boolean;
+  /** Secondary bulk-mail signal, consulted only when providerMarkedPersonal
+   * is false -- see messageKind.looksAutomated. */
+  looksAutomated: boolean;
+  /** Gmail put it in the Promotions tab (CATEGORY_PROMOTIONS). */
+  promotion?: boolean;
+  /** Registrable domains of the DKIM signatures the provider says passed.
+   * The sender ledger's signing baseline (senderLedger.ts). */
+  dkimDomains?: string[];
+  /** Registrable domain of the Reply-To address, if the message set one. */
+  replyToDomain?: string;
 }
 
 export interface SenderSummary {
@@ -60,13 +79,24 @@ function hasUnsubscribe(info: UnsubscribeInfo): boolean {
 }
 
 // Union `incoming` into `existing` in place, keyed by kind+brand so re-scoring
-// the same sender never double-records a signal.
+// the same sender never double-records a signal. Message ids are unioned too;
+// a signal with no ids (about the address itself) stays that way.
 function mergeSignals(existing: ThreatSignal[], incoming: ThreatSignal[]) {
   for (const signal of incoming) {
-    if (!existing.some((s) => s.kind === signal.kind && s.brand === signal.brand)) {
+    const match = existing.find((s) => s.kind === signal.kind && s.brand === signal.brand);
+    if (!match) {
       existing.push(signal);
+    } else if (match.messageIds && signal.messageIds) {
+      match.messageIds = [...new Set([...match.messageIds, ...signal.messageIds])];
+    } else {
+      delete match.messageIds;
     }
   }
+}
+
+/** Tags per-message signals with the message they came from. */
+function fromMessage(signals: ThreatSignal[], id: string): ThreatSignal[] {
+  return signals.map((signal) => ({ ...signal, messageIds: [id] }));
 }
 
 // Keep the most alarming verdict per mechanism across all of a sender's
@@ -99,6 +129,13 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     isProtected: meta.isProtected,
     unread: meta.unread,
     sizeBytes: meta.sizeBytes,
+    providerMarkedPersonal: meta.providerMarkedPersonal ?? false,
+    looksAutomated: looksAutomated(hasUnsubscribe(meta.unsubscribe), meta.precedence, meta.autoSubmitted),
+    promotion: meta.gmailPromotion ?? false,
+    dkimDomains: [...new Set(passingDkimDomains(meta.authenticationResults).map(registrableDomain))],
+    replyToDomain: meta.replyToAddress.includes("@")
+      ? registrableDomain(meta.replyToAddress.slice(meta.replyToAddress.lastIndexOf("@") + 1))
+      : undefined,
   };
   const existing = senders.get(key);
   if (existing) {
@@ -117,15 +154,13 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     if (meta.fromDisplayName !== existing.displayName) {
       mergeSignals(existing.threatSignals, scoreSenderIdentity(meta));
     }
-    // DMARC alignment is per-message, so keep checking until one message from
-    // this sender trips it (then stop -- one is enough to flag).
-    if (!existing.threatSignals.some((s) => s.kind === "failed-authentication")) {
-      const authSignal = scoreMessageAuthentication(meta);
-      if (authSignal) existing.threatSignals.push(authSignal);
-    }
+    // DMARC alignment is per-message, so check every message: each failing
+    // one is recorded, so a hold can take just those messages.
+    const authSignal = scoreMessageAuthentication(meta);
+    if (authSignal) mergeSignals(existing.threatSignals, fromMessage([authSignal], meta.id));
     // Per-message context signals (lure subject, redirected Reply-To) -- union
     // anything new, deduped by kind+brand.
-    mergeSignals(existing.threatSignals, scoreMessageContext(meta));
+    mergeSignals(existing.threatSignals, fromMessage(scoreMessageContext(meta), meta.id));
     mergeVerdicts(existing.authVerdicts, parseAuthenticationResults(meta.authenticationResults));
   } else {
     const authSignal = scoreMessageAuthentication(meta);
@@ -137,8 +172,8 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
       count: 1,
       threatSignals: [
         ...scoreSenderIdentity(meta),
-        ...(authSignal ? [authSignal] : []),
-        ...scoreMessageContext(meta),
+        ...fromMessage(authSignal ? [authSignal] : [], meta.id),
+        ...fromMessage(scoreMessageContext(meta), meta.id),
       ],
       authVerdicts: parseAuthenticationResults(meta.authenticationResults),
       firstContact: false,
@@ -164,6 +199,47 @@ interface ProviderScanInput {
   stubs: NormalizedMessageStub[];
 }
 
+/**
+ * Fetch (or cache-hit) the metadata for every stub, applying the
+ * risky-attachment overlay and the progress callback. Returns the flat list;
+ * the caller decides how to bucket it into senders. Shared by the
+ * single-purpose and combined builders.
+ */
+async function fetchAllMetadata(
+  perProvider: ProviderScanInput[],
+  onProgress?: (done: number, total: number) => void,
+  metadataCache?: Map<string, NormalizedMessageMetadata>,
+  riskyAttachmentIdsByProvider?: Map<ProviderId, Set<string>>,
+): Promise<NormalizedMessageMetadata[]> {
+  const total = perProvider.reduce((sum, item) => sum + item.stubs.length, 0);
+  let done = 0;
+  const out: NormalizedMessageMetadata[] = [];
+  await Promise.all(
+    perProvider.map(async ({ provider, token, stubs }) => {
+      const riskySet = riskyAttachmentIdsByProvider?.get(provider.id);
+      const metadatas = await mapWithConcurrency(stubs, METADATA_FETCH_CONCURRENCY, async (stub) => {
+        const cacheKey = `${provider.id}:${stub.id}`;
+        const cached = metadataCache?.get(cacheKey);
+        const meta = cached ?? (await provider.getMessageMetadata(token, stub.id));
+        if (!cached) metadataCache?.set(cacheKey, meta);
+        done += 1;
+        onProgress?.(done, total);
+        return riskySet
+          ? { ...meta, hasRiskyAttachment: meta.hasRiskyAttachment || riskySet.has(meta.id) }
+          : meta;
+      });
+      out.push(...metadatas);
+    }),
+  );
+  return out;
+}
+
+function summariesFrom(metas: NormalizedMessageMetadata[]): SenderSummary[] {
+  const senders = new Map<string, SenderSummary>();
+  for (const meta of metas) addToSenders(senders, meta);
+  return [...senders.values()].sort((a, b) => b.count - a.count);
+}
+
 export async function buildSenderSummariesFromStubs(
   perProvider: ProviderScanInput[],
   onProgress?: (done: number, total: number) => void,
@@ -179,29 +255,13 @@ export async function buildSenderSummariesFromStubs(
   // nothing to overlay.
   riskyAttachmentIdsByProvider?: Map<ProviderId, Set<string>>,
 ): Promise<SenderSummary[]> {
-  const senders = new Map<string, SenderSummary>();
-  const total = perProvider.reduce((sum, item) => sum + item.stubs.length, 0);
-  let done = 0;
-
-  await Promise.all(
-    perProvider.map(async ({ provider, token, stubs }) => {
-      const riskySet = riskyAttachmentIdsByProvider?.get(provider.id);
-      const metadatas = await mapWithConcurrency(stubs, METADATA_FETCH_CONCURRENCY, async (stub) => {
-        const cacheKey = `${provider.id}:${stub.id}`;
-        const cached = metadataCache?.get(cacheKey);
-        const meta = cached ?? (await provider.getMessageMetadata(token, stub.id));
-        if (!cached) metadataCache?.set(cacheKey, meta);
-        done += 1;
-        onProgress?.(done, total);
-        return riskySet
-          ? { ...meta, hasRiskyAttachment: meta.hasRiskyAttachment || riskySet.has(meta.id) }
-          : meta;
-      });
-      for (const meta of metadatas) addToSenders(senders, meta);
-    }),
+  const metas = await fetchAllMetadata(
+    perProvider,
+    onProgress,
+    metadataCache,
+    riskyAttachmentIdsByProvider,
   );
-
-  return [...senders.values()].sort((a, b) => b.count - a.count);
+  return summariesFrom(metas);
 }
 
 export async function buildSenderSummaries(
@@ -237,4 +297,81 @@ export async function buildSenderSummaries(
     }),
   );
   return buildSenderSummariesFromStubs(perProvider, onProgress, metadataCache, riskyAttachmentIdsByProvider);
+}
+
+export interface CombinedScanResult {
+  cleanup: SenderSummary[];
+  security: SenderSummary[];
+  /** Total messages fetched in the single pass, and whether the per-provider
+   * candidate list hit `maxMessagesPerProvider` (every count downstream is
+   * then a sample of the most recent N). */
+  scannedCount: number;
+  capHit: boolean;
+}
+
+/**
+ * One quota window instead of two. Fetches the union of the cleanup and
+ * security candidate sets with the `"combined"` scope, fetches each message's
+ * metadata once, then partitions senders into the two lanes by
+ * `meta.lanes`. The security slice is capped afterward (it costs no extra
+ * quota — the messages are already fetched). Used by the dashboard's cold
+ * open; `background.ts` keeps the narrow single-purpose scans.
+ */
+export async function buildCombinedSenderSummaries(
+  providers: EmailProvider[],
+  maxMessagesPerProvider = DEFAULT_MAX_MESSAGES,
+  scanWindowDays = DEFAULT_SCAN_WINDOW_DAYS,
+  securityMaxMessages = 250,
+  onProgress?: (done: number, total: number) => void,
+  metadataCache?: Map<string, NormalizedMessageMetadata>,
+): Promise<CombinedScanResult> {
+  const perProvider = await Promise.all(
+    providers.map(async (provider) => {
+      const token = await provider.getAuthToken(false);
+      const stubs = await provider.listCandidateMessages(
+        token,
+        maxMessagesPerProvider,
+        scanWindowDays,
+        "combined",
+      );
+      return { provider, token, stubs };
+    }),
+  );
+  const capHit = perProvider.some(({ stubs }) => stubs.length >= maxMessagesPerProvider);
+
+  const riskyAttachmentIdsByProvider = new Map<ProviderId, Set<string>>();
+  await Promise.all(
+    perProvider.map(async ({ provider, token }) => {
+      if (!provider.listRiskyAttachmentMessageIds) return;
+      try {
+        riskyAttachmentIdsByProvider.set(
+          provider.id,
+          await provider.listRiskyAttachmentMessageIds(token, scanWindowDays),
+        );
+      } catch {
+        // Best-effort.
+      }
+    }),
+  );
+
+  const metas = await fetchAllMetadata(
+    perProvider,
+    onProgress,
+    metadataCache,
+    riskyAttachmentIdsByProvider,
+  );
+
+  const inLane = (meta: NormalizedMessageMetadata, lane: ScanPurpose) =>
+    !meta.lanes || meta.lanes.includes(lane);
+  const securityMetas = metas
+    .filter((m) => inLane(m, "security"))
+    .sort((a, b) => b.receivedAt - a.receivedAt)
+    .slice(0, securityMaxMessages);
+
+  return {
+    cleanup: summariesFrom(metas.filter((m) => inLane(m, "cleanup"))),
+    security: summariesFrom(securityMetas),
+    scannedCount: metas.length,
+    capHit,
+  };
 }

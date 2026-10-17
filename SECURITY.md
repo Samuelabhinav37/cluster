@@ -73,8 +73,18 @@ narrower works — is in [`docs/oauth-scope-justification.md`](docs/oauth-scope-
 
 ## Host permissions
 
-At install, host access is limited to the three API hosts the extension talks
-to: `gmail.googleapis.com`, `graph.microsoft.com`, and `login.microsoftonline.com`.
+At install, host access is limited to four hosts: the three API hosts the
+extension talks to (`gmail.googleapis.com`, `graph.microsoft.com`,
+`login.microsoftonline.com`) plus `samuelabhinav37.github.io` — Cluster's own
+published copy of its brand-domain and blocklist datasets (see
+`src/lib/remoteDataset.ts`, `docs/privacy.md`). That fourth host is declared
+because MV3 service-worker fetches to any origin are otherwise subject to
+CORS; the request itself carries no user data, no cookies, and no
+identifiers — a plain `GET` for a static JSON file, identical for every
+install, refreshed on a background alarm and never on the interactive scan
+path (a failed or slow fetch there is never user-visible; every dataset has
+a bundled fallback that works exactly as before if the fetch never
+succeeds).
 
 `optional_host_permissions` lists `https://*/*`. This is **not** granted at
 install and is never requested wholesale. When the user fires a verified
@@ -127,8 +137,10 @@ The access token stays in memory-backed `chrome.storage.session`.
 
 None. Cluster operates no servers and uses no analytics, error-reporting, or
 third-party SDKs. The only network destinations are the Gmail API, the Microsoft
-Graph / sign-in endpoints, a per-click user-approved unsubscribe origin, and —
-only under enterprise managed policy — the organization's own Athena endpoint.
+Graph / sign-in endpoints, a per-click user-approved unsubscribe origin,
+Cluster's own published-dataset host (GitHub Pages, publishing only static,
+non-personal reference data — see "Host permissions" above), and — only under
+enterprise managed policy — the organization's own Athena endpoint.
 
 ## Optional enterprise telemetry ("Athena")
 
@@ -142,15 +154,20 @@ recipient addresses. The endpoint must be HTTPS. See `src/lib/athenaIntegration.
 ## Enforced invariants
 
 - `src/lib/networkEgress.test.ts` fails the build if any new `fetch` call site or
-  any new remote host literal appears under `src/`.
+  any new remote host literal appears under `src/` — deliberately including
+  `src/lib/remoteDataset.ts` itself, so a future new fetch elsewhere still
+  can't slip in unreviewed.
 - Every destructive action is behind a confirm step; starred/flagged mail is
   always excluded; rules and the Screener label/archive/trash only — never
   permanent-delete — and are always reviewable and reversible.
 - "Suggested spam" matches scanned senders against two bundled, in-repo domain
   lists (`src/lib/data/spamDomains.generated.json` from disposable-email-domains
-  + StopForumSpam, plus `src/lib/blocklist.ts`) — no runtime fetch. It only
-  surfaces suggestions; deletion is user-selected, confirm-gated, Trash-only,
-  and undoable, and it never runs in the background.
+  + StopForumSpam, plus `src/lib/blocklist.ts`), optionally widened by a daily
+  background fetch of Cluster's own published copy of the same feeds (see
+  "Host permissions" above) — never a fetch keyed to any specific message or
+  sender, just "the current list." It only surfaces suggestions; deletion is
+  user-selected, confirm-gated, Trash-only, and undoable, and it never runs in
+  the background.
 - Threat detection is header-only (`threatSignals.ts`): brand / lookalike /
   punycode sender domains, DMARC fail (or SPF+DKIM both failing), a redirected
   Reply-To, and an urgency-lure lexicon over the **subject line only** — never

@@ -103,7 +103,7 @@ describe("settingsStore", () => {
     const settings = await getSettings();
     expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
     expect(settings.scanWindowDays).toBe(20);
-    expect(settings.clusterOwnedLabels).toEqual(["Shopping"]);
+    expect(settings.clusterOwnedLabels).toEqual(["🛍 Shopping", "Shopping"]); // v12 adds today's name
     expect(settings.sortOverrides).toEqual({});
   });
 
@@ -170,6 +170,83 @@ describe("settingsStore", () => {
     expect(settings.scanWindowDays).toBe(11);
     expect(settings.quarantinedSenders).toEqual({});
     expect(settings.quarantineReview).toEqual({});
+  });
+
+  it("migrates schema 10 settings with an empty health history", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: { schemaVersion: 10, scanWindowDays: 8 },
+    });
+
+    const settings = await getSettings();
+    expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(settings.scanWindowDays).toBe(8);
+    expect(settings.healthHistory).toEqual([]);
+  });
+
+  it("migrates schema 11 settings to the emoji label names", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: {
+        schemaVersion: 11,
+        clusterOwnedLabels: ["Newsletters", "Shopping"],
+        labelChoices: { Shopping: "Shopping (Cluster)", "My thing": "My thing" },
+        rules: [
+          {
+            id: "a",
+            name: "Auto-sort: Newsletters",
+            enabled: true,
+            conditions: { kind: "newsletter" },
+            action: "label",
+            labelName: "Newsletters",
+          },
+          {
+            id: "b",
+            name: "Auto-sort: expire one-time codes",
+            enabled: true,
+            conditions: { kind: "otp", olderThanDays: 2 },
+            action: "trash",
+          },
+          {
+            id: "c",
+            name: "Mine",
+            enabled: true,
+            conditions: { fromDomain: "x.com" },
+            action: "label",
+            labelName: "Travel",
+            actions: [{ action: "label", labelName: "Cluster/Muted" }],
+          },
+        ],
+      },
+    });
+
+    const settings = await getSettings();
+    expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(settings.clusterOwnedLabels).toEqual(["📰 Newsletters", "🛍 Shopping", "Newsletters", "Shopping"]);
+    expect(settings.labelChoices).toEqual({ "My thing": "My thing" });
+    const [a, b, c] = settings.rules;
+    expect(a.name).toBe("Sort: 📰 Newsletters");
+    expect(a.labelName).toBe("📰 Newsletters");
+    expect(b.name).toBe("Sort: expire one-time codes");
+    // A plain "Travel" Cluster never claimed may be the user's own label: untouched.
+    expect(c.labelName).toBe("Travel");
+    // A Cluster/-prefixed name is always Cluster's.
+    expect(c.actions?.[0].labelName).toBe("🔇 Muted");
+  });
+
+  it("migrates schema 12 settings with time limits off and every category's default limit", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: {
+        schemaVersion: 12,
+        autoSort: { enabledBuckets: ["otp"], keepSorting: true, filterIdsByBucket: { travel: ["F"] } },
+      },
+    });
+
+    const settings = await getSettings();
+    expect(settings.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(settings.autoSort.timeLimitsEnabled).toBe(false);
+    expect(settings.autoSort.keepSorting).toBe(true);
+    expect(settings.autoSort.filterIdsByBucket).toEqual({ travel: ["F"] });
+    expect(settings.autoSort.filterSpecByBucket).toEqual({});
+    expect(settings.autoSort.inboxHoursByBucket).toMatchObject({ otp: 24, shipping: 168, travel: null });
   });
 
   it("serializes concurrent partial updates so unrelated changes are preserved", async () => {

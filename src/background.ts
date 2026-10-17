@@ -1,13 +1,17 @@
+import { idsSafeToMoveOut } from "./lib/protectionPolicy";
 import { log } from "./lib/log";
 import { buildExpiryBuckets, totalExpiryCount } from "./lib/expiryTriage";
 import { gmailProvider } from "./lib/providers/gmailProvider";
 import { outlookProvider } from "./lib/providers/outlookProvider";
 import type { EmailProvider, ProviderId } from "./lib/providers/emailProvider";
 import { applyRules } from "./lib/ruleRunner";
-import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "./lib/screener";
+import { knownSenderSet, pendingScreenerSenders, refreshSentCorrespondents } from "./lib/screener";
 import { markFirstContact } from "./lib/firstContact";
-import { riskTier, senderRiskScore } from "./lib/threatSignals";
-import { quarantineScoreAdjustment } from "./lib/quarantineReview";
+import { refreshBrandDomains } from "./lib/threatSignals";
+import { senderVerdict } from "./lib/verdict";
+import { recordHeld, type HeldBatch } from "./lib/scamHistory";
+import { refreshMalwareBlocklist } from "./lib/blocklist";
+import { refreshSpamList } from "./lib/spamList";
 import { appendActionLog, makeLogId } from "./lib/actionLog";
 import { buildSenderSummaries, type SenderSummary } from "./lib/senderModel";
 import type { ClusterSettings } from "./lib/settingsStore";
@@ -17,12 +21,15 @@ import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
 import { flushAthenaSecurityEvents, queueAthenaSecurityEvents } from "./lib/athenaIntegration";
 import { buildIncrementalSenderSummaries } from "./lib/incrementalSync";
 import { gmailQuotaHeadroom } from "./lib/gmailQuotaLedger";
+import { runInboxTimeLimits } from "./lib/inboxTimeLimitsRunner";
 import { loadMetadataCache, saveMetadataCache } from "./lib/metadataCache";
 import { resumeInterruptedJobs } from "./lib/durableJobs";
 import { updateEngagementObservations } from "./lib/engagementModel";
 import { getRuleCompletionKeys, recordRuleCompletions } from "./lib/ruleCompletionLedger";
+import { loadPublicSuffixList } from "./lib/publicSuffix";
+import { applySenderLedger } from "./lib/senderLedgerStore";
 
-chrome.action.onClicked.addListener(async () => {
+async function openDashboard() {
   const url = chrome.runtime.getURL("src/dashboard/index.html");
   const existing = await chrome.tabs.query({ url });
   if (existing[0]?.id) {
@@ -30,7 +37,9 @@ chrome.action.onClicked.addListener(async () => {
   } else {
     chrome.tabs.create({ url });
   }
-});
+}
+
+chrome.action.onClicked.addListener(() => void openDashboard());
 
 // Background pre-triage: periodically counts mail that's aged past its
 // retention window (see retentionPolicy.ts) and surfaces the count as a
@@ -39,6 +48,11 @@ chrome.action.onClicked.addListener(async () => {
 const TRIAGE_ALARM = "cluster-triage";
 const ATHENA_ALARM = "cluster-athena-flush";
 const JOBS_ALARM = "cluster-jobs";
+const DATASET_ALARM = "cluster-dataset-refresh";
+// Inbox time limits: label what Gmail filters missed and move mail whose
+// category's time is up out of the inbox (see inboxTimeLimits.ts). No-op
+// unless the user turned time limits on.
+const INBOX_LIMITS_ALARM = "cluster-inbox-limits";
 const SECURITY_SCAN_WINDOW_DAYS = 30;
 const SECURITY_SCAN_MAX_MESSAGES = 100;
 const providerById = new Map<ProviderId, EmailProvider>([
@@ -46,19 +60,33 @@ const providerById = new Map<ProviderId, EmailProvider>([
   [outlookProvider.id, outlookProvider],
 ]);
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 5, periodInMinutes: 360 });
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
+  chrome.alarms.create(DATASET_ALARM, { delayInMinutes: 10, periodInMinutes: 1440 });
+  chrome.alarms.create(INBOX_LIMITS_ALARM, { delayInMinutes: 2, periodInMinutes: 15 });
+  // A fresh install used to open nothing, leaving the user to find an
+  // unpinned icon in the puzzle menu. Open the dashboard, whose connect gate
+  // is the welcome screen. Updates and Chrome updates stay silent.
+  if (details?.reason === "install") void openDashboard();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 5, periodInMinutes: 360 });
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
+  chrome.alarms.create(DATASET_ALARM, { delayInMinutes: 10, periodInMinutes: 1440 });
+  chrome.alarms.create(INBOX_LIMITS_ALARM, { delayInMinutes: 2, periodInMinutes: 15 });
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
+  // Domain matching needs the Public Suffix List. It's a local file and
+  // loads once per service-worker start, so waiting for it is quick.
+  void loadPublicSuffixList().then(() => handleAlarm(alarm));
+});
+
+function handleAlarm(alarm: chrome.alarms.Alarm): void {
   if (alarm.name === TRIAGE_ALARM) {
     resurfaceDueSnoozed(gmailProvider).catch((err) => log.error("Resurfacing snoozed mail failed", err));
     runBackgroundTriage();
@@ -67,7 +95,34 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === JOBS_ALARM) {
     void resumeInterruptedJobs(providerById).catch((err) => log.error("Resuming durable jobs failed", err));
   }
-});
+  if (alarm.name === DATASET_ALARM) void refreshPublicDatasets();
+  if (alarm.name === INBOX_LIMITS_ALARM) void runInboxTimeLimitsIfQuota();
+}
+
+async function runInboxTimeLimitsIfQuota(): Promise<void> {
+  try {
+    // Same guard as triage: don't add to a scan already near Gmail's
+    // per-minute ceiling; the next 15-minute tick tries again.
+    if ((await gmailQuotaHeadroom()) < 1500) return;
+    await runInboxTimeLimits();
+  } catch (err) {
+    log.error("Inbox time limits failed", err);
+  }
+}
+
+// Daily: pulls Cluster's own published brand-domain and blocklist datasets
+// (see remoteDataset.ts) so impersonation/spam detection stay current
+// without waiting for a new extension release. Each call is independently
+// rate-limited and never throws -- one failing fetch can't block the others,
+// and every dataset already has a bundled fallback that works without this
+// ever succeeding.
+async function refreshPublicDatasets(): Promise<void> {
+  await Promise.all([
+    refreshBrandDomains().catch((err) => log.error("Brand-domain dataset refresh failed", err)),
+    refreshMalwareBlocklist().catch((err) => log.error("Malware blocklist refresh failed", err)),
+    refreshSpamList().catch((err) => log.error("Spam list refresh failed", err)),
+  ]);
+}
 
 // Reports every sender threatSignals flagged (see senderModel.ts /
 // threatSignals.ts) as a minimized Athena "warned" event -- queueAthenaSecurityEvent
@@ -94,40 +149,21 @@ async function reportThreatSignals(senders: SenderSummary[]) {
   await queueAthenaSecurityEvents(events);
 }
 
-async function refreshSentCorrespondents(
-  settings: ClusterSettings,
-): Promise<ClusterSettings["sentCorrespondents"]> {
-  if (!sentCorrespondentsStale(settings)) return settings.sentCorrespondents;
-  const addresses = new Set(settings.sentCorrespondents.addresses);
-  let anySucceeded = false;
-  for (const provider of providerById.values()) {
-    if (!provider.listSentCorrespondents) continue;
-    const token = await provider.getAuthToken(false).catch(() => null);
-    if (!token) continue;
-    try {
-      for (const addr of await provider.listSentCorrespondents(token)) addresses.add(addr);
-      anySucceeded = true;
-    } catch (err) {
-      log.error("Screener: sent-correspondent refresh failed", provider.id, err);
-    }
-  }
-  if (!anySucceeded) return settings.sentCorrespondents;
-  const sent = { addresses: [...addresses], fetchedAt: Date.now() };
-  await updateSettings({ sentCorrespondents: sent });
-  return sent;
-}
-
 // Screener: hold mail from senders the user has never corresponded with. Opt-in
-// (settings.screenerEnabled). Refreshes the sent-correspondent allowlist on a
-// TTL across every connected provider that supports it, then moves each
+// (settings.screenerEnabled) -- the sent-correspondent refresh itself now runs
+// unconditionally (see the caller), since that signal also feeds the general
+// protection gate (protectionPolicy.ts), not just this feature. Moves each
 // newly-unknown sender's mail under the Screener label/folder (per that
 // sender's own provider) and records it in screenedSenders so it isn't
 // re-screened. Returns how many senders are currently held, for the badge.
-async function runScreener(settings: ClusterSettings, senders: SenderSummary[]): Promise<number> {
+async function runScreener(
+  settings: ClusterSettings,
+  senders: SenderSummary[],
+  sentCorrespondents: ClusterSettings["sentCorrespondents"],
+): Promise<number> {
   if (!settings.screenerEnabled) return 0;
 
-  const sent = await refreshSentCorrespondents(settings);
-  const known = knownSenderSet({ ...settings, sentCorrespondents: sent });
+  const known = knownSenderSet({ ...settings, sentCorrespondents });
   const excluded = new Set(
     [...settings.mutedSenders, ...settings.screenedSenders].map((a) => a.toLowerCase()),
   );
@@ -144,7 +180,7 @@ async function runScreener(settings: ClusterSettings, senders: SenderSummary[]):
     const token = tokenByProvider.get(s.provider);
     if (!token) continue;
     try {
-      await provider.screenSender(token, s.address, s.messageIds);
+      await provider.screenSender(token, s.address, idsSafeToMoveOut(s));
       screened.push(s.address);
     } catch (err) {
       log.error("Screener: failed to hold", s.address, err);
@@ -161,18 +197,47 @@ async function runScreener(settings: ClusterSettings, senders: SenderSummary[]):
 // and file it out of the inbox -- per the sender's own provider, never
 // deletes, and reversible from the Recently-done tab / Security tab's
 // quarantine review queue (label-removal undo). Off by default.
+const BRAND_KINDS = new Set(["brand-impersonation", "freemail-brand-claim", "lookalike-domain"]);
+
+/** What one auto-quarantine run held, per email: the brands faked and the
+ * warning signs that applied to it (address-wide signals apply to all). */
+function heldBatch(targets: SenderSummary[], idsBySender: Map<string, string[]>): HeldBatch {
+  const batch: HeldBatch = { count: 0, brands: [], kinds: [] };
+  for (const sender of targets) {
+    for (const id of idsBySender.get(sender.key) ?? []) {
+      batch.count += 1;
+      const applies = sender.threatSignals.filter((sig) => !sig.messageIds || sig.messageIds.includes(id));
+      for (const kind of new Set(applies.map((sig) => sig.kind))) batch.kinds.push(kind);
+      const brand = applies.find((sig) => BRAND_KINDS.has(sig.kind))?.brand;
+      if (brand) batch.brands.push(brand);
+    }
+  }
+  return batch;
+}
+
 async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]): Promise<number> {
   if (!settings.autoQuarantineHighRisk) return 0;
-  // A sender the user already released via the Security tab's review queue
-  // gets its score suppressed (quarantineReview.ts) so a marginal call isn't
-  // immediately re-quarantined next alarm cycle -- a confirmed-bad domain or
-  // outright brand claim still clears "high" on its own weight regardless.
-  const targets = senders.filter((s) => {
-    const provider = providerById.get(s.provider);
-    if (!provider?.labelSuspicious) return false;
-    const adjusted = senderRiskScore(s.threatSignals) + quarantineScoreAdjustment(settings.quarantineReview[s.key]);
-    return riskTier(adjusted) === "high";
-  });
+  // senderVerdict (verdict.ts) holds only on two kinds of signal or one
+  // decisive one, judges each message on its own evidence, and weighs a
+  // sender the user released lower. Only the messages that earn a hold move,
+  // so someone the user writes to can have one hijacked email held while the
+  // rest of their mail stays. Starred and other protected mail never moves,
+  // and a message already held isn't labelled again, so a user who put it
+  // back in Gmail isn't overruled on the next cycle.
+  const known = knownSenderSet(settings);
+  const heldIds = new Map<string, string[]>();
+  for (const s of senders) {
+    if (!providerById.get(s.provider)?.labelSuspicious) continue;
+    const verdict = senderVerdict(s, {
+      knownCorrespondent: known.has(s.address.toLowerCase()),
+      review: settings.quarantineReview[s.key],
+    });
+    const protectedSet = new Set(s.protectedMessageIds);
+    const alreadyHeld = new Set(settings.quarantinedSenders[s.key]?.messageIds ?? []);
+    const ids = verdict.heldMessageIds.filter((id) => !protectedSet.has(id) && !alreadyHeld.has(id));
+    if (ids.length > 0) heldIds.set(s.key, ids);
+  }
+  const targets = senders.filter((s) => heldIds.has(s.key));
   if (targets.length === 0) return 0;
 
   const targetsByProvider = new Map<ProviderId, SenderSummary[]>();
@@ -191,9 +256,7 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
     const ids: string[] = [];
     const idsBySender = new Map<string, string[]>();
     for (const sender of providerTargets) {
-      const protectedSet = new Set(sender.protectedMessageIds);
-      const senderIds = sender.messageIds.filter((id) => !protectedSet.has(id));
-      if (senderIds.length === 0) continue;
+      const senderIds = heldIds.get(sender.key) ?? [];
       ids.push(...senderIds);
       idsBySender.set(sender.key, senderIds);
     }
@@ -211,12 +274,18 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
           undo: { provider: providerId, ids, via: "unlabel-suspicious" },
         },
       ]);
+      const batch = heldBatch(providerTargets, idsBySender);
       await mutateSettings((current) => ({
         ...current,
+        scamHistory: recordHeld(current.scamHistory, batch, now),
         quarantinedSenders: {
           ...current.quarantinedSenders,
           ...Object.fromEntries(
-            [...idsBySender].map(([key, senderIds]) => [key, { at: now, messageIds: senderIds }]),
+            [...idsBySender].map(([key, senderIds]) => [
+              key,
+              // Keep earlier holds for this sender: the review queue releases all of them.
+              { at: now, messageIds: [...new Set([...(current.quarantinedSenders[key]?.messageIds ?? []), ...senderIds])] },
+            ]),
           ),
         },
       }));
@@ -298,6 +367,9 @@ async function runBackgroundTriage() {
       }));
     }
 
+    // Before reporting or quarantining, so a familiar sender's change of
+    // signing or reply domain is part of the picture (senderLedger.ts).
+    await applySenderLedger(securitySenders);
     await reportThreatSignals(securitySenders);
     const quarantined = await runQuarantine(settings, securitySenders);
     await mutateSettings((current) => ({
@@ -332,7 +404,8 @@ async function runBackgroundTriage() {
     const ruleDeferred = ruleResults.reduce((sum, result) => sum + result.deferredByLimitCount, 0);
     const ruleSkipped = ruleResults.reduce((sum, result) => sum + result.previouslyCompletedCount, 0);
 
-    const held = await runScreener(settings, senders);
+    const sentCorrespondents = await refreshSentCorrespondents(settings, providerById);
+    const held = await runScreener(settings, senders, sentCorrespondents);
     const total = totalExpiryCount(buildExpiryBuckets(senders));
 
     await updateSettings({

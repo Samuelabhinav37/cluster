@@ -1,0 +1,971 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cluster shell mockup</title>
+<meta name="description" content="Static review mockup of the proposed Cluster dashboard shell: Today, Sorting and Senders. Not production code." />
+<style>
+/* ==========================================================================
+   Cluster: proposed shell mockup (UI team, 2026-10-05)
+   Tokens copied from src/dashboard/dashboard.css:11-213 (Apple glass v3),
+   with the few changes the UI report proposes marked  NEW  or  CHANGED.
+   Static review artifact. Not wired to the extension.
+   ========================================================================== */
+:root {
+  color-scheme: light;
+  --canvas: #e9e7f1;
+  --ambient:
+    radial-gradient(900px 620px at 14% -8%, rgba(139,126,216,.22), transparent 62%),
+    radial-gradient(760px 520px at 96% 4%, rgba(88,126,196,.16), transparent 60%),
+    linear-gradient(180deg, #efedf7, #e5e3ef 62%);
+  --glass: rgba(255,255,255,.8);
+  --glass-solid: #ffffff;
+  --glass-toolbar: rgba(255,255,255,.76);
+  --glass-bar: rgba(255,255,255,.88);
+  --hairline: rgba(24,22,48,.14);
+  --separator: rgba(24,22,48,.1);
+  --specular: 0 1px 0 rgba(255,255,255,.75) inset;
+  --label: #1b1b22; --label-2: #39394a; --label-3: #4b4b5b; --label-4: #5b5b6b;
+  --accent: #6a5cc6; --accent-text: #574abb;
+  --accent-fill: rgba(124,110,220,.16); --accent-fill-border: rgba(124,110,220,.44);
+  --accent-fill-text: #45389f; --accent-fill-hover: rgba(124,110,220,.26);
+  /* CHANGED: top stop darkened so white text is >= 4.5:1 (was #8b7fd8, 3.4:1) */
+  --accent-solid: linear-gradient(180deg, #7466cc, #6456c0);
+  --accent-solid-border: rgba(140,128,220,.6); --accent-solid-text: #fff;
+  --danger-text: #b5322a; --danger-fill: rgba(200,45,40,.12); --danger-fill-hover: rgba(200,45,40,.2);
+  --danger-border: rgba(200,45,40,.38); --danger-label: #8f2019;
+  --danger-tile: linear-gradient(180deg, rgba(220,60,50,.22), rgba(200,45,35,.16));
+  --neutral-fill: rgba(24,22,48,.06); --neutral-fill-hover: rgba(24,22,48,.11); --neutral-border: rgba(24,22,48,.16);
+  --success-fill: rgba(30,140,70,.14); --success-border: rgba(30,140,70,.42); --success-text: #197038;
+  --logo-ground: #f6f5fa; --row-hover: rgba(24,22,48,.05); --disabled-fg: #9a9aa6;
+  /* CHANGED: opaque ring, 4.3:1 on canvas (was 75% alpha, 2.8:1) */
+  --focus-ring: #6a5cc6;
+  /* NEW: boundary for form controls only (checkbox, switch off, select). 3.3:1, WCAG 1.4.11 */
+  --control-border: rgba(24,22,48,.5);
+  /* NEW: inverse surface for toasts */
+  --inverse: #26262d; --inverse-label: #f5f5f7; --inverse-action: #c9c0ff;
+  --skeleton: rgba(24,22,48,.07); --skeleton-hi: rgba(24,22,48,.13);
+  --shadow-card: var(--specular), 0 2px 6px -2px rgba(30,25,60,.1), 0 12px 28px -14px rgba(30,25,60,.16);
+  --shadow-card-lg: var(--specular), 0 3px 8px -2px rgba(30,25,60,.12), 0 18px 40px -16px rgba(30,25,60,.2);
+  --shadow-bar: var(--specular), 0 4px 10px -2px rgba(30,25,60,.14), 0 20px 44px -14px rgba(30,25,60,.22);
+  --shadow-solid-btn: 0 1px 0 rgba(255,255,255,.45) inset, 0 10px 24px -10px rgba(124,110,220,.55);
+  --blur: blur(30px) saturate(180%); --blur-strong: blur(34px) saturate(190%);
+  --r-lg: 24px; --r-list: 20px; --r-btn-hero: 14px; --r-ctl: 12px; --r-sm: 11px; --r-pill: 980px;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", "Inter", system-ui, "Segoe UI", sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, "Segoe UI", sans-serif;
+  /* NEW: spacing scale (4px base) and motion tokens */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px; --s-12: 48px;
+  --dur-fast: 120ms; --dur: 180ms; --dur-slow: 260ms; --ease-out: cubic-bezier(.2,.8,.2,1);
+  --sidebar-w: 240px; --header-h: 56px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --canvas: #08080a;
+    --ambient:
+      radial-gradient(900px 620px at 14% -8%, rgba(145,132,217,.2), transparent 62%),
+      radial-gradient(760px 520px at 96% 4%, rgba(88,126,196,.14), transparent 60%),
+      linear-gradient(180deg, #0d0d11, #08080a 60%);
+    --glass: rgba(30,30,36,.72); --glass-solid: #1e1e24; --glass-toolbar: rgba(20,20,24,.68); --glass-bar: rgba(28,28,34,.78);
+    --hairline: rgba(255,255,255,.12); --separator: rgba(255,255,255,.1); --specular: 0 1px 0 rgba(255,255,255,.1) inset;
+    --label: #f5f5f7; --label-2: rgba(235,235,245,.72); --label-3: rgba(235,235,245,.66); --label-4: rgba(235,235,245,.62);
+    --accent: #9184d9; --accent-text: #b7abf0; --accent-fill: rgba(145,132,217,.22); --accent-fill-border: rgba(178,169,236,.45);
+    --accent-fill-text: #efecfd; --accent-fill-hover: rgba(145,132,217,.34);
+    --accent-solid: linear-gradient(180deg, #7466cc, #6456c0); --accent-solid-border: rgba(200,192,246,.5);
+    --danger-text: #ff9f93; --danger-fill: rgba(255,120,105,.18); --danger-fill-hover: rgba(255,120,105,.28);
+    --danger-border: rgba(255,160,150,.42); --danger-label: #ffd9d3;
+    --danger-tile: linear-gradient(180deg, rgba(255,120,105,.32), rgba(255,90,75,.24));
+    --neutral-fill: rgba(255,255,255,.07); --neutral-fill-hover: rgba(255,255,255,.13); --neutral-border: rgba(255,255,255,.12);
+    --success-fill: rgba(48,209,88,.18); --success-border: rgba(120,240,160,.35); --success-text: #c3fbd8;
+    --row-hover: rgba(255,255,255,.045); --logo-ground: rgba(255,255,255,.09); --disabled-fg: rgba(235,235,245,.4);
+    --focus-ring: #a99cf0; --control-border: rgba(255,255,255,.36);
+    --inverse: #f2f1f7; --inverse-label: #1b1b22; --inverse-action: #45389f;
+    --skeleton: rgba(255,255,255,.07); --skeleton-hi: rgba(255,255,255,.13);
+    --shadow-card: var(--specular), 0 20px 48px -22px rgba(0,0,0,.8);
+    --shadow-card-lg: var(--specular), 0 24px 56px -24px rgba(0,0,0,.85);
+    --shadow-bar: var(--specular), 0 22px 52px -18px rgba(0,0,0,.9);
+    --shadow-solid-btn: 0 1px 0 rgba(255,255,255,.28) inset, 0 10px 24px -10px rgba(145,132,217,.7);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #08080a;
+  --ambient:
+    radial-gradient(900px 620px at 14% -8%, rgba(145,132,217,.2), transparent 62%),
+    radial-gradient(760px 520px at 96% 4%, rgba(88,126,196,.14), transparent 60%),
+    linear-gradient(180deg, #0d0d11, #08080a 60%);
+  --glass: rgba(30,30,36,.72); --glass-solid: #1e1e24; --glass-toolbar: rgba(20,20,24,.68); --glass-bar: rgba(28,28,34,.78);
+  --hairline: rgba(255,255,255,.12); --separator: rgba(255,255,255,.1); --specular: 0 1px 0 rgba(255,255,255,.1) inset;
+  --label: #f5f5f7; --label-2: rgba(235,235,245,.72); --label-3: rgba(235,235,245,.66); --label-4: rgba(235,235,245,.62);
+  --accent: #9184d9; --accent-text: #b7abf0; --accent-fill: rgba(145,132,217,.22); --accent-fill-border: rgba(178,169,236,.45);
+  --accent-fill-text: #efecfd; --accent-fill-hover: rgba(145,132,217,.34);
+  --accent-solid: linear-gradient(180deg, #7466cc, #6456c0); --accent-solid-border: rgba(200,192,246,.5);
+  --danger-text: #ff9f93; --danger-fill: rgba(255,120,105,.18); --danger-fill-hover: rgba(255,120,105,.28);
+  --danger-border: rgba(255,160,150,.42); --danger-label: #ffd9d3;
+  --danger-tile: linear-gradient(180deg, rgba(255,120,105,.32), rgba(255,90,75,.24));
+  --neutral-fill: rgba(255,255,255,.07); --neutral-fill-hover: rgba(255,255,255,.13); --neutral-border: rgba(255,255,255,.12);
+  --success-fill: rgba(48,209,88,.18); --success-border: rgba(120,240,160,.35); --success-text: #c3fbd8;
+  --row-hover: rgba(255,255,255,.045); --logo-ground: rgba(255,255,255,.09); --disabled-fg: rgba(235,235,245,.4);
+  --focus-ring: #a99cf0; --control-border: rgba(255,255,255,.36);
+  --inverse: #f2f1f7; --inverse-label: #1b1b22; --inverse-action: #45389f;
+  --skeleton: rgba(255,255,255,.07); --skeleton-hi: rgba(255,255,255,.13);
+  --shadow-card: var(--specular), 0 20px 48px -22px rgba(0,0,0,.8);
+  --shadow-card-lg: var(--specular), 0 24px 56px -24px rgba(0,0,0,.85);
+  --shadow-bar: var(--specular), 0 22px 52px -18px rgba(0,0,0,.9);
+  --shadow-solid-btn: 0 1px 0 rgba(255,255,255,.28) inset, 0 10px 24px -10px rgba(145,132,217,.7);
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--canvas); color: var(--label); font-family: var(--font);
+  font-size: 15px; line-height: 1.4; font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+.ambient { position: fixed; inset: 0; background: var(--ambient); pointer-events: none; z-index: 0; }
+a { color: var(--accent-text); text-decoration: none; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 8px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+[hidden] { display: none !important; } /* fixes the .instead-strip / [hidden] clash found in the audit */
+
+/* ── Shell ────────────────────────────────────────────────────────────── */
+.app { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; }
+.app-header {
+  position: sticky; top: 0; z-index: 30; height: var(--header-h);
+  display: flex; align-items: center; gap: var(--s-3); padding-inline: var(--s-5);
+  background: var(--glass-toolbar); backdrop-filter: blur(28px) saturate(180%); -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border-bottom: .5px solid var(--hairline);
+}
+.brand { display: flex; align-items: center; gap: 10px; font: 600 17px/1 var(--font-display); letter-spacing: -.022em; flex: none; width: calc(var(--sidebar-w) - var(--s-5)); }
+.brand svg { width: 22px; height: 22px; }
+.spacer { flex: 1; }
+.status-pill {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 6px 12px;
+  border-radius: var(--r-pill); border: .5px solid var(--neutral-border); background: var(--neutral-fill);
+  font: 500 13px/1.2 var(--font); color: var(--label-2); cursor: pointer; white-space: nowrap;
+}
+.status-pill:hover { background: var(--neutral-fill-hover); }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--label-3); flex: none; }
+.status-pill[data-state="idle"] .status-dot { background: var(--label-3); }
+.status-pill[data-state="busy"] .status-dot { background: transparent; border: 1.5px solid var(--accent); border-right-color: transparent; width: 10px; height: 10px; animation: spin 900ms linear infinite; }
+.status-pill[data-state="offline"] .status-dot { background: transparent; border: 1.5px solid var(--label-3); }
+.status-pill[data-state="auth"] { color: var(--danger-label); background: var(--danger-fill); border-color: var(--danger-border); }
+.status-pill[data-state="auth"] .status-dot { background: var(--danger-text); border-radius: 2px; transform: rotate(45deg); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.status-wrap { position: relative; }
+.popover {
+  position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); width: 340px; z-index: 40;
+  background: var(--glass-bar); backdrop-filter: var(--blur-strong); -webkit-backdrop-filter: var(--blur-strong);
+  border: .5px solid var(--hairline); border-radius: var(--r-btn-hero); box-shadow: var(--shadow-bar); padding: var(--s-4);
+  font-size: 14px; color: var(--label-2);
+}
+.popover dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; }
+.popover dt { color: var(--label-4); }
+.popover dd { margin: 0; color: var(--label); }
+.popover .pop-foot { margin-top: var(--s-3); padding-top: var(--s-3); border-top: .5px solid var(--separator); display: flex; gap: 8px; align-items: center; }
+.account-pill { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px 12px 4px 4px; border-radius: var(--r-pill); background: var(--neutral-fill); border: .5px solid var(--neutral-border); font-size: 14px; }
+.avatar { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(160deg,#9184d9,#6a5fa8); color: #fff; font: 600 11px/24px var(--font); text-align: center; }
+.header-btn { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 6px 13px; border-radius: var(--r-pill); background: var(--neutral-fill); border: .5px solid var(--neutral-border); font: 500 14px/1.2 var(--font); cursor: pointer; }
+.header-btn:hover { background: var(--neutral-fill-hover); }
+.header-btn svg { width: 16px; height: 16px; }
+
+.body { display: flex; flex: 1; min-width: 0; }
+.sidebar {
+  width: var(--sidebar-w); flex: none; position: sticky; top: var(--header-h); height: calc(100vh - var(--header-h));
+  padding: var(--s-4) var(--s-3) var(--s-5); display: flex; flex-direction: column; gap: 2px; border-right: .5px solid var(--separator);
+}
+.nav-item {
+  display: flex; align-items: center; gap: 11px; min-height: 38px; padding: 8px 12px; width: 100%;
+  border: .5px solid transparent; border-radius: var(--r-ctl); background: none; text-align: left; cursor: pointer;
+  color: var(--label-2); font: 400 15px/1.3 var(--font); letter-spacing: -.012em; transition: background var(--dur) ease;
+}
+.nav-item .emo { width: 20px; text-align: center; font-size: 15px; flex: none; }
+.nav-item:hover { background: var(--neutral-fill); }
+.nav-item[aria-current="page"] { background: var(--accent-fill); border-color: var(--accent-fill-border); color: var(--accent-fill-text); font-weight: 590; }
+.nav-count { margin-left: auto; font-size: 13px; color: var(--label-4); min-width: 20px; text-align: right; }
+.nav-count.badge-danger { color: #fff; background: #c4362d; border-radius: var(--r-pill); padding: 1px 7px; min-width: 0; font-weight: 600; }
+.nav-sep { height: .5px; background: var(--separator); margin: var(--s-2) var(--s-3); }
+.nav-fill { flex: 1; }
+.sidebar-note { margin: var(--s-3) 0 0; padding: 0 12px; font: 400 12px/1.5 var(--font); color: var(--label-4); }
+
+.main { flex: 1; min-width: 0; }
+.screen { max-width: 1080px; padding: var(--s-8) var(--s-8) 96px; display: flex; flex-direction: column; gap: var(--s-6); }
+.page-head { display: flex; align-items: flex-end; gap: var(--s-4); flex-wrap: wrap; }
+.page-head > div { flex: 1; min-width: 260px; }
+.page-title { margin: 0; font: 600 30px/1.15 var(--font-display); letter-spacing: -.026em; }
+.lead { margin: 6px 0 0; font: 400 15px/1.5 var(--font); color: var(--label-3); max-width: 62ch; }
+.section-head { display: flex; align-items: baseline; gap: 10px; padding: 0 4px 8px; }
+.section-label { margin: 0; font: 590 12px/1.3 var(--font); letter-spacing: .05em; text-transform: uppercase; color: var(--label-4); }
+.section-head .meta { font-size: 12px; color: var(--label-4); }
+.section-head .grow { flex: 1; }
+.section-head a, .link { font-size: 13px; color: var(--accent-text); background: none; border: 0; padding: 4px; cursor: pointer; }
+
+/* ── Surfaces ─────────────────────────────────────────────────────────── */
+.card, .list {
+  background: var(--glass); border: .5px solid var(--hairline); box-shadow: var(--shadow-card);
+}
+.card { border-radius: var(--r-lg); padding: var(--s-5) var(--s-6); }
+.list { border-radius: var(--r-list); overflow: hidden; }
+/* Glass blur stays on the navigation layer (header, popover, sheet, toast, bulk bar).
+   Content lists drop backdrop-filter: canvas is near-flat so it bought nothing but cost. */
+
+/* ── Row (one anatomy) ────────────────────────────────────────────────── */
+.row {
+  display: grid; grid-template-columns: [check] auto [media] minmax(0,1fr) [meta] auto [action] auto [chev] auto;
+  align-items: center; column-gap: var(--s-3); min-height: 64px; padding: 10px 14px 10px 16px;
+  border-top: .5px solid var(--separator); transition: background var(--dur) ease;
+}
+.list > .row:first-child, .list > .row.first { border-top: 0; }
+.row:hover { background: var(--row-hover); }
+.row.no-check { grid-template-columns: [media] minmax(0,1fr) [meta] auto [action] auto [chev] auto; }
+.row-media { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.row-text { min-width: 0; }
+.row-title { font: 590 15px/1.35 var(--font); letter-spacing: -.012em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-sub { font: 400 13px/1.4 var(--font); color: var(--label-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+.row-meta { font-size: 13px; color: var(--label-4); white-space: nowrap; }
+.row .chev { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 8px; border: 0; background: none; color: var(--label-4); cursor: pointer; }
+.row .chev:hover { background: var(--neutral-fill); color: var(--label); }
+.row.pending { opacity: .62; }
+.row.pending .btn { pointer-events: none; }
+.row.leaving { animation: rowOut var(--dur-slow) var(--ease-out) forwards; overflow: hidden; }
+.row.entering { animation: rowIn var(--dur-slow) var(--ease-out); }
+@keyframes rowOut { 0% { opacity: 1; max-height: 80px; } 60% { opacity: 0; transform: translateX(16px); max-height: 80px; } 100% { opacity: 0; max-height: 0; min-height: 0; padding-block: 0; border-top-width: 0; } }
+@keyframes rowIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.row-error { grid-column: 1 / -1; font-size: 13px; color: var(--danger-text); padding-top: 4px; }
+
+.tile { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex: none; font: 600 13px/1 var(--font); color: #fff; box-shadow: 0 .5px 0 rgba(255,255,255,.16) inset; }
+.tile.emoji { background: var(--logo-ground); border: .5px solid var(--separator); font-size: 17px; }
+.tile.danger { background: var(--danger-tile); border: .5px solid var(--danger-border); color: var(--danger-label); }
+
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 7px 14px;
+  border-radius: var(--r-sm); border: .5px solid var(--neutral-border); background: var(--neutral-fill);
+  font: 500 14px/1.2 var(--font); letter-spacing: -.01em; cursor: pointer; white-space: nowrap;
+  transition: background var(--dur-fast) ease, transform var(--dur-fast) ease;
+}
+.btn:hover { background: var(--neutral-fill-hover); }
+.btn:active { transform: scale(.98); }
+.btn:disabled { color: var(--disabled-fg); cursor: default; opacity: .7; }
+.btn-accent { color: var(--accent-fill-text); background: var(--accent-fill); border-color: var(--accent-fill-border); font-weight: 590; }
+.btn-accent:hover { background: var(--accent-fill-hover); }
+.btn-primary { color: #fff; background: var(--accent-solid); border-color: var(--accent-solid-border); font-weight: 590; box-shadow: var(--shadow-solid-btn); }
+.btn-danger { color: var(--danger-label); background: var(--danger-fill); border-color: var(--danger-border); font-weight: 590; }
+.btn-danger:hover { background: var(--danger-fill-hover); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--label-3); }
+.btn-ghost:hover { color: var(--label); background: var(--neutral-fill); }
+.btn .spinner { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid currentColor; border-right-color: transparent; animation: spin 800ms linear infinite; }
+
+/* ── Pills / chips / segmented ───────────────────────────────────────── */
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: var(--r-pill); font: 500 12px/1.3 var(--font); white-space: nowrap; color: var(--label-2); background: var(--neutral-fill); border: .5px solid var(--neutral-border); }
+.pill.ok::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .75; }
+.pill.limited::before { content: ""; width: 6px; height: 6px; border-radius: 50%; border: 1.25px solid currentColor; }
+.pill.err { color: var(--danger-label); background: var(--danger-fill); border-color: var(--danger-border); }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { min-height: 32px; padding: 6px 12px; border-radius: var(--r-pill); border: .5px solid var(--neutral-border); background: var(--neutral-fill); font: 500 13px/1.2 var(--font); color: var(--label-2); cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.chip:hover { background: var(--neutral-fill-hover); }
+.chip[aria-pressed="true"] { background: var(--accent-fill); border-color: var(--accent-fill-border); color: var(--accent-fill-text); font-weight: 590; }
+.chip .n { color: var(--label-4); font-weight: 500; }
+.chip[aria-pressed="true"] .n { color: inherit; }
+
+/* ── Switch, check, select ───────────────────────────────────────────── */
+.switch { position: relative; width: 42px; height: 26px; flex: none; border-radius: var(--r-pill); border: 1px solid var(--control-border); background: var(--neutral-fill-hover); cursor: pointer; padding: 0; transition: background var(--dur) ease; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35); transition: left var(--dur) var(--ease-out); }
+.switch[aria-checked="true"] { background: var(--accent-solid); border-color: transparent; }
+.switch[aria-checked="true"]::after { left: 18px; }
+.check { appearance: none; width: 20px; height: 20px; margin: 0; border-radius: 50%; border: 1.5px solid var(--control-border); background: transparent; cursor: pointer; display: grid; place-items: center; }
+.check:checked { background: var(--accent); border-color: var(--accent); }
+.check:checked::after { content: ""; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: translateY(-1px) rotate(45deg); }
+.check-hit { display: grid; place-items: center; width: 28px; height: 28px; cursor: pointer; } /* 28px target, WCAG 2.5.8 */
+.select { appearance: none; min-height: 34px; padding: 6px 30px 6px 11px; border-radius: var(--r-sm); border: 1px solid var(--control-border); background: var(--glass-solid) no-repeat right 10px center / 10px 6px; font: 400 14px/1.2 var(--font); color: var(--label); cursor: pointer; width: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23777' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.select:disabled { color: var(--disabled-fg); cursor: default; border-color: var(--neutral-border); }
+.search { position: relative; flex: 1; min-width: 220px; }
+.search svg { position: absolute; left: 12px; top: 50%; translate: 0 -50%; width: 16px; height: 16px; color: var(--label-4); pointer-events: none; }
+.search input { width: 100%; min-height: 36px; padding: 8px 12px 8px 36px; border-radius: var(--r-ctl); border: 1px solid var(--control-border); background: var(--glass-solid); font-size: 14px; }
+
+/* ── Banner / notice (inside a screen, never a global stack) ─────────── */
+.notice { display: flex; gap: var(--s-3); align-items: center; padding: 14px 16px; border-radius: var(--r-list); background: var(--glass); border: .5px solid var(--hairline); box-shadow: var(--shadow-card); }
+.notice .grow { flex: 1; min-width: 0; }
+.notice .t { font: 590 15px/1.35 var(--font); }
+.notice .d { font-size: 13px; color: var(--label-3); margin-top: 2px; }
+.notice.danger { background: color-mix(in srgb, var(--glass) 80%, var(--danger-fill)); border-color: var(--danger-border); }
+
+/* ── Inline progress + skeleton ──────────────────────────────────────── */
+.progress { height: 4px; border-radius: 2px; background: var(--neutral-fill-hover); overflow: hidden; }
+.progress > span { display: block; height: 100%; background: var(--accent); border-radius: 2px; transition: width var(--dur-slow) linear; }
+.sk { border-radius: 6px; background: var(--skeleton); position: relative; overflow: hidden; }
+.sk::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, var(--skeleton-hi), transparent); transform: translateX(-100%); animation: shimmer 1.4s ease-in-out infinite; }
+@keyframes shimmer { to { transform: translateX(100%); } }
+.sk-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; min-height: 64px; border-top: .5px solid var(--separator); }
+.sk-row:first-child { border-top: 0; }
+
+/* ── Empty state ─────────────────────────────────────────────────────── */
+.empty { text-align: center; padding: 40px 24px; border-radius: var(--r-list); border: .5px dashed var(--neutral-border); background: var(--neutral-fill); color: var(--label-3); }
+.empty .t { font: 590 16px/1.35 var(--font); color: var(--label); margin-bottom: 4px; }
+.empty .d { font-size: 14px; max-width: 46ch; margin: 0 auto; }
+
+/* ── Today ───────────────────────────────────────────────────────────── */
+.summary-line { font-size: 14px; color: var(--label-3); padding: 0 4px; }
+.summary-line strong { color: var(--label); font-weight: 590; }
+.first-run { display: grid; gap: var(--s-3); }
+.first-run .progress { margin-top: 2px; }
+
+/* ── Sorting rows ────────────────────────────────────────────────────── */
+.cat-head, .cat-row {
+  display: grid; grid-template-columns: 48px minmax(170px,1.3fr) minmax(140px,1fr) minmax(150px,1fr) 64px minmax(170px,1.1fr);
+  align-items: center; column-gap: var(--s-3); padding: 0 16px;
+}
+.cat-head { min-height: 36px; font: 590 11px/1.2 var(--font); letter-spacing: .05em; text-transform: uppercase; color: var(--label-4); border-bottom: .5px solid var(--separator); }
+.cat-row { min-height: 60px; border-top: .5px solid var(--separator); }
+.cat-row:first-of-type { border-top: 0; }
+.cat-row:hover { background: var(--row-hover); }
+.cat-name { font: 590 15px/1.3 var(--font); }
+.cat-name .s { display: block; font: 400 12px/1.3 var(--font); color: var(--label-4); margin-top: 1px; }
+.cat-row .now { text-align: right; font-size: 15px; color: var(--label-2); }
+.cat-row[data-on="false"] .cat-name { color: var(--label-3); }
+.cat-row .saved { font-size: 12px; color: var(--label-4); }
+.cat-foot { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; padding: 4px; }
+.cat-foot .meta { font-size: 13px; color: var(--label-3); }
+details.adv { border-radius: var(--r-list); border: .5px solid var(--hairline); background: var(--glass); }
+details.adv > summary { cursor: pointer; padding: 14px 16px; font: 590 14px/1.3 var(--font); list-style: none; display: flex; gap: 8px; align-items: center; }
+details.adv > summary::before { content: "›"; display: inline-block; transition: transform var(--dur) ease; color: var(--label-4); font-size: 18px; line-height: 1; }
+details.adv[open] > summary::before { transform: rotate(90deg); }
+details.adv .inner { padding: 0 16px 16px; font-size: 14px; color: var(--label-3); }
+.hl-label { display: none; }
+
+/* ── Senders ─────────────────────────────────────────────────────────── */
+.screener-card { display: flex; align-items: center; gap: var(--s-4); }
+.toolbar { display: flex; gap: var(--s-3); flex-wrap: wrap; align-items: center; }
+.bulk-bar {
+  position: sticky; bottom: 16px; z-index: 20; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 12px 10px 18px; border-radius: var(--r-list); background: var(--glass-bar);
+  backdrop-filter: var(--blur-strong); -webkit-backdrop-filter: var(--blur-strong); border: .5px solid var(--hairline); box-shadow: var(--shadow-bar);
+}
+.bulk-bar .count { font: 590 15px/1.2 var(--font); margin-right: auto; }
+
+/* ── Side sheet ──────────────────────────────────────────────────────── */
+.scrim { position: fixed; inset: 0; z-index: 45; background: rgba(10,10,20,.18); opacity: 0; transition: opacity var(--dur) ease; }
+.scrim.show { opacity: 1; }
+.sheet {
+  position: fixed; top: 8px; right: 8px; bottom: 8px; width: min(420px, calc(100vw - 16px)); z-index: 50;
+  display: flex; flex-direction: column; border-radius: var(--r-lg);
+  background: var(--glass-bar); backdrop-filter: var(--blur-strong); -webkit-backdrop-filter: var(--blur-strong);
+  border: .5px solid var(--hairline); box-shadow: var(--shadow-bar);
+  transform: translateX(24px); opacity: 0; transition: transform var(--dur-slow) var(--ease-out), opacity var(--dur) ease;
+}
+.sheet.show { transform: none; opacity: 1; }
+.sheet-head { display: flex; gap: 12px; align-items: center; padding: 18px 18px 14px; border-bottom: .5px solid var(--separator); }
+.sheet-head .t { font: 600 18px/1.25 var(--font-display); }
+.sheet-head .s { font-size: 13px; color: var(--label-3); }
+.sheet-body { overflow: auto; padding: 6px 18px 18px; display: flex; flex-direction: column; gap: 18px; }
+.sheet h3 { margin: 12px 0 8px; font: 590 12px/1.3 var(--font); letter-spacing: .05em; text-transform: uppercase; color: var(--label-4); }
+.radio-list { display: flex; flex-direction: column; border-radius: var(--r-ctl); border: .5px solid var(--hairline); overflow: hidden; background: var(--glass); }
+.radio-list label { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-top: .5px solid var(--separator); cursor: pointer; font-size: 14px; }
+.radio-list label:first-child { border-top: 0; }
+.radio-list .hint { margin-left: auto; color: var(--label-4); font-size: 12px; }
+.radio-list input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.why { margin: 0; padding-left: 18px; color: var(--label-2); font-size: 14px; line-height: 1.6; }
+.confirm { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border-radius: var(--r-ctl); background: var(--danger-fill); border: .5px solid var(--danger-border); font-size: 13px; color: var(--danger-label); }
+.confirm .grow { flex: 1 1 100%; }
+
+/* ── Toasts ──────────────────────────────────────────────────────────── */
+.toasts { position: fixed; left: calc(var(--sidebar-w) + 24px); bottom: 20px; z-index: 60; display: flex; flex-direction: column-reverse; gap: 8px; pointer-events: none; }
+.toast {
+  pointer-events: auto; display: flex; align-items: center; gap: 12px; min-width: 320px; max-width: 520px; padding: 10px 8px 10px 16px;
+  border-radius: 14px; background: var(--inverse); color: var(--inverse-label); box-shadow: 0 12px 32px -12px rgba(0,0,0,.5);
+  font-size: 14px; position: relative; overflow: hidden; animation: toastIn var(--dur-slow) var(--ease-out);
+}
+.toast .msg { flex: 1; min-width: 0; }
+.toast .act { background: none; border: 0; color: var(--inverse-action); font: 600 14px/1 var(--font); padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.toast .act:hover { background: color-mix(in srgb, var(--inverse-action) 14%, transparent); }
+.toast .x { background: none; border: 0; color: inherit; opacity: .7; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; }
+.toast .timer { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--inverse-action); opacity: .7; width: 100%; transform-origin: left; }
+.toast.out { animation: toastOut var(--dur) ease forwards; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes toastOut { to { opacity: 0; transform: translateY(6px); } }
+
+/* ── Reviewer controls (mockup only) ─────────────────────────────────── */
+.demo { position: fixed; right: 16px; bottom: 16px; z-index: 44; font-size: 12px; }
+.demo > summary { cursor: pointer; list-style: none; padding: 7px 12px; border-radius: var(--r-pill); background: var(--glass-bar); border: .5px dashed var(--control-border); color: var(--label-3); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); }
+.demo .panel { position: absolute; right: 0; bottom: calc(100% + 8px); width: 270px; padding: 12px; border-radius: 14px; background: var(--glass-bar); border: .5px solid var(--hairline); box-shadow: var(--shadow-bar); backdrop-filter: var(--blur-strong); -webkit-backdrop-filter: var(--blur-strong); display: grid; gap: 8px; }
+.demo .panel .g { display: flex; flex-wrap: wrap; gap: 6px; }
+.demo .panel .btn { min-height: 28px; padding: 4px 9px; font-size: 12px; }
+.demo .panel p { margin: 0; color: var(--label-4); }
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+@media (max-width: 1080px) {
+  .cat-head { display: none; }
+  .cat-row { grid-template-columns: 48px minmax(0,1fr) auto; grid-template-areas: "sw name now" ". inbox then" ". status status"; row-gap: 8px; padding-block: 12px; }
+  .cat-row > :nth-child(1) { grid-area: sw; } .cat-row > :nth-child(2) { grid-area: name; }
+  .cat-row > :nth-child(3) { grid-area: inbox; } .cat-row > :nth-child(4) { grid-area: then; }
+  .cat-row > :nth-child(5) { grid-area: now; } .cat-row > :nth-child(6) { grid-area: status; }
+  .hl-label { display: block; font-size: 11px; color: var(--label-4); margin-bottom: 3px; }
+}
+@media (max-width: 860px) {
+  :root { --sidebar-w: 0px; }
+  .brand { width: auto; }
+  .body { flex-direction: column; }
+  .sidebar { position: sticky; top: var(--header-h); z-index: 20; width: 100%; height: auto; flex-direction: row; overflow-x: auto; padding: 8px 12px; border-right: 0; border-bottom: .5px solid var(--separator); background: var(--glass-toolbar); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); }
+  .nav-item { width: auto; flex: none; white-space: nowrap; }
+  .nav-sep { width: .5px; height: 24px; margin: auto 4px; } .nav-fill, .sidebar-note { display: none; }
+  .screen { padding: var(--s-6) var(--s-4) 96px; }
+  .status-pill .long, .account-pill .email { display: none; }
+  .toasts { left: 16px; right: 16px; } .toast { min-width: 0; }
+  .row .row-meta { display: none; }
+}
+@media (max-width: 520px) {
+  .account-pill { display: none; }
+  .app-header { padding-inline: 12px; gap: 8px; }
+  .row { column-gap: 8px; padding-inline: 10px; }
+  .row .btn { padding-inline: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+  .sk::after { display: none; }
+  .status-pill[data-state="busy"] .status-dot { animation: none; border-right-color: var(--accent); }
+  .toast .timer { display: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .app-header, .popover, .sheet, .bulk-bar, .demo .panel, .sidebar { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: var(--glass-solid) !important; }
+}
+</style>
+</head>
+<body>
+<div class="ambient" aria-hidden="true"></div>
+<div class="app">
+  <!-- ── Header: brand · status pill · account · labelled Settings ───────── -->
+  <header class="app-header">
+    <span class="brand">
+      <svg viewBox="0 0 256 256" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M 110.68,26 Q 128,16 145.32,26 L 207.67,62 Q 224.99,72 224.99,92 L 224.99,164 Q 224.99,184 207.67,194 L 145.32,230 Q 128,240 110.68,230 L 48.33,194 Q 31.01,184 31.01,164 L 31.01,92 Q 31.01,72 48.33,62 Z M 81 88 h 94 a 12 12 0 0 1 12 12 v 56 a 12 12 0 0 1 -12 12 h -94 a 12 12 0 0 1 -12 -12 v -56 a 12 12 0 0 1 12 -12 Z M 75 96 L 128 129.6 L 181 96 L 181 82 L 75 82 Z"/></svg>
+      Cluster
+    </span>
+    <div class="status-wrap">
+      <button type="button" class="status-pill" id="status-pill" data-state="idle" aria-expanded="false" aria-controls="status-pop">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span id="status-text">Up to date<span class="long"> · checked 2 min ago</span></span>
+      </button>
+      <div class="popover" id="status-pop" role="dialog" aria-label="Sync status" hidden>
+        <dl>
+          <dt>Last checked</dt><dd>10:42 (2 min ago)</dd>
+          <dt>Next check</dt><dd>about 10:47</dd>
+          <dt>Index</dt><dd>3,214 messages · last 6 months</dd>
+          <dt>Sorting</dt><dd>Moved 12 in the last hour</dd>
+          <dt>Works offline</dt><dd>8 categories work with Chrome closed. 3 only while Chrome is open.</dd>
+        </dl>
+        <div class="pop-foot"><button class="btn" type="button" data-demo-status="busy">Check now</button><span class="spacer"></span><a href="#settings" data-go="settings">Sync settings</a></div>
+      </div>
+    </div>
+    <span class="spacer"></span>
+    <span class="account-pill"><span class="avatar" aria-hidden="true">SA</span><span class="email">sam.abhinav@gmail.com</span></span>
+    <button type="button" class="header-btn" data-go="settings">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.6 2.8h2.8l.4 2 1.5.9 1.9-.7 1.4 2.4-1.5 1.3v1.7l1.5 1.3-1.4 2.4-1.9-.7-1.5.9-.4 2H8.6l-.4-2-1.5-.9-1.9.7-1.4-2.4 1.5-1.3V9.6L3.4 8.3l1.4-2.4 1.9.7 1.5-.9z"/><circle cx="10" cy="10" r="2.4"/></svg>
+      Settings
+    </button>
+  </header>
+
+  <div class="body">
+    <!-- ── Sidebar: 4 work areas · Security · Activity + Settings ─────────── -->
+    <nav class="sidebar" aria-label="Main">
+      <button class="nav-item" data-go="today" aria-current="page"><span class="emo" aria-hidden="true">🏠</span>Today</button>
+      <button class="nav-item" data-go="sorting"><span class="emo" aria-hidden="true">🗂</span>Sorting</button>
+      <button class="nav-item" data-go="senders"><span class="emo" aria-hidden="true">👤</span>Senders<span class="nav-count" id="nav-senders" aria-label="3 new senders">3</span></button>
+      <button class="nav-item" data-go="cleanup"><span class="emo" aria-hidden="true">🧹</span>Clean up</button>
+      <div class="nav-sep" role="separator"></div>
+      <button class="nav-item" data-go="security"><span class="emo" aria-hidden="true">🛡</span>Security<span class="nav-count badge-danger" aria-label="1 high-risk finding">1</span></button>
+      <div class="nav-sep" role="separator"></div>
+      <button class="nav-item" data-go="activity"><span class="emo" aria-hidden="true">🕘</span>Activity<span class="nav-count" id="nav-activity" aria-label="4 actions you can undo today">4</span></button>
+      <button class="nav-item" data-go="settings"><span class="emo" aria-hidden="true">⚙️</span>Settings</button>
+      <span class="nav-fill"></span>
+      <p class="sidebar-note">Cluster reads senders, subjects and dates. Never message bodies. Everything runs in your browser.</p>
+    </nav>
+
+    <main class="main" id="main">
+      <!-- ══ TODAY ══════════════════════════════════════════════════════ -->
+      <section class="screen" data-screen="today" aria-labelledby="h-today">
+        <div class="page-head"><div><h1 class="page-title" id="h-today">Today</h1>
+          <p class="lead">What needs you, and what Cluster did while you were away.</p></div></div>
+
+        <div id="today-live">
+          <div class="notice danger" style="margin-bottom:24px">
+            <span class="tile danger" aria-hidden="true">!</span>
+            <div class="grow"><div class="t">1 message looks like phishing</div>
+              <div class="d">Says it's from PayPal. Actually sent from paypa1-secure.co.</div></div>
+            <button class="btn btn-danger" data-go="security">Review</button>
+          </div>
+
+          <section>
+            <div class="section-head"><h2 class="section-label">Waiting for you</h2><span class="meta">3 things</span></div>
+            <div class="list" id="waiting-list">
+              <div class="row no-check" data-key="w-new">
+                <div class="row-media"><span class="tile emoji" aria-hidden="true">👤</span><div class="row-text"><div class="row-title">3 new senders want into your inbox</div><div class="row-sub">Priya Raman, Figma, Ridgeline Dental</div></div></div>
+                <span></span><button class="btn btn-accent" data-go="senders" data-filter="new">Review</button><span></span>
+              </div>
+              <div class="row no-check" data-key="w-trash">
+                <div class="row-media"><span class="tile emoji" aria-hidden="true">🧹</span><div class="row-text"><div class="row-title">852 messages ready for Trash</div><div class="row-sub">18 senders you never open, plus expired codes and old newsletters</div></div></div>
+                <span></span><button class="btn" data-go="cleanup">Review</button><span></span>
+              </div>
+              <div class="row no-check" data-key="w-netflix">
+                <div class="row-media"><span class="tile" style="background:#1f1f1f" aria-hidden="true">N</span><div class="row-text"><div class="row-title">Netflix renews in 3 days</div><div class="row-sub">$15.49 on 8 Oct · from a billing email on 8 Sep</div></div></div>
+                <span></span><button class="btn" data-dismiss>Got it</button><span></span>
+              </div>
+            </div>
+          </section>
+
+          <section style="margin-top:24px">
+            <div class="section-head"><h2 class="section-label">While you were away</h2><span class="grow"></span><a href="#activity" data-go="activity">All activity</a></div>
+            <div class="list">
+              <div class="row no-check"><div class="row-media"><span class="tile emoji" aria-hidden="true">🗂</span><div class="row-text"><div class="row-title">Sorting moved 38 messages out of your inbox</div><div class="row-sub">21 to 🔑 One-time codes, 12 to 📦 Orders &amp; shipping, 5 to 🏷 Promotions</div></div></div>
+                <span class="row-meta">2 h ago</span><button class="btn btn-ghost" data-undo="Put 38 messages back in your inbox">Undo</button><span></span></div>
+              <div class="row no-check"><div class="row-media"><span class="tile emoji" aria-hidden="true">✋</span><div class="row-text"><div class="row-title">Screener held 2 new senders</div><div class="row-sub">Their mail is waiting in ✋ Screener</div></div></div>
+                <span class="row-meta">5 h ago</span><button class="btn btn-ghost" data-go="senders" data-filter="new">Review</button><span></span></div>
+              <div class="row no-check"><div class="row-media"><span class="tile emoji" aria-hidden="true">📭</span><div class="row-text"><div class="row-title">Unsubscribed from 4 lists</div><div class="row-sub">All verified one-click. None has written since.</div></div></div>
+                <span class="row-meta">Yesterday</span><button class="btn btn-ghost" data-go="activity">View</button><span></span></div>
+            </div>
+          </section>
+
+          <p class="summary-line" style="margin-top:24px"><strong>Inbox:</strong> 214 messages, 61 unread. 38 fewer than last Monday.</p>
+        </div>
+
+        <!-- Loading state (first index). Shown via the reviewer panel. -->
+        <div id="today-skel" hidden>
+          <div class="card first-run" style="margin-bottom:24px">
+            <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap"><strong>Getting to know your inbox</strong><span style="color:var(--label-3);font-size:14px">1,240 of 3,214 · about 2 min · you can start now</span></div>
+            <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="3214" aria-valuenow="1240" aria-label="Indexing your inbox"><span style="width:39%"></span></div>
+          </div>
+          <div class="section-head"><span class="sk" style="width:120px;height:12px"></span></div>
+          <div class="list" aria-hidden="true">
+            <div class="sk-row"><span class="sk" style="width:34px;height:34px;border-radius:10px"></span><div style="flex:1;display:grid;gap:6px"><span class="sk" style="width:46%;height:13px"></span><span class="sk" style="width:62%;height:11px"></span></div><span class="sk" style="width:72px;height:32px;border-radius:10px"></span></div>
+            <div class="sk-row"><span class="sk" style="width:34px;height:34px;border-radius:10px"></span><div style="flex:1;display:grid;gap:6px"><span class="sk" style="width:38%;height:13px"></span><span class="sk" style="width:55%;height:11px"></span></div><span class="sk" style="width:72px;height:32px;border-radius:10px"></span></div>
+            <div class="sk-row"><span class="sk" style="width:34px;height:34px;border-radius:10px"></span><div style="flex:1;display:grid;gap:6px"><span class="sk" style="width:52%;height:13px"></span><span class="sk" style="width:40%;height:11px"></span></div><span class="sk" style="width:72px;height:32px;border-radius:10px"></span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ SORTING ════════════════════════════════════════════════════ -->
+      <section class="screen" data-screen="sorting" aria-labelledby="h-sorting" hidden>
+        <div class="page-head"><div><h1 class="page-title" id="h-sorting">Sorting</h1>
+          <p class="lead">Where each kind of mail goes, and how long it stays in your inbox. Changes save as you make them.</p></div></div>
+
+        <div class="list" role="table" aria-label="Categories">
+          <div class="cat-head" role="row"><span role="columnheader">On</span><span role="columnheader">Category</span><span role="columnheader">Stays in inbox for</span><span role="columnheader">Then</span><span role="columnheader" style="text-align:right">In inbox</span><span role="columnheader">Status</span></div>
+          <div id="cat-rows"></div>
+        </div>
+
+        <div class="cat-foot">
+          <button class="btn btn-accent" id="apply-existing">Sort mail already in my inbox…</button>
+          <span class="meta" id="sort-last">Last checked 4 min ago · moved 12 · <button class="link" data-undo="Put 12 messages back in your inbox">Undo</button></span>
+        </div>
+        <div id="apply-progress" class="card" hidden>
+          <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin-bottom:10px"><strong>Sorting mail already in your inbox</strong><span id="apply-count" style="color:var(--label-3);font-size:14px">0 of 214</span><span class="spacer"></span><button class="btn btn-ghost" id="apply-stop">Stop</button></div>
+          <div class="progress" role="progressbar" aria-label="Sorting existing mail" aria-valuemin="0" aria-valuemax="214" aria-valuenow="0"><span id="apply-bar" style="width:0%"></span></div>
+        </div>
+
+        <details class="adv">
+          <summary>Custom rules <span class="pill">2</span></summary>
+          <div class="inner">Archive unread newsletters older than 14 days · Label mail from *.harvard.edu as 🎓 Education. The rule composer moves here, collapsed, because a rule is a hand-written category.</div>
+        </details>
+      </section>
+
+      <!-- ══ SENDERS ════════════════════════════════════════════════════ -->
+      <section class="screen" data-screen="senders" aria-labelledby="h-senders" hidden>
+        <div class="page-head"><div><h1 class="page-title" id="h-senders">Senders</h1>
+          <p class="lead">Decide once what you want from a sender. Unsubscribe asks them to stop. Mute hides them even if they don't.</p></div></div>
+
+        <div class="notice screener-card">
+          <span class="tile emoji" aria-hidden="true">✋</span>
+          <div class="grow"><div class="t" id="screener-label">Hold mail from new senders (Screener)</div>
+            <div class="d">Mail from people you've never written to waits here until you let them in. They aren't told.</div></div>
+          <button class="switch" role="switch" aria-checked="true" aria-labelledby="screener-label" id="screener-switch"></button>
+        </div>
+
+        <div class="toolbar">
+          <label class="search"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.4"/><path d="M13 13l4 4"/></svg>
+            <input type="search" id="sender-search" placeholder="Search senders" aria-label="Search senders" /></label>
+        </div>
+        <div class="chips" role="group" aria-label="Filter senders" id="sender-chips"></div>
+
+        <div class="list" id="sender-list" aria-live="off"></div>
+        <div class="list" id="sender-skel" hidden aria-hidden="true"></div>
+
+        <div class="bulk-bar" id="bulk-bar" hidden>
+          <span class="count" id="bulk-count">2 selected</span>
+          <button class="btn btn-accent" data-bulk="unsub">Unsubscribe</button>
+          <button class="btn" data-bulk="mute">Mute</button>
+          <select class="select" style="width:auto" aria-label="Send selected senders to a category" id="bulk-send"><option value="">Send to…</option><option>🛍 Shopping</option><option>📰 Newsletters</option><option>🏷 Promotions</option><option>💬 Social</option></select>
+          <button class="btn btn-ghost" id="bulk-clear">Clear</button>
+        </div>
+      </section>
+
+      <!-- ══ Areas outside this mockup: shown as the empty-state component ══ -->
+      <section class="screen" data-screen="cleanup" aria-labelledby="h-cleanup" hidden>
+        <div class="page-head"><div><h1 class="page-title" id="h-cleanup">Clean up</h1><p class="lead">Everything here moves to Trash. Gmail keeps Trash for 30 days.</p></div></div>
+        <div class="empty"><div class="t">Not built in this mockup</div><div class="d">See the Clean up wireframe in ui-report.md §5. Suggestions list, one outcome button ("Move 852 to Trash"), then Find more filters.</div></div>
+      </section>
+      <section class="screen" data-screen="security" aria-labelledby="h-security" hidden>
+        <div class="page-head"><div><h1 class="page-title" id="h-security">Security</h1><p class="lead">Suspicious mail, kept apart from tidying. A prompt to look, not a verdict.</p></div></div>
+        <div class="empty"><div class="t">Not built in this mockup</div><div class="d">See the Security wireframe in ui-report.md §5. Plain reason first, technical marks under Details, Block and It's genuine.</div></div>
+      </section>
+      <section class="screen" data-screen="activity" aria-labelledby="h-activity" hidden>
+        <div class="page-head"><div><h1 class="page-title" id="h-activity">Activity</h1><p class="lead">Everything done by you or automatically, with a way to put it back.</p></div></div>
+        <div class="empty"><div class="t">Not built in this mockup</div><div class="d">Grouped by day. Filters: All · By you · Automatic · Undone. Each entry has Undo or says why it can't be undone.</div></div>
+      </section>
+      <section class="screen" data-screen="settings" aria-labelledby="h-settings" hidden>
+        <div class="page-head"><div><h1 class="page-title" id="h-settings">Settings</h1><p class="lead">Things you set once. Every change applies right away.</p></div></div>
+        <div class="list">
+          <div class="row no-check"><div class="row-media"><div class="row-text"><div class="row-title">Accounts</div><div class="row-sub">sam.abhinav@gmail.com · Connect Outlook · Sign out</div></div></div><span></span><span></span><span class="chev" aria-hidden="true">›</span></div>
+          <div class="row no-check"><div class="row-media"><div class="row-text"><div class="row-title">Sync</div><div class="row-sub">Index mail from the last 6 months · Rebuild index</div></div></div><span></span><span></span><span class="chev" aria-hidden="true">›</span></div>
+          <div class="row no-check"><div class="row-media"><div class="row-text"><div class="row-title">Appearance</div><div class="row-sub">Theme: System</div></div></div><span></span><span></span><span class="chev" aria-hidden="true">›</span></div>
+          <div class="row no-check"><div class="row-media"><div class="row-text"><div class="row-title">Deleting</div><div class="row-sub">Delete forever instead of Trash: off</div></div></div><span></span><span></span><span class="chev" aria-hidden="true">›</span></div>
+          <div class="row no-check"><div class="row-media"><div class="row-text"><div class="row-title">Smart features</div><div class="row-sub">On-device classify · Digest</div></div></div><span></span><span></span><span class="chev" aria-hidden="true">›</span></div>
+          <div class="row no-check"><div class="row-media"><div class="row-text"><div class="row-title">Maintenance</div><div class="row-sub">Tidy up Cluster's labels (1 to rename)</div></div></div><span></span><span></span><span class="chev" aria-hidden="true">›</span></div>
+          <div class="row no-check"><div class="row-media"><div class="row-text"><div class="row-title">About and privacy</div><div class="row-sub">What Cluster reads, and what it never does</div></div></div><span></span><span></span><span class="chev" aria-hidden="true">›</span></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- Sender side sheet -->
+<div class="scrim" id="scrim" hidden></div>
+<aside class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden>
+  <div class="sheet-head">
+    <span class="tile" id="sheet-tile" aria-hidden="true">G</span>
+    <div style="flex:1;min-width:0"><div class="t" id="sheet-title">Groupon</div><div class="s" id="sheet-sub">deals@r.groupon.com</div></div>
+    <button class="btn btn-ghost" id="sheet-close" aria-label="Close">✕</button>
+  </div>
+  <div class="sheet-body">
+    <div style="font-size:14px;color:var(--label-2)" id="sheet-stats">214 messages · 0% opened · about 30 a week</div>
+    <section>
+      <h3 id="fm-label">Future mail</h3>
+      <div class="radio-list" role="radiogroup" aria-labelledby="fm-label" id="sheet-future">
+        <label><input type="radio" name="fm" value="inbox" /> Inbox</label>
+        <label><input type="radio" name="fm" value="cat" checked /> <span id="sheet-cat">🛍 Shopping</span><span class="hint" id="sheet-cat-hint">Follows that category's Sorting row</span></label>
+        <label><input type="radio" name="fm" value="muted" /> 🔇 Muted<span class="hint">Skips the inbox</span></label>
+      </div>
+    </section>
+    <section>
+      <h3>Unsubscribe</h3>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn btn-accent" id="sheet-unsub">Unsubscribe</button><span class="pill ok">Verified one-click</span></div>
+    </section>
+    <section>
+      <h3>Mail already here</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="sheet-existing"><button class="btn" id="sheet-trash">Move 214 to Trash…</button><button class="btn" id="sheet-keep">Keep newest 3…</button></div>
+      <div class="confirm" id="sheet-confirm" hidden><span class="grow">Move 214 messages from Groupon to Trash? Starred mail is skipped. Gmail keeps Trash for 30 days.</span><button class="btn btn-danger" id="sheet-confirm-yes">Move 214 to Trash</button><button class="btn btn-ghost" id="sheet-confirm-no">Cancel</button></div>
+    </section>
+    <section>
+      <h3>Why we suggest this</h3>
+      <ul class="why" id="sheet-why"><li>You haven't opened any of the last 214</li><li>About 30 a week, mostly on weekdays</li><li>Has a verified one-click unsubscribe</li></ul>
+    </section>
+    <section>
+      <h3>Activity for this sender</h3>
+      <div style="font-size:14px;color:var(--label-3)">Nothing yet.</div>
+    </section>
+  </div>
+</aside>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<details class="demo" id="demo">
+  <summary>Mockup states</summary>
+  <div class="panel">
+    <p>Reviewer controls. Not part of the design.</p>
+    <strong>Status pill</strong>
+    <div class="g"><button class="btn" data-demo-status="idle">Up to date</button><button class="btn" data-demo-status="busy">Checking</button><button class="btn" data-demo-status="index">Indexing</button><button class="btn" data-demo-status="offline">Offline</button><button class="btn" data-demo-status="auth">Signed out</button></div>
+    <strong>Loading</strong>
+    <div class="g"><button class="btn" id="demo-skel">Show skeletons for 2 s</button><button class="btn" id="demo-error">Row error</button></div>
+    <strong>Theme</strong>
+    <div class="g"><button class="btn" data-theme-set="">System</button><button class="btn" data-theme-set="light">Light</button><button class="btn" data-theme-set="dark">Dark</button></div>
+  </div>
+</details>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ── Navigation ─────────────────────────────────────────────────── */
+  function go(name, opts = {}) {
+    closeSheet(false);
+    $$(".screen").forEach(s => s.hidden = s.dataset.screen !== name);
+    $$(".nav-item").forEach(b => b.dataset.go === name ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+    if (opts.filter) setFilter(opts.filter);
+    const h = $(`.screen[data-screen="${name}"] h1`); if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); }
+    scrollTo({ top: 0 });
+    history.replaceState(null, "", "#" + name + (opts.filter ? "?filter=" + opts.filter : ""));
+  }
+  document.addEventListener("click", e => {
+    const t = e.target.closest("[data-go]");
+    if (t) { e.preventDefault(); $("#status-pop").hidden = true; go(t.dataset.go, { filter: t.dataset.filter }); }
+  });
+
+  /* ── Toasts: 10 s, pause on hover/focus, max 3, one action ──────── */
+  const TOAST_MS = 10000;
+  function toast(msg, { action = "Undo", onAction } = {}) {
+    const box = $("#toasts");
+    while (box.children.length >= 3) box.firstElementChild.remove();
+    const el = document.createElement("div"); el.className = "toast";
+    el.innerHTML = `<span class="msg"></span>${action ? `<button class="act" type="button">${action}</button>` : ""}<button class="x" type="button" aria-label="Dismiss">✕</button><span class="timer" aria-hidden="true"></span>`;
+    $(".msg", el).textContent = msg; box.appendChild(el);
+    let left = TOAST_MS, start = performance.now(), timer, paused = false;
+    const bar = $(".timer", el);
+    const anim = bar.animate([{ transform: "scaleX(1)" }, { transform: "scaleX(0)" }], { duration: TOAST_MS, fill: "forwards" });
+    const close = () => { clearTimeout(timer); el.classList.add("out"); setTimeout(() => el.remove(), 200); };
+    const run = () => { start = performance.now(); timer = setTimeout(close, left); anim.play(); };
+    const pause = () => { if (paused) return; paused = true; clearTimeout(timer); left -= performance.now() - start; anim.pause(); };
+    const resume = () => { if (!paused) return; paused = false; run(); };
+    el.addEventListener("mouseenter", pause); el.addEventListener("mouseleave", resume);
+    el.addEventListener("focusin", pause); el.addEventListener("focusout", resume);
+    $(".x", el).onclick = close;
+    if (action) $(".act", el).onclick = () => { close(); onAction && onAction(); };
+    run();
+  }
+  document.addEventListener("click", e => {
+    const u = e.target.closest("[data-undo]");
+    if (u) { u.disabled = true; u.textContent = "Undone"; toast(u.dataset.undo + ". Done.", { action: null }); }
+    const d = e.target.closest("[data-dismiss]");
+    if (d) removeRow(d.closest(".row"), () => toast("Hidden from Today", { onAction: () => location.reload() }));
+  });
+
+  function removeRow(row, after) {
+    if (!row) return;
+    if (reduced()) { row.remove(); after && after(); return; }
+    row.style.maxHeight = row.offsetHeight + "px";
+    row.classList.add("leaving");
+    row.addEventListener("animationend", () => { row.remove(); after && after(); }, { once: true });
+  }
+
+  /* ── Status pill ────────────────────────────────────────────────── */
+  const STATUS = {
+    idle: ["idle", 'Up to date<span class="long"> · checked 2 min ago</span>'],
+    busy: ["busy", 'Checking for new mail…'],
+    index: ["busy", 'Getting to know your inbox<span class="long"> · 1,240 of 3,214</span>'],
+    offline: ["offline", 'Offline<span class="long"> · showing mail from 10:42</span>'],
+    auth: ["auth", 'Gmail sign-in expired<span class="long"> · Reconnect</span>'],
+  };
+  function setStatus(k) {
+    const [state, html] = STATUS[k]; const p = $("#status-pill");
+    p.dataset.state = state; $("#status-text").innerHTML = html;
+    if (k === "busy") setTimeout(() => setStatus("idle"), 2200);
+  }
+  $("#status-pill").onclick = () => { const pop = $("#status-pop"); pop.hidden = !pop.hidden; $("#status-pill").setAttribute("aria-expanded", String(!pop.hidden)); };
+  document.addEventListener("click", e => { const s = e.target.closest("[data-demo-status]"); if (s) { setStatus(s.dataset.demoStatus); $("#status-pop").hidden = true; } });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") { $("#status-pop").hidden = true; closeSheet(true); } });
+
+  /* ── Sorting ────────────────────────────────────────────────────── */
+  const INBOX = ["Leaves at once", "1 hour", "1 day", "2 days", "3 days", "7 days", "14 days", "30 days", "Stays in inbox"];
+  const THEN = ["Keep", "Trash after 2 days", "Trash after 7 days", "Trash after 30 days"];
+  const cats = [
+    ["🔑", "One-time codes", "Sign-in and verification codes", true, "1 hour", "Trash after 2 days", 6, "limited"],
+    ["🧾", "Receipts", "Orders, invoices, payment confirmations", true, "Stays in inbox", "Keep", 14, "limited"],
+    ["📦", "Orders & shipping", "Tracking and delivery updates", true, "1 day", "Keep", 9, "limited"],
+    ["📰", "Newsletters", "Mailing lists you subscribed to", true, "Leaves at once", "Keep", 0, "ok"],
+    ["💬", "Social", "LinkedIn, Instagram, Strava…", true, "2 days", "Keep", 7, "ok"],
+    ["🏷", "Promotions", "Sales and marketing", true, "1 day", "Trash after 30 days", 23, "ok"],
+    ["🛍", "Shopping", "Stores you buy from", true, "3 days", "Keep", 11, "ok"],
+    ["🧳", "Travel", "Airlines, hotels, bookings", true, "Stays in inbox", "Keep", 3, "ok"],
+    ["💳", "Finance", "Banks, cards, statements", true, "Stays in inbox", "Keep", 5, "ok"],
+    ["💼", "Work", "Tools like Slack, GitHub, Notion", true, "Stays in inbox", "Keep", 18, "ok"],
+    ["🎓", "Education", "Courses and school", false, "Stays in inbox", "Keep", 2, "off"],
+  ];
+  function opt(list, v) { return list.map(o => `<option${o === v ? " selected" : ""}>${o}</option>`).join(""); }
+  function statusPill(kind) {
+    if (kind === "ok") return '<span class="pill ok">Works with Chrome closed</span>';
+    if (kind === "limited") return '<span class="pill limited">Only while Chrome is open</span>';
+    if (kind === "err") return '<span class="pill err">Gmail filter failed · <button class="link" style="padding:0;color:inherit;text-decoration:underline">Retry</button></span>';
+    return '<span class="pill">Off</span>';
+  }
+  const rowsEl = $("#cat-rows");
+  cats.forEach((c, i) => {
+    const [emo, name, desc, on, inbox, then, now, st] = c;
+    const r = document.createElement("div"); r.className = "cat-row"; r.setAttribute("role", "row"); r.dataset.on = on;
+    r.innerHTML = `
+      <span role="cell"><button class="switch" role="switch" aria-checked="${on}" aria-label="Sort ${name}"></button></span>
+      <span role="cell" class="cat-name">${emo} ${name}<span class="s">${desc}</span></span>
+      <span role="cell"><span class="hl-label">Stays in inbox for</span><select class="select" aria-label="${name}: stays in inbox for" ${on ? "" : "disabled"}>${opt(INBOX, inbox)}</select></span>
+      <span role="cell"><span class="hl-label">Then</span><select class="select" aria-label="${name}: then" ${on ? "" : "disabled"}>${opt(THEN, then)}</select></span>
+      <span role="cell" class="now" aria-label="${now} in inbox now">${on ? now : "–"}</span>
+      <span role="cell" class="st">${statusPill(on ? st : "off")}</span>`;
+    rowsEl.appendChild(r);
+    const sw = $(".switch", r), sels = $$("select", r);
+    sw.onclick = () => {
+      const v = sw.getAttribute("aria-checked") !== "true";
+      sw.setAttribute("aria-checked", v); r.dataset.on = v; sels.forEach(s => s.disabled = !v);
+      $(".st", r).innerHTML = statusPill(v ? st : "off"); $(".now", r).textContent = v ? now : "–";
+      toast(v ? `Sorting ${emo} ${name} again` : `${emo} ${name} no longer sorted. Mail stays in your inbox.`, { onAction: () => sw.click() });
+    };
+    sels[0].onchange = e => {
+      const prev = inbox; const val = e.target.value;
+      toast(val === "Stays in inbox" ? `${emo} ${name} now stays in your inbox` : val === "Leaves at once" ? `${emo} ${name} now skip your inbox` : `${emo} ${name} now leave your inbox after ${val}`, { onAction: () => { e.target.value = prev; } });
+    };
+    sels[1].onchange = e => {
+      const val = e.target.value; const prev = then;
+      toast(val === "Keep" ? `${emo} ${name} are kept in their label` : `${emo} ${name}: ${val.toLowerCase()} in the label`, { onAction: () => { e.target.value = prev; } });
+    };
+  });
+  $("#apply-existing").onclick = () => {
+    const card = $("#apply-progress"); card.hidden = false; $("#apply-existing").disabled = true;
+    let n = 0; const total = 214;
+    const tick = setInterval(() => {
+      n = Math.min(total, n + 23); $("#apply-count").textContent = `${n} of ${total}`; $("#apply-bar").style.width = (n / total * 100) + "%";
+      card.querySelector(".progress").setAttribute("aria-valuenow", n);
+      if (n >= total) { clearInterval(tick); setTimeout(() => { card.hidden = true; $("#apply-existing").disabled = false; }, 400);
+        toast("Sorted 214 messages. 131 left your inbox.", { onAction: () => toast("Put 131 messages back in your inbox", { action: null }) }); }
+    }, 220);
+    $("#apply-stop").onclick = () => { clearInterval(tick); card.hidden = true; $("#apply-existing").disabled = false; toast(`Stopped after ${n} of ${total}. The rest are untouched.`, { action: null }); };
+  };
+
+  /* ── Senders ────────────────────────────────────────────────────── */
+  const senders = [
+    { k: "priya", n: "Priya Raman", a: "priya@northwind.io", c: 2, o: "New sender", t: ["new"], act: "Let in", bg: "#5b6b8c", cat: "Inbox" },
+    { k: "figma", n: "Figma", a: "no-reply@figma.com", c: 3, o: "New sender", t: ["new"], act: "Let in", bg: "#1e1e1e", cat: "💼 Work" },
+    { k: "ridge", n: "Ridgeline Dental", a: "appointments@ridgelinedental.com", c: 1, o: "New sender", t: ["new"], act: "Let in", bg: "#3d7d86", cat: "Inbox" },
+    { k: "groupon", n: "Groupon", a: "deals@r.groupon.com", c: 214, o: "0% opened", t: ["decide", "news", "never"], act: "Unsubscribe", bg: "#53a318", cat: "🛍 Shopping" },
+    { k: "medium", n: "Medium Daily Digest", a: "noreply@medium.com", c: 88, o: "4% opened", t: ["decide", "news"], act: "Unsubscribe", bg: "#111", cat: "📰 Newsletters" },
+    { k: "duo", n: "Duolingo", a: "hello@duolingo.com", c: 61, o: "0% opened", t: ["decide", "never"], act: "Mute", bg: "#58a700", cat: "🏷 Promotions" },
+    { k: "li", n: "LinkedIn", a: "messages-noreply@linkedin.com", c: 54, o: "12% opened", t: ["decide"], act: "Mute", bg: "#0a66c2", cat: "💬 Social" },
+    { k: "oldnavy", n: "Old Navy", a: "oldnavy@email.oldnavy.com", c: 47, o: "0% opened", t: ["decide", "news", "never"], act: "Unsubscribe", bg: "#0b2a5b", cat: "🛍 Shopping" },
+    { k: "verge", n: "The Verge", a: "newsletter@theverge.com", c: 33, o: "9% opened", t: ["news"], act: "Unsubscribe", bg: "#5200ff", cat: "📰 Newsletters" },
+    { k: "door", n: "DoorDash", a: "no-reply@doordash.com", c: 29, o: "3% opened", t: ["decide"], act: "Mute", bg: "#eb1700", cat: "🛍 Shopping" },
+    { k: "substack", n: "Lenny's Newsletter", a: "lenny@substack.com", c: 22, o: "68% opened", t: ["news"], act: "Keep", bg: "#ff6719", cat: "📰 Newsletters" },
+    { k: "spotify", n: "Spotify", a: "no-reply@spotify.com", c: 19, o: "0% opened", t: ["never"], act: "Mute", bg: "#1db954", cat: "🏷 Promotions", muted: false },
+    { k: "nyt", n: "NYT Cooking", a: "cooking@nytimes.com", c: 41, o: "Muted 12 Sep", t: ["muted"], act: "Unmute", bg: "#333", cat: "🔇 Muted" },
+  ];
+  const FILTERS = [["new", "New senders"], ["decide", "Needs a decision"], ["news", "Newsletters"], ["never", "Never opened"], ["muted", "Muted"], ["all", "All"]];
+  let filter = "new"; const selected = new Set();
+  const count = f => f === "all" ? senders.filter(s => !s.t.includes("muted")).length : senders.filter(s => s.t.includes(f)).length;
+  function renderChips() {
+    $("#sender-chips").innerHTML = FILTERS.map(([k, l]) => `<button class="chip" type="button" data-f="${k}" aria-pressed="${k === filter}">${l}${k === "muted" ? "" : ` <span class="n">${count(k)}</span>`}</button>`).join("");
+    const nn = count("new"); $("#nav-senders").textContent = nn || ""; $("#nav-senders").setAttribute("aria-label", nn + " new senders");
+  }
+  $("#sender-chips").onclick = e => { const b = e.target.closest("[data-f]"); if (b) setFilter(b.dataset.f); };
+  function setFilter(f) { filter = f; selected.clear(); renderChips(); renderSenders(); }
+  function visible() {
+    const q = $("#sender-search").value.trim().toLowerCase();
+    return senders.filter(s => (filter === "all" ? !s.t.includes("muted") : s.t.includes(filter)) && (!q || (s.n + s.a).toLowerCase().includes(q)));
+  }
+  function senderRow(s) {
+    const r = document.createElement("div"); r.className = "row"; r.dataset.k = s.k;
+    const btnClass = s.act === "Keep" ? "btn btn-ghost" : "btn btn-accent";
+    r.innerHTML = `
+      <label class="check-hit"><input type="checkbox" class="check" aria-label="Select ${s.n}" ${selected.has(s.k) ? "checked" : ""}></label>
+      <div class="row-media"><span class="tile" style="background:${s.bg}" aria-hidden="true">${s.n[0]}</span>
+        <div class="row-text"><div class="row-title">${s.n}</div><div class="row-sub">${s.c.toLocaleString()} message${s.c === 1 ? "" : "s"} · ${s.o} · ${s.a}</div></div></div>
+      <span class="row-meta"><span class="pill">${s.cat}</span></span>
+      <button class="${btnClass}" type="button" data-act>${s.act}</button>
+      <button class="chev" type="button" aria-label="Open ${s.n}" data-open>›</button>`;
+    $("input", r).onchange = e => { e.target.checked ? selected.add(s.k) : selected.delete(s.k); bulk(); };
+    $("[data-act]", r).onclick = () => act(s, r);
+    $("[data-open]", r).onclick = () => openSheet(s, $("[data-open]", r));
+    return r;
+  }
+  function renderSenders() {
+    const list = $("#sender-list"); list.innerHTML = "";
+    const v = visible();
+    if (!v.length) {
+      list.innerHTML = filter === "new"
+        ? '<div class="empty" style="border:0;border-radius:0"><div class="t">No new senders</div><div class="d">Everyone who wrote recently is someone you have emailed or let in.</div></div>'
+        : '<div class="empty" style="border:0;border-radius:0"><div class="t">Nothing here</div><div class="d">No senders match this filter.</div></div>';
+    } else v.forEach(s => list.appendChild(senderRow(s)));
+    bulk();
+  }
+  $("#sender-search").oninput = renderSenders;
+  function bulk() { const n = selected.size; $("#bulk-bar").hidden = !n; $("#bulk-count").textContent = `${n} selected`; }
+  $("#bulk-clear").onclick = () => { selected.clear(); renderSenders(); };
+  $("#bulk-bar").addEventListener("click", e => {
+    const b = e.target.closest("[data-bulk]"); if (!b) return;
+    const keys = [...selected]; const removed = senders.filter(s => keys.includes(s.k));
+    keys.forEach(k => removeRow($(`.row[data-k="${k}"]`)));
+    removed.forEach(s => { s._prev = s.t; s.t = b.dataset.bulk === "mute" ? ["muted"] : ["done"]; });
+    selected.clear(); bulk(); setTimeout(renderChips, 280);
+    toast(b.dataset.bulk === "mute" ? `Muted ${removed.length} senders. Future mail goes to 🔇 Muted.` : `Unsubscribed from ${removed.length} senders`, {
+      action: b.dataset.bulk === "mute" ? "Undo" : "Also mute",
+      onAction: () => { if (b.dataset.bulk === "mute") { removed.forEach(s => s.t = s._prev); renderChips(); renderSenders(); } }
+    });
+  });
+
+  function act(s, row) {
+    const btn = $("[data-act]", row);
+    const pendingText = { "Let in": "Letting in…", "Unsubscribe": "Unsubscribing…", "Mute": "Muting…", "Keep": "Keeping…", "Unmute": "Unmuting…" }[s.act];
+    row.classList.add("pending"); btn.innerHTML = `<span class="spinner" aria-hidden="true"></span>${pendingText}`;
+    setTimeout(() => {
+      if (row.dataset.fail) { row.classList.remove("pending"); btn.textContent = "Retry"; delete row.dataset.fail;
+        const err = document.createElement("div"); err.className = "row-error"; err.textContent = `Couldn't ${s.act.toLowerCase()}. Gmail didn't answer. Nothing changed.`; row.appendChild(err); return; }
+      const prev = s.t; s.t = s.act === "Mute" ? ["muted"] : s.act === "Unmute" ? ["decide"] : ["done"];
+      removeRow(row, renderChips);
+      const msg = { "Let in": `Let in ${s.n}. Future mail goes to your inbox.`, "Unsubscribe": `Unsubscribed from ${s.n}`, "Mute": `Muted ${s.n}. Future mail goes to 🔇 Muted.`, "Keep": `Keeping ${s.n}. We won't suggest it again.`, "Unmute": `Unmuted ${s.n}` }[s.act];
+      toast(msg, { action: s.act === "Unsubscribe" ? "Also mute" : "Undo", onAction: () => {
+        if (s.act === "Unsubscribe") { toast(`Muted ${s.n}`, { action: null }); return; }
+        s.t = prev; renderChips(); renderSenders(); const back = $(`.row[data-k="${s.k}"]`); if (back) back.classList.add("entering"); } });
+    }, row.dataset.fail ? 900 : 450);
+  }
+  $("#screener-switch").onclick = e => {
+    const sw = e.currentTarget, v = sw.getAttribute("aria-checked") !== "true"; sw.setAttribute("aria-checked", v);
+    toast(v ? "Screener on. New senders wait here until you let them in." : "Screener off. New senders go straight to your inbox.", { onAction: () => sw.click() });
+  };
+
+  /* ── Side sheet ─────────────────────────────────────────────────── */
+  let lastFocus = null;
+  function openSheet(s, from) {
+    lastFocus = from;
+    $("#sheet-title").textContent = s.n; $("#sheet-sub").textContent = s.a;
+    $("#sheet-tile").textContent = s.n[0]; $("#sheet-tile").style.background = s.bg;
+    $("#sheet-stats").textContent = `${s.c.toLocaleString()} messages · ${s.o}`;
+    $("#sheet-cat").textContent = s.cat.startsWith("🔇") || s.cat === "Inbox" ? "🛍 Shopping" : s.cat;
+    $("#sheet-trash").textContent = `Move ${s.c} to Trash…`; $("#sheet-confirm-yes").textContent = `Move ${s.c} to Trash`;
+    $("#sheet-confirm").querySelector(".grow").textContent = `Move ${s.c} messages from ${s.n} to Trash? Starred mail is skipped. Gmail keeps Trash for 30 days.`;
+    $("#sheet-confirm").hidden = true; $("#sheet-existing").hidden = false;
+    const v = s.cat === "Inbox" ? "inbox" : s.cat.startsWith("🔇") ? "muted" : "cat";
+    $$('#sheet-future input').forEach(i => i.checked = i.value === v);
+    $("#sheet-why").innerHTML = s.t.includes("new") ? "<li>First time they've written to you</li><li>You've never emailed this address</li>" : `<li>${s.o === "0% opened" ? "You haven't opened any of the last " + s.c : "You opened " + s.o.replace(" opened", "") + " of the last " + s.c}</li><li>${s.t.includes("news") ? "Has a verified one-click unsubscribe" : "No unsubscribe header, so Mute is the reliable option"}</li>`;
+    $("#sheet").dataset.k = s.k;
+    $("#scrim").hidden = false; $("#sheet").hidden = false;
+    requestAnimationFrame(() => { $("#scrim").classList.add("show"); $("#sheet").classList.add("show"); $("#sheet-close").focus(); });
+  }
+  function closeSheet(restore) {
+    const sh = $("#sheet"); if (sh.hidden) return;
+    sh.classList.remove("show"); $("#scrim").classList.remove("show");
+    setTimeout(() => { sh.hidden = true; $("#scrim").hidden = true; }, reduced() ? 0 : 220);
+    if (restore && lastFocus) lastFocus.focus();
+  }
+  $("#sheet-close").onclick = () => closeSheet(true); $("#scrim").onclick = () => closeSheet(true);
+  $("#sheet").addEventListener("keydown", e => { // simple focus trap
+    if (e.key !== "Tab") return;
+    const f = $$("button:not([hidden]), input, select", $("#sheet")).filter(x => x.offsetParent);
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f.at(-1).focus(); }
+    else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
+  });
+  $("#sheet-future").onchange = e => {
+    const label = e.target.closest("label").textContent.replace(/Leaves.*|Skips.*/, "").trim();
+    toast(`Future mail from ${$("#sheet-title").textContent} goes to ${label}`, { onAction: () => {} });
+  };
+  $("#sheet-unsub").onclick = e => { const b = e.currentTarget; b.disabled = true; b.innerHTML = '<span class="spinner" aria-hidden="true"></span>Unsubscribing…';
+    setTimeout(() => { b.textContent = "Unsubscribed"; toast(`Unsubscribed from ${$("#sheet-title").textContent}`, { action: "Also mute" }); }, 600); };
+  $("#sheet-trash").onclick = () => { $("#sheet-existing").hidden = true; $("#sheet-confirm").hidden = false; $("#sheet-confirm-yes").focus(); };
+  $("#sheet-confirm-no").onclick = () => { $("#sheet-confirm").hidden = true; $("#sheet-existing").hidden = false; $("#sheet-trash").focus(); };
+  $("#sheet-confirm-yes").onclick = () => { $("#sheet-confirm").hidden = true; $("#sheet-existing").hidden = false;
+    toast(`Moved ${$("#sheet-trash").textContent.match(/\d+/)[0]} messages to Trash`, { onAction: () => toast("Put them back", { action: null }) }); };
+  $("#sheet-keep").onclick = () => toast(`Kept the newest 3 from ${$("#sheet-title").textContent}. Moved the rest to Trash.`);
+
+  /* ── Reviewer controls ──────────────────────────────────────────── */
+  function skelRows(n) { return Array.from({ length: n }, () => '<div class="sk-row"><span class="sk" style="width:20px;height:20px;border-radius:50%"></span><span class="sk" style="width:34px;height:34px;border-radius:10px"></span><div style="flex:1;display:grid;gap:6px"><span class="sk" style="width:34%;height:13px"></span><span class="sk" style="width:58%;height:11px"></span></div><span class="sk" style="width:96px;height:32px;border-radius:10px"></span></div>').join(""); }
+  $("#sender-skel").innerHTML = skelRows(6);
+  $("#demo-skel").onclick = () => {
+    $("#today-live").hidden = true; $("#today-skel").hidden = false; $("#sender-list").hidden = true; $("#sender-skel").hidden = false; setStatus("index");
+    setTimeout(() => { $("#today-live").hidden = false; $("#today-skel").hidden = true; $("#sender-list").hidden = false; $("#sender-skel").hidden = true; setStatus("idle"); }, 2000);
+  };
+  $("#demo-error").onclick = () => { go("senders"); const r = $("#sender-list .row"); if (r) { r.dataset.fail = "1"; $("[data-act]", r).click(); } };
+  $$("[data-theme-set]").forEach(b => b.onclick = () => { const v = b.dataset.themeSet; v ? document.documentElement.dataset.theme = v : delete document.documentElement.dataset.theme; });
+
+  renderChips(); renderSenders();
+  const start = (location.hash || "#today").slice(1).split("?")[0];
+  const f = new URLSearchParams(location.hash.split("?")[1] || "").get("filter");
+  if (["today", "sorting", "senders", "cleanup", "security", "activity", "settings"].includes(start)) go(start, { filter: f || undefined });
+})();
+</script>
+</body>
+</html>

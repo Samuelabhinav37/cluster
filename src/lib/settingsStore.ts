@@ -1,10 +1,12 @@
+import type { ScamWeek } from "./scamHistory";
 import type { ProviderId } from "./providers/emailProvider";
 import type { ClusterRule } from "./rules";
 import type { ActionLogEntry } from "./actionLog";
 import type { SenderEngagementMap } from "./engagementModel";
-import type { SortOverride } from "./sortTaxonomy";
+import { DEFAULT_INBOX_HOURS, type SortOverride } from "./sortTaxonomy";
 import type { QuarantineReviewMap } from "./quarantineReview";
 import { withStorageLock } from "./storageLock";
+import { migrateStoredLabelNames } from "./clusterLabels";
 
 export interface ClusterSettings {
   schemaVersion: number;
@@ -42,6 +44,14 @@ export interface ClusterSettings {
   activeTab: string;
   /** Dashboard colour theme. "system" follows prefers-color-scheme. */
   theme: "system" | "light" | "dark";
+  /** First-run setup answer (setupTab.ts). "" until the user picks one. */
+  persona: "" | "calm" | "business" | "safe" | "busy";
+  /** Set once the user answered or dismissed the setup question. */
+  setupDone: boolean;
+  /** Bigger text and a three-item nav (setupTab.ts). */
+  simpleMode: boolean;
+  /** Weekly counts of what auto-quarantine held, for the Scam report (scamHistory.ts). */
+  scamHistory: ScamWeek[];
 
   // ── Security (Phase 2) ──────────────────────────────────────────────────
   /** Provider + sender address → epoch ms first seen. After the initial
@@ -84,6 +94,20 @@ export interface ClusterSettings {
     filterIdsByBucket: Record<string, string[]>;
     /** Same, for Outlook inbox messageRules. */
     ruleIdsByBucket: Record<string, string[]>;
+    /** Fingerprint of what each stored Gmail filter does (categoryFilters.specKey),
+     * so a sync only replaces filters whose settings changed. */
+    filterSpecByBucket: Record<string, string>;
+    /** Inbox time limits: Gmail filters label every category on arrival and
+     * the background sweep moves mail out once its category's limit passes. */
+    timeLimitsEnabled: boolean;
+    /** Hours new mail stays in the inbox, per category. 0 = straight to the
+     * label; null = stays in the inbox. Defaults: DEFAULT_INBOX_HOURS. */
+    inboxHoursByBucket: Record<string, number | null>;
+    /** The last time-limit sweep: when, and how many messages it moved. */
+    lastSweep: { at: number; moved: number };
+    /** Messages past their limit that a sweep kept in the inbox (starred, a
+     * known person, or risky), so later sweeps don't re-read them. Capped. */
+    keptInInboxIds: string[];
   };
   /** Per-sender "wrong bucket?" corrections from the sort preview, keyed by
    * lowercased from-address → a bucket to force, or "never" to skip. Consulted
@@ -92,6 +116,8 @@ export interface ClusterSettings {
   /** True once the first-run "reuse your existing labels/filters" card has been
    * shown and dismissed (see seedFromExisting.ts). */
   seededFromExisting: boolean;
+  /** The user closed the "Tidy up Cluster's labels" card without applying. */
+  labelTidyDismissed: boolean;
 
   // ── Flat-label collision guard ─────────────────────────────────────────
   /** Canonical names of Gmail labels Cluster itself created. Lets us tell
@@ -100,12 +126,26 @@ export interface ClusterSettings {
   clusterOwnedLabels: string[];
   /** Desired label name → the name to actually use, once the user has
    * resolved a clash with one of their own labels. `"Shopping"` maps to
-   * either `"Shopping"` (reuse theirs) or `"Shopping (Cluster)"` (keep separate). */
+   * either `"Shopping"` (reuse theirs) or `"Shopping · sorted"` (keep separate). */
   labelChoices: Record<string, string>;
+
+  // ── Overview trend ─────────────────────────────────────────────────────
+  /** One deterministic inbox-health score per ISO week, oldest first, capped
+   * at the last 12 weeks — feeds the Overview screen's trend chart. Written
+   * once per scan when the current week has no entry yet (see
+   * inboxHealth.recordHealthSnapshot). */
+  healthHistory: HealthSnapshot[];
+}
+
+export interface HealthSnapshot {
+  /** ISO week, e.g. "2026-W37". */
+  week: string;
+  /** 0–100, from inboxHealth.inboxHealthScore. */
+  score: number;
 }
 
 const STORAGE_KEY = "clusterSettings";
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 10;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 13;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -132,6 +172,10 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   lastTriageSummary: "",
   activeTab: "overview",
   theme: "system",
+  persona: "",
+  setupDone: false,
+  simpleMode: false,
+  scamHistory: [],
   knownSenders: {},
   knownSendersInitialized: false,
   incrementalSyncCursors: {},
@@ -147,11 +191,18 @@ const DEFAULT_SETTINGS: ClusterSettings = {
     expireOtp: false,
     filterIdsByBucket: {},
     ruleIdsByBucket: {},
+    filterSpecByBucket: {},
+    timeLimitsEnabled: false,
+    inboxHoursByBucket: { ...DEFAULT_INBOX_HOURS },
+    lastSweep: { at: 0, moved: 0 },
+    keptInInboxIds: [],
   },
   sortOverrides: {},
   seededFromExisting: false,
+  labelTidyDismissed: false,
   clusterOwnedLabels: [],
   labelChoices: {},
+  healthHistory: [],
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -225,6 +276,22 @@ function migrateSettings(value: unknown): Record<string, unknown> {
     } else if (version === 9) {
       stored = { ...stored, schemaVersion: 10, quarantinedSenders: {}, quarantineReview: {} };
       version = 10;
+    } else if (version === 10) {
+      stored = { ...stored, schemaVersion: 11, healthHistory: [] };
+      version = 11;
+    } else if (version === 11) {
+      stored = { ...migrateStoredLabelNames(stored), schemaVersion: 12 };
+      version = 12;
+    } else if (version === 12) {
+      // Inbox time limits: defaults come from normalisation; off until the
+      // user turns them on.
+      const autoSort = isRecord(stored.autoSort) ? stored.autoSort : {};
+      stored = {
+        ...stored,
+        schemaVersion: 13,
+        autoSort: { ...autoSort, filterSpecByBucket: {}, timeLimitsEnabled: false },
+      };
+      version = 13;
     }
   }
   return stored;
@@ -256,6 +323,12 @@ function normalizeSettings(value: unknown): ClusterSettings {
       ruleIdsByBucket: {
         ...DEFAULT_SETTINGS.autoSort.ruleIdsByBucket,
         ...(isRecord(autoSort.ruleIdsByBucket) ? autoSort.ruleIdsByBucket : {}),
+      },
+      filterSpecByBucket: isRecord(autoSort.filterSpecByBucket) ? autoSort.filterSpecByBucket : {},
+      // Every category has a limit, including ones added after the user saved.
+      inboxHoursByBucket: {
+        ...DEFAULT_SETTINGS.autoSort.inboxHoursByBucket,
+        ...(isRecord(autoSort.inboxHoursByBucket) ? autoSort.inboxHoursByBucket : {}),
       },
     } as ClusterSettings["autoSort"],
   };

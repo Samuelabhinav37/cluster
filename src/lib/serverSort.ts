@@ -3,10 +3,10 @@
 // instead of only on the 6-hourly client sweep. Pure — the dashboard turns
 // these specs into Users.settings.filters calls (gmailApi.createFilter).
 //
-// Only the seven domain-category buckets qualify: a Gmail filter matches on
-// `from:` (and other headers), which can't express the subject-regex "kind"
-// buckets (otp / receipt / shipping / newsletter / social). Those stay on the
-// client rule sweep.
+// This module builds the Outlook rule and the from:-only Gmail filter for the
+// sender-based buckets. Every category, kinds included, can also be matched
+// by a Gmail search query (subject phrases, category:promotions): see
+// categoryQueries.ts, which the inbox time limits use.
 import { domainsForCategory, type DomainCategory } from "./domainCategories";
 import type { GmailFilterAction, GmailFilterCriteria } from "./gmailApi";
 import type { SortBucket, SortOverride } from "./sortTaxonomy";

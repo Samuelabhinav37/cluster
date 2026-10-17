@@ -1,61 +1,31 @@
-// Security tab: the "Possible impersonation" list. Read-only threat-signal
-// detail plus two manual, per-sender actions — "Label as suspicious" and
-// "Deep scan" (the one place the dashboard fetches a message body). Never
-// automatic, never a standing filter — see threatSignals.ts / linkMismatch.ts.
+// Scams screen (data-screen="impersonation"). Two lists, both in plain words
+// from verdict.ts: "Held for you" (mail auto-quarantine moved, from the
+// durable quarantinedSenders ledger) and "Check before you act" (senders in
+// this scan with warning signs, still in the inbox). Per-card actions: It's
+// fine, guided reporting, Deep scan (the one place the dashboard fetches a
+// message body) and Block. See threatSignals.ts / verdict.ts / linkMismatch.ts.
 import { log } from "../lib/log";
 import { findBlocklistedLinkTargets, findMismatchedLinks } from "../lib/linkMismatch";
 import { isBlockedDomain } from "../lib/blocklist";
-import { riskTier, senderRiskScore } from "../lib/threatSignals";
+import { MAX_REASONS, senderVerdict, type Verdict, type VerdictTier } from "../lib/verdict";
+import { knownSenderSet } from "../lib/screener";
 import { queueAthenaSecurityEvent } from "../lib/athenaIntegration";
 import { mutateSettings } from "../lib/settingsStore";
 import { recordQuarantineVerdict } from "../lib/quarantineReview";
 import type { SenderSummary } from "../lib/senderModel";
 import type { ProviderId } from "../lib/providers/emailProvider";
 import { renderConfirmStep } from "./ui";
+import { senderTile } from "./senderTile";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
+import { clusterLabelName } from "../lib/clusterLabels";
 
 const securitySectionEl = document.getElementById("security-section") as HTMLElement;
 const securitySenderListEl = document.getElementById("security-sender-list") as HTMLUListElement;
 const securityEmptyEl = document.getElementById("security-empty") as HTMLParagraphElement;
 const quarantineReviewSectionEl = document.getElementById("quarantine-review-section") as HTMLElement;
 const quarantineReviewListEl = document.getElementById("quarantine-review-list") as HTMLUListElement;
-
-function describeSignal(s: SenderSummary["threatSignals"][number]): string {
-  switch (s.kind) {
-    case "freemail-brand-claim":
-      return `claims to be ${s.brand}, sent from a free-mail address`;
-    case "brand-impersonation":
-      return `claims to be ${s.brand}, domain doesn't match`;
-    case "lookalike-domain":
-      return `domain closely resembles ${s.brand}'s real domain`;
-    case "failed-authentication":
-      return `failed DMARC authentication (claimed domain: ${s.brand})`;
-    case "blocklisted-domain":
-      return `sending domain (${s.brand}) is on a known-bad domain list`;
-    case "reply-to-mismatch":
-      return `replies would go to a personal address (${s.brand}), not the sender's domain`;
-    case "punycode-domain":
-      return `sender domain (${s.brand}) uses punycode — a common homograph trick`;
-    case "lure-language":
-      return `subject uses urgency / credential-request language`;
-    case "link-mismatch":
-      return `a link's visible text doesn't match where it actually goes`;
-    case "risky-attachment":
-      return `sent a risky-shaped attachment (.html/.iso/macro Office/double extension) without authenticating`;
-    default: {
-      const unreachable: never = s.kind;
-      return unreachable;
-    }
-  }
-}
-
-// "SPF ✓ · DKIM ✓ · DMARC —" — a plain-language read on what the mail
-// provider's Authentication-Results header actually said about this sender.
-function authChip(v: SenderSummary["authVerdicts"]): string {
-  const mark = (verdict: string) => (verdict === "pass" ? "✓" : verdict === "fail" ? "✗" : "—");
-  return `SPF ${mark(v.spf)} · DKIM ${mark(v.dkim)} · DMARC ${mark(v.dmarc)}`;
-}
+const quarantineReviewCountEl = document.getElementById("quarantine-review-count") as HTMLElement | null;
 
 // messageIds is in fetch order, not date order -- pick the genuinely most
 // recent message so "checks the most recent message" is true.
@@ -128,20 +98,52 @@ function parseSenderKey(key: string): { providerId: string; address: string } {
 // query -- meaning renderSecuritySection's `senders` argument can't be relied
 // on to still contain them. Rendered straight from the durable
 // quarantinedSenders ledger instead (see quarantineReview.ts / background.ts's
-// runQuarantine), keyed the same way SenderSummary.key is built.
-export function renderQuarantineReview() {
+// runQuarantine), keyed the same way SenderSummary.key is built. When the
+// sender is still in this scan, its plain reasons are shown too.
+export function renderQuarantineReview(senders: SenderSummary[] = []) {
   const entries = Object.entries(ctx.settings.quarantinedSenders);
   quarantineReviewSectionEl.hidden = entries.length === 0;
+  const heldCount = entries.reduce((n, [, r]) => n + r.messageIds.length, 0);
+  if (quarantineReviewCountEl) {
+    quarantineReviewCountEl.textContent = `${heldCount} email${heldCount === 1 ? "" : "s"} from ${entries.length} sender${entries.length === 1 ? "" : "s"}`;
+  }
   if (entries.length === 0) return;
+  const byKey = new Map(senders.map((s) => [s.key, s]));
+  const known = knownSenderSet(ctx.settings);
 
   quarantineReviewListEl.replaceChildren(
     ...entries.map(([key, record]) => {
       const { providerId, address } = parseSenderKey(key);
       const provider = providerById.get(providerId as ProviderId);
+      const sender = byKey.get(key);
       const li = document.createElement("li");
-      const text = document.createElement("span");
-      text.textContent = `${address} — quarantined ${record.messageIds.length} message${record.messageIds.length === 1 ? "" : "s"} `;
-      li.appendChild(text);
+      li.className = "glass-card scam-card";
+
+      const head = document.createElement("div");
+      head.className = "scam-head";
+      const id = document.createElement("div");
+      id.className = "scam-id";
+      const title = document.createElement("div");
+      title.className = "scam-subj";
+      title.textContent = sender?.displayName ? `${sender.displayName} <${address}>` : address;
+      const sub = document.createElement("div");
+      sub.className = "scam-from";
+      const n = record.messageIds.length;
+      sub.textContent = `${n} held ${timeAgo(record.at)}, in "${clusterLabelName("suspicious")}"`;
+      id.append(title, sub);
+      const chip = document.createElement("span");
+      chip.className = "risk-chip hold";
+      chip.textContent = "Held";
+      head.append(senderTile(address, sender?.displayName, "sz-34"), id, chip);
+      li.appendChild(head);
+
+      if (sender) {
+        const verdict = senderVerdict(sender, {
+          knownCorrespondent: known.has(address.toLowerCase()),
+          review: ctx.settings.quarantineReview[key],
+        });
+        li.appendChild(reasonList(verdict));
+      }
 
       const removeEntry = async () => {
         ctx.settings = await mutateSettings((current) => {
@@ -151,21 +153,12 @@ export function renderQuarantineReview() {
         });
       };
 
-      const confirmBtn = document.createElement("button");
-      confirmBtn.textContent = "Confirm — keep filed";
-      confirmBtn.onclick = async () => {
-        confirmBtn.disabled = true;
-        ctx.settings = await mutateSettings((current) => ({
-          ...current,
-          quarantineReview: recordQuarantineVerdict(current.quarantineReview, key, "confirmed"),
-        }));
-        await removeEntry();
-        await logAction("labelSuspicious", `Confirmed ${address} as high-risk, kept filed out of the inbox`);
-        renderQuarantineReview();
-      };
+      const actions = document.createElement("div");
+      actions.className = "scam-actions";
 
       const releaseBtn = document.createElement("button");
-      releaseBtn.textContent = "Release — false positive";
+      releaseBtn.className = "btn";
+      releaseBtn.textContent = "Not a scam, put it back";
       releaseBtn.onclick = async () => {
         if (!provider?.unlabelSuspicious) return;
         releaseBtn.disabled = true;
@@ -178,7 +171,7 @@ export function renderQuarantineReview() {
           }));
           await removeEntry();
           await logAction("labelSuspicious", `Released ${address} from quarantine, back in the inbox`);
-          renderQuarantineReview();
+          renderQuarantineReview(senders);
         } catch (err) {
           releaseBtn.disabled = false;
           log.error("Release from quarantine failed", err);
@@ -186,81 +179,237 @@ export function renderQuarantineReview() {
       };
       if (!provider?.unlabelSuspicious) releaseBtn.disabled = true;
 
-      li.append(confirmBtn, releaseBtn);
+      const confirmBtn = document.createElement("button");
+      confirmBtn.className = "btn btn-ghost";
+      confirmBtn.textContent = "Keep it held";
+      confirmBtn.onclick = async () => {
+        confirmBtn.disabled = true;
+        ctx.settings = await mutateSettings((current) => ({
+          ...current,
+          quarantineReview: recordQuarantineVerdict(current.quarantineReview, key, "confirmed"),
+        }));
+        await removeEntry();
+        await logAction("labelSuspicious", `Confirmed ${address} as high-risk, kept filed out of the inbox`);
+        renderQuarantineReview(senders);
+      };
+
+      const report = reportSteps();
+      actions.append(releaseBtn, report.button, confirmBtn);
+      li.append(report.steps, actions);
       return li;
     }),
   );
 }
 
+function timeAgo(at: number): string {
+  const days = Math.floor((Date.now() - at) / (24 * 60 * 60 * 1000));
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  return `${days} days ago`;
+}
+
+/** Up to MAX_REASONS plain reasons, then anything weighed in the sender's
+ * favour. Reasons quote sender-chosen domains, so they go in as text. */
+function reasonList(verdict: Verdict): HTMLUListElement {
+  const ul = document.createElement("ul");
+  ul.className = "reasons";
+  for (const reason of verdict.reasons.slice(0, MAX_REASONS)) {
+    const li = document.createElement("li");
+    li.textContent = reason.text;
+    ul.appendChild(li);
+  }
+  for (const reason of verdict.trustReasons) {
+    const li = document.createElement("li");
+    li.className = "trust";
+    li.textContent = reason.text;
+    ul.appendChild(li);
+  }
+  return ul;
+}
+
+/** Guided reporting. Cluster has no send permission and never sends
+ * anything itself: it shows the steps and the user acts in their own mail. */
+function reportSteps(): { button: HTMLButtonElement; steps: HTMLOListElement } {
+  const steps = document.createElement("ol");
+  steps.className = "report-steps";
+  steps.hidden = true;
+  for (const text of [
+    "Open the email in Gmail or Outlook.",
+    "Gmail: ⋮ More, then Report phishing. Outlook: Report, then Report phishing.",
+    "Optional: forward it as an attachment to reportphishing@apwg.org.",
+  ]) {
+    const li = document.createElement("li");
+    li.textContent = text;
+    steps.appendChild(li);
+  }
+  const button = document.createElement("button");
+  button.className = "btn btn-ghost";
+  button.textContent = "Report it…";
+  button.setAttribute("aria-expanded", "false");
+  button.onclick = () => {
+    steps.hidden = !steps.hidden;
+    button.setAttribute("aria-expanded", String(!steps.hidden));
+  };
+  return { button, steps };
+}
+
+const TIER_CHIP: Record<VerdictTier, [string, string]> = {
+  hold: ["hold", "High risk"],
+  warn: ["warn", "Check before you act"],
+  none: ["none", "Worth a look"],
+};
+
 export function renderSecuritySection(senders: SenderSummary[]) {
-  renderQuarantineReview();
+  renderQuarantineReview(senders);
   // Rank by combined risk so a sender tripping several signals (or a
   // freemail brand claim) sorts above one with a lone medium signal.
+  const known = knownSenderSet(ctx.settings);
   const flagged = senders
-    .filter((s) => s.threatSignals.length > 0)
-    .map((sender) => ({ sender, score: senderRiskScore(sender.threatSignals) }))
-    .sort((a, b) => b.score - a.score);
+    .map((sender) => ({
+      sender,
+      verdict: senderVerdict(sender, {
+        knownCorrespondent: known.has(sender.address.toLowerCase()),
+        review: ctx.settings.quarantineReview[sender.key],
+      }),
+    }))
+    // A known correspondent whose only "signal" was a brand-like name has
+    // nothing left to show (verdict.ts rule 1).
+    .filter(({ verdict }) => verdict.signals.length > 0)
+    .sort((a, b) => b.verdict.score - a.verdict.score);
   securitySectionEl.hidden = flagged.length === 0;
   securityEmptyEl.hidden = flagged.length > 0;
   if (flagged.length === 0) return;
 
   securitySenderListEl.replaceChildren(
-    ...flagged.map(({ sender, score }) => {
-      const li = document.createElement("li");
-      const label = sender.threatSignals.map(describeSignal).join("; ");
-      const tierEl = document.createElement("strong");
-      tierEl.textContent = `${riskTier(score).toUpperCase()} risk`;
-      const text = document.createElement("span");
-      const firstContact = sender.firstContact ? " · new since Cluster started tracking" : "";
-      text.textContent = ` — ${sender.displayName || sender.address} <${sender.address}> — ${label} `;
-      const meta = document.createElement("span");
-      meta.className = "hint";
-      meta.textContent = `[${authChip(sender.authVerdicts)}]${firstContact} `;
-      li.append(tierEl, text, meta);
-
-      const provider = providerById.get(sender.provider);
-      if (provider?.labelSuspicious) {
-        const slot = document.createElement("span");
-        const btn = document.createElement("button");
-        btn.textContent = "Label as suspicious";
-        const reset = () => {
-          slot.innerHTML = "";
-          slot.appendChild(btn);
-        };
-        btn.onclick = () => {
-          renderConfirmStep(
-            slot,
-            reset,
-            `Move ${sender.messageIds.length} message${sender.messageIds.length === 1 ? "" : "s"} from ${sender.address} to a "Possible Phishing" label, out of the inbox?`,
-            false,
-            async () => {
-              const token = await provider.getAuthToken(false);
-              await provider.labelSuspicious!(token, sender.messageIds);
-              await logAction(
-                "labelSuspicious",
-                `Labelled ${sender.messageIds.length} from ${sender.address} as suspicious`,
-              );
-              return "Labeled ✓";
-            },
-          );
-        };
-        slot.appendChild(btn);
-        li.appendChild(slot);
-      }
-
-      if (provider?.getMessageLinks) {
-        const scanResult = document.createElement("span");
-        scanResult.className = "hint";
-        const scanBtn = document.createElement("button");
-        scanBtn.textContent = "Deep scan (checks links in the most recent message)";
-        scanBtn.onclick = async () => {
-          scanBtn.disabled = true;
-          await runDeepScan(sender, scanResult);
-          scanBtn.disabled = false;
-        };
-        li.append(scanBtn, scanResult);
-      }
-      return li;
-    }),
+    ...flagged.map(({ sender, verdict }) => buildThreatCard(sender, verdict)),
   );
 }
+
+/** The subject to show: the newest message a warning came from, else the
+ * newest message from this sender. */
+function headlineMessage(sender: SenderSummary, verdict: Verdict) {
+  const flagged = new Set(verdict.signals.flatMap((s) => s.messageIds ?? []));
+  const pool = sender.messages.filter((m) => flagged.size === 0 || flagged.has(m.id));
+  return [...(pool.length > 0 ? pool : sender.messages)].sort((a, b) => b.receivedAt - a.receivedAt)[0];
+}
+
+function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
+  const li = document.createElement("li");
+  li.className = "glass-card scam-card";
+
+  // Subject, sender and date, then the risk chip. Everything here comes from
+  // the sender, so it goes in as text, never as HTML.
+  const head = document.createElement("div");
+  head.className = "scam-head";
+  const id = document.createElement("div");
+  id.className = "scam-id";
+  const message = headlineMessage(sender, verdict);
+  const title = document.createElement("div");
+  title.className = "scam-subj";
+  title.textContent = message?.subject ? `"${message.subject}"` : `"${sender.displayName || sender.address}"`;
+  const from = document.createElement("div");
+  from.className = "scam-from";
+  const when = message ? ` · ${new Date(message.receivedAt).toLocaleDateString()}` : "";
+  from.textContent = `From ${sender.displayName ? `${sender.displayName} <${sender.address}>` : sender.address}${when}`;
+  id.append(title, from);
+  const [chipClass, chipText] = TIER_CHIP[verdict.tier];
+  const chip = document.createElement("span");
+  chip.className = `risk-chip ${chipClass}`;
+  chip.textContent = chipText;
+  head.append(senderTile(sender.address, sender.displayName, "sz-34"), id, chip);
+  li.appendChild(head);
+
+  li.appendChild(reasonList(verdict));
+
+  // A familiar sender whose identity changed is the invoice-fraud shape:
+  // the safe move is a call on a number the user already has.
+  if (verdict.signals.some((s) => s.kind === "identity-change")) {
+    const card = document.createElement("div");
+    card.className = "callback";
+    const b = document.createElement("b");
+    b.textContent = "Before you pay anything";
+    const text = document.createElement("span");
+    text.textContent =
+      "Call them on a number you already have, not one in this email.";
+    const wrap = document.createElement("div");
+    wrap.append(b, text);
+    card.appendChild(wrap);
+    li.appendChild(card);
+  }
+
+  const report = reportSteps();
+  li.appendChild(report.steps);
+
+  const actions = document.createElement("div");
+  actions.className = "scam-actions";
+  const provider = providerById.get(sender.provider);
+
+  const genuine = document.createElement("button");
+  genuine.className = "btn";
+  genuine.textContent = "It's fine";
+  genuine.title = "Cluster will remember this sender";
+  genuine.onclick = async () => {
+    genuine.disabled = true;
+    ctx.settings = await mutateSettings((current) => ({
+      ...current,
+      quarantineReview: recordQuarantineVerdict(current.quarantineReview, sender.key, "released"),
+    }));
+    await logAction("labelSuspicious", `Marked ${sender.address} as fine`);
+    li.hidden = true;
+  };
+  actions.append(genuine, report.button);
+
+  if (provider?.getMessageLinks) {
+    const scanResult = document.createElement("span");
+    scanResult.className = "recent-detail";
+    const scanBtn = document.createElement("button");
+    scanBtn.className = "btn btn-ghost";
+    scanBtn.textContent = "Deep scan";
+    scanBtn.title = "Checks links in the most recent message";
+    scanBtn.onclick = async () => {
+      scanBtn.disabled = true;
+      await runDeepScan(sender, scanResult);
+      scanBtn.disabled = false;
+    };
+    actions.append(scanBtn, scanResult);
+  }
+
+  const spacer = document.createElement("span");
+  spacer.className = "grow";
+  actions.appendChild(spacer);
+
+  if (provider?.labelSuspicious) {
+    const slot = document.createElement("span");
+    slot.className = "confirm-slot";
+    const btn = document.createElement("button");
+    btn.className = "btn btn-danger";
+    btn.textContent = "Block sender";
+    const reset = () => {
+      slot.innerHTML = "";
+      slot.appendChild(btn);
+    };
+    btn.onclick = () => {
+      renderConfirmStep(
+        slot,
+        reset,
+        `Move ${sender.messageIds.length} message${sender.messageIds.length === 1 ? "" : "s"} from ${sender.address} to the "${clusterLabelName("suspicious")}" label, out of the inbox?`,
+        false,
+        async () => {
+          const token = await provider.getAuthToken(false);
+          await provider.labelSuspicious!(token, sender.messageIds);
+          await logAction(
+            "labelSuspicious",
+            `Labelled ${sender.messageIds.length} from ${sender.address} as suspicious`,
+          );
+          return "Labeled ✓";
+        },
+      );
+    };
+    slot.appendChild(btn);
+    actions.appendChild(slot);
+  }
+  li.appendChild(actions);
+
+  return li;
+}
+

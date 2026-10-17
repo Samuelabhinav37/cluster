@@ -24,16 +24,19 @@ export function renderConfirmStep(
   onConfirm: (summary: HTMLElement) => Promise<string>,
 ): void {
   container.innerHTML = "";
+  container.classList.add("confirm-slot");
 
   const summary = document.createElement("span");
+  summary.className = "confirm-summary";
   summary.textContent = summaryText;
   container.appendChild(summary);
 
   const confirmBtn = document.createElement("button");
-  if (danger) confirmBtn.className = "danger";
+  confirmBtn.className = danger ? "btn btn-danger btn-sm" : "btn btn-accent btn-sm";
   confirmBtn.textContent = "Confirm";
 
   const cancelBtn = document.createElement("button");
+  cancelBtn.className = "btn btn-sm";
   cancelBtn.textContent = "Cancel";
   cancelBtn.onclick = resetContent;
 

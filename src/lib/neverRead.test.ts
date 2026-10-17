@@ -3,7 +3,16 @@ import { neverReadSenders } from "./neverRead";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 
 function msg(over: Partial<MessageRecord> & { id: string }): MessageRecord {
-  return { receivedAt: Date.now(), kind: "newsletter", isProtected: false, unread: true, sizeBytes: 0, ...over };
+  return {
+    receivedAt: Date.now(),
+    kind: "newsletter",
+    isProtected: false,
+    unread: true,
+    sizeBytes: 0,
+    providerMarkedPersonal: false,
+    looksAutomated: false,
+    ...over,
+  };
 }
 
 function sender(address: string, messages: MessageRecord[]): SenderSummary {
@@ -53,5 +62,18 @@ describe("neverReadSenders", () => {
       msg({ id: "s2", isProtected: true }),
     ]);
     expect(neverReadSenders([enough, notEnough])).toEqual([enough]);
+  });
+
+  it("excludes a sender the user has emailed before or Gmail/Outlook marked personal", () => {
+    const known = sender("friend@x.com", [msg({ id: "1" }), msg({ id: "2" }), msg({ id: "3" })]);
+    const ctx = { knownSenders: new Set(["friend@x.com"]) };
+    expect(neverReadSenders([known], ctx)).toEqual([]);
+
+    const personal = sender("boss@x.com", [
+      msg({ id: "1", providerMarkedPersonal: true }),
+      msg({ id: "2" }),
+      msg({ id: "3" }),
+    ]);
+    expect(neverReadSenders([personal])).toEqual([]);
   });
 });

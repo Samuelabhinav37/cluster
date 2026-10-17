@@ -4,7 +4,17 @@ import type { MessageRecord, SenderSummary } from "./senderModel";
 import type { MessageKind } from "./messageKind";
 
 function msg(id: string, kind: MessageKind, isProtected = false, subject = ""): MessageRecord {
-  return { id, receivedAt: Date.now(), kind, isProtected, unread: true, sizeBytes: 0, subject };
+  return {
+    id,
+    receivedAt: Date.now(),
+    kind,
+    isProtected,
+    unread: true,
+    sizeBytes: 0,
+    subject,
+    providerMarkedPersonal: false,
+    looksAutomated: false,
+  };
 }
 
 function sender(address: string, provider: "gmail" | "outlook", messages: MessageRecord[]): SenderSummary {

@@ -52,6 +52,8 @@ function msg(over: Partial<MessageRecord> & { id: string }): MessageRecord {
     isProtected: false,
     unread: false,
     sizeBytes: 0,
+    providerMarkedPersonal: false,
+    looksAutomated: false,
     ...over,
   };
 }
@@ -91,10 +93,10 @@ describe("ruleGuardWarning", () => {
   it("blocks a Trash rule that only filters by age / read-state / unsubscribe", () => {
     expect(
       ruleGuardWarning(rule({ action: "trash", conditions: { olderThanDays: 30 } })),
-    ).toMatch(/targeting condition/);
+    ).toMatch(/needs a target/);
     expect(
       ruleGuardWarning(rule({ action: "trash", conditions: { unread: true, hasUnsubscribe: true } })),
-    ).toMatch(/targeting condition/);
+    ).toMatch(/needs a target/);
   });
 
   it("allows a Trash rule that targets a sender, domain, category, or kind", () => {
@@ -121,7 +123,7 @@ describe("ruleGuardWarning", () => {
           actions: [{ action: "markRead" }, { action: "trash" }],
         }),
       ),
-    ).toMatch(/targeting condition/);
+    ).toMatch(/needs a target/);
   });
 });
 
@@ -267,5 +269,47 @@ describe("describeRule", () => {
         }),
       ),
     ).toBe('messages from @x.com with exceptions → label "News", then → archive');
+  });
+});
+
+describe("Trash rules never lose mail they shouldn't (B2)", () => {
+  const OLD = Date.now() - 5 * DAY_MS;
+  const expireCodes = rule({
+    name: "Sort: expire one-time codes",
+    action: "trash",
+    conditions: { kind: "otp", olderThanDays: 2 },
+  });
+  const ids = (s: SenderSummary) => [...matchRule(expireCodes, [s]).values()].flat();
+
+  it("trashes real codes but not receipts or 2FA notices filed as codes", () => {
+    const s = sender({
+      address: "no-reply@acme.example",
+      messages: [
+        msg({ id: "code", kind: "otp", subject: "482913 is your code", receivedAt: OLD }),
+        msg({ id: "verify", kind: "otp", subject: "Your verification code", receivedAt: OLD }),
+        msg({ id: "receipt", kind: "otp", subject: "Your one-time payment receipt", receivedAt: OLD }),
+        msg({ id: "enable", kind: "otp", subject: "Enable 2FA on your account", receivedAt: OLD }),
+      ],
+    });
+    expect(ids(s).sort()).toEqual(["code", "verify"]);
+  });
+
+  it("never trashes mail Gmail marked important", () => {
+    const s = sender({
+      address: "no-reply@acme.example",
+      messages: [
+        msg({ id: "imp", kind: "otp", subject: "Your login code: 551234", receivedAt: OLD, providerMarkedPersonal: true }),
+      ],
+    });
+    expect(ids(s)).toEqual([]);
+  });
+
+  it("leaves non-trash rules alone", () => {
+    const label = rule({ action: "label", labelName: "X", conditions: { kind: "otp" } });
+    const s = sender({
+      address: "a@b.example",
+      messages: [msg({ id: "r", kind: "otp", subject: "Your one-time payment receipt" })],
+    });
+    expect([...matchRule(label, [s]).values()].flat()).toEqual(["r"]);
   });
 });

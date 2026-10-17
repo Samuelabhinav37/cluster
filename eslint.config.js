@@ -4,7 +4,7 @@ import prettier from "eslint-config-prettier";
 import globals from "globals";
 
 export default tseslint.config(
-  { ignores: ["dist/**", "node_modules/**", "src/lib/data/**"] },
+  { ignores: ["dist/**", "node_modules/**", "src/lib/data/**", "src/dashboard/kai/kaiLife.js", "src/dashboard/kai/kaiWatch.js"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   prettier,
@@ -27,6 +27,11 @@ export default tseslint.config(
   {
     files: ["**/*.test.ts"],
     rules: { "no-console": "off", "@typescript-eslint/no-explicit-any": "off" },
+  },
+  {
+    // The UI preview stub runs in the page, standing in for chrome.*.
+    files: ["scripts/preview/chrome-stub.js"],
+    languageOptions: { sourceType: "script", globals: { ...globals.browser } },
   },
   {
     files: ["scripts/**/*.mjs", "*.config.js", "*.config.ts"],

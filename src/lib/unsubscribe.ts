@@ -1,3 +1,4 @@
+import { passingDkimDomains as passingDkimDomainsFromHeader } from "./emailAuth";
 import { isPublicHttpsUrl } from "./netGuard";
 
 export interface UnsubscribeInfo {
@@ -37,13 +38,7 @@ function passingDkimDomains(context: OneClickVerificationContext): Set<string> {
   for (const header of context.authenticationResults.filter((value) =>
     trustedAuthResult(context.provider, value),
   )) {
-    for (const result of header.matchAll(/(?:^|;)\s*dkim=pass\b([^;]*)/gi)) {
-      const properties = result[1] ?? "";
-      const domain = /\bheader\.d=([^\s;]+)/i.exec(properties)?.[1];
-      const identity = /\bheader\.i=([^\s;]+)/i.exec(properties)?.[1];
-      const value = domain ?? identity?.slice(identity.lastIndexOf("@") + 1);
-      if (value) domains.add(value.trim().toLowerCase().replace(/\.$/, ""));
-    }
+    for (const domain of passingDkimDomainsFromHeader(header)) domains.add(domain);
   }
   return domains;
 }

@@ -3,37 +3,41 @@
 // generic (Gmail + Outlook, gated per-sender by whether that provider
 // implements screenSender). screenPending is the foreground mirror of
 // background.ts's runScreener, run when the user first turns the Screener on.
+import { idsSafeToMoveOut } from "../lib/protectionPolicy";
 import { log } from "../lib/log";
 import { updateSettings } from "../lib/settingsStore";
 import type { ProviderId } from "../lib/providers/emailProvider";
-import { knownSenderSet, pendingScreenerSenders, sentCorrespondentsStale } from "../lib/screener";
+import { knownSenderSet, pendingScreenerSenders, refreshSentCorrespondents } from "../lib/screener";
 import type { SenderSummary } from "../lib/senderModel";
+import { senderTile } from "./senderTile";
 import { ctx, providerById, rescan } from "./state";
 import { logAction } from "./recentTab";
+import { renderScreenerBacklog } from "./screenerBacklog";
+import { clusterLabelName } from "../lib/clusterLabels";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function firstWrote(sender: SenderSummary): string {
+  const earliest = sender.messages.reduce(
+    (min, m) => (m.receivedAt < min ? m.receivedAt : min),
+    Date.now(),
+  );
+  const days = Math.round((Date.now() - earliest) / DAY_MS);
+  if (days <= 0) return "First wrote today";
+  if (days === 1) return "First wrote yesterday";
+  if (days < 7) return `First wrote ${days} days ago`;
+  return `First wrote ${new Date(earliest).toLocaleDateString()}`;
+}
 
 const screenerToggle = document.getElementById("screener-toggle") as HTMLInputElement;
 const screenerQueueEl = document.getElementById("screener-queue") as HTMLDivElement;
 const screenerAllowlistEl = document.getElementById("screener-allowlist") as HTMLDivElement;
+const screenerQueueCountEl = document.getElementById("screener-queue-count") as HTMLElement | null;
 
 async function screenPending(senders: SenderSummary[]) {
-  if (sentCorrespondentsStale(ctx.settings)) {
-    const addresses = new Set(ctx.settings.sentCorrespondents.addresses);
-    let anySucceeded = false;
-    for (const provider of providerById.values()) {
-      if (!provider.listSentCorrespondents) continue;
-      try {
-        const token = await provider.getAuthToken(false);
-        for (const addr of await provider.listSentCorrespondents(token)) addresses.add(addr);
-        anySucceeded = true;
-      } catch (err) {
-        log.error("Screener: sent-correspondent refresh failed", provider.id, err);
-      }
-    }
-    if (anySucceeded) {
-      ctx.settings = await updateSettings({
-        sentCorrespondents: { addresses: [...addresses], fetchedAt: Date.now() },
-      });
-    }
+  const sentCorrespondents = await refreshSentCorrespondents(ctx.settings, providerById);
+  if (sentCorrespondents !== ctx.settings.sentCorrespondents) {
+    ctx.settings = { ...ctx.settings, sentCorrespondents };
   }
 
   const known = knownSenderSet(ctx.settings);
@@ -47,7 +51,7 @@ async function screenPending(senders: SenderSummary[]) {
     if (!provider?.screenSender) continue;
     try {
       const token = await provider.getAuthToken(false);
-      await provider.screenSender(token, s.address, s.messageIds);
+      await provider.screenSender(token, s.address, idsSafeToMoveOut(s));
       screened.push(s.address);
     } catch (err) {
       log.error("Screener: failed to hold", s.address, err);
@@ -88,15 +92,17 @@ async function releaseHeldSender(address: string, ids: string[], provider: Provi
 
 export function renderScreenerTab(senders: SenderSummary[]) {
   screenerToggle.checked = ctx.settings.screenerEnabled;
+  renderScreenerBacklog().catch((err) => log.error("Screener backlog render failed", err));
 
   screenerQueueEl.innerHTML = "";
+  if (screenerQueueCountEl) screenerQueueCountEl.textContent = "";
   if (!ctx.settings.screenerEnabled) {
     const p = document.createElement("p");
-    p.className = "hint";
+    p.className = "empty-state";
     p.textContent =
       ctx.settings.screenedSenders.length > 0
-        ? `Screener is off. ${ctx.settings.screenedSenders.length} sender(s) are still held — turn it back on to review them, or find them under the Screener label in Gmail.`
-        : "Screener is off.";
+        ? `Holding is off. Mail already held from ${ctx.settings.screenedSenders.length} sender${ctx.settings.screenedSenders.length === 1 ? "" : "s"} is still under the "${clusterLabelName("screener")}" label in Gmail.`
+        : "Holding is off, so new senders go straight to your inbox.";
     screenerQueueEl.appendChild(p);
   } else {
     const known = knownSenderSet(ctx.settings);
@@ -105,51 +111,19 @@ export function renderScreenerTab(senders: SenderSummary[]) {
 
     if (queue.length === 0) {
       const p = document.createElement("p");
-      p.className = "hint";
-      p.textContent = "Nothing waiting — every sender in this scan is someone you've emailed or allowed.";
+      p.className = "empty-state";
+      p.textContent = "No one is waiting. Everyone who wrote recently is someone you've emailed or let in.";
       screenerQueueEl.appendChild(p);
     } else {
-      const table = document.createElement("table");
-      const tbody = document.createElement("tbody");
-      for (const s of queue) {
-        const row = document.createElement("tr");
-
-        const nameCell = document.createElement("td");
-        nameCell.textContent = s.displayName ? `${s.displayName} <${s.address}>` : s.address;
-        const countCell = document.createElement("td");
-        countCell.textContent = `${s.messageIds.length} message${s.messageIds.length === 1 ? "" : "s"}`;
-
-        const actionCell = document.createElement("td");
-        const allow = document.createElement("button");
-        allow.textContent = "Allow";
-        allow.onclick = async () => {
-          allow.disabled = true;
-          try {
-            await releaseHeldSender(s.address, s.messageIds, s.provider, "allow");
-          } catch (err) {
-            allow.disabled = false;
-            log.error(err);
-          }
-        };
-        const block = document.createElement("button");
-        block.className = "danger";
-        block.textContent = "Block";
-        block.onclick = async () => {
-          block.disabled = true;
-          try {
-            await releaseHeldSender(s.address, s.messageIds, s.provider, "block");
-          } catch (err) {
-            block.disabled = false;
-            log.error(err);
-          }
-        };
-        actionCell.append(allow, block);
-
-        row.append(nameCell, countCell, actionCell);
-        tbody.appendChild(row);
+      if (screenerQueueCountEl) {
+        screenerQueueCountEl.textContent = `${queue.length} sender${queue.length === 1 ? "" : "s"}`;
       }
-      table.appendChild(tbody);
-      screenerQueueEl.appendChild(table);
+      const rows = document.createElement("div");
+      rows.className = "sender-rows";
+      for (const s of queue) {
+        rows.appendChild(buildScreenerRow(s));
+      }
+      screenerQueueEl.appendChild(rows);
     }
   }
 
@@ -157,16 +131,28 @@ export function renderScreenerTab(senders: SenderSummary[]) {
   screenerAllowlistEl.innerHTML = "";
   if (ctx.settings.screenerAllowlist.length === 0) {
     const p = document.createElement("p");
-    p.className = "hint";
-    p.textContent = "No addresses added by hand yet (your sent mail already counts as allowed).";
+    p.className = "empty-state";
+    p.textContent = "No one yet. People you've emailed are let in without being listed here.";
     screenerAllowlistEl.appendChild(p);
   } else {
-    for (const address of ctx.settings.screenerAllowlist) {
+    const list = document.createElement("div");
+    list.className = "grouped-list";
+    ctx.settings.screenerAllowlist.forEach((address, i) => {
+      if (i > 0) {
+        const sep = document.createElement("div");
+        sep.className = "row-sep";
+        sep.style.marginLeft = "18px";
+        list.appendChild(sep);
+      }
       const row = document.createElement("div");
-      row.className = "recent-row";
+      row.className = "list-row";
+      row.style.gridTemplateColumns = "minmax(0,1fr) max-content";
       const label = document.createElement("span");
+      label.className = "row-title";
+      label.style.fontWeight = "400";
       label.textContent = address;
       const remove = document.createElement("button");
+      remove.className = "btn btn-sm";
       remove.textContent = "Remove";
       remove.onclick = async () => {
         ctx.settings = await updateSettings({
@@ -175,9 +161,63 @@ export function renderScreenerTab(senders: SenderSummary[]) {
         renderScreenerTab(ctx.senders);
       };
       row.append(label, remove);
-      screenerAllowlistEl.appendChild(row);
-    }
+      list.appendChild(row);
+    });
+    screenerAllowlistEl.appendChild(list);
   }
+}
+
+/** One waiting sender: who, their newest subject line, and Let in / Block.
+ * Names, addresses and subjects come from the sender, so they go in as text. */
+function buildScreenerRow(s: SenderSummary): HTMLDivElement {
+  const row = document.createElement("div");
+  row.className = "sender-row";
+  const text = document.createElement("div");
+  text.className = "sr-text";
+  const name = document.createElement("div");
+  name.className = "sr-name";
+  name.textContent = s.displayName || s.address;
+  const sub = document.createElement("div");
+  sub.className = "sr-sub";
+  const newest = [...s.messages].sort((a, b) => b.receivedAt - a.receivedAt).find((m) => m.subject);
+  const n = s.messages.length || s.messageIds.length;
+  sub.textContent = [
+    newest?.subject ? `"${newest.subject}"` : null,
+    `${n} email${n === 1 ? "" : "s"}`,
+    s.address,
+    firstWrote(s),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  text.append(name, sub);
+
+  const block = document.createElement("button");
+  block.className = "btn btn-ghost";
+  block.textContent = "Block";
+  block.title = "Their mail goes to Muted from now on";
+  block.onclick = async () => {
+    block.disabled = true;
+    try {
+      await releaseHeldSender(s.address, idsSafeToMoveOut(s), s.provider, "block");
+    } catch (err) {
+      block.disabled = false;
+      log.error(err);
+    }
+  };
+  const allow = document.createElement("button");
+  allow.className = "btn btn-accent";
+  allow.textContent = "Let in";
+  allow.onclick = async () => {
+    allow.disabled = true;
+    try {
+      await releaseHeldSender(s.address, s.messageIds, s.provider, "allow");
+    } catch (err) {
+      allow.disabled = false;
+      log.error(err);
+    }
+  };
+  row.append(senderTile(s.address, s.displayName, "sz-30"), text, block, allow);
+  return row;
 }
 
 export function wireScreenerTab() {

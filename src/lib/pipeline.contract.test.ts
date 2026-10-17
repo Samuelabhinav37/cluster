@@ -89,7 +89,11 @@ describe("pipeline contract", () => {
     expect(spam).toEqual([]); // the only spam-domain sender also has a starred message → excluded whole
 
     const spamNoStar = suggestSpamSenders(
-      senders.map((s) => ({ ...s, protectedMessageIds: [] })),
+      senders.map((s) => ({
+        ...s,
+        protectedMessageIds: [],
+        messages: s.messages.filter((m) => !m.isProtected),
+      })),
       { isBlocked: () => false, isSpam: (d) => d === "spam-domain.example" },
     );
     expect(spamNoStar.map((x) => x.domain)).toContain("spam-domain.example");

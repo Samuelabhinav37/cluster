@@ -59,7 +59,7 @@ export function buildSortPlan(
     const domain = domainOf(sender.address);
     for (const msg of sender.messages) {
       if (msg.isProtected) continue;
-      const bucket = effectiveBucket(msg.kind, domain, sender.address, overrides);
+      const bucket = effectiveBucket(msg.kind, domain, sender.address, overrides, msg.promotion);
       if (!bucket) continue;
 
       let entry = byBucket.get(bucket);

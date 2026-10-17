@@ -140,3 +140,21 @@ export async function classifyOtherSubjects(
   }
   return result;
 }
+
+/** Kinds the protection policy keeps (receipts, shipping updates). */
+const PROTECTED_KINDS = new Set<MessageKind>(["receipt", "shipping"]);
+
+/**
+ * Whether the on-device model's verdict may replace a message's "other" kind.
+ * The model may only add protection, never take it away: an "other" message
+ * with no bulk-mail header is protected as probably written by a person, so
+ * relabelling it "newsletter" or "otp" would make it deletable on a guess.
+ * Such a message only takes a verdict that is itself protected.
+ */
+export function aiVerdictAllowed(
+  message: { kind: MessageKind; looksAutomated: boolean },
+  verdict: MessageKind | undefined,
+): verdict is MessageKind {
+  if (!verdict || verdict === "other" || message.kind !== "other") return false;
+  return message.looksAutomated || PROTECTED_KINDS.has(verdict);
+}

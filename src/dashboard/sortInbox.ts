@@ -16,23 +16,23 @@ import {
   type SortBucket,
   type SortOverride,
 } from "../lib/sortTaxonomy";
+import { SORT_RULE_PREFIX } from "../lib/clusterLabels";
+import { syncGmailCategoryFilters } from "../lib/categoryFilters";
 import {
-  buildBucketFilter,
   buildBucketRule,
   bucketMatchTerms,
   isServerSortBucket,
 } from "../lib/serverSort";
 import {
+  clusterLabelIdSet,
   filteredFromTargets,
   findLabelReuseCandidates,
   skipOverridesFor,
 } from "../lib/seedFromExisting";
 import {
-  createFilter,
-  deleteFilter,
-  getOrCreateLabel,
   listFilters,
   listLabelNames,
+  listLabels,
 } from "../lib/gmailApi";
 import {
   createInboxRule,
@@ -75,6 +75,14 @@ const excludedSortIds = new Set<string>();
 function resetSortInboxSlot() {
   sortInboxSlot.innerHTML = "";
   sortInboxSlot.appendChild(sortInboxBtn);
+}
+
+/** Per-category "take it out of the inbox now". With inbox time limits on,
+ * only a 0-hour limit does; the sweep moves the rest once their time is up. */
+function fileOutChoices(): Record<string, boolean> {
+  const cfg = ctx.settings.autoSort;
+  if (!cfg.timeLimitsEnabled) return cfg.fileOutByBucket;
+  return Object.fromEntries(ALL_SORT_BUCKETS.map((b) => [b, cfg.inboxHoursByBucket[b] === 0]));
 }
 
 function clearSortPreview() {
@@ -122,7 +130,7 @@ function renderSortBucketToggles() {
     inc.onchange = updateSortInboxCount;
 
     const text = document.createElement("span");
-    text.textContent = ` ${SORT_BUCKET_LABELS[entry.bucket]} — ${entry.count} `;
+    text.textContent = ` ${SORT_BUCKET_LABELS[entry.bucket]}: ${entry.count} `;
 
     const keep = document.createElement("label");
     keep.className = "hint";
@@ -131,6 +139,8 @@ function renderSortBucketToggles() {
     keepBox.id = `sort-keep-${entry.bucket}`;
     keepBox.checked = !entry.fileOut;
     keep.append(keepBox, document.createTextNode(" keep in inbox"));
+    // With inbox time limits on, the limit decides when mail leaves the inbox.
+    keep.hidden = cfg.timeLimitsEnabled;
 
     row.append(inc, text, keep);
     sortInboxBucketsEl.appendChild(row);
@@ -144,7 +154,7 @@ function renderSortBucketToggles() {
     if (ruleCount > 0) parts.push(`${ruleCount} Outlook rule${ruleCount === 1 ? "" : "s"}`);
     const note = document.createElement("p");
     note.className = "hint";
-    note.textContent = `${parts.join(" + ")} keep these buckets sorted at delivery — manage them in your provider's settings.`;
+    note.textContent = `${parts.join(" and ")} label new mail as it arrives.`;
     sortInboxBucketsEl.appendChild(note);
   }
 
@@ -153,7 +163,7 @@ function renderSortBucketToggles() {
 
 function renderSortInbox(senders: SenderSummary[]) {
   const cfg = ctx.settings.autoSort;
-  sortPlan = buildSortPlan(senders, cfg.fileOutByBucket, ctx.settings.sortOverrides);
+  sortPlan = buildSortPlan(senders, fileOutChoices(), ctx.settings.sortOverrides);
   resetSortInboxSlot();
   clearSortPreview();
   pruneSelection(
@@ -168,7 +178,7 @@ function renderSortInbox(senders: SenderSummary[]) {
 // Cluster's sort-bucket labels are flat ("Shopping", …). Before applying, we
 // check them against the mailbox's existing labels: a clash with a label the
 // user made themselves is surfaced here so they can choose to reuse it or keep
-// Cluster's separate as "<name> (Cluster)". The choice persists
+// Cluster's separate as "<name> · sorted". The choice persists
 // (settings.labelChoices) so this only asks once.
 function renderSortLabelConflicts(conflicts: PlanLabelConflict[], retry: () => void) {
   sortInboxSlot.innerHTML = "";
@@ -176,8 +186,8 @@ function renderSortLabelConflicts(conflicts: PlanLabelConflict[], retry: () => v
   const intro = document.createElement("span");
   intro.textContent =
     conflicts.length === 1
-      ? "You already have a label with this name — reuse it, or keep Cluster's separate? "
-      : "You already have labels with these names — reuse them, or keep Cluster's separate? ";
+      ? "You already have a label with this name. Use yours, or keep Cluster's separate? "
+      : "You already have labels with these names. Use yours, or keep Cluster's separate? ";
   sortInboxSlot.appendChild(intro);
 
   for (const c of conflicts) {
@@ -186,7 +196,7 @@ function renderSortLabelConflicts(conflicts: PlanLabelConflict[], retry: () => v
     reuseBtn.onclick = () => resolveSortLabelConflict(c.desired, "reuse", retry);
 
     const suffixBtn = document.createElement("button");
-    suffixBtn.textContent = `Keep separate: "${c.desired} (Cluster)"`;
+    suffixBtn.textContent = `Keep separate: "${applyLabelChoice(c.desired, "suffix")}"`;
     suffixBtn.onclick = () => resolveSortLabelConflict(c.desired, "suffix", retry);
 
     sortInboxSlot.append(reuseBtn, suffixBtn);
@@ -286,7 +296,7 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
     chosen.flatMap((e) => e.messages).filter((m) => !excludedSortIds.has(m.id)).length;
   const refreshApplyLabel = () => {
     const n = includedCount();
-    applyBtn.textContent = `Apply — ${n} message${n === 1 ? "" : "s"}`;
+    applyBtn.textContent = `Apply to ${n} message${n === 1 ? "" : "s"}`;
     applyBtn.disabled = n === 0;
   };
 
@@ -295,7 +305,7 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
     bucketEl.className = "sort-preview-bucket";
     bucketEl.open = true;
     const summary = document.createElement("summary");
-    summary.textContent = `${entry.label} — ${entry.count} · ${
+    summary.textContent = `${entry.label}: ${entry.count} · ${
       entry.fileOut ? "filed out of the inbox" : "labelled in place"
     }`;
     bucketEl.appendChild(summary);
@@ -311,7 +321,7 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
       const senderEl = document.createElement("details");
       senderEl.className = "sort-preview-sender";
       const sSummary = document.createElement("summary");
-      sSummary.append(document.createTextNode(`${msgs[0].displayName || address} — ${msgs.length} `));
+      sSummary.append(document.createTextNode(`${msgs[0].displayName || address}: ${msgs.length} `));
 
       const select = document.createElement("select");
       select.title = "Sort this sender differently";
@@ -366,7 +376,7 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
   };
 
   const bar = document.createElement("div");
-  bar.className = "bulk-bar";
+  bar.className = "confirm-slot";
   bar.append(applyBtn, cancelBtn, status);
   sortInboxPreviewEl.appendChild(bar);
   refreshApplyLabel();
@@ -434,15 +444,54 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
   }
 
   // ── Keep sorting ───────────────────────────────────────────────────────
-  // Domain-category buckets → a real Gmail filter + (if Outlook is connected)
-  // an Outlook inbox rule, so new mail is filed at delivery with the browser
-  // shut. Subject-kind buckets → a client rule for the 6-hourly sweep. Server
-  // buckets also keep a client rule as a fallback (the Graph rule path is not
-  // yet battle-tested; on Gmail it's a near-noop via the completion ledger).
+  // Which categories stay sorted is a setting, not "whatever had mail in this
+  // scan": a ticked category with nothing to sort today keeps its filter, and
+  // a category not shown this time keeps whatever it had.
+  const shown = new Set<string>(sortPlan.map((e) => e.bucket));
+  const enabledBuckets = [
+    ...new Set([
+      ...ctx.settings.autoSort.enabledBuckets.filter((b) => !shown.has(b)),
+      ...chosen.map((e) => e.bucket),
+    ]),
+  ];
+  ctx.settings = await updateSettings({
+    autoSort: {
+      ...ctx.settings.autoSort,
+      enabledBuckets,
+      // Under time limits the per-category choice comes from the limit, so
+      // keep the user's own file-out choices for when limits are off again.
+      fileOutByBucket: ctx.settings.autoSort.timeLimitsEnabled
+        ? ctx.settings.autoSort.fileOutByBucket
+        : {
+            ...ctx.settings.autoSort.fileOutByBucket,
+            ...Object.fromEntries(effective.map((e) => [e.bucket, e.fileOut])),
+          },
+      keepSorting: keepOn,
+      expireOtp: sortExpireOtpEl.checked,
+    },
+  });
+
+  // Gmail: one filter per category, built from settings (categoryFilters.ts).
   const gmailToken = await gmailProvider.getAuthToken(false).catch((err) => {
     log.error("keep-sorting: no Gmail token", err);
     return null;
   });
+  if (gmailToken) {
+    try {
+      const synced = await syncGmailCategoryFilters(ctx.settings, gmailToken);
+      ctx.settings = await updateSettings({
+        autoSort: {
+          ...ctx.settings.autoSort,
+          filterIdsByBucket: synced.filterIdsByBucket,
+          filterSpecByBucket: synced.filterSpecByBucket,
+        },
+      });
+    } catch (err) {
+      log.error("keep-sorting: Gmail filter sync failed", err);
+    }
+  }
+
+  // Outlook: an inbox rule per sender-based category, plus client rules.
   const outlookOn = activeProviders.some((p) => p.id === "outlook");
   const outlookToken = outlookOn
     ? await outlookProvider.getAuthToken(false).catch((err: unknown) => {
@@ -451,49 +500,28 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
       })
     : null;
   const archiveFolderId = outlookToken ? await getArchiveFolderId(outlookToken).catch(() => null) : null;
-
-  const filterIds: Record<string, string[]> = { ...ctx.settings.autoSort.filterIdsByBucket };
   const ruleIds: Record<string, string[]> = { ...ctx.settings.autoSort.ruleIdsByBucket };
-  const keptServerBuckets = new Set(
-    keepOn ? effective.filter((e) => isServerSortBucket(e.bucket)).map((e) => e.bucket) : [],
+  const keptOutlookBuckets = new Set(
+    keepOn ? enabledBuckets.filter((b) => isServerSortBucket(b as SortBucket)) : [],
   );
-
-  // Tear down server-side filters/rules for buckets that are no longer kept.
-  for (const bucket of new Set([...Object.keys(filterIds), ...Object.keys(ruleIds)])) {
-    if (keptServerBuckets.has(bucket as SortBucket)) continue;
-    if (gmailToken) {
-      for (const id of filterIds[bucket] ?? []) {
-        await deleteFilter(gmailToken, id).catch((err) => log.error("keep-sorting: delete filter", err));
-      }
-    }
+  for (const bucket of Object.keys(ruleIds)) {
+    if (keptOutlookBuckets.has(bucket)) continue;
     if (outlookToken) {
       for (const id of ruleIds[bucket] ?? []) {
         await deleteInboxRule(outlookToken, id).catch((err) => log.error("keep-sorting: delete rule", err));
       }
     }
-    delete filterIds[bucket];
     delete ruleIds[bucket];
   }
 
+  let rules = ctx.settings.rules;
   if (keepOn) {
-    let rules = ctx.settings.rules;
     const sortCompletions: Array<{ rule: ClusterRule; idsByProvider: Map<ProviderId, string[]> }> = [];
 
     for (const entry of effective) {
       const server = isServerSortBucket(entry.bucket);
       const hasOutlook = (entry.idsByProvider.get("outlook") ?? []).length > 0;
       const terms = server ? bucketMatchTerms(entry.bucket, ctx.settings.sortOverrides) : null;
-
-      if (server && terms && gmailToken) {
-        const labelId = await getOrCreateLabel(gmailToken, entry.label);
-        for (const id of filterIds[entry.bucket] ?? []) {
-          await deleteFilter(gmailToken, id).catch((err) => log.error("keep-sorting: replace filter", err));
-        }
-        const spec = buildBucketFilter(labelId, entry.fileOut, terms);
-        filterIds[entry.bucket] = spec
-          ? [await createFilter(gmailToken, spec.criteria, spec.action)]
-          : [];
-      }
 
       if (server && terms && outlookToken) {
         for (const id of ruleIds[entry.bucket] ?? []) {
@@ -515,56 +543,53 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
         }
       }
 
-      // Client rule: always for kind buckets; for server buckets only when
-      // there's Outlook mail to cover (fallback for the Graph rule path).
-      if (!server || hasOutlook) {
-        const nextRule: ClusterRule = {
-          id: crypto.randomUUID(),
-          name: `Auto-sort: ${SORT_BUCKET_LABELS[entry.bucket]}`,
-          enabled: true,
-          conditions: KIND_SORT_BUCKETS.has(entry.bucket)
-            ? { kind: entry.bucket as MessageKind }
-            : { fromDomainCategory: entry.bucket as DomainCategory },
-          action: "label",
-          labelName: entry.label,
-          labelKeepInInbox: !entry.fileOut,
-        };
-        rules = upsertRuleByName(rules, nextRule);
-        sortCompletions.push({
-          rule: rules.find((rule) => rule.name === nextRule.name)!,
-          idsByProvider: new Map(
-            [...entry.idsByProvider].filter(
-              ([providerId, ids]) => ids.length > 0 && providerById.get(providerId)?.labelMessages,
-            ),
-          ),
-        });
+      // Gmail filters now cover every category, so a client rule is only
+      // needed for Outlook mail; an old Gmail-only one would fight the time
+      // limits by filing mail out on every scan.
+      const ruleName = `${SORT_RULE_PREFIX}${SORT_BUCKET_LABELS[entry.bucket]}`;
+      if (!hasOutlook) {
+        rules = rules.filter((rule) => rule.name !== ruleName);
+        continue;
       }
+      const nextRule: ClusterRule = {
+        id: crypto.randomUUID(),
+        name: ruleName,
+        enabled: true,
+        conditions: KIND_SORT_BUCKETS.has(entry.bucket)
+          ? { kind: entry.bucket as MessageKind }
+          : { fromDomainCategory: entry.bucket as DomainCategory },
+        action: "label",
+        labelName: entry.label,
+        labelKeepInInbox: !entry.fileOut,
+      };
+      rules = upsertRuleByName(rules, nextRule);
+      sortCompletions.push({
+        rule: rules.find((rule) => rule.name === nextRule.name)!,
+        idsByProvider: new Map(
+          [...entry.idsByProvider].filter(
+            ([providerId, ids]) => ids.length > 0 && providerById.get(providerId)?.labelMessages,
+          ),
+        ),
+      });
     }
     if (sortExpireOtpEl.checked) {
       rules = upsertRuleByName(rules, {
         id: crypto.randomUUID(),
-        name: "Auto-sort: expire one-time codes",
+        name: `${SORT_RULE_PREFIX}expire one-time codes`,
         enabled: true,
         conditions: { kind: "otp", olderThanDays: 2 },
         action: "trash",
       });
     }
-    ctx.settings = await updateSettings({ rules });
     await recordRuleCompletions(sortCompletions).catch((error) =>
       log.error("Could not seed auto-sort completion receipts", error),
     );
   }
-
   ctx.settings = await updateSettings({
-    autoSort: {
-      enabledBuckets: effective.map((e) => e.bucket),
-      fileOutByBucket: Object.fromEntries(effective.map((e) => [e.bucket, e.fileOut])),
-      keepSorting: keepOn,
-      expireOtp: sortExpireOtpEl.checked,
-      filterIdsByBucket: filterIds,
-      ruleIdsByBucket: ruleIds,
-    },
+    rules,
+    autoSort: { ...ctx.settings.autoSort, ruleIdsByBucket: ruleIds },
   });
+  const filterIds = ctx.settings.autoSort.filterIdsByBucket;
 
   excludedSortIds.clear();
   await rescan();
@@ -584,9 +609,9 @@ async function maybeShowSeedCard() {
   let filterTargets: string[];
   try {
     const token = await gmailProvider.getAuthToken(false);
-    const [names, filters] = await Promise.all([listLabelNames(token), listFilters(token)]);
-    labelNames = names;
-    filterTargets = filteredFromTargets(filters);
+    const [labels, filters] = await Promise.all([listLabels(token), listFilters(token)]);
+    labelNames = labels.map((l) => l.name);
+    filterTargets = filteredFromTargets(filters, clusterLabelIdSet(labels, ctx.settings.clusterOwnedLabels));
   } catch (err) {
     log.error("seed-from-existing: Gmail read failed", err);
     return;
@@ -612,7 +637,7 @@ async function maybeShowSeedCard() {
   sortSeedCardEl.innerHTML = "";
   const intro = document.createElement("p");
   intro.textContent =
-    "Cluster noticed some of your existing Gmail setup. Reuse it so “Sort my inbox” works with your organisation, not against it:";
+    "Cluster found labels you already use. Reuse them:";
   sortSeedCardEl.appendChild(intro);
 
   if (labelCandidates.length > 0) {

@@ -43,7 +43,7 @@ export function resolveLabelName(
 }
 
 /** The name a collision choice resolves to: reuse the user's, or keep Cluster's
- * separate with a " (Cluster)" suffix. */
+ * separate with a " · sorted" suffix. */
 export function applyLabelChoice(desired: string, choice: LabelChoice): string {
-  return choice === "suffix" ? `${desired} (Cluster)` : desired;
+  return choice === "suffix" ? `${desired} · sorted` : desired;
 }

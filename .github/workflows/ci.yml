@@ -19,6 +19,7 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      - run: node scripts/check-bundle.mjs
       # Runtime deps only — the built extension ships no node_modules, so a
       # dev/build-tool advisory can't reach a user. Fails on a real one.
       - run: npm audit --omit=dev --audit-level=high
