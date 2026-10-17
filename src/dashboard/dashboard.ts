@@ -53,7 +53,6 @@ import {
   type CompanyGroup,
   groupByCompany,
   isPerson,
-  mainTemplate,
   profileLine,
   sortSenders,
   type SenderSortId,
@@ -2040,12 +2039,7 @@ function buildAllSendersRow(sender: SenderSummary): HTMLElement {
   const unread = senderUnread(sender);
   const total = senderVolume(sender);
   const profile = ctx.profiles.get(sender.key);
-  const template = profile && mainTemplate(profile);
-  const summary =
-    profileLine(profile) ?? (unread === total ? "nothing opened" : `${unread} of ${total} unread`);
-  const sub = [summary, template ? `mostly "${template.key}" ×${template.count}` : "", sender.displayName ? sender.address : ""]
-    .filter(Boolean)
-    .join(" · ");
+  const sub = [profileLine(profile), sender.displayName ? sender.address : ""].filter(Boolean).join(" · ");
 
   // Count + engagement bar (unread ratio).
   const count = document.createElement("div");

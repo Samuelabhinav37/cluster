@@ -49,15 +49,14 @@ export function mainTemplate(profile: SenderProfile): TemplateGroup | undefined 
   return top && top.count * 2 >= profile.sampled ? top : undefined;
 }
 
-/** One quiet line, such as "Opens 4% · 12 a month · still sending". */
+/** The one fact a row shows about a sender, such as "12 a month". The row's
+ * bar already shows how much is read. */
 export function profileLine(profile: SenderProfile | undefined): string | undefined {
   if (!profile) return undefined;
-  const parts: string[] = [];
-  if (profile.youWrote > 0) parts.push(`You've written ${profile.youWrote === 1 ? "once" : `${profile.youWrote} times`}`);
-  if (profile.openRate !== null) parts.push(`Opens ${Math.round(profile.openRate * 100)}%`);
-  if (profile.perMonth >= 1) parts.push(`${Math.round(profile.perMonth)} a month`);
-  parts.push(profile.stillSending ? "still sending" : "gone quiet");
-  return parts.join(" · ");
+  if (profile.youWrote > 0) return `You've written ${profile.youWrote === 1 ? "once" : `${profile.youWrote} times`}`;
+  if (!profile.stillSending) return "Gone quiet";
+  if (profile.perMonth >= 1) return `${Math.round(profile.perMonth)} a month`;
+  return undefined;
 }
 
 export interface CompanyGroup {

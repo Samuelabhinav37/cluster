@@ -31,9 +31,9 @@ describe("sortSenders", () => {
 });
 
 describe("profileLine", () => {
-  it("says how much they open, how often, and whether they still send", async () => {
+  it("says one thing: how often they send", async () => {
     const { profiles } = await setup(many(8, { fromAddress: "n@news.example", receivedAt: NOW - 20 * DAY }));
-    expect(profileLine(profiles.get("gmail:n@news.example"))).toBe("Opens 0% · 3 a month · still sending");
+    expect(profileLine(profiles.get("gmail:n@news.example"))).toBe("3 a month");
   });
 });
 
