@@ -1,5 +1,6 @@
 import { categorizeDomain, type DomainCategory } from "./domainCategories";
 import { isFreeMailDomain } from "./freeMail";
+import { registrableDomain } from "./registrableDomain";
 import type { ProviderId } from "./providers/emailProvider";
 import { emptyProtectionContext, protectionDecision, type ProtectionContext } from "./protectionPolicy";
 import type { SenderSummary } from "./senderModel";
@@ -26,8 +27,11 @@ function groupingKeyFor(sender: SenderSummary): {
   domain: string;
   isFreeMailException: boolean;
 } {
-  const domain = domainOf(sender.address);
-  const isFreeMailException = isFreeMailDomain(domain);
+  // One company sends from many subdomains (em.target.com, target.com), so
+  // the group is the registrable domain, not the full host.
+  const host = domainOf(sender.address);
+  const isFreeMailException = isFreeMailDomain(host);
+  const domain = isFreeMailException ? host : registrableDomain(host);
   const key = isFreeMailException ? `${sender.provider}:addr:${sender.address}` : `domain:${domain}`;
   return { key, domain, isFreeMailException };
 }

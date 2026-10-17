@@ -258,6 +258,16 @@ describe("domain grouping", () => {
     expect(buildDomainGroups(list).filter((g) => g.domain === "substack.com")).toHaveLength(2);
   });
 
+  it("a company's subdomains group together (em.target.com with target.com)", async () => {
+    const list = await senders([
+      ...many(2, { fromAddress: "deals@em.target.com" }),
+      ...many(2, { fromAddress: "orders@target.com" }),
+    ]);
+    const groups = buildDomainGroups(list);
+    expect(groups.map((g) => g.domain)).toEqual(["target.com"]);
+    expect(groups[0].senders).toHaveLength(2);
+  });
+
   it("proton.me / me.com personal senders are not grouped by domain (fixed by freeMail.ts)", async () => {
     const list = await senders([...many(2, { fromAddress: "a@proton.me" }), ...many(2, { fromAddress: "b@proton.me" })]);
     expect(buildDomainGroups(list).filter((g) => g.domain === "proton.me")).toHaveLength(2);
