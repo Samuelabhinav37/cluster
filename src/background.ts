@@ -25,6 +25,7 @@ import { runInboxTimeLimits } from "./lib/inboxTimeLimitsRunner";
 import { loadMetadataCache, saveMetadataCache } from "./lib/metadataCache";
 import { applyIndexedCorrespondents, readIndexedSenders, refreshIndexForBackground } from "./lib/indexTriage";
 import { resumeInterruptedJobs } from "./lib/durableJobs";
+import { resumeUnsubscribeQueue } from "./lib/unsubscribeGmail";
 import { getRuleCompletionKeys, recordRuleCompletions } from "./lib/ruleCompletionLedger";
 import { loadPublicSuffixList } from "./lib/publicSuffix";
 import { applySenderLedger } from "./lib/senderLedgerStore";
@@ -94,6 +95,7 @@ function handleAlarm(alarm: chrome.alarms.Alarm): void {
   if (alarm.name === ATHENA_ALARM) void flushAthenaSecurityEvents();
   if (alarm.name === JOBS_ALARM) {
     void resumeInterruptedJobs(providerById).catch((err) => log.error("Resuming durable jobs failed", err));
+    void resumeUnsubscribeQueue().catch((err) => log.error("Resuming unsubscribe emails failed", err));
   }
   if (alarm.name === DATASET_ALARM) void refreshPublicDatasets();
   if (alarm.name === INBOX_LIMITS_ALARM) void runInboxTimeLimitsIfQuota();
