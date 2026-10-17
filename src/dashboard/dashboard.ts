@@ -1618,10 +1618,7 @@ function renderDecisionSenders(senders: SenderSummary[]) {
   hdrCount.style.color = "var(--label-2)";
   const selCount = decide.filter((s) => selectedSenderKeys.has(s.key)).length;
   hdrCount.textContent = `${selCount} of ${decide.length} selected`;
-  const hdrNote = document.createElement("span");
-  hdrNote.className = "recent-detail";
-  hdrNote.textContent = "Starred mail is always skipped";
-  hdr.append(hdrLabel, hdrCount, hdrNote);
+  hdr.append(hdrLabel, hdrCount);
   list.appendChild(hdr);
 
   for (const sender of decide) {
@@ -1835,10 +1832,10 @@ function renderSuggestedFloatingBar() {
   const sub = document.createElement("span");
   sub.className = "fb-sub";
   // Honest about Trash: with fast permanent delete on, the expired-mail
-  // cleanup skips Trash entirely.
+  // cleanup skips Trash entirely. Otherwise the page's trust line says it.
   sub.textContent = ctx.settings.fastPermanentDeleteEnabled
     ? "Expired mail is deleted forever, because fast delete is on."
-    : "Moves mail to Trash for 30 days. Muting can be undone.";
+    : "";
 
   const clear = document.createElement("button");
   clear.className = "btn btn-ghost";
