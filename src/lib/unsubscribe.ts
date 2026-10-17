@@ -61,26 +61,32 @@ function domainsAlign(a: string, b: string): boolean {
   return a === b || a.endsWith(`.${b}`) || b.endsWith(`.${a}`);
 }
 
+/**
+ * Signing domains of DKIM signatures that the provider says passed and that
+ * cover every one of `headers`. Only the provider's own
+ * Authentication-Results count, so a sender can't vouch for itself.
+ */
+export function passingSignersCovering(context: OneClickVerificationContext, headers: readonly string[]): string[] {
+  const passedDomains = passingDkimDomains(context);
+  if (passedDomains.size === 0) return [];
+  const out: string[] = [];
+  for (const signature of context.dkimSignatures) {
+    const signingDomain = dkimTag(signature, "d")?.toLowerCase().replace(/\.$/, "");
+    const signedHeaders = (dkimTag(signature, "h") ?? "").split(":").map((header) => header.trim().toLowerCase());
+    if (signingDomain && passedDomains.has(signingDomain) && headers.every((h) => signedHeaders.includes(h))) {
+      out.push(signingDomain);
+    }
+  }
+  return out;
+}
+
 /** Conservative RFC 8058 verification using only provider-supplied metadata. */
 export function hasVerifiedOneClickSignature(context: OneClickVerificationContext): boolean {
   const fromDomain = context.fromAddress.toLowerCase().split("@").pop() ?? "";
   if (!fromDomain) return false;
-  const passedDomains = passingDkimDomains(context);
-  if (passedDomains.size === 0) return false;
-
-  return context.dkimSignatures.some((signature) => {
-    const signingDomain = dkimTag(signature, "d")?.toLowerCase().replace(/\.$/, "");
-    const signedHeaders = (dkimTag(signature, "h") ?? "")
-      .split(":")
-      .map((header) => header.trim().toLowerCase());
-    return Boolean(
-      signingDomain &&
-      passedDomains.has(signingDomain) &&
-      domainsAlign(signingDomain, fromDomain) &&
-      signedHeaders.includes("list-unsubscribe") &&
-      signedHeaders.includes("list-unsubscribe-post"),
-    );
-  });
+  return passingSignersCovering(context, ["list-unsubscribe", "list-unsubscribe-post"]).some((domain) =>
+    domainsAlign(domain, fromDomain),
+  );
 }
 
 const ADDRESS_RE = /^[^\s@<>(),;:"[\]]+@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i;

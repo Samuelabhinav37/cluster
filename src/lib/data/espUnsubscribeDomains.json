@@ -1,0 +1,29 @@
+{
+  "_comment": "Mailing-service domains that legitimately receive mailto unsubscribe requests for their customers' lists. Seeded 2026-10-16 from research/research_notes/Cluster mailto unsubscribe sending/security_and_abuse.md (Newsletrix 2026-07-14, plus unverified additions). Confirm each against real List-Unsubscribe headers before relying on it; remove any that never show up.",
+  "verified": false,
+  "domains": [
+    "mailchimp.com",
+    "mcsv.net",
+    "list-manage.com",
+    "rsgsv.net",
+    "constantcontact.com",
+    "createsend.com",
+    "hubspotemail.net",
+    "list-unsubscribe.me",
+    "sendinblue.com",
+    "brevo.com",
+    "sendgrid.net",
+    "amazonses.com",
+    "activehosted.com",
+    "convertkit-mail.com",
+    "klaviyomail.com",
+    "mktomail.com",
+    "pardot.com",
+    "customer.io",
+    "braze.com",
+    "appboy.com",
+    "mailgun.org",
+    "sparkpostmail.com",
+    "exacttarget.com"
+  ]
+}
