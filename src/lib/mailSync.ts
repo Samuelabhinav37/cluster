@@ -191,11 +191,14 @@ export async function syncMailIndex(
 
 /** Most sent messages read for "people you write to". */
 export const SENT_CAP = 5_000;
+/** Newest sent messages read before the inbox: who you write to lately. */
+export const SENT_FIRST = 200;
 
 /**
- * Reads the Sent folder (newest first, up to SENT_CAP) into the sent store,
+ * Reads the Sent folder (newest first, up to `limit`) into the sent store,
  * skipping what's already there, paced like the rest of the backfill. Marks
- * the state once the listing has been read. Returns how many were read.
+ * the state once the whole listing (SENT_CAP) has been read. Returns how
+ * many were read.
  */
 async function backfillSent(
   provider: EmailProvider,
@@ -203,18 +206,21 @@ async function backfillSent(
   store: MailIndexStore,
   state: MailIndexState,
   options: SyncOptions,
+  limit = SENT_CAP,
 ): Promise<number> {
   if (!provider.listSentMessageIds || !provider.getSentRecord) {
     state.sentComplete = true;
     return 0;
   }
-  const ids = await provider.listSentMessageIds(token, SENT_CAP);
+  const ids = await provider.listSentMessageIds(token, limit);
   const known = await store.sentIds(provider.id);
   const toRead = ids.filter((id) => !known.has(id));
   const read = await readSentInto(provider, token, store, toRead, options, true);
-  state.sentComplete = true;
-  await store.setState(state);
-  await options.onSentReady?.();
+  if (limit >= SENT_CAP) {
+    state.sentComplete = true;
+    await store.setState(state);
+  }
+  if (read > 0) await options.onSentReady?.();
   return read;
 }
 
@@ -279,9 +285,12 @@ async function buildFromListing(
   }
   signalQuick();
 
-  // Who you write to matters more than older bulk mail, so Sent goes next.
+  // Who you've written to lately decides what's protected, so the newest
+  // sent mail goes next. The rest of Sent waits until the inbox is read.
   let sentRead = 0;
-  if (!state.sentComplete) sentRead = await backfillSent(provider, token, store, state, options);
+  if (!state.sentComplete) {
+    sentRead = await backfillSent(provider, token, store, state, options, SENT_FIRST);
+  }
 
   const stubs =
     firstPage.length < Math.min(cap, FIRST_PAGE)
@@ -315,6 +324,7 @@ async function buildFromListing(
   const discovery = await discoverAndCount(provider, token, store, fresh, listed, options, now);
   const rest = [...discovery.pending, ...upgrade];
   const detail = await readInto(provider, token, store, rest, options, true, "detail");
+  if (!state.sentComplete) sentRead += await backfillSent(provider, token, store, state, options);
   return {
     mode: "build",
     read: quickRead + sentRead + discovery.read + detail,

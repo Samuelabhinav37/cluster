@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createMemoryMailIndex, INDEX_SCOPE_VERSION, MAIL_ROW_VERSION } from "./mailIndex";
-import { catchUpIndex, readMailIndex, syncMailIndex } from "./mailSync";
+import { catchUpIndex, readMailIndex, SENT_FIRST, syncMailIndex } from "./mailSync";
 import type { EmailProvider, MailboxChanges, NormalizedMessageMetadata } from "./providers/emailProvider";
 import { gmailLabelFields, inIndexScope } from "./providers/gmailProvider";
 
@@ -345,6 +345,36 @@ describe("syncMailIndex: sent mail", () => {
 
     expect(order).toEqual(["quick", "sent"]);
     expect([...(await store.sentIds("gmail"))].sort()).toEqual(["s1", "s2"]);
+    expect((await store.getState("gmail"))?.sentComplete).toBe(true);
+  });
+
+  it("reads the newest sent mail before the inbox and the rest after it", async () => {
+    const inbox = Array.from({ length: 40 }, (_, i) => message(`m${i}`, ["INBOX"]));
+    const fake = fakeGmail(inbox);
+    const sentIds = Array.from({ length: SENT_FIRST + 50 }, (_, i) => `s${i}`);
+    const provider: EmailProvider = withSent(fake, sentIds);
+    provider.listSentMessageIds = vi.fn(async (_t: string, limit: number) => sentIds.slice(0, limit));
+    const reads: string[] = [];
+    const getSent = provider.getSentRecord!;
+    provider.getSentRecord = vi.fn(async (t: string, id: string) => {
+      reads.push(id);
+      return getSent(t, id);
+    });
+    const getMeta = provider.getMessageMetadata;
+    provider.getMessageMetadata = vi.fn(async (t: string, id: string) => {
+      reads.push(id);
+      return getMeta(t, id);
+    });
+    const store = createMemoryMailIndex();
+
+    await syncMailIndex(provider, "t", store, { ...options, quickCount: 10 });
+
+    const firstInbox = reads.findIndex((id) => id === "m10");
+    const lastSentEarly = reads.indexOf(`s${SENT_FIRST - 1}`);
+    const firstSentLate = reads.indexOf(`s${SENT_FIRST}`);
+    expect(lastSentEarly).toBeLessThan(firstInbox);
+    expect(firstSentLate).toBeGreaterThan(reads.lastIndexOf("m39"));
+    expect((await store.sentIds("gmail")).size).toBe(SENT_FIRST + 50);
     expect((await store.getState("gmail"))?.sentComplete).toBe(true);
   });
 
