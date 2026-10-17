@@ -119,3 +119,20 @@ export function relationshipFields(header: (name: string) => string | undefined)
     senderHeaderAddress: firstAddress(header("Sender")) || undefined,
   };
 }
+
+/**
+ * The addresses a message was delivered to, most specific first:
+ * Delivered-To and X-Original-To (set by the receiving server), then To and
+ * Cc. The unsubscribe identity picker matches these against the account's
+ * send-as addresses, since list servers expect the request from the address
+ * that is on the list.
+ */
+export function deliveredToAddresses(header: (name: string) => string | undefined): string[] {
+  const out: string[] = [];
+  for (const name of ["Delivered-To", "X-Original-To", "To", "Cc"]) {
+    for (const { address } of parseAddressList(header(name) ?? "")) {
+      if (!out.includes(address)) out.push(address);
+    }
+  }
+  return out;
+}

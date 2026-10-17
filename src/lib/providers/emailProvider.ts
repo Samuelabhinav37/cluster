@@ -101,6 +101,26 @@ export interface SentRecord {
   inReplyTo?: string;
 }
 
+/**
+ * One message's unsubscribe headers, read fresh at the moment the user
+ * unsubscribes, with what the mailto gate and the identity picker need.
+ */
+export interface UnsubscribeDetails {
+  messageId: string;
+  fromAddress: string;
+  /** The message sits in Spam (Gmail) or Junk (Outlook). */
+  inSpam: boolean;
+  unsubscribe: UnsubscribeInfo;
+  /** Raw DKIM-Signature headers. */
+  dkimSignatures: string[];
+  /** All Authentication-Results headers; the gate keeps the provider's own. */
+  authenticationResults: string[];
+  /** Domain of Return-Path, when present. */
+  returnPathDomain?: string;
+  /** Where the mail was delivered: Delivered-To, X-Original-To, then To/Cc. */
+  deliveredTo: string[];
+}
+
 /** What changed in a mailbox since a provider cursor (Gmail history). */
 export interface MailboxChanges {
   /** Messages that arrived since the cursor. */
@@ -135,6 +155,8 @@ export interface EmailProvider {
     purpose: ScanPurpose,
   ): Promise<IncrementalMessageResult>;
   getMessageMetadata(token: string, id: string): Promise<NormalizedMessageMetadata>;
+  /** Fresh unsubscribe headers for one message (see UnsubscribeDetails). */
+  getUnsubscribeDetails?(token: string, id: string): Promise<UnsubscribeDetails>;
   trashMessages(token: string, ids: string[]): Promise<void>;
   /**
    * All message ids currently starred / flagged, checked live — one cheap

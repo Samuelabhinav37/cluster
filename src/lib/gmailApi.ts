@@ -369,7 +369,14 @@ export interface RawMessageMetadata {
   header: (name: string) => string | undefined;
 }
 
-export async function getMessageMetadata(token: string, id: string): Promise<RawMessageMetadata> {
+/** Extra headers read only when the user unsubscribes (see getUnsubscribeDetails). */
+export const UNSUBSCRIBE_DETAIL_HEADERS = ["Delivered-To", "X-Original-To"];
+
+export async function getMessageMetadata(
+  token: string,
+  id: string,
+  extraHeaders: readonly string[] = [],
+): Promise<RawMessageMetadata> {
   const params = new URLSearchParams({ format: "metadata" });
   for (const header of [
     "From",
@@ -382,6 +389,7 @@ export async function getMessageMetadata(token: string, id: string): Promise<Raw
     "Precedence",
     "Auto-Submitted",
     ...RELATIONSHIP_HEADERS,
+    ...extraHeaders,
   ]) {
     params.append("metadataHeaders", header);
   }
