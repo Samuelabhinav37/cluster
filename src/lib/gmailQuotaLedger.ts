@@ -156,6 +156,53 @@ export async function gmailQuotaUsedWithin(windowMs: number, deps: LedgerDeps = 
   });
 }
 
+export interface BuildPace {
+  /** Units per minute the build may spend; the rest is left for clicks. */
+  share: number;
+  /** Units one build batch costs. */
+  batchUnits: number;
+  /** Shortest gap between batches. */
+  minGapMs: number;
+}
+
+/**
+ * How long a long build should wait before its next batch (0 = go now).
+ * Whatever share is left in the window is spread evenly until the oldest
+ * spend ages out, so a burst (the first screen) slows the next batches down
+ * instead of letting two through and then stalling for most of a minute.
+ */
+export function buildPaceDelay(spends: Spend[], now: number, pace: BuildPace): number {
+  const recent = spends.filter(([at]) => now - at < WINDOW_MS).sort((a, b) => a[0] - b[0]);
+  if (recent.length === 0) return 0;
+  const used = recent.reduce((sum, [, cost]) => sum + cost, 0);
+  if (used + pace.batchUnits > pace.share) {
+    // Full: wait until enough old spends age out to fit one batch.
+    let freed = 0;
+    for (const [at, cost] of recent) {
+      freed += cost;
+      if (used - freed + pace.batchUnits <= pace.share) return WINDOW_MS - (now - at) + 50;
+    }
+    return WINDOW_MS;
+  }
+  // The b batches that fit go at even gaps until the oldest spend expires
+  // (at E): send at x where x - lastAt = (E - x) / b.
+  const batches = Math.floor((pace.share - used) / pace.batchUnits);
+  const expiresAt = recent[0][0] + WINDOW_MS;
+  const lastAt = recent[recent.length - 1][0];
+  const sendAt = Math.max(lastAt + pace.minGapMs, (batches * lastAt + expiresAt) / (batches + 1));
+  return Math.max(0, sendAt - now);
+}
+
+/** {@link buildPaceDelay} against the shared ledger. */
+export async function gmailBuildPaceDelay(pace: BuildPace, deps: LedgerDeps = {}): Promise<number> {
+  const now = deps.now ?? Date.now;
+  return withStorageLock(LOCK_KEY, async () => {
+    const ledger = await readLedger();
+    const scaled = storageOk ? pace : { ...pace, share: pace.share / 2 };
+    return buildPaceDelay(ledger.spends, now(), scaled);
+  });
+}
+
 /** Wipe the ledger. Test seam, and the manual recovery path. */
 export async function clearGmailQuotaLedger(): Promise<void> {
   memSpends = [];

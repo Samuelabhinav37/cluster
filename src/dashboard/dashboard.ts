@@ -37,7 +37,7 @@ import {
   type SyncProgress,
   type SyncResult,
 } from "../lib/mailSync";
-import { GMAIL_QUOTA_BUDGET, gmailQuotaHeadroom, gmailQuotaUsedWithin } from "../lib/gmailQuotaLedger";
+import { GMAIL_QUOTA_BUDGET, gmailBuildPaceDelay } from "../lib/gmailQuotaLedger";
 import { applyIndexedCorrespondents, mailIndexLockKey } from "../lib/indexTriage";
 import { withStorageLock } from "../lib/storageLock";
 import type { EmailProvider, ProviderId } from "../lib/providers/emailProvider";
@@ -604,19 +604,26 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // Leave room in Gmail's per-minute quota for the person's own clicks.
 const BUILD_HEADROOM_UNITS = 1500;
 
-// Spend the build's share evenly: one batch (25 reads at 20 units) per
-// slice, so progress ticks every few seconds instead of bursting and then
-// stalling each minute.
-const BUILD_SLICE_MS = 7_500;
-const BUILD_SLICE_UNITS = ((GMAIL_QUOTA_BUDGET - BUILD_HEADROOM_UNITS) * BUILD_SLICE_MS) / 60_000;
+// Spend the build's share evenly: one batch (25 reads at 20 units) at least
+// every 7.5 s, slower after a burst, so progress keeps ticking instead of
+// bursting and then stalling each minute.
+const BUILD_PACE = {
+  share: GMAIL_QUOTA_BUDGET - BUILD_HEADROOM_UNITS,
+  batchUnits: 25 * 20,
+  minGapMs: 7_500,
+};
+/** When the paced build's next batch is due, for the status line. */
+let buildResumesAt = 0;
 
 async function waitForGmailHeadroom() {
-  while (
-    (await gmailQuotaHeadroom()) < BUILD_HEADROOM_UNITS ||
-    (await gmailQuotaUsedWithin(BUILD_SLICE_MS)) >= BUILD_SLICE_UNITS
-  ) {
-    await delay(500);
+  for (;;) {
+    const wait = await gmailBuildPaceDelay(BUILD_PACE);
+    if (wait <= 0) break;
+    buildResumesAt = Date.now() + wait;
+    updateIndexStatus();
+    await delay(Math.min(wait, 1000));
   }
+  buildResumesAt = 0;
 }
 
 function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
@@ -684,11 +691,17 @@ function updateIndexStatus() {
   const total = active.reduce((sum, p) => sum + p.total, 0);
   const of = `${done.toLocaleString()} of ${total.toLocaleString()}`;
   indexStatusEl.hidden = false;
-  indexStatusEl.textContent = active.some((p) => p.phase === "sent")
-    ? `Reading your sent mail: ${of}. `
+  const what = active.some((p) => p.phase === "sent")
+    ? `Reading your sent mail: ${of}.`
     : active.some((p) => p.phase === "reading")
-      ? `Counting your senders: ${of}. `
-      : `Reading your mail: ${of}. `;
+      ? `Counting your senders: ${of}.`
+      : `Reading your mail: ${of}.`;
+  // Waits past the usual gap are Gmail's per-minute limit; say when reading resumes.
+  const resumeIn = Math.ceil((buildResumesAt - Date.now()) / 1000);
+  indexStatusEl.textContent =
+    resumeIn * 1000 > BUILD_PACE.minGapMs + 2_000
+      ? `${what} Waiting ${resumeIn} s for Gmail's speed limit. `
+      : `${what} `;
   // Screens can catch up any time without stopping the reading.
   const update = document.createElement("button");
   update.type = "button";

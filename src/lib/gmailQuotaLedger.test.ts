@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   _internals,
   clearGmailQuotaLedger,
+  buildPaceDelay,
   gmailQuotaHeadroom,
   gmailQuotaUsedWithin,
   penalizeGmailQuota,
@@ -121,5 +122,37 @@ describe("gmailQuotaLedger", () => {
     // Budget is halved now, so this must wait.
     const waited = await reserveGmailQuota(20, clock);
     expect(waited).toBeGreaterThanOrEqual(60_000);
+  });
+});
+
+describe("buildPaceDelay", () => {
+  const pace = { share: 4000, batchUnits: 500, minGapMs: 7_500 };
+
+  it("goes at once on an empty window", () => {
+    expect(buildPaceDelay([], 0, pace)).toBe(0);
+  });
+
+  it("spreads what is left after a burst until the burst ages out", () => {
+    // The first screen: 3,000 units at t=0, checked at t=5 s.
+    const delay = buildPaceDelay([[0, 3000]], 5_000, pace);
+    // Two batches fit before it ages out at 60 s: one at 20 s, one at 40 s.
+    expect(delay).toBeCloseTo(15_000);
+  });
+
+  it("keeps the minimum gap at a steady pace", () => {
+    const spends: [number, number][] = [
+      [0, 500],
+      [51_000, 500],
+    ];
+    expect(buildPaceDelay(spends, 52_000, pace)).toBe(6_500);
+    expect(buildPaceDelay(spends, 59_000, pace)).toBe(0);
+  });
+
+  it("waits for old spends to age out when the share is used", () => {
+    const spends: [number, number][] = [
+      [0, 2000],
+      [10_000, 2000],
+    ];
+    expect(buildPaceDelay(spends, 20_000, pace)).toBe(40_050);
   });
 });
