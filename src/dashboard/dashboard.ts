@@ -590,9 +590,6 @@ interface IndexRun {
   done: Promise<SyncResult | null>;
   error?: unknown;
   progress?: SyncProgress;
-  /** Resolves when every sender has been found and counted (a build only). */
-  counted: Promise<void>;
-  countedDone?: boolean;
   /** When progress last moved, to tell a quota pause from a stall. */
   progressAt?: number;
   settled?: boolean;
@@ -617,10 +614,8 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
   const existing = indexRuns.get(provider.id);
   if (existing) return existing;
   let resolveQuick: () => void = () => {};
-  let resolveCounted: () => void = () => {};
   const run: IndexRun = {
     quick: new Promise<void>((resolve) => (resolveQuick = resolve)),
-    counted: new Promise<void>((resolve) => (resolveCounted = resolve)),
     done: Promise.resolve(null),
   };
   run.done = (async () => {
@@ -642,10 +637,6 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
           onSentReady: () => updateCorrespondentsFromIndex(provider).catch((err) =>
             log.error("Could not update people you write to", err),
           ),
-          onCounted: () => {
-            run.countedDone = true;
-            resolveCounted();
-          },
         }),
       );
       await updateCorrespondentsFromIndex(provider).catch((err) =>
@@ -685,10 +676,17 @@ function updateIndexStatus() {
   const of = `${done.toLocaleString()} of ${total.toLocaleString()}`;
   indexStatusEl.hidden = false;
   indexStatusEl.textContent = active.some((p) => p.phase === "sent")
-    ? `Still reading your sent mail: ${of}.`
+    ? `Reading your sent mail: ${of}. `
     : active.some((p) => p.phase === "reading")
-      ? `Finding everyone who emails you: ${of}.`
-      : `All senders found. Reading their mail in detail: ${of}.`;
+      ? `Counting your senders: ${of}. `
+      : `Reading your mail: ${of}. `;
+  // Screens can catch up any time without stopping the reading.
+  const update = document.createElement("button");
+  update.type = "button";
+  update.className = "btn-link";
+  update.textContent = "Update view";
+  update.onclick = () => void scanAndRender();
+  indexStatusEl.appendChild(update);
 }
 
 /** Everyone in the sent store joins the "people you write to" list that
@@ -722,12 +720,11 @@ function showIndexOffer(text: string) {
 function offerUpdatedView(run: IndexRun) {
   // Already finished: this render includes everything it read.
   if (run.settled) return;
-  if (!run.countedDone) {
-    void run.counted.then(() => showIndexOffer("Cluster has found and counted all your mail."));
-  }
+  // Only once reading is truly finished; until then the progress line says
+  // how far it got and offers "Update view".
   void run.done.then((result) => {
     if (!result || !syncChangedIndex(result)) return;
-    showIndexOffer("Cluster has read more of your mail.");
+    showIndexOffer("All your mail is read.");
   });
 }
 
