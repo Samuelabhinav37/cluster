@@ -4,7 +4,9 @@
 // sender's domain, nothing else. Starred/flagged mail is never included.
 import { domainOf } from "./domainGrouping";
 import { resolveLabelName } from "./labelResolver";
+import type { MessageKind } from "./messageKind";
 import { protectionDecision } from "./protectionPolicy";
+import type { SenderKind } from "./senderProfile";
 import type { ProviderId } from "./providers/emailProvider";
 import type { SenderSummary } from "./senderModel";
 import {
@@ -46,20 +48,26 @@ export interface SortPlanEntry {
  * One entry per non-empty bucket, biggest first. `fileOutByBucket` overrides
  * the per-bucket default from the taxonomy; anything not listed uses the
  * default. `overrides` are per-sender "wrong bucket?" corrections and win over
- * the kind/domain classification.
+ * the kind/domain classification. `senderKinds` (from sender profiles) put a
+ * sender's mail in one bucket by majority, so one subject word can't send a
+ * single message elsewhere.
  */
 export function buildSortPlan(
   senders: SenderSummary[],
   fileOutByBucket: Partial<Record<SortBucket, boolean>> = {},
   overrides: Record<string, SortOverride> = {},
+  senderKinds: ReadonlyMap<string, SenderKind> = new Map(),
 ): SortPlanEntry[] {
   const byBucket = new Map<SortBucket, SortPlanEntry>();
 
   for (const sender of senders) {
     const domain = domainOf(sender.address);
+    const senderKind = senderKinds.get(sender.key);
     for (const msg of sender.messages) {
       if (msg.isProtected) continue;
-      const bucket = effectiveBucket(msg.kind, domain, sender.address, overrides, msg.promotion);
+      const kind = kindFromSender(senderKind, msg.kind);
+      const promotion = senderKind === "promotion" || (senderKind === undefined || senderKind === "mixed" ? msg.promotion : false);
+      const bucket = effectiveBucket(kind, domain, sender.address, overrides, promotion);
       if (!bucket) continue;
 
       let entry = byBucket.get(bucket);
@@ -103,6 +111,27 @@ export function buildSortPlan(
   }
 
   return [...byBucket.values()].sort((a, b) => b.count - a.count);
+}
+
+/**
+ * The kind a message sorts as, given its sender's majority kind. A mixed or
+ * unknown sender falls back to the message's own kind. A sender kind never
+ * turns a message into a one-time code: codes can expire to Trash, so that
+ * needs the message's own subject to say so.
+ */
+export function kindFromSender(senderKind: SenderKind | undefined, own: MessageKind): MessageKind {
+  switch (senderKind) {
+    case undefined:
+    case "mixed":
+    case "person":
+    case "promotion":
+    case "otp":
+      return own;
+    case "list":
+      return own === "otp" ? own : "newsletter";
+    default:
+      return own === "otp" ? own : senderKind;
+  }
 }
 
 export function totalPlanCount(plan: SortPlanEntry[]): number {

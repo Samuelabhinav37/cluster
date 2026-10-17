@@ -161,9 +161,14 @@ function renderSortBucketToggles() {
   updateSortInboxCount();
 }
 
+/** Each sender's majority kind from its profile (senderProfile.ts). */
+function senderKinds() {
+  return new Map([...ctx.profiles].map(([key, profile]) => [key, profile.kind] as const));
+}
+
 function renderSortInbox(senders: SenderSummary[]) {
   const cfg = ctx.settings.autoSort;
-  sortPlan = buildSortPlan(senders, fileOutChoices(), ctx.settings.sortOverrides);
+  sortPlan = buildSortPlan(senders, fileOutChoices(), ctx.settings.sortOverrides, senderKinds());
   resetSortInboxSlot();
   clearSortPreview();
   pruneSelection(
@@ -227,6 +232,7 @@ function rebuildSortPreview() {
     ctx.senders,
     ctx.settings.autoSort.fileOutByBucket,
     ctx.settings.sortOverrides,
+    senderKinds(),
   );
   renderSortBucketToggles();
   pruneSelection(
