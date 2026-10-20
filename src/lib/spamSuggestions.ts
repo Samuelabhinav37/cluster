@@ -8,7 +8,7 @@ import { emptyProtectionContext, protectionDecision, type ProtectionContext } fr
 import { isSpamDomain } from "./spamList";
 import type { SenderSummary } from "./senderModel";
 
-export type SpamReason = "known-bad-domain" | "listed-spam-domain";
+export type SpamReason = "known-bad-domain" | "listed-spam-domain" | "provider-spam";
 
 export interface SpamSuggestion {
   sender: SenderSummary;
@@ -65,11 +65,14 @@ export function suggestSpamSenders(
     if (!domain) continue;
     const blocked = matchers.isBlocked(domain);
     const spam = blocked ? false : matchers.isSpam(domain);
-    if (!blocked && !spam) continue;
+    // Every message from them that the provider judged was spam to it (the
+    // user moved some back to the inbox, or a rule kept them there).
+    const providerSpam = !blocked && !spam && sender.messages.length > 0 && sender.messages.every((m) => m.providerSpam);
+    if (!blocked && !spam && !providerSpam) continue;
     out.push({
       sender,
       domain,
-      reason: blocked ? "known-bad-domain" : "listed-spam-domain",
+      reason: blocked ? "known-bad-domain" : spam ? "listed-spam-domain" : "provider-spam",
       messageCount: sender.messageIds.length,
     });
   }
@@ -77,5 +80,7 @@ export function suggestSpamSenders(
 }
 
 export function reasonLabel(reason: SpamReason): string {
-  return reason === "known-bad-domain" ? "known-bad domain" : "spam / throwaway domain";
+  if (reason === "known-bad-domain") return "known-bad domain";
+  if (reason === "provider-spam") return "Microsoft's filter marked it spam";
+  return "spam / throwaway domain";
 }

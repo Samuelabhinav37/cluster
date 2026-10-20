@@ -17,7 +17,8 @@
 //    set to fit them on.
 // 3. Hold needs the hold score AND either two different kinds of signal or
 //    one "floor" signal that is decisive alone: a domain on a known-bad list,
-//    or a brand claim sent from a free email account.
+//    a brand claim sent from a free email account, or Microsoft's own
+//    phishing/spoofing/impersonation verdict.
 // 4. Warn at the warn score. Below that, nothing.
 // 5. Holds are per message (heldMessageIds): each message is judged on the
 //    signals about the sender's address plus its own, with rules 1 to 3.
@@ -63,7 +64,7 @@ export const HOLD_SCORE = 6;
 export const WARN_SCORE = 3;
 export const MAX_REASONS = 3;
 
-const FLOOR_KINDS = new Set<ThreatSignalKind>(["blocklisted-domain", "freemail-brand-claim"]);
+const FLOOR_KINDS = new Set<ThreatSignalKind>(["blocklisted-domain", "freemail-brand-claim", "provider-flagged"]);
 const LOOKS_LIKE_A_BRAND = new Set<ThreatSignalKind>([
   "brand-impersonation",
   "freemail-brand-claim",
@@ -119,6 +120,8 @@ export function reasonText(signal: ThreatSignal): string {
       return "It has an attachment of a type often used to spread malware.";
     case "identity-change":
       return `This sender doesn't usually use ${signal.brand}.`;
+    case "provider-flagged":
+      return `Microsoft's own filter flagged this as ${signal.brand}.`;
     default: {
       const unreachable: never = signal.kind;
       return unreachable;

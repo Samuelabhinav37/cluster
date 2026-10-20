@@ -27,6 +27,7 @@
 //   live fetch, so it stays within the project's no-network stance.
 import type { NormalizedMessageMetadata } from "./providers/emailProvider";
 import { parseAuthenticationResults, parseAuthResultEntries } from "./emailAuth";
+import { microsoftAttackCategory, microsoftAuthFailed } from "./msVerdict";
 import { isBlockedDomain } from "./blocklist";
 import { FREE_MAIL_DOMAINS } from "./freeMail";
 import { domainToUnicode } from "./punycode";
@@ -50,7 +51,8 @@ export type ThreatSignalKind =
   | "lure-language"
   | "link-mismatch"
   | "risky-attachment"
-  | "identity-change";
+  | "identity-change"
+  | "provider-flagged";
 
 export interface ThreatSignal {
   kind: ThreatSignalKind;
@@ -408,6 +410,13 @@ function authenticationSignal(message: NormalizedMessageMetadata): ThreatSignal 
   if (dmarc === "fail") {
     return { kind: "failed-authentication", brand: senderDomain, confidence: "high" };
   }
+  // Microsoft's composite authentication: its own DMARC-plus-implicit check.
+  // Reason 000 is an explicit DMARC failure Microsoft saw even when it
+  // didn't write dmarc=fail in a form parsed above.
+  const compauth = microsoftAuthFailed(message.microsoftVerdict);
+  if (compauth) {
+    return { kind: "failed-authentication", brand: senderDomain, confidence: compauth === "strong" ? "high" : "medium" };
+  }
   // SPF and DKIM each fail benignly on their own (list relays, forwarding),
   // which is why DMARC alignment exists -- but BOTH explicitly failing, with
   // no DMARC pass to vouch for the message, is close to the same signal and
@@ -476,6 +485,15 @@ function attachmentSignal(message: NormalizedMessageMetadata): ThreatSignal | nu
   return { kind: "risky-attachment", brand: domainOf(message.fromAddress) || "unknown sender", confidence: "medium" };
 }
 
+// Microsoft already judged this message an attack (CAT:PHSH, SPOOF, UIMP,
+// ...) with detection Cluster can't run locally. Outlook only; the header
+// is read from the tenant's own topmost copy (msVerdict.ts).
+function providerVerdictSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
+  const category = microsoftAttackCategory(message.microsoftVerdict);
+  if (!category) return null;
+  return { kind: "provider-flagged", brand: category, confidence: "high" };
+}
+
 function punycodeSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
   const domain = domainOf(message.fromAddress);
   if (!domain.split(".").some((label) => label.startsWith("xn--"))) return null;
@@ -535,6 +553,8 @@ export function scoreMessageContext(message: NormalizedMessageMetadata): ThreatS
   if (lure) signals.push(lure);
   const attachment = attachmentSignal(message);
   if (attachment) signals.push(attachment);
+  const provider = providerVerdictSignal(message);
+  if (provider) signals.push(provider);
   return signals;
 }
 
@@ -568,6 +588,8 @@ const SIGNAL_WEIGHTS: Record<ThreatSignalKind, number> = {
   // (senderLedger.ts). A warning on its own. With a second kind of evidence
   // on the same message it holds that message only (verdict.ts).
   "identity-change": 3,
+  // Microsoft's own phishing/spoofing/impersonation verdict.
+  "provider-flagged": 6,
 };
 
 export type RiskTier = "high" | "elevated" | "low";

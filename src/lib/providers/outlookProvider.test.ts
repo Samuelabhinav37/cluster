@@ -428,3 +428,33 @@ describe("Outlook delta synchronization", () => {
     expect(result.reset).toBe(true);
   });
 });
+
+describe("Outlook message metadata: Microsoft's verdict", () => {
+  it("reads the tenant's spam/phish headers and scores a Microsoft-flagged phish", async () => {
+    const fetchMock = vi.fn(async () =>
+      json({
+        id: "m1",
+        from: { emailAddress: { address: "Billing@Pay-Notice.example", name: "Billing" } },
+        sender: { emailAddress: { address: "relay@bulk-sender.example", name: "Relay" } },
+        subject: "Invoice",
+        isRead: false,
+        size: 1000,
+        receivedDateTime: "2026-10-01T00:00:00Z",
+        internetMessageHeaders: [
+          { name: "Authentication-Results", value: "spf=pass (sender IP is 203.0.113.9) smtp.mailfrom=pay-notice.example; dkim=none; dmarc=none action=none header.from=pay-notice.example;compauth=pass reason=100" },
+          { name: "X-Forefront-Antispam-Report", value: "CIP:203.0.113.9;CTRY:US;SCL:1;SFV:NSPM;CAT:PHSH;DIR:INB;SFTY:9.25" },
+          { name: "X-Forefront-Antispam-Report", value: "SCL:-1;SFV:SKA;CAT:NONE" },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const meta = await outlookProvider.getMessageMetadata("token", "m1");
+    expect(meta.fromAddress).toBe("billing@pay-notice.example");
+    expect(meta.microsoftVerdict).toMatchObject({ cat: "PHSH", sfty: "9.25", compauth: "pass" });
+    const { scoreMessageForThreats } = await import("../threatSignals");
+    expect(scoreMessageForThreats(meta)).toContainEqual(
+      expect.objectContaining({ kind: "provider-flagged", brand: "phishing", confidence: "high" }),
+    );
+    expect(call(fetchMock, 0).url).toContain("$select=from,sender,");
+  });
+});

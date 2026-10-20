@@ -102,4 +102,11 @@ describe("suggestSpamSenders", () => {
     const personal = sender("boss@spammer.example", [msg({ id: "2", providerMarkedPersonal: true })]);
     expect(suggestSpamSenders([personal], matchers)).toEqual([]);
   });
+
+  it("suggests a sender whose every message Microsoft's filter called spam, and not one it called spam once", () => {
+    const allSpam = sender("a@plain.example", [msg({ id: "1", providerSpam: true }), msg({ id: "2", providerSpam: true })]);
+    const once = sender("b@plain.example", [msg({ id: "3", providerSpam: true }), msg({ id: "4" })]);
+    const out = suggestSpamSenders([allSpam, once], matchers);
+    expect(out.map((s) => [s.sender.address, s.reason])).toEqual([["a@plain.example", "provider-spam"]]);
+  });
 });

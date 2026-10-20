@@ -1,3 +1,4 @@
+import type { MicrosoftVerdict } from "../msVerdict";
 import type { RelationshipFields } from "../headerFields";
 import type { UnsubscribeInfo } from "../unsubscribe";
 
@@ -77,6 +78,10 @@ export interface NormalizedMessageMetadata extends Partial<RelationshipFields> {
   /** Raw Auto-Submitted header value, if present (RFC 3834, e.g.
    * "auto-generated", "auto-replied") -- same secondary signal as precedence. */
   autoSubmitted?: string;
+  /** Outlook only: Microsoft's own spam/phish verdict from the topmost
+   * X-Forefront-Antispam-Report, X-Microsoft-Antispam and compauth (see
+   * msVerdict.ts). Absent on Gmail, where such headers came from the sender. */
+  microsoftVerdict?: MicrosoftVerdict;
   /** Gmail only: the message's raw label ids, kept so the local mail index
    * can re-derive the label fields above from a history event without
    * fetching the message again (see EmailProvider.applyLabelIds). */

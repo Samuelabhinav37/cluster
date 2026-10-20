@@ -1,3 +1,4 @@
+import { microsoftSaysSpam } from "./msVerdict";
 import { mapWithConcurrency } from "./concurrency";
 import { classifyMessageKind, looksAutomated, type MessageKind } from "./messageKind";
 import {
@@ -44,6 +45,8 @@ export interface MessageRecord {
   dkimDomains?: string[];
   /** Registrable domain of the Reply-To address, if the message set one. */
   replyToDomain?: string;
+  /** The provider's own filter called it spam (Outlook: SFV:SPM or SCL 5+). */
+  providerSpam?: boolean;
 }
 
 export interface SenderSummary {
@@ -141,6 +144,7 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     replyToDomain: meta.replyToAddress.includes("@")
       ? registrableDomain(meta.replyToAddress.slice(meta.replyToAddress.lastIndexOf("@") + 1))
       : undefined,
+    providerSpam: microsoftSaysSpam(meta.microsoftVerdict) || undefined,
   };
   const existing = senders.get(key);
   if (existing) {

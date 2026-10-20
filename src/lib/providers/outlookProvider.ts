@@ -4,6 +4,7 @@ import { MAIL_ROW_VERSION } from "../mailIndex";
 import { fetchWithRetry } from "../httpRetry";
 import { parseListUnsubscribe } from "../unsubscribe";
 import { selectTrustedAuthenticationResults } from "../emailAuth";
+import { parseMicrosoftVerdict } from "../msVerdict";
 import { isRiskyAttachmentFilename } from "../riskyAttachments";
 import type { EmailProvider, NormalizedMessageMetadata, UnsubscribeDetails } from "./emailProvider";
 import { forceRefreshOutlookToken, getOutlookToken, isOutlookConnected } from "./msalAuth";
@@ -182,6 +183,7 @@ async function getMessageMetadata(token: string, id: string): Promise<Normalized
     }),
     receivedAt: data.receivedDateTime ? new Date(data.receivedDateTime).getTime() : 0,
     authenticationResults,
+    microsoftVerdict: parseMicrosoftVerdict(find, authenticationResults),
     hasRiskyAttachment,
     providerMarkedPersonal: data.inferenceClassification === "focused",
     precedence: find("Precedence"),
