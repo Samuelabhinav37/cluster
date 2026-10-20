@@ -32,8 +32,11 @@
   "netflix": ["netflix.com"],
   "verizon": ["verizon.com", "vzw.com", "verizonwireless.com"],
   "at&t": ["att.com", "att.net"],
-  "t-mobile": ["t-mobile.com"],
+  "t-mobile": ["t-mobile.com", "tmobile.com"],
   "irs": ["irs.gov"],
   "social security": ["ssa.gov"],
-  "uscis": ["uscis.gov"]
+  "uscis": ["uscis.gov"],
+  "geek squad": ["geeksquad.com", "bestbuy.com"],
+  "norton": ["norton.com", "nortonlifelock.com", "gen.digital"],
+  "mcafee": ["mcafee.com"]
 }

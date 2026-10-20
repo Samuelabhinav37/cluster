@@ -191,30 +191,34 @@ describe("phishing / threat scoring", () => {
   it("real Facebook mail (facebookmail.com, DMARC pass) isn't flagged as impersonation", () => {
     expect(threats({ fromAddress: "notification@facebookmail.com", fromDisplayName: "Facebook" })).toEqual([]);
   });
-  it.fails("KNOWN BUG: a person named Chase on gmail.com is scored HIGH risk as a Chase-bank claim", () => {
+  it("a person named Chase on gmail.com is not scored as a Chase-bank claim", () => {
     expect(tierOf({ fromAddress: "chase.miller@gmail.com", fromDisplayName: "Chase Miller", unsubscribe: {} })).not.toBe("high");
   });
-  it.fails("KNOWN BUG: chess.com is flagged as a lookalike of chase.com", () => {
+  it("chess.com is not a lookalike of chase.com", () => {
     expect(threats({ fromAddress: "hello@chess.com", fromDisplayName: "Chess.com" })).toEqual([]);
   });
-  it.fails("KNOWN BUG: 'Start-Ups Weekly' matches the UPS brand", () => {
+  it("'Start-Ups Weekly' does not claim the UPS brand", () => {
     expect(threats({ fromAddress: "editor@startupsweekly.example", fromDisplayName: "Start-Ups Weekly" })).toEqual([]);
   });
 
-  // False negatives: free-mail domains listed as the brand's own.
-  it.fails("KNOWN BUG: 'Microsoft Account Team' sending from an outlook.com mailbox is not flagged", () => {
+  // Free-mail domains listed as the brand's own (fixed by brand model v2:
+  // only reserved system mailboxes there are the brand itself).
+  it("'Microsoft Account Team' sending from an outlook.com mailbox is flagged", () => {
     expect(threats({ fromAddress: "ms.account.recovery@outlook.com", fromDisplayName: "Microsoft Account Team" })).not.toEqual([]);
   });
-  it.fails("KNOWN BUG: 'Google Security' sending from a gmail.com mailbox is not flagged", () => {
+  it("'Google Security' sending from a gmail.com mailbox is flagged", () => {
     expect(threats({ fromAddress: "google.security.alerts@gmail.com", fromDisplayName: "Google Security" })).not.toEqual([]);
   });
-  it.fails("KNOWN BUG: 'Apple Support' sending from an icloud.com mailbox is not flagged", () => {
+  it("'Apple Support' sending from an icloud.com mailbox is flagged", () => {
     expect(threats({ fromAddress: "appleid.support.team@icloud.com", fromDisplayName: "Apple Support" })).not.toEqual([]);
   });
 
   it("a Reply-To redirected to free-mail is a signal; a non-free-mail redirect is not (design limit)", () => {
+    // One-to-one mail: authenticated list mail may take replies at free mail.
     const kinds = (replyToAddress: string) =>
-      threats({ fromAddress: "billing@vendor.example", fromDisplayName: "Billing", replyToAddress }).map((s) => s.kind);
+      threats({ fromAddress: "billing@vendor.example", fromDisplayName: "Billing", replyToAddress, unsubscribe: {} }).map(
+        (s) => s.kind,
+      );
     expect(kinds("recovery@gmail.com")).toContain("reply-to-mismatch");
     expect(kinds("recovery@vendor-help.top")).not.toContain("reply-to-mismatch");
   });

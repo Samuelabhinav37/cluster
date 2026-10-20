@@ -21,9 +21,9 @@ import {
 } from "../test/evaluation";
 
 const FLOORS = {
-  holdPrecision: 0.9,
-  flagPrecision: 0.72,
-  flagRecall: 0.77,
+  holdPrecision: 1,
+  flagPrecision: 1,
+  flagRecall: 0.91,
   kindAccuracy: 0.78,
   otpPrecision: 1,
   protectionRecall: 0.84,

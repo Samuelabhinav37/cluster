@@ -146,6 +146,18 @@ const punycodeCases: ThreatCase[] = [
   },
 ];
 
+// ── Display names disguised from a plain match ───────────────────────────
+const disguisedNameCases: ThreatCase[] = [
+  ["Pay\u200BPal Support", "help@account-review.example"],
+  ["\uFF30\uFF41\uFF59\uFF30\uFF41\uFF4C Security", "alerts@payments-desk.example"],
+  ["\u0410pple Support", "support@device-check.example"],
+].map(([display, address], i) => ({
+  id: `disguised-display-${i}`,
+  label: "malicious" as const,
+  tags: ["display-disguise"],
+  messages: [msg(address, display, "Your account is on hold", noUnsub)],
+}));
+
 // ── Known-bad list ────────────────────────────────────────────────────────
 const blocklistCases: ThreatCase[] = [
   {
@@ -553,6 +565,7 @@ export const THREAT_CORPUS: ThreatCase[] = [
   ...freemailCases,
   ...ownFreemailCases,
   ...punycodeCases,
+  ...disguisedNameCases,
   ...blocklistCases,
   ...becCases,
   ...attachmentCases,

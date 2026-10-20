@@ -28,6 +28,7 @@
 import type { NormalizedMessageMetadata } from "./providers/emailProvider";
 import { parseAuthenticationResults } from "./emailAuth";
 import { isBlockedDomain } from "./blocklist";
+import { FREE_MAIL_DOMAINS } from "./freeMail";
 import { domainToUnicode } from "./punycode";
 import { isSameOrSubdomain, registrableDomain } from "./registrableDomain";
 import { getDataset, refreshDataset } from "./remoteDataset";
@@ -123,19 +124,37 @@ export async function refreshBrandDomains(publicKeyB64?: string): Promise<boolea
   return updated;
 }
 
-// Real senders sometimes legitimately use these for bulk mail (e.g. a small
-// business emailing from a Gmail account) -- flagging "freemail-brand-claim"
-// only when the display name invokes a brand from BRAND_DOMAINS above keeps
-// this from misfiring on every small business newsletter.
-const FREEMAIL_DOMAINS = new Set(["gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "aol.com", "icloud.com", "protonmail.com"]);
+// Real senders sometimes legitimately use free mail for bulk mail (e.g. a
+// small business emailing from a Gmail account) -- flagging
+// "freemail-brand-claim" only when the display name claims a brand from
+// BRAND_DOMAINS above keeps this from misfiring on every small business
+// newsletter. One list with freeMail.ts, so grouping and scoring agree on
+// what free mail is.
+const FREEMAIL_DOMAINS = FREE_MAIL_DOMAINS;
 
-// A lookalike this far off in edit distance from a brand's real domain is
-// close enough to be deliberate confusion, not coincidence -- 2 covers a
-// single character substitution/insertion/deletion plus a little slack
-// (paypa1.com is distance 1 from paypal.com; arnazon.com is distance 2 from
-// amazon.com), without also matching domains that just happen to share a
-// short common substring with an unrelated brand name.
-const LOOKALIKE_MAX_DISTANCE = 2;
+// Microsoft, Google and Apple list their own free-mail domains (outlook.com,
+// gmail.com, icloud.com) as brand domains, so those count as theirs for
+// lookalike checks. But anyone can open a mailbox there: a "Microsoft
+// Account Team" claim from ms.account.recovery@outlook.com is a free-mail
+// claim like any other. Only these reserved system mailboxes, which no
+// member of the public can register, are the brand itself.
+const RESERVED_SYSTEM_LOCAL_PARTS = new Set([
+  "noreply", "no-reply", "no_reply", "donotreply", "do-not-reply", "do_not_reply", "mailer-daemon", "postmaster",
+]);
+
+// How far a registered domain may be from a brand's to count as a
+// lookalike. One edit (paypa1.com, linkedln.com) is deliberate confusion far
+// more often than chance. Two edits also land on ordinary short words
+// (chess.com and chime.com are both two from chase.com), so two is only
+// allowed when the brand's label is long enough that a second edit is still
+// unlikely to be a real word: rnicrosoft.com, wellsfarg0.com.
+const LOOKALIKE_MAX_DISTANCE = 1;
+const LOOKALIKE_LONG_LABEL = 9;
+const LOOKALIKE_LONG_MAX_DISTANCE = 2;
+// Real, unrelated domains within that distance of a brand's. A stopgap
+// until a signed top-sites allowlist replaces it; add one only with a
+// public source showing who owns it.
+const NEAR_BRAND_ALLOWLIST = new Set(["discovery.com", "chime.com", "chess.com"]);
 // Below this length, small edit distances stop being meaningful signal --
 // short domains are close to lots of unrelated short domains by chance.
 const LOOKALIKE_MIN_DOMAIN_LENGTH = 6;
@@ -170,9 +189,48 @@ const BRAND_MATCHERS: Array<{ brand: string; re: RegExp }> = Object.keys(BRAND_D
   re: new RegExp(`\\b${escapeRegExp(brand).replace(/\s+/g, "\\s+")}\\b`, "i"),
 }));
 
+// A display name only claims a brand when the brand is the whole name
+// ("PayPal", "Amazon.com", "AMAZON Inc.") or comes with a word a company
+// signs as ("Chase Fraud Team", "Microsoft 365", "Apple Support"). A person
+// who happens to be called Chase, or a newsletter called "Start-Ups Weekly",
+// doesn't claim to be the bank or the courier.
+const CORPORATE_SUFFIXES = new Set(["com", "inc", "llc", "ltd", "corp", "co", "plc", "official"]);
+const ROLE_WORDS = new Set([
+  "support", "security", "secure", "team", "account", "accounts", "billing", "service", "services", "customer",
+  "care", "alert", "alerts", "notification", "notifications", "notice", "help", "helpdesk", "desk", "fraud",
+  "online", "express", "delivery", "shipping", "prime", "id", "365", "bank", "banking", "center", "centre",
+  "department", "dept", "payment", "payments", "refund", "refunds", "verification", "verify", "admin",
+  "administrator", "wallet", "pay", "card", "cards", "mobile", "business", "update", "updates", "info",
+  "mail", "store", "orders", "order", "rewards", "tracking", "parcel", "recovery", "protection", "login",
+  "membership", "subscription", "subscriptions", "renewal", "invoice", "invoices", "office", "cloud",
+]);
+// Real display names are short; a sender-controlled 50,000-character one
+// must not make the matchers below slow.
+const MAX_DISPLAY_NAME = 200;
+// Invisible characters put inside brand names ("Pay\u200BPal") so a plain
+// match misses: soft hyphen, zero-width, joiners, bidi controls, BOM.
+const INVISIBLE_RE = /[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]/g;
+
+/** A display name as the brand matcher sees it: compatibility-normalised
+ * (fullwidth and styled letters to plain ones), invisible characters gone,
+ * look-alike letters mapped to the Latin ones they imitate. Digits are kept
+ * ("Microsoft 365"): in a name they're real, unlike in a domain. */
+export function normalizeDisplayName(displayName: string): string {
+  const plain = (displayName || "").slice(0, MAX_DISPLAY_NAME).normalize("NFKC").replace(INVISIBLE_RE, "").toLowerCase();
+  return [...plain].map((ch) => (/\d/.test(ch) ? ch : (CONFUSABLES[ch] ?? ch))).join("");
+}
+
 function matchedBrand(displayName: string): string | null {
+  // "Acme Plumbing via PayPal": the part after "via" names the platform that
+  // relayed it, not who it claims to be.
+  const claimed = normalizeDisplayName(displayName).split(/\s+via\s+/)[0];
   for (const { brand, re } of BRAND_MATCHERS) {
-    if (re.test(displayName)) return brand;
+    const match = re.exec(claimed);
+    if (!match) continue;
+    const rest = (claimed.slice(0, match.index) + " " + claimed.slice(match.index + match[0].length))
+      .split(/[^a-z0-9&]+/)
+      .filter(Boolean);
+    if (rest.every((word) => CORPORATE_SUFFIXES.has(word)) || rest.some((word) => ROLE_WORDS.has(word))) return brand;
   }
   return null;
 }
@@ -194,8 +252,17 @@ const CONFUSABLES: Record<string, string> = {
   "0": "o", "1": "l", "5": "s",
 };
 
+// Letter pairs that render as one letter in most fonts: arnazon.com reads
+// as amazon.com, vvellsfargo.com as wellsfargo.com. Domains only: in a name
+// "rn" is far more often just "rn" (Vernon, Fernando).
+const CONFUSABLE_PAIRS: Array<[RegExp, string]> = [
+  [/rn/g, "m"],
+  [/vv/g, "w"],
+];
+
 function asciiSkeleton(domain: string): string {
-  return [...domain.toLowerCase()].map((ch) => CONFUSABLES[ch] ?? ch).join("");
+  const single = [...domain.toLowerCase()].map((ch) => CONFUSABLES[ch] ?? ch).join("");
+  return CONFUSABLE_PAIRS.reduce((out, [re, to]) => out.replace(re, to), single);
 }
 
 // Standard Levenshtein edit distance, iterative single-row form -- no
@@ -239,25 +306,45 @@ function findLookalikeBrand(senderDomain: string): LookalikeMatch | null {
   if (registrable.length < LOOKALIKE_MIN_DOMAIN_LENGTH) return null;
   // Headers carry internationalised domains as punycode (xn--pypl-53dc.com),
   // so decode before the confusables map can see the Cyrillic letters.
+  if (NEAR_BRAND_ALLOWLIST.has(registrable)) return null;
   const skeleton = asciiSkeleton(domainToUnicode(registrable));
+  const [label, ...suffix] = registrable.split(".");
   for (const [brand, domains] of Object.entries(BRAND_DOMAINS)) {
     for (const legitDomain of domains) {
-      if (legitDomain.split(".")[0].length < LOOKALIKE_MIN_BRAND_LABEL_LENGTH) continue;
+      const legitLabel = legitDomain.split(".")[0];
+      if (legitLabel.length < LOOKALIKE_MIN_BRAND_LABEL_LENGTH) continue;
       // Confusable-normalised exact match: the domain renders identically to
       // the brand's real one but isn't it -- a Cyrillic 'а' in pаypаl.com, a
-      // digit 1 in paypa1.com. The strongest lookalike case, and one raw
-      // edit distance misses entirely for the homoglyph variant.
+      // digit 1 in paypa1.com, "rn" for "m" in arnazon.com. The strongest
+      // lookalike case, and one raw edit distance misses entirely for the
+      // homoglyph variant.
       if (skeleton === legitDomain && registrable !== legitDomain) return { brand, confidence: "high" };
-      if (editDistanceWithin(registrable, legitDomain, LOOKALIKE_MAX_DISTANCE)) return { brand, confidence: "high" };
+      // The brand's own name under a country code (amazon.fr, google.ca):
+      // big brands register these themselves, so it isn't a typo of theirs.
+      // A homoglyph in the label is still caught above.
+      if (label === legitLabel && isCountryCodeSuffix(suffix)) continue;
+      const max = legitLabel.length >= LOOKALIKE_LONG_LABEL ? LOOKALIKE_LONG_MAX_DISTANCE : LOOKALIKE_MAX_DISTANCE;
+      if (editDistanceWithin(registrable, legitDomain, max)) return { brand, confidence: "high" };
       // A homoglyph swap plus an ordinary typo can push the raw string past
       // the threshold while the skeleton stays close -- check that too.
-      if (skeleton !== registrable && editDistanceWithin(skeleton, legitDomain, LOOKALIKE_MAX_DISTANCE)) {
+      if (skeleton !== registrable && editDistanceWithin(skeleton, legitDomain, max)) {
         return { brand, confidence: "high" };
       }
     }
   }
   const combosquat = findCombosquatBrand(registrable);
   return combosquat ? { brand: combosquat, confidence: "medium" } : null;
+}
+
+/** ["fr"], ["co", "uk"], ["com", "au"]: a two-letter country code last. */
+function isCountryCodeSuffix(suffix: string[]): boolean {
+  return suffix.length > 0 && /^[a-z]{2}$/.test(suffix[suffix.length - 1]);
+}
+
+/** google.ca for google.com: the brand's own label under a country code. */
+function isBrandCountryDomain(senderDomain: string, legitimateDomains: string[]): boolean {
+  const [label, ...suffix] = registrableDomain(senderDomain).split(".");
+  return isCountryCodeSuffix(suffix) && legitimateDomains.some((d) => d.split(".")[0] === label);
 }
 
 /** paypal-secure-login.com -> "paypal": the brand's own label as one
@@ -289,13 +376,19 @@ function brandSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
 
   const senderDomain = domainOf(message.fromAddress);
   const legitimateDomains = BRAND_DOMAINS[brand];
-  if (legitimateDomains.some((d) => isSameOrSubdomain(senderDomain, d))) return null;
-
   if (FREEMAIL_DOMAINS.has(senderDomain)) {
+    const localPart = message.fromAddress.slice(0, message.fromAddress.lastIndexOf("@")).toLowerCase();
+    if (legitimateDomains.includes(senderDomain) && RESERVED_SYSTEM_LOCAL_PARTS.has(localPart)) return null;
     // Highest-confidence case: a real bank/brand never sends from a
-    // consumer free-mail domain.
+    // consumer free-mail mailbox.
     return { kind: "freemail-brand-claim", brand, confidence: "high" };
   }
+
+  if (legitimateDomains.some((d) => isSameOrSubdomain(senderDomain, d))) return null;
+  // The brand's own name under a country code (Google from google.ca) that
+  // passed DMARC as that domain: the brand's regional site.
+  const dmarcPass = parseAuthenticationResults(message.authenticationResults).dmarc === "pass";
+  if (dmarcPass && isBrandCountryDomain(senderDomain, legitimateDomains)) return null;
   return { kind: "brand-impersonation", brand, confidence: "medium" };
 }
 
@@ -348,6 +441,12 @@ function replyToMismatchSignal(message: NormalizedMessageMetadata): ThreatSignal
   // account. A vendor whose From and Reply-To are two of its own corporate
   // domains is common and benign, so a bare domain difference isn't enough.
   if (!FREEMAIL_DOMAINS.has(replyTo)) return null;
+  // A newsletter whose writer takes replies at their own Gmail (Substack,
+  // Beehiiv and Ghost all allow it): list mail that passed DMARC as its
+  // sender. The BEC shape this is for is one-to-one mail with no list headers.
+  const { postUrl, httpUrl, mailto } = message.unsubscribe;
+  const listMail = Boolean(message.listId || postUrl || httpUrl || mailto);
+  if (listMail && parseAuthenticationResults(message.authenticationResults).dmarc === "pass") return null;
   return { kind: "reply-to-mismatch", brand: replyTo, confidence: "medium" };
 }
 
