@@ -1,3 +1,4 @@
+import { describeCleanup, planRecommendedCleanup, runnable, type CleanupRow } from "../lib/cleanupPlan";
 import { describeCategoryCounts } from "../lib/categoryCounts";
 import {
   executeBulkDeleteDomains,
@@ -126,6 +127,14 @@ let currentExpiryBuckets: ExpiryBucket[] = [];
 // derived count is then a sample of the most-recent N, not an inbox total.
 let lastScanCapHit = false;
 let engagementSuggestions: Suggestion[] = [];
+/** The suggestions as recommended-cleanup rows (cleanupPlan.ts), and the
+ * ticks the user changed, by row key, kept across re-renders. */
+let engagementRows: CleanupRow[] = [];
+const engagementTicks = new Map<string, boolean>();
+
+function tickedEngagementRows(): CleanupRow[] {
+  return runnable(engagementRows).filter((row) => engagementTicks.get(row.key) ?? row.preChecked);
+}
 // The security lane re-uses messages already fetched for cleanup (no extra
 // quota) — cap how many feed the per-sender threat scoring, newest first.
 const SECURITY_SCAN_MAX_MESSAGES = 250;
@@ -1389,9 +1398,13 @@ function renderCleanupPlan(senders: SenderSummary[]) {
       id: "never-opened",
       checked: true,
       title: `${engagement.length} sender${engagement.length === 1 ? "" : "s"} you don't open`,
-      sub: `${neverMsgs} message${neverMsgs === 1 ? "" : "s"}, almost none opened`,
-      primaryLabel: "Mute all",
+      sub:
+        describeCleanup(
+          runnable(planRecommendedCleanup(engagement)).filter((row) => engagementTicks.get(row.key) ?? row.preChecked),
+        ) || `${neverMsgs} message${neverMsgs === 1 ? "" : "s"}, almost none opened · review to choose`,
+      primaryLabel: "Clean up",
       primaryClass: "btn btn-accent",
+      // Shows the per-sender list, then runs what's ticked there.
       onPrimary: () => confirmIn("never-read-section", neverReadMuteBtn),
       showReview: true,
       reviewTarget: "never-read-section",
@@ -2591,8 +2604,19 @@ function resetNeverReadSlots() {
   neverReadTrashSlot.appendChild(neverReadTrashBtn);
 }
 
+function refreshNeverReadButtons() {
+  const ticked = tickedEngagementRows();
+  const described = describeCleanup(ticked);
+  neverReadMuteBtn.textContent = described || "Tick a sender to clean up";
+  neverReadMuteBtn.disabled = ticked.length === 0;
+  neverReadTrashBtn.disabled = !ticked.some((row) =>
+    row.suggestions.some(({ sender, safeMessageIds }) => sender.provider === "gmail" && safeMessageIds.length > 0),
+  );
+}
+
 function renderNeverReadSection(senders: SenderSummary[]) {
   engagementSuggestions = unopenedSuggestions(currentSuggestions(senders));
+  engagementRows = planRecommendedCleanup(engagementSuggestions);
   neverReadSectionEl.hidden = engagementSuggestions.length === 0;
   if (engagementSuggestions.length === 0) return;
 
@@ -2602,41 +2626,125 @@ function renderNeverReadSection(senders: SenderSummary[]) {
   neverReadListEl.innerHTML = "";
   const table = document.createElement("table");
   const thead = document.createElement("thead");
-  thead.appendChild(headerRow(["Sender", "Why", "Suggested", "Feedback"]));
+  thead.appendChild(headerRow(["", "Sender", "Why", "Suggested", "Feedback"]));
   table.appendChild(thead);
   const tbody = document.createElement("tbody");
-  for (const suggestion of engagementSuggestions) {
-    const { sender } = suggestion;
-    const row = document.createElement("tr");
+  for (const row of engagementRows) {
+    const tr = document.createElement("tr");
+    const tickCell = document.createElement("td");
+    const tick = document.createElement("input");
+    tick.type = "checkbox";
+    tick.dataset.key = row.key;
+    if (row.action === "unsubscribe") {
+      // Unsubscribing has its own verified flow; the one button doesn't run it.
+      tick.disabled = true;
+      tick.title = "Unsubscribe from the Subscriptions tab";
+    } else {
+      tick.checked = engagementTicks.get(row.key) ?? row.preChecked;
+      tick.title = row.confidence === "high" ? "Clear-cut: ticked for you" : "Worth a look: not ticked";
+      tick.onchange = () => {
+        engagementTicks.set(row.key, tick.checked);
+        refreshNeverReadButtons();
+      };
+    }
+    tickCell.appendChild(tick);
     const nameCell = document.createElement("td");
-    nameCell.textContent = sender.displayName ? `${sender.displayName} <${sender.address}>` : sender.address;
+    nameCell.textContent = row.suggestions
+      .map(({ sender }) => (sender.displayName ? `${sender.displayName} <${sender.address}>` : sender.address))
+      .join(", ");
     const reasonCell = document.createElement("td");
-    reasonCell.textContent = suggestion.reasons.join(" ");
+    reasonCell.textContent = row.reasons.join(" ");
     const actionCell = document.createElement("td");
-    actionCell.textContent = SUGGESTION_ACTION_LABELS[suggestion.action];
+    actionCell.textContent = SUGGESTION_ACTION_LABELS[row.action];
     const feedbackCell = document.createElement("td");
     const dismissBtn = document.createElement("button");
     dismissBtn.textContent = "Not useful";
     dismissBtn.title = "Hide this suggestion for 30 days";
     dismissBtn.onclick = async () => {
       dismissBtn.disabled = true;
-      await saveEngagementFeedback([sender.key], "dismiss");
+      await saveEngagementFeedback(
+        row.suggestions.map(({ sender }) => sender.key),
+        "dismiss",
+      );
       renderNeverReadSection(ctx.senders);
     };
     feedbackCell.appendChild(dismissBtn);
-    row.append(nameCell, reasonCell, actionCell, feedbackCell);
-    tbody.appendChild(row);
+    tr.append(tickCell, nameCell, reasonCell, actionCell, feedbackCell);
+    tbody.appendChild(tr);
   }
   table.appendChild(tbody);
   neverReadListEl.appendChild(table);
 
   resetNeverReadSlots();
-  neverReadMuteBtn.disabled = !engagementSuggestions.some(
-    ({ sender }) => sender.provider === "gmail" && !ctx.settings.mutedSenders.includes(sender.address),
-  );
-  neverReadTrashBtn.disabled = !engagementSuggestions.some(
-    ({ sender, safeMessageIds }) => sender.provider === "gmail" && safeMessageIds.length > 0,
-  );
+  refreshNeverReadButtons();
+}
+
+/**
+ * Runs the ticked rows, each with its own action, all reversible: mute and
+ * keep-sorted file mail away, clearing old mail archives it. No confirm
+ * step: the button already says exactly what happens, and each sender gets
+ * its own Undo in Recent.
+ */
+async function applyRecommendedCleanup(rows: CleanupRow[]): Promise<string> {
+  const tokens = new Map<ProviderId, string>();
+  const tokenFor = async (provider: EmailProvider) => {
+    if (!tokens.has(provider.id)) tokens.set(provider.id, await provider.getAuthToken(false));
+    return tokens.get(provider.id)!;
+  };
+  const muted: string[] = [];
+  const accepted: string[] = [];
+  const archived = new Map<ProviderId, string[]>();
+  let failed = 0;
+  for (const row of rows) {
+    for (const { sender, safeMessageIds } of row.suggestions) {
+      const provider = providerById.get(sender.provider);
+      if (!provider) continue;
+      try {
+        const token = await tokenFor(provider);
+        if (row.action === "mute" && provider.muteSender) {
+          await provider.muteSender(token, sender.address, safeMessageIds);
+          muted.push(sender.address);
+          await logAction("mute", `Muted ${sender.address}`, {
+            provider: provider.id,
+            ids: safeMessageIds,
+            via: "unmute",
+            fromAddress: sender.address,
+            senderKeys: [sender.key],
+          });
+        } else if (row.action === "clearOld" && provider.archiveMessages && safeMessageIds.length > 0) {
+          await provider.archiveMessages(token, safeMessageIds);
+          archived.set(provider.id, [...(archived.get(provider.id) ?? []), ...safeMessageIds]);
+        } else if (row.action === "keepSorted" && provider.keepSorted) {
+          const labelName = sender.displayName || sender.address;
+          await provider.keepSorted(token, sender.address, labelName, safeMessageIds);
+          await logAction("keepSorted", `Kept ${sender.address} sorted into "${labelName}"`);
+        } else {
+          continue;
+        }
+        accepted.push(sender.key);
+      } catch (err) {
+        failed += 1;
+        log.error(err);
+      }
+    }
+  }
+  for (const [providerId, ids] of archived) {
+    await logAction("archive", `Archived ${ids.length} old message${ids.length === 1 ? "" : "s"} from suggested senders`, {
+      provider: providerId,
+      ids,
+      via: "unarchive",
+      senderKeys: accepted,
+    });
+  }
+  ctx.settings = await mutateSettings((current) => ({
+    ...current,
+    mutedSenders: [...new Set([...current.mutedSenders, ...muted])],
+    senderEngagement: recordEngagementFeedback(current.senderEngagement, accepted, "accept"),
+  }));
+  engagementTicks.clear();
+  await scanAndRender();
+  const done = `Cleaned up ${accepted.length} sender${accepted.length === 1 ? "" : "s"}. Undo any of it from Recent.`;
+  return failed > 0 ? `${done} ${failed} failed; try again.` : done;
 }
 
 // ── "Suggested spam" (Clean up tab) ─────────────────────────────────────
@@ -2992,50 +3100,28 @@ function wireBulkHandlers() {
 
 
   // ── Local engagement suggestions: mute all / trash all ──
-  neverReadMuteBtn.onclick = () => {
-    const targets = engagementSuggestions.filter(
-      ({ sender }) => sender.provider === "gmail" && !ctx.settings.mutedSenders.includes(sender.address),
-    );
-    if (targets.length === 0) return;
-    renderConfirmStep(
-      neverReadMuteSlot,
-      resetNeverReadSlots,
-      `Mute ${targets.length} locally suggested sender${targets.length === 1 ? "" : "s"}, now and in future?`,
-      false,
-      async () => {
-        const token = await gmailProvider.getAuthToken(false);
-        const succeeded: Suggestion[] = [];
-        for (const target of targets) {
-          try {
-            await gmailProvider.muteSender!(token, target.sender.address, target.safeMessageIds);
-            succeeded.push(target);
-          } catch (err) {
-            log.error(err);
-          }
-        }
-        ctx.settings = await mutateSettings((current) => ({
-          ...current,
-          mutedSenders: [
-            ...new Set([...current.mutedSenders, ...succeeded.map(({ sender }) => sender.address)]),
-          ],
-          senderEngagement: recordEngagementFeedback(
-            current.senderEngagement,
-            succeeded.map(({ sender }) => sender.key),
-            "accept",
-          ),
-        }));
-        await logAction(
-          "mute",
-          `Muted ${succeeded.length} personalized suggestion${succeeded.length === 1 ? "" : "s"}`,
-        );
-        await scanAndRender();
-        return `Muted ${succeeded.length}`;
-      },
-    );
+  neverReadMuteBtn.onclick = async () => {
+    const rows = tickedEngagementRows();
+    if (rows.length === 0) return;
+    neverReadMuteBtn.disabled = true;
+    neverReadTrashBtn.disabled = true;
+    const status = document.createElement("span");
+    status.className = "hint";
+    status.textContent = "Cleaning up…";
+    neverReadMuteSlot.appendChild(status);
+    try {
+      status.textContent = await applyRecommendedCleanup(rows);
+    } catch (err) {
+      log.error(err);
+      status.textContent = "Clean-up failed, try again";
+      refreshNeverReadButtons();
+    }
   };
 
   neverReadTrashBtn.onclick = () => {
-    const targets = engagementSuggestions.filter(({ sender }) => sender.provider === "gmail");
+    const targets = tickedEngagementRows()
+      .flatMap((row) => row.suggestions)
+      .filter(({ sender }) => sender.provider === "gmail");
     const ids = targets.flatMap(({ safeMessageIds }) => safeMessageIds);
     if (ids.length === 0) return;
     renderConfirmStep(
