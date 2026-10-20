@@ -8,6 +8,7 @@ import {
   getMessageMetadata as fetchGmailMessageMetadata,
   UNSUBSCRIBE_DETAIL_HEADERS,
   getCurrentHistoryId,
+  getLabel,
   getProfileEmail,
   getSentRecord as apiGetSentRecord,
   listSentMessageIds as apiListSentMessageIds,
@@ -234,6 +235,21 @@ export const gmailProvider: EmailProvider = {
     const term = label === "unread" ? "is:unread" : "is:starred";
     const stubs = await listMessageIds(token, `${term} newer_than:${windowDays}d`, maxResults);
     return new Set(stubs.map((stub) => stub.id));
+  },
+
+  async getCategoryCounts(token) {
+    const categories = [
+      ["promotions", "CATEGORY_PROMOTIONS"],
+      ["updates", "CATEGORY_UPDATES"],
+      ["social", "CATEGORY_SOCIAL"],
+      ["forums", "CATEGORY_FORUMS"],
+    ] as const;
+    return Promise.all(
+      categories.map(async ([category, id]) => {
+        const label = await getLabel(token, id);
+        return { category, total: label.messagesTotal ?? 0, unread: label.messagesUnread ?? 0 };
+      }),
+    );
   },
 
   async getAccountId(token) {

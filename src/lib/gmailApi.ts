@@ -701,6 +701,7 @@ export interface GmailLabelInfo {
   type?: "system" | "user";
   /** Only present on labels.get, not labels.list. */
   messagesTotal?: number;
+  messagesUnread?: number;
 }
 
 export async function listLabels(token: string): Promise<GmailLabelInfo[]> {

@@ -26,6 +26,12 @@ export interface IncrementalMessageResult {
   reset: boolean;
 }
 
+export interface CategoryCount {
+  category: "promotions" | "updates" | "social" | "forums";
+  total: number;
+  unread: number;
+}
+
 export interface NormalizedMessageMetadata extends Partial<RelationshipFields> {
   id: string;
   provider: ProviderId;
@@ -261,6 +267,10 @@ export interface EmailProvider {
    * left the index's scope (trashed, spam, archived out of every lane).
    */
   getAccountId?(token: string): Promise<string>;
+  /** Exact message counts for the mailbox's bulk categories, in one cheap
+   * call each (Gmail labels.get), so the first screen can say how much there
+   * is before any message has been read. */
+  getCategoryCounts?(token: string): Promise<CategoryCount[]>;
   /** Sent mail, for "people you write to": ids newest first, and one
    * message's recipients (To/Cc/Bcc with names). isSentLabels says whether a
    * change-feed label set belongs to sent mail. */

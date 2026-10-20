@@ -1,3 +1,4 @@
+import { describeCategoryCounts } from "../lib/categoryCounts";
 import {
   executeBulkDeleteDomains,
   executeBulkKeepSorted,
@@ -751,6 +752,22 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
     const run = startIndexSync(provider);
     return { provider, run, wasRunning, builtBefore: builtBefore[i] };
   });
+  // First build: exact category counts cost a few units and show how much
+  // there is to sort while the first messages are still being read.
+  let countsLine = "";
+  if (builtBefore.some((built) => !built)) {
+    void Promise.all(
+      providers.map(async (provider, i) => {
+        if (builtBefore[i] || !provider.getCategoryCounts) return [];
+        return provider.getCategoryCounts(await provider.getAuthToken(false));
+      }),
+    )
+      .then((counts) => {
+        const described = describeCategoryCounts(counts.flat());
+        countsLine = described ? ` · ${described} to sort` : "";
+      })
+      .catch((err) => log.error("Could not count mailbox categories", err));
+  }
   const showProgress = () => {
     const paused = runs.some(
       ({ run }) => run.progressAt !== undefined && Date.now() - run.progressAt > QUOTA_PAUSE_MS,
@@ -764,7 +781,7 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
     if (reading.length === 0) return;
     const done = reading.reduce((sum, p) => sum + Math.min(p!.done, QUICK_READY_COUNT), 0);
     const total = reading.reduce((sum, p) => sum + Math.min(p!.total, QUICK_READY_COUNT), 0);
-    statusEl.textContent = `Reading your mail… ${done}/${total} messages`;
+    statusEl.textContent = `Reading your mail… ${done}/${total} messages${countsLine}`;
   };
   const progressTimer = setInterval(showProgress, 250);
   try {
