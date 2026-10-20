@@ -26,7 +26,7 @@
 //   vendored URLhaus slice (see blocklist.ts). Still a committed copy, no
 //   live fetch, so it stays within the project's no-network stance.
 import type { NormalizedMessageMetadata } from "./providers/emailProvider";
-import { parseAuthenticationResults } from "./emailAuth";
+import { parseAuthenticationResults, parseAuthResultEntries } from "./emailAuth";
 import { isBlockedDomain } from "./blocklist";
 import { FREE_MAIL_DOMAINS } from "./freeMail";
 import { domainToUnicode } from "./punycode";
@@ -412,7 +412,20 @@ function authenticationSignal(message: NormalizedMessageMetadata): ThreatSignal 
   // which is why DMARC alignment exists -- but BOTH explicitly failing, with
   // no DMARC pass to vouch for the message, is close to the same signal and
   // survives to the inbox more often. Medium, not high.
-  if (spf === "fail" && dkim === "fail" && dmarc !== "pass") {
+  const entries = parseAuthResultEntries(message.authenticationResults);
+  const result = (method: string) => entries.find((entry) => entry.method === method)?.result;
+  // Forwarding and mailing lists break SPF and often DKIM. When the provider
+  // checked an ARC chain and it held (arc=pass), the forwarder vouched for
+  // the original result, so the break is the forward, not a forgery.
+  const forwardedIntact = result("arc") === "pass";
+  if (spf === "fail" && dkim === "fail" && dmarc !== "pass" && !forwardedIntact) {
+    return { kind: "failed-authentication", brand: senderDomain, confidence: "medium" };
+  }
+  // Gmail delivers when the SPF lookup itself errors (spf=temperror or
+  // permerror), where Microsoft would junk it; spoofers time lookups to hit
+  // that. With no DKIM pass and no DMARC pass, nothing vouches for the From.
+  const spfError = result("spf") === "temperror" || result("spf") === "permerror";
+  if (spfError && dkim !== "pass" && dmarc !== "pass" && !forwardedIntact) {
     return { kind: "failed-authentication", brand: senderDomain, confidence: "medium" };
   }
   return null;

@@ -298,6 +298,18 @@ const trendCases: ThreatCase[] = [
     ],
   },
   {
+    id: "spf-temperror-spoof",
+    label: "malicious",
+    tags: ["auth-fail", "spf-error"],
+    messages: [
+      msg("payroll@acme-corp.example", "Payroll", "Updated direct deposit form", {
+        ...noUnsub,
+        authenticationResults:
+          "mx.google.com; spf=temperror (google.com: error in processing during lookup of payroll@acme-corp.example: DNS error) smtp.mailfrom=payroll@acme-corp.example; dkim=none; dmarc=none header.from=acme-corp.example",
+      }),
+    ],
+  },
+  {
     id: "new-gtld-suspension",
     label: "malicious",
     tags: ["risky-tld", "lure"],
@@ -466,6 +478,18 @@ const awkwardBenignCases: ThreatCase[] = [
         listId: "<hiking-club.googlegroups.com>",
         authenticationResults:
           "mx.google.com; dkim=fail header.i=@gmail.com; spf=pass smtp.mailfrom=googlegroups.com; dmarc=pass header.from=googlegroups.com",
+      }),
+    ],
+  },
+  {
+    id: "forwarded-arc-intact",
+    label: "benign",
+    tags: ["forwarded"],
+    messages: [
+      msg("alex@university.example", "Alex Rivera", "Fwd: seminar schedule", {
+        ...noUnsub,
+        authenticationResults:
+          "mx.google.com; arc=pass (i=1 spf=pass spfdomain=university.example dkim=pass dkdomain=university.example); spf=fail smtp.mailfrom=university.example; dkim=fail header.i=@university.example; dmarc=none header.from=university.example",
       }),
     ],
   },

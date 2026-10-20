@@ -511,3 +511,34 @@ describe("refreshBrandDomains", () => {
     ).toContainEqual(expect.objectContaining({ kind: "brand-impersonation" }));
   });
 });
+
+describe("authentication: forwarding and SPF errors", () => {
+  const kinds = (authenticationResults: string) =>
+    scoreMessageForThreats(message({ authenticationResults })).map((s) => s.kind);
+
+  it("SPF and DKIM both failing is a signal", () => {
+    expect(kinds("mx.google.com; spf=fail smtp.mailfrom=example.com; dkim=fail; dmarc=none")).toContain(
+      "failed-authentication",
+    );
+  });
+
+  it("a forward whose ARC chain held is not", () => {
+    expect(
+      kinds("mx.google.com; arc=pass (i=1 spf=pass dkim=pass); spf=fail smtp.mailfrom=example.com; dkim=fail; dmarc=none"),
+    ).not.toContain("failed-authentication");
+  });
+
+  it("an SPF lookup error with nothing else vouching for the From is a signal", () => {
+    expect(kinds("mx.google.com; spf=temperror smtp.mailfrom=example.com; dkim=none; dmarc=none")).toContain(
+      "failed-authentication",
+    );
+    expect(kinds("mx.google.com; spf=permerror smtp.mailfrom=example.com; dkim=none; dmarc=none")).toContain(
+      "failed-authentication",
+    );
+  });
+
+  it("an SPF lookup error is fine when DKIM or DMARC passed", () => {
+    expect(kinds("mx.google.com; spf=temperror smtp.mailfrom=example.com; dkim=pass header.d=example.com; dmarc=none")).toEqual([]);
+    expect(kinds("mx.google.com; spf=temperror smtp.mailfrom=example.com; dkim=none; dmarc=pass")).toEqual([]);
+  });
+});
