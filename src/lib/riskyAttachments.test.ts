@@ -39,3 +39,12 @@ describe("riskyAttachmentGmailQuery", () => {
     expect(query).toMatch(/^\(.*OR.*\)$/);
   });
 });
+
+describe("2025 attachment shapes", () => {
+  it("flags SVG, OneNote, shortcut, HTML application, installer and macro add-in files", () => {
+    for (const name of ["Voicemail_0042.svg", "Invoice.one", "scan.lnk", "update.hta", "setup.msi", "tools.xlam", "login.shtml"]) {
+      expect(isRiskyAttachmentFilename(name), name).toBe(true);
+    }
+    expect(isRiskyAttachmentFilename("logo.png")).toBe(false);
+  });
+});

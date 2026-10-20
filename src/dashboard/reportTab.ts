@@ -27,6 +27,11 @@ const KIND_NAME: Record<ThreatSignalKind, string> = {
   "risky-attachment": "Risky attachment",
   "identity-change": "Familiar sender changed",
   "provider-flagged": "Flagged by Microsoft",
+  "callback-lure": "Call-this-number scam",
+  "relay-brand-mismatch": "Brand sent through another service",
+  "fake-thread": "Fake reply",
+  "spoofed-self": "Faked your own address",
+  "risky-tld": "Risky web address ending",
 };
 
 const BRAND_KINDS = new Set<ThreatSignalKind>(["brand-impersonation", "freemail-brand-claim", "lookalike-domain"]);

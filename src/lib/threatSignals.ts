@@ -52,7 +52,12 @@ export type ThreatSignalKind =
   | "link-mismatch"
   | "risky-attachment"
   | "identity-change"
-  | "provider-flagged";
+  | "provider-flagged"
+  | "callback-lure"
+  | "relay-brand-mismatch"
+  | "fake-thread"
+  | "spoofed-self"
+  | "risky-tld";
 
 export interface ThreatSignal {
   kind: ThreatSignalKind;
@@ -222,10 +227,16 @@ export function normalizeDisplayName(displayName: string): string {
   return [...plain].map((ch) => (/\d/.test(ch) ? ch : (CONFUSABLES[ch] ?? ch))).join("");
 }
 
+/** "PayPal Billing (via Google Forms)" -> "paypal billing": the name before
+ * the relay platform's "via", normalised. */
+function relayedName(displayName: string): string {
+  return normalizeDisplayName(displayName).split(/\s+via\s+|\s*\(via\b/)[0];
+}
+
 function matchedBrand(displayName: string): string | null {
   // "Acme Plumbing via PayPal": the part after "via" names the platform that
   // relayed it, not who it claims to be.
-  const claimed = normalizeDisplayName(displayName).split(/\s+via\s+/)[0];
+  const claimed = relayedName(displayName);
   for (const { brand, re } of BRAND_MATCHERS) {
     const match = re.exec(claimed);
     if (!match) continue;
@@ -377,6 +388,9 @@ function brandSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
   if (!brand) return null;
 
   const senderDomain = domainOf(message.fromAddress);
+  // Through a relay platform the sender is the platform, and naming another
+  // brand is relayBrandSignal's case, with its own plainer reason.
+  if (relayBrandOf(senderDomain)) return null;
   const legitimateDomains = BRAND_DOMAINS[brand];
   if (FREEMAIL_DOMAINS.has(senderDomain)) {
     const localPart = message.fromAddress.slice(0, message.fromAddress.lastIndexOf("@")).toLowerCase();
@@ -445,7 +459,7 @@ function authenticationSignal(message: NormalizedMessageMetadata): ThreatSignal 
 // deliberately small: this is a low-weight corroborating signal (it can't
 // reach "elevated" on its own), not a spam classifier.
 const LURE_RE =
-  /\b(account (has been )?(suspended|locked|disabled|compromised|on hold)|verify (your )?(account|identity|payment|information)( within| in the next)? \d+ ?(hours?|days?)|unusual (sign[- ]?in|login|activity)|password (will )?expir|confirm your (identity|account) (now|immediately)|payment (was )?(declined|failed)|update your (billing|payment) (details|information) (to avoid|or)|final (notice|warning)|your (account|access) will be (closed|terminated|deleted))\b/i;
+  /\b(account (has been )?(suspended|locked|disabled|compromised|on hold)|verify (your )?(account|identity|payment|information)( within| in the next)? \d+ ?(hours?|days?)|unusual (sign[- ]?in|login|activity)|password (will )?expir|confirm your (identity|account) (now|immediately)|payment (was )?(declined|failed)|update your (billing|payment) (details|information) (to avoid|or)|final (notice|warning)|your (account|access|mailbox) will be (closed|terminated|deleted|suspended|disabled)|(mailbox|storage) (is )?(almost |nearly )?full|verify now to keep)\b/i;
 
 function lureLanguageSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
   if (!LURE_RE.test(message.subject || "")) return null;
@@ -494,6 +508,90 @@ function providerVerdictSignal(message: NormalizedMessageMetadata): ThreatSignal
   return { kind: "provider-flagged", brand: category, confidence: "high" };
 }
 
+// Callback ("telephone-oriented") scams: a fake invoice, renewal or order
+// with a phone number to call, often with no link at all, so link checks
+// never see it. Genuine PayPal and DocuSign invoices carry them too, which is
+// why this checks the subject and display name, not the sending domain.
+const PHONE_RE = /(?:\+?1[\s.-]?)?\(?\b\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b|\+\d{1,3}[\s.-]?\d{2,4}[\s.-]?\d{3,4}[\s.-]?\d{3,4}\b/;
+const MONEY_WORDS_RE =
+  /\b(invoice|renew(al|ed|s)?|subscription|order|refund|charged?|payment|billing|purchase|transaction|dispute|cancel(lation)?|helpline|support line|call)\b/i;
+
+// A company's own bill can list its support number too. The scam shape is a
+// phone lure that arrives through a platform anyone can send through, that
+// doesn't authenticate, or that claims a brand it isn't sent from.
+function callbackLureSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
+  const text = `${(message.subject || "").slice(0, 300)} ${(message.fromDisplayName || "").slice(0, MAX_DISPLAY_NAME)}`;
+  if (!PHONE_RE.test(text) || !MONEY_WORDS_RE.test(text)) return null;
+  const authenticated = parseAuthenticationResults(message.authenticationResults).dmarc === "pass";
+  if (authenticated && !relayBrandOf(domainOf(message.fromAddress)) && !brandSignal(message)) return null;
+  return { kind: "callback-lure", brand: domainOf(message.fromAddress) || "unknown sender", confidence: "medium" };
+}
+
+// Platforms that send mail on behalf of anyone: an invoice through PayPal, a
+// form through Google Forms, an envelope through DocuSign. The mail is
+// genuinely from the platform and passes every check, so a scam names a
+// different brand in the display name: "PayPal Billing (via Google Forms)".
+const RELAY_BRANDS = new Set(["paypal", "docusign", "google", "dropbox", "microsoft", "adobe"]);
+
+/** The relay platform a sending domain belongs to, if any. A gmail.com or
+ * outlook.com mailbox is a person, not the platform. */
+function relayBrandOf(senderDomain: string): string | undefined {
+  if (FREEMAIL_DOMAINS.has(senderDomain)) return undefined;
+  return Object.entries(BRAND_DOMAINS).find(
+    ([brand, domains]) => RELAY_BRANDS.has(brand) && domains.some((d) => isSameOrSubdomain(senderDomain, d)),
+  )?.[0];
+}
+
+function relayBrandSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
+  const relay = relayBrandOf(domainOf(message.fromAddress));
+  if (!relay) return null;
+  const claimed = relayedName(message.fromDisplayName);
+  for (const { brand, re } of BRAND_MATCHERS) {
+    if (brand !== relay && re.test(claimed)) return { kind: "relay-brand-mismatch", brand, confidence: "medium" };
+  }
+  return null;
+}
+
+// "RE: Overdue invoice" with no In-Reply-To or References: a reply to a
+// thread that never existed, sent to borrow a conversation's trust. Only
+// for rows that carry the relationship headers (an older row doesn't say),
+// and not list mail, where marketers' fake "Re:" is a nuisance, not a scam.
+const REPLY_PREFIX_RE = /^\s*(re|fw|fwd|aw|sv)\s*:/i;
+
+function fakeThreadSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
+  if (!REPLY_PREFIX_RE.test(message.subject || "")) return null;
+  if (message.referencesCount === undefined || message.referencesCount > 0 || message.inReplyTo) return null;
+  const { postUrl, httpUrl, mailto } = message.unsubscribe;
+  if (message.listId || postUrl || httpUrl || mailto) return null;
+  return { kind: "fake-thread", brand: domainOf(message.fromAddress) || "unknown sender", confidence: "medium" };
+}
+
+// Mail "from" the recipient's own address that didn't authenticate: the
+// sextortion opener ("I hacked your account, see, I'm writing from it").
+// Real notes-to-self pass authentication.
+function spoofedSelfSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
+  const from = message.fromAddress.toLowerCase();
+  if (!from || !(message.toAddresses ?? []).some((to) => to.toLowerCase() === from)) return null;
+  const { spf, dkim, dmarc } = parseAuthenticationResults(message.authenticationResults);
+  if (dmarc === "pass" || dkim === "pass" || spf === "pass") return null;
+  return { kind: "spoofed-self", brand: from, confidence: "high" };
+}
+
+// Cheap top-level domains that carry a far larger share of phishing than of
+// ordinary mail (Interisle 2025: new gTLDs are 11% of domains, 51% of
+// phishing domains). A weak signal that never decides anything alone.
+const RISKY_TLDS = new Set([
+  "top", "xyz", "shop", "cfd", "sbs", "click", "icu", "buzz", "cyou", "rest", "bond", "lol", "monster",
+  "quest", "support", "live", "online", "site", "store", "work", "zip", "mov", "tk", "ml", "ga", "cf", "gq",
+]);
+
+function riskyTldSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
+  const domain = domainOf(message.fromAddress);
+  const tld = domain.slice(domain.lastIndexOf(".") + 1);
+  if (!domain.includes(".") || !RISKY_TLDS.has(tld)) return null;
+  return { kind: "risky-tld", brand: `.${tld}`, confidence: "medium" };
+}
+
 function punycodeSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
   const domain = domainOf(message.fromAddress);
   if (!domain.split(".").some((label) => label.startsWith("xn--"))) return null;
@@ -517,6 +615,9 @@ export function scoreSenderIdentity(message: NormalizedMessageMetadata): ThreatS
 
   const punycode = punycodeSignal(message);
   if (punycode) signals.push(punycode);
+
+  const tld = riskyTldSignal(message);
+  if (tld) signals.push(tld);
 
   const brand = brandSignal(message);
   if (brand) {
@@ -555,6 +656,12 @@ export function scoreMessageContext(message: NormalizedMessageMetadata): ThreatS
   if (attachment) signals.push(attachment);
   const provider = providerVerdictSignal(message);
   if (provider) signals.push(provider);
+  for (const detect of [callbackLureSignal, fakeThreadSignal, spoofedSelfSignal]) {
+    const signal = detect(message);
+    if (signal) signals.push(signal);
+  }
+  const relay = relayBrandSignal(message);
+  if (relay) signals.push(relay);
   return signals;
 }
 
@@ -590,6 +697,11 @@ const SIGNAL_WEIGHTS: Record<ThreatSignalKind, number> = {
   "identity-change": 3,
   // Microsoft's own phishing/spoofing/impersonation verdict.
   "provider-flagged": 6,
+  "callback-lure": 4, // a phone number to call about a charge
+  "relay-brand-mismatch": 4, // a brand named through PayPal/DocuSign/Forms
+  "fake-thread": 3, // RE: with no thread behind it
+  "spoofed-self": 4, // "from" your own address, unauthenticated
+  "risky-tld": 1, // weak: only ever corroborates
 };
 
 export type RiskTier = "high" | "elevated" | "low";

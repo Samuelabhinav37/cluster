@@ -542,3 +542,63 @@ describe("authentication: forwarding and SPF errors", () => {
     expect(kinds("mx.google.com; spf=temperror smtp.mailfrom=example.com; dkim=none; dmarc=pass")).toEqual([]);
   });
 });
+
+describe("authenticated-scam detectors", () => {
+  const kinds = (over: Partial<NormalizedMessageMetadata>) => scoreMessageForThreats(message(over)).map((s) => s.kind);
+  const passAuth = (d: string) => `mx.google.com; spf=pass smtp.mailfrom=${d}; dkim=pass header.d=${d}; dmarc=pass header.from=${d}`;
+
+  it("a phone number about a charge, sent through PayPal, is a callback lure", () => {
+    expect(
+      kinds({
+        fromAddress: "service@paypal.com",
+        fromDisplayName: "Billing Dept via PayPal",
+        subject: "Invoice #8821: call +1 (808) 555-0199 to dispute",
+        authenticationResults: passAuth("paypal.com"),
+      }),
+    ).toContain("callback-lure");
+  });
+
+  it("a company's own authenticated bill with its support number is not", () => {
+    expect(
+      kinds({
+        fromAddress: "billing@isp.example",
+        fromDisplayName: "My ISP",
+        subject: "Your bill is ready. Questions? Call 1-800-555-0100",
+        authenticationResults: passAuth("isp.example"),
+      }),
+    ).not.toContain("callback-lure");
+  });
+
+  it("a brand named through a relay platform is a relay mismatch; the relay's own name isn't", () => {
+    expect(
+      kinds({ fromAddress: "forms-receipts-noreply@google.com", fromDisplayName: "PayPal Billing (via Google Forms)" }),
+    ).toContain("relay-brand-mismatch");
+    expect(kinds({ fromAddress: "service@paypal.com", fromDisplayName: "Acme Plumbing via PayPal" })).toEqual([]);
+    // A person on gmail.com is not the Google platform.
+    expect(kinds({ fromAddress: "chase.m@gmail.com", fromDisplayName: "Chase Miller" })).toEqual([]);
+  });
+
+  it("RE: with no thread headers is a fake thread, only when the headers were read and it isn't list mail", () => {
+    const base = { fromAddress: "ar@supplier.example", subject: "RE: Overdue invoice" };
+    expect(kinds({ ...base, referencesCount: 0 })).toContain("fake-thread");
+    expect(kinds({ ...base, referencesCount: 0, inReplyTo: "<a@b>" })).not.toContain("fake-thread");
+    expect(kinds(base)).not.toContain("fake-thread");
+    expect(kinds({ ...base, referencesCount: 0, unsubscribe: { httpUrl: "https://supplier.example/u" } })).not.toContain(
+      "fake-thread",
+    );
+  });
+
+  it("unauthenticated mail from the recipient's own address is spoofed-self; a real note to self isn't", () => {
+    const self = { fromAddress: "me@example.com", toAddresses: ["me@example.com"] };
+    expect(kinds({ ...self, authenticationResults: "mx.google.com; spf=softfail; dkim=none; dmarc=none" })).toContain(
+      "spoofed-self",
+    );
+    expect(kinds({ ...self, authenticationResults: passAuth("example.com") })).not.toContain("spoofed-self");
+  });
+
+  it("a risky TLD is a weak signal on its own", () => {
+    const signals = scoreMessageForThreats(message({ fromAddress: "hello@startup.xyz" }));
+    expect(signals.map((s) => s.kind)).toEqual(["risky-tld"]);
+    expect(riskTier(senderRiskScore(signals))).toBe("low");
+  });
+});

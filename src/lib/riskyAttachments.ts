@@ -13,8 +13,14 @@
 // executable-adjacent types (.html/.htm as a fake login page, .iso/.img as a
 // Windows-Defender-evading container, macro-enabled Office), plus the
 // double-extension trick (invoice.pdf.exe) that hides the real, dangerous
-// extension behind a trusted-looking one.
-const RISKY_EXTENSIONS = ["html", "htm", "iso", "img", "docm", "xlsm", "pptm"];
+// extension behind a trusted-looking one. SVG went from 0.1% to 4.9% of
+// phishing lures between 2024 and H1 2025 (now the #3 malicious attachment
+// type): a "voicemail.svg" runs script when opened. OneNote (.one), shortcut
+// (.lnk), HTML application (.hta) and installer (.msi) files replaced
+// macros after Office blocked them; .xlam is a macro add-in; .shtml is HTML.
+const RISKY_EXTENSIONS = [
+  "html", "htm", "shtml", "svg", "iso", "img", "docm", "xlsm", "pptm", "xlam", "one", "lnk", "hta", "msi",
+];
 
 const DOUBLE_EXTENSION_RE = /\.[a-z0-9]{2,5}\.(exe|scr|bat|cmd|com|pif|vbs|js|jar)$/i;
 

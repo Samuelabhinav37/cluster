@@ -310,6 +310,18 @@ const trendCases: ThreatCase[] = [
     ],
   },
   {
+    id: "sextortion-from-self",
+    label: "malicious",
+    tags: ["spoofed-self"],
+    messages: [
+      msg("me@example.com", "me@example.com", "I have access to your device. Read this carefully", {
+        ...noUnsub,
+        toAddresses: ["me@example.com"],
+        authenticationResults: "mx.google.com; spf=softfail smtp.mailfrom=example.com; dkim=none; dmarc=none",
+      }),
+    ],
+  },
+  {
     id: "new-gtld-suspension",
     label: "malicious",
     tags: ["risky-tld", "lure"],
@@ -574,6 +586,49 @@ const awkwardBenignCases: ThreatCase[] = [
         "Reminder: appointment Tue 3pm. Questions? 555-0100",
       ),
     ],
+  },
+  {
+    id: "legit-bill-with-phone",
+    label: "benign",
+    tags: ["toad-fp"],
+    messages: [
+      msg(
+        "online.communications@alerts.comcast.net",
+        "Xfinity",
+        "Your bill is ready. Questions about billing? Call 1-800-934-6489",
+      ),
+    ],
+  },
+  {
+    id: "clinic-reminder-full-phone",
+    label: "benign",
+    tags: ["toad-fp"],
+    messages: [
+      msg(
+        "reminders@clinic.example",
+        "City Clinic",
+        "Appointment Tue 3pm - reschedule at (415) 555-0134",
+        noUnsub,
+      ),
+    ],
+  },
+  {
+    id: "note-to-self",
+    label: "benign",
+    tags: ["self"],
+    messages: [
+      msg("me@example.com", "Me", "grocery list", {
+        ...noUnsub,
+        toAddresses: ["me@example.com"],
+        authenticationResults: pass("example.com"),
+      }),
+    ],
+  },
+  {
+    id: "marketer-fake-re",
+    label: "benign",
+    tags: ["fake-thread-fp", "newsletter"],
+    messages: [msg("hello@shop.example", "Shop", "Re: the items in your cart", { referencesCount: 0 })],
   },
   {
     id: "xyz-legit-startup",

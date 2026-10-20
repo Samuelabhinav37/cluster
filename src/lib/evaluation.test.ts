@@ -23,7 +23,7 @@ import {
 const FLOORS = {
   holdPrecision: 1,
   flagPrecision: 1,
-  flagRecall: 0.91,
+  flagRecall: 1,
   kindAccuracy: 1,
   otpPrecision: 1,
   protectionRecall: 1,

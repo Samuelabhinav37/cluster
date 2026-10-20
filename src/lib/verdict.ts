@@ -70,6 +70,10 @@ const LOOKS_LIKE_A_BRAND = new Set<ThreatSignalKind>([
   "freemail-brand-claim",
   "lookalike-domain",
   "punycode-domain",
+  // Not brand claims, but just as weak against someone the user knows: a
+  // thread whose headers didn't survive, their own domain's TLD.
+  "fake-thread",
+  "risky-tld",
 ]);
 
 const SMALL_WORDS = new Set(["of", "and", "the"]);
@@ -122,6 +126,16 @@ export function reasonText(signal: ThreatSignal): string {
       return `This sender doesn't usually use ${signal.brand}.`;
     case "provider-flagged":
       return `Microsoft's own filter flagged this as ${signal.brand}.`;
+    case "callback-lure":
+      return "It asks you to call a phone number about a charge. Scammers do this to get you on the phone.";
+    case "relay-brand-mismatch":
+      return `It names ${brand}, but it was sent through a service anyone can use to send mail.`;
+    case "fake-thread":
+      return "It looks like a reply, but there's no earlier message it replies to.";
+    case "spoofed-self":
+      return "It appears to come from your own address, but it failed the check that proves who sent it.";
+    case "risky-tld":
+      return `The address ends in ${signal.brand}, which is often used for scams.`;
     default: {
       const unreachable: never = signal.kind;
       return unreachable;
