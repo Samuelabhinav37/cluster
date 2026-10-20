@@ -12,6 +12,7 @@ import { senderVerdict } from "./lib/verdict";
 import { recordHeld, type HeldBatch } from "./lib/scamHistory";
 import { refreshMalwareBlocklist } from "./lib/blocklist";
 import { refreshSpamList } from "./lib/spamList";
+import { refreshPhishingList } from "./lib/phishingList";
 import { appendActionLog, makeLogId } from "./lib/actionLog";
 import { buildSenderSummaries, type SenderSummary } from "./lib/senderModel";
 import type { ClusterSettings } from "./lib/settingsStore";
@@ -137,6 +138,7 @@ async function refreshPublicDatasets(): Promise<void> {
     refreshBrandDomains().catch((err) => log.error("Brand-domain dataset refresh failed", err)),
     refreshMalwareBlocklist().catch((err) => log.error("Malware blocklist refresh failed", err)),
     refreshSpamList().catch((err) => log.error("Spam list refresh failed", err)),
+    refreshPhishingList().catch((err) => log.error("Phishing list refresh failed", err)),
   ]);
 }
 

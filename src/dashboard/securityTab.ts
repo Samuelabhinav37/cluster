@@ -7,6 +7,7 @@
 import { log } from "../lib/log";
 import { findBlocklistedLinkTargets, findMismatchedLinks } from "../lib/linkMismatch";
 import { isBlockedDomain } from "../lib/blocklist";
+import { isPhishingDomain } from "../lib/phishingList";
 import { MAX_REASONS, senderVerdict, type Verdict, type VerdictTier } from "../lib/verdict";
 import { knownSenderSet } from "../lib/screener";
 import { queueAthenaSecurityEvent } from "../lib/athenaIntegration";
@@ -46,7 +47,7 @@ async function runDeepScan(sender: SenderSummary, resultEl: HTMLElement): Promis
     const token = await provider.getAuthToken(false);
     const links = await provider.getMessageLinks(token, targetId);
     const suspicious = findMismatchedLinks(links);
-    const blocked = findBlocklistedLinkTargets(links, isBlockedDomain);
+    const blocked = findBlocklistedLinkTargets(links, (host) => isBlockedDomain(host) || isPhishingDomain(host));
 
     const findings = [
       ...suspicious.map((link) => `"${link.displayedDomain}" actually points to ${link.actualDomain}`),

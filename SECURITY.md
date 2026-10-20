@@ -152,8 +152,17 @@ None. Cluster operates no servers and uses no analytics, error-reporting, or
 third-party SDKs. The only network destinations are the Gmail API, the Microsoft
 Graph / sign-in endpoints, a per-click user-approved unsubscribe origin,
 Cluster's own published-dataset host (GitHub Pages, publishing only static,
-non-personal reference data — see "Host permissions" above), and — only under
+non-personal reference data — see "Host permissions" above), Google's public
+favicon service for sender icons (`google.com/s2/favicons`, one uncredentialed
+image request per sender domain; see `docs/privacy.md`), and — only under
 enterprise managed policy — the organization's own Athena endpoint.
+
+The published datasets include a known-phishing-domain list built in CI from
+Phishing.Database (MIT; `scripts/refresh-phishing-domains.mjs`). It is the one
+dataset not committed for review, so it is constrained instead: brand,
+free-mail and shared-hosting registrable domains are dropped at build time,
+it ships as 53-bit hashes matched locally, and a hit is a signal that cannot
+hold mail on its own (`src/lib/phishingList.ts`, `src/lib/verdict.ts`).
 
 ## Optional enterprise telemetry ("Athena")
 

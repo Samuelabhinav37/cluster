@@ -134,6 +134,8 @@ export function reasonText(signal: ThreatSignal): string {
       return "It looks like a reply, but there's no earlier message it replies to.";
     case "spoofed-self":
       return "It appears to come from your own address, but it failed the check that proves who sent it.";
+    case "phishing-list":
+      return `The sending address (${signal.brand}) is on a public list of phishing sites.`;
     case "risky-tld":
       return `The address ends in ${signal.brand}, which is often used for scams.`;
     default: {

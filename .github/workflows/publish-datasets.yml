@@ -10,9 +10,11 @@ name: Publish public datasets
 # that script's own header comment) and are meant to be run by hand, reviewed,
 # and committed like any other data change. This workflow only ever publishes
 # whatever is already in the repo -- nothing it does can put unreviewed data
-# in front of users. Run `npm run refresh:blocklist` / `refresh:spam` by hand
-# and commit the result to actually refresh those feeds; this job picks the
-# update up on its next scheduled run (or via "Run workflow" below).
+# in front of users -- except the phishing-domain feed (see its step below),
+# whose entries can only ever warn, never hold mail on their own. Run
+# `npm run refresh:blocklist` / `refresh:spam` by hand and commit the result
+# to actually refresh those feeds; this job picks the update up on its next
+# scheduled run (or via "Run workflow" below).
 on:
   schedule:
     - cron: "17 6 * * 1" # every Monday, 06:17 UTC -- an arbitrary off-peak time
@@ -42,6 +44,14 @@ jobs:
           cp src/lib/data/brandDomains.json dist-pages/brandDomains.json
           jq '.domains' src/lib/data/malwareDomains.generated.json > dist-pages/malwareDomains.json
           jq '.domains' src/lib/data/spamDomains.generated.json > dist-pages/spamDomains.json
+
+      # Phishing.Database (MIT) is the one feed built here rather than
+      # committed: about 300,000 domains, too many to review by hand or
+      # bundle. The script drops brand, free-mail and shared-hosting
+      # domains, and a hit never holds mail on its own (phishingList.ts),
+      # so a bad feed day can raise warnings but can't quarantine mail.
+      - name: Build the phishing-domain dataset
+        run: node scripts/refresh-phishing-domains.mjs dist-pages/phishingDomains.json
 
       # Ed25519 signature beside each file (<file>.sig). The extension takes
       # the brand allow-list only when it verifies, and the block lists too

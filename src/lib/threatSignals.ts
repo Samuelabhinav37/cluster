@@ -29,6 +29,7 @@ import type { NormalizedMessageMetadata } from "./providers/emailProvider";
 import { parseAuthenticationResults, parseAuthResultEntries } from "./emailAuth";
 import { microsoftAttackCategory, microsoftAuthFailed } from "./msVerdict";
 import { isBlockedDomain } from "./blocklist";
+import { isPhishingDomain } from "./phishingList";
 import { FREE_MAIL_DOMAINS } from "./freeMail";
 import { domainToUnicode } from "./punycode";
 import { isSameOrSubdomain, registrableDomain } from "./registrableDomain";
@@ -57,7 +58,8 @@ export type ThreatSignalKind =
   | "relay-brand-mismatch"
   | "fake-thread"
   | "spoofed-self"
-  | "risky-tld";
+  | "risky-tld"
+  | "phishing-list";
 
 export interface ThreatSignal {
   kind: ThreatSignalKind;
@@ -611,6 +613,10 @@ export function scoreSenderIdentity(message: NormalizedMessageMetadata): ThreatS
   const senderDomain = domainOf(message.fromAddress);
   if (senderDomain && isBlockedDomain(senderDomain)) {
     signals.push({ kind: "blocklisted-domain", brand: senderDomain, confidence: "high" });
+  } else if (senderDomain && isPhishingDomain(senderDomain)) {
+    // Strong, but from a large community feed rather than the curated
+    // malware list, so it never holds mail on its own (verdict.ts).
+    signals.push({ kind: "phishing-list", brand: senderDomain, confidence: "high" });
   }
 
   const punycode = punycodeSignal(message);
@@ -702,6 +708,7 @@ const SIGNAL_WEIGHTS: Record<ThreatSignalKind, number> = {
   "fake-thread": 3, // RE: with no thread behind it
   "spoofed-self": 4, // "from" your own address, unauthenticated
   "risky-tld": 1, // weak: only ever corroborates
+  "phishing-list": 4, // on the published phishing-domain feed (phishingList.ts)
 };
 
 export type RiskTier = "high" | "elevated" | "low";

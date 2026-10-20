@@ -32,6 +32,7 @@ const KIND_NAME: Record<ThreatSignalKind, string> = {
   "fake-thread": "Fake reply",
   "spoofed-self": "Faked your own address",
   "risky-tld": "Risky web address ending",
+  "phishing-list": "On a phishing list",
 };
 
 const BRAND_KINDS = new Set<ThreatSignalKind>(["brand-impersonation", "freemail-brand-claim", "lookalike-domain"]);

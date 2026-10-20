@@ -1,13 +1,11 @@
-// Sender "logo" tiles for the redesigned dashboard, with zero network.
+// Sender "logo" tiles for the redesigned dashboard.
 //
-// The v3 design mockups fetch https://www.google.com/s2/favicons?domain=… for
-// every sender — one third-party request per sender domain, which leaks the
-// user's whole sender list to Google and flatly contradicts the sidebar's
-// "Nothing leaves this browser" promise. Instead we ship a small hand-curated
-// brand-colour map for the senders people most often have (so Amazon reads
-// Amazon-orange, Stripe reads Stripe-indigo, …) and fall back to a
-// deterministic initial-on-tinted-tile for everything else. No <img>, no
-// favicon service, no runtime fetch.
+// logoFor needs no network: a small hand-curated brand-colour map for the
+// senders people most often have (so Amazon reads Amazon-orange, Stripe reads
+// Stripe-indigo, …) and a deterministic initial-on-tinted-tile for everything
+// else. faviconUrl (below) is the one disclosed exception: an icon from
+// Google's favicon service, one request per sender domain, which the tile
+// falls back from to the logoFor monogram.
 //
 // This module is pure: it returns the colour + text to paint. The dashboard
 // layer builds the actual DOM tile from it.
