@@ -5,15 +5,15 @@
 // `quickCount` are in, so the dashboard can show results while older mail is
 // still being read.
 //
-// After that: ask the provider what changed (Gmail history) and apply it.
-// New mail is read, deleted mail is dropped, and read/starred/category
-// changes are applied from the label events without re-reading anything.
-// A provider with no change feed (Outlook today) re-lists, reads only
-// messages the index doesn't have, and re-reads the last week, where read and
-// flag state still moves.
+// After that: ask the provider what changed (Gmail history, Outlook delta)
+// and apply it. New mail is read, deleted mail is dropped, and read/starred/
+// category changes are applied from the label events without re-reading
+// anything. A provider with no change feed re-lists, reads only messages the
+// index doesn't have, and re-reads the last week, where read and flag state
+// still moves.
 //
 // Interrupted runs resume: rows are written in small batches and the change
-// cursor captured before the first attempt is kept until a build finishes.
+// cursor captured during the first attempt is kept until a build finishes.
 import { mapWithConcurrency } from "./concurrency";
 import { log } from "./log";
 import {
@@ -155,12 +155,17 @@ export async function syncMailIndex(
     if (applied) {
       // Changes up to the cursor are already applied; replay from there.
       state.pendingCursor = state.cursor;
-    } else if (provider.getChangeCursor && !state.pendingCursor) {
-      // Captured before listing, so mail arriving mid-build is replayed next time.
-      state.pendingCursor = await provider.getChangeCursor(token);
     }
     await store.setState(state);
-    const build = await buildFromListing(provider, token, store, state, cap, options, now, signalQuick);
+    // Captured once the first screen is up but before the full listing, so
+    // mail arriving mid-build is replayed next time. (Outlook pages its whole
+    // inbox for a cursor; doing it first would hold the first screen back.)
+    const captureCursor = async () => {
+      if (!provider.getChangeCursor || state.pendingCursor) return;
+      state.pendingCursor = await provider.getChangeCursor(token);
+      await store.setState(state);
+    };
+    const build = await buildFromListing(provider, token, store, state, cap, options, now, signalQuick, captureCursor);
     result = {
       mode: "build",
       read: result.read + build.read,
@@ -255,6 +260,7 @@ async function buildFromListing(
   options: SyncOptions,
   now: () => number,
   signalQuick: () => void,
+  captureCursor: () => Promise<void>,
 ): Promise<SyncResult> {
   const quickCount = Math.min(options.quickCount ?? DEFAULT_QUICK_COUNT, cap);
   options.onProgress?.({ phase: "listing", done: 0, total: 0 });
@@ -278,6 +284,7 @@ async function buildFromListing(
     quickRead = await readInto(provider, token, store, quickIds, options, false);
   }
   signalQuick();
+  await captureCursor();
 
   // Who you write to matters more than older bulk mail, so Sent goes next.
   let sentRead = 0;

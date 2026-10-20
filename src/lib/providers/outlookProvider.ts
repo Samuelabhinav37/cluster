@@ -6,7 +6,13 @@ import { parseListUnsubscribe } from "../unsubscribe";
 import { selectTrustedAuthenticationResults } from "../emailAuth";
 import { parseMicrosoftVerdict } from "../msVerdict";
 import { isRiskyAttachmentFilename } from "../riskyAttachments";
-import type { EmailProvider, NormalizedMessageMetadata, UnsubscribeDetails } from "./emailProvider";
+import type {
+  EmailProvider,
+  MailboxChanges,
+  NormalizedMessageMetadata,
+  SentRecord,
+  UnsubscribeDetails,
+} from "./emailProvider";
 import { forceRefreshOutlookToken, getOutlookToken, isOutlookConnected } from "./msalAuth";
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
@@ -192,6 +198,167 @@ async function getMessageMetadata(token: string, id: string): Promise<Normalized
     threadId: data.conversationId,
     v: MAIL_ROW_VERSION,
   };
+}
+
+// ── Mail index support (mailSync.ts) ─────────────────────────────────────
+// Graph has no labels, so the change feed describes each changed message
+// with the few states the index tracks, as pseudo-labels: applyLabelIds
+// turns them back into fields, just as Gmail's real label ids are.
+const OUTLOOK_UNREAD = "UNREAD";
+const OUTLOOK_FLAGGED = "FLAGGED";
+const OUTLOOK_FOCUSED = "FOCUSED";
+const DELTA_SELECT = "id,isRead,flag,inferenceClassification";
+/** The index's scan window for Outlook's change feed: the dashboard's widest. */
+const DELTA_WINDOW_DAYS = 365;
+
+interface GraphDeltaMessage {
+  id?: string;
+  isRead?: boolean;
+  flag?: { flagStatus?: string };
+  inferenceClassification?: string;
+  "@removed"?: unknown;
+}
+
+function outlookLabels(message: GraphDeltaMessage): string[] {
+  const labels = ["INBOX"];
+  if (message.isRead === false) labels.push(OUTLOOK_UNREAD);
+  if (message.flag?.flagStatus === "flagged") labels.push(OUTLOOK_FLAGGED);
+  if (message.inferenceClassification === "focused") labels.push(OUTLOOK_FOCUSED);
+  return labels;
+}
+
+function applyOutlookLabels(meta: NormalizedMessageMetadata, labelIds: string[]): NormalizedMessageMetadata {
+  return {
+    ...meta,
+    unread: labelIds.includes(OUTLOOK_UNREAD),
+    isProtected: labelIds.includes(OUTLOOK_FLAGGED),
+    providerMarkedPersonal: labelIds.includes(OUTLOOK_FOCUSED),
+  };
+}
+
+/** Pages a delta query to the end, collecting what it reports. */
+async function readDelta(token: string, url: string) {
+  const changed: GraphDeltaMessage[] = [];
+  let next = url;
+  let deltaLink = "";
+  while (next) {
+    const data = await graphFetch<{
+      value?: GraphDeltaMessage[];
+      "@odata.nextLink"?: string;
+      "@odata.deltaLink"?: string;
+    }>(next, token);
+    changed.push(...(data.value ?? []));
+    if (data["@odata.deltaLink"]) deltaLink = data["@odata.deltaLink"];
+    next = data["@odata.nextLink"] ?? "";
+  }
+  if (!deltaLink) throw new Error("Outlook delta response did not include a deltaLink");
+  return { changed, deltaLink };
+}
+
+/** A delta cursor for the inbox as it is now. Graph has no "latest" token
+ * for mail, so this pages the inbox's ids once (a request per 100, ids and
+ * three small fields only), before the build lists it. */
+async function getChangeCursor(token: string): Promise<string> {
+  const filter = encodeURIComponent(`receivedDateTime ge ${isoDaysAgo(DELTA_WINDOW_DAYS)}`);
+  const { deltaLink } = await readDelta(
+    token,
+    `/me/mailFolders/inbox/messages/delta?$select=${DELTA_SELECT}&$filter=${filter}&$top=100`,
+  );
+  return deltaLink;
+}
+
+async function listChangesSince(token: string, cursor: string): Promise<MailboxChanges> {
+  try {
+    const { changed, deltaLink } = await readDelta(token, cursor);
+    const removed: string[] = [];
+    const labelUpdates: MailboxChanges["labelUpdates"] = [];
+    for (const message of changed) {
+      if (!message.id) continue;
+      // Deleted, or moved out of the inbox: either way it left the index's scope.
+      if (message["@removed"]) removed.push(message.id);
+      else labelUpdates.push({ id: message.id, labelIds: outlookLabels(message) });
+    }
+    // Delta doesn't say "new" versus "changed"; mailSync reads any id it
+    // doesn't have and applies the labels to the ones it does.
+    return {
+      added: labelUpdates.map((update) => update.id),
+      removed,
+      labelUpdates,
+      cursor: deltaLink,
+      expired: false,
+    };
+  } catch (error) {
+    if (error instanceof GraphApiError && error.status === 410) {
+      return { added: [], removed: [], labelUpdates: [], cursor, expired: true };
+    }
+    throw error;
+  }
+}
+
+// Sent items come with their recipients inline, so the listing reads the
+// records and getSentRecord serves them from here: one request per page of
+// up to 100 sent messages instead of one per message.
+const sentRecords = new Map<string, SentRecord>();
+
+interface GraphSentRecordMessage {
+  id: string;
+  sentDateTime?: string;
+  conversationId?: string;
+  internetMessageId?: string;
+  toRecipients?: GraphRecipient[];
+  ccRecipients?: GraphRecipient[];
+  bccRecipients?: GraphRecipient[];
+}
+interface GraphRecipient {
+  emailAddress?: { address?: string; name?: string };
+}
+
+function recipients(list: GraphRecipient[] | undefined): { address: string; name: string }[] {
+  return (list ?? [])
+    .map((r) => ({ address: (r.emailAddress?.address ?? "").toLowerCase(), name: r.emailAddress?.name ?? "" }))
+    .filter((r) => r.address.includes("@"));
+}
+
+function toSentRecord(m: GraphSentRecordMessage): SentRecord {
+  return {
+    id: m.id,
+    provider: "outlook",
+    threadId: m.conversationId,
+    sentAt: m.sentDateTime ? new Date(m.sentDateTime).getTime() : 0,
+    to: recipients(m.toRecipients),
+    cc: recipients(m.ccRecipients),
+    bcc: recipients(m.bccRecipients),
+    messageIdHeader: m.internetMessageId,
+  };
+}
+
+const SENT_SELECT = "id,sentDateTime,conversationId,internetMessageId,toRecipients,ccRecipients,bccRecipients";
+
+async function listSentMessageIds(token: string, maxResults: number): Promise<string[]> {
+  const ids: string[] = [];
+  let url = `/me/mailFolders/sentitems/messages?$select=${SENT_SELECT}&$top=${Math.min(100, maxResults)}&$orderby=sentDateTime desc`;
+  while (url && ids.length < maxResults) {
+    const data = await graphFetch<{ value?: GraphSentRecordMessage[]; "@odata.nextLink"?: string }>(url, token);
+    for (const m of data.value ?? []) {
+      sentRecords.set(m.id, toSentRecord(m));
+      ids.push(m.id);
+    }
+    url = data["@odata.nextLink"] ?? "";
+  }
+  return ids.slice(0, maxResults);
+}
+
+async function getSentRecord(token: string, id: string): Promise<SentRecord> {
+  const cached = sentRecords.get(id);
+  if (cached) {
+    sentRecords.delete(id);
+    return cached;
+  }
+  return toSentRecord(await graphFetch<GraphSentRecordMessage>(`/me/messages/${id}?$select=${SENT_SELECT}`, token));
+}
+
+async function getAccountId(token: string): Promise<string> {
+  return (await outlookAccountAddresses(token))[0] ?? "";
 }
 
 let junkFolderId: Promise<string | undefined> | undefined;
@@ -629,9 +796,6 @@ async function allowSenderThrough(token: string, fromAddress: string, screenedId
   if (screenedIds.length > 0) await move("inbox")(token, screenedIds);
 }
 
-interface GraphRecipient {
-  emailAddress?: { address?: string };
-}
 interface GraphSentMessage {
   toRecipients?: GraphRecipient[];
   ccRecipients?: GraphRecipient[];
@@ -708,4 +872,10 @@ export const outlookProvider: EmailProvider = {
   labelSuspicious,
   unlabelSuspicious,
   listProtectedMessageIds,
+  getAccountId,
+  getChangeCursor,
+  listChangesSince,
+  applyLabelIds: applyOutlookLabels,
+  listSentMessageIds,
+  getSentRecord,
 };

@@ -458,3 +458,73 @@ describe("Outlook message metadata: Microsoft's verdict", () => {
     expect(call(fetchMock, 0).url).toContain("$select=from,sender,");
   });
 });
+
+describe("Outlook mail index support", () => {
+  it("captures a delta cursor, then reports removals and state changes as pseudo-labels", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ value: [{ id: "a", isRead: true }], "@odata.deltaLink": "https://graph.microsoft.com/v1.0/d1" }))
+      .mockResolvedValueOnce(
+        json({
+          value: [
+            { id: "a", isRead: false, flag: { flagStatus: "flagged" } },
+            { id: "gone", "@removed": { reason: "changed" } },
+            { id: "new", isRead: true, inferenceClassification: "focused" },
+          ],
+          "@odata.deltaLink": "https://graph.microsoft.com/v1.0/d2",
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const cursor = await outlookProvider.getChangeCursor!("token");
+    expect(cursor).toBe("https://graph.microsoft.com/v1.0/d1");
+    expect(call(fetchMock, 0).url).toContain("/me/mailFolders/inbox/messages/delta?$select=id,isRead,flag,inferenceClassification");
+
+    const changes = await outlookProvider.listChangesSince!("token", cursor);
+    expect(changes).toEqual({
+      added: ["a", "new"],
+      removed: ["gone"],
+      labelUpdates: [
+        { id: "a", labelIds: ["INBOX", "UNREAD", "FLAGGED"] },
+        { id: "new", labelIds: ["INBOX", "FOCUSED"] },
+      ],
+      cursor: "https://graph.microsoft.com/v1.0/d2",
+      expired: false,
+    });
+  });
+
+  it("an expired delta cursor (410) asks for a rebuild", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("gone", { status: 410 })));
+    const changes = await outlookProvider.listChangesSince!("token", "https://graph.microsoft.com/v1.0/old");
+    expect(changes.expired).toBe(true);
+  });
+
+  it("applies pseudo-labels to a stored row", () => {
+    const row = { id: "a", unread: false, isProtected: false, providerMarkedPersonal: false } as never;
+    expect(outlookProvider.applyLabelIds!(row, ["INBOX", "UNREAD", "FLAGGED"])).toMatchObject({
+      unread: true,
+      isProtected: true,
+      providerMarkedPersonal: false,
+    });
+  });
+
+  it("reads sent records from the listing page, without a request per message", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      json({
+        value: [
+          {
+            id: "s1",
+            sentDateTime: "2026-10-01T00:00:00Z",
+            conversationId: "c1",
+            toRecipients: [{ emailAddress: { address: "Friend@Example.com", name: "Friend" } }],
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await outlookProvider.listSentMessageIds!("token", 10)).toEqual(["s1"]);
+    const record = await outlookProvider.getSentRecord!("token", "s1");
+    expect(record).toMatchObject({ id: "s1", provider: "outlook", threadId: "c1", to: [{ address: "friend@example.com", name: "Friend" }] });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
