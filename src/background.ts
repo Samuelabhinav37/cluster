@@ -23,7 +23,12 @@ import { buildIncrementalSenderSummaries } from "./lib/incrementalSync";
 import { gmailQuotaHeadroom } from "./lib/gmailQuotaLedger";
 import { runInboxTimeLimits } from "./lib/inboxTimeLimitsRunner";
 import { loadMetadataCache, saveMetadataCache } from "./lib/metadataCache";
-import { applyIndexedCorrespondents, readIndexedSenders, refreshIndexForBackground } from "./lib/indexTriage";
+import {
+  applyIndexedCorrespondents,
+  INDEX_SECURITY_MAX,
+  readIndexedSenders,
+  refreshIndexForBackground,
+} from "./lib/indexTriage";
 import { resumeInterruptedJobs } from "./lib/durableJobs";
 import { resumeUnsubscribeQueue } from "./lib/unsubscribeGmail";
 import { runUnsubscribedSweep } from "./lib/unsubscribedSweep";
@@ -342,7 +347,7 @@ async function runBackgroundTriage() {
         ? await readIndexedSenders(indexed, {
             scanWindowDays: settings.scanWindowDays,
             securityWindowDays: Math.min(settings.scanWindowDays, SECURITY_SCAN_WINDOW_DAYS),
-            securityMax: SECURITY_SCAN_MAX_MESSAGES,
+            securityMax: INDEX_SECURITY_MAX,
           })
         : { cleanup: [], security: [] };
 

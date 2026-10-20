@@ -109,9 +109,10 @@ describe("readIndexedSenders", () => {
       store,
     );
 
-    // Inbox-only mail is the security lane; promotions within 180 days are clean-up.
+    // Promotions within 180 days are clean-up. Scam scoring covers every
+    // message within 30 days, filed out of the inbox or not.
     expect(result.cleanup.map((s) => s.address)).toEqual(["promo@shop.com"]);
-    expect(result.security.map((s) => s.address)).toEqual(["friend@x.com"]);
+    expect(result.security.map((s) => s.address).sort()).toEqual(["friend@x.com", "promo@shop.com"]);
   });
 });
 

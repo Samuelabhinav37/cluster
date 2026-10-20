@@ -51,10 +51,26 @@ export async function refreshIndexForBackground(
   return ready;
 }
 
+/** Most indexed messages scored for scams in one pass. Scoring indexed
+ * rows costs no quota (their headers are already stored), so this is a CPU
+ * bound, not a budget: about a month of a busy inbox. */
+export const INDEX_SECURITY_MAX = 5_000;
+
+/**
+ * Every indexed message, for scam scoring, whatever lane it is in. Mail a
+ * filter or Cluster itself filed out of the inbox (a Sort label, a time
+ * limit, the Promotions tab) is still mail someone might open, and a scam
+ * there was never scored before.
+ */
+export function inSecurityLane(metas: readonly NormalizedMessageMetadata[]): NormalizedMessageMetadata[] {
+  return metas.map((m) => (!m.lanes || m.lanes.includes("security") ? m : { ...m, lanes: [...m.lanes, "security"] }));
+}
+
 export interface IndexedSenders {
   /** Senders in the clean-up lane within the scan window. */
   cleanup: SenderSummary[];
-  /** Senders of the newest inbox mail within the security window. */
+  /** Senders of every indexed message within the security window, filed
+   * mail included (see inSecurityLane). */
   security: SenderSummary[];
 }
 
@@ -70,7 +86,7 @@ export async function readIndexedSenders(
   const within = (days: number) => (m: NormalizedMessageMetadata) => m.receivedAt >= now - days * DAY_MS;
   return {
     cleanup: summarizeCombined(metas.filter(within(options.scanWindowDays)), 0, false).cleanup,
-    security: summarizeCombined(metas.filter(within(options.securityWindowDays)), options.securityMax, false)
+    security: summarizeCombined(inSecurityLane(metas.filter(within(options.securityWindowDays))), options.securityMax, false)
       .security,
   };
 }

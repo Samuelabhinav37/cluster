@@ -39,7 +39,7 @@ import {
   type SyncResult,
 } from "../lib/mailSync";
 import { gmailQuotaHeadroom } from "../lib/gmailQuotaLedger";
-import { applyIndexedCorrespondents, mailIndexLockKey } from "../lib/indexTriage";
+import { applyIndexedCorrespondents, INDEX_SECURITY_MAX, inSecurityLane, mailIndexLockKey } from "../lib/indexTriage";
 import { withStorageLock } from "../lib/storageLock";
 import type { EmailProvider, ProviderId } from "../lib/providers/emailProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
@@ -129,6 +129,8 @@ let engagementSuggestions: Suggestion[] = [];
 // The security lane re-uses messages already fetched for cleanup (no extra
 // quota) — cap how many feed the per-sender threat scoring, newest first.
 const SECURITY_SCAN_MAX_MESSAGES = 250;
+/** How far back the index-backed Security view scores mail. */
+const SECURITY_WINDOW_DAYS = 30;
 
 const statusEl = document.getElementById("status") as HTMLParagraphElement;
 const homeLeadEl = document.getElementById("home-lead");
@@ -820,6 +822,15 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
     SECURITY_SCAN_MAX_MESSAGES,
     metas.length >= MAIL_INDEX_CAP * providers.length,
   );
+  // Scam scoring reads stored headers, so it covers every recent indexed
+  // message, mail already filed out of the inbox included, not just the
+  // newest inbox mail.
+  const securitySince = Date.now() - SECURITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  combined.security = summarizeCombined(
+    inSecurityLane(metas.filter((m) => m.receivedAt >= securitySince)),
+    INDEX_SECURITY_MAX,
+    false,
+  ).security;
   // Real per-sender totals, counted by search, for senders not fully read yet.
   const censusRows = (await Promise.all(providers.map((p) => store.allCensus(p.id)))).flat();
   applyCensus(combined.cleanup, censusRows);

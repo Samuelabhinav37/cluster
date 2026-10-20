@@ -49,6 +49,7 @@ vi.mock("./lib/indexTriage", () => ({
   refreshIndexForBackground,
   readIndexedSenders,
   applyIndexedCorrespondents,
+  INDEX_SECURITY_MAX: 5_000,
 }));
 vi.mock("./lib/athenaIntegration", () => ({
   flushAthenaSecurityEvents,
