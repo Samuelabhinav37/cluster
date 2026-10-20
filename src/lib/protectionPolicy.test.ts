@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildSenderCleanupPlan,
   idsSafeToMoveOut,
+  moveProtection,
   protectionDecision,
   type ProtectionContext,
 } from "./protectionPolicy";
@@ -72,8 +73,10 @@ describe("protectionDecision", () => {
 
   it("protects a message with an active discount/return-window subject regardless of kind", () => {
     expect(
-      protectionDecision(message({ id: "discount", subject: "20% off — offer ends tonight" })).reason,
+      protectionDecision(message({ id: "coupon", subject: "Your $10 coupon expires Sunday" })).reason,
     ).toBe("active-offer-or-window");
+    // Sale urgency is how promotions are written, not a window to act in.
+    expect(protectionDecision(message({ id: "promo", subject: "20% off — offer ends tonight" })).protected).toBe(false);
     expect(
       protectionDecision(message({ id: "return", subject: "Reminder: your return window closes soon" }))
         .reason,
@@ -142,5 +145,26 @@ describe("idsSafeToMoveOut", () => {
     ]);
     // Receipts are kept from deletion, not from filing: a mute may file them.
     expect(idsSafeToMoveOut(s)).toEqual(["a", "d"]);
+  });
+});
+
+describe("moveProtection", () => {
+  it("never moves starred mail or mail from people the user writes to", () => {
+    expect(moveProtection(message({ id: "s", isProtected: true })).protected).toBe(true);
+    expect(moveProtection(message({ id: "k" }), "boss@work.example", ctxWithKnown("boss@work.example"))).toEqual({
+      protected: true,
+      reason: "known-correspondent",
+    });
+  });
+
+  it("lets transactional and header-less system mail be filed", () => {
+    expect(moveProtection(message({ id: "r", kind: "receipt", subject: "Your receipt" })).protected).toBe(false);
+    expect(moveProtection(message({ id: "a", kind: "other", looksAutomated: false })).protected).toBe(false);
+  });
+
+  it("keeps provider-important mail in place only when nobody is watching", () => {
+    const important = message({ id: "i", providerMarkedPersonal: true });
+    expect(moveProtection(important).protected).toBe(false);
+    expect(moveProtection(important, undefined, undefined, { unattended: true }).protected).toBe(true);
   });
 });

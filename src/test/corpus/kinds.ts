@@ -37,6 +37,7 @@ export const KIND_CORPUS: KindCase[] = [
     "Your monthly statement is ready",
     "We received your payment",
     "Your Uber receipt",
+    "Your one-time payment receipt",
   ),
   ...k(
     "shipping",
@@ -73,6 +74,9 @@ export const KIND_CORPUS: KindCase[] = [
     "Last chance: 30% off sitewide",
     "Delivery of the future: our product roadmap",
     "Members-only: paid early access to the sale",
+    "Use code 2026 for 20% off",
+    "Your code SAVE20 is waiting: 20% off",
+    "Our package of new features",
   ),
   ...k(
     "other",

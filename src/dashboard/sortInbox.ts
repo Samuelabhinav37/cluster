@@ -48,6 +48,7 @@ import type { MessageKind } from "../lib/messageKind";
 import type { DomainCategory } from "../lib/domainCategories";
 import type { ProviderId } from "../lib/providers/emailProvider";
 import type { SenderSummary } from "../lib/senderModel";
+import { buildProtectionContext } from "../lib/protectionPolicy";
 import { updateSettings } from "../lib/settingsStore";
 import { activeProviders, ctx, logAction, providerById, rescan } from "./state";
 import { formatRelativeTime, pruneSelection } from "./ui";
@@ -168,7 +169,13 @@ function senderKinds() {
 
 function renderSortInbox(senders: SenderSummary[]) {
   const cfg = ctx.settings.autoSort;
-  sortPlan = buildSortPlan(senders, fileOutChoices(), ctx.settings.sortOverrides, senderKinds());
+  sortPlan = buildSortPlan(
+    senders,
+    fileOutChoices(),
+    ctx.settings.sortOverrides,
+    senderKinds(),
+    buildProtectionContext(ctx.settings),
+  );
   resetSortInboxSlot();
   clearSortPreview();
   pruneSelection(
@@ -233,6 +240,7 @@ function rebuildSortPreview() {
     ctx.settings.autoSort.fileOutByBucket,
     ctx.settings.sortOverrides,
     senderKinds(),
+    buildProtectionContext(ctx.settings),
   );
   renderSortBucketToggles();
   pruneSelection(

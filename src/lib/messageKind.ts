@@ -5,19 +5,33 @@
 export type MessageKind = "otp" | "receipt" | "shipping" | "newsletter" | "social" | "other";
 
 const OTP_RE =
-  /\b(one[- ]?time|verification code|security code|otp|passcode|confirm your (email|sign[- ]?in)|(login|sign[- ]?in) code|is your code|your code is|2fa|two-factor)\b/i;
+  /\b(one[- ]?time (pass(word|code)|code|pin|password)|verification code|security code|otp|passcode|confirm your (email|sign[- ]?in)|(login|sign[- ]?in) code|is your code|your code is|2fa|two-factor|verify (your|this|a new) (device|login|sign[- ]?in|browser)|confirm (it'?s|that it'?s) you)\b/i;
+// A code number next to "code": "482913 is your Instagram code", "Your Uber
+// code is 4821", "Sign-in code: 773201". Not a promo code to type at
+// checkout ("Use code 2026 for 20% off").
+const OTP_NUMBER_RE = /\b\d{4,8} is your\b.{0,30}\bcode\b|\byour\b.{0,25}\bcode is\b|\bcode:?\s+\d{4,8}\b/i;
+const PROMO_CODE_RE = /\b(use|with|promo|discount|coupon|enter|apply)\s+(the\s+)?code\b|\b\d+% off\b/i;
 // Security notices that mention codes or 2FA ("Two-factor authentication was
 // disabled", "Security alert") are not disposable codes. Mirrors
 // OTP_EXCLUDED_PHRASES in categoryQueries.ts.
 const OTP_EXCLUDE_RE = /\b(alert|disabled|changed|new sign[- ]?in|suspicious)\b/i;
+// Words promotions borrow ("Free delivery", "Tracking your fitness goals",
+// "Our statement on the outage", "paid early access") only count with the
+// context a real order, bill or delivery notice puts around them.
 const SHIPPING_RE =
-  /\b(shipped|out for delivery|delivery|delivered|tracking|order (confirm|confirmed|confirmation)|order #|has shipped|arriving|on its way)\b/i;
-const RECEIPT_RE = /\b(receipt|invoice|payment (received|confirmation)|your bill|statement|paid)\b/i;
+  /\b(shipped|out for delivery|delivery (scheduled|update|attempt(ed)?|confirmation|today|tomorrow|exception|window)|delivered|tracking (number|info|information|update|details|#)|track your (package|order|shipment|parcel)|order (confirm|confirmed|confirmation)|order #|has shipped|arriving|on its way|your (package|parcel|shipment))\b/i;
+const RECEIPT_RE =
+  /\b(receipt|invoice|payment (received|confirmation|confirmed)|(received|got) your payment|your bill|(monthly|account|card|bank|billing|e-?) ?statement|statement (is )?(ready|available)|you('ve)? paid|paid in full)\b/i;
 const SOCIAL_RE = /\b(mentioned you|tagged you|new follower|friend request|liked your|commented on)\b/i;
+
+function looksLikeOtp(subject: string): boolean {
+  if (OTP_EXCLUDE_RE.test(subject)) return false;
+  return OTP_RE.test(subject) || (OTP_NUMBER_RE.test(subject) && !PROMO_CODE_RE.test(subject));
+}
 
 export function classifyMessageKind(subject: string, hasListUnsubscribe: boolean): MessageKind {
   const s = subject || "";
-  if (OTP_RE.test(s) && !OTP_EXCLUDE_RE.test(s)) return "otp";
+  if (looksLikeOtp(s)) return "otp";
   if (SHIPPING_RE.test(s)) return "shipping";
   if (RECEIPT_RE.test(s)) return "receipt";
   if (SOCIAL_RE.test(s)) return "social";

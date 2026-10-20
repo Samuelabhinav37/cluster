@@ -69,7 +69,7 @@ describe("buildExpiryBuckets", () => {
       makeMessage({
         id: "discount",
         kind: "newsletter",
-        subject: "20% off — offer ends tonight",
+        subject: "Your $10 coupon expires Sunday",
         receivedAt: Date.now() - 40 * DAY_MS,
       }),
     ]);

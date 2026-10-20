@@ -44,10 +44,13 @@ export interface ProtectionOptions {
 }
 
 const SENSITIVE_SUBJECT =
-  /\b(tax|w-?2|1099|ticket|boarding pass|reservation|booking|appointment|password reset|security alert|new sign[- ]?in|account recovery|legal notice)\b/i;
+  /\b(tax|w-?2|1099|tickets?|boarding pass(es)?|reservations?|bookings?|appointments?|password reset|security alert|new sign[- ]?in|account recovery|legal notice)\b/i;
 
+// A window the user may still need to act in. Promo urgency ("ends
+// tonight", "offer ends Sunday") isn't one: it is how sale mail is written,
+// and protecting it made most promotions undeletable.
 const ACTIVE_OFFER_OR_WINDOW_RE =
-  /\b(expires?|valid (thru|through|until)|offer ends|ends? (tonight|today|soon)|return (by|window)|exchange (by|window)|redeem by|use by|last day to (return|use|redeem))\b/i;
+  /\b(expires?|valid (thru|through|until)|return (by|window)|exchange (by|window)|redeem by|use by|last day to (return|use|redeem))\b/i;
 
 /** Central guard used by every bulk-delete-adjacent surface. */
 export function protectionDecision(
@@ -81,6 +84,34 @@ export function protectionDecision(
   // person, not a company, wrote this.
   if (message.kind === "other" && !message.looksAutomated) {
     return { protected: true, reason: "no-bulk-signal" };
+  }
+  return { protected: false };
+}
+
+export interface MoveProtectionOptions {
+  /** Nobody is watching this run (a background sweep, a standing rule), so
+   * the provider's own "important to you" mark keeps mail in place too. */
+  unattended?: boolean;
+}
+
+/**
+ * The guard for reversible moves: filing, labelling out of the inbox,
+ * archiving. Lighter than protectionDecision on purpose: filing a receipt
+ * under "Receipts" or a bank alert under "Finance" is the point of sorting,
+ * so transactional mail, and system mail with no bulk headers, may move.
+ * What never moves on Cluster's say-so is mail the user starred and mail
+ * from people they write to, wherever its domain would file it.
+ */
+export function moveProtection(
+  message: MessageRecord,
+  senderAddress?: string,
+  ctx: ProtectionContext = emptyProtectionContext(),
+  options: MoveProtectionOptions = {},
+): ProtectionDecision {
+  if (message.isProtected) return { protected: true, reason: "starred-or-flagged" };
+  if (options.unattended && message.providerMarkedPersonal) return { protected: true, reason: "provider-marked-personal" };
+  if (senderAddress && ctx.knownSenders.has(senderAddress.toLowerCase())) {
+    return { protected: true, reason: "known-correspondent" };
   }
   return { protected: false };
 }

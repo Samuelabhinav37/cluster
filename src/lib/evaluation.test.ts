@@ -24,9 +24,9 @@ const FLOORS = {
   holdPrecision: 1,
   flagPrecision: 1,
   flagRecall: 0.91,
-  kindAccuracy: 0.78,
+  kindAccuracy: 1,
   otpPrecision: 1,
-  protectionRecall: 0.84,
+  protectionRecall: 1,
 };
 
 const TARGETS = {

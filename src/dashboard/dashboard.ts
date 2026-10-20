@@ -2689,7 +2689,7 @@ async function applySmartView(view: SmartView, action: "archive" | "trash"): Pro
   let merged =
     action === "trash"
       ? evaluateSmartViewForTrash(view, ctx.senders, buildProtectionContext(ctx.settings))
-      : evaluateSmartView(view, ctx.senders);
+      : evaluateSmartView(view, ctx.senders, buildProtectionContext(ctx.settings));
   if (action === "trash") ({ safe: merged } = await filterOutProtected(merged, providerById));
   const gmailIds = merged.get("gmail") ?? [];
   let total = 0;

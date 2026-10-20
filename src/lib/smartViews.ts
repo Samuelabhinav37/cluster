@@ -1,5 +1,5 @@
 import type { ProviderId } from "./providers/emailProvider";
-import { emptyProtectionContext, protectionDecision, type ProtectionContext } from "./protectionPolicy";
+import { emptyProtectionContext, moveProtection, protectionDecision, type ProtectionContext } from "./protectionPolicy";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 
 // Cross-cutting saved filters — Clean Email's "Smart Folders" / SaneBox's Deep
@@ -50,11 +50,15 @@ export const SMART_VIEWS: SmartView[] = [
 ];
 
 /** Message ids matching the view, grouped by provider, excluding protected. */
-export function evaluateSmartView(view: SmartView, senders: SenderSummary[]): Map<ProviderId, string[]> {
+export function evaluateSmartView(
+  view: SmartView,
+  senders: SenderSummary[],
+  ctx: ProtectionContext = emptyProtectionContext(),
+): Map<ProviderId, string[]> {
   const out = new Map<ProviderId, string[]>();
   for (const s of senders) {
     for (const m of s.messages) {
-      if (m.isProtected || !view.match(m)) continue;
+      if (!view.match(m) || moveProtection(m, s.address, ctx).protected) continue;
       const list = out.get(s.provider);
       if (list) list.push(m.id);
       else out.set(s.provider, [m.id]);

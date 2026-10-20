@@ -17,7 +17,9 @@ export const KIND_PHRASES: Record<SubjectKind, string[]> = {
   otp: [
     "verification code",
     "security code",
-    "one-time",
+    "one-time code",
+    "one-time passcode",
+    "one-time password",
     "login code",
     "sign-in code",
     "is your code",
@@ -25,6 +27,7 @@ export const KIND_PHRASES: Record<SubjectKind, string[]> = {
     "passcode",
     "2FA",
     "two-factor",
+    "verify your device",
   ],
   // No bare "delivery" or "tracking": promo copy ("Free delivery") uses them.
   shipping: [

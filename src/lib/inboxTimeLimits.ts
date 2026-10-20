@@ -12,6 +12,7 @@
 // them has run out ("stays in inbox" wins). Starred mail, mail from people
 // the user writes to, and senders that look like phishing always stay.
 import { domainOf } from "./domainGrouping";
+import { moveProtection } from "./protectionPolicy";
 import type { SenderSummary } from "./senderModel";
 import { effectiveBucket, type SortBucket, type SortOverride } from "./sortTaxonomy";
 import { riskTier, senderRiskScore } from "./threatSignals";
@@ -85,7 +86,7 @@ export async function tagUntaggedInbox(ctx: LimitContext, api: InboxLimitsApi): 
     if (skipSender(sender, ctx.known)) continue;
     const domain = domainOf(sender.address);
     for (const msg of sender.messages) {
-      if (msg.isProtected) continue;
+      if (moveProtection(msg, sender.address, { knownSenders: ctx.known }, { unattended: true }).protected) continue;
       const bucket = effectiveBucket(msg.kind, domain, sender.address, ctx.overrides, msg.promotion);
       if (!bucket || !wanted.has(bucket)) continue;
       const list = groups.get(bucket) ?? [];
@@ -150,7 +151,10 @@ export async function sweepExpiredInbox(ctx: LimitContext, api: InboxLimitsApi):
   const keptIds: string[] = [];
   for (const sender of await api.readSenders(batch)) {
     const skip = skipSender(sender, ctx.known);
-    for (const msg of sender.messages) (skip || msg.isProtected ? keptIds : movedIds).push(msg.id);
+    for (const msg of sender.messages) {
+      const keep = skip || moveProtection(msg, sender.address, { knownSenders: ctx.known }, { unattended: true }).protected;
+      (keep ? keptIds : movedIds).push(msg.id);
+    }
   }
   if (movedIds.length > 0) await api.batchModify(movedIds, [], ["INBOX"]);
   return { movedIds, keptIds, more: candidates.length > batch.length };
