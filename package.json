@@ -12,6 +12,8 @@
     "preview:ui": "vite build && node scripts/preview/serve.mjs",
     "check:bundle": "vite build && node scripts/check-bundle.mjs",
     "test": "vitest run",
+    "eval": "CLUSTER_EVAL=1 vitest run src/lib/evaluation.test.ts --reporter=verbose",
+    "bench:quota": "CLUSTER_BENCH=1 vitest run src/lib/quotaBudget.test.ts --reporter=verbose",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{ts,css,html}\" \"scripts/**/*.mjs\"",

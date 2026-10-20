@@ -195,3 +195,29 @@ unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
   loosen further.)
 - Does Gmail `format=metadata` expose attachment part filenames? (If yes, the
   deferred `suspicious-attachment` signal becomes cheap.)
+
+## Algorithm and security plan: live checks (Phase 0.3)
+
+These decide how Phase 1.4 (Microsoft verdicts) and 1.6 (Outlook trust) are
+built. They need a real mailbox, so they can't run in CI. Record answers in
+`research/` with the date.
+
+- [ ] **Graph verdict headers.** On a Microsoft 365 *and* an Outlook.com
+      mailbox, open the extension's service-worker console and log one
+      message's `internetMessageHeaders` (the `$select` in
+      `outlookProvider.ts` already asks for them). Are
+      `X-Forefront-Antispam-Report`, `X-Microsoft-Antispam` and
+      `Authentication-Results` present, unfiltered, and which copy is
+      topmost (the tenant's own)? Note the exact `SCL`, `SFV`, `CAT`, `SFTY`,
+      `BCL` and `compauth=` values on one spam, one phish-test and one normal
+      message.
+- [ ] **Outlook authserv-id shape.** What is the first token of the tenant's
+      `Authentication-Results` (e.g. `spf=...` with no id, a
+      `*.prod.outlook.com` host, or the tenant domain)? `emailAuth.ts:36-41`
+      accepts any `*.outlook.com` today.
+- [ ] **Gmail `from:` census precision.** For five senders, compare the ids
+      `listMessageIdsFrom` returns with the listed ids that really have that
+      `From` (forwarders, "via" lists and display-name-only matches are the
+      risk). Count mismatches.
+- [ ] **`$select=size` on Outlook.** Does adding `size` to the message
+      `$select` change the response or error on any account type?
