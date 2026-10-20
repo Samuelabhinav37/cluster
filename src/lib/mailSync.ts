@@ -16,7 +16,13 @@
 // cursor captured before the first attempt is kept until a build finishes.
 import { mapWithConcurrency } from "./concurrency";
 import { log } from "./log";
-import { MAIL_INDEX_CAP, MAIL_ROW_VERSION, type MailIndexState, type MailIndexStore } from "./mailIndex";
+import {
+  MAIL_INDEX_CAP,
+  MAIL_ROW_VERSION,
+  MAIL_SCOPE_VERSION,
+  type MailIndexState,
+  type MailIndexStore,
+} from "./mailIndex";
 import type { EmailProvider, NormalizedMessageMetadata, SentRecord } from "./providers/emailProvider";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -144,7 +150,8 @@ export async function syncMailIndex(
   //    rows of an older shape.
   const windowChanged = state.windowDays !== undefined && state.windowDays !== options.windowDays;
   const rowsOutdated = state.complete && (state.rowVersion ?? 1) < MAIL_ROW_VERSION;
-  if (!applied || windowChanged || rowsOutdated) {
+  const scopeWidened = state.complete && (state.scopeVersion ?? 1) < MAIL_SCOPE_VERSION;
+  if (!applied || windowChanged || rowsOutdated || scopeWidened) {
     if (applied) {
       // Changes up to the cursor are already applied; replay from there.
       state.pendingCursor = state.cursor;
@@ -165,6 +172,7 @@ export async function syncMailIndex(
       complete: true,
       windowDays: options.windowDays,
       rowVersion: MAIL_ROW_VERSION,
+      scopeVersion: MAIL_SCOPE_VERSION,
       cursor: state.pendingCursor ?? state.cursor,
       pendingCursor: undefined,
     };

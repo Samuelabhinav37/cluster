@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createMemoryMailIndex, MAIL_ROW_VERSION } from "./mailIndex";
+import { createMemoryMailIndex, MAIL_ROW_VERSION, MAIL_SCOPE_VERSION } from "./mailIndex";
 import { catchUpIndex, readMailIndex, syncMailIndex } from "./mailSync";
 import type { EmailProvider, MailboxChanges, NormalizedMessageMetadata } from "./providers/emailProvider";
 import { gmailLabelFields, inIndexScope } from "./providers/gmailProvider";
@@ -358,6 +358,7 @@ describe("syncMailIndex: sent mail", () => {
       complete: true,
       cursor: "h1",
       rowVersion: MAIL_ROW_VERSION,
+      scopeVersion: MAIL_SCOPE_VERSION,
       accountId: "me@example.com",
     });
 
@@ -498,5 +499,29 @@ describe("syncMailIndex: fetch one, count many", () => {
     const [row] = await store.allCensus("gmail");
     expect(row.ids.sort()).toEqual(["a1", "a2", "a3"]);
     expect(row.unread).toBe(-1);
+  });
+});
+
+describe("syncMailIndex: wider scope", () => {
+  it("re-lists an index built before Social/Forums joined, reading only the new mail", async () => {
+    const known = message("old", ["INBOX"]);
+    const social = message("social", ["CATEGORY_SOCIAL"]);
+    const { provider } = fakeGmail([known, social]);
+    const store = createMemoryMailIndex();
+    await store.put([known]);
+    await store.setState({
+      provider: "gmail",
+      complete: true,
+      cursor: "h1",
+      rowVersion: MAIL_ROW_VERSION,
+      sentComplete: true,
+      accountId: "me@example.com",
+    });
+
+    await syncMailIndex(provider, "t", store, options);
+
+    expect(provider.listCandidateMessages).toHaveBeenCalled();
+    expect(provider.getMessageMetadata.mock.calls.map(([, id]) => id)).toEqual(["social"]);
+    expect(await store.getState("gmail")).toMatchObject({ scopeVersion: MAIL_SCOPE_VERSION });
   });
 });

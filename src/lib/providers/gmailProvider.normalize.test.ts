@@ -110,12 +110,11 @@ describe("lanes", () => {
     expect(lanesFromLabelIds([])).toEqual(["cleanup"]);
   });
 
-  // Audit finding: the cleanup query and lanes only know Promotions/Updates,
-  // so Social-tab notifications (LinkedIn, Facebook, Quora digests) never
-  // reach Delete/Organize/Subscriptions — they appear only in the security
-  // lane. Flip this when Social/Forums join cleanup.
-  it.fails("KNOWN GAP: Social-tab mail is excluded from the cleanup lane", () => {
+  // Social-tab notifications (LinkedIn, Facebook, Quora digests) and Forums
+  // reach Delete/Organize/Subscriptions like Promotions and Updates.
+  it("Social and Forums tab mail is in the cleanup lane", () => {
     expect(lanesFromLabelIds(["INBOX", "CATEGORY_SOCIAL"])).toContain("cleanup");
+    expect(lanesFromLabelIds(["CATEGORY_FORUMS"])).toEqual(["cleanup"]);
   });
 });
 

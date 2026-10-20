@@ -17,6 +17,9 @@ export const MAIL_INDEX_CAP = 20_000;
  * filling a new field; older rows are re-read once, paced, in the background.
  * 2: relationship headers (To/Cc, thread, List-Id, Return-Path, Feedback-ID). */
 export const MAIL_ROW_VERSION = 2;
+/** Bumped when the set of mail the index covers grows (2: Gmail's Social
+ * and Forums tabs). */
+export const MAIL_SCOPE_VERSION = 2;
 
 export interface MailIndexState {
   provider: ProviderId;
@@ -36,6 +39,9 @@ export interface MailIndexState {
   windowDays?: number;
   /** MAIL_ROW_VERSION of the last full listing; older rows get re-read. */
   rowVersion?: number;
+  /** MAIL_SCOPE_VERSION of the last full listing. A wider scope re-lists,
+   * reading only the newly in-scope mail; known rows aren't read again. */
+  scopeVersion?: number;
   /** True once the Sent folder has been read into the sent store. */
   sentComplete?: boolean;
   /** Message ids with a risky attachment shape, from the last sync. Applied

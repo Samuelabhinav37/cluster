@@ -46,21 +46,24 @@ import type {
 
 const SUSPICIOUS_LABEL_NAME = clusterLabelName("suspicious");
 
+// Gmail's bulk tabs. Social and Forums (LinkedIn, Facebook, Quora and
+// group digests) are as cleanable as Promotions and Updates.
+const CLEANUP_CATEGORIES = "category:promotions OR category:updates OR category:social OR category:forums";
+const CLEANUP_LABELS = ["CATEGORY_PROMOTIONS", "CATEGORY_UPDATES", "CATEGORY_SOCIAL", "CATEGORY_FORUMS"];
+
 export function gmailQueryForPurpose(purpose: CandidateScope, windowDays: number): string {
   const age = `newer_than:${windowDays}d`;
   if (purpose === "security") return `in:inbox ${age}`;
   if (purpose === "combined")
-    return `(category:promotions OR category:updates OR in:inbox) ${age}`;
-  return `(category:promotions OR category:updates) ${age}`;
+    return `(${CLEANUP_CATEGORIES} OR in:inbox) ${age}`;
+  return `(${CLEANUP_CATEGORIES}) ${age}`;
 }
 
 /** Which scan lane(s) a message belongs to, from its Gmail labels. */
 export function lanesFromLabelIds(labelIds: readonly string[]): ScanPurpose[] {
   const lanes: ScanPurpose[] = [];
   if (labelIds.includes("INBOX")) lanes.push("security");
-  if (labelIds.includes("CATEGORY_PROMOTIONS") || labelIds.includes("CATEGORY_UPDATES")) {
-    lanes.push("cleanup");
-  }
+  if (CLEANUP_LABELS.some((label) => labelIds.includes(label))) lanes.push("cleanup");
   // A message returned by the combined query that matched neither bucket (an
   // archived promo Gmail no longer tags, say) still belongs in cleanup.
   return lanes.length > 0 ? lanes : ["cleanup"];
@@ -70,14 +73,10 @@ export function lanesFromLabelIds(labelIds: readonly string[]): ScanPurpose[] {
 const OUT_OF_SCOPE_LABELS = ["TRASH", "SPAM", "DRAFT"];
 
 /** Whether a message with these labels belongs in the mail index: the same
- * population the combined scan lists (inbox, promotions, updates). */
+ * population the combined scan lists (inbox and the bulk tabs). */
 export function inIndexScope(labelIds: readonly string[]): boolean {
   if (OUT_OF_SCOPE_LABELS.some((label) => labelIds.includes(label))) return false;
-  return (
-    labelIds.includes("INBOX") ||
-    labelIds.includes("CATEGORY_PROMOTIONS") ||
-    labelIds.includes("CATEGORY_UPDATES")
-  );
+  return labelIds.includes("INBOX") || CLEANUP_LABELS.some((label) => labelIds.includes(label));
 }
 
 /** The fields of a normalized message that come from its Gmail labels. One
