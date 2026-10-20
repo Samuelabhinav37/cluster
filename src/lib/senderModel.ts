@@ -1,6 +1,6 @@
 import { microsoftSaysSpam } from "./msVerdict";
 import { mapWithConcurrency } from "./concurrency";
-import { classifyMessageKind, looksAutomated, type MessageKind } from "./messageKind";
+import { looksAutomated, scoreMessageKind, type MessageKind } from "./messageKind";
 import {
   scoreMessageAuthentication,
   scoreMessageContext,
@@ -47,6 +47,9 @@ export interface MessageRecord {
   replyToDomain?: string;
   /** The provider's own filter called it spam (Outlook: SFV:SPM or SCL 5+). */
   providerSpam?: boolean;
+  /** How sure `kind` is, 0-1 (messageKind.scoreMessageKind). Absent on
+   * records built elsewhere, which count as sure. */
+  kindConfidence?: number;
 }
 
 export interface SenderSummary {
@@ -126,6 +129,17 @@ function mergeVerdicts(into: AuthenticationVerdicts, next: AuthenticationVerdict
   }
 }
 
+function kindOf(meta: NormalizedMessageMetadata): { kind: MessageKind; kindConfidence: number } {
+  const scored = scoreMessageKind({
+    subject: meta.subject,
+    hasListUnsubscribe: hasUnsubscribe(meta.unsubscribe),
+    oneClick: Boolean(meta.unsubscribe.postUrl),
+    listId: meta.listId,
+    promotion: meta.gmailPromotion,
+  });
+  return { kind: scored.kind, kindConfidence: scored.confidence };
+}
+
 function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessageMetadata) {
   if (!meta.fromAddress) return;
   const key = `${meta.provider}:${meta.fromAddress}`;
@@ -133,7 +147,7 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     id: meta.id,
     subject: meta.subject,
     receivedAt: meta.receivedAt,
-    kind: classifyMessageKind(meta.subject, hasUnsubscribe(meta.unsubscribe)),
+    ...kindOf(meta),
     isProtected: meta.isProtected,
     unread: meta.unread,
     sizeBytes: meta.sizeBytes,

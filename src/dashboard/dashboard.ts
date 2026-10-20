@@ -48,7 +48,7 @@ import { outlookProvider } from "../lib/providers/outlookProvider";
 import { OutlookReauthRequired } from "../lib/providers/msalAuth";
 import { summarizeCombined, type SenderSummary } from "../lib/senderModel";
 import { applyCensus, senderUnread, senderVolume } from "../lib/census";
-import { buildSenderProfiles } from "../lib/senderProfile";
+import { buildSenderProfiles, filedByClusterFrom } from "../lib/senderProfile";
 import {
   groupByCompany,
   isPerson,
@@ -852,6 +852,7 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
       .map((state) => state?.accountId ?? "")
       .filter(Boolean),
     knownSenders: buildProtectionContext(ctx.settings).knownSenders,
+    filedByCluster: filedByClusterFrom(ctx.settings.actionLog, ctx.settings.mutedSenders),
   });
   readUnsubscribeReplies(metas);
   indexOfferShown = false;

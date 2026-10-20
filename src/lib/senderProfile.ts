@@ -84,7 +84,30 @@ export interface ProfileInputs {
   ownAddresses?: readonly string[];
   /** Addresses the protection rules already trust (Screener allowlist etc). */
   knownSenders?: ReadonlySet<string>;
+  /** Mail Cluster itself filed out of the inbox (see filedByClusterFrom). */
+  filedByCluster?: FiledByCluster;
   now?: number;
+}
+
+export interface FiledByCluster {
+  /** Message ids a Cluster action moved (sort, mute, archive). */
+  ids: ReadonlySet<string>;
+  /** Addresses under a standing Cluster filter (muted), whose new mail
+   * never reaches the inbox. */
+  senders: ReadonlySet<string>;
+}
+
+/** What Cluster filed away, from the action log and the mute list. */
+export function filedByClusterFrom(
+  actionLog: readonly { kind: string; undone?: boolean; undo?: { ids: string[] } }[],
+  mutedSenders: readonly string[],
+): FiledByCluster {
+  const ids = new Set<string>();
+  for (const entry of actionLog) {
+    if (entry.undone || !["sort", "mute", "archive", "keepSorted"].includes(entry.kind)) continue;
+    for (const id of entry.undo?.ids ?? []) ids.add(id);
+  }
+  return { ids, senders: new Set(mutedSenders.map((a) => a.toLowerCase())) };
 }
 
 const MONTH_DATE = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(st|nd|rd|th)?\b/gi;
@@ -214,6 +237,7 @@ function tierFor(p: Omit<SenderProfile, "tier">, known: boolean, now: number): S
 export function buildSenderProfiles(inputs: ProfileInputs): Map<string, SenderProfile> {
   const now = inputs.now ?? Date.now();
   const known = inputs.knownSenders ?? new Set<string>();
+  const filed = inputs.filedByCluster;
   const correspondents = new Map(
     buildCorrespondents(inputs.sent ?? [], inputs.ownAddresses ?? []).map((c) => [c.address, c] as const),
   );
@@ -248,7 +272,16 @@ export function buildSenderProfiles(inputs: ProfileInputs): Map<string, SenderPr
     const ascending = rows.map((m) => m.receivedAt).sort((a, b) => a - b);
     const firstSeenAt = ascending[0];
     const lastSeenAt = ascending[ascending.length - 1];
-    const judgedRows = rows.filter((m) => now - m.receivedAt >= OPEN_GRACE_MS);
+    // Unread mail Cluster itself filed out of the inbox was never in front
+    // of the user, so it says nothing about whether they'd open it.
+    // Counting it would make Cluster's own filing look like neglect, and
+    // suggest the next, stronger action on its strength (engagement v2).
+    const filedUnseen = (m: NormalizedMessageMetadata) =>
+      m.unread &&
+      Boolean(m.labelIds) &&
+      !m.labelIds!.includes("INBOX") &&
+      Boolean(filed && (filed.ids.has(m.id) || filed.senders.has(address.toLowerCase())));
+    const judgedRows = rows.filter((m) => now - m.receivedAt >= OPEN_GRACE_MS && !filedUnseen(m));
     const opened = judgedRows.filter((m) => !m.unread).length;
     const readRows = rows.filter((m) => !m.unread);
     const usualGap = median(ascending.slice(1).map((t, i) => t - ascending[i]));

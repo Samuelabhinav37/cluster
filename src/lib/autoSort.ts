@@ -4,7 +4,7 @@
 // sender's domain, nothing else. Starred/flagged mail is never included.
 import { domainOf } from "./domainGrouping";
 import { resolveLabelName } from "./labelResolver";
-import type { MessageKind } from "./messageKind";
+import { ACT_CONFIDENCE, SUGGEST_CONFIDENCE, type MessageKind } from "./messageKind";
 import { emptyProtectionContext, moveProtection, protectionDecision, type ProtectionContext } from "./protectionPolicy";
 import type { SenderKind } from "./senderProfile";
 import type { ProviderId } from "./providers/emailProvider";
@@ -30,6 +30,9 @@ export interface SortPlanMessage {
    * sensitive-looking subject (boarding pass, password reset, …). Advisory —
    * the preview surfaces it, it isn't auto-excluded. */
   sensitiveWhenFiled: boolean;
+  /** Filed by its subject's kind, but that kind isn't sure enough to act on
+   * unasked (below ACT_CONFIDENCE). The preview starts these unticked. */
+  unsure: boolean;
 }
 
 export interface SortPlanEntry {
@@ -52,6 +55,9 @@ export interface SortPlanEntry {
  * sender's mail in one bucket by majority, so one subject word can't send a
  * single message elsewhere.
  */
+/** Buckets a message lands in by what its subject says it is. */
+const SUBJECT_KIND_BUCKETS = new Set<SortBucket>(["otp", "receipt", "shipping", "social"]);
+
 export function buildSortPlan(
   senders: SenderSummary[],
   fileOutByBucket: Partial<Record<SortBucket, boolean>> = {},
@@ -66,7 +72,10 @@ export function buildSortPlan(
     const senderKind = senderKinds.get(sender.key);
     for (const msg of sender.messages) {
       if (moveProtection(msg, sender.address, protection).protected) continue;
-      const kind = kindFromSender(senderKind, msg.kind);
+      // A kind too unsure even to suggest doesn't file the message by kind;
+      // its sender's majority kind or domain still can.
+      const confidence = msg.kindConfidence ?? 1;
+      const kind = kindFromSender(senderKind, confidence >= SUGGEST_CONFIDENCE ? msg.kind : "other");
       const promotion = senderKind === "promotion" || (senderKind === undefined || senderKind === "mixed" ? msg.promotion : false);
       const bucket = effectiveBucket(kind, domain, sender.address, overrides, promotion);
       if (!bucket) continue;
@@ -96,6 +105,7 @@ export function buildSortPlan(
         subject: msg.subject ?? "",
         receivedAt: msg.receivedAt,
         sensitiveWhenFiled: sensitive.protected && sensitive.reason === "sensitive-subject",
+        unsure: SUBJECT_KIND_BUCKETS.has(bucket) && kind === msg.kind && confidence < ACT_CONFIDENCE,
       });
     }
   }

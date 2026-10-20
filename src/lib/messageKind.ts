@@ -29,6 +29,60 @@ function looksLikeOtp(subject: string): boolean {
   return OTP_RE.test(subject) || (OTP_NUMBER_RE.test(subject) && !PROMO_CODE_RE.test(subject));
 }
 
+export interface KindEvidence {
+  subject: string;
+  hasListUnsubscribe: boolean;
+  /** List-Unsubscribe-Post: one-click unsubscribe, which Google and Yahoo
+   * require of bulk marketing mail, so a marketing tell. */
+  oneClick?: boolean;
+  listId?: string;
+  /** The provider filed it as promotional (Gmail Promotions tab). */
+  promotion?: boolean;
+}
+
+export interface ScoredKind {
+  kind: MessageKind;
+  /** 0-1. Act on it reversibly from 0.9 (ACT_CONFIDENCE), suggest from 0.7
+   * (SUGGEST_CONFIDENCE), never below. Hand-set until the labelled corpus is
+   * big enough to fit; evaluation.test.ts checks the bands hold there. */
+  confidence: number;
+}
+
+export const ACT_CONFIDENCE = 0.9;
+export const SUGGEST_CONFIDENCE = 0.7;
+
+// Order and delivery wording too specific for promotion copy to borrow.
+const STRONG_TRANSACTIONAL_RE =
+  /\b(order #?\s?[\w-]*\d|tracking (number|#)|invoice #?\s?\d|receipt (for|from)|has shipped|out for delivery|(has been|was) delivered|payment (received|confirmation))\b/i;
+
+const clamp = (n: number) => Math.max(0, Math.min(1, Math.round(n * 100) / 100));
+
+/**
+ * A message's kind and how sure that is. The kind is classifyMessageKind's
+ * (subject first, then List-Unsubscribe); the other headers only move the
+ * confidence: one-click unsubscribe and the Promotions tab make a
+ * "receipt" or "shipping" subject less likely to be a real one, and list
+ * headers make "newsletter" more certain.
+ */
+export function scoreMessageKind(e: KindEvidence): ScoredKind {
+  const s = e.subject || "";
+  const kind = classifyMessageKind(s, e.hasListUnsubscribe);
+  const marketing = (e.oneClick ? 0.15 : 0) + (e.promotion ? 0.1 : 0);
+  switch (kind) {
+    case "otp":
+      return { kind, confidence: clamp((OTP_RE.test(s) ? 0.95 : 0.85) - (e.oneClick ? 0.15 : 0)) };
+    case "receipt":
+    case "shipping":
+      return { kind, confidence: clamp((STRONG_TRANSACTIONAL_RE.test(s) ? 0.95 : 0.8) - marketing) };
+    case "social":
+      return { kind, confidence: 0.85 };
+    case "newsletter":
+      return { kind, confidence: clamp(0.75 + (e.oneClick ? 0.1 : 0) + (e.listId || e.promotion ? 0.1 : 0)) };
+    default:
+      return { kind, confidence: 0.6 };
+  }
+}
+
 export function classifyMessageKind(subject: string, hasListUnsubscribe: boolean): MessageKind {
   const s = subject || "";
   if (looksLikeOtp(s)) return "otp";

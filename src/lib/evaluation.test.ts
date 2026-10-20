@@ -24,7 +24,9 @@ const FLOORS = {
   holdPrecision: 1,
   flagPrecision: 1,
   flagRecall: 1,
-  kindAccuracy: 1,
+  kindAccuracy: 0.94,
+  // Of the kinds sure enough to act on without asking, how many are right.
+  actedKindAccuracy: 1,
   otpPrecision: 1,
   protectionRecall: 1,
 };
@@ -75,6 +77,7 @@ describe("evaluation floors", () => {
   it("message kinds are right", () => {
     const k = kindMetrics();
     expect(k.accuracy).toBeGreaterThanOrEqual(FLOORS.kindAccuracy);
+    expect(k.actedAccuracy).toBeGreaterThanOrEqual(FLOORS.actedKindAccuracy);
     expect(precision(k.perKind.otp)).toBeGreaterThanOrEqual(FLOORS.otpPrecision);
   });
 

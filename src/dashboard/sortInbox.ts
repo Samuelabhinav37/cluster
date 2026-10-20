@@ -72,6 +72,9 @@ let sortPlan: SortPlanEntry[] = [];
 // Message ids the user unticked in the preview — skipped when Apply runs.
 // Cleared on every rescan and after a successful sort.
 const excludedSortIds = new Set<string>();
+// Unsure messages (autoSort SortPlanMessage.unsure) start unticked, once:
+// a tick the user then adds is kept across re-renders.
+const defaultedSortIds = new Set<string>();
 
 function resetSortInboxSlot() {
   sortInboxSlot.innerHTML = "";
@@ -300,6 +303,10 @@ async function changeSortOverride(address: string, value: "" | SortOverride) {
 function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
   clearSortPreview();
   resetSortInboxSlot();
+  for (const m of chosen.flatMap((e) => e.messages)) {
+    if (m.unsure && !defaultedSortIds.has(m.id)) excludedSortIds.add(m.id);
+    defaultedSortIds.add(m.id);
+  }
 
   const applyBtn = document.createElement("button");
   const cancelBtn = document.createElement("button");
@@ -364,7 +371,8 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
         };
         const text = document.createElement("span");
         const sensitive = entry.fileOut && m.sensitiveWhenFiled ? " · sensitive?" : "";
-        text.textContent = ` ${m.subject || "(no subject)"} · ${formatRelativeTime(m.receivedAt)}${sensitive}`;
+        const unsure = m.unsure ? " · not sure it belongs here" : "";
+        text.textContent = ` ${m.subject || "(no subject)"} · ${formatRelativeTime(m.receivedAt)}${sensitive}${unsure}`;
         row.append(cb, text);
         senderEl.appendChild(row);
       }
@@ -606,6 +614,7 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
   const filterIds = ctx.settings.autoSort.filterIdsByBucket;
 
   excludedSortIds.clear();
+  defaultedSortIds.clear();
   await rescan();
   const serverCount =
     Object.values(filterIds).reduce((n, ids) => n + ids.length, 0) +

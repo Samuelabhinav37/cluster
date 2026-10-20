@@ -2,7 +2,13 @@
 // Test-only: evaluation.test.ts asserts floors on these numbers, and
 // `npm run eval` prints them. Runs the real pipeline (metadata →
 // senderModel → senderVerdict), so a number here is what a scan would do.
-import { classifyMessageKind, looksAutomated, type MessageKind } from "../lib/messageKind";
+import {
+  ACT_CONFIDENCE,
+  classifyMessageKind,
+  looksAutomated,
+  scoreMessageKind,
+  type MessageKind,
+} from "../lib/messageKind";
 import { protectionDecision } from "../lib/protectionPolicy";
 import type { MessageRecord } from "../lib/senderModel";
 import { senderVerdict, type VerdictTier } from "../lib/verdict";
@@ -80,12 +86,25 @@ export function threatMetrics(results: ThreatResult[]): ThreatMetrics {
 
 export interface KindMetrics {
   accuracy: number;
+  /** Accuracy over the predictions sure enough to act on unasked. */
+  actedAccuracy: number;
+  /** Share of the corpus that is sure enough to act on. */
+  actedShare: number;
   perKind: Record<MessageKind, Confusion>;
   misses: Array<{ subject: string; expected: MessageKind; got: MessageKind }>;
 }
 
 export function kindMetrics(): KindMetrics {
-  const rows = KIND_CORPUS.map((c) => ({ ...c, got: classifyMessageKind(c.subject, c.hasListUnsubscribe) }));
+  const rows = KIND_CORPUS.map((c) => {
+    const scored = scoreMessageKind({
+      subject: c.subject,
+      hasListUnsubscribe: c.hasListUnsubscribe,
+      oneClick: c.oneClick,
+      promotion: c.promotion,
+    });
+    return { ...c, got: scored.kind, confidence: scored.confidence };
+  });
+  const acted = rows.filter((r) => r.confidence >= ACT_CONFIDENCE);
   const kinds: MessageKind[] = ["otp", "receipt", "shipping", "newsletter", "social", "other"];
   const perKind = Object.fromEntries(
     kinds.map((k) => [k, tally(rows.map((r) => ({ predicted: r.got === k, actual: r.kind === k })))]),
@@ -93,7 +112,13 @@ export function kindMetrics(): KindMetrics {
   const misses = rows
     .filter((r) => r.got !== r.kind)
     .map((r) => ({ subject: r.subject, expected: r.kind, got: r.got }));
-  return { accuracy: (rows.length - misses.length) / rows.length, perKind, misses };
+  return {
+    accuracy: (rows.length - misses.length) / rows.length,
+    actedAccuracy: acted.length === 0 ? 1 : acted.filter((r) => r.got === r.kind).length / acted.length,
+    actedShare: acted.length / rows.length,
+    perKind,
+    misses,
+  };
 }
 
 export interface ProtectionMetrics {
@@ -146,7 +171,8 @@ export function formatScorecard(
   const wrong = results.filter((r) => (r.label === "malicious") !== (r.tier !== "none"));
   if (wrong.length) lines.push(`  wrong: ${wrong.map((r) => `${r.id}[${r.tier}]`).join(", ")}`);
   lines.push(
-    `Kind corpus: accuracy ${pct(kind.accuracy)}, otp precision ${pct(precision(kind.perKind.otp))}`,
+    `Kind corpus: accuracy ${pct(kind.accuracy)}, otp precision ${pct(precision(kind.perKind.otp))}, ` +
+      `acted-on accuracy ${pct(kind.actedAccuracy)} over ${pct(kind.actedShare)} of mail`,
   );
   for (const m of kind.misses) lines.push(`    "${m.subject}" expected ${m.expected}, got ${m.got}`);
   lines.push(

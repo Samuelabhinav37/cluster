@@ -7,12 +7,31 @@ export interface KindCase {
   subject: string;
   hasListUnsubscribe: boolean;
   kind: MessageKind;
+  /** Bulk-marketing one-click unsubscribe (List-Unsubscribe-Post). */
+  oneClick?: boolean;
+  promotion?: boolean;
 }
 
 const k = (kind: MessageKind, hasListUnsubscribe: boolean, ...subjects: string[]): KindCase[] =>
   subjects.map((subject) => ({ subject, hasListUnsubscribe, kind }));
 
+// Marketing that borrows transactional words, sent the way bulk marketing
+// is (one-click unsubscribe, Promotions tab). The subject alone misreads
+// these; the confidence must keep them below the act band.
+const dressedUpMarketing: KindCase[] = [
+  "Your receipt: 20% off your next order",
+  "Delivered to your door: this week's best deals",
+  "Your order of savings has shipped!",
+].map((subject) => ({
+  subject,
+  hasListUnsubscribe: true,
+  oneClick: true,
+  promotion: true,
+  kind: "newsletter",
+}));
+
 export const KIND_CORPUS: KindCase[] = [
+  ...dressedUpMarketing,
   ...k(
     "otp",
     false,

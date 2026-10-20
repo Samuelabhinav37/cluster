@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { NormalizedMessageMetadata, SentRecord } from "./providers/emailProvider";
-import { buildSenderProfiles, templateKey } from "./senderProfile";
+import { buildSenderProfiles, templateKey, filedByClusterFrom } from "./senderProfile";
 
 const DAY = 86_400_000;
 const NOW = 1_800_000_000_000;
@@ -179,5 +179,35 @@ describe("buildSenderProfiles", () => {
   it("keeps brand-new senders out of every judging tier", () => {
     const rows = Array.from({ length: 6 }, (_, i) => msg("fresh@shop.example", 4 + i, { ...bulk(), unread: true }));
     expect(profile(rows).get("gmail:fresh@shop.example")!.tier).toBe("new");
+  });
+});
+
+describe("engagement v2: mail Cluster filed away isn't neglect", () => {
+  it("leaves unread mail Cluster moved out of the inbox out of the open rate", () => {
+    const filedIds = ["f1", "f2", "f3", "f4"];
+    const rows = [
+      ...filedIds.map((id, i) => msg("news@brand.example", 10 + i, { id, unread: true, labelIds: ["UNREAD", "Label_9"] })),
+      msg("news@brand.example", 20, { id: "seen", unread: false, labelIds: ["INBOX"] }),
+    ];
+    const without = buildSenderProfiles({ rows, now: NOW }).get("gmail:news@brand.example")!;
+    expect(without.openRate).toBeCloseTo(0.2);
+    const filedByCluster = filedByClusterFrom([{ kind: "sort", undo: { ids: filedIds } }], []);
+    const withFiled = buildSenderProfiles({ rows, now: NOW, filedByCluster }).get("gmail:news@brand.example")!;
+    expect(withFiled.openRate).toBe(1);
+    expect(withFiled.judged).toBe(1);
+  });
+
+  it("counts mail still in the inbox, and ignores undone actions", () => {
+    const rows = [msg("news@brand.example", 10, { id: "a", unread: true, labelIds: ["INBOX", "UNREAD"] })];
+    const filedByCluster = filedByClusterFrom(
+      [
+        { kind: "sort", undo: { ids: ["a"] } },
+        { kind: "archive", undone: true, undo: { ids: ["b"] } },
+      ],
+      ["News@Brand.example"],
+    );
+    expect(filedByCluster.ids.has("b")).toBe(false);
+    expect(filedByCluster.senders.has("news@brand.example")).toBe(true);
+    expect(buildSenderProfiles({ rows, now: NOW, filedByCluster }).get("gmail:news@brand.example")!.openRate).toBe(0);
   });
 });
