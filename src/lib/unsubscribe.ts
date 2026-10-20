@@ -1,4 +1,4 @@
-import { passingDkimDomains as passingDkimDomainsFromHeader } from "./emailAuth";
+import { passingDkimDomains as passingDkimDomainsFromHeader, selectTrustedAuthenticationResults } from "./emailAuth";
 import { isPublicHttpsUrl } from "./netGuard";
 
 export interface UnsubscribeInfo {
@@ -28,28 +28,12 @@ export interface OneClickVerificationContext {
 
 const ONE_CLICK_VALUE = /^\s*List-Unsubscribe\s*=\s*One-Click\s*$/i;
 
-function authServiceId(headerValue: string): string {
-  return headerValue.split(";", 1)[0]?.trim().toLowerCase() ?? "";
-}
 
-function trustedAuthResult(provider: OneClickVerificationContext["provider"], value: string): boolean {
-  const id = authServiceId(value);
-  if (provider === "gmail") return id === "mx.google.com";
-  return (
-    id === "outlook.com" ||
-    id.endsWith(".outlook.com") ||
-    id === "protection.outlook.com" ||
-    id.endsWith(".protection.outlook.com")
-  );
-}
 
 function passingDkimDomains(context: OneClickVerificationContext): Set<string> {
   const domains = new Set<string>();
-  for (const header of context.authenticationResults.filter((value) =>
-    trustedAuthResult(context.provider, value),
-  )) {
-    for (const domain of passingDkimDomainsFromHeader(header)) domains.add(domain);
-  }
+  const header = selectTrustedAuthenticationResults(context.provider, context.authenticationResults);
+  for (const domain of passingDkimDomainsFromHeader(header)) domains.add(domain);
   return domains;
 }
 

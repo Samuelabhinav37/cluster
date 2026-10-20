@@ -65,6 +65,10 @@ async function graphFetch<T = unknown>(path: string, token: string, init: Reques
 interface GraphMessage {
   id: string;
   sender?: { emailAddress?: { address?: string; name?: string } };
+  /** The From header. `sender` is the Sender header, which differs when a
+   * delegate or a platform sends on someone's behalf; From is what the
+   * reader sees and what DMARC checks, so it is what gets judged. */
+  from?: { emailAddress?: { address?: string; name?: string } };
   subject?: string;
   flag?: { flagStatus?: string };
   internetMessageHeaders?: { name: string; value: string }[];
@@ -138,7 +142,7 @@ async function listIncrementalMessages(
 
 async function getMessageMetadata(token: string, id: string): Promise<NormalizedMessageMetadata> {
   const data = await graphFetch<GraphMessage>(
-    `/me/messages/${id}?$select=sender,subject,flag,internetMessageHeaders,receivedDateTime,isRead,size,hasAttachments,inferenceClassification,conversationId&$expand=attachments($select=name)`,
+    `/me/messages/${id}?$select=from,sender,subject,flag,internetMessageHeaders,receivedDateTime,isRead,size,hasAttachments,inferenceClassification,conversationId&$expand=attachments($select=name)`,
     token,
   );
   // No extra round trip -- $expand rides along on the same GET. Filenames
@@ -151,7 +155,7 @@ async function getMessageMetadata(token: string, id: string): Promise<Normalized
   const find = (name: string) => headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value;
   const findAll = (name: string) =>
     headers.filter((h) => h.name.toLowerCase() === name.toLowerCase()).map((h) => h.value);
-  const fromAddress = (data.sender?.emailAddress?.address ?? "").toLowerCase();
+  const fromAddress = ((data.from ?? data.sender)?.emailAddress?.address ?? "").toLowerCase();
   const authenticationResultsHeaders = findAll("Authentication-Results");
   const authenticationResults = selectTrustedAuthenticationResults("outlook", authenticationResultsHeaders);
 
@@ -159,7 +163,7 @@ async function getMessageMetadata(token: string, id: string): Promise<Normalized
     id,
     provider: "outlook",
     fromAddress,
-    fromDisplayName: data.sender?.emailAddress?.name ?? "",
+    fromDisplayName: (data.from ?? data.sender)?.emailAddress?.name ?? "",
     replyToAddress: (find("Reply-To")?.match(/<([^>]+)>/)?.[1] ?? find("Reply-To") ?? "")
       .trim()
       .toLowerCase(),
@@ -198,14 +202,14 @@ async function getUnsubscribeDetails(token: string, id: string): Promise<Unsubsc
       return undefined;
     });
   const data = await graphFetch<GraphMessage & { parentFolderId?: string }>(
-    `/me/messages/${id}?$select=sender,internetMessageHeaders,parentFolderId`,
+    `/me/messages/${id}?$select=from,sender,internetMessageHeaders,parentFolderId`,
     token,
   );
   const headers: { name: string; value: string }[] = data.internetMessageHeaders ?? [];
   const find = (name: string) => headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value;
   const findAll = (name: string) =>
     headers.filter((h) => h.name.toLowerCase() === name.toLowerCase()).map((h) => h.value);
-  const fromAddress = (data.sender?.emailAddress?.address ?? "").toLowerCase();
+  const fromAddress = ((data.from ?? data.sender)?.emailAddress?.address ?? "").toLowerCase();
   const authenticationResults = findAll("Authentication-Results");
   const dkimSignatures = findAll("DKIM-Signature");
   const junk = await junkFolderId;

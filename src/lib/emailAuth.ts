@@ -22,6 +22,13 @@ function authenticationServiceId(headerValue: string): string {
   return headerValue.split(";", 1)[0]?.trim().toLowerCase() ?? "";
 }
 
+/** Exchange Online often writes its result with no authserv-id at all:
+ * "spf=pass (sender IP is ...) smtp.mailfrom=x.com; dkim=pass ...". */
+function startsWithResult(headerValue: string): boolean {
+  const [head] = resultTokens(splitResults(headerValue)[0] ?? "");
+  return Boolean(head && METHOD_RESULT.test(head));
+}
+
 /**
  * Authentication-Results is only trustworthy when the consumer trusts the
  * service that inserted it (RFC 8601). Messages can contain forged copies of
@@ -37,16 +44,25 @@ export function isTrustedAuthenticationResults(
   return (
     serviceId === "outlook.com" ||
     serviceId.endsWith(".outlook.com") ||
-    serviceId === "protection.outlook.com" ||
-    serviceId.endsWith(".protection.outlook.com")
+    serviceId === "mx.microsoft.com" ||
+    startsWithResult(headerValue)
   );
 }
 
+/**
+ * The provider's own result: the topmost Authentication-Results header, and
+ * only if it is the provider's. The receiving server adds its header above
+ * every other, so a sender can plant copies only below it. Looking further
+ * down for one that merely names the provider would let a planted
+ * "outlook.com; dmarc=pass" (or an id-less one, which Exchange's real header
+ * also is) stand in when the real one is missing; no verdict is safer.
+ */
 export function selectTrustedAuthenticationResults(
   provider: AuthenticationProvider,
   headerValues: string[],
 ): string | undefined {
-  return headerValues.find((value) => isTrustedAuthenticationResults(provider, value));
+  const top = headerValues[0];
+  return top !== undefined && isTrustedAuthenticationResults(provider, top) ? top : undefined;
 }
 
 /** One result ("resinfo") from the header, e.g. `dkim=pass header.d=example.com`. */
@@ -133,12 +149,14 @@ function resultTokens(text: string): string[] {
 
 const METHOD_RESULT = /^([a-z0-9-]+)(?:\/[0-9]+)?=([a-z]+)$/i;
 
-/** Every result in an Authentication-Results header, in order. The first
- * segment (the authserv-id) is skipped, and so is the "none" no-result form. */
+/** Every result in an Authentication-Results header, in order. The leading
+ * authserv-id is skipped (Exchange sometimes leaves it out, and then the
+ * first segment is already a result), and so is the "none" no-result form. */
 export function parseAuthResultEntries(headerValue: string | undefined): AuthResultEntry[] {
   if (!headerValue) return [];
   const entries: AuthResultEntry[] = [];
-  for (const part of splitResults(headerValue).slice(1)) {
+  const parts = splitResults(headerValue);
+  for (const part of startsWithResult(headerValue) ? parts : parts.slice(1)) {
     const [head, ...rest] = resultTokens(part);
     const match = head ? METHOD_RESULT.exec(head) : null;
     if (!match) continue;

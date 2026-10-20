@@ -122,7 +122,8 @@ describe("lanes", () => {
 describe("authentication + unsubscribe", () => {
   it("uses only the mx.google.com Authentication-Results, ignoring a forged one", async () => {
     const forged = "evil.example; dkim=pass header.i=@paypal.com; dmarc=pass header.from=paypal.com";
-    const m = await normalize({ authenticationResultsHeaders: [forged, GOOGLE_AR] });
+    // Gmail adds its header above everything the sender wrote.
+    const m = await normalize({ authenticationResultsHeaders: [GOOGLE_AR, forged] });
     expect(m.authenticationResults).toBe(GOOGLE_AR);
   });
 

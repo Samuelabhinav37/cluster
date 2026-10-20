@@ -140,10 +140,29 @@ describe("Authentication-Results trust boundary", () => {
     ).toBe(true);
   });
 
-  it("rejects a sender-injected header and selects the trusted duplicate", () => {
+  it("rejects a sender-injected header", () => {
     const forged = "attacker.example; dkim=pass; dmarc=pass";
-    const trusted = "mx.google.com; dkim=fail; dmarc=fail";
     expect(isTrustedAuthenticationResults("gmail", forged)).toBe(false);
-    expect(selectTrustedAuthenticationResults("gmail", [forged, trusted])).toBe(trusted);
+  });
+
+  it("uses only the topmost header: planted copies sit below the provider's", () => {
+    const provider = "mx.google.com; dkim=fail; dmarc=fail";
+    const planted = "mx.google.com; dkim=pass; dmarc=pass";
+    expect(selectTrustedAuthenticationResults("gmail", [provider, planted])).toBe(provider);
+    // With no provider header on top, a lower one that names the provider is not used.
+    expect(selectTrustedAuthenticationResults("gmail", ["relay.example; dmarc=fail", planted])).toBeUndefined();
+  });
+
+  it("reads Exchange Online's header, which often has no authserv-id", () => {
+    const exchange =
+      "spf=pass (sender IP is 40.107.1.1) smtp.mailfrom=contoso.com; dkim=pass (signature was verified) header.d=contoso.com;dmarc=pass action=none header.from=contoso.com;compauth=pass reason=100";
+    expect(selectTrustedAuthenticationResults("outlook", [exchange])).toBe(exchange);
+    expect(parseAuthenticationResults(exchange)).toEqual({ spf: "pass", dkim: "pass", dmarc: "pass" });
+    // An id-less header that isn't the topmost one is ignored, like any other.
+    expect(selectTrustedAuthenticationResults("outlook", ["attacker.example; spf=fail", exchange])).toBeUndefined();
+  });
+
+  it("an Outlook header from a non-Microsoft service is not trusted", () => {
+    expect(isTrustedAuthenticationResults("outlook", "outlook.com.attacker.example; dmarc=pass")).toBe(false);
   });
 });
