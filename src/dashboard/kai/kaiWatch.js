@@ -279,15 +279,18 @@
       if (!e.isTrusted || !t || mine(t) || !t.matches || !t.matches('input[type="checkbox"], input[type="radio"], select')) return;
       api.flip(t.id || t.name || cssPath(t));
     }, true);
-    var ticking = false, last = null;
+    var ticking = false, last = null, lastY = 0;
     win.addEventListener('scroll', function (e) {
       last = e.target && e.target.nodeType === 1 ? e.target : null;
+      // read the position here, where layout is clean: read inside the frame
+      // callback, after other scripts have moved things, it forces a relayout
+      lastY = last ? last.scrollTop : win.scrollY;
       if (ticking) return;
       ticking = true;
       win.requestAnimationFrame(function () {
         ticking = false;
         if (last && mine(last)) return;
-        if (last) api.scroll(last.scrollTop, last); else api.scroll(win.scrollY, null);
+        api.scroll(lastY, last);
       });
     }, { passive: true, capture: true });
     // hovering a control a while, then leaving without a click
