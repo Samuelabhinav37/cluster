@@ -893,7 +893,7 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   updateSenderState(senders);
   safeRender("overview", () => renderOverview(senders, securitySenders));
   safeRender("delete", () => renderDeleteScreen(senders));
-  safeRender("organize", () => renderOrganizeScreen(senders));
+  safeRender("subscriptions", () => renderOrganizeScreen(senders));
   safeRender("senders", () => renderAllSenders(senders));
   safeRender("rules", () => renderRulesTab());
   safeRender("delete", () => renderDomainGroups(senders));
@@ -1379,12 +1379,13 @@ function renderCleanupPlan(senders: SenderSummary[]) {
   if (engagement.length > 0) {
     rows.push({
       id: "never-opened",
-      checked: true,
+      // Trash now (muting lives on Stop mail), so it needs a look first like the rows below.
+      checked: false,
       title: `${engagement.length} sender${engagement.length === 1 ? "" : "s"} you don't open`,
       sub: `${neverMsgs} message${neverMsgs === 1 ? "" : "s"}, almost none opened`,
-      primaryLabel: "Mute all",
+      primaryLabel: "Trash",
       primaryClass: "btn btn-accent",
-      onPrimary: () => confirmIn("never-read-section", neverReadMuteBtn),
+      onPrimary: () => confirmIn("never-read-section", neverReadTrashBtn),
       showReview: true,
       reviewTarget: "never-read-section",
       stack: engagement.map((e) => e.sender),
@@ -1850,7 +1851,7 @@ function renderSuggestedFloatingBar() {
   apply.disabled = checkedGroups.length === 0;
   apply.onclick = () => {
     const groups = new Set(selectedPlanGroups);
-    if (groups.has("never-opened")) confirmIn("never-read-section", neverReadMuteBtn);
+    if (groups.has("never-opened")) confirmIn("never-read-section", neverReadTrashBtn);
     if (groups.has("expired")) confirmIn("expiry-section", expiryCleanupBtn);
     if (groups.has("spam")) revealLegacySection("spam-section");
   };
@@ -2615,6 +2616,7 @@ function resetNeverReadSlots() {
 function renderNeverReadSection(senders: SenderSummary[]) {
   engagementSuggestions = unopenedSuggestions(currentSuggestions(senders));
   neverReadSectionEl.hidden = engagementSuggestions.length === 0;
+  neverReadMuteSlot.hidden = engagementSuggestions.length === 0;
   if (engagementSuggestions.length === 0) return;
 
   const totalMsgs = engagementSuggestions.reduce((count, item) => count + item.safeMessageIds.length, 0);

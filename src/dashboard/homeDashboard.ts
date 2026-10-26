@@ -399,7 +399,7 @@ export function renderHomeDashboard(f: DashboardFacts, go: Go): HTMLElement {
       note: "Last 8 weeks",
       chart: weekColumns(f.read.byWeek),
       action: "Mute what you skip",
-      go: () => go("delete", "senders-worth-decision"),
+      go: () => go("subscriptions", "senders-worth-decision"),
     }),
   );
 

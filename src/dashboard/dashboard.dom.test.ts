@@ -228,7 +228,7 @@ describe("dashboard boot smoke", () => {
   });
 
   it("opens a confirm step from a sender-row action", () => {
-    document.querySelector<HTMLButtonElement>('#sidebar button[data-screen="organize"]')!.click();
+    document.querySelector<HTMLButtonElement>('#sidebar button[data-screen="subscriptions"]')!.click();
     const muteBtn = Array.from(
       document.querySelectorAll<HTMLButtonElement>("#sender-groups .list-row button"),
     ).find((b) => b.textContent === "Mute");

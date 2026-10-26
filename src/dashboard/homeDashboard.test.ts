@@ -163,7 +163,7 @@ describe("renderHomeDashboard", () => {
     grid.querySelector<HTMLButtonElement>('[data-tile="companies"] button')!.click();
     grid.querySelector<HTMLButtonElement>('[data-tile="read"] button')!.click();
     expect(go).toHaveBeenNthCalledWith(1, "senders");
-    expect(go).toHaveBeenNthCalledWith(2, "delete", "senders-worth-decision");
+    expect(go).toHaveBeenNthCalledWith(2, "subscriptions", "senders-worth-decision");
   });
 
   it("leads Safety with suspicious senders and marks it as danger", () => {

@@ -69,7 +69,7 @@
             </button>
             <div class="nav-children">
               <button type="button" class="nav-item nav-child" data-screen="subscriptions">
-                Subscriptions
+                Stop mail
               </button>
             </div>
           </div>
@@ -223,7 +223,6 @@
                 <p class="hint">Senders you never open. Starred senders are left out.</p>
                 <div id="never-read-bulk-bar" class="toolbar">
                   <span id="never-read-count"></span>
-                  <span id="never-read-mute-slot"><button id="never-read-mute-btn" class="btn btn-accent">Mute suggested…</button></span>
                   <span id="never-read-trash-slot"><button id="never-read-trash-btn" class="btn btn-danger">Trash suggested…</button></span>
                 </div>
                 <div id="never-read-list" class="scroll-x"></div>
@@ -248,32 +247,6 @@
                   <span id="expiry-cleanup-slot"><button id="expiry-cleanup-btn" class="btn btn-accent">Clean up</button></span>
                 </div>
               </section>
-            </section>
-
-            <section id="senders-worth-decision">
-              <div class="section-head">
-                <h2 class="section-label">Senders worth a decision</h2>
-                <span class="muted" id="worth-decision-count"></span>
-                <span class="spacer"></span>
-                <a href="#" id="see-all-senders-link">See all senders</a>
-              </div>
-              <div id="sender-groups" hidden></div>
-
-              <div id="sender-bulk-bar" class="toolbar" hidden>
-                <button id="select-safe-senders" class="btn">Select safe</button>
-                <span id="sender-selected-count">0 selected</span>
-                <span id="unsubscribe-bulk-slot"><button id="bulk-unsubscribe-btn" class="btn btn-accent" disabled>Bulk unsubscribe selected</button></span>
-                <span id="keep-sorted-bulk-slot"><button id="bulk-keep-sorted-btn" class="btn" disabled>Bulk keep sorted selected</button></span>
-                <label>
-                  Snooze for:
-                  <select id="snooze-duration-select">
-                    <option value="1">1 day</option>
-                    <option value="7" selected>1 week</option>
-                    <option value="30">1 month</option>
-                  </select>
-                </label>
-                <span id="snooze-bulk-slot"><button id="bulk-snooze-btn" class="btn" disabled>Bulk snooze selected</button></span>
-              </div>
             </section>
 
             <details class="disclosure" id="keep-newest-section">
@@ -419,14 +392,43 @@
             <div id="all-senders-list"></div>
           </section>
 
-          <!-- ══ Subscriptions ═════════════════════════════════════════ -->
+          <!-- ══ Stop mail (screen id: subscriptions) ══════════════════ -->
           <section class="screen" data-screen="subscriptions" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Subscriptions</h1>
-                <p class="lead">Mailing lists you're on, grouped by how often they arrive.</p>
+                <h1 class="page-title">Stop mail</h1>
+                <p class="lead">Unsubscribe from lists and mute senders you don't need.</p>
               </div>
             </div>
+
+            <section id="senders-worth-decision">
+              <div class="section-head">
+                <h2 class="section-label">Senders worth a decision</h2>
+                <span class="muted" id="worth-decision-count"></span>
+                <span class="spacer"></span>
+                <a href="#" id="see-all-senders-link">See all senders</a>
+              </div>
+              <div class="toolbar">
+                <span id="never-read-mute-slot"><button id="never-read-mute-btn" class="btn btn-accent">Mute the ones you don't open…</button></span>
+              </div>
+              <div id="sender-groups" hidden></div>
+
+              <div id="sender-bulk-bar" class="toolbar" hidden>
+                <button id="select-safe-senders" class="btn">Select safe</button>
+                <span id="sender-selected-count">0 selected</span>
+                <span id="unsubscribe-bulk-slot"><button id="bulk-unsubscribe-btn" class="btn btn-accent" disabled>Bulk unsubscribe selected</button></span>
+                <span id="keep-sorted-bulk-slot"><button id="bulk-keep-sorted-btn" class="btn" disabled>Bulk keep sorted selected</button></span>
+                <label>
+                  Snooze for:
+                  <select id="snooze-duration-select">
+                    <option value="1">1 day</option>
+                    <option value="7" selected>1 week</option>
+                    <option value="30">1 month</option>
+                  </select>
+                </label>
+                <span id="snooze-bulk-slot"><button id="bulk-snooze-btn" class="btn" disabled>Bulk snooze selected</button></span>
+              </div>
+            </section>
 
             <section id="paid-subscriptions-section">
               <div class="section-head">
