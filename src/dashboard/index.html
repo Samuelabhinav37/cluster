@@ -118,7 +118,7 @@
             Home
           </button>
           <p class="sidebar-note">
-            Cluster reads senders, subjects and dates. Never message bodies.
+            Cluster reads senders, subjects and dates. It reads a message's links only if it already looks like a scam.
           </p>
         </nav>
         </div>
@@ -134,7 +134,7 @@
               <ul class="connect-points">
                 <li>
                   <strong>What it reads.</strong> Senders, subjects, dates, labels and the
-                  sender-authentication headers. Never message bodies.
+                  sender-authentication headers. Links only in mail that already looks like a scam.
                 </li>
                 <li>
                   <strong>What it never does.</strong> Send your mail anywhere, or send, delete or
@@ -170,8 +170,8 @@
             <div id="overview-content"></div>
             <div id="onboarding-banner" class="banner" hidden>
               <p>
-                Cluster reads senders, subjects and dates, never message bodies. Nothing is deleted
-                without your OK.
+                Cluster reads senders, subjects and dates. It reads links only in mail that looks like a
+                scam. Nothing is deleted without your OK.
               </p>
               <button type="button" id="onboarding-dismiss-btn" class="btn btn-accent">Got it</button>
             </div>

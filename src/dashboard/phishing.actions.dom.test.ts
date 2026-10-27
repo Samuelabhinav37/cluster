@@ -5,7 +5,7 @@
 // UI-titled "Phishing"): "Block sender" (labelSuspicious), the auto-quarantine
 // toggle, and the quarantine review queue's Confirm/Release.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { bootDashboard, confirmStep } from "./testHarness";
+import { bootDashboard, confirmStep, fixtureMailbox, makeGmailSpy } from "./testHarness";
 
 function findThreatCard(container: HTMLElement, needle: string): HTMLElement {
   const card = Array.from(container.querySelectorAll("li.glass-card")).find((li) =>
@@ -39,6 +39,24 @@ describe("Phishing screen — flagged senders", () => {
 
     dash.showScreen("recent");
     expect(dash.el("recent-list").textContent).toContain("paypal-help@gmail.com");
+  });
+});
+
+describe("Phishing screen — link check on flagged mail", () => {
+  it("reads the flagged message's links on its own and shows a mismatch", async () => {
+    const gmail = makeGmailSpy(fixtureMailbox());
+    (gmail.getMessageLinks as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { text: "paypal.com", href: "https://paypal-login.evil.example/" },
+    ]);
+    const dash = await bootDashboard({ gmail });
+    dash.showScreen("impersonation");
+    await vi.waitFor(() => {
+      const card = findThreatCard(dash.el("security-sender-list"), "paypal-help@gmail.com");
+      expect(card.textContent).toContain("A link says it goes to one website but really goes to another.");
+    });
+    expect(gmail.getMessageLinks).toHaveBeenCalledWith(expect.anything(), "x1");
+    const stored = await chrome.storage.local.get("bodyChecks");
+    expect(stored.bodyChecks["gmail:x1"]).toMatchObject({ mismatchedLinks: 1, badLinks: 0 });
   });
 });
 

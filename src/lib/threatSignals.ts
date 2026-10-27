@@ -34,11 +34,10 @@ import { isSameOrSubdomain, registrableDomain } from "./registrableDomain";
 import { getDataset, refreshDataset } from "./remoteDataset";
 import brandDomainsFallback from "./data/brandDomains.json";
 
-// "link-mismatch" is never produced by scoreMessageForThreats below -- it's
-// only ever reported by the dashboard's manual "Deep scan" action (see
-// linkMismatch.ts), which needs the message body this module deliberately
-// never fetches. Listed here anyway so it shares one type with the others,
-// rather than a second, parallel signal-kind type for one caller.
+// "link-mismatch" and "blocklisted-link" are never produced by
+// scoreMessageForThreats below -- they come from body checks on already
+// flagged mail (bodyChecks.ts), which need the message body this module
+// deliberately never fetches. Listed here so they share one type.
 export type ThreatSignalKind =
   | "brand-impersonation"
   | "freemail-brand-claim"
@@ -51,7 +50,8 @@ export type ThreatSignalKind =
   | "link-mismatch"
   | "risky-attachment"
   | "identity-change"
-  | "provider-flagged";
+  | "provider-flagged"
+  | "blocklisted-link";
 
 export interface ThreatSignal {
   kind: ThreatSignalKind;
@@ -491,6 +491,9 @@ const SIGNAL_WEIGHTS: Record<ThreatSignalKind, number> = {
   // Outlook's own phishing/spam verdict. Warns alone; holds only with a
   // second kind of evidence, since a forged copy can't be ruled out yet.
   "provider-flagged": 3,
+  // A link in the body goes to a site on the scam/malware list. Only checked
+  // on mail that's already flagged (bodyChecks.ts).
+  "blocklisted-link": 5,
 };
 
 export type RiskTier = "high" | "elevated" | "low";

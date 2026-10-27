@@ -24,7 +24,7 @@ for the full data-flow.
 | Undo | `users.messages.batchModify` (remove `TRASH` / restore `INBOX`) | Reverse a Trash or Archive the user just did. |
 | Rules, "Sort my inbox", Read Later, Snooze, auto-quarantine | `users.messages.batchModify` (add/remove user labels and `INBOX`/`UNREAD`), `users.labels.list`, `users.labels.create` | Apply and remove labels; file mail out of and back into the inbox; mark read. |
 | Unsubscribe by email | `users.messages.send` | When a sender only accepts unsubscribe requests by email, send the email the sender's List-Unsubscribe header asks for, from the user's account, after the user reviews it in full and presses Send. Never automatic, never to an address the sender didn't sign. |
-| Deep scan (manual, one message) | `users.messages.get` (`format=full`) for that one message | Extract links from the body to check for target/text mismatch. The body is discarded immediately and never stored or transmitted. |
+| Link check on already-flagged mail (automatic, at most 20 a scan, in the open dashboard) and Deep scan (manual, one message) | `users.messages.get` (`format=full`) for that message | Extract links from the body to check for target/text mismatch and known-bad sites. Only two counts are kept; the body is discarded immediately and never stored or transmitted. |
 
 ### Why nothing narrower works
 
@@ -35,9 +35,11 @@ for the full data-flow.
   (`From`, `Reply-To`, `Subject`, `List-Unsubscribe`, `List-Unsubscribe-Post`,
   `Authentication-Results`, `DKIM-Signature`, `Precedence`, `Auto-Submitted`,
   `To`, `Cc`, `Message-ID`, `In-Reply-To`, `References`, `List-Id`,
-  `Return-Path`, `Feedback-ID`, `Sender`; for sent mail `To`, `Cc`, `Bcc`) plus
-  label IDs, thread ID, internal date, and size estimate. It never requests `format=full` except for the manual,
-  one-message-at-a-time Deep scan.
+  `Return-Path`, `Feedback-ID`, `Sender`, `Content-Type`, `List-Post`,
+  `X-Auto-Response-Suppress`, `Date`; for sent mail `To`, `Cc`, `Bcc`) plus
+  label IDs, thread ID, internal date, and size estimate, with a field mask so
+  no `snippet` is returned. It requests `format=full` only for the link check on
+  already-flagged mail described above.
 
 ### Data handling
 

@@ -21,7 +21,7 @@ to send it to.
 
 ### Headers the scan reads
 
-Only these, via the API's metadata format — **never the message body**:
+Only these, via the API's metadata format (the body only in the exception below):
 
 - `From`
 - `Reply-To`
@@ -46,13 +46,16 @@ These are kept in a local mail index (IndexedDB, on this device only, up to
 20,000 received messages and 5,000 sent per account) so Cluster doesn't
 re-read mail it already knows. Signing into a different account clears it.
 
-### The one exception: "Deep scan"
+### The exception: links in already-flagged mail
 
-The **Deep scan** button on a flagged sender fetches that **one** message's full
-body, extracts its links, checks them for target/text mismatch and against the
-bundled known-bad-domain list, then discards the body. It is manual, one message
-at a time, and never part of the automatic background pass. The body is never
-stored and never transmitted.
+For senders already at "warn" or "hold", the dashboard fetches the newest flagged
+message's full body (at most 20 per scan), and the **Deep scan** button does the
+same for one message on demand. Cluster extracts the links, checks them for
+target/text mismatch and against the bundled known-bad-domain list, then discards
+the body. Only two counts per message are kept in `chrome.storage.local`
+(`bodyChecks`, newest 500): mismatched links and known-bad links. Never text,
+never hosts. These counts can only add a warning. The background pass never
+fetches a body; it only reuses saved counts.
 
 ### On-device rule drafting
 

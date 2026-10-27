@@ -2,8 +2,9 @@
 // from verdict.ts: "Held for you" (mail auto-quarantine moved, from the
 // durable quarantinedSenders ledger) and "Check before you act" (senders in
 // this scan with warning signs, still in the inbox). Per-card actions: It's
-// fine, guided reporting, Deep scan (the one place the dashboard fetches a
-// message body) and Block. See threatSignals.ts / verdict.ts / linkMismatch.ts.
+// fine, guided reporting, Deep scan and Block. The newest flagged message of a
+// warned or held sender is also checked automatically, up to 20 a scan; these
+// are the only places a message body is read (bodyChecks.ts).
 import { log } from "../lib/log";
 import { findBlocklistedLinkTargets, findMismatchedLinks } from "../lib/linkMismatch";
 import { isBlockedDomain } from "../lib/blocklist";
@@ -19,6 +20,31 @@ import { senderTile } from "./senderTile";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
 import { clusterLabelName } from "../lib/clusterLabels";
+import {
+  applyBodyChecks,
+  bodyCheckKey,
+  checkLinks,
+  loadBodyChecks,
+  MAX_CHECKS_PER_SCAN,
+  saveBodyChecks,
+  withCheck,
+  type BodyCheckStore,
+} from "../lib/bodyChecks";
+
+let bodyChecks: BodyCheckStore = {};
+let checkingBodies = false;
+
+export async function initBodyChecks(): Promise<void> {
+  bodyChecks = await loadBodyChecks().catch((err) => {
+    log.error("Could not load body checks", err);
+    return {};
+  });
+}
+
+async function storeBodyCheck(key: string, check: ReturnType<typeof checkLinks>): Promise<void> {
+  bodyChecks = withCheck(bodyChecks, key, check);
+  await saveBodyChecks(bodyChecks).catch((err) => log.error("Could not save a body check", err));
+}
 
 const securitySectionEl = document.getElementById("security-section") as HTMLElement;
 const securitySenderListEl = document.getElementById("security-sender-list") as HTMLUListElement;
@@ -47,6 +73,7 @@ async function runDeepScan(sender: SenderSummary, resultEl: HTMLElement): Promis
     const links = await provider.getMessageLinks(token, targetId);
     const suspicious = findMismatchedLinks(links);
     const blocked = findBlocklistedLinkTargets(links, isBlockedDomain);
+    await storeBodyCheck(bodyCheckKey(sender, targetId), checkLinks(links));
 
     const findings = [
       ...suspicious.map((link) => `"${link.displayedDomain}" actually points to ${link.actualDomain}`),
@@ -259,7 +286,8 @@ const TIER_CHIP: Record<VerdictTier, [string, string]> = {
   none: ["none", "Worth a look"],
 };
 
-export function renderSecuritySection(senders: SenderSummary[]) {
+export function renderSecuritySection(senders: SenderSummary[], autoCheck = true) {
+  applyBodyChecks(senders, bodyChecks);
   renderQuarantineReview(senders);
   // Rank by combined risk so a sender tripping several signals (or a
   // freemail brand claim) sorts above one with a lone medium signal.
@@ -283,6 +311,36 @@ export function renderSecuritySection(senders: SenderSummary[]) {
   securitySenderListEl.replaceChildren(
     ...flagged.map(({ sender, verdict }) => buildThreatCard(sender, verdict)),
   );
+  if (autoCheck && !checkingBodies) {
+    checkingBodies = true;
+    void checkFlaggedBodies(senders, flagged).finally(() => (checkingBodies = false));
+  }
+}
+
+/** Reads the flagged message of warned and held senders not checked yet, at
+ * most 20, and redraws once if any turned up bad links. */
+async function checkFlaggedBodies(
+  senders: SenderSummary[],
+  flagged: { sender: SenderSummary; verdict: Verdict }[],
+): Promise<void> {
+  const todo = flagged
+    .filter(({ verdict }) => verdict.tier !== "none")
+    .map(({ sender, verdict }) => ({ sender, id: headlineMessage(sender, verdict)?.id }))
+    .filter(({ sender, id }) => id && providerById.get(sender.provider)?.getMessageLinks && !bodyChecks[bodyCheckKey(sender, id)])
+    .slice(0, MAX_CHECKS_PER_SCAN);
+  let found = false;
+  for (const { sender, id } of todo) {
+    const provider = providerById.get(sender.provider)!;
+    try {
+      const token = await provider.getAuthToken(false);
+      const check = checkLinks(await provider.getMessageLinks!(token, id!));
+      await storeBodyCheck(bodyCheckKey(sender, id!), check);
+      if (check.mismatchedLinks > 0 || check.badLinks > 0) found = true;
+    } catch (err) {
+      log.error("Could not check a flagged message's links", err);
+    }
+  }
+  if (found) renderSecuritySection(senders, false);
 }
 
 /** The subject to show: the newest message a warning came from, else the

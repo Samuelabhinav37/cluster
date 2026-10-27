@@ -27,6 +27,7 @@ const KIND_NAME: Record<ThreatSignalKind, string> = {
   "risky-attachment": "Risky attachment",
   "identity-change": "Familiar sender changed",
   "provider-flagged": "Outlook flagged it",
+  "blocklisted-link": "Links to a scam site",
 };
 
 const BRAND_KINDS = new Set<ThreatSignalKind>(["brand-impersonation", "freemail-brand-claim", "lookalike-domain"]);

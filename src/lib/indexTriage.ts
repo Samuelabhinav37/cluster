@@ -3,6 +3,7 @@
 // index up to date from the change feed, a couple of quota units, and reads
 // senders from it. A provider whose index isn't built yet, or that has no
 // change feed, is left to the old scans until the dashboard builds it.
+import { applyBodyChecks, loadBodyChecks } from "./bodyChecks";
 import { markRepliesToYou } from "./correspondents";
 import { emptyKindModel, loadKindModel, markLearnedTransactional } from "./kindModel";
 import { buildCorrespondents, mergeCorrespondentAddresses, type Correspondent } from "./correspondents";
@@ -79,6 +80,8 @@ export async function readIndexedSenders(
   const sent = (await Promise.all(providers.map((p) => index.allSent(p.id)))).flat();
   markRepliesToYou([...cleanup, ...security], metas, sent);
   markLearnedTransactional([...cleanup, ...security], await loadKindModel().catch(() => emptyKindModel()));
+  // Findings the dashboard saved; the background itself never reads a body.
+  applyBodyChecks(security, await loadBodyChecks().catch(() => ({})));
   return { cleanup, security };
 }
 

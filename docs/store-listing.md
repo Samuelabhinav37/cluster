@@ -10,9 +10,9 @@ or transmits, and keep it in sync with [`docs/privacy.md`](privacy.md) and `SECU
 
 ## Short description (≤132 chars — CWS "summary")
 
-> Sort, declutter, and secure your Gmail/Outlook inbox — no server, metadata-only, on-device AI, open source.
+> Sort, declutter, and secure your Gmail/Outlook inbox. No server, headers first, on-device AI, open source.
 
-(109 chars.)
+(106 chars.)
 
 ## Full description
 

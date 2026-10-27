@@ -104,7 +104,7 @@ import {
 import { keepNewestExcess } from "../lib/keepNewest";
 import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
 import { renderRulesTab, wireRulesTab } from "./rulesTab";
-import { renderSecuritySection } from "./securityTab";
+import { initBodyChecks, renderSecuritySection } from "./securityTab";
 import { renderScamReport } from "./reportTab";
 import { applySimpleMode, renderSettingsSetup, renderSimpleHome, screenForMode, wireSetup } from "./setupTab";
 import { renderScreenerTab, wireScreenerTab } from "./screenerTab";
@@ -506,6 +506,7 @@ async function main() {
     loadPublicSuffixList(),
     initSuggestionModel(),
     initKindModel(),
+    initBodyChecks(),
   ]);
   ctx.settings = settings;
   applyTheme(ctx.settings.theme);

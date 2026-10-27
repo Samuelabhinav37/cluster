@@ -15,15 +15,19 @@ the same way any other app you've signed into does.
 
 By default, Cluster only ever looks at message **metadata**: who a message is from, its subject
 line, when it arrived, its size, and whether it's read or starred. It never reads the body of
-your email — the part with the actual content — with one narrow, deliberate exception below.
+your email — the part with the actual content — with the narrow exceptions below.
 
-## The one exception: "Deep scan"
+## The exceptions: links in mail that looks like a scam
 
-If you click "Deep scan" on a specific flagged sender, Cluster fetches that **one** message's
-full body, checks whether any link's visible text matches where it actually goes (a classic
-phishing trick), and then immediately discards the body. It's never automatic, never runs in the
-background, and the body is never stored or sent anywhere — it's read, checked, and thrown away
-in the same moment.
+When a sender is already flagged as a possible scam, Cluster reads the newest flagged message's
+full body to check its links. It checks two things. Does a link's visible text match where it
+really goes? Does any link go to a site on a public list of scam and malware sites? It does this
+for at most 20 messages each time you open Cluster, and the "Deep scan" button does the same for
+one message when you click it.
+
+Cluster keeps only two numbers per message: how many links didn't match, and how many went to a
+listed site. The body itself is read, checked and thrown away in the same moment. It's never
+stored and never sent anywhere, and the background pass never reads a body.
 
 ## On-device AI, not a server AI
 

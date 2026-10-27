@@ -4,8 +4,8 @@
 
 Chrome (MV3) extension for Gmail + Outlook. Scans your Promotions/Updates mail
 using only message **metadata** — sender, subject, date, size, read/starred
-state, and a handful of headers — never the message body (one opt-in exception,
-"Deep scan", below). Nothing is stored server-side; everything runs in your
+state, and a handful of headers. It reads a message body only to check the links
+in mail that is already flagged as a likely scam (below). Nothing is stored server-side; everything runs in your
 browser under your own OAuth sign-in. See `SECURITY.md` for the full data /
 scope breakdown.
 
@@ -219,15 +219,16 @@ one-click, per-occurrence action rather than a standing filter: a signal that fi
 lookalike domain, a DMARC fail) isn't guaranteed to still apply to whatever this sender sends next,
 so nothing here creates a rule that keeps acting on future mail unreviewed.
 
-**A second manual action, Gmail only: "Deep scan."** Everything above only ever reads headers
-already fetched for the cleanup feature. Deep scan is the one deliberate exception — a per-message,
-opt-in fetch of the message's full HTML body (`gmailApi.ts`'s `getMessageLinks`, `format=full`, a
-materially bigger and more sensitive request than the metadata-only fetch everything else here
-uses) to check whether a link's visible text (`paypal.com` as the clickable text) points somewhere
-other than where it claims (`linkMismatch.ts`), **and** whether any link points at a domain on the
-blocklist (below). Never run automatically, never as part of the background triage — only when a
-user clicks it for a specific flagged sender's most recent message. A finding reports the same
-minimized `warned` event to Athena as every other signal.
+**Link checks on flagged mail, Gmail only.** Everything above only ever reads headers already
+fetched for the cleanup feature. The exception is a fetch of the full HTML body (`gmailApi.ts`'s
+`getMessageLinks`, `format=full`, a bigger and more sensitive request than the metadata fetch
+everything else uses) to check whether a link's visible text (`paypal.com` as the clickable text)
+points somewhere else (`linkMismatch.ts`), and whether any link points at a domain on the
+blocklist (below). The open dashboard does this on its own for the newest flagged message of each
+warned or held sender, at most 20 a scan (`bodyChecks.ts`), and "Deep scan" does it for one
+message on click. Only two counts per message are kept, and they can only add a warning. The
+background triage never reads a body. A Deep scan finding reports the same minimized `warned`
+event to Athena as every other signal.
 
 **Known-bad domain list** (`blocklisted-domain`): a static, in-repo set — a hand-maintained seed
 (`src/lib/blocklistSeed.ts`, edited directly) unioned with a build-time-vendored slice of
