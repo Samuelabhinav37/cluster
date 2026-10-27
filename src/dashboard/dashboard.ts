@@ -25,6 +25,7 @@ import {
   type ExpiryBucket,
 } from "../lib/expiryTriage";
 import { buildProtectionContext, idsSafeToMoveOut } from "../lib/protectionPolicy";
+import { markRepliesToYou } from "../lib/correspondents";
 import { getElevatedAuthToken, getProfileEmail, GmailApiError } from "../lib/gmailApi";
 import { clearMetadataCache } from "../lib/metadataCache";
 import { MAIL_INDEX_CAP, openMailIndex } from "../lib/mailIndex";
@@ -852,9 +853,11 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   const censusRows = (await Promise.all(providers.map((p) => store.allCensus(p.id)))).flat();
   applyCensus(combined.cleanup, censusRows);
   applyCensus(combined.security, censusRows);
+  const sent = (await Promise.all(providers.map((p) => store.allSent(p.id)))).flat();
+  markRepliesToYou([...combined.cleanup, ...combined.security], metas, sent);
   ctx.profiles = buildSenderProfiles({
     rows: metas,
-    sent: (await Promise.all(providers.map((p) => store.allSent(p.id)))).flat(),
+    sent,
     census: censusRows,
     ownAddresses: (await Promise.all(providers.map((p) => store.getState(p.id))))
       .map((state) => state?.accountId ?? "")

@@ -8,6 +8,7 @@ export type ProtectionReason =
   | "starred-or-flagged"
   | "provider-marked-personal"
   | "known-correspondent"
+  | "reply-to-you"
   | "active-offer-or-window"
   | "transactional"
   | "sensitive-subject"
@@ -38,7 +39,8 @@ export interface ProtectionOptions {
    * malicious sender is *less* likely to carry proper bulk headers or a
    * sensible subject than a real newsletter -- these checks would suppress
    * real phishing, which is exactly what that surface exists to catch.
-   * starred-or-flagged, provider-marked-personal, known-correspondent, and
+   * starred-or-flagged, provider-marked-personal, known-correspondent,
+   * reply-to-you, and
    * active-offer-or-window still apply regardless -- they're independent of
    * whether the sender is spammy.
    */
@@ -65,6 +67,7 @@ export function protectionDecision(
   if (senderAddress && ctx.knownSenders.has(senderAddress.toLowerCase())) {
     return { protected: true, reason: "known-correspondent" };
   }
+  if (message.repliesToYou) return { protected: true, reason: "reply-to-you" };
   const subject = cleanText(message.subject ?? "");
   if (ACTIVE_OFFER_OR_WINDOW_RE.test(subject)) {
     return { protected: true, reason: "active-offer-or-window" };
@@ -113,6 +116,7 @@ export function buildSenderCleanupPlan(
       "starred-or-flagged": 0,
       "provider-marked-personal": 0,
       "known-correspondent": 0,
+      "reply-to-you": 0,
       "active-offer-or-window": 0,
       transactional: 0,
       "sensitive-subject": 0,

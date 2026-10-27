@@ -46,6 +46,16 @@ function sender(messages: MessageRecord[]): SenderSummary {
   };
 }
 
+describe("reply-to-you", () => {
+  it("protects a bulk-looking message in your own conversation", () => {
+    expect(protectionDecision(message({ id: "r", repliesToYou: true }))).toEqual({
+      protected: true,
+      reason: "reply-to-you",
+    });
+    expect(protectionDecision(message({ id: "n" })).protected).toBe(false);
+  });
+});
+
 describe("protectionDecision", () => {
   it("protects starred, transactional, and sensitive-subject messages", () => {
     expect(protectionDecision(message({ id: "star", isProtected: true })).reason).toBe("starred-or-flagged");

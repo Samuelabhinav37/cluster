@@ -3,7 +3,8 @@
 // when you last did. This replaces the old 150-message sent sample as the
 // source of protection, the Screener's allowlist and the verdict's
 // known-correspondent check.
-import type { SentRecord } from "./providers/emailProvider";
+import type { NormalizedMessageMetadata, SentRecord } from "./providers/emailProvider";
+import type { SenderSummary } from "./senderModel";
 
 export interface Correspondent {
   address: string;
@@ -61,4 +62,32 @@ export function mergeCorrespondentAddresses(
     merged.add(address.toLowerCase());
   }
   return [...merged];
+}
+
+/**
+ * Flags mail that is part of your own conversations: in a thread you sent to
+ * (the provider's threading, not a header the sender controls), or with an
+ * In-Reply-To naming one of your sent Message-IDs. Protection only.
+ */
+export function markRepliesToYou(
+  senders: readonly SenderSummary[],
+  metas: readonly NormalizedMessageMetadata[],
+  sent: readonly SentRecord[],
+): void {
+  const threads = new Set(sent.filter((s) => s.threadId).map((s) => `${s.provider}:${s.threadId}`));
+  const sentIds = new Set(sent.filter((s) => s.messageIdHeader).map((s) => s.messageIdHeader));
+  const replies = new Set(
+    metas
+      .filter(
+        (m) =>
+          (m.threadId && threads.has(`${m.provider}:${m.threadId}`)) ||
+          (m.inReplyTo && sentIds.has(m.inReplyTo)),
+      )
+      .map((m) => `${m.provider}:${m.id}`),
+  );
+  for (const sender of senders) {
+    for (const message of sender.messages) {
+      if (replies.has(`${sender.provider}:${message.id}`)) message.repliesToYou = true;
+    }
+  }
 }

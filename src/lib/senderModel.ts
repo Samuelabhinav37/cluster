@@ -61,6 +61,9 @@ export interface MessageRecord {
   dkimDomains?: string[];
   /** Registrable domain of the Reply-To address, if the message set one. */
   replyToDomain?: string;
+  /** In a thread you wrote in, or answering one of your sent messages
+   * (set by markRepliesToYou). */
+  repliesToYou?: boolean;
 }
 
 export interface SenderSummary {
