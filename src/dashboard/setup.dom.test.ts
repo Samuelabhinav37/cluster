@@ -38,7 +38,7 @@ describe("first-run setup", () => {
     const shown = Array.from(document.querySelectorAll<HTMLButtonElement>("#sidebar button[data-screen]"))
       .filter((b) => !b.hidden)
       .map((b) => b.dataset.screen);
-    expect(shown.sort()).toEqual(["impersonation", "settings", "simple"]);
+    expect(shown.sort()).toEqual(["impersonation", "simple"]);
     expect(dash.el("settings-persona").textContent).toBe("Keep me safe");
   });
 

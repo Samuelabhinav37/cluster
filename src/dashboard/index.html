@@ -11,31 +11,9 @@
     <div class="app-shell">
 
       <div class="app-body">
-        <!-- ── Rail: brand, the four areas, account ─────────────────── -->
-        <div class="rail">
-          <span class="rail-brand" title="Cluster"><svg class="brand-mark" viewBox="0 0 256 256" width="22" height="22" aria-hidden="true" > <path d="M 110.68,26 Q 128,16 145.32,26 L 207.67,62 Q 224.99,72 224.99,92 L 224.99,164 Q 224.99,184 207.67,194 L 145.32,230 Q 128,240 110.68,230 L 48.33,194 Q 31.01,184 31.01,164 L 31.01,92 Q 31.01,72 48.33,62 Z M 81 88 h 94 a 12 12 0 0 1 12 12 v 56 a 12 12 0 0 1 -12 12 h -94 a 12 12 0 0 1 -12 -12 v -56 a 12 12 0 0 1 12 -12 Z M 75 96 L 128 129.6 L 181 96 L 181 82 L 75 82 Z" fill="currentColor" fill-rule="evenodd" /> </svg></span>
-          <div class="rail-areas" role="group" aria-label="Areas">
-            <button type="button" class="rail-btn" data-go="overview" data-area="home" aria-label="Inbox" title="Inbox"><svg class="nav-icon ni-home" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"></path><path class="ni-door" d="M10 20v-5.2h4V20"></path></svg></button>
-            <button type="button" class="rail-btn" data-go="delete" data-area="clear" aria-label="Clean up" title="Clean up"><svg class="nav-icon ni-bin" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 8.5 7.4 19a1.2 1.2 0 0 0 1.2 1.1h6.8a1.2 1.2 0 0 0 1.2-1.1l.9-10.5"></path><g class="ni-lid"><path d="M4.5 6.5h15"></path><path d="M9.5 6.5V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5"></path></g></svg></button>
-            <button type="button" class="rail-btn" data-go="organize" data-area="sorting" aria-label="Organize" title="Organize"><svg class="nav-icon ni-layers" viewBox="0 0 24 24" aria-hidden="true"><path class="ni-l1" d="M12 4 4 8.5 12 13l8-4.5Z"></path><path d="M4 12.5 12 17l8-4.5"></path><path class="ni-l3" d="M4 16.5 12 21l8-4.5"></path></svg></button>
-            <button type="button" class="rail-btn" data-go="impersonation" data-area="safety" aria-label="Protect" title="Protect"><svg class="nav-icon ni-shield" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 5 6v5.4c0 4 2.8 7.3 7 9.1 4.2-1.8 7-5.1 7-9.1V6z"></path><path class="ni-tick" d="M9 12.2l2.1 2.1L15.2 10"></path></svg></button>
-          </div>
-          <span class="rail-spacer"></span>
-          <div class="account-wrap">
-            <button type="button" class="account-pill" id="account-pill" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu">
-              <span class="avatar" id="account-avatar" aria-hidden="true"></span>
-              <span class="email sr-only" id="account-email">Account</span>
-              <svg class="account-glyph" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="9" r="3.6"></circle><path d="M5.5 19.5c1.2-3.2 3.6-4.8 6.5-4.8s5.3 1.6 6.5 4.8"></path></svg>
-            </button>
-            <div class="account-menu" id="account-menu" role="menu" aria-label="Account" hidden>
-              <button type="button" id="apply-scan-settings-btn" class="menu-item" role="menuitem">Rescan mail</button>
-              <button type="button" id="connect-outlook" class="menu-item" role="menuitem">Connect Outlook</button>
-            </div>
-          </div>
-        </div>
-
         <!-- ── Panel: search and every page ──────────────────────────── -->
         <div class="side-panel">
+          <div class="panel-brand"><span class="brand-tile"><svg class="brand-mark" viewBox="0 0 256 256" width="22" height="22" aria-hidden="true" > <path d="M 110.68,26 Q 128,16 145.32,26 L 207.67,62 Q 224.99,72 224.99,92 L 224.99,164 Q 224.99,184 207.67,194 L 145.32,230 Q 128,240 110.68,230 L 48.33,194 Q 31.01,184 31.01,164 L 31.01,92 Q 31.01,72 48.33,62 Z M 81 88 h 94 a 12 12 0 0 1 12 12 v 56 a 12 12 0 0 1 -12 12 h -94 a 12 12 0 0 1 -12 -12 v -56 a 12 12 0 0 1 12 -12 Z M 75 96 L 128 129.6 L 181 96 L 181 82 L 75 82 Z" fill="currentColor" fill-rule="evenodd" /> </svg></span>Cluster</div>
           <label class="header-search panel-search">
             <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.4"></circle><path d="M13 13l4 4"></path></svg>
             <input type="search" id="header-search" placeholder="Search senders" aria-label="Search senders" autocomplete="off" />
@@ -44,23 +22,19 @@
         <!-- ── Sidebar ───────────────────────────────────────────────── -->
         <nav class="sidebar" id="sidebar" aria-label="Sections">
           <div class="nav-area" data-area="home">
-            <div class="nav-group-label">Inbox</div>
             <button type="button" class="nav-item" data-screen="overview">
               <svg class="nav-icon ni-home" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"></path><path class="ni-door" d="M10 20v-5.2h4V20"></path></svg>
               Home
             </button>
-            <div class="nav-children">
-              <button type="button" class="nav-item nav-child" data-screen="senders">
-                <svg class="nav-icon ni-people" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="3.2"></circle><path d="M3.5 19c.9-3 3-4.5 5.5-4.5s4.6 1.5 5.5 4.5"></path><path d="M15.5 6.2a3 3 0 0 1 0 5.6"></path><path d="M17 14.8c1.7.5 2.9 1.9 3.5 4.2"></path></svg>
-                Senders
-              </button>
-            </div>
           </div>
+          <button type="button" class="nav-item" data-screen="senders">
+            <svg class="nav-icon ni-people" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="3.2"></circle><path d="M3.5 19c.9-3 3-4.5 5.5-4.5s4.6 1.5 5.5 4.5"></path><path d="M15.5 6.2a3 3 0 0 1 0 5.6"></path><path d="M17 14.8c1.7.5 2.9 1.9 3.5 4.2"></path></svg>
+            Senders
+          </button>
           <div class="nav-area" data-area="clear">
-            <div class="nav-group-label">Clean up</div>
             <button type="button" class="nav-item" data-screen="delete">
               <svg class="nav-icon ni-bin" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 8.5 7.4 19a1.2 1.2 0 0 0 1.2 1.1h6.8a1.2 1.2 0 0 0 1.2-1.1l.9-10.5"></path><g class="ni-lid"><path d="M4.5 6.5h15"></path><path d="M9.5 6.5V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5"></path></g></svg>
-              Clear out
+              Clean up
               <span class="nav-count" id="nav-count-delete"></span>
             </button>
             <div class="nav-children">
@@ -71,10 +45,9 @@
             </div>
           </div>
           <div class="nav-area" data-area="sorting">
-            <div class="nav-group-label">Organize</div>
             <button type="button" class="nav-item" data-screen="organize">
               <svg class="nav-icon ni-layers" viewBox="0 0 24 24" aria-hidden="true"><path class="ni-l1" d="M12 4 4 8.5 12 13l8-4.5Z"></path><path d="M4 12.5 12 17l8-4.5"></path><path class="ni-l3" d="M4 16.5 12 21l8-4.5"></path></svg>
-              Sorting
+              Organize
             </button>
             <div class="nav-children">
               <button type="button" class="nav-item nav-child" data-screen="rules">
@@ -84,10 +57,9 @@
             </div>
           </div>
           <div class="nav-area" data-area="safety">
-            <div class="nav-group-label">Protect</div>
             <button type="button" class="nav-item" data-screen="impersonation">
               <svg class="nav-icon ni-shield" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 5 6v5.4c0 4 2.8 7.3 7 9.1 4.2-1.8 7-5.1 7-9.1V6z"></path><path class="ni-tick" d="M9 12.2l2.1 2.1L15.2 10"></path></svg>
-              Safety
+              Protect
               <span class="nav-count" id="nav-count-impersonation"></span>
             </button>
             <div class="nav-children">
@@ -104,15 +76,6 @@
           </div>
 
           <span class="sidebar-spacer"></span>
-          <div class="nav-group-label">General</div>
-          <button type="button" class="nav-item" data-screen="recent">
-            <svg class="nav-icon ni-clock" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><path class="ni-hand" d="M12 12V7.5"></path><path d="M12 12l3 2"></path></svg>
-            Activity
-          </button>
-          <button type="button" class="nav-item" data-screen="settings">
-            <svg class="nav-icon ni-gear" viewBox="0 0 24 24" aria-hidden="true"><g class="ni-cog"><path d="M18.80 10.34 L21.07 10.44 L21.07 13.56 L18.80 13.66 L17.98 15.63 L19.51 17.31 L17.31 19.51 L15.63 17.98 L13.66 18.80 L13.56 21.07 L10.44 21.07 L10.34 18.80 L8.37 17.98 L6.69 19.51 L4.49 17.31 L6.02 15.63 L5.20 13.66 L2.93 13.56 L2.93 10.44 L5.20 10.34 L6.02 8.37 L4.49 6.69 L6.69 4.49 L8.37 6.02 L10.34 5.20 L10.44 2.93 L13.56 2.93 L13.66 5.20 L15.63 6.02 L17.31 4.49 L19.51 6.69 L17.98 8.37 Z"></path><circle cx="12" cy="12" r="2.8"></circle></g></svg>
-            Settings
-          </button>
           <button type="button" class="nav-item nav-simple-home" data-screen="simple" hidden>
             <svg class="nav-icon ni-home" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"></path><path class="ni-door" d="M10 20v-5.2h4V20"></path></svg>
             Home
@@ -121,6 +84,19 @@
             Cluster reads senders, subjects and dates. It reads a message's links only if it already looks like a scam.
           </p>
         </nav>
+          <div class="account-wrap">
+            <button type="button" class="account-pill" id="account-pill" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu">
+              <span class="avatar" id="account-avatar" aria-hidden="true"></span>
+              <span class="email" id="account-email">Account</span>
+              <svg class="account-glyph" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="9" r="3.6"></circle><path d="M5.5 19.5c1.2-3.2 3.6-4.8 6.5-4.8s5.3 1.6 6.5 4.8"></path></svg>
+            </button>
+            <div class="account-menu" id="account-menu" role="menu" aria-label="Account" hidden>
+              <button type="button" class="menu-item" role="menuitem" data-open="recent">Activity</button>
+              <button type="button" class="menu-item" role="menuitem" data-open="settings">Settings</button>
+              <button type="button" id="apply-scan-settings-btn" class="menu-item" role="menuitem">Rescan mail</button>
+              <button type="button" id="connect-outlook" class="menu-item" role="menuitem">Connect Outlook</button>
+            </div>
+          </div>
         </div>
 
         <!-- ── Main ──────────────────────────────────────────────────── -->

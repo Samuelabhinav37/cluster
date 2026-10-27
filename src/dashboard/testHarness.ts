@@ -341,7 +341,7 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
     status: () => el("status").textContent ?? "",
     showScreen: (screen: string) => {
       const btn = document.querySelector<HTMLButtonElement>(
-        `#sidebar button[data-screen="${screen}"]`,
+        `#sidebar button[data-screen="${screen}"], #account-menu [data-open="${screen}"]`,
       );
       if (!btn) throw new Error(`no nav button for screen "${screen}"`);
       btn.click();

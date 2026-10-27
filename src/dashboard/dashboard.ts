@@ -204,8 +204,8 @@ const SCREEN_ALIASES: Record<string, string> = {
 };
 function resolveScreen(name: string): string {
   const target = screenForMode(SCREEN_ALIASES[name] ?? name);
-  if (target === "setup") return target; // reached from Overview and Settings, not the nav
-  return navButtons.some((b) => b.dataset.screen === target) ? target : screenForMode("overview");
+  // Setup, Activity and Settings have no sidebar item; any screen with a panel is fine.
+  return screenPanels.some((p) => p.dataset.screen === target) ? target : screenForMode("overview");
 }
 
 
@@ -249,27 +249,36 @@ function showScreen(name: string) {
     // move between the rest.
     btn.tabIndex = active ? 0 : -1;
   }
-  // Two-level sidebar: an area's sub-items show only while one of its
-  // screens is open.
-  for (const area of Array.from(document.querySelectorAll<HTMLElement>("#sidebar .nav-area"))) {
-    const open = Boolean(area.querySelector(`button[data-screen="${target}"]`));
-    area.classList.toggle("open", open);
-    document.querySelector(`.rail-btn[data-area="${area.dataset.area}"]`)?.classList.toggle("active", open);
+  // On a screen from the account menu, keep the sidebar reachable by Tab.
+  if (!navButtons.some((b) => b.dataset.screen === target)) {
+    const first = navButtons.find(navItemShown);
+    if (first) first.tabIndex = 0;
   }
-  renderCrumbs(navButtons.find((b) => b.dataset.screen === target));
+  // A place's sub-pages show only while one of its screens is open.
+  for (const area of Array.from(document.querySelectorAll<HTMLElement>("#sidebar .nav-area"))) {
+    area.classList.toggle("open", Boolean(area.querySelector(`button[data-screen="${target}"]`)));
+  }
+  renderCrumbs(
+    navButtons.find((b) => b.dataset.screen === target) ??
+      document.querySelector<HTMLButtonElement>(`#account-menu [data-open="${target}"]`) ??
+      undefined,
+  );
 }
 
-/** "Clean up › Stop mail" above the page: the item's group label, then its own name. */
+/** "Clean up › Stop mail" above a sub-page: its place, then its own name. */
 function renderCrumbs(btn: HTMLButtonElement | undefined) {
   const crumbs = document.getElementById("crumbs");
   if (!crumbs) return;
   // The item's own text nodes only, so a count badge is left out.
-  const name = btn
-    ? Array.from(btn.childNodes).filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent).join("").trim()
+  const label = (b: HTMLButtonElement | null | undefined) =>
+    b ? Array.from(b.childNodes).filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent).join("").trim() : "";
+  const name = label(btn);
+  const group = btn?.classList.contains("nav-child")
+    ? label(btn.closest(".nav-area")?.querySelector<HTMLButtonElement>(":scope > .nav-item"))
     : "";
-  const group = btn?.closest(".nav-area")?.querySelector(".nav-group-label")?.textContent ?? "";
+  // A place's own page needs no crumb; its title says where you are.
   crumbs.replaceChildren(
-    ...[group, name].filter(Boolean).map((text) => {
+    ...(group ? [group, name] : []).map((text) => {
       const span = document.createElement("span");
       span.textContent = text;
       return span;
@@ -304,8 +313,10 @@ function wireNav() {
     }
     btn.onclick = () => void selectScreen(name);
   }
-  for (const btn of Array.from(document.querySelectorAll<HTMLButtonElement>(".rail-btn[data-go]"))) {
-    btn.onclick = () => void selectScreen(btn.dataset.go!);
+  for (const btn of Array.from(document.querySelectorAll<HTMLButtonElement>("#account-menu [data-open]"))) {
+    const panel = screenPanels.find((p) => p.dataset.screen === btn.dataset.open);
+    panel?.setAttribute("aria-label", btn.textContent!.trim());
+    btn.onclick = () => void selectScreen(btn.dataset.open!);
   }
 
   list?.addEventListener("keydown", (event) => {

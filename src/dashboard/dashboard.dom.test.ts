@@ -166,7 +166,8 @@ describe("dashboard boot smoke", () => {
     const buttons = Array.from(
       document.querySelectorAll<HTMLButtonElement>("#sidebar button[data-screen]"),
     );
-    expect(buttons.length).toBe(12);
+    // Five places and their sub-pages; Activity and Settings live in the account menu.
+    expect(buttons.length).toBe(10);
     // "Home" exists only in simple mode; outside it the item is hidden.
     expect(buttons.filter((b) => b.hidden).map((b) => b.dataset.screen)).toEqual(["simple"]);
     for (const button of buttons.filter((b) => !b.hidden)) {

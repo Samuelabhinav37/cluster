@@ -3307,8 +3307,11 @@ body {
   flex-direction: column;
 }
 
-/* Sub-items are always shown, so every page can be found without opening
-   its parent first. */
+/* Five places; a place's sub-pages show only while it is open. */
+.nav-area:not(.open) > .nav-children {
+  display: none !important;
+}
+
 .nav-children {
   display: flex;
   flex-direction: column;
@@ -3898,13 +3901,12 @@ circle.chart-track {
   padding-left: 40px;
 }
 
-/* ══ Rail shell (2026-10): icon rail, a panel with every page, crumbs ═══════
-   One brand colour on the rail tile; Inter Tight throughout (--mono is kept
+/* ══ Shell (2026-10): one panel with the five places, crumbs on sub-pages ══
+   One brand colour on the brand tile; Inter Tight throughout (--mono is kept
    as the chrome's font slot: nav, labels, crumbs, leads). */
 :root {
   --mono: var(--font);
   --brand-tile: #ff5a1f;
-  --rail: var(--canvas);
   --panel: var(--glass);
 }
 
@@ -3913,108 +3915,69 @@ circle.chart-track {
   min-height: 100vh;
 }
 
-.rail {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  width: 64px;
-  flex: none;
+.panel-brand {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 18px;
-  padding: 16px 0;
-  background: var(--rail);
-  border-right: 1px solid var(--hairline);
+  gap: 10px;
+  padding: 18px 22px 6px;
+  font: 600 16px/1.2 var(--font);
+  color: var(--label);
 }
 
-.rail-brand {
+.brand-tile {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
   background: var(--brand-tile);
 }
 
-.rail-brand .brand-mark {
-  width: 22px;
-  height: 22px;
+.brand-tile .brand-mark {
+  width: 19px;
+  height: 19px;
   color: #fff;
 }
 
-.rail-areas {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--hairline);
+/* Account sits at the foot of the panel; its menu opens upward. */
+.side-panel .account-wrap {
+  justify-self: stretch;
+  padding: 10px 12px 14px;
+  border-top: 1px solid var(--hairline);
 }
 
-.rail-btn {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
+.side-panel .account-pill {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 10px;
   min-height: 40px;
-  padding: 0;
-  border: 0;
+  padding: 4px 10px;
   border-radius: 10px;
+  box-shadow: none;
   background: none;
-  color: var(--label-4);
-  cursor: pointer;
 }
 
-.rail-btn svg.nav-icon {
-  width: 22px;
-  height: 22px;
-  color: inherit;
-}
-
-.rail-btn:hover,
-.rail-btn:focus-visible {
-  color: var(--label);
+.side-panel .account-pill:hover {
   background: var(--neutral-fill);
 }
 
-.rail-btn.active {
-  color: var(--label);
-  background: var(--neutral-fill-hover);
-  box-shadow: inset 0 0 0 1px var(--hairline);
+.side-panel .account-pill .email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--label-3);
 }
 
-.rail-spacer {
-  flex: 1;
-}
-
-.rail .account-pill {
-  width: 40px;
-  height: 40px;
-  min-height: 40px;
-  padding: 0;
-  justify-content: center;
-  border-radius: 50%;
-}
-
-.rail .account-pill:has(.avatar:empty) {
-  padding: 0;
-}
-
-.rail .avatar {
-  width: 32px;
-  height: 32px;
-  line-height: 32px;
-}
-
-.rail .account-pill:has(.avatar:not(:empty)) .account-glyph {
+.side-panel .account-pill:has(.avatar:not(:empty)) .account-glyph {
   display: none;
 }
 
-.rail .account-menu {
-  left: calc(100% + 10px);
-  right: auto;
+.side-panel .account-menu {
+  left: 12px;
+  right: 12px;
   top: auto;
-  bottom: 0;
+  bottom: calc(100% + 6px);
 }
 
 .side-panel {
@@ -4025,7 +3988,7 @@ circle.chart-track {
   flex: none;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, var(--panel), var(--rail));
+  background: linear-gradient(180deg, var(--panel), var(--canvas));
   border-right: 1px solid var(--hairline);
 }
 
@@ -4079,6 +4042,10 @@ circle.chart-track {
 
 .sidebar .nav-children {
   margin: 0;
+}
+
+.sidebar .nav-item.nav-child {
+  padding-left: 28px;
 }
 
 .sidebar .nav-item:hover {
@@ -4168,37 +4135,18 @@ circle.chart-track {
   color: var(--label-4);
 }
 
-body.simple .rail-areas {
-  display: none;
-}
-
-/* Narrow: the rail becomes a top bar and the panel the old scrolling strip */
+/* Narrow: the panel becomes a scrolling strip across the top */
 @media (max-width: 900px) {
   .app-body {
     flex-direction: column;
   }
 
-  .rail {
-    position: sticky;
-    z-index: 20;
-    height: auto;
-    width: 100%;
-    flex-direction: row;
-    padding: 8px 16px;
-    border-right: 0;
-    border-bottom: 1px solid var(--hairline);
+  .side-panel .account-wrap {
+    border-top: 0;
   }
 
-  .rail-areas {
-    flex-direction: row;
-    padding: 0;
-    border: 0;
-  }
-
-  .rail .account-menu {
-    left: auto;
-    right: 0;
-    top: calc(100% + 8px);
+  .side-panel .account-menu {
+    top: calc(100% + 6px);
     bottom: auto;
   }
 
@@ -4223,7 +4171,6 @@ body.simple .rail-areas {
 }
 
 body[data-state="connect"] .side-panel,
-body[data-state="connect"] .rail-areas,
 body[data-state="connect"] .crumbs {
   display: none;
 }
