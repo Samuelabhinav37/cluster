@@ -708,9 +708,14 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
   return run;
 }
 
-/** Quiet line under the status while older or sent mail is still being read. */
+// Rate sample for the time estimate, reset when the phase changes.
+let paceSample: { phase: string; at: number; done: number } | undefined;
+// Messages read when the screens were last redrawn from the index.
+let viewDone = 0;
+const VIEW_REFRESH_EVERY = 500;
+
+/** Bar pinned to the bottom while mail is still being read. */
 function updateIndexStatus() {
-  if (indexOfferShown) return;
   const active = [...indexRuns.values()]
     .map((run) => run.progress)
     .filter(
@@ -721,27 +726,63 @@ function updateIndexStatus() {
     return;
   }
   const done = active.reduce((sum, p) => sum + p.done, 0);
-  const total = active.reduce((sum, p) => sum + p.total, 0);
-  const of = `${done.toLocaleString()} of ${total.toLocaleString()}`;
-  indexStatusEl.hidden = false;
-  const what = active.some((p) => p.phase === "sent")
-    ? `Reading your sent mail: ${of}.`
-    : active.some((p) => p.phase === "reading")
-      ? `Counting your senders: ${of}.`
-      : `Reading your mail: ${of}.`;
+  const total = Math.max(done, active.reduce((sum, p) => sum + p.total, 0));
+  const phase = active.some((p) => p.phase === "sent") ? "sent" : "mail";
+  if (paceSample?.phase !== phase || done < paceSample.done) paceSample = { phase, at: Date.now(), done };
+  const elapsed = Date.now() - paceSample.at;
+  const rate = (done - paceSample.done) / elapsed;
+  const minutes = rate > 0 && elapsed > 20_000 ? Math.ceil((total - done) / rate / 60_000) : 0;
   // Waits past the usual gap are Gmail's per-minute limit; say when reading resumes.
   const resumeIn = Math.ceil((buildResumesAt - Date.now()) / 1000);
-  indexStatusEl.textContent =
+  const parts = [
+    phase === "sent" ? "Reading your sent mail" : "Reading your mail",
+    // Between phases the last one reads "150 of 150", which looks finished.
+    done < total ? `${done.toLocaleString()} of ${total.toLocaleString()}` : "",
     resumeIn * 1000 > BUILD_PACE.minGapMs + 2_000
-      ? `${what} Waiting ${resumeIn} s for Gmail's speed limit. `
-      : `${what} `;
-  // Screens can catch up any time without stopping the reading.
-  const update = document.createElement("button");
-  update.type = "button";
-  update.className = "btn-link";
-  update.textContent = "Update view";
-  update.onclick = () => void scanAndRender();
-  indexStatusEl.appendChild(update);
+      ? `paused for Gmail's speed limit, back in ${resumeIn} s`
+      : minutes > 0
+        ? `about ${minutes} min left`
+        : "",
+  ].filter(Boolean);
+  const fill = document.createElement("div");
+  fill.style.width = `${total > 0 ? Math.round((done / total) * 100) : 0}%`;
+  const track = document.createElement("div");
+  track.className = "scan-track";
+  track.appendChild(fill);
+  indexStatusEl.replaceChildren(parts.join(" · "), ...(done < total ? [track] : []));
+  indexStatusEl.hidden = false;
+  // A new phase counts from zero again.
+  if (done < viewDone) viewDone = done;
+  if (phase === "mail" && done - viewDone >= VIEW_REFRESH_EVERY) void refreshView();
+}
+
+let refreshing = false;
+
+/**
+ * Redraws every screen from the index without the loading state, keeping the
+ * scroll position and any open review section. Waits while a confirm step is
+ * open, so nothing you're about to act on changes under you.
+ */
+async function refreshView() {
+  if (refreshing || !statusEl.hidden) return;
+  const confirming = Array.from(document.querySelectorAll<HTMLButtonElement>(".btn")).some(
+    (b) => b.textContent === "Confirm" && !b.closest("[hidden]"),
+  );
+  if (confirming) {
+    setTimeout(() => void refreshView(), 5_000);
+    return;
+  }
+  refreshing = true;
+  const reviews = [neverReadSectionEl, spamSectionEl, expirySectionEl].map((el) => el.hidden);
+  const scroll = window.scrollY;
+  try {
+    viewDone = [...indexRuns.values()].reduce((sum, run) => sum + (run.progress?.done ?? 0), 0);
+    await scanAndRender({ quiet: true });
+    [neverReadSectionEl, spamSectionEl, expirySectionEl].forEach((el, i) => (el.hidden = reviews[i]));
+    window.scrollTo(0, scroll);
+  } finally {
+    refreshing = false;
+  }
 }
 
 /** Everyone in the sent store joins the "people you write to" list that
@@ -751,45 +792,27 @@ async function updateCorrespondentsFromIndex(provider: EmailProvider) {
   if (written) ctx.settings = written;
 }
 
-/** After a render, offer the newer picture once a sync changes the index. */
-// True while a "Show it" offer is on screen, so progress text doesn't replace it.
-let indexOfferShown = false;
+const refreshOnDone = new WeakSet<IndexRun>();
 
-function showIndexOffer(text: string) {
-  if (!statusEl.hidden) return;
-  indexOfferShown = true;
-  indexStatusEl.hidden = false;
-  indexStatusEl.textContent = `${text} `;
-  const show = document.createElement("button");
-  show.type = "button";
-  show.className = "btn-link";
-  show.textContent = "Show it";
-  show.onclick = () => {
-    indexStatusEl.hidden = true;
-    indexOfferShown = false;
-    void scanAndRender();
-  };
-  indexStatusEl.appendChild(show);
-}
-
-function offerUpdatedView(run: IndexRun) {
+/** Redraws once more when a still-running read finishes. */
+function refreshWhenDone(run: IndexRun) {
   // Already finished: this render includes everything it read.
-  if (run.settled) return;
-  // Only once reading is truly finished; until then the progress line says
-  // how far it got and offers "Update view".
+  if (run.settled || refreshOnDone.has(run)) return;
+  refreshOnDone.add(run);
   void run.done.then((result) => {
-    if (!result || !syncChangedIndex(result)) return;
-    showIndexOffer("All your mail is read.");
+    if (result && syncChangedIndex(result)) void refreshView();
   });
 }
 
-async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
-  statusEl.hidden = false;
-  indexStatusEl.hidden = true;
-  senderGroupsEl.hidden = true;
-  domainSectionEl.hidden = true;
-  expirySectionEl.hidden = true;
-  statusEl.textContent = "Getting your mailbox ready…";
+async function scanAndRender({ refresh = false, quiet = false }: { refresh?: boolean; quiet?: boolean } = {}) {
+  if (!quiet) {
+    statusEl.hidden = false;
+    indexStatusEl.hidden = true;
+    senderGroupsEl.hidden = true;
+    domainSectionEl.hidden = true;
+    expirySectionEl.hidden = true;
+    statusEl.textContent = "Getting your mailbox ready…";
+  }
 
   const store = await openMailIndex();
   // "Rescan" no longer throws the index away: the sync below picks up every
@@ -875,8 +898,7 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
     knownSenders: buildProtectionContext(ctx.settings).knownSenders,
   });
   readUnsubscribeReplies(metas);
-  indexOfferShown = false;
-  for (const { run } of runs) offerUpdatedView(run);
+  for (const { run } of runs) refreshWhenDone(run);
   let senders = combined.cleanup;
   const securitySenders = combined.security;
 
@@ -1256,6 +1278,11 @@ async function toggleCollapsedCategory(
   ctx.settings = await updateSettings({ [settingsKey]: [...current] });
 }
 
+/** Rows a long list shows before "Show all". */
+const LIST_PREVIEW = 10;
+/** Groups after the first start closed; these are the ones opened this session. */
+const openedGroups = new Set<string>();
+
 function renderCategoryGroups<T>(
   container: HTMLElement,
   groups: CategoryGroup<T>[],
@@ -1265,10 +1292,12 @@ function renderCategoryGroups<T>(
   collapseSettingsKey: CollapseSettingsKey,
 ) {
   container.innerHTML = "";
-  for (const group of groups) {
+  groups.forEach((group, index) => {
     const details = document.createElement("details");
     details.className = "category-group";
-    details.open = !ctx.settings[collapseSettingsKey].includes(group.category);
+    const openKey = `${collapseSettingsKey}:${group.category}`;
+    details.open =
+      index === 0 ? !ctx.settings[collapseSettingsKey].includes(group.category) : openedGroups.has(openKey);
 
     const summary = document.createElement("summary");
     summary.textContent = `${DOMAIN_CATEGORY_LABELS[group.category]} `;
@@ -1295,17 +1324,34 @@ function renderCategoryGroups<T>(
     let rowsBuilt = false;
     const buildRows = () => {
       if (rowsBuilt) return;
-      for (const item of group.items) tbody.appendChild(buildRow(item));
+      for (const item of group.items.slice(0, LIST_PREVIEW)) tbody.appendChild(buildRow(item));
+      if (group.items.length > LIST_PREVIEW) {
+        const moreRow = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = headers.length;
+        const more = document.createElement("button");
+        more.className = "btn-link";
+        more.textContent = `Show all ${group.items.length}`;
+        more.onclick = () => {
+          moreRow.remove();
+          for (const item of group.items.slice(LIST_PREVIEW)) tbody.appendChild(buildRow(item));
+        };
+        cell.appendChild(more);
+        moreRow.appendChild(cell);
+        tbody.appendChild(moreRow);
+      }
       rowsBuilt = true;
     };
     if (details.open) buildRows();
     details.addEventListener("toggle", () => {
       toggleCollapsedCategory(collapseSettingsKey, group.category, !details.open);
+      if (details.open) openedGroups.add(openKey);
+      else openedGroups.delete(openKey);
       if (details.open) buildRows();
     });
 
     container.appendChild(details);
-  }
+  });
 }
 
 // ── Sender table ─────────────────────────────────────────────────────────

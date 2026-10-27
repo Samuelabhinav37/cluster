@@ -346,6 +346,10 @@ function senderAddressFromKey(key: string): string {
   return separator >= 0 ? key.slice(separator + 1) : key;
 }
 
+const LIST_PREVIEW = 10;
+// Stays open for the session once you ask for the whole list.
+let showAllSubscriptions = false;
+
 export function renderSubscriptionsTab(senders: SenderSummary[]) {
   renderPaidSubscriptions(senders);
 
@@ -530,7 +534,18 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
     });
 
     subscriptionsListEl.appendChild(hdr);
-    subscriptionsListEl.appendChild(listGroup(rows, { inset: true }));
+    const shown = showAllSubscriptions ? rows : rows.slice(0, LIST_PREVIEW);
+    subscriptionsListEl.appendChild(listGroup(shown, { inset: true }));
+    if (shown.length < rows.length) {
+      const more = document.createElement("button");
+      more.className = "btn-link";
+      more.textContent = `Show all ${rows.length}`;
+      more.onclick = () => {
+        showAllSubscriptions = true;
+        renderSubscriptionsTab(ctx.senders);
+      };
+      subscriptionsListEl.appendChild(more);
+    }
   }
 
   if (visibleTrackedOnlyRows.length > 0) {

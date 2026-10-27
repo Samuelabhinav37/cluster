@@ -1646,17 +1646,30 @@ a:hover {
   display: none;
 }
 
-/* Background reading progress: one quiet line above the page */
+/* Background reading progress: a bar pinned to the bottom of the page */
 .index-status {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 10px;
-  max-width: 1120px;
-  margin: 0;
-  padding: 14px 40px 0;
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  padding: 10px 40px 12px;
   font: 400 13px/1.4 var(--font);
-  color: var(--label-4);
+  color: var(--label-2);
+  background: var(--glass-bar);
+  border-top: 1px solid var(--separator);
+  backdrop-filter: blur(20px);
+}
+
+.scan-track {
+  height: 4px;
+  margin-top: 8px;
+  border-radius: 2px;
+  background: var(--neutral-fill);
+}
+
+.scan-track > div {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
 }
 
 .index-status[hidden] {
