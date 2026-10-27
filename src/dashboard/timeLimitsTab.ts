@@ -287,13 +287,14 @@ function renderBacklogPreview(token: string, rows: BacklogRow[]): void {
 // Each is a ready-made value for one row of the editor below, saved through
 // the same path, so "Make your own" and a preset never disagree.
 
-export const PRESETS: ReadonlyArray<{ bucket: SortBucket; hours: number; name: string }> = [
-  { bucket: "otp", hours: 24, name: "Codes leave after a day" },
-  { bucket: "promotions", hours: 0, name: "Promotions skip the inbox" },
-  { bucket: "newsletter", hours: 168, name: "Newsletters leave after a week" },
-  { bucket: "shipping", hours: 72, name: "Tracking leaves after 3 days" },
-  { bucket: "receipt", hours: 168, name: "Receipts leave after a week" },
-  { bucket: "social", hours: 24, name: "Social leaves after a day" },
+export const PRESETS: ReadonlyArray<{ id: string; hours: Partial<Record<SortBucket, number>>; name: string }> = [
+  { id: "codes", hours: { otp: 24 }, name: "Codes leave after a day" },
+  { id: "promotions", hours: { promotions: 0 }, name: "Promotions skip the inbox" },
+  { id: "newsletters", hours: { newsletter: 168 }, name: "Newsletters leave after a week" },
+  { id: "tracking", hours: { shipping: 72 }, name: "Tracking leaves after 3 days" },
+  { id: "receipts", hours: { receipt: 168 }, name: "Receipts leave after a week" },
+  { id: "social", hours: { social: 24 }, name: "Social leaves after a day" },
+  { id: "shopping", hours: { shopping: 72 }, name: "Shopping leaves after 3 days" },
 ];
 
 const presetsEl = document.getElementById("presets") as HTMLDivElement | null;
@@ -314,7 +315,7 @@ export function weeklyByBucket(senders: readonly SenderSummary[], now: number): 
 
 /** The last preset change, so its card can offer Undo after the re-render. */
 type Limits = Record<string, number | null>;
-let undoable: { bucket: SortBucket; hours: Limits; on: boolean } | null = null;
+let undoable: { id: string; hours: Limits; on: boolean } | null = null;
 
 /** Sets every row and the switch, saves, and remembers `after` for Undo. */
 async function saveLimits(hours: Limits, on: boolean, after: typeof undoable): Promise<void> {
@@ -341,7 +342,8 @@ export function renderPresets(senders: readonly SenderSummary[] = presetSenders)
   const weekly = weeklyByBucket(senders, Date.now());
   presetsEl.replaceChildren(
     ...PRESETS.map((p) => {
-      const on = cfg.timeLimitsEnabled && cfg.inboxHoursByBucket[p.bucket] === p.hours;
+      const kinds = Object.entries(p.hours) as Array<[SortBucket, number]>;
+      const on = cfg.timeLimitsEnabled && kinds.every(([b, h]) => cfg.inboxHoursByBucket[b] === h);
       const card = document.createElement("div");
       card.className = "rec-card";
       const name = document.createElement("div");
@@ -349,7 +351,7 @@ export function renderPresets(senders: readonly SenderSummary[] = presetSenders)
       name.textContent = p.name;
       const fact = document.createElement("div");
       fact.className = "rec-fact";
-      const n = weekly.get(p.bucket) ?? 0;
+      const n = kinds.reduce((sum, [b]) => sum + (weekly.get(b) ?? 0), 0);
       fact.textContent = on ? "On" : n > 0 ? `About ${plural(n, "email")} a week` : "None this week";
       const btn = document.createElement("button");
       btn.type = "button";
@@ -362,8 +364,9 @@ export function renderPresets(senders: readonly SenderSummary[] = presetSenders)
         const base: Limits = cfgNow.timeLimitsEnabled
           ? { ...cfgNow.inboxHoursByBucket }
           : Object.fromEntries(ALL_SORT_BUCKETS.map((b) => [b, null]));
-        void saveLimits({ ...base, [p.bucket]: on ? null : p.hours }, true, {
-          bucket: p.bucket,
+        const next = Object.fromEntries(kinds.map(([b, h]) => [b, on ? null : h]));
+        void saveLimits({ ...base, ...next }, true, {
+          id: p.id,
           hours: { ...cfgNow.inboxHoursByBucket },
           on: cfgNow.timeLimitsEnabled,
         });
@@ -373,7 +376,7 @@ export function renderPresets(senders: readonly SenderSummary[] = presetSenders)
       actions.append(btn);
       card.append(name, fact, actions);
       const last = undoable;
-      if (last?.bucket === p.bucket) {
+      if (last?.id === p.id) {
         const undo = document.createElement("button");
         undo.type = "button";
         undo.className = "btn btn-sm btn-ghost";
