@@ -1,0 +1,19 @@
+{
+  "costPer1000": 15672.7,
+  "violations": [
+    "deletable:p-2fa",
+    "deletable:p-code",
+    "deletable:t-apple-renew",
+    "deletable:t-itinerary",
+    "deletable:t-netflix-renew",
+    "deletable:t-order-confirmed",
+    "deletable:t-rental",
+    "deletable:t-reservations",
+    "deletable:t-reset",
+    "deletable:t-tickets",
+    "deletable:t-uber",
+    "evasion:x-paypal-cyrillic",
+    "evasion:x-paypal-runon",
+    "evasion:x-paypal-zwsp"
+  ]
+}
