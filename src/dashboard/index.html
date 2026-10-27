@@ -446,10 +446,11 @@
           <section class="screen" data-screen="impersonation" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Safety</h1>
-                <p class="lead">Emails that look like scams, <span class="term" tabindex="0">held<span class="term-tip" role="tooltip">Moved to the 🚨 Possible phishing label. Never deleted.</span></span> out of your inbox.</p>
+                <h1 class="page-title">Protect</h1>
+                <p class="lead" data-protect-sub></p>
               </div>
             </div>
+            <div class="protect-tiles" role="tablist" aria-label="Protect" data-protect-tiles></div>
 
             <label class="toggle-card" id="auto-quarantine-row">
               <span class="tc-text">
@@ -471,11 +472,14 @@
             </section>
 
             <section id="security-section" hidden>
-              <div class="section-head">
-                <h2 class="section-label">Check before you act</h2>
-                <span class="muted">These are still in your inbox</span>
+              <div id="security-high" class="tier">
+                <div class="section-head"><h2 class="section-label">High priority</h2></div>
+                <div id="security-sender-list" class="stack"></div>
               </div>
-              <div id="security-sender-list" class="stack"></div>
+              <div id="security-low" class="tier">
+                <div class="section-head"><h2 class="section-label">Worth a look</h2></div>
+                <div id="security-low-list" class="stack"></div>
+              </div>
             </section>
             <p id="security-empty" class="empty-state">Nothing looks like a scam right now.</p>
           </section>
@@ -564,10 +568,11 @@
           <section class="screen" data-screen="screener" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">New senders</h1>
-                <p class="lead">People you've never emailed wait here until you let them in.</p>
+                <h1 class="page-title">Protect</h1>
+                <p class="lead" data-protect-sub></p>
               </div>
             </div>
+            <div class="protect-tiles" role="tablist" aria-label="Protect" data-protect-tiles></div>
 
             <label class="toggle-card" id="screener-toggle-row">
               <span class="tc-text">
@@ -710,10 +715,11 @@
           <section class="screen" data-screen="report" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Scam report</h1>
-                <p class="lead">What Cluster caught, worked out on your computer.</p>
+                <h1 class="page-title">Protect</h1>
+                <p class="lead" data-protect-sub></p>
               </div>
             </div>
+            <div class="protect-tiles" role="tablist" aria-label="Protect" data-protect-tiles></div>
             <div class="report-kpis" id="report-kpis"></div>
             <div class="glass-card chart-card">
               <h2>Emails held each week</h2>

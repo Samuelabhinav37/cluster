@@ -153,7 +153,7 @@ export function renderScamReport(securitySenders: SenderSummary[]): void {
         ? `Last ${WEEKS} weeks`
         : ctx.settings.autoQuarantineHighRisk
           ? "Nothing held yet. This fills in as Cluster holds scams."
-          : "Scam holding is off, so nothing is held. Turn it on in Scams.";
+          : "Scam holding is off, so nothing is held. Turn it on in Likely scams.";
   }
 
   // This scan's senders with warning signs, after verdict.ts rule 1.

@@ -14,6 +14,7 @@ import { ctx, providerById, rescan } from "./state";
 import { logAction } from "./recentTab";
 import { renderScreenerBacklog } from "./screenerBacklog";
 import { clusterLabelName } from "../lib/clusterLabels";
+import { renderConfirmStep } from "./ui";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -68,7 +69,13 @@ async function screenPending(senders: SenderSummary[]) {
   }
 }
 
-async function releaseHeldSender(address: string, ids: string[], provider: ProviderId, decision: "allow" | "block") {
+async function releaseHeldSender(
+  address: string,
+  ids: string[],
+  provider: ProviderId,
+  decision: "allow" | "block",
+  rescanAfter = true,
+) {
   const emailProvider = providerById.get(provider);
   if (!emailProvider) return;
   const token = await emailProvider.getAuthToken(false);
@@ -87,7 +94,49 @@ async function releaseHeldSender(address: string, ids: string[], provider: Provi
     });
     await logAction("mute", `Blocked ${address} from the Screener`);
   }
-  await rescan();
+  if (rescanAfter) await rescan();
+}
+
+/** Safe to let in as a group: a list, or someone who has written for over two
+ * weeks, and never anyone with a scam warning. Everyone else is decided alone. */
+function isFamiliar(s: SenderSummary): boolean {
+  if (s.threatSignals.length > 0) return false;
+  const first = Math.min(...s.messages.map((m) => m.receivedAt));
+  return s.messages.some((m) => m.looksAutomated) || Date.now() - first > 14 * DAY_MS;
+}
+
+/** One row for every familiar waiting sender, so they can be let in together. */
+function buildFamiliarBatch(familiar: SenderSummary[]): HTMLDivElement {
+  const row = document.createElement("div");
+  row.className = "sender-row batch-row";
+  const text = document.createElement("div");
+  text.className = "sr-text";
+  const name = document.createElement("div");
+  name.className = "sr-name";
+  name.textContent = `${familiar.length} senders you already get mail from`;
+  text.append(name);
+  const slot = document.createElement("span");
+  const allow = document.createElement("button");
+  allow.className = "btn btn-accent";
+  allow.textContent = "Let in all";
+  const reset = () => slot.replaceChildren(allow);
+  allow.onclick = () =>
+    renderConfirmStep(slot, reset, `Let in all ${familiar.length}?`, false, async () => {
+      let done = 0;
+      for (const s of familiar) {
+        try {
+          await releaseHeldSender(s.address, s.messageIds, s.provider, "allow", false);
+          done += 1;
+        } catch (err) {
+          log.error("Screener: failed to let in", s.address, err);
+        }
+      }
+      await rescan();
+      return `Let in ${done} of ${familiar.length}.`;
+    });
+  reset();
+  row.append(text, slot);
+  return row;
 }
 
 export function renderScreenerTab(senders: SenderSummary[]) {
@@ -120,6 +169,8 @@ export function renderScreenerTab(senders: SenderSummary[]) {
       }
       const rows = document.createElement("div");
       rows.className = "sender-rows";
+      const familiar = queue.filter(isFamiliar);
+      if (familiar.length > 1) rows.appendChild(buildFamiliarBatch(familiar));
       for (const s of queue) {
         rows.appendChild(buildScreenerRow(s));
       }

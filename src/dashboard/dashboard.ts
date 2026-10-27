@@ -106,6 +106,7 @@ import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
 import { renderRulesTab, wireRulesTab } from "./rulesTab";
 import { initBodyChecks, renderSecuritySection } from "./securityTab";
 import { renderScamReport } from "./reportTab";
+import { heldByWeek } from "../lib/scamHistory";
 import { applySimpleMode, renderSettingsSetup, renderSimpleHome, screenForMode, wireSetup } from "./setupTab";
 import { renderScreenerTab, wireScreenerTab } from "./screenerTab";
 import {
@@ -274,9 +275,10 @@ function renderCrumbs(btn: HTMLButtonElement | undefined) {
   const group = btn?.classList.contains("nav-child")
     ? label(btn.closest(".nav-area")?.querySelector<HTMLButtonElement>(":scope > .nav-item"))
     : "";
-  // A place's own page needs no crumb; its title says where you are.
+  // A place's own page needs no crumb; its title says where you are. Protect's
+  // views say it with their tiles.
   crumbs.replaceChildren(
-    ...(group ? [group, name] : []).map((text) => {
+    ...(group && group !== "Protect" ? [group, name] : []).map((text) => {
       const span = document.createElement("span");
       span.textContent = text;
       return span;
@@ -1014,6 +1016,42 @@ function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummar
   setPhishingNavSeverity(securitySenders);
   setNavCount("rules", ctx.settings.rules.length);
   setNavCount("screener", byId.get("screener-queue") ?? 0);
+  renderProtectTiles(
+    byId.get("flagged-senders") ?? 0,
+    byId.get("screener-queue") ?? 0,
+    heldByWeek(ctx.settings.scamHistory, 8).reduce((n, w) => n + w.held, 0),
+  );
+}
+
+// Protect's three views share one head: a line and three tiles that switch
+// between Scams, New senders and the report. Each screen has its own copy.
+function renderProtectTiles(scams: number, waiting: number, held: number) {
+  const sub = scams > 0
+    ? `${scams} ${scams === 1 ? "sender needs" : "senders need"} a look.`
+    : waiting > 0 ? `${waiting} new ${waiting === 1 ? "sender" : "senders"} waiting.` : "All clear.";
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>("[data-protect-sub]"))) el.textContent = sub;
+  const tiles: Array<[screen: string, count: number, label: string]> = [
+    ["impersonation", scams, "Likely scams"],
+    ["screener", waiting, "New senders"],
+    ["report", held, "Held so far"],
+  ];
+  for (const host of Array.from(document.querySelectorAll<HTMLElement>("[data-protect-tiles]"))) {
+    const here = (host.closest("section.screen") as HTMLElement | null)?.dataset.screen;
+    host.replaceChildren(
+      ...tiles.map(([screen, count, label]) => {
+        const tile = document.createElement("button");
+        tile.type = "button";
+        tile.className = `protect-tile${screen === "impersonation" && count > 0 ? " alert" : ""}`;
+        tile.setAttribute("role", "tab");
+        tile.setAttribute("aria-selected", String(screen === here));
+        const n = document.createElement("b");
+        n.textContent = count.toLocaleString();
+        tile.append(n, label);
+        tile.onclick = () => void selectScreen(screen);
+        return tile;
+      }),
+    );
+  }
 }
 
 // Quiet by default (no badge at zero, per the phishing-UX research this

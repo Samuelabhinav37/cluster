@@ -125,4 +125,26 @@ describe("Screener", () => {
       expect(dash.storedSettings().screenedSenders).not.toContain("code@auth.example");
     });
   });
+
+  it("Let in all lets familiar senders in after one confirm, never one with a scam warning", async () => {
+    const dash = await bootDashboard();
+    dash.showScreen("screener");
+    const toggle = dash.el("screener-toggle") as HTMLInputElement;
+    toggle.click();
+    toggle.dispatchEvent(new Event("change"));
+    const queue = dash.el("screener-queue");
+    await vi.waitFor(() => {
+      if (!queue.querySelector(".batch-row")) throw new Error("no batch row yet: ");
+    });
+
+    const batch = queue.querySelector<HTMLElement>(".batch-row")!;
+    const count = Number(batch.querySelector(".sr-name")!.textContent!.split(" ")[0]);
+    expect(count).toBeGreaterThan(1);
+    batch.querySelector<HTMLButtonElement>("button")!.click();
+    Array.from(batch.querySelectorAll("button")).find((b) => b.textContent === "Confirm")!.click();
+
+    const allow = dash.gmail.allowSenderThrough as ReturnType<typeof vi.fn>;
+    await vi.waitFor(() => expect(allow.mock.calls.length).toBe(count));
+    expect(allow.mock.calls.map(([, address]) => address)).not.toContain("paypal-help@gmail.com");
+  });
 });

@@ -91,6 +91,14 @@ Still open: rows are per address, not per business; the List/Cards swipe toggle 
 - Targets: Clean up ≤ 120 words and ≤ 25 controls before "Show all"; no screen over 2
   viewport heights by default.
 
+## Track 5a: Protect (done 2026-10-27)
+
+One head on all three of Protect's views: "Protect", one line, and three tiles (Likely scams,
+New senders, Held so far) that switch between them; the sidebar shows Protect alone. Scams are
+split into High priority (warned or held) and Worth a look (weak signs only). New senders gets
+"Let in all" for senders you already get mail from: a list, or someone writing for over two
+weeks, never anyone with a scam warning; one confirm, one rescan. Kai / Ask Kai is next.
+
 ## Track 4: presets for Organize
 
 - A gallery of 6 to 8 named presets, grouped like Shortcuts: "Codes: delete after 2 days",

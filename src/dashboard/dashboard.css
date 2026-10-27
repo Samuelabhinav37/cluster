@@ -1328,7 +1328,8 @@ a:hover {
 /* ── Comparison grid (Impersonation) ────────────────────────────────── */
 
 /* Impersonation: threat cards + quarantine review */
-#security-sender-list {
+#security-sender-list,
+#security-low-list {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -3418,7 +3419,8 @@ body {
 }
 
 .sidebar .nav-item.active,
-.sidebar .nav-item.nav-child.active {
+.sidebar .nav-item.nav-child.active,
+.sidebar .nav-area.open > .nav-item[data-screen="impersonation"] {
   background: var(--neutral-fill);
   box-shadow: none;
   color: var(--label);
@@ -3744,3 +3746,15 @@ body.details-open:has(.details.wide) .kai-guide { right: calc(50vw + 24px); }
 @media (max-width: 900px) {
   .details, .details.wide { position: fixed; inset: 0; z-index: 40; width: auto; min-width: 0; height: auto; }
 }
+
+/* Protect: three tiles that switch between its three views (Track 5). */
+.protect-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 4px 0 22px; }
+.protect-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 16px; border: 1px solid var(--separator);
+  border-radius: 14px; background: var(--glass); color: var(--label-2); font: inherit; text-align: left; cursor: pointer; }
+.protect-tile:hover { background: var(--neutral-fill); }
+.protect-tile[aria-selected="true"] { border-color: var(--accent); color: var(--label); }
+.protect-tile b { font-size: 26px; line-height: 1.1; color: var(--label); font-variant-numeric: tabular-nums; }
+.protect-tile.alert b { color: var(--danger-text); }
+.tier[hidden] { display: none; }
+.tier + .tier { margin-top: 26px; }
+[data-screen="impersonation"] + .nav-children { display: none !important; }

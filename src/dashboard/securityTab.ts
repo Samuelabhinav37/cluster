@@ -49,6 +49,7 @@ async function storeBodyCheck(key: string, check: ReturnType<typeof checkLinks>)
 const securitySectionEl = document.getElementById("security-section") as HTMLElement;
 const securitySenderListEl = document.getElementById("security-sender-list") as HTMLUListElement;
 const securityEmptyEl = document.getElementById("security-empty") as HTMLParagraphElement;
+const securityLowListEl = document.getElementById("security-low-list") as HTMLElement;
 const quarantineReviewSectionEl = document.getElementById("quarantine-review-section") as HTMLElement;
 const quarantineReviewListEl = document.getElementById("quarantine-review-list") as HTMLUListElement;
 const quarantineReviewCountEl = document.getElementById("quarantine-review-count") as HTMLElement | null;
@@ -308,9 +309,13 @@ export function renderSecuritySection(senders: SenderSummary[], autoCheck = true
   securityEmptyEl.hidden = flagged.length > 0;
   if (flagged.length === 0) return;
 
-  securitySenderListEl.replaceChildren(
-    ...flagged.map(({ sender, verdict }) => buildThreatCard(sender, verdict)),
-  );
+  // Two tiers: warned or held first, lone weak signs under "Worth a look".
+  const high = flagged.filter(({ verdict }) => verdict.tier !== "none");
+  const low = flagged.filter(({ verdict }) => verdict.tier === "none");
+  securitySenderListEl.replaceChildren(...high.map(({ sender, verdict }) => buildThreatCard(sender, verdict)));
+  securityLowListEl.replaceChildren(...low.map(({ sender, verdict }) => buildThreatCard(sender, verdict)));
+  document.getElementById("security-high")!.hidden = high.length === 0;
+  document.getElementById("security-low")!.hidden = low.length === 0;
   if (autoCheck && !checkingBodies) {
     checkingBodies = true;
     void checkFlaggedBodies(senders, flagged).finally(() => (checkingBodies = false));
