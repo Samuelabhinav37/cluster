@@ -72,10 +72,16 @@ Activity and Settings move to the account menu.
 
 ## Track 5: decisions in batches (Protect)
 
-- New senders as groups, not rows: "9 you've written to: allow all", "14 brands you already
-  get mail from: allow all", "3 you don't know: review". Review is one card at a time with
-  Allow / Hold, keyboard ← →.
-- Warnings: one card each, the single strongest reason first, "More" for the rest.
+Research: `research/2026-10-27-protect-grouping.md`; mockup: Protect in
+`research/2026-10-27-home-cleanup-mockup.html`.
+
+- Three tiles as subsections: Likely scams, New senders, Held so far (replaces Scam report).
+- Scams in two tiers, "High priority" and "Worth a look"; one row per email, one reason line,
+  one button, the rest under ⋯.
+- New senders as groups, not rows: "9 you've written to: let in all", "14 businesses you already
+  get mail from: let in all", "3 strangers: review". Review is one card at a time with
+  Hold / Let in, keyboard ← →.
+- Each hold switch sits in its own subsection.
 
 ## Track 6: words and look
 

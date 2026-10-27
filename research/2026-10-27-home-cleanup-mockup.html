@@ -122,13 +122,34 @@ h2 { font-size: 13px; font-weight: 600; color: var(--label-4); margin: 32px 0 10
 .sheet li { padding: 6px 0; border-top: 1px solid var(--separator); font-size: 13px; color: var(--label-2); }
 .sheet li:first-child { border-top: 0; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+/* Protect: tiles switch the subsection below them. */
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 8px; }
+.tile { text-align: left; border: 1px solid var(--separator); background: var(--glass); border-radius: 14px; padding: 14px 16px;
+  color: var(--label-2); font-size: 13px; }
+.tile b { display: block; font-size: 26px; font-weight: 700; color: var(--label); letter-spacing: -0.02em; }
+.tile b.warn { color: var(--danger-text); }
+.tile:hover { background: var(--row-hover); }
+.tile[aria-selected="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.count { color: var(--label-4); font-variant-numeric: tabular-nums; }
+.switch-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; margin-top: 16px; }
+.switch { width: 42px; height: 26px; border-radius: 13px; border: 0; background: var(--neutral-fill-hover); position: relative; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff;
+  transition: left 0.15s; }
+.switch[aria-checked="true"] { background: var(--accent); }
+.switch[aria-checked="true"]::after { left: 19px; }
+.card { background: var(--glass); border: 1px solid var(--separator); border-radius: 14px; padding: 28px; display: flex;
+  flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.card .logo { width: 48px; height: 48px; font-size: 18px; margin-bottom: 6px; }
+.card .name { font-weight: 600; font-size: 17px; }
+.card .subject { margin: 10px 0 14px; color: var(--label-2); }
+.card .actions { justify-content: center; }
 [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 
 <div class="review">
-  <span><b>Mockup</b> · Home and Clean up, 1280×800, fake mailbox. Click a business for its digest.</span>
+  <span><b>Mockup</b> · Home, Clean up and Protect, 1280×800, fake mailbox. Click a business for its digest, or a Protect tile.</span>
   <span class="meter" id="meter"></span>
 </div>
 
@@ -144,7 +165,7 @@ h2 { font-size: 13px; font-weight: 600; color: var(--label-4); margin: 32px 0 10
     <button class="nav" data-go="organize">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></svg>Organize</button>
     <button class="nav" data-go="protect">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/></svg>Protect<span class="badge">3</span></button>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/></svg>Protect<span class="badge">4</span></button>
     <div class="account">
       <div class="menu" id="menu" hidden>
         <button>Activity</button><button>Settings</button><button>Disconnect</button>
@@ -175,7 +196,7 @@ h2 { font-size: 13px; font-weight: 600; color: var(--label-4); margin: 32px 0 10
         <h2>Recommended</h2>
         <div class="list">
           <div class="row">
-            <div class="text"><div class="name"><span class="dot" aria-hidden="true"></span>3 senders look like scams</div></div>
+            <div class="text"><div class="name"><span class="dot" aria-hidden="true"></span>4 emails look like scams</div></div>
             <button class="btn" data-go="protect">Review</button></div>
           <div class="row">
             <div class="text"><div class="name">Unsubscribe from 13 you never open</div><div class="fact">150 emails</div></div>
@@ -200,6 +221,78 @@ h2 { font-size: 13px; font-weight: 600; color: var(--label-4); margin: 32px 0 10
         </div>
         <h2>Most mail first</h2>
         <div class="list" id="businesses"></div>
+      </section>
+
+      <!-- Protect: three subsections as tiles (Watchtower, Apple Passwords), ≤ 120 words each. -->
+      <section class="screen" id="protect" hidden>
+        <h1>Protect</h1>
+        <p class="sub"><span class="dot" aria-hidden="true"></span>4 emails need a look.</p>
+        <div class="tiles" role="tablist">
+          <button class="tile" role="tab" data-pane="scams" aria-selected="true"><b class="warn">4</b>Likely scams</button>
+          <button class="tile" role="tab" data-pane="new" aria-selected="false"><b>26</b>New senders</button>
+          <button class="tile" role="tab" data-pane="held" aria-selected="false"><b>12</b>Held so far</button>
+        </div>
+
+        <div class="pane" id="pane-scams">
+          <h2>High priority</h2>
+          <div class="list">
+            <div class="row"><span class="logo">P</span>
+              <div class="text"><div class="name">“Your account has been limited”</div><div class="fact">Says PayPal, but the address isn't PayPal's</div></div>
+              <button class="btn">Trash</button><button class="more" aria-label="More">⋯</button></div>
+            <div class="row"><span class="logo">N</span>
+              <div class="text"><div class="name">“Payment declined”</div><div class="fact">Says Netflix, but the address isn't Netflix's</div></div>
+              <button class="btn">Trash</button><button class="more" aria-label="More">⋯</button></div>
+            <div class="row"><span class="logo">A</span>
+              <div class="text"><div class="name">“Your Apple ID was used to sign in”</div><div class="fact">Failed Apple's sender check</div></div>
+              <button class="btn">Trash</button><button class="more" aria-label="More">⋯</button></div>
+          </div>
+          <h2>Worth a look</h2>
+          <div class="list">
+            <div class="row"><span class="logo">D</span>
+              <div class="text"><div class="name">“Your parcel is waiting”</div><div class="fact">New sender, rushes you to pay</div></div>
+              <button class="btn">It's fine</button><button class="more" aria-label="More">⋯</button></div>
+          </div>
+          <div class="list switch-row"><span>Hold likely scams</span><button class="switch" role="switch" aria-checked="true" aria-label="Hold likely scams"></button></div>
+        </div>
+
+        <div class="pane" id="pane-new" hidden>
+          <div id="new-groups">
+            <h2>Waiting to get in</h2>
+            <div class="list">
+              <div class="row"><span class="logo">9</span>
+                <div class="text"><div class="name">People you've written to</div></div>
+                <button class="btn">Let in all</button></div>
+              <div class="row"><span class="logo">14</span>
+                <div class="text"><div class="name">Businesses you already get mail from</div></div>
+                <button class="btn">Let in all</button></div>
+              <div class="row"><span class="logo">3</span>
+                <div class="text"><div class="name">Strangers</div></div>
+                <button class="btn primary" id="review-start">Review</button></div>
+            </div>
+            <div class="list switch-row"><span>Hold new senders</span><button class="switch" role="switch" aria-checked="true" aria-label="Hold new senders"></button></div>
+          </div>
+          <div id="review" hidden>
+            <h2 id="review-count"></h2>
+            <div class="card">
+              <span class="logo" id="r-logo"></span>
+              <div class="name" id="r-name"></div>
+              <div class="fact" id="r-address"></div>
+              <div class="subject" id="r-subject"></div>
+              <div class="actions"><button class="btn" data-decide="hold">Hold</button><button class="btn primary" data-decide="in">Let in</button></div>
+              <div class="fact">← Hold · Let in →</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pane" id="pane-held" hidden>
+          <h2>Pretended to be</h2>
+          <div class="list">
+            <div class="row"><span class="logo">P</span><div class="text"><div class="name">PayPal</div></div><span class="count">5</span></div>
+            <div class="row"><span class="logo">N</span><div class="text"><div class="name">Netflix</div></div><span class="count">4</span></div>
+            <div class="row"><span class="logo">A</span><div class="text"><div class="name">Apple</div></div><span class="count">3</span></div>
+          </div>
+          <p class="fact" style="margin-top:12px">Last 8 weeks. You marked 2 as safe.</p>
+        </div>
       </section>
 
       <section class="screen" id="other" hidden>
@@ -267,8 +360,8 @@ document.getElementById("d-close").onclick = () => { document.getElementById("sh
 function go(place) {
   document.querySelectorAll(".nav").forEach((n) => n.toggleAttribute("aria-current", n.dataset.go === place));
   document.querySelectorAll(".nav[aria-current]").forEach((n) => n.setAttribute("aria-current", "page"));
-  const shown = place === "home" || place === "cleanup" ? place : "other";
-  for (const id of ["home", "cleanup", "other"]) document.getElementById(id).hidden = id !== shown;
+  const shown = ["home", "cleanup", "protect"].includes(place) ? place : "other";
+  for (const id of ["home", "cleanup", "protect", "other"]) document.getElementById(id).hidden = id !== shown;
   document.getElementById("other-title").textContent = place[0].toUpperCase() + place.slice(1);
   document.getElementById("sheet").hidden = true;
   measure();
@@ -276,8 +369,49 @@ function go(place) {
 document.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => go(b.dataset.go)));
 document.getElementById("account").onclick = () => { const m = document.getElementById("menu"); m.hidden = !m.hidden; };
 
+// Protect: tiles pick the subsection; strangers are reviewed one card at a time.
+document.querySelectorAll(".tile").forEach((tile) => tile.addEventListener("click", () => {
+  document.querySelectorAll(".tile").forEach((t) => t.setAttribute("aria-selected", String(t === tile)));
+  for (const pane of ["scams", "new", "held"]) document.getElementById(`pane-${pane}`).hidden = pane !== tile.dataset.pane;
+  measure();
+}));
+document.querySelectorAll(".switch").forEach((s) => s.addEventListener("click", () =>
+  s.setAttribute("aria-checked", String(s.getAttribute("aria-checked") !== "true"))));
+const strangers = [
+  ["Jordan Lee", "jordan@lee-studio.co", "Quick question about your portfolio"],
+  ["Parcel Notice", "notice@parcel-track-help.top", "Delivery attempt failed"],
+  ["Riverside Dental", "hello@riversidedental.com", "Your appointment on Friday"],
+];
+let reviewAt = 0;
+function showStranger() {
+  if (reviewAt >= strangers.length) {
+    document.getElementById("review").hidden = true;
+    document.getElementById("new-groups").hidden = false;
+    reviewAt = 0;
+    return measure();
+  }
+  const [name, address, subject] = strangers[reviewAt];
+  document.getElementById("review-count").textContent = `${reviewAt + 1} of ${strangers.length}`;
+  document.getElementById("r-logo").textContent = name[0];
+  document.getElementById("r-name").textContent = name;
+  document.getElementById("r-address").textContent = address;
+  document.getElementById("r-subject").textContent = `“${subject}”`;
+  measure();
+}
+document.getElementById("review-start").onclick = () => {
+  document.getElementById("new-groups").hidden = true;
+  document.getElementById("review").hidden = false;
+  showStranger();
+};
+document.querySelectorAll("[data-decide]").forEach((b) => b.addEventListener("click", () => { reviewAt++; showStranger(); }));
+document.addEventListener("keydown", (e) => {
+  if (document.getElementById("review").hidden || !["ArrowLeft", "ArrowRight"].includes(e.key)) return;
+  reviewAt++;
+  showStranger();
+});
+
 // The same count as the research note: visible words and controls in the screen.
-const TARGETS = { home: [40, 5], cleanup: [120, 25] };
+const TARGETS = { home: [40, 5], cleanup: [120, 25], protect: [120, 25] };
 function measure() {
   const screen = [...document.querySelectorAll(".screen")].find((s) => !s.hidden);
   const target = TARGETS[screen.id];
