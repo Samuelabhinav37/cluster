@@ -120,7 +120,7 @@ export function renderSimpleHome(securitySenders: SenderSummary[]): void {
     status.textContent = on ? "You're protected" : "Scam protection is off";
     statusSub.textContent = on
       ? "Cluster is checking your email for scams."
-      : "Turn it on in Scams.";
+      : "Turn it on in Protect.";
   }
   const heldSub = $("simple-held-sub");
   if (heldSub) {
