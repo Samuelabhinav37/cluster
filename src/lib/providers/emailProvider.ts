@@ -175,6 +175,8 @@ export interface EmailProvider {
    */
   listProtectedMessageIds?(token: string): Promise<Set<string>>;
   keepSorted?(token: string, fromAddress: string, label: string, existingIds: string[]): Promise<void>;
+  /** Removes keepSorted's standing filter; the "unsort" undo puts the mail back. */
+  unkeepSorted?(token: string, fromAddress: string): Promise<void>;
   /**
    * Permanent delete — no Trash recovery, unlike trashMessages. Gmail-only,
    * opt-in; requires a token obtained with an elevated scope (see

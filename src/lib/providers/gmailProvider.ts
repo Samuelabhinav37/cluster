@@ -12,6 +12,7 @@ import {
   getSentRecord as apiGetSentRecord,
   listSentMessageIds as apiListSentMessageIds,
   listMailboxChangesSince,
+  deleteSenderFilters,
   findLabelIds,
   getOrCreateLabel,
   labelMessages as apiLabelMessages,
@@ -330,6 +331,10 @@ export const gmailProvider: EmailProvider = {
     const labelId = await getOrCreateLabel(token, label);
     await createSenderFilter(token, fromAddress, labelId);
     await batchModify(token, existingIds, [labelId], ["INBOX"]);
+  },
+
+  async unkeepSorted(token, fromAddress) {
+    await deleteSenderFilters(token, fromAddress);
   },
 
   async snoozeMessages(token, ids) {

@@ -81,6 +81,7 @@ async function undoEntry(entry: ActionLogEntry) {
     await provider.unlabelSuspicious(token, entry.undo.ids);
   } else if (entry.undo.via === "unsort" && entry.undo.labelName) {
     if (!provider.unlabelMessages) throw new Error("This provider cannot remove labels");
+    if (entry.undo.fromAddress) await provider.unkeepSorted?.(token, entry.undo.fromAddress);
     await provider.unlabelMessages(
       token,
       entry.undo.ids,

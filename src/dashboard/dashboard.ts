@@ -25,6 +25,7 @@ import {
   type ExpiryBucket,
 } from "../lib/expiryTriage";
 import { buildProtectionContext, idsSafeToMoveOut } from "../lib/protectionPolicy";
+import { clusterLabelName } from "../lib/clusterLabels";
 import { markRepliesToYou } from "../lib/correspondents";
 import { getElevatedAuthToken, getProfileEmail, GmailApiError } from "../lib/gmailApi";
 import { clearMetadataCache } from "../lib/metadataCache";
@@ -583,7 +584,9 @@ async function main() {
   wireKeepNewest();
   wireSortInbox();
   wireTimeLimits();
-  setPresetActions(() => [keepNewestInInboxCard()].filter((c): c is HTMLElement => c !== null));
+  setPresetActions(() =>
+    [neverOpenedSkipsInboxCard(), keepNewestInInboxCard()].filter((c): c is HTMLElement => c !== null),
+  );
   wireScreenerTab();
   wireOfflineHandling();
   wireRulesTab();
@@ -2722,6 +2725,48 @@ function keepNewestInInboxCard(): HTMLElement | null {
       );
       void scanAndRender();
       return `Moved ${moved.toLocaleString()} out. Undo from Activity.`;
+    },
+  );
+}
+
+/** Senders you never open: their mail, old and new, goes to Read later
+ * instead of the inbox (Keep sorted, one Gmail filter each). Undo per sender
+ * from Activity removes the filter and puts the mail back. */
+function neverOpenedSkipsInboxCard(): HTMLElement | null {
+  const label = clusterLabelName("readLater");
+  const senders = unopenedSuggestions(currentSuggestions(ctx.senders))
+    .map((s) => s.sender)
+    .filter((s) => providerById.get(s.provider)?.keepSorted);
+  if (senders.length === 0 && !presetNotes.has("never-opened")) return null;
+  const emails = senders.reduce((n, s) => n + idsSafeToMoveOut(s).length, 0);
+  return presetActionCard(
+    "never-opened",
+    "Mail you never open skips the inbox",
+    `${senders.length} ${senders.length === 1 ? "sender" : "senders"}, ${emails.toLocaleString()} ${emails === 1 ? "email" : "emails"}`,
+    "Turn on…",
+    `Send mail from ${senders.length} ${senders.length === 1 ? "sender" : "senders"} you never open to "${label}", now and from now on?`,
+    async () => {
+      let done = 0;
+      for (const sender of senders) {
+        const provider = providerById.get(sender.provider)!;
+        const ids = idsSafeToMoveOut(sender);
+        try {
+          await provider.keepSorted!(await provider.getAuthToken(false), sender.address, label, ids);
+          await logAction("keepSorted", `Sent ${sender.address} to "${label}"`, {
+            provider: sender.provider,
+            ids,
+            via: "unsort",
+            labelName: label,
+            wasFiledOut: true,
+            fromAddress: sender.address,
+          });
+          done += 1;
+        } catch (err) {
+          log.error("Could not keep sorted", sender.address, err);
+        }
+      }
+      void scanAndRender();
+      return `${done} of ${senders.length} now skip the inbox. Undo from Activity.`;
     },
   );
 }

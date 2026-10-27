@@ -142,3 +142,36 @@ describe("Organize action cards", () => {
     expect(dash.gmail.trashMessages).not.toHaveBeenCalled();
   });
 });
+
+describe("Never opened skips the inbox", () => {
+  it("sends each never-opened sender to Read later, and Undo from Activity removes the filter", async () => {
+    // A list you have ignored for months: twelve unread, one every ten days.
+    const mailbox = fixtureMailbox();
+    const shop = mailbox.find((m) => m.fromAddress === "deals@shop.example")!;
+    for (let i = 0; i < 12; i++)
+      mailbox.push({ ...shop, id: `n${i}`, fromAddress: "news@ignored.example", fromDisplayName: "Ignored",
+        subject: `Issue ${i}`, receivedAt: Date.now() - (i + 1) * 10 * 86_400_000 });
+    const dash = await bootDashboard({ mailbox });
+    await openOrganize(dash);
+    const card = document.querySelector<HTMLElement>('#presets [data-preset="never-opened"]');
+    expect(card, "no never-opened card for the fixture").toBeTruthy();
+    card!.querySelector("button")!.click();
+    Array.from(card!.querySelectorAll("button")).find((b) => b.textContent === "Confirm")!.click();
+    const keepSorted = dash.gmail.keepSorted as ReturnType<typeof vi.fn>;
+    await vi.waitFor(() => expect(keepSorted).toHaveBeenCalled());
+    const [, address, label] = keepSorted.mock.calls[0];
+    expect(label).toBe("📖 Read later");
+
+    dash.showScreen("recent");
+    const undo = await vi.waitFor(() => {
+      const b = Array.from(dash.el("recent-list").querySelectorAll("button")).find((x) => x.textContent === "Undo");
+      if (!b) throw new Error("no Undo in Activity yet");
+      return b;
+    });
+    undo.click();
+    await vi.waitFor(() => expect(dash.gmail.unkeepSorted).toHaveBeenCalled());
+    const undone = (dash.gmail.unkeepSorted as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(keepSorted.mock.calls.map((c) => c[1])).toContain(undone);
+    expect(address).toBeTruthy();
+  });
+});

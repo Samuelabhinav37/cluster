@@ -100,6 +100,7 @@ export function makeGmailSpy(
     labelMessages: vi.fn(async () => {}),
     unlabelMessages: vi.fn(async () => {}),
     keepSorted: vi.fn(async () => {}),
+    unkeepSorted: vi.fn(async () => {}),
     muteSender: vi.fn(async () => {}),
     unmuteSender: vi.fn(async () => {}),
     screenSender: vi.fn(async () => {}),
