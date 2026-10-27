@@ -5,7 +5,7 @@
 // Gmail filters that label without leaving the inbox, and the existing-inbox
 // preview labels what's already there.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { bootDashboard } from "./testHarness";
+import { bootDashboard, fixtureMailbox } from "./testHarness";
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -122,5 +122,23 @@ describe("Organize presets, several kinds", () => {
       expect([hours.receipt, hours.shipping]).toEqual([168, 168]);
     });
     await vi.waitFor(() => expect(card().querySelector(".rec-fact")!.textContent).toBe("On"));
+  });
+});
+
+describe("Organize action cards", () => {
+  it("Keep each sender's newest 3 moves only the older ones out of the inbox, never to Trash", async () => {
+    const mailbox = fixtureMailbox();
+    const shop = mailbox.filter((m) => m.fromAddress === "deals@shop.example");
+    mailbox.push({ ...shop[0], id: "s4", subject: "Oldest deal", receivedAt: shop[2].receivedAt - 86_400_000 });
+    const dash = await bootDashboard({ mailbox });
+    await openOrganize(dash);
+    const card = document.querySelector<HTMLElement>('#presets [data-preset="keep-newest"]')!;
+    expect(card.textContent).toContain("1 older email moves out");
+    card.querySelector("button")!.click();
+    Array.from(card.querySelectorAll("button")).find((b) => b.textContent === "Confirm")!.click();
+    const archive = dash.gmail.archiveMessages as ReturnType<typeof vi.fn>;
+    await vi.waitFor(() => expect(archive).toHaveBeenCalledTimes(1));
+    expect(archive.mock.calls[0][1]).toEqual(["s4"]);
+    expect(dash.gmail.trashMessages).not.toHaveBeenCalled();
   });
 });

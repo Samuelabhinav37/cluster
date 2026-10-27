@@ -336,6 +336,12 @@ async function saveLimits(hours: Limits, on: boolean, after: typeof undoable): P
 }
 
 let presetSenders: readonly SenderSummary[] = [];
+let extraCards: () => HTMLElement[] = () => [];
+
+/** Cards for one-time actions (dashboard.ts), shown after the time-limit ones. */
+export function setPresetActions(cards: () => HTMLElement[]): void {
+  extraCards = cards;
+}
 
 export function renderPresets(senders: readonly SenderSummary[] = presetSenders): void {
   presetSenders = senders;
@@ -391,6 +397,7 @@ export function renderPresets(senders: readonly SenderSummary[] = presetSenders)
       }
       return card;
     }),
+    ...extraCards(),
   );
 }
 

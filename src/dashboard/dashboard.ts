@@ -67,7 +67,7 @@ import {
 import { activeProviders, ctx, providerById, setBridge } from "./state";
 import { maybeShowSeedCard, renderSortInbox, wireSortInbox } from "./sortInbox";
 import { maybeShowLabelTidyCard } from "./labelTidy";
-import { renderPresets, renderTimeLimits, wireTimeLimits } from "./timeLimitsTab";
+import { renderPresets, renderTimeLimits, setPresetActions, wireTimeLimits } from "./timeLimitsTab";
 import { excludeSnoozedMessages } from "../lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "../lib/snoozeResurface";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
@@ -583,6 +583,7 @@ async function main() {
   wireKeepNewest();
   wireSortInbox();
   wireTimeLimits();
+  setPresetActions(() => [keepNewestInInboxCard()].filter((c): c is HTMLElement => c !== null));
   wireScreenerTab();
   wireOfflineHandling();
   wireRulesTab();
@@ -2658,6 +2659,71 @@ function renderSmartViews(senders: SenderSummary[]) {
     chip.onclick = () => openSmartView(view, msgCount, smartViewSenderCount(view, senders));
     smartViewChipsEl.appendChild(chip);
   }
+}
+
+// ── Organize: one-time action cards beside the time-limit presets ──────
+// What the last one did, shown on its card after the rescan redraws it.
+const presetNotes = new Map<string, string>();
+const KEEP_IN_INBOX = 3;
+
+function presetActionCard(id: string, name: string, fact: string, verb: string, summary: string, run: () => Promise<string>): HTMLElement {
+  const card = document.createElement("div");
+  card.className = "rec-card";
+  card.dataset.preset = id;
+  const title = document.createElement("div");
+  title.className = "rec-name";
+  title.textContent = name;
+  const note = document.createElement("div");
+  note.className = "rec-fact";
+  note.textContent = presetNotes.get(id) ?? fact;
+  const slot = document.createElement("span");
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn btn-sm";
+  btn.textContent = verb;
+  const reset = () => slot.replaceChildren(btn);
+  btn.onclick = () =>
+    renderConfirmStep(slot, reset, summary, false, async () => {
+      const done = await run();
+      presetNotes.set(id, done);
+      return done;
+    });
+  reset();
+  card.append(title, note, slot);
+  return card;
+}
+
+/** Keep each sender's newest few in the inbox and move the rest out (archive,
+ * never Trash). shortcut: runs once when pressed, not on every check; make it
+ * a standing rule in the sweep if people want it kept up. */
+function keepNewestInInboxCard(): HTMLElement | null {
+  const merged = keepNewestExcess(ctx.senders, KEEP_IN_INBOX, buildProtectionContext(ctx.settings));
+  const total = [...merged.values()].reduce((n, ids) => n + ids.length, 0);
+  if (total === 0 && !presetNotes.has("keep-newest")) return null;
+  return presetActionCard(
+    "keep-newest",
+    `Keep each sender's newest ${KEEP_IN_INBOX} in your inbox`,
+    `${total.toLocaleString()} older ${total === 1 ? "email moves" : "emails move"} out`,
+    "Move out…",
+    `Move ${total.toLocaleString()} older ${total === 1 ? "email" : "emails"} out of your inbox? They stay in All Mail.`,
+    async () => {
+      let moved = 0;
+      for (const [pid, ids] of merged) {
+        const provider = providerById.get(pid);
+        if (!provider?.archiveMessages || ids.length === 0) continue;
+        await provider.archiveMessages(await provider.getAuthToken(false), ids);
+        moved += ids.length;
+      }
+      const gmailIds = merged.get("gmail") ?? [];
+      await logAction(
+        "archive",
+        `Kept each sender's newest ${KEEP_IN_INBOX} in the inbox: moved out ${moved}`,
+        gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "unarchive" } : undefined,
+      );
+      void scanAndRender();
+      return `Moved ${moved.toLocaleString()} out. Undo from Activity.`;
+    },
+  );
 }
 
 function resetKeepNewestSlot() {
