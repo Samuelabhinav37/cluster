@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cluster Home and Clean up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Track 2 + 3 mockup (docs/dashboard-plan.md). Tokens copied from src/dashboard/dashboard.css.
+   The app window is drawn at 1280x800, the size the targets are measured at. */
+:root {
+  --page: #e9e9ee; --canvas: #f5f5f7; --glass: #ffffff; --glass-bar: #ffffff;
+  --separator: #e3e3e8; --label: #1d1d1f; --label-2: #3a3a3c; --label-4: #636369;
+  --accent: #3563c7; --accent-text: #2f5fc4; --accent-fill: rgba(53, 99, 199, 0.1);
+  --danger-text: #b42e2e; --neutral-fill: #f2f2f5; --neutral-fill-hover: #e8e8ed; --row-hover: #f2f2f5;
+  --shadow-bar: 0 12px 40px rgba(30, 25, 45, 0.14);
+  --font: "Inter Tight", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #050506; --canvas: #0a0a0c; --glass: #161618; --glass-bar: #1f1f22;
+    --separator: #262629; --label: #f5f5f7; --label-2: #dcdce0; --label-4: #a1a1a8;
+    --accent: #3f6fd1; --accent-text: #6f9be0; --accent-fill: rgba(111, 155, 224, 0.15);
+    --danger-text: #fa6d6d; --neutral-fill: #1f1f22; --neutral-fill-hover: #28282c; --row-hover: #1f1f22;
+    --shadow-bar: 0 12px 40px rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #050506; --canvas: #0a0a0c; --glass: #161618; --glass-bar: #1f1f22;
+  --separator: #262629; --label: #f5f5f7; --label-2: #dcdce0; --label-4: #a1a1a8;
+  --accent: #3f6fd1; --accent-text: #6f9be0; --accent-fill: rgba(111, 155, 224, 0.15);
+  --danger-text: #fa6d6d; --neutral-fill: #1f1f22; --neutral-fill-hover: #28282c; --row-hover: #1f1f22;
+  --shadow-bar: 0 12px 40px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--label); font: 14px/1.45 var(--font); }
+button { font: inherit; color: inherit; cursor: pointer; }
+
+.review { display: flex; gap: 16px; align-items: center; padding: 12px 16px; font-size: 13px; color: var(--label-4); flex-wrap: wrap; }
+.review b { color: var(--label); font-weight: 600; }
+.review .meter { margin-left: auto; font-variant-numeric: tabular-nums; }
+.review .meter .ok { color: var(--accent-text); }
+
+.window { width: 1280px; height: 800px; margin: 0 16px 24px; background: var(--canvas); border: 1px solid var(--separator);
+  border-radius: 12px; overflow: hidden; display: flex; position: relative; }
+
+/* Sidebar: the five places. Activity and Settings live in the account menu. */
+.side { width: 220px; border-right: 1px solid var(--separator); padding: 18px 12px; display: flex; flex-direction: column; gap: 2px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 0 10px 18px; font-weight: 600; font-size: 15px; }
+.brand i { width: 26px; height: 26px; border-radius: 7px; background: #f26b2a; display: block; }
+.nav { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 0; background: none; border-radius: 8px;
+  text-align: left; font-size: 14px; color: var(--label-2); }
+.nav:hover { background: var(--row-hover); }
+.nav[aria-current="page"] { background: var(--neutral-fill); color: var(--label); font-weight: 600; }
+.nav svg { width: 18px; height: 18px; flex: none; }
+.nav .badge { margin-left: auto; font-size: 12px; color: var(--danger-text); font-weight: 600; }
+.account { margin-top: auto; position: relative; }
+.account > button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; background: none;
+  border-radius: 8px; color: var(--label-2); }
+.account > button:hover { background: var(--row-hover); }
+.avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center;
+  font-size: 11px; font-weight: 600; }
+.menu { position: absolute; bottom: 44px; left: 0; right: 0; background: var(--glass-bar); border: 1px solid var(--separator);
+  border-radius: 10px; padding: 4px; box-shadow: var(--shadow-bar); }
+.menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 6px; }
+.menu button:hover { background: var(--neutral-fill-hover); }
+
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.scroll { flex: 1; overflow: auto; }
+.screen { max-width: 760px; margin: 0 auto; padding: 44px 40px 32px; }
+h1 { font-size: 30px; line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 6px; font-weight: 700; }
+.sub { color: var(--label-4); margin: 0 0 28px; font-size: 15px; }
+h2 { font-size: 13px; font-weight: 600; color: var(--label-4); margin: 32px 0 10px; }
+
+/* Home: one picture, like iPhone Storage. */
+.big { font-size: 15px; color: var(--label-4); margin-bottom: 12px; }
+.big b { font-size: 34px; font-weight: 700; color: var(--label); letter-spacing: -0.02em; margin-right: 6px; }
+.bar { display: flex; height: 22px; border-radius: 6px; overflow: hidden; gap: 2px; }
+.bar span { display: block; }
+.legend { display: flex; gap: 22px; margin-top: 12px; font-size: 13px; color: var(--label-2); flex-wrap: wrap; }
+.legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
+.legend em { font-style: normal; color: var(--label-4); margin-left: 4px; font-variant-numeric: tabular-nums; }
+
+/* A list card: recommendations and businesses share it. */
+.list { background: var(--glass); border: 1px solid var(--separator); border-radius: 14px; overflow: hidden; }
+.row { display: flex; align-items: center; gap: 14px; padding: 12px 16px; min-height: 56px; }
+.row + .row { border-top: 1px solid var(--separator); }
+.row.tap { cursor: pointer; }
+.row.tap:hover { background: var(--row-hover); }
+.row .text { flex: 1; min-width: 0; }
+.row .name { font-weight: 600; }
+.row .fact { color: var(--label-4); font-size: 13px; }
+.dot { display: inline-block; margin-right: 8px; vertical-align: 1px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger-text); flex: none; }
+.logo { width: 32px; height: 32px; border-radius: 8px; background: var(--neutral-fill); display: grid; place-items: center;
+  font-weight: 600; font-size: 13px; color: var(--label-2); flex: none; }
+.btn { border: 0; border-radius: 980px; padding: 6px 14px; background: var(--neutral-fill); color: var(--accent-text); font-weight: 600;
+  font-size: 13px; white-space: nowrap; }
+.btn:hover { background: var(--neutral-fill-hover); }
+.btn.primary { background: var(--accent); color: #fff; }
+.more { border: 0; background: none; color: var(--label-4); width: 28px; height: 28px; border-radius: 50%; font-size: 18px; line-height: 1; }
+.more:hover { background: var(--neutral-fill-hover); }
+.showall { display: block; width: 100%; border: 0; border-top: 1px solid var(--separator); background: none; padding: 12px;
+  color: var(--accent-text); font-weight: 600; }
+.showall:hover { background: var(--row-hover); }
+
+/* Scan progress, as built in Track 0. */
+.progress { padding: 10px 40px 12px; border-top: 1px solid var(--separator); background: var(--glass-bar); color: var(--label-2); font-size: 13px; }
+.track { height: 4px; border-radius: 2px; background: var(--neutral-fill); margin-top: 6px; overflow: hidden; }
+.track div { height: 100%; width: 25%; background: var(--accent); }
+
+/* Digest: tap a business. */
+.sheet { position: absolute; inset: 0 0 0 auto; width: 400px; background: var(--glass); border-left: 1px solid var(--separator);
+  box-shadow: var(--shadow-bar); padding: 28px; display: flex; flex-direction: column; gap: 20px; overflow: auto; }
+.sheet[hidden] { display: none; }
+.sheet header { display: flex; align-items: center; gap: 12px; }
+.sheet h3 { margin: 0; font-size: 20px; flex: 1; }
+.sheet h4 { margin: 0 0 6px; font-size: 13px; color: var(--label-4); font-weight: 600; }
+.sheet ul { list-style: none; margin: 0; padding: 0; }
+.sheet li { padding: 6px 0; border-top: 1px solid var(--separator); font-size: 13px; color: var(--label-2); }
+.sheet li:first-child { border-top: 0; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="review">
+  <span><b>Mockup</b> · Home and Clean up, 1280×800, fake mailbox. Click a business for its digest.</span>
+  <span class="meter" id="meter"></span>
+</div>
+
+<div class="window">
+  <nav class="side" aria-label="Places">
+    <div class="brand"><i></i>Cluster</div>
+    <button class="nav" data-go="home" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</button>
+    <button class="nav" data-go="senders">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>Senders</button>
+    <button class="nav" data-go="cleanup">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Clean up</button>
+    <button class="nav" data-go="organize">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></svg>Organize</button>
+    <button class="nav" data-go="protect">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/></svg>Protect<span class="badge">3</span></button>
+    <div class="account">
+      <div class="menu" id="menu" hidden>
+        <button>Activity</button><button>Settings</button><button>Disconnect</button>
+      </div>
+      <button id="account"><span class="avatar">SA</span>Account</button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="scroll">
+
+      <!-- Home: ≤ 40 words, ≤ 5 controls, no scrolling. -->
+      <section class="screen" id="home">
+        <h1 style="margin-bottom:28px">Home</h1>
+        <div class="big"><b>804</b>emails in your inbox</div>
+        <div class="bar" role="img" aria-label="Primary 112, Transactions 96, Updates 268, Promotions 328">
+          <span style="flex:112;background:var(--accent)"></span>
+          <span style="flex:96;background:color-mix(in srgb, var(--accent) 70%, var(--canvas))"></span>
+          <span style="flex:268;background:color-mix(in srgb, var(--accent) 42%, var(--canvas))"></span>
+          <span style="flex:328;background:color-mix(in srgb, var(--label-4) 35%, var(--canvas))"></span>
+        </div>
+        <div class="legend">
+          <span><i style="background:var(--accent)"></i>Primary<em>112</em></span>
+          <span><i style="background:color-mix(in srgb, var(--accent) 70%, var(--canvas))"></i>Transactions<em>96</em></span>
+          <span><i style="background:color-mix(in srgb, var(--accent) 42%, var(--canvas))"></i>Updates<em>268</em></span>
+          <span><i style="background:color-mix(in srgb, var(--label-4) 35%, var(--canvas))"></i>Promotions<em>328</em></span>
+        </div>
+        <h2>Recommended</h2>
+        <div class="list">
+          <div class="row">
+            <div class="text"><div class="name"><span class="dot" aria-hidden="true"></span>3 senders look like scams</div></div>
+            <button class="btn" data-go="protect">Review</button></div>
+          <div class="row">
+            <div class="text"><div class="name">Unsubscribe from 13 you never open</div><div class="fact">150 emails</div></div>
+            <button class="btn" data-go="cleanup">Unsubscribe</button></div>
+          <div class="row">
+            <div class="text"><div class="name">Trash old codes and expired mail</div><div class="fact">29 emails</div></div>
+            <button class="btn" data-go="cleanup">Trash</button></div>
+        </div>
+      </section>
+
+      <!-- Clean up: ≤ 120 words, ≤ 25 controls before "Show all". -->
+      <section class="screen" id="cleanup" hidden>
+        <h1>Clean up</h1>
+        <p class="sub">211 emails you can clear.</p>
+        <div class="list">
+          <div class="row">
+            <div class="text"><div class="name">13 senders you never open</div><div class="fact">150 emails</div></div>
+            <button class="btn primary">Unsubscribe all</button></div>
+          <div class="row">
+            <div class="text"><div class="name">Old codes and expired mail</div><div class="fact">29 emails</div></div>
+            <button class="btn">Trash</button></div>
+        </div>
+        <h2>Most mail first</h2>
+        <div class="list" id="businesses"></div>
+      </section>
+
+      <section class="screen" id="other" hidden>
+        <h1 id="other-title"></h1>
+        <p class="sub">Not part of this mockup.</p>
+      </section>
+    </div>
+
+    <div class="progress" role="status">Reading your mail · 3,120 of 12,400 · about 40 min left
+      <div class="track"><div></div></div></div>
+  </div>
+
+  <aside class="sheet" id="sheet" hidden aria-label="Digest">
+    <header><span class="logo" id="d-logo"></span><h3 id="d-name"></h3>
+      <button class="more" id="d-close" aria-label="Close">×</button></header>
+    <div class="actions" id="d-actions"></div>
+    <div><h4>Addresses</h4><ul id="d-addresses"></ul></div>
+    <div><h4>Recent</h4><ul id="d-subjects"></ul></div>
+  </aside>
+</div>
+
+<script>
+// Fake businesses: one row each, all of a brand's addresses folded in.
+const businesses = [
+  ["LinkedIn", 26, "none opened", ["messages-noreply@linkedin.com", "jobs-listings@linkedin.com", "notifications-noreply@linkedin.com"],
+    ["5 new jobs for you", "You appeared in 9 searches", "Samuel, add to your network"]],
+  ["Medium", 18, "1 opened", ["noreply@medium.com"], ["Your daily digest", "Stories for you", "Top reads this week"]],
+  ["Morning Brew", 14, "none opened", ["crew@morningbrew.com"], ["Markets rally", "The weekend edition", "Tuesday's brew"]],
+  ["UNIQLO", 12, "none opened", ["info@mail.uniqlo.com", "news@uniqlo.com"], ["Limited offers end soon", "New arrivals", "Members' week"]],
+  ["Reddit", 11, "none opened", ["noreply@redditmail.com"], ["Trending today", "A post you might like", "Popular in your communities"]],
+  ["Amazon", 9, "2 opened", ["store-news@amazon.com", "deals@amazon.com"], ["Deals picked for you", "Your recommendations", "Prime Day is back"]],
+  ["Nike", 9, "none opened", ["nike@official.nike.com"], ["Just dropped", "Members get it first", "Your weekend picks"]],
+  ["Groupon", 8, "none opened", ["noreply@r.groupon.com"], ["Today's deals near you", "Up to 70% off", "Last chance"]],
+  ["Pinterest", 7, "none opened", ["recommendations@pinterest.com"], ["Ideas for you", "Pins you might love", "Trending boards"]],
+  ["Quora", 6, "none opened", ["digest-noreply@quora.com"], ["Your Quora digest", "Answers you might like", "Top stories"]],
+];
+const SHOWN = 10, TOTAL = 39;
+
+const list = document.getElementById("businesses");
+for (const [name, count, fact, addresses, subjects] of businesses) {
+  const row = document.createElement("div");
+  row.className = "row tap";
+  row.innerHTML = `<span class="logo">${name[0]}</span>
+    <div class="text"><div class="name">${name}</div><div class="fact">${count} emails, ${fact}</div></div>
+    <button class="btn">Unsubscribe</button><button class="more" aria-label="More for ${name}">⋯</button>`;
+  row.onclick = (e) => { if (!e.target.closest("button")) openDigest(name, count, addresses, subjects); };
+  list.appendChild(row);
+}
+const showAll = document.createElement("button");
+showAll.className = "showall";
+showAll.textContent = `Show all ${TOTAL}`;
+list.appendChild(showAll);
+
+function openDigest(name, count, addresses, subjects) {
+  document.getElementById("d-logo").textContent = name[0];
+  document.getElementById("d-name").textContent = name;
+  document.getElementById("d-actions").innerHTML =
+    `<button class="btn primary">Unsubscribe</button><button class="btn">Trash all ${count}</button><button class="btn">Mute</button><button class="btn">Keep</button>`;
+  document.getElementById("d-addresses").innerHTML = addresses.map((a) => `<li>${a}</li>`).join("");
+  document.getElementById("d-subjects").innerHTML = subjects.map((s) => `<li>${s}</li>`).join("");
+  document.getElementById("sheet").hidden = false;
+}
+document.getElementById("d-close").onclick = () => { document.getElementById("sheet").hidden = true; };
+
+function go(place) {
+  document.querySelectorAll(".nav").forEach((n) => n.toggleAttribute("aria-current", n.dataset.go === place));
+  document.querySelectorAll(".nav[aria-current]").forEach((n) => n.setAttribute("aria-current", "page"));
+  const shown = place === "home" || place === "cleanup" ? place : "other";
+  for (const id of ["home", "cleanup", "other"]) document.getElementById(id).hidden = id !== shown;
+  document.getElementById("other-title").textContent = place[0].toUpperCase() + place.slice(1);
+  document.getElementById("sheet").hidden = true;
+  measure();
+}
+document.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => go(b.dataset.go)));
+document.getElementById("account").onclick = () => { const m = document.getElementById("menu"); m.hidden = !m.hidden; };
+
+// The same count as the research note: visible words and controls in the screen.
+const TARGETS = { home: [40, 5], cleanup: [120, 25] };
+function measure() {
+  const screen = [...document.querySelectorAll(".screen")].find((s) => !s.hidden);
+  const target = TARGETS[screen.id];
+  const meter = document.getElementById("meter");
+  if (!target) { meter.textContent = ""; return; }
+  const words = screen.innerText.split(/\s+/).filter(Boolean).length;
+  const controls = screen.querySelectorAll("button").length;
+  const scroller = document.querySelector(".scroll");
+  const fits = scroller.scrollHeight <= scroller.clientHeight;
+  const mark = (ok, text) => `<span class="${ok ? "ok" : ""}">${text}</span>`;
+  meter.innerHTML = [
+    mark(words <= target[0], `${words} words (≤ ${target[0]})`),
+    mark(controls <= target[1], `${controls} controls (≤ ${target[1]})`),
+    screen.id === "home" ? mark(fits, fits ? "no scrolling" : "scrolls") : "",
+  ].filter(Boolean).join(" · ");
+}
+document.fonts.ready.then(measure);
+</script>
+</body>
+</html>
