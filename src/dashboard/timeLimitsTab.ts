@@ -291,10 +291,12 @@ export const PRESETS: ReadonlyArray<{ id: string; hours: Partial<Record<SortBuck
   { id: "codes", hours: { otp: 24 }, name: "Codes leave after a day" },
   { id: "promotions", hours: { promotions: 0 }, name: "Promotions skip the inbox" },
   { id: "newsletters", hours: { newsletter: 168 }, name: "Newsletters leave after a week" },
-  { id: "tracking", hours: { shipping: 72 }, name: "Tracking leaves after 3 days" },
-  { id: "receipts", hours: { receipt: 168 }, name: "Receipts leave after a week" },
+  // One place for your paper trail, like HEY's Paper Trail and Apple's Transactions.
+  { id: "receipts", hours: { receipt: 168, shipping: 168 }, name: "Receipts and tracking leave after a week" },
   { id: "social", hours: { social: 24 }, name: "Social leaves after a day" },
   { id: "shopping", hours: { shopping: 72 }, name: "Shopping leaves after 3 days" },
+  // Slack, GitHub, Notion and other app notices.
+  { id: "updates", hours: { productivity: 168 }, name: "App updates leave after a week" },
 ];
 
 const presetsEl = document.getElementById("presets") as HTMLDivElement | null;

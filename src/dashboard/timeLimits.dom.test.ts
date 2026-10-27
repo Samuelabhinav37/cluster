@@ -107,3 +107,20 @@ describe("Organize presets", () => {
     await vi.waitFor(() => expect(promoCard().textContent).not.toContain("Undo"));
   });
 });
+
+describe("Organize presets, several kinds", () => {
+  it("Receipts and tracking turns on both kinds at once and shows On only when both match", async () => {
+    const dash = await bootDashboard();
+    await openOrganize(dash);
+    const card = () =>
+      Array.from(document.querySelectorAll<HTMLElement>("#presets .rec-card")).find((c) =>
+        c.textContent!.includes("Receipts and tracking"),
+      )!;
+    card().querySelector("button")!.click();
+    await vi.waitFor(() => {
+      const hours = dash.storedSettings().autoSort.inboxHoursByBucket;
+      expect([hours.receipt, hours.shipping]).toEqual([168, 168]);
+    });
+    await vi.waitFor(() => expect(card().querySelector(".rec-fact")!.textContent).toBe("On"));
+  });
+});
