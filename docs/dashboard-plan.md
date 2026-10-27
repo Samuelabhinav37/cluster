@@ -44,6 +44,10 @@ Proposed (decision 1):
 
 Activity and Settings move to the account menu.
 
+Done 2026-10-27 (`5e12737`): one panel with the five places, the rail removed, a place's
+sub-pages shown only while it is open, Activity and Settings in the account menu. The
+sub-pages (Stop mail, Rules, New senders, Scam report) fold into their place in Tracks 3 to 5.
+
 ## Track 2: Home, the iPhone Storage way
 
 - One bar: your inbox by Apple Mail's four kinds (decision 2): Primary, Transactions, Updates,
