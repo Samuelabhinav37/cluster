@@ -36,7 +36,8 @@ const BUDGETS = {
   // 2026-10-26: 60 → 64 KB for the rail shell (rail, panel, crumbs; ~3 KB raw).
   // 2026-10-26: 64 → 66 KB for the Inter Tight @font-face rules (7 subsets, ~2 KB).
   // 2026-10-27: 66 → 72 KB to match the approved mockup (skin block, Details).
-  "dashboard CSS": 72 * KB,
+  // 2026-10-27: 72 → 76 KB for the iCloud look (bento Home, app icons, banners, sign-in).
+  "dashboard CSS": 76 * KB,
 };
 
 function file(name) {

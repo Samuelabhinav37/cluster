@@ -58,9 +58,11 @@ export interface HomeFacts {
   neverOpened: { senders: number; emails: number };
   /** Mail past its date (old codes, delivered parcels, expired offers). */
   pastDate: number;
+  /** Kinds of mail with a time limit on. */
+  limitsOn: number;
 }
 
-/** Open a place; `act` also starts that place's own confirm step for the card. */
+/** Open a place; `act` also starts that place's own confirm step. */
 export type HomeAct = "mute-never-opened" | "trash-past-date";
 export type Go = (screen: string, act?: HomeAct) => void;
 
@@ -96,57 +98,25 @@ const ICONS: Record<string, Shape[]> = {
   check: [
     ["path", { d: "M20 6 9 17l-5-5" }],
   ],
+  mail: [
+    ["rect", { width: "20", height: "16", x: "2", y: "4", rx: "2" }],
+    ["path", { d: "m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" }],
+  ],
+  trash: [
+    ["path", { d: "M3 6h18" }],
+    ["path", { d: "M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" }],
+    ["path", { d: "M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" }],
+  ],
+  layers: [
+    ["path", { d: "m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" }],
+    ["path", { d: "m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" }],
+    ["path", { d: "m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" }],
+  ],
   "shield-check": [
     ["path", { d: "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" }],
     ["path", { d: "m9 12 2 2 4-4" }],
   ],
 };
-
-interface Rec {
-  icon: string;
-  name: string;
-  fact?: string;
-  verb: string;
-  go: () => void;
-  danger?: boolean;
-}
-
-/** Up to three next steps, most urgent first. A scam warning always leads. */
-export function homeRecommendations(f: HomeFacts, go: Go): Rec[] {
-  const recs: Rec[] = [];
-  if (f.suspicious > 0)
-    recs.push({
-      icon: "shield-alert",
-      name: `${plural(f.suspicious, "sender")} ${f.suspicious === 1 ? "looks" : "look"} like a scam`,
-      verb: "Review",
-      go: () => go("impersonation"),
-      danger: true,
-    });
-  if (f.neverOpened.senders > 0)
-    recs.push({
-      icon: "mail-x",
-      name: `Mute ${plural(f.neverOpened.senders, "sender")} you never open`,
-      fact: plural(f.neverOpened.emails, "email"),
-      verb: "Mute",
-      go: () => go("delete", "mute-never-opened"),
-    });
-  if (f.pastDate > 0)
-    recs.push({
-      icon: "clock",
-      name: "Trash mail past its date",
-      fact: plural(f.pastDate, "email"),
-      verb: "Trash",
-      go: () => go("delete", "trash-past-date"),
-    });
-  if (f.waiting > 0)
-    recs.push({
-      icon: "user-plus",
-      name: `${plural(f.waiting, "new sender")} waiting`,
-      verb: "Review",
-      go: () => go("screener"),
-    });
-  return recs.slice(0, 3);
-}
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -163,91 +133,146 @@ export function icon(name: string): SVGElement {
   return svg;
 }
 
-/** The total, the kind bar with its legend, and the recommendations.
+const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string): HTMLElementTagNameMap[K] => {
+  const e = document.createElement(tag);
+  e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+};
+
+function button(text: string, onClick: () => void): HTMLButtonElement {
+  const b = el("button", "btn btn-sm", text);
+  b.type = "button";
+  b.onclick = onClick;
+  return b;
+}
+
+/** One bento tile, iCloud style: a header strip with the place's app icon,
+ * its name and a short line, then the body. The header opens the place. */
+function tile(o: { app: string; ic: string; name: string; sub: string; open: () => void; wide?: boolean }) {
+  const root = el("section", `tile${o.wide ? " wide" : ""}`);
+  const head = el("button", "tile-head");
+  head.type = "button";
+  head.onclick = o.open;
+  const ic = el("span", `app-ic app-${o.app}`);
+  ic.append(icon(o.ic));
+  const words = el("span", "tile-words");
+  words.append(el("b", "tile-name", o.name), el("span", "tile-sub", o.sub));
+  head.append(ic, words);
+  const body = el("div", "tile-body");
+  root.append(head, body);
+  return { root, body };
+}
+
+/** A calm tile body: one big glyph and one line. */
+function quiet(ic: string, text: string, tone = ""): HTMLElement {
+  const box = el("div", `tile-empty${tone ? ` ${tone}` : ""}`);
+  box.append(icon(ic), el("span", "", text));
+  return box;
+}
+
+/** Home as a bento grid: Inbox and Protect, then Clean up and Organize.
  * `openKind` opens those emails in Details. */
 export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: HomeKind) => void): HTMLElement {
-  const root = document.createElement("div");
-  root.className = "home";
+  const root = el("div", "home bento");
 
-  const big = document.createElement("p");
-  big.className = "home-big";
-  const n = document.createElement("b");
-  n.textContent = f.total.toLocaleString();
-  big.append(n, ` ${f.total === 1 ? "email" : "emails"} in your inbox`);
-  if (f.thisWeek > 0) {
-    const delta = document.createElement("span");
-    delta.className = "home-delta";
-    delta.textContent = `+${f.thisWeek.toLocaleString()} this week`;
-    big.append(delta);
-  }
-
-  const bar = document.createElement("div");
-  bar.className = "kind-bar";
+  // Inbox: the number, the bar and the legend, like iCloud's storage.
+  const inbox = tile({
+    app: "inbox",
+    ic: "mail",
+    name: "Inbox",
+    wide: true,
+    sub: f.thisWeek > 0 ? `+${f.thisWeek.toLocaleString()} this week` : "Nothing new this week",
+    open: () => openKind?.("primary"),
+  });
+  const big = el("p", "home-big");
+  big.append(el("b", "", f.total.toLocaleString()), ` ${f.total === 1 ? "email" : "emails"}`);
+  const bar = el("div", "kind-bar");
   bar.setAttribute("role", "img");
   bar.setAttribute("aria-label", HOME_KINDS.map((k) => `${k.label} ${f.kinds[k.key]}`).join(", "));
-  const legend = document.createElement("ul");
-  legend.className = "kind-legend";
+  const legend = el("ul", "kind-legend");
   for (const k of HOME_KINDS) {
     const count = f.kinds[k.key];
     if (count > 0) {
-      const seg = document.createElement("span");
-      seg.className = `kind-${k.key}`;
+      const seg = el("span", `kind-${k.key}`);
       seg.style.flexGrow = String(count);
       seg.title = `${k.label}: ${count.toLocaleString()}`;
       if (openKind) seg.onclick = () => openKind(k.key);
       bar.append(seg);
     }
-    const li = document.createElement("li");
-    const item = openKind ? document.createElement("button") : document.createElement("span");
+    const item = openKind ? el("button", "") : el("span", "");
     if (item instanceof HTMLButtonElement) {
       item.type = "button";
       item.onclick = () => openKind!(k.key);
     }
-    const swatch = document.createElement("i");
-    swatch.className = `kind-${k.key}`;
-    const em = document.createElement("em");
-    em.textContent = count.toLocaleString();
-    item.append(swatch, k.label, em);
+    item.append(el("i", `kind-${k.key}`), k.label, el("em", "", count.toLocaleString()));
+    const li = el("li", "");
     li.append(item);
     legend.append(li);
   }
+  inbox.body.append(big, bar, legend);
 
-  const head = document.createElement("h2");
-  head.className = "section-label";
-  head.textContent = "Recommended";
-  const grid = document.createElement("div");
-  grid.className = "rec-grid";
-  const recs = homeRecommendations(f, go);
-  if (recs.length === 0)
-    recs.push({ icon: "check", name: "Nothing needs you right now", verb: "", go: () => undefined });
-  for (const r of recs) {
-    const card = document.createElement("div");
-    card.className = "rec-card";
-    const ic = document.createElement("span");
-    ic.className = `rec-ic${r.danger ? " danger" : r.verb ? "" : " ok"}`;
-    ic.append(icon(r.icon));
-    card.append(ic);
-    const name = document.createElement("div");
-    name.className = "rec-name";
-    name.textContent = r.name;
-    card.append(name);
-    if (r.fact) {
-      const fact = document.createElement("div");
-      fact.className = "rec-fact";
-      fact.textContent = r.fact;
-      card.append(fact);
-    }
-    if (r.verb) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "btn btn-sm";
-      btn.textContent = r.verb;
-      btn.onclick = r.go;
-      card.append(btn);
-    }
-    grid.append(card);
+  // Protect: scams first, then new senders, else all clear.
+  const scams = f.suspicious > 0;
+  const protect = tile({
+    app: "protect",
+    ic: "shield-check",
+    name: "Protect",
+    sub: scams ? "Needs a look" : f.waiting > 0 ? "New senders" : "All clear",
+    open: () => go(scams || f.waiting === 0 ? "impersonation" : "screener"),
+  });
+  if (scams || f.waiting > 0) {
+    const n = scams ? f.suspicious : f.waiting;
+    const stat = el("p", `tile-stat${scams ? " danger" : ""}`);
+    stat.append(
+      el("b", "", n.toLocaleString()),
+      scams ? (n === 1 ? "looks like a scam" : "look like scams") : `new ${n === 1 ? "sender" : "senders"}`,
+    );
+    protect.body.append(stat, button("Review", () => go(scams ? "impersonation" : "screener")));
+  } else protect.body.append(quiet("shield-check", "Nothing looks off", "ok"));
+
+  // Clean up: one row per quick win, each starting that place's own confirm.
+  const clearable = f.neverOpened.emails + f.pastDate;
+  const clean = tile({
+    app: "clean",
+    ic: "trash",
+    name: "Clean up",
+    wide: true,
+    sub: clearable > 0 ? `${plural(clearable, "email")} to clear` : "All tidy",
+    open: () => go("delete"),
+  });
+  const rows: Array<[ic: string, name: string, fact: string, verb: string, act: HomeAct]> = [];
+  if (f.neverOpened.senders > 0)
+    rows.push([
+      "mail-x",
+      `${plural(f.neverOpened.senders, "sender")} you never open`,
+      plural(f.neverOpened.emails, "email"),
+      "Mute",
+      "mute-never-opened",
+    ]);
+  if (f.pastDate > 0) rows.push(["clock", "Past its date", plural(f.pastDate, "email"), "Trash", "trash-past-date"]);
+  if (rows.length === 0) clean.body.append(quiet("check", "Nothing to clear", "ok"));
+  for (const [ic, name, fact, verb, act] of rows) {
+    const row = el("div", "tile-row");
+    const mark = el("span", "rec-ic");
+    mark.append(icon(ic));
+    const words = el("span", "tile-words");
+    words.append(el("b", "", name), el("span", "tile-sub", fact));
+    row.append(mark, words, button(verb, () => go("delete", act)));
+    clean.body.append(row);
   }
 
-  root.append(big, bar, legend, head, grid);
+  // Organize: how many kinds leave the inbox on their own.
+  const organize = tile({
+    app: "organize",
+    ic: "layers",
+    name: "Organize",
+    sub: f.limitsOn > 0 ? `${plural(f.limitsOn, "time limit")} on` : "Time limits off",
+    open: () => go("organize"),
+  });
+  if (f.limitsOn > 0) organize.body.append(quiet("check", "Your inbox tidies itself", "ok"));
+  else organize.body.append(quiet("clock", "Let old mail leave on its own"), button("Pick one", () => go("organize")));
+
+  root.append(inbox.root, protect.root, clean.root, organize.root);
   return root;
 }

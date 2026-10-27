@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 import { inboxTabOf } from "../lib/senderModel";
-import { homeRecommendations, kindOf, mailByKind, renderHomeDashboard, type HomeFacts } from "./homeDashboard";
+import { kindOf, mailByKind, renderHomeDashboard, type HomeFacts } from "./homeDashboard";
 
 const NOW = Date.UTC(2026, 9, 17);
 const DAY = 24 * 60 * 60 * 1000;
@@ -87,32 +87,21 @@ const calm: HomeFacts = {
   waiting: 0,
   neverOpened: { senders: 0, emails: 0 },
   pastDate: 0,
+  limitsOn: 0,
 };
-
-describe("homeRecommendations", () => {
-  it("puts a scam warning first and stops at three", () => {
-    const recs = homeRecommendations(
-      { ...calm, suspicious: 2, waiting: 4, neverOpened: { senders: 12, emails: 150 }, pastDate: 29 },
-      vi.fn(),
-    );
-    expect(recs.map((r) => r.name)).toEqual([
-      "2 senders look like a scam",
-      "Mute 12 senders you never open",
-      "Trash mail past its date",
-    ]);
-  });
-
-  it("each button opens its place and starts that place's own confirm", () => {
-    const go = vi.fn();
-    for (const r of homeRecommendations({ ...calm, neverOpened: { senders: 1, emails: 3 }, pastDate: 2, waiting: 1 }, go)) r.go();
-    expect(go.mock.calls).toEqual([["delete", "mute-never-opened"], ["delete", "trash-past-date"], ["screener"]]);
-  });
-});
+const tiles = (el: HTMLElement) => Array.from(el.querySelectorAll(".tile-name")).map((t) => t.textContent);
+const tileOf = (el: HTMLElement, name: string) =>
+  Array.from(el.querySelectorAll<HTMLElement>(".tile")).find((t) => t.querySelector(".tile-name")!.textContent === name)!;
 
 describe("renderHomeDashboard", () => {
-  it("shows the total, one bar segment per kind with mail, and a labelled legend", () => {
+  it("lays out four tiles: Inbox and Protect, then Clean up and Organize", () => {
+    expect(tiles(renderHomeDashboard(calm, vi.fn()))).toEqual(["Inbox", "Protect", "Clean up", "Organize"]);
+  });
+
+  it("Inbox shows the total, one bar segment per kind with mail, and a labelled legend", () => {
     const el = renderHomeDashboard({ ...calm, kinds: { ...calm.kinds, trans: 0 } }, vi.fn());
-    expect(el.querySelector(".home-big")!.textContent).toBe("65 emails in your inbox+12 this week");
+    expect(el.querySelector(".home-big")!.textContent).toBe("65 emails");
+    expect(tileOf(el, "Inbox").querySelector(".tile-sub")!.textContent).toBe("+12 this week");
     expect(el.querySelectorAll(".kind-bar span")).toHaveLength(3);
     expect(el.querySelector(".kind-bar")!.getAttribute("aria-label")).toBe(
       "Primary 10, Transactions 0, Updates 20, Promotions 30",
@@ -125,19 +114,34 @@ describe("renderHomeDashboard", () => {
     ]);
   });
 
-  it("says nothing needs you when there is nothing to recommend", () => {
-    const el = renderHomeDashboard(calm, vi.fn());
-    expect(el.querySelector(".rec-grid")!.textContent).toBe("Nothing needs you right now");
-    expect(el.querySelectorAll(".rec-grid button")).toHaveLength(0);
+  it("each button opens its place and starts that place's own confirm; scams lead Protect", () => {
+    const go = vi.fn();
+    const el = renderHomeDashboard(
+      { ...calm, suspicious: 2, waiting: 4, neverOpened: { senders: 1, emails: 3 }, pastDate: 2 },
+      go,
+    );
+    expect(tileOf(el, "Protect").querySelector(".tile-stat")!.textContent).toBe("2look like scams");
+    for (const b of Array.from(el.querySelectorAll<HTMLButtonElement>(".tile-body button"))) b.click();
+    expect(go.mock.calls).toEqual([["impersonation"], ["delete", "mute-never-opened"], ["delete", "trash-past-date"], ["organize"]]);
   });
 
-  it("keeps Home under its word budget with every card showing", () => {
+  it("shows calm tiles with no buttons when nothing needs you", () => {
+    const el = renderHomeDashboard({ ...calm, limitsOn: 3 }, vi.fn());
+    expect(Array.from(el.querySelectorAll(".tile-empty")).map((e) => e.textContent)).toEqual([
+      "Nothing looks off",
+      "Nothing to clear",
+      "Your inbox tidies itself",
+    ]);
+    expect(el.querySelectorAll(".tile-body button")).toHaveLength(0);
+  });
+
+  it("keeps Home under its word budget with every tile busy", () => {
     const el = renderHomeDashboard(
       { ...calm, suspicious: 1, neverOpened: { senders: 12, emails: 150 }, pastDate: 29 },
       vi.fn(),
     );
     const words = (el.textContent ?? "").replace(/(\d)([A-Z])/g, "$1 $2").split(/\s+/).filter(Boolean);
-    expect(words.length).toBeLessThanOrEqual(40);
+    expect(words.length).toBeLessThanOrEqual(45);
     expect(el.textContent).not.toMatch(/[–—]/);
   });
 });

@@ -1134,6 +1134,9 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
       emails: plan.neverReadMsgs,
     },
     pastDate: plan.expiryTotal,
+    limitsOn: ctx.settings.autoSort.timeLimitsEnabled
+      ? Object.values(ctx.settings.autoSort.inboxHoursByBucket).filter((h) => h != null).length
+      : 0,
   };
   overviewContentEl.appendChild(
     renderHomeDashboard(
@@ -1146,7 +1149,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
   const top = HOME_KINDS.reduce((a, b) => (facts.kinds[b.key] > facts.kinds[a.key] ? b : a));
   if (!kaiTipped && facts.total > 0 && facts.kinds[top.key] / facts.total >= 0.4) {
     kaiTipped = true;
-    setTimeout(() => kaiGuide?.tip(`Most of your mail is ${top.label.toLowerCase()}. Click the bar to see them.`), 1500);
+    setTimeout(() => kaiGuide?.tip(`Most of your mail is ${top.label.toLowerCase()}. Tap the bar to see it.`), 1500);
   }
   if (lastScanCapHit) {
     const footNote = document.createElement("p");
