@@ -98,6 +98,8 @@ export interface KaiGuide {
   close: () => void;
   isOpen: () => boolean;
   watch: KaiWatch | undefined;
+  /** A one-line tip in the bubble, folded away after a few seconds. */
+  tip: (text: string) => void;
 }
 
 export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
@@ -441,13 +443,22 @@ export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
     win.setTimeout(() => kai.do("squint"), 300);
   });
 
-  return { open: show, close: hide, isOpen, watch };
+  const tip = (text: string) => {
+    if (isOpen() || watch?.isShowing()) return;
+    hint = true;
+    kai.setMood("happy", 1500);
+    tagSay(text);
+    win.setTimeout(() => {
+      if (hint) { hint = false; tagFold(); }
+    }, 9000);
+  };
+  return { open: show, close: hide, isOpen, watch, tip };
 }
 
 /** Cluster's questions. Short, plain answers; each names the screen it opens. */
 export const CLUSTER_QUESTIONS: KaiQuestion[] = [
   { id: "read", ask: "Does Cluster read my emails?", answer: "No. It reads senders, subjects, dates, labels and a few sender-check headers, never the message itself. Everything runs in your browser.", follow: ["starred", "undo"] },
-  { id: "sort", ask: "How do I sort my inbox?", answer: "Open Sorting and press Sort my inbox. You see every group first and tick what to file. Nothing moves until you confirm.", screen: "organize", target: "#sort-inbox-section", follow: ["keep", "undo"] },
+  { id: "sort", ask: "How do I sort my inbox?", answer: "Open Organize and press Sort my inbox. You see every group first and tick what to file. Nothing moves until you confirm.", screen: "organize", target: "#sort-inbox-section", follow: ["keep", "undo"] },
   { id: "flagged", ask: "Why was this sender flagged?", answer: "It looked like someone else: a lookalike domain, a failed sender check, or a reply address that goes somewhere different. Each flag lists its reasons.", screen: "impersonation", follow: ["read"] },
   { id: "undo", ask: "How do I undo something?", answer: "Activity lists everything Cluster did, newest first, with Undo wherever your mail provider allows it.", screen: "recent", follow: ["starred"] },
   { id: "unsub", ask: "How do I unsubscribe from lots at once?", answer: "Stop mail lists every sender you can leave. Pick the ones you want, or unsubscribe from every verified one-click sender together.", screen: "subscriptions", follow: ["undo"] },

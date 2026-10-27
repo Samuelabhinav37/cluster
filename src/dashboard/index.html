@@ -138,38 +138,11 @@
               <div class="page-titles">
                 <h1 class="page-title">Home</h1>
               </div>
-              <button type="button" class="btn btn-sm" data-details aria-controls="details">Details</button>
+              <button type="button" class="tool" data-details aria-controls="details"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18M3 15h18M9 9v12M15 9v12"></path></svg>Details</button>
             </div>
 
             <p class="sr-only" id="overview-headline"></p>
             <div id="overview-content"></div>
-            <div id="onboarding-banner" class="banner" hidden>
-              <p>
-                Cluster reads senders, subjects and dates. It reads links only in mail that looks like a
-                scam. Nothing is deleted without your OK.
-              </p>
-              <button type="button" id="onboarding-dismiss-btn" class="btn btn-accent">Got it</button>
-            </div>
-            <div id="label-tidy-banner" class="banner" hidden></div>
-            <div id="athena-section" class="banner" hidden>
-              <p>
-                <strong>Your organization can receive Cluster's security warnings.</strong>
-                Only the warnings are sent, never your mail.
-              </p>
-              <button type="button" id="athena-connect-btn" class="btn btn-accent">
-                Allow Athena connection
-              </button>
-              <span id="athena-status" role="status" class="hint"></span>
-            </div>
-
-            <div class="setup-banner" id="setup-banner" hidden>
-              <div class="tc-text">
-                <b>Set Cluster up for you</b>
-                <span class="tc-sub">Answer one question to get sensible defaults.</span>
-              </div>
-              <button type="button" class="btn btn-accent-solid" id="setup-banner-start">Start</button>
-              <button type="button" class="btn btn-ghost" id="setup-banner-dismiss">Not now</button>
-            </div>
           </section>
 
           <!-- ══ Delete ════════════════════════════════════════════════ -->
@@ -179,21 +152,18 @@
                 <h1 class="page-title">Clean up</h1>
                 <p class="lead" id="cleanup-lead"></p>
               </div>
+              <button type="button" class="tool" data-details aria-controls="details"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18M3 15h18M9 9v12M15 9v12"></path></svg>Details</button>
             </div>
-            <p class="trust-line">
-              <span>Starred and
-                <span class="term" tabindex="0">protected mail<span class="term-tip" role="tooltip">Receipts, bills, travel, codes you might still need, and anything from people you write to. Cluster never moves these to Trash.</span></span>
-                is skipped</span><span>Trash keeps it 30 days</span><span>Undo from Activity</span>
-            </p>
-
 
             <div class="rec-grid">
               <div class="rec-card" id="never-opened-card" hidden>
+                <span class="rec-ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h9"></path><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path><path d="m17 17 4 4"></path><path d="m21 17-4 4"></path></svg></span>
                 <div class="rec-name" id="never-opened-name"></div>
                 <div class="rec-fact" id="never-opened-fact"></div>
                 <span id="never-read-mute-slot"><button id="never-read-mute-btn" class="btn btn-sm">Mute…</button></span>
               </div>
               <div class="rec-card" id="past-date-card" hidden>
+                <span class="rec-ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></span>
                 <div class="rec-name">Old codes and mail past its date</div>
                 <div class="rec-fact" id="past-date-fact"></div>
                 <span id="expiry-cleanup-slot"><button id="expiry-cleanup-btn" class="btn btn-sm">Trash…</button></span>
@@ -455,16 +425,6 @@
             </div>
             <div class="protect-tiles" role="tablist" aria-label="Protect" data-protect-tiles></div>
 
-            <label class="toggle-card" id="auto-quarantine-row">
-              <span class="tc-text">
-                <b>Hold emails that look like scams</b>
-                <span class="tc-sub">Only the suspicious email moves. Checked every 6 hours.</span>
-              </span>
-              <input type="checkbox" class="switch" role="switch" id="auto-quarantine-toggle" />
-            </label>
-            <p class="trust-line">
-              <span>Checked on your computer</span><span>Nothing deleted</span><span>One tap to put it back</span>
-            </p>
 
             <section id="quarantine-review-section" hidden>
               <div class="section-head">
@@ -485,6 +445,10 @@
               </div>
             </section>
             <p id="security-empty" class="empty-state">Nothing looks like a scam right now.</p>
+            <label class="toggle-card" id="auto-quarantine-row">
+              <span class="tc-text"><b>Hold likely scams</b></span>
+              <input type="checkbox" class="switch" role="switch" id="auto-quarantine-toggle" />
+            </label>
           </section>
 
 
@@ -607,6 +571,34 @@
                 <h1 class="page-title">Settings</h1>
                 <p class="lead">Set once. Changes apply right away.</p>
               </div>
+            </div>
+
+            <div id="onboarding-banner" class="banner" hidden>
+              <p>
+                Cluster reads senders, subjects and dates. It reads links only in mail that looks like a
+                scam. Nothing is deleted without your OK.
+              </p>
+              <button type="button" id="onboarding-dismiss-btn" class="btn btn-accent">Got it</button>
+            </div>
+            <div id="label-tidy-banner" class="banner" hidden></div>
+            <div id="athena-section" class="banner" hidden>
+              <p>
+                <strong>Your organization can receive Cluster's security warnings.</strong>
+                Only the warnings are sent, never your mail.
+              </p>
+              <button type="button" id="athena-connect-btn" class="btn btn-accent">
+                Allow Athena connection
+              </button>
+              <span id="athena-status" role="status" class="hint"></span>
+            </div>
+
+            <div class="setup-banner" id="setup-banner" hidden>
+              <div class="tc-text">
+                <b>Set Cluster up for you</b>
+                <span class="tc-sub">Answer one question to get sensible defaults.</span>
+              </div>
+              <button type="button" class="btn btn-accent-solid" id="setup-banner-start">Start</button>
+              <button type="button" class="btn btn-ghost" id="setup-banner-dismiss">Not now</button>
             </div>
 
             <div class="settings-list">

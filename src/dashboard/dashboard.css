@@ -3630,7 +3630,7 @@ body[data-state="connect"] .crumbs {
 }
 
 .rec-card[hidden] { display: none; }
-[data-screen="delete"] .rec-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); margin-bottom: 20px; }
+[data-screen="delete"] .rec-grid { margin: 0; }
 
 .rec-card .btn {
   margin-top: auto;
@@ -3782,3 +3782,74 @@ body.details-open:has(.details.wide) .kai-guide { right: calc(50vw + 24px); }
 .presets-guard { margin: 10px 0 20px; }
 @media (max-width: 760px) { #presets { grid-template-columns: 1fr; } }
 .rec-actions { display: flex; gap: 8px; margin-top: auto; }
+
+/* ── Mockup skin (2026-10-27) ─────────────────────────────────────────
+   The approved mockup's sizes on the real page
+   (research/2026-10-27-home-cleanup-mockup.html): a 1120 column, a 30 px
+   title, small grey section labels, pill buttons with blue text. */
+section.screen { max-width: 1120px; margin: 0 auto; padding: 32px 48px 96px; }
+.page-head { border-bottom: 0; padding-bottom: 0; margin-bottom: 0; }
+.page-title { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; margin: 0 0 6px; }
+.page-head .lead { font-size: 15px; color: var(--label-4); margin: 0; }
+.section-label { font-size: 13px; font-weight: 600; color: var(--label-4); margin: 28px 0 10px; }
+.section-head .section-label { margin: 0; }
+.section-head { margin: 0 0 10px; }
+.btn { border: 0; padding: 6px 14px; background: var(--neutral-fill); color: var(--accent-text); font-size: 13px; font-weight: 600; }
+.btn:hover { background: var(--neutral-fill-hover); }
+.btn-sm { padding: 6px 14px; font-size: 13px; }
+.btn.btn-danger { color: var(--danger-text); }
+.btn.btn-ghost { background: none; color: var(--label-4); }
+.btn-accent-solid { padding: 6px 14px; font-size: 13px; font-weight: 600; }
+.rec-card, .protect-tile { border: 1px solid var(--separator); background: var(--glass); }
+.rec-card { gap: 4px; min-height: 146px; }
+.rec-name { font-size: 15px; font-weight: 600; }
+.rec-fact { color: var(--accent-text); font-size: 13px; font-weight: 600; }
+.rec-card .btn, .rec-actions { margin-top: auto; }
+.home-big { margin-bottom: 14px; }
+.kind-bar { height: 14px; }
+.side-panel { width: 220px; }
+.side-panel .sidebar { align-self: stretch; background: none; }
+.sidebar-note { display: none; }
+.grouped-list { border: 1px solid var(--separator); }
+.tool { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--separator); border-radius: 9px;
+  background: var(--glass); color: var(--label-2); font: 400 13px var(--font); cursor: pointer; }
+.tool:hover { background: var(--row-hover); }
+.tool[aria-expanded="true"] { border-color: var(--accent); color: var(--accent-text); }
+.tool .i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; }
+/* Details as dense as the mockup's sheet. */
+.details { background: var(--glass); font-size: 13px; }
+.details-search { padding: 6px 10px; font-size: 13px; }
+.chip { padding: 3px 10px; font-size: 12px; }
+table.sheet { font-size: 12px; }
+.sheet th { padding: 7px 10px; font-size: 12px; text-transform: none; letter-spacing: 0; }
+.sheet td { padding: 7px 10px; }
+.sheet .tick { width: 13px; height: 13px; }
+.sheet .logo-tile { width: 18px; height: 18px; border-radius: 5px; font-size: 10px; }
+.sheet .logo-tile .logo-img { inset: 15%; width: 70%; height: 70%; }
+.sheet tr.unread .subj { font-weight: 600; }
+.sheet .subj { color: var(--label-2); }
+/* The base button/input/checkbox rules size for touch; the sheet is a dense table. */
+.details button { min-height: 0; }
+.details .icon-btn { padding: 0; }
+.details input.details-search { padding: 6px 10px 6px 30px; border-color: transparent; background: var(--neutral-fill) no-repeat 10px 50% / 14px url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%238e8e93%27 stroke-width=%272%27 stroke-linecap=%27round%27%3E%3Ccircle cx=%2711%27 cy=%2711%27 r=%278%27/%3E%3Cpath d=%27m21 21-4.3-4.3%27/%3E%3C/svg%3E"); }
+.details-chart .track { width: 80%; }
+.details .sheet input.tick { width: 14px; height: 14px; min-width: 0; min-height: 0; margin: 0; }
+/* Clean up's list: name, a wide volume bar, then actions (mockup). */
+#sender-groups .list-row--media-meta-actions { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 150px; padding: 10px 16px; }
+#sender-groups .row-actions { justify-content: flex-end; }
+#sender-groups .row-actions .btn:not(.btn-icon) { background: var(--neutral-fill); }
+#sender-groups .row-actions .btn { min-height: 0; }
+/* Protect (mockup): icon tiles, then scams as one grouped list of rows. */
+.protect-tile { flex-direction: row; align-items: center; gap: 12px; }
+.protect-tile > span:last-child { display: flex; flex-direction: column; align-items: flex-start; font-size: 13px; color: var(--label-2); }
+.protect-tile.alert b { color: var(--label); }
+#security-sender-list, #security-low-list { gap: 0; border: 1px solid var(--separator); border-radius: 14px; overflow: hidden; background: var(--glass); }
+#security-section .scam-card { gap: 8px; padding: 10px 16px; border-radius: 0; box-shadow: none; background: none; }
+#security-section .scam-card + .scam-card { border-top: 1px solid var(--separator); }
+#security-section .scam-subj { font-size: 14px; }
+#security-section .scam-head { flex-wrap: nowrap; }
+#security-section .scam-head .btn { min-height: 0; padding: 6px 14px; }
+#security-section .scam-head .btn-icon { background: none; color: var(--label-4); padding: 6px 8px; }
+.scam-more[hidden] { display: none; }
+.scam-more { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 6px 46px; }
+#auto-quarantine-row { padding: 14px 16px; border-radius: 14px; }

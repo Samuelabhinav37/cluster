@@ -370,19 +370,45 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
   const title = document.createElement("div");
   title.className = "scam-subj";
   title.textContent = message?.subject ? `"${message.subject}"` : `"${sender.displayName || sender.address}"`;
-  const from = document.createElement("div");
-  from.className = "scam-from";
   const when = message ? ` · ${new Date(message.receivedAt).toLocaleDateString()}` : "";
-  from.textContent = `From ${sender.displayName ? `${sender.displayName} <${sender.address}>` : sender.address}${when}`;
-  id.append(title, from);
+  const fromText = `From ${sender.displayName ? `${sender.displayName} <${sender.address}>` : sender.address}${when}`;
+  // One line under the subject: the strongest reason. The rest sit under ⋯.
+  const why = document.createElement("div");
+  why.className = "scam-from";
+  why.textContent = verdict.reasons[0]?.text ?? fromText;
+  id.append(title, why);
   const [chipClass, chipText] = TIER_CHIP[verdict.tier];
   const chip = document.createElement("span");
   chip.className = `risk-chip ${chipClass}`;
   chip.textContent = chipText;
-  head.append(senderTile(sender.address, sender.displayName, "sz-34"), id, chip);
+  const quick = document.createElement("button");
+  quick.type = "button";
+  quick.className = "btn";
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "btn btn-icon";
+  toggle.setAttribute("aria-label", "More");
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.textContent = "⋯";
+  const more = document.createElement("div");
+  more.className = "scam-more";
+  more.hidden = true;
+  const expand = () => {
+    more.hidden = false;
+    toggle.setAttribute("aria-expanded", "true");
+  };
+  toggle.onclick = () => {
+    more.hidden = !more.hidden;
+    toggle.setAttribute("aria-expanded", String(!more.hidden));
+  };
+  head.append(senderTile(sender.address, sender.displayName, "sz-34"), id, quick, toggle);
   li.appendChild(head);
+  li.appendChild(more);
 
-  li.appendChild(reasonList(verdict));
+  const fromLine = document.createElement("p");
+  fromLine.className = "scam-from";
+  fromLine.append(chip, " ", fromText);
+  more.append(fromLine, reasonList(verdict));
 
   // A familiar sender whose identity changed is the invoice-fraud shape:
   // the safe move is a call on a number the user already has.
@@ -397,11 +423,11 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
     const wrap = document.createElement("div");
     wrap.append(b, text);
     card.appendChild(wrap);
-    li.appendChild(card);
+    li.insertBefore(card, more);
   }
 
   const report = reportSteps();
-  li.appendChild(report.steps);
+  more.appendChild(report.steps);
 
   const actions = document.createElement("div");
   actions.className = "scam-actions";
@@ -471,7 +497,18 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
     slot.appendChild(btn);
     actions.appendChild(slot);
   }
-  li.appendChild(actions);
+  more.appendChild(actions);
+
+  // The row's own button: block (its confirm opens below) for real warnings,
+  // "It's fine" for a lone weak sign.
+  const blockBtn = Array.from(actions.querySelectorAll("button")).find((b) => b.textContent === "Block sender");
+  const target = verdict.tier !== "none" && blockBtn ? blockBtn : genuine;
+  quick.textContent = target === genuine ? "It's fine" : "Block";
+  quick.onclick = () => {
+    if (target === genuine) return genuine.click();
+    expand();
+    target.click();
+  };
 
   return li;
 }

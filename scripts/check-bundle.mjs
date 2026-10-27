@@ -35,7 +35,8 @@ const BUDGETS = {
   // section, ~8 KB raw / 1.5 KB gzip), on top of 47 KB before Kai.
   // 2026-10-26: 60 → 64 KB for the rail shell (rail, panel, crumbs; ~3 KB raw).
   // 2026-10-26: 64 → 66 KB for the Inter Tight @font-face rules (7 subsets, ~2 KB).
-  "dashboard CSS": 66 * KB,
+  // 2026-10-27: 66 → 72 KB to match the approved mockup (skin block, Details).
+  "dashboard CSS": 72 * KB,
 };
 
 function file(name) {

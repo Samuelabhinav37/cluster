@@ -120,12 +120,12 @@ import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib
 import { senderTile, type TileSize } from "./senderTile";
 import { wireAccountMenu } from "./accountMenu";
 import { initAskKai, type AskFacts } from "./askKai";
-import { mailByKind, renderHomeDashboard, type HomeAct, type HomeFacts } from "./homeDashboard";
+import { HOME_KINDS, icon as homeIcon, mailByKind, renderHomeDashboard, type HomeAct, type HomeFacts } from "./homeDashboard";
 import { detailSenders, idsByProvider, initDetailsPanel, type DetailsPanel } from "./detailsPanel";
 import { listGroup, listRow } from "./listRow";
 import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
-import { CLUSTER_FIRST_ON, CLUSTER_QUESTIONS, initKaiGuide } from "./kaiGuide";
+import { CLUSTER_FIRST_ON, CLUSTER_QUESTIONS, initKaiGuide, type KaiGuide } from "./kaiGuide";
 
 const selectedSenderKeys = new Set<string>();
 const selectedDomainKeys = new Set<string>();
@@ -506,9 +506,12 @@ function wireThemeSelect() {
   };
 }
 
+let kaiGuide: KaiGuide | null = null;
+let kaiTipped = false;
+
 async function main() {
   // Kai in the corner, from the first screen (even before Gmail is connected).
-  initKaiGuide(document, {
+  kaiGuide = initKaiGuide(document, {
     questions: CLUSTER_QUESTIONS,
     firstOn: CLUSTER_FIRST_ON,
     currentScreen: () => document.querySelector<HTMLElement>("#sidebar .nav-item.active")?.dataset.screen ?? "overview",
@@ -1058,23 +1061,28 @@ function renderProtectTiles(scams: number, waiting: number, held: number) {
     ? `${scams} ${scams === 1 ? "sender needs" : "senders need"} a look.`
     : waiting > 0 ? `${waiting} new ${waiting === 1 ? "sender" : "senders"} waiting.` : "All clear.";
   for (const el of Array.from(document.querySelectorAll<HTMLElement>("[data-protect-sub]"))) el.textContent = sub;
-  const tiles: Array<[screen: string, count: number, label: string]> = [
-    ["impersonation", scams, "Likely scams"],
-    ["screener", waiting, "New senders"],
-    ["report", held, "Held so far"],
+  const tiles: Array<[screen: string, count: number, label: string, ic: string]> = [
+    ["impersonation", scams, "Likely scams", "shield-alert"],
+    ["screener", waiting, "New senders", "user-plus"],
+    ["report", held, "Held so far", "shield-check"],
   ];
   for (const host of Array.from(document.querySelectorAll<HTMLElement>("[data-protect-tiles]"))) {
     const here = (host.closest("section.screen") as HTMLElement | null)?.dataset.screen;
     host.replaceChildren(
-      ...tiles.map(([screen, count, label]) => {
+      ...tiles.map(([screen, count, label, ic]) => {
         const tile = document.createElement("button");
         tile.type = "button";
         tile.className = `protect-tile${screen === "impersonation" && count > 0 ? " alert" : ""}`;
         tile.setAttribute("role", "tab");
         tile.setAttribute("aria-selected", String(screen === here));
+        const mark = document.createElement("span");
+        mark.className = `rec-ic${screen === "impersonation" ? " danger" : ""}`;
+        mark.append(homeIcon(ic));
         const n = document.createElement("b");
         n.textContent = count.toLocaleString();
-        tile.append(n, label);
+        const text = document.createElement("span");
+        text.append(n, label);
+        tile.append(mark, text);
         tile.onclick = () => void selectScreen(screen);
         return tile;
       }),
@@ -1134,6 +1142,12 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
       (kind) => details?.open({ kind }),
     ),
   );
+  // Kai's tip, once a visit: the kind that fills most of the inbox.
+  const top = HOME_KINDS.reduce((a, b) => (facts.kinds[b.key] > facts.kinds[a.key] ? b : a));
+  if (!kaiTipped && facts.total > 0 && facts.kinds[top.key] / facts.total >= 0.4) {
+    kaiTipped = true;
+    setTimeout(() => kaiGuide?.tip(`Most of your mail is ${top.label.toLowerCase()}. Click the bar to see them.`), 1500);
+  }
   if (lastScanCapHit) {
     const footNote = document.createElement("p");
     footNote.className = "text-meta";
@@ -1394,39 +1408,11 @@ function renderDecisionSenders(senders: SenderSummary[]) {
   const list = document.createElement("div");
   list.className = "grouped-list";
 
-  // Header row
-  const hdr = document.createElement("div");
-  hdr.className = "list-row list-row--check-media-actions";
-  hdr.style.background = "var(--row-hover)";
-  const hdrLabel = document.createElement("label");
-  hdrLabel.className = "check-label";
-  const selectAll = document.createElement("input");
-  selectAll.type = "checkbox";
-  selectAll.className = "check";
-  selectAll.checked = decide.length > 0 && decide.every((s) => selectedSenderKeys.has(s.key));
-  selectAll.setAttribute("aria-label", "Select all senders");
-  selectAll.onchange = () => {
-    for (const s of decide) {
-      if (selectAll.checked) selectedSenderKeys.add(s.key);
-      else selectedSenderKeys.delete(s.key);
-    }
-    renderDecisionSenders(senders);
-    updateSenderBulkBar();
-  };
-  hdrLabel.appendChild(selectAll);
-  const hdrCount = document.createElement("span");
-  hdrCount.className = "row-sub";
-  hdrCount.style.color = "var(--label-2)";
-  const selCount = decide.filter((s) => selectedSenderKeys.has(s.key)).length;
-  hdrCount.textContent = `${selCount} of ${decide.length} selected`;
-  hdr.append(hdrLabel, hdrCount);
-  list.appendChild(hdr);
-
   const most = Math.max(1, ...decide.map(senderVolume));
   for (const sender of decide) {
     const sep = document.createElement("div");
     sep.className = "row-sep";
-    sep.style.marginLeft = "56px";
+    sep.style.marginLeft = "16px";
     list.appendChild(sep);
     list.appendChild(buildDecisionRow(sender, senders, most));
   }
@@ -1434,7 +1420,7 @@ function renderDecisionSenders(senders: SenderSummary[]) {
   if (protectedOne) {
     const sep = document.createElement("div");
     sep.className = "row-sep";
-    sep.style.marginLeft = "56px";
+    sep.style.marginLeft = "16px";
     list.appendChild(sep);
     const tile = makeLogoTile(protectedOne, "sz-34");
     tile.classList.add("dim");
@@ -1442,19 +1428,12 @@ function renderDecisionSenders(senders: SenderSummary[]) {
     chip.className = "pill dashed";
     chip.textContent = "Protected";
     const row = listRow({
-      selectable: {
-        checked: true,
-        disabled: true,
-        label: `${protectedOne.displayName || protectedOne.address} is protected`,
-        onChange: () => {},
-      },
       lead: tile,
       title: protectedOne.displayName || protectedOne.address,
       sub: `${protectedOne.protectedMessageIds.length} starred of ${protectedOne.count} · excluded entirely`,
       actions: [chip],
     });
     row.classList.add("protected-row");
-    (row.querySelector(".check-label") as HTMLLabelElement).style.cursor = "default";
     list.appendChild(row);
   }
 
@@ -1464,7 +1443,7 @@ function renderDecisionSenders(senders: SenderSummary[]) {
 function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[], most: number): HTMLElement {
   const { act, label } = primaryActionFor(sender);
   const primary = document.createElement("button");
-  primary.className = "btn btn-accent";
+  primary.className = "btn";
   primary.textContent = label;
 
   // Full-width options strip below the row — every action group lives here so
@@ -1519,16 +1498,6 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[], mo
   };
 
   return listRow({
-    selectable: {
-      checked: selectedSenderKeys.has(sender.key),
-      label: `Select ${sender.displayName || sender.address}`,
-      data: { senderKey: sender.key },
-      onChange: (checked) => {
-        if (checked) selectedSenderKeys.add(sender.key);
-        else selectedSenderKeys.delete(sender.key);
-        updateSenderBulkBar();
-      },
-    },
     lead: makeLogoTile(sender, "sz-34"),
     title: sender.displayName || sender.address,
     sub: decisionReason(sender),
