@@ -228,7 +228,7 @@ describe("scan pipeline robustness", () => {
     expect(list[0].address).toBe("a@x.example"); // sorted by volume
   });
 
-  it.fails("KNOWN BUG: one message deleted mid-scan (404) fails the entire scan", async () => {
+  it("one message deleted mid-scan (404) is skipped, the scan goes on", async () => {
     const metas = [...many(5, { fromAddress: "a@x.example" })];
     const list = await senders(metas, new Set([metas[2].id]));
     expect(bySender(list, "a@x.example").count).toBe(4);
@@ -250,7 +250,7 @@ describe("domain grouping", () => {
     expect(buildDomainGroups(list).filter((g) => g.domain === "gmail.com")).toHaveLength(2);
   });
 
-  it.fails("KNOWN BUG: independent newsletters on a shared platform collapse into one deletable domain", async () => {
+  it("independent newsletters on a shared platform stay separate", async () => {
     const list = await senders([
       ...many(3, { fromAddress: "lenny@substack.com", unread: false }),
       ...many(3, { fromAddress: "spammy@substack.com" }),
@@ -328,7 +328,7 @@ describe("rules", () => {
     expect([...matchRule(trashShoppingOld, list).values()].flat()).toEqual([]);
   });
 
-  it.fails("KNOWN BUG: a Trash rule matches receipts the central protection policy protects", async () => {
+  it("a Trash rule skips receipts the central protection policy protects", async () => {
     const list = await senders([
       meta({ fromAddress: "orders@store.example", subject: "Your receipt for order 1234", receivedAt: NOW - 60 * DAY }),
     ]);
@@ -347,7 +347,7 @@ describe("inbox health score", () => {
     expect(u).toBeLessThan(r);
   });
 
-  it.fails("KNOWN BUG: the same inbox scores differently just because the scan sampled more of it", async () => {
+  it("the same inbox scores the same however much of it the scan sampled", async () => {
     const mailbox = (k: number) =>
       Array.from({ length: 10 * k }, (_, i) => many(4, { fromAddress: `list${i}@x${i}.example`, unread: i % 2 === 0 })).flat();
     expect(inboxHealthScore(await senders(mailbox(2)))).toBe(inboxHealthScore(await senders(mailbox(1))));

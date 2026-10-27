@@ -5,7 +5,7 @@
 // scan each. Pure: no storage, no network.
 import { buildCorrespondents } from "./correspondents";
 import { passingDkimDomains } from "./emailAuth";
-import { isFreeMailDomain } from "./freeMail";
+import { isSharedSenderDomain } from "./freeMail";
 import type { CensusRow } from "./mailIndex";
 import { classifyMessageKind, looksAutomated } from "./messageKind";
 import type { NormalizedMessageMetadata, ProviderId, SentRecord } from "./providers/emailProvider";
@@ -175,7 +175,7 @@ function median(values: number[]): number {
 
 function companyKeyFor(address: string, rows: readonly NormalizedMessageMetadata[]): string | null {
   const domain = domainOfAddress(address);
-  if (!domain || isFreeMailDomain(domain)) return null;
+  if (!domain || isSharedSenderDomain(domain)) return null;
   const root = registrableDomain(domain);
   const aligned = rows.some((m) =>
     passingDkimDomains(m.authenticationResults).some((d) => registrableDomain(d) === root),

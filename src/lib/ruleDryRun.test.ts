@@ -13,7 +13,7 @@ function message(id: string, over: Partial<MessageRecord> = {}): MessageRecord {
     unread: true,
     sizeBytes: 0,
     providerMarkedPersonal: false,
-    looksAutomated: false,
+    looksAutomated: true,
     ...over,
   };
 }

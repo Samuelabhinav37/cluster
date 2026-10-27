@@ -57,7 +57,9 @@ export function fakeProvider(
   return {
     id: "gmail",
     getMessageMetadata: async (_token: string, id: string) => {
-      if (failIds.has(id)) throw new Error(`Gmail API /users/me/messages/${id} failed: 404`);
+      if (failIds.has(id)) {
+        throw Object.assign(new Error(`Gmail API /users/me/messages/${id} failed: 404`), { status: 404 });
+      }
       const m = byId.get(id);
       if (!m) throw new Error(`no fixture for ${id}`);
       return m;

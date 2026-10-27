@@ -246,7 +246,16 @@ async function fetchAllMetadata(
       const metadatas = await mapWithConcurrency(stubs, METADATA_FETCH_CONCURRENCY, async (stub) => {
         const cacheKey = `${provider.id}:${stub.id}`;
         const cached = metadataCache?.get(cacheKey);
-        const meta = cached ?? (await provider.getMessageMetadata(token, stub.id));
+        let meta: NormalizedMessageMetadata;
+        try {
+          meta = cached ?? (await provider.getMessageMetadata(token, stub.id));
+        } catch (error) {
+          // Deleted between listing and fetching: skip it, keep the scan.
+          if ((error as { status?: unknown }).status !== 404) throw error;
+          done += 1;
+          onProgress?.(done, total);
+          return null;
+        }
         if (!cached) metadataCache?.set(cacheKey, meta);
         done += 1;
         onProgress?.(done, total);
@@ -254,7 +263,7 @@ async function fetchAllMetadata(
           ? { ...meta, hasRiskyAttachment: meta.hasRiskyAttachment || riskySet.has(meta.id) }
           : meta;
       });
-      out.push(...metadatas);
+      for (const meta of metadatas) if (meta) out.push(meta);
     }),
   );
   return out;

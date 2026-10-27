@@ -1,5 +1,6 @@
 import { categorizeDomain, DOMAIN_CATEGORY_LABELS, type DomainCategory } from "./domainCategories";
 import { looksLikeDisposableCode } from "./messageKind";
+import { protectionDecision } from "./protectionPolicy";
 import { domainOf } from "./domainGrouping";
 import { isSameOrSubdomain } from "./registrableDomain";
 import type { MessageKind } from "./messageKind";
@@ -155,9 +156,12 @@ export function evaluateRuleMessage(
   }
   if (message.isProtected) return "protected";
   if (ruleTrashes(rule)) {
-    // Trash is the one action that can lose mail: never for mail the
-    // provider marked important, and for "codes" only real-looking codes.
-    if (message.providerMarkedPersonal) return "protected";
+    // Trash is the one action that can lose mail: the central protection
+    // policy applies (receipts, sensitive subjects, mail from people, mail
+    // the provider marked important), and for "codes" only real-looking codes.
+    // shortcut: no ProtectionContext here, so known correspondents aren't
+    // excluded; thread it through matchRule when Stage E builds one floor.
+    if (protectionDecision(message, sender.address).protected) return "protected";
     if (message.kind === "otp" && !looksLikeDisposableCode(message.subject)) return "protected";
   }
   if (

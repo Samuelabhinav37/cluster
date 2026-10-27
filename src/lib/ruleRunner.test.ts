@@ -20,7 +20,7 @@ function msg(over: Partial<MessageRecord> & { id: string }): MessageRecord {
     unread: false,
     sizeBytes: 0,
     providerMarkedPersonal: false,
-    looksAutomated: false,
+    looksAutomated: true,
     ...over,
   };
 }
