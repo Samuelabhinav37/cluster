@@ -159,8 +159,9 @@ function icon(name: string): SVGElement {
   return svg;
 }
 
-/** The total, the kind bar with its legend, and the recommendations. */
-export function renderHomeDashboard(f: HomeFacts, go: Go): HTMLElement {
+/** The total, the kind bar with its legend, and the recommendations.
+ * `openKind` opens those emails in Details. */
+export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: HomeKind) => void): HTMLElement {
   const root = document.createElement("div");
   root.className = "home";
 
@@ -189,15 +190,21 @@ export function renderHomeDashboard(f: HomeFacts, go: Go): HTMLElement {
       seg.className = `kind-${k.key}`;
       seg.style.flexGrow = String(count);
       seg.title = `${k.label}: ${count.toLocaleString()}`;
+      if (openKind) seg.onclick = () => openKind(k.key);
       bar.append(seg);
     }
     const li = document.createElement("li");
+    const item = openKind ? document.createElement("button") : document.createElement("span");
+    if (item instanceof HTMLButtonElement) {
+      item.type = "button";
+      item.onclick = () => openKind!(k.key);
+    }
     const swatch = document.createElement("i");
     swatch.className = `kind-${k.key}`;
-    li.append(swatch, k.label);
     const em = document.createElement("em");
     em.textContent = count.toLocaleString();
-    li.append(em);
+    item.append(swatch, k.label, em);
+    li.append(item);
     legend.append(li);
   }
 

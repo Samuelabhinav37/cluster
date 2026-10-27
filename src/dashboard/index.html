@@ -138,6 +138,7 @@
               <div class="page-titles">
                 <h1 class="page-title">Home</h1>
               </div>
+              <button type="button" class="btn btn-sm" data-details aria-controls="details">Details</button>
             </div>
 
             <p class="sr-only" id="overview-headline"></p>
@@ -752,6 +753,8 @@
           </section>
           <div id="index-status" class="index-status" role="status" hidden></div>
         </main>
+        <!-- Details: the sheet where you work on the mail behind any number (detailsPanel.ts) -->
+        <aside class="details" id="details" aria-label="Details" hidden></aside>
       </div>
     </div>
     <script type="module" src="./dashboard.ts"></script>

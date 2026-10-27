@@ -117,6 +117,7 @@ import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib
 import { senderTile, type TileSize } from "./senderTile";
 import { wireAccountMenu, wireHeaderSearch } from "./accountMenu";
 import { mailByKind, renderHomeDashboard, type HomeFacts } from "./homeDashboard";
+import { idsByProvider, initDetailsPanel, type DetailsPanel } from "./detailsPanel";
 import { listGroup, listRow } from "./listRow";
 import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
@@ -524,6 +525,7 @@ async function main() {
   renderSettingsSetup();
   wireThemeSelect();
   wireNav();
+  wireDetails();
   wireAccountMenu();
   wireHeaderSearch(() => void selectScreen("senders"));
   wireAllSendersControls();
@@ -775,7 +777,8 @@ let refreshing = false;
 async function refreshView() {
   if (refreshing || !statusEl.hidden) return;
   const confirming = Array.from(document.querySelectorAll<HTMLButtonElement>(".btn")).some(
-    (b) => b.textContent === "Confirm" && !b.closest("[hidden]"),
+    // A finished confirm leaves its disabled button behind; only a live one waits.
+    (b) => b.textContent === "Confirm" && !b.disabled && !b.closest("[hidden]"),
   );
   if (confirming) {
     setTimeout(() => void refreshView(), 5_000);
@@ -959,6 +962,7 @@ async function scanAndRender({ refresh = false, quiet = false }: { refresh?: boo
   // (or trip the global "couldn't load your mail"). Each block is isolated.
   updateSenderState(senders);
   safeRender("overview", () => renderOverview(senders, securitySenders));
+  safeRender("details", () => details?.update(securitySenders));
   safeRender("delete", () => renderDeleteScreen(senders));
   safeRender("subscriptions", () => renderOrganizeScreen(senders));
   safeRender("senders", () => renderAllSenders(senders));
@@ -1061,12 +1065,16 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
     pastDate: plan.expiryTotal,
   };
   overviewContentEl.appendChild(
-    renderHomeDashboard(facts, (screen, act) => {
-      void selectScreen(screen).then(() => {
-        if (act === "mute-never-opened") neverReadMuteBtn.click();
-        if (act === "trash-past-date") confirmIn("expiry-section", expiryCleanupBtn);
-      });
-    }),
+    renderHomeDashboard(
+      facts,
+      (screen, act) => {
+        void selectScreen(screen).then(() => {
+          if (act === "mute-never-opened") neverReadMuteBtn.click();
+          if (act === "trash-past-date") confirmIn("expiry-section", expiryCleanupBtn);
+        });
+      },
+      (kind) => details?.open({ kind }),
+    ),
   );
   if (lastScanCapHit) {
     const footNote = document.createElement("p");
@@ -1725,21 +1733,7 @@ function buildMuteCell(sender: SenderSummary): HTMLDivElement {
       `Hide all mail from ${sender.address}, now and in future?`,
       false,
       async () => {
-        const token = await provider.getAuthToken(false);
-        await provider.muteSender!(token, sender.address, idsSafeToMoveOut(sender));
-        ctx.settings = await mutateSettings((current) => ({
-          ...current,
-          mutedSenders: [...new Set([...current.mutedSenders, sender.address])],
-          senderEngagement: recordEngagementFeedback(current.senderEngagement, [sender.key], "accept"),
-        }));
-        void learnFromFeedback([sender.key], "accept");
-        await logAction("mute", `Muted ${sender.address}`, {
-          provider: sender.provider,
-          ids: sender.messageIds,
-          via: "unmute",
-          fromAddress: sender.address,
-          senderKeys: [sender.key],
-        });
+        await muteOneSender(sender);
         return "Muted ✓";
       },
     );
@@ -1747,6 +1741,83 @@ function buildMuteCell(sender: SenderSummary): HTMLDivElement {
 
   cell.appendChild(btn);
   return cell;
+}
+
+/** Mute one sender: the provider's filter, the settings record and the log. */
+async function muteOneSender(sender: SenderSummary) {
+  const provider = providerById.get(sender.provider);
+  if (!provider?.muteSender) return false;
+  const token = await provider.getAuthToken(false);
+  await provider.muteSender(token, sender.address, idsSafeToMoveOut(sender));
+  ctx.settings = await mutateSettings((current) => ({
+    ...current,
+    mutedSenders: [...new Set([...current.mutedSenders, sender.address])],
+    senderEngagement: recordEngagementFeedback(current.senderEngagement, [sender.key], "accept"),
+  }));
+  void learnFromFeedback([sender.key], "accept");
+  await logAction("mute", `Muted ${sender.address}`, {
+    provider: sender.provider,
+    ids: sender.messageIds,
+    via: "unmute",
+    fromAddress: sender.address,
+    senderKeys: [sender.key],
+  });
+  return true;
+}
+
+// ── Details panel ─────────────────────────────────────────────────────────
+// The panel filters and selects; acting goes through the same confirm, live
+// protection re-check, Undo and activity log as Clear out.
+let details: DetailsPanel | null = null;
+
+function wireDetails() {
+  const root = document.getElementById("details");
+  if (!root) return;
+  details = initDetailsPanel(root, {
+    trash(messages, slot, reset, settle) {
+      const merged = idsByProvider(messages);
+      const total = [...merged.values()].reduce((n, ids) => n + ids.length, 0);
+      const skip = messages.length - total;
+      const plural = (n: number) => `${n} email${n === 1 ? "" : "s"}`;
+      const summaryText =
+        describePermanentDelete(merged) ||
+        `Move ${plural(total)} to Trash?${skip > 0 ? ` ${skip} protected stay.` : ""}`;
+      renderConfirmStep(slot, reset, summaryText, true, async () => {
+        const { message, undoableGmailIds } = await executeSmartDelete(merged);
+        // Protected mail skipped by the live re-check simply reappears on the next scan.
+        settle.gone([...merged.values()].flat());
+        appendUndoButton(slot, undoableGmailIds);
+        if (undoableGmailIds.length > 0)
+          slot.lastElementChild?.addEventListener("click", () => settle.back(undoableGmailIds));
+        await logAction(
+          "trash",
+          `Moved ${plural(total)} to Trash from Details`,
+          undoableGmailIds.length > 0 ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" } : undefined,
+        );
+        void refreshView();
+        return message;
+      });
+    },
+    mute: [...providerById.values()].some((p) => p.muteSender)
+      ? (senders, slot, reset, settle) => {
+          const can = senders.filter((s) => providerById.get(s.provider)?.muteSender);
+          const n = can.length;
+          renderConfirmStep(slot, reset, `Hide all mail from ${n} sender${n === 1 ? "" : "s"}, now and in future?`, false, async () => {
+            let done = 0;
+            for (const sender of can) {
+              if (!(await muteOneSender(sender))) continue;
+              done += 1;
+              settle.gone(idsSafeToMoveOut(sender));
+            }
+            void refreshView();
+            return `Muted ${done} ✓`;
+          });
+        }
+      : undefined,
+  });
+  for (const btn of Array.from(document.querySelectorAll<HTMLButtonElement>("[data-details]"))) {
+    btn.onclick = () => (details!.isOpen() ? details!.close() : details!.open());
+  }
 }
 
 function refreshSenderCheckboxes() {

@@ -64,6 +64,17 @@ that place's own confirm, so nothing changes without a second click. The six til
 ring, "Working while you were away" and "Recently done" are gone (Activity has the history).
 Pages are now up to 1320px wide.
 
+## Track 3a: Details, where you work (done 2026-10-27)
+
+A sheet in the right quarter (wider on request) over the whole inbox: Emails and Senders tabs,
+search, filters as removable chips plus quick ones, and a chart that narrows by week, then by
+day. Tick rows (protected mail can't be ticked); the bar at the bottom offers Move to Trash,
+and for senders Mute or Trash their mail, through the same confirm, live protection re-check,
+Undo and activity log as Clear out. Rows leave at once and come back on Undo, before the next
+sync catches up. Opened from Home's Details button and from any kind in Home's bar or legend.
+Clean up and Protect hook into it in Tracks 3 and 5. Senders are still one row per address
+until brand grouping lands (PayPal question).
+
 ## Track 3: lists that end
 
 - Every list is businesses sorted by volume, top 10, "Show all".
