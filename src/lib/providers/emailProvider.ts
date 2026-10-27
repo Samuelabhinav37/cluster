@@ -1,4 +1,4 @@
-import type { RelationshipFields } from "../headerFields";
+import type { RelationshipFields, ShapeFields } from "../headerFields";
 import type { UnsubscribeInfo } from "../unsubscribe";
 
 export type ProviderId = "gmail" | "outlook";
@@ -25,7 +25,7 @@ export interface IncrementalMessageResult {
   reset: boolean;
 }
 
-export interface NormalizedMessageMetadata extends Partial<RelationshipFields> {
+export interface NormalizedMessageMetadata extends Partial<RelationshipFields>, ShapeFields {
   id: string;
   provider: ProviderId;
   fromAddress: string;
@@ -83,6 +83,14 @@ export interface NormalizedMessageMetadata extends Partial<RelationshipFields> {
   labelIds?: string[];
   /** Provider thread id (Gmail threadId, Graph conversationId). */
   threadId?: string;
+  /** List-Id / Feedback-ID are covered by a passing DKIM signature aligned
+   * with From (unsubscribe.signedByAlignedDkim). */
+  listIdSigned?: boolean;
+  feedbackIdSigned?: boolean;
+  /** Outlook only: Microsoft's Bulk Complaint Level, and whether any of its
+   * verdict headers says phishing or spam (headerFields.outlookVerdict). */
+  bulkComplaintLevel?: number;
+  providerFlagged?: boolean;
   /** Shape version of a stored row (mailIndex.MAIL_ROW_VERSION). Rows read
    * before a field was added are re-read once, in the background. */
   v?: number;

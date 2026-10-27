@@ -531,3 +531,11 @@ describe("scoreMessageForThreats: names people share with brands", () => {
     expect(kinds("Account notice", "no-reply@coinbsae.com")).toContain("lookalike-domain");
   });
 });
+
+describe("provider-flagged", () => {
+  it("warns on Outlook's own verdict, alone not enough to hold", () => {
+    const signals = scoreMessageForThreats(message({ fromAddress: "a@shop.example", providerFlagged: true }));
+    expect(signals.map((s) => s.kind)).toContain("provider-flagged");
+    expect(senderRiskScore(signals.filter((s) => s.kind === "provider-flagged"))).toBe(3);
+  });
+});

@@ -32,8 +32,8 @@ import {
   unmuteSender as apiUnmuteSender,
   untrashMessages as apiUntrashMessages,
 } from "../gmailApi";
-import { parseListUnsubscribe } from "../unsubscribe";
-import { deliveredToAddresses, relationshipFields } from "../headerFields";
+import { parseListUnsubscribe, signedByAlignedDkim } from "../unsubscribe";
+import { deliveredToAddresses, relationshipFields, shapeFields } from "../headerFields";
 import { MAIL_ROW_VERSION } from "../mailIndex";
 import { clusterLabelName } from "../clusterLabels";
 import { selectTrustedAuthenticationResults } from "../emailAuth";
@@ -169,6 +169,12 @@ export const gmailProvider: EmailProvider = {
     } = await fetchGmailMessageMetadata(token, id);
     const { address, displayName } = parseFrom(headers.From ?? "");
     const authenticationResults = selectTrustedAuthenticationResults("gmail", authenticationResultsHeaders);
+    const signed = {
+      provider: "gmail" as const,
+      fromAddress: address,
+      authenticationResults: authenticationResultsHeaders,
+      dkimSignatures,
+    };
     return {
       id,
       provider: "gmail",
@@ -178,17 +184,15 @@ export const gmailProvider: EmailProvider = {
       subject: headers.Subject ?? "",
       ...gmailLabelFields(labelIds),
       sizeBytes: sizeEstimate,
-      unsubscribe: parseListUnsubscribe(headers["List-Unsubscribe"], headers["List-Unsubscribe-Post"], {
-        provider: "gmail",
-        fromAddress: address,
-        authenticationResults: authenticationResultsHeaders,
-        dkimSignatures,
-      }),
+      unsubscribe: parseListUnsubscribe(headers["List-Unsubscribe"], headers["List-Unsubscribe-Post"], signed),
       receivedAt: internalDate,
       authenticationResults,
       precedence: headers.Precedence,
       autoSubmitted: headers["Auto-Submitted"],
       ...relationshipFields(header),
+      ...shapeFields(header),
+      listIdSigned: Boolean(header("List-Id")) && signedByAlignedDkim(signed, ["list-id"]),
+      feedbackIdSigned: Boolean(header("Feedback-ID")) && signedByAlignedDkim(signed, ["feedback-id"]),
       threadId,
       v: MAIL_ROW_VERSION,
     };

@@ -136,3 +136,61 @@ export function deliveredToAddresses(header: (name: string) => string | undefine
   }
   return out;
 }
+
+/** Shape headers: free facts for the per-user model. All sender-written, so
+ * they may only ever add caution or protection, never lower a gate. */
+export const SHAPE_HEADERS = ["Content-Type", "List-Post", "X-Auto-Response-Suppress", "Date"] as const;
+
+export interface ShapeFields {
+  /** Top-level MIME type, e.g. "multipart/report" (a bounce). */
+  contentType?: string;
+  /** RFC 2369: "no" = announcement list, "mailto" = discussion list. */
+  listPost?: "no" | "mailto" | "other";
+  /** Exchange's X-Auto-Response-Suppress, lowercased ("all", "oof, autoreply"). */
+  autoResponseSuppress?: string;
+  /** The sender's claimed Date, epoch ms. Never used as the received time. */
+  claimedSentAt?: number;
+}
+
+export function shapeFields(header: (name: string) => string | undefined): ShapeFields {
+  const contentType = header("Content-Type")?.split(";")[0].trim().toLowerCase();
+  const post = header("List-Post")?.trim().toLowerCase();
+  const listPost = !post ? undefined : post === "no" ? "no" : post.includes("mailto:") ? "mailto" : "other";
+  const date = Date.parse(header("Date") ?? "");
+  return {
+    contentType: contentType || undefined,
+    listPost,
+    autoResponseSuppress: header("X-Auto-Response-Suppress")?.trim().toLowerCase() || undefined,
+    claimedSentAt: Number.isFinite(date) ? date : undefined,
+  };
+}
+
+export interface OutlookVerdict {
+  /** Highest Bulk Complaint Level seen (0-9). */
+  bulkComplaintLevel?: number;
+  /** Any copy says phishing, spoofing, impersonation or spam. */
+  flagged: boolean;
+}
+
+const OUTLOOK_THREAT_CAT = new Set(["phsh", "hphsh", "spoof", "uimp", "dimp", "gimp", "osph", "hspm"]);
+
+/**
+ * Microsoft's own verdicts from X-Microsoft-Antispam (BCL) and
+ * X-Forefront-Antispam-Report (CAT, SFV). Unverified whether Exchange strips
+ * a sender's forged copy, so every copy is read and only the direction a
+ * forger can't profit from is kept: any flag wins, and BCL takes the max.
+ */
+export function outlookVerdict(all: (name: string) => string[]): OutlookVerdict {
+  let bcl: number | undefined;
+  let flagged = false;
+  for (const value of all("X-Microsoft-Antispam")) {
+    const n = Number(/(?:^|;)\s*BCL:(\d)/i.exec(value)?.[1]);
+    if (Number.isFinite(n)) bcl = Math.max(bcl ?? 0, n);
+  }
+  for (const value of all("X-Forefront-Antispam-Report")) {
+    const cat = /(?:^|;)\s*CAT:([A-Z]+)/i.exec(value)?.[1]?.toLowerCase();
+    const sfv = /(?:^|;)\s*SFV:([A-Z]+)/i.exec(value)?.[1]?.toLowerCase();
+    if ((cat && OUTLOOK_THREAT_CAT.has(cat)) || sfv === "spm") flagged = true;
+  }
+  return { bulkComplaintLevel: bcl, flagged };
+}

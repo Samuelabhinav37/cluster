@@ -80,13 +80,20 @@ export function passingSignersCovering(context: OneClickVerificationContext, hea
   return out;
 }
 
-/** Conservative RFC 8058 verification using only provider-supplied metadata. */
-export function hasVerifiedOneClickSignature(context: OneClickVerificationContext): boolean {
+/**
+ * True when a DKIM signature the provider says passed, from a domain aligned
+ * with From, covers every one of `headers` (lowercase names). Turns a
+ * sender-written header into "this domain said so", which is not "safe".
+ */
+export function signedByAlignedDkim(context: OneClickVerificationContext, headers: readonly string[]): boolean {
   const fromDomain = context.fromAddress.toLowerCase().split("@").pop() ?? "";
   if (!fromDomain) return false;
-  return passingSignersCovering(context, ["list-unsubscribe", "list-unsubscribe-post"]).some((domain) =>
-    domainsAlign(domain, fromDomain),
-  );
+  return passingSignersCovering(context, headers).some((domain) => domainsAlign(domain, fromDomain));
+}
+
+/** Conservative RFC 8058 verification using only provider-supplied metadata. */
+export function hasVerifiedOneClickSignature(context: OneClickVerificationContext): boolean {
+  return signedByAlignedDkim(context, ["list-unsubscribe", "list-unsubscribe-post"]);
 }
 
 const ADDRESS_RE = /^[^\s@<>(),;:"[\]]+@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i;

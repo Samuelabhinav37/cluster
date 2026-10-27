@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   hasVerifiedOneClickSignature,
+  signedByAlignedDkim,
   isAllowedOneClickUrl,
   originPattern,
   listUnsubscribeItems,
@@ -231,5 +232,14 @@ describe("parseMailto (RFC 6068)", () => {
     expect(parseMailto("mailto:not-an-address")).toBeUndefined();
     expect(parseMailto("mailto:a@x.example?subject=%E0%A4%A")).toBeUndefined();
     expect(parseMailto("https://x.example")).toBeUndefined();
+  });
+});
+
+describe("signedByAlignedDkim", () => {
+  it("needs the header in h= of a passing signature aligned with From", () => {
+    const withListId = { ...verified, dkimSignatures: ["v=1; d=example.com; h=from:list-id:feedback-id; b=abc"] };
+    expect(signedByAlignedDkim(withListId, ["list-id"])).toBe(true);
+    expect(signedByAlignedDkim(verified, ["list-id"])).toBe(false);
+    expect(signedByAlignedDkim({ ...withListId, fromAddress: "news@other.com" }, ["list-id"])).toBe(false);
   });
 });

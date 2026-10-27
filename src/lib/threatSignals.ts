@@ -50,7 +50,8 @@ export type ThreatSignalKind =
   | "lure-language"
   | "link-mismatch"
   | "risky-attachment"
-  | "identity-change";
+  | "identity-change"
+  | "provider-flagged";
 
 export interface ThreatSignal {
   kind: ThreatSignalKind;
@@ -450,6 +451,10 @@ export function scoreMessageContext(message: NormalizedMessageMetadata): ThreatS
   if (lure) signals.push(lure);
   const attachment = attachmentSignal(message);
   if (attachment) signals.push(attachment);
+  if (message.providerFlagged) {
+    const brand = domainOf(message.fromAddress) || "unknown sender";
+    signals.push({ kind: "provider-flagged", brand, confidence: "medium" });
+  }
   return signals;
 }
 
@@ -483,6 +488,9 @@ const SIGNAL_WEIGHTS: Record<ThreatSignalKind, number> = {
   // (senderLedger.ts). A warning on its own. With a second kind of evidence
   // on the same message it holds that message only (verdict.ts).
   "identity-change": 3,
+  // Outlook's own phishing/spam verdict. Warns alone; holds only with a
+  // second kind of evidence, since a forged copy can't be ruled out yet.
+  "provider-flagged": 3,
 };
 
 export type RiskTier = "high" | "elevated" | "low";

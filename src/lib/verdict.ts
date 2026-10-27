@@ -119,6 +119,8 @@ export function reasonText(signal: ThreatSignal): string {
       return "It has an attachment of a type often used to spread malware.";
     case "identity-change":
       return `This sender doesn't usually use ${signal.brand}.`;
+    case "provider-flagged":
+      return "Outlook's own filter marked it as phishing or spam.";
     default: {
       const unreachable: never = signal.kind;
       return unreachable;

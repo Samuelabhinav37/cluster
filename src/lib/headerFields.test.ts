@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deliveredToAddresses, parseAddressList, relationshipFields } from "./headerFields";
+import { deliveredToAddresses, outlookVerdict, parseAddressList, relationshipFields, shapeFields } from "./headerFields";
 
 describe("parseAddressList", () => {
   it("keeps a quoted name with a comma as one address", () => {
@@ -85,5 +85,50 @@ describe("deliveredToAddresses", () => {
       "me@x.example",
       "team@x.example",
     ]);
+  });
+});
+
+describe("shapeFields", () => {
+  const lookup = (headers: Record<string, string>) => (name: string) => headers[name];
+  it("reads MIME type, List-Post kind, auto-response suppress and the claimed date", () => {
+    expect(
+      shapeFields(
+        lookup({
+          "Content-Type": 'Multipart/Report; report-type="delivery-status"',
+          "List-Post": "NO",
+          "X-Auto-Response-Suppress": " All ",
+          Date: "Tue, 27 Oct 2026 10:00:00 +0000",
+        }),
+      ),
+    ).toEqual({
+      contentType: "multipart/report",
+      listPost: "no",
+      autoResponseSuppress: "all",
+      claimedSentAt: Date.UTC(2026, 9, 27, 10),
+    });
+    expect(shapeFields(lookup({ "List-Post": "<mailto:group@x.org>", Date: "garbage" }))).toEqual({
+      listPost: "mailto",
+    });
+  });
+});
+
+describe("outlookVerdict", () => {
+  const all = (headers: [string, string][]) => (name: string) =>
+    headers.filter(([n]) => n === name).map(([, v]) => v);
+  it("keeps any flag and the highest BCL across copies, so a forged clean copy can't win", () => {
+    expect(
+      outlookVerdict(
+        all([
+          ["X-Microsoft-Antispam", "BCL:0;"],
+          ["X-Microsoft-Antispam", "BCL:7;ARA:123"],
+          ["X-Forefront-Antispam-Report", "CIP:1.2.3.4;CAT:NONE;SFV:NSPM"],
+          ["X-Forefront-Antispam-Report", "CIP:1.2.3.4;CTRY:US;CAT:PHSH;SFV:SPM"],
+        ]),
+      ),
+    ).toEqual({ bulkComplaintLevel: 7, flagged: true });
+    expect(outlookVerdict(all([["X-Forefront-Antispam-Report", "CAT:BULK;SFV:NSPM"]]))).toEqual({
+      bulkComplaintLevel: undefined,
+      flagged: false,
+    });
   });
 });

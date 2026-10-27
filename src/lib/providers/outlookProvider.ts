@@ -1,8 +1,8 @@
 import { mapWithConcurrency } from "../concurrency";
-import { deliveredToAddresses, relationshipFields } from "../headerFields";
+import { deliveredToAddresses, outlookVerdict, relationshipFields, shapeFields } from "../headerFields";
 import { MAIL_ROW_VERSION } from "../mailIndex";
 import { fetchWithRetry } from "../httpRetry";
-import { parseListUnsubscribe } from "../unsubscribe";
+import { parseListUnsubscribe, signedByAlignedDkim } from "../unsubscribe";
 import { selectTrustedAuthenticationResults } from "../emailAuth";
 import { isRiskyAttachmentFilename } from "../riskyAttachments";
 import type { EmailProvider, NormalizedMessageMetadata, UnsubscribeDetails } from "./emailProvider";
@@ -154,6 +154,13 @@ async function getMessageMetadata(token: string, id: string): Promise<Normalized
   const fromAddress = (data.sender?.emailAddress?.address ?? "").toLowerCase();
   const authenticationResultsHeaders = findAll("Authentication-Results");
   const authenticationResults = selectTrustedAuthenticationResults("outlook", authenticationResultsHeaders);
+  const signed = {
+    provider: "outlook" as const,
+    fromAddress,
+    authenticationResults: authenticationResultsHeaders,
+    dkimSignatures: findAll("DKIM-Signature"),
+  };
+  const verdict = outlookVerdict(findAll);
 
   return {
     id,
@@ -170,12 +177,7 @@ async function getMessageMetadata(token: string, id: string): Promise<Normalized
     // both lanes; the security slice is post-capped by the dashboard.
     lanes: ["cleanup", "security"],
     sizeBytes: Number(data.size ?? 0),
-    unsubscribe: parseListUnsubscribe(find("List-Unsubscribe"), find("List-Unsubscribe-Post"), {
-      provider: "outlook",
-      fromAddress,
-      authenticationResults: authenticationResultsHeaders,
-      dkimSignatures: findAll("DKIM-Signature"),
-    }),
+    unsubscribe: parseListUnsubscribe(find("List-Unsubscribe"), find("List-Unsubscribe-Post"), signed),
     receivedAt: data.receivedDateTime ? new Date(data.receivedDateTime).getTime() : 0,
     authenticationResults,
     hasRiskyAttachment,
@@ -183,6 +185,11 @@ async function getMessageMetadata(token: string, id: string): Promise<Normalized
     precedence: find("Precedence"),
     autoSubmitted: find("Auto-Submitted"),
     ...relationshipFields(find),
+    ...shapeFields(find),
+    listIdSigned: Boolean(find("List-Id")) && signedByAlignedDkim(signed, ["list-id"]),
+    feedbackIdSigned: Boolean(find("Feedback-ID")) && signedByAlignedDkim(signed, ["feedback-id"]),
+    bulkComplaintLevel: verdict.bulkComplaintLevel,
+    providerFlagged: verdict.flagged,
     threadId: data.conversationId,
     v: MAIL_ROW_VERSION,
   };

@@ -1,5 +1,5 @@
 import { log } from "./log";
-import { parseAddressList, RELATIONSHIP_HEADERS, relationshipFields } from "./headerFields";
+import { parseAddressList, RELATIONSHIP_HEADERS, relationshipFields, SHAPE_HEADERS } from "./headerFields";
 import type { SentRecord } from "./providers/emailProvider";
 import { mapWithConcurrency } from "./concurrency";
 import { fetchWithRetry } from "./httpRetry";
@@ -394,6 +394,7 @@ export async function getMessageMetadata(
     "Precedence",
     "Auto-Submitted",
     ...RELATIONSHIP_HEADERS,
+    ...SHAPE_HEADERS,
     ...extraHeaders,
   ]) {
     params.append("metadataHeaders", header);
