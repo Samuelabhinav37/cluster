@@ -172,7 +172,10 @@ export function inboxHealthScore(senders: SenderSummary[]): number {
   const total = messages.length || 1;
   const unreadRatio = messages.filter((m) => m.unread).length / total;
   const neverOpened = neverReadSenders(senders).length;
-  const unsubCapable = senders.filter((s) => hasUnsub(s.unsubscribe)).length;
+  // Lists you read are fine; only ones you mostly skip (3 in 4 unread) count.
+  const unsubCapable = senders.filter(
+    (s) => hasUnsub(s.unsubscribe) && s.messages.filter((m) => m.unread).length >= 0.75 * s.messages.length,
+  ).length;
   const ready = totalExpiryCount(buildExpiryBuckets(senders));
 
   let score = 100;

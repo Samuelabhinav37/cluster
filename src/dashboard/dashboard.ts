@@ -1034,6 +1034,14 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
         clear: { expired: plan.expiryTotal, spam: plan.spamMsgs, neverRead: plan.neverReadMsgs },
         suspicious: facts.suspicious,
         waiting: facts.waiting,
+        attention:
+          facts.suspicious > 0
+            ? securitySenders
+                .filter((s) => riskTier(senderRiskScore(s.threatSignals)) !== "low")
+                .map((s) => s.displayName || s.address)
+            : ctx.settings.screenerEnabled
+              ? ctx.settings.screenedSenders
+              : [],
         verified: verifiedShare(senders),
         holdingOn: ctx.settings.autoQuarantineHighRisk,
       },

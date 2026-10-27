@@ -93,6 +93,14 @@ describe("readRate", () => {
   it("is null with no mail", () => {
     expect(readRate([], NOW).overall).toBeNull();
   });
+  it("leaves mail older than the window out of the overall share too", () => {
+    const { overall } = readRate(
+      [sender("a@x.com", [msg({ receivedAt: NOW - DAY, unread: true }), msg({ receivedAt: NOW - 60 * DAY, unread: false })])],
+      NOW,
+      4,
+    );
+    expect(overall).toBe(0);
+  });
 });
 
 describe("verifiedShare", () => {
@@ -171,6 +179,28 @@ describe("renderHomeDashboard", () => {
     const safety = grid.querySelector<HTMLElement>('[data-tile="safety"]')!;
     expect(safety.classList.contains("danger")).toBe(true);
     expect(safety.querySelector(".home-tile-value")!.textContent).toBe("2 suspicious senders");
+  });
+
+  it("puts a Safety tile that needs you first, names who, and makes its action the filled one", () => {
+    const grid = renderHomeDashboard(
+      { ...facts, suspicious: 4, attention: ["Bank Alerts", "PayPaI", "Netflix Billing", "DHL"] },
+      vi.fn(),
+    );
+    const first = grid.querySelector<HTMLElement>(".home-tile")!;
+    expect(first.dataset.tile).toBe("safety");
+    expect(Array.from(first.querySelectorAll(".name-list li")).map((li) => li.textContent)).toEqual([
+      "Bank Alerts",
+      "PayPaI",
+      "Netflix Billing",
+      "and 1 more",
+    ]);
+    expect(first.textContent).not.toContain("verified");
+    expect(first.querySelector("button")!.classList.contains("btn-accent")).toBe(true);
+  });
+
+  it("explains the health score on its title", () => {
+    const grid = renderHomeDashboard(facts, vi.fn());
+    expect(grid.querySelector('[data-tile="health"] .term-tip')!.textContent).toMatch(/unread mail/);
   });
 
   it("offers scam holding when it is off and nothing is wrong", () => {

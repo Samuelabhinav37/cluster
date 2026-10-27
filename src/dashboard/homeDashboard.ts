@@ -40,7 +40,7 @@ export interface WeekRate {
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Share of read mail overall and for each of the last `weeks` weeks, oldest first. */
+/** Share of read mail over the last `weeks` weeks, and for each of them, oldest first. */
 export function readRate(
   senders: readonly SenderSummary[],
   now: number,
@@ -48,12 +48,8 @@ export function readRate(
 ): { overall: number | null; byWeek: WeekRate[] } {
   const read = new Array<number>(weeks).fill(0);
   const total = new Array<number>(weeks).fill(0);
-  let allRead = 0;
-  let all = 0;
   for (const s of senders) {
     for (const m of s.messages) {
-      all += 1;
-      if (!m.unread) allRead += 1;
       const ago = Math.floor((now - m.receivedAt) / WEEK_MS);
       if (ago < 0 || ago >= weeks) continue;
       const i = weeks - 1 - ago;
@@ -61,8 +57,9 @@ export function readRate(
       if (!m.unread) read[i] += 1;
     }
   }
+  const all = total.reduce((a, b) => a + b, 0);
   return {
-    overall: all > 0 ? allRead / all : null,
+    overall: all > 0 ? read.reduce((a, b) => a + b, 0) / all : null,
     byWeek: total.map((n, i) => ({
       start: now - (weeks - i) * WEEK_MS,
       rate: n > 0 ? read[i] / n : null,
@@ -114,6 +111,8 @@ export interface DashboardFacts {
   clear: { expired: number; spam: number; neverRead: number };
   suspicious: number;
   waiting: number;
+  /** Who needs a look: suspicious senders first, else new senders waiting. */
+  attention?: string[];
   verified: number | null;
   holdingOn: boolean;
 }
@@ -145,6 +144,10 @@ interface TileSpec {
   action: string;
   go: () => void;
   danger?: boolean;
+  /** What the number means, on hover or focus of the title. */
+  hint?: string;
+  /** The tile that needs you: its action is the filled one. */
+  primary?: boolean;
 }
 
 function tile(spec: TileSpec): HTMLElement {
@@ -158,6 +161,18 @@ function tile(spec: TileSpec): HTMLElement {
   h.className = "home-tile-title";
   h.id = titleId;
   h.textContent = spec.title;
+  if (spec.hint) {
+    const term = document.createElement("span");
+    term.className = "term";
+    term.tabIndex = 0;
+    term.textContent = spec.title;
+    const tip = document.createElement("span");
+    tip.className = "term-tip";
+    tip.setAttribute("role", "tooltip");
+    tip.textContent = spec.hint;
+    term.appendChild(tip);
+    h.replaceChildren(term);
+  }
 
   const figure = document.createElement("p");
   figure.className = "home-tile-value";
@@ -175,7 +190,7 @@ function tile(spec: TileSpec): HTMLElement {
 
   const btn = document.createElement("button");
   btn.type = "button";
-  btn.className = "btn btn-sm home-tile-action";
+  btn.className = `btn btn-sm home-tile-action${spec.primary ? " btn-accent" : ""}`;
   btn.textContent = spec.action;
   btn.onclick = spec.go;
 
@@ -313,6 +328,24 @@ function meter(share: number, label: string): HTMLElement {
   return track;
 }
 
+/** Up to three names, then how many more. */
+function nameList(names: readonly string[], total: number): HTMLElement {
+  const list = document.createElement("ul");
+  list.className = "name-list";
+  for (const name of names.slice(0, 3)) {
+    const li = document.createElement("li");
+    li.textContent = name;
+    list.appendChild(li);
+  }
+  if (total > 3) {
+    const li = document.createElement("li");
+    li.className = "name-more";
+    li.textContent = `and ${total - 3} more`;
+    list.appendChild(li);
+  }
+  return list;
+}
+
 function plural(n: number, one: string, many = `${one}s`): string {
   return n === 1 ? one : many;
 }
@@ -333,6 +366,7 @@ export function renderHomeDashboard(f: DashboardFacts, go: Go): HTMLElement {
           ? undefined
           : `${f.scoreDelta > 0 ? "Up" : "Down"} ${Math.abs(f.scoreDelta)} since last week`,
       chart: ring(f.score / 100, `Inbox health ${f.score} of 100`),
+      hint: "Starts at 100. Goes down for unread mail, senders you never open, lists you rarely read and mail past its date.",
       action: "Improve it",
       go: () => go("delete"),
     }),
@@ -358,7 +392,10 @@ export function renderHomeDashboard(f: DashboardFacts, go: Go): HTMLElement {
     }),
   );
 
-  grid.appendChild(safetyTile(f, go));
+  // The tile that needs you goes top left, where people look first.
+  const safety = safetyTile(f, go);
+  if (f.suspicious > 0 || f.waiting > 0) grid.prepend(safety);
+  else grid.appendChild(safety);
 
   if (f.tabs) {
     const tabs = f.tabs;
@@ -408,19 +445,18 @@ export function renderHomeDashboard(f: DashboardFacts, go: Go): HTMLElement {
 
 function safetyTile(f: DashboardFacts, go: Go): HTMLElement {
   const verified = f.verified ?? 0;
-  const chart = meter(verified, `${pct(verified)} of mail is from verified senders`);
-  const note = f.verified === null ? undefined : `${pct(verified)} from verified senders`;
+  const names = f.attention ?? [];
   if (f.suspicious > 0) {
     return tile({
       id: "safety",
       title: "Safety",
       value: f.suspicious.toLocaleString(),
       unit: ` suspicious ${plural(f.suspicious, "sender")}`,
-      note,
-      chart,
+      chart: nameList(names, f.suspicious),
       action: "Review",
       go: () => go("impersonation"),
       danger: true,
+      primary: true,
     });
   }
   if (f.waiting > 0) {
@@ -429,19 +465,20 @@ function safetyTile(f: DashboardFacts, go: Go): HTMLElement {
       title: "Safety",
       value: f.waiting.toLocaleString(),
       unit: ` new ${plural(f.waiting, "sender")} waiting`,
-      note,
-      chart,
+      chart: nameList(names, f.waiting),
       action: "Let in or block",
       go: () => go("screener"),
+      primary: true,
     });
   }
+  // All clear: the meter backs the zero, since signed mail is harder to fake.
   return tile({
     id: "safety",
     title: "Safety",
     value: "0",
     unit: " suspicious senders",
-    note,
-    chart,
+    note: f.verified === null ? undefined : `${pct(verified)} from verified senders`,
+    chart: meter(verified, `${pct(verified)} of mail is from verified senders`),
     action: f.holdingOn ? "Open Safety" : "Turn on scam holding",
     go: () => go("impersonation"),
   });

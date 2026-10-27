@@ -140,6 +140,14 @@ describe("inboxHealthScore", () => {
     expect(score).toBeLessThanOrEqual(100);
   });
 
+  it("does not count a list you read against the score", () => {
+    // Ten read lists cost 3.5 points under the old rule, so this catches a regression.
+    const read = Array.from({ length: 10 }, (_, i) =>
+      sender({ address: `l${i}@x.com`, unsubscribe: { postUrl: "https://x/u" }, messages: [msg({ unread: false })] }),
+    );
+    expect(inboxHealthScore(read)).toBe(100);
+  });
+
   it("handles an empty scan without dividing by zero", () => {
     expect(inboxHealthScore([])).toBe(100);
   });

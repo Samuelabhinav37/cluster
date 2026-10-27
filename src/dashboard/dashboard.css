@@ -4103,7 +4103,11 @@ circle.chart-track {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin: 18px 32px 0;
+  margin: 18px 40px 0;
+}
+
+.app-main > .status-line {
+  padding-inline: 40px;
 }
 
 .crumbs:empty {
@@ -4192,6 +4196,13 @@ body.simple .rail-areas {
     border-right: 0;
   }
 
+  /* An older rule shrink-wraps the sidebar; stretch it so the strip scrolls
+     inside the window instead of widening the page. */
+  .side-panel .sidebar {
+    align-self: stretch;
+    min-width: 0;
+  }
+
   .sidebar .nav-group-label,
   .sidebar-note {
     display: none;
@@ -4206,4 +4217,27 @@ body[data-state="connect"] .crumbs {
 
 .connect-card .lead {
   font-family: var(--font);
+}
+
+/* Safety tile: who needs a look, instead of a chart that argues with the number */
+.name-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font: 500 14px/1.35 var(--font);
+  color: var(--label-2);
+}
+
+.name-list li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name-list .name-more {
+  color: var(--label-4);
+  font-weight: 400;
 }
