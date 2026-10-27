@@ -12,12 +12,15 @@ import {
   type ClusterRule,
   type RuleActionSpec,
 } from "./rules";
+import type { ProtectionContext } from "./protectionPolicy";
 import type { SenderSummary } from "./senderModel";
 import { ruleCompletionKey } from "./ruleCompletionLedger";
 
 export interface RuleRunOptions {
   /** Background-only idempotency receipts. Omit for an explicitly confirmed manual override. */
   previouslyCompletedKeys?: ReadonlySet<string>;
+  /** People you write to; their mail is never trashed by a rule. */
+  protection?: ProtectionContext;
 }
 
 export interface RuleRunResult {
@@ -96,7 +99,7 @@ export async function applyRules(
   for (const rule of orderedRules(rules)) {
     if (!rule.enabled) continue;
     let previouslyCompletedCount = 0;
-    const eligible = matchRuleMessages(rule, senders).filter(({ provider, id }) => {
+    const eligible = matchRuleMessages(rule, senders, undefined, options.protection).filter(({ provider, id }) => {
       const messageKey = `${provider}:${id}`;
       if (options.previouslyCompletedKeys?.has(ruleCompletionKey(rule, provider, id))) {
         previouslyCompletedCount += 1;
@@ -225,11 +228,15 @@ export async function applyRules(
 
 /** Total messages the enabled rules would act on right now — for the confirm
  * prompt, before anything runs. */
-export function previewRuleMatches(rules: ClusterRule[], senders: SenderSummary[]): number {
+export function previewRuleMatches(
+  rules: ClusterRule[],
+  senders: SenderSummary[],
+  protection?: ProtectionContext,
+): number {
   let total = 0;
   for (const rule of rules) {
     if (!rule.enabled) continue;
-    for (const ids of matchRule(rule, senders).values()) total += ids.length;
+    for (const ids of matchRule(rule, senders, undefined, protection).values()) total += ids.length;
   }
   return total;
 }

@@ -14,6 +14,7 @@ import {
   type RuleAction,
   type RuleConditions,
 } from "../lib/rules";
+import { buildProtectionContext } from "../lib/protectionPolicy";
 import { applyRules, previewRuleMatches } from "../lib/ruleRunner";
 import { buildRuleDryRunReport, describeActionSupport } from "../lib/ruleDryRun";
 import { recordRuleCompletions } from "../lib/ruleCompletionLedger";
@@ -142,7 +143,13 @@ function renderRuleDryRun() {
     return;
   }
 
-  const report = buildRuleDryRunReport(ctx.settings.rules, ctx.senders, providerById);
+  const report = buildRuleDryRunReport(
+    ctx.settings.rules,
+    ctx.senders,
+    providerById,
+    undefined,
+    buildProtectionContext(ctx.settings),
+  );
   // The dry run is detailed and secondary — collapse it behind a one-line
   // summary so it doesn't outweigh the composer and rule list above it.
   const wrapper = document.createElement("details");
@@ -321,7 +328,7 @@ export function wireRulesTab() {
       const draft = await draftRuleFromNaturalLanguage(ruleNaturalLanguageInput.value);
       pendingRuleDraft = draft.rule;
       const reviewRule = { ...draft.rule, enabled: true };
-      const matches = previewRuleMatches([reviewRule], ctx.senders);
+      const matches = previewRuleMatches([reviewRule], ctx.senders, buildProtectionContext(ctx.settings));
       const conflicts = findRuleConflicts([...ctx.settings.rules, reviewRule], ctx.senders).filter(
         (conflict) => conflict.ruleIds.includes(reviewRule.id),
       ).length;
@@ -358,14 +365,22 @@ export function wireRulesTab() {
       ruleFormError.textContent = "No enabled rules to apply.";
       return;
     }
-    const dryRun = buildRuleDryRunReport(ctx.settings.rules, ctx.senders, providerById);
+    const dryRun = buildRuleDryRunReport(
+    ctx.settings.rules,
+    ctx.senders,
+    providerById,
+    undefined,
+    buildProtectionContext(ctx.settings),
+  );
     renderConfirmStep(
       ruleApplySlot,
       resetRuleApplySlot,
       `Apply ${enabled.length} rule${enabled.length === 1 ? "" : "s"} for ${dryRun.predictedRuleApplicationCount} predicted rule application${dryRun.predictedRuleApplicationCount === 1 ? "" : "s"} touching ${dryRun.uniqueMatchedMessageCount} unique message${dryRun.uniqueMatchedMessageCount === 1 ? "" : "s"}?${dryRun.overlapMessageCount > 0 ? ` ${dryRun.overlapMessageCount} message${dryRun.overlapMessageCount === 1 ? " matches" : "s match"} multiple rules; priority and stop-processing decide the order.` : ""}`,
       false,
       async () => {
-        const results = await applyRules(ctx.settings.rules, ctx.senders, providerById);
+        const results = await applyRules(ctx.settings.rules, ctx.senders, providerById, {
+          protection: buildProtectionContext(ctx.settings),
+        });
         await recordRuleCompletions(
           results.map((result) => ({
             rule: result.rule,

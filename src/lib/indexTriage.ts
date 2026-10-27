@@ -3,6 +3,7 @@
 // index up to date from the change feed, a couple of quota units, and reads
 // senders from it. A provider whose index isn't built yet, or that has no
 // change feed, is left to the old scans until the dashboard builds it.
+import { markRepliesToYou } from "./correspondents";
 import { buildCorrespondents, mergeCorrespondentAddresses, type Correspondent } from "./correspondents";
 import { log } from "./log";
 import { openMailIndex, type MailIndexStore } from "./mailIndex";
@@ -68,11 +69,15 @@ export async function readIndexedSenders(
   const now = options.now ?? Date.now();
   const metas = (await readMailIndex(index, providers)).sort((a, b) => b.receivedAt - a.receivedAt);
   const within = (days: number) => (m: NormalizedMessageMetadata) => m.receivedAt >= now - days * DAY_MS;
-  return {
-    cleanup: summarizeCombined(metas.filter(within(options.scanWindowDays)), 0, false).cleanup,
-    security: summarizeCombined(metas.filter(within(options.securityWindowDays)), options.securityMax, false)
-      .security,
-  };
+  const cleanup = summarizeCombined(metas.filter(within(options.scanWindowDays)), 0, false).cleanup;
+  const security = summarizeCombined(
+    metas.filter(within(options.securityWindowDays)),
+    options.securityMax,
+    false,
+  ).security;
+  const sent = (await Promise.all(providers.map((p) => index.allSent(p.id)))).flat();
+  markRepliesToYou([...cleanup, ...security], metas, sent);
+  return { cleanup, security };
 }
 
 /**

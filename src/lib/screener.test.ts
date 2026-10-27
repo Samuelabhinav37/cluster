@@ -119,6 +119,19 @@ describe("pendingScreenerSenders", () => {
     ]);
   });
 
+  it("leaves out senders the provider marked important or who reply to your mail", () => {
+    const withMessage = (address: string, flag: Partial<SenderSummary["messages"][number]>) => ({
+      ...sender({ address }),
+      messages: [{ id: "m1", ...flag } as SenderSummary["messages"][number]],
+    });
+    const senders = [
+      withMessage("important@x.com", { providerMarkedPersonal: true }),
+      withMessage("reply@x.com", { repliesToYou: true }),
+      withMessage("plain@x.com", { providerMarkedPersonal: false }),
+    ];
+    expect(pendingScreenerSenders(senders, known).map((s) => s.address)).toEqual(["plain@x.com"]);
+  });
+
   it("excludes addresses in the excluded set (muted / already screened)", () => {
     const senders = [sender({ address: "a@x.com" }), sender({ address: "b@x.com" })];
     expect(pendingScreenerSenders(senders, known, new Set(["a@x.com"])).map((s) => s.address)).toEqual([

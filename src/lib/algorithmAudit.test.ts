@@ -106,6 +106,14 @@ describe("safety invariant: nothing protected is ever offered for deletion", () 
     }
   });
 
+  it("Trash rule: never trashes a protected message, people you write to included", async () => {
+    const { list, ids } = await protectedIds();
+    const trashOld: ClusterRule = { id: "t", name: "Old", enabled: true, conditions: { olderThanDays: 1 }, action: "trash" };
+    const matched = flat(matchRule(trashOld, list, NOW, ctx));
+    expect(matched.length).toBeGreaterThan(0);
+    for (const id of matched) expect(ids.has(id)).toBe(false);
+  });
+
   it("Unsubscribe + clean: the cleanup plan never includes a protected message", async () => {
     const { list, ids } = await protectedIds();
     for (const s of list) for (const id of buildSenderCleanupPlan(s, ctx).safeNewsletterIds) expect(ids.has(id)).toBe(false);

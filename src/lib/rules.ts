@@ -1,6 +1,6 @@
 import { categorizeDomain, DOMAIN_CATEGORY_LABELS, type DomainCategory } from "./domainCategories";
 import { looksLikeDisposableCode } from "./messageKind";
-import { protectionDecision } from "./protectionPolicy";
+import { emptyProtectionContext, protectionDecision, type ProtectionContext } from "./protectionPolicy";
 import { domainOf } from "./domainGrouping";
 import { isSameOrSubdomain } from "./registrableDomain";
 import type { MessageKind } from "./messageKind";
@@ -150,6 +150,7 @@ export function evaluateRuleMessage(
   sender: SenderSummary,
   message: SenderSummary["messages"][number],
   now = Date.now(),
+  ctx: ProtectionContext = emptyProtectionContext(),
 ): RuleMessageDecision {
   if (!ruleHasConditions(rule.conditions) || !conditionsMatch(rule.conditions, sender, message, now)) {
     return "conditions-miss";
@@ -159,9 +160,7 @@ export function evaluateRuleMessage(
     // Trash is the one action that can lose mail: the central protection
     // policy applies (receipts, sensitive subjects, mail from people, mail
     // the provider marked important), and for "codes" only real-looking codes.
-    // shortcut: no ProtectionContext here, so known correspondents aren't
-    // excluded; thread it through matchRule when Stage E builds one floor.
-    if (protectionDecision(message, sender.address).protected) return "protected";
+    if (protectionDecision(message, sender.address, ctx).protected) return "protected";
     if (message.kind === "otp" && !looksLikeDisposableCode(message.subject)) return "protected";
   }
   if (
@@ -184,9 +183,10 @@ export function matchRule(
   rule: ClusterRule,
   senders: SenderSummary[],
   now = Date.now(),
+  ctx?: ProtectionContext,
 ): Map<ProviderId, string[]> {
   const out = new Map<ProviderId, string[]>();
-  for (const match of matchRuleMessages(rule, senders, now)) {
+  for (const match of matchRuleMessages(rule, senders, now, ctx)) {
     const list = out.get(match.provider);
     if (list) list.push(match.id);
     else out.set(match.provider, [match.id]);
@@ -199,11 +199,12 @@ export function matchRuleMessages(
   rule: ClusterRule,
   senders: SenderSummary[],
   now = Date.now(),
+  ctx?: ProtectionContext,
 ): RuleMessageMatch[] {
   const matches: RuleMessageMatch[] = [];
   for (const sender of senders) {
     for (const message of sender.messages) {
-      if (evaluateRuleMessage(rule, sender, message, now) === "matched") {
+      if (evaluateRuleMessage(rule, sender, message, now, ctx) === "matched") {
         matches.push({ provider: sender.provider, id: message.id });
       }
     }

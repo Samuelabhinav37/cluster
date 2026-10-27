@@ -1,4 +1,4 @@
-import { idsSafeToMoveOut } from "./lib/protectionPolicy";
+import { buildProtectionContext, idsSafeToMoveOut } from "./lib/protectionPolicy";
 import { log } from "./lib/log";
 import { buildExpiryBuckets, totalExpiryCount } from "./lib/expiryTriage";
 import { gmailProvider } from "./lib/providers/gmailProvider";
@@ -421,6 +421,7 @@ async function runBackgroundTriage() {
     });
     const ruleResults = await applyRules(settings.rules, senders, providerById, {
       previouslyCompletedKeys: completedRuleKeys,
+      protection: buildProtectionContext(settings),
     });
     await recordRuleCompletions(
       ruleResults.map((result) => ({

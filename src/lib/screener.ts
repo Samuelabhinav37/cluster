@@ -56,7 +56,8 @@ export function knownSenderSet(settings: ClusterSettings): Set<string> {
 
 /**
  * Senders (any provider) that should sit in the Screener: not known, not
- * starred, and not already handled elsewhere (`excluded` = muted ∪
+ * starred, not marked important by the provider, not replying to your own
+ * mail, and not already handled elsewhere (`excluded` = muted ∪
  * already-screened).
  */
 export function pendingScreenerSenders(
@@ -67,6 +68,7 @@ export function pendingScreenerSenders(
   return senders.filter(
     (s) =>
       s.protectedMessageIds.length === 0 &&
+      !s.messages.some((m) => m.providerMarkedPersonal || m.repliesToYou) &&
       !known.has(s.address.toLowerCase()) &&
       !excluded.has(s.address.toLowerCase()),
   );

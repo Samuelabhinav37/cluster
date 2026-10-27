@@ -7,6 +7,7 @@ import {
   type ClusterRule,
   type RuleActionSpec,
 } from "./rules";
+import type { ProtectionContext } from "./protectionPolicy";
 import type { SenderSummary } from "./senderModel";
 
 export interface RuleActionSupport {
@@ -106,6 +107,7 @@ export function buildRuleDryRunReport(
   senders: SenderSummary[],
   providerById: Map<ProviderId, EmailProvider>,
   now = Date.now(),
+  protection?: ProtectionContext,
 ): RuleDryRunReport {
   const enabledRules = orderedRules(rules).filter((rule) => rule.enabled);
   const owners = new Map<string, number>();
@@ -119,7 +121,7 @@ export function buildRuleDryRunReport(
     let exceptionExcludedCount = 0;
     for (const sender of senders) {
       for (const message of sender.messages) {
-        const decision = evaluateRuleMessage(rule, sender, message, now);
+        const decision = evaluateRuleMessage(rule, sender, message, now, protection);
         if (decision === "protected") protectedExcludedCount += 1;
         if (decision === "exception") exceptionExcludedCount += 1;
         if (decision === "matched") {
