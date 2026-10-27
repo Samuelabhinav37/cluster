@@ -67,3 +67,31 @@ Dark Reader is installed in the test browser and recolours pages it injects into
 localhost preview. It made every colour look muddy (violet rendered as navy). The mockup now
 carries `<meta name="darkreader-lock">`. The real dashboard is a `chrome-extension://` page,
 which Dark Reader shouldn't reach, but `scripts/preview` pages are affected.
+
+## Round 2 (same day): less on screen, details on demand, Kai that acts
+
+The user's feedback after round 1: still too much, the icons look cheap, the bars are too
+colourful, and Kai should be back in its corner on every page, able to do what you type.
+
+- **Details panel.**
+  - Each place has a Details button that opens a sheet in the right 25% of the window: sortable
+    columns, a filter, and a button to widen it to 50%.
+  - Home's trend chart moved there, so Home is down to a number, one bar and three steps
+    (39 words).
+  - Clean up's "Show all" opens all 39 senders in the sheet. Protect's sheet lists every
+    flagged email.
+- **Icons.** Lucide 0.460 (ISC) replaces the hand-drawn set, at a 1.75 stroke.
+  - Chips are neutral.
+  - Only scam chips are red, and only finished rows are green.
+- **Colour.** One blue in four muted steps (dark: #9db8ee, #6f92d8, #4d6fb4, #34507f; light:
+  #1f4aa8, #3f6fd1, #7d9de0, #b3c6ee). The darkest step is under 3:1 against the panel, so the
+  legend always carries labels and counts, and the sheet has the numbers.
+- **Kai in the corner, everywhere.**
+  - Kai speaks one line, with Undo when it did something.
+  - Clicking Kai, the sidebar's Ask Kai, `/` or Ctrl+K opens the Ask box. Results update as
+    you type, like Windows search: a best match on the right with one button, more matches on
+    the left, and arrow keys plus Enter.
+  - It understands sender names ("stop linkedin"), questions ("how many promotions"), topics
+    (scams, codes, receipts, new senders) and settings ("turn off new sender hold").
+  - In the mockup this is keyword intents. The extension would use the same matcher first and
+    Chrome's on-device Prompt API for anything it can't match. Nothing leaves the browser.
