@@ -1,3 +1,4 @@
+@import "@fontsource-variable/inter-tight/wght.css";
 @import "./kai/kai.css";
 /* ============================================================================
    Cluster dashboard — Apple-style "Liquid Glass" redesign (v3)
@@ -84,8 +85,8 @@
   --r-sm: 8px;
   --r-pill: 980px;
 
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, "Segoe UI", sans-serif;
-  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, "Segoe UI", sans-serif;
+  --font: "Inter Tight Variable", "Inter Tight", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, "Segoe UI", sans-serif;
+  --font-display: "Inter Tight Variable", "Inter Tight", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, "Segoe UI", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -3885,10 +3886,10 @@ circle.chart-track {
 }
 
 /* ══ Rail shell (2026-10): icon rail, a panel with every page, crumbs ═══════
-   One brand colour on the rail tile; mono type for the chrome (nav, labels,
-   crumbs, leads), the UI font for content. */
+   One brand colour on the rail tile; Inter Tight throughout (--mono is kept
+   as the chrome's font slot: nav, labels, crumbs, leads). */
 :root {
-  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --mono: var(--font);
   --brand-tile: #ff5a1f;
   --rail: var(--canvas);
   --panel: var(--glass);
