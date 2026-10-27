@@ -370,6 +370,10 @@ export interface RawMessageMetadata {
   header: (name: string) => string | undefined;
 }
 
+// Field mask on every metadata get, so Gmail never sends `snippet` (a slice
+// of the body) and "Metadata-only" holds whatever format=metadata includes.
+const METADATA_FIELDS = "id,threadId,labelIds,internalDate,sizeEstimate,payload/headers";
+
 /** Extra headers read only when the user unsubscribes (see getUnsubscribeDetails). */
 export const UNSUBSCRIBE_DETAIL_HEADERS = ["Delivered-To", "X-Original-To"];
 
@@ -378,7 +382,7 @@ export async function getMessageMetadata(
   id: string,
   extraHeaders: readonly string[] = [],
 ): Promise<RawMessageMetadata> {
-  const params = new URLSearchParams({ format: "metadata" });
+  const params = new URLSearchParams({ format: "metadata", fields: METADATA_FIELDS });
   for (const header of [
     "From",
     "Reply-To",
@@ -433,7 +437,7 @@ export async function listSentMessageIds(token: string, maxResults: number): Pro
 
 /** One sent message's recipients with display names, for "people you write to". */
 export async function getSentRecord(token: string, id: string): Promise<SentRecord> {
-  const params = new URLSearchParams({ format: "metadata" });
+  const params = new URLSearchParams({ format: "metadata", fields: METADATA_FIELDS });
   for (const name of ["To", "Cc", "Bcc", "Message-ID", "In-Reply-To"]) {
     params.append("metadataHeaders", name);
   }
@@ -539,7 +543,7 @@ export async function listSentCorrespondents(token: string, maxMessages = 150): 
   // quota limiter in gmailFetch paces the actual rate.
   await mapWithConcurrency(stubs, 5, async (stub) => {
     try {
-      const params = new URLSearchParams({ format: "metadata" });
+      const params = new URLSearchParams({ format: "metadata", fields: METADATA_FIELDS });
       params.append("metadataHeaders", "To");
       params.append("metadataHeaders", "Cc");
       const data = await gmailFetch<GmailMessageResource>(`/users/me/messages/${stub.id}?${params}`, token);
