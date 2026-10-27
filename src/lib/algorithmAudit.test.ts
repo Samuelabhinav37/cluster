@@ -284,14 +284,14 @@ describe("subscriptions", () => {
     expect(await signalFor("billing@service.example", "Your plan renews on Nov 2")).toBe("renewal");
   });
 
-  it.fails("KNOWN BUG: 'will renew on' (Netflix's wording) is not recognised as a renewal", async () => {
+  it("'will renew on' (Netflix's wording) is a renewal", async () => {
     expect(await signalFor("info@account.netflix.com", "Your membership will renew on Oct 12")).toBe("renewal");
   });
-  it.fails("KNOWN BUG: 'is renewing soon' (Apple's wording) is not recognised as a renewal", async () => {
+  it("'is renewing soon' (Apple's wording) is a renewal", async () => {
     expect(await signalFor("no_reply@email.apple.com", "Your subscription is renewing soon")).toBe("renewal");
   });
 
-  it.fails("KNOWN BUG: marketing mail from a known subscription domain is listed as a paid subscription", async () => {
+  it("marketing mail from a known subscription domain is not listed as a paid subscription", async () => {
     const list = await senders([meta({ fromAddress: "store-news@amazon.com", subject: "Deals picked for you" })]);
     expect(buildSubscriptionCandidates(list)).toEqual([]);
   });

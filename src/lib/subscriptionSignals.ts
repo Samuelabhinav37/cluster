@@ -1,4 +1,6 @@
 import { domainOf } from "./domainGrouping";
+import type { MessageKind } from "./messageKind";
+import { cleanText } from "./normalize";
 import type { SenderSummary } from "./senderModel";
 
 // A distinct concern from domainCategories.ts's topical buckets (shopping,
@@ -95,7 +97,7 @@ const SIGNAL_RANK: Record<SubscriptionSignalKind, number> = {
 const TRIAL_ENDING_RE =
   /\b(trial ends|trial is ending|trial expir(?:es|ing)|your free trial)\b/i;
 const RENEWAL_RE =
-  /\b(renews on|auto[- ]renew(?:s|al)?|subscription (?:has been )?renewed|payment for your subscription|your subscription renews)\b/i;
+  /\b(renews on|will renew|is renewing|renewing soon|renewal (?:notice|reminder)|auto[- ]renew(?:s|al)?|subscription (?:has been )?renewed|payment for your subscription|your subscription renews)\b/i;
 // "Welcome to your subscription"-style confirmation language is deliberately
 // NOT its own regex/branch: alone it's too generic to trust (could just as
 // easily be a free newsletter's "you're subscribed"), and it only ever
@@ -110,13 +112,18 @@ const RENEWAL_RE =
  * trial/renewal language is a strong enough signal to flag on its own even
  * for a sender we don't otherwise recognize; a generic "you're subscribed"
  * is not, and only ever counts by way of the sender's domain already being
- * a known subscription service (domain-match).
+ * a known subscription service (domain-match). Marketing from that domain
+ * (kind "newsletter") isn't: anyone gets Amazon's deals, Prime or not.
  */
-export function detectSubscriptionSignal(subject: string, domain: string): SubscriptionSignalKind | null {
-  const s = subject || "";
+export function detectSubscriptionSignal(
+  subject: string,
+  domain: string,
+  kind?: MessageKind,
+): SubscriptionSignalKind | null {
+  const s = cleanText(subject || "");
   if (TRIAL_ENDING_RE.test(s)) return "trial-ending";
   if (RENEWAL_RE.test(s)) return "renewal";
-  if (isSubscriptionDomain(domain)) return "domain-match";
+  if (kind !== "newsletter" && isSubscriptionDomain(domain)) return "domain-match";
   return null;
 }
 
@@ -138,7 +145,7 @@ export function buildSubscriptionCandidates(senders: SenderSummary[]): Subscript
     let best: SubscriptionSignalKind | null = null;
     let lastSeenAt = 0;
     for (const message of sender.messages) {
-      const signal = detectSubscriptionSignal(message.subject ?? "", domain);
+      const signal = detectSubscriptionSignal(message.subject ?? "", domain, message.kind);
       if (!signal) continue;
       if (best === null || SIGNAL_RANK[signal] < SIGNAL_RANK[best]) best = signal;
       if (message.receivedAt > lastSeenAt) lastSeenAt = message.receivedAt;
