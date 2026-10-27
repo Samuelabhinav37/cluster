@@ -106,6 +106,12 @@ nothing runs from the box. Keyword matching only for now. Dashboard JS budget 56
 
 ## Track 4: presets for Organize
 
+Done 2026-10-27: six cards (codes, promotions, newsletters, tracking, receipts, social), each
+with how many arrived this week and Turn on / Turn off. A card sets one row of the time-limit
+editor and saves through it; switching on from off turns on that kind alone. Undo on the card
+puts every row and the switch back. The editor is under "Make your own". "Mute what you never
+open" stays in Clean up rather than appearing twice.
+
 - A gallery of 6 to 8 named presets, grouped like Shortcuts: "Codes: delete after 2 days",
   "Receipts: file under Receipts", "Newsletters: archive after a week", "Promotions: trash
   after 30 days", "Mute what you never open", "Social: skip the inbox".

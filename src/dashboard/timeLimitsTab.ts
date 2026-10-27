@@ -9,7 +9,9 @@ import { runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
 import { log } from "../lib/log";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { getSettings, updateSettings } from "../lib/settingsStore";
-import { ALL_SORT_BUCKETS, type SortBucket } from "../lib/sortTaxonomy";
+import { domainOf } from "../lib/domainGrouping";
+import type { SenderSummary } from "../lib/senderModel";
+import { ALL_SORT_BUCKETS, effectiveBucket, type SortBucket } from "../lib/sortTaxonomy";
 import { logAction } from "./recentTab";
 import { ctx } from "./state";
 
@@ -108,6 +110,7 @@ export function renderTimeLimits(): void {
       ? `Last checked ${ago(cfg.lastSweep.at)}: moved ${plural(cfg.lastSweep.moved, "message")} into their labels.`
       : "";
   backlogBtn.hidden = !cfg.timeLimitsEnabled;
+  renderPresets();
 }
 
 /** Fills the rows with suggested values (from first-run setup) and turns the
@@ -124,8 +127,8 @@ export function proposeTimeLimits(hours: Partial<Record<SortBucket, number | nul
   statusEl.textContent = message;
 }
 
-async function save(): Promise<void> {
-  if (!toggleEl || !saveBtn || !statusEl) return;
+async function save(): Promise<boolean> {
+  if (!toggleEl || !saveBtn || !statusEl) return false;
   const inboxHoursByBucket: Record<string, number | null> = { ...ctx.settings.autoSort.inboxHoursByBucket };
   for (const bucket of ALL_SORT_BUCKETS) {
     const select = selectFor(bucket);
@@ -158,9 +161,11 @@ async function save(): Promise<void> {
         ? `Saved. ${plural(filters, "Gmail filter")} label new mail as it arrives. Moved ${plural(run.moved, "message")} that ${run.moved === 1 ? "was" : "were"} past ${run.moved === 1 ? "its" : "their"} time${run.more ? ", more on the next check" : ""}.`
         : `Saved. ${plural(filters, "Gmail filter")} label new mail as it arrives.`;
     }
+    return true;
   } catch (err) {
     log.error("time limits: save failed", err);
     statusEl.textContent = "Couldn't save to Gmail. Try again.";
+    return false;
   } finally {
     saveBtn.disabled = false;
     renderTimeLimits();
@@ -276,6 +281,112 @@ function renderBacklogPreview(token: string, rows: BacklogRow[]): void {
       cancel.disabled = false;
     }
   };
+}
+
+// ── Presets (Track 4): one tap turns on one kind's time limit ──────────
+// Each is a ready-made value for one row of the editor below, saved through
+// the same path, so "Make your own" and a preset never disagree.
+
+export const PRESETS: ReadonlyArray<{ bucket: SortBucket; hours: number; name: string }> = [
+  { bucket: "otp", hours: 24, name: "Codes leave after a day" },
+  { bucket: "promotions", hours: 0, name: "Promotions skip the inbox" },
+  { bucket: "newsletter", hours: 168, name: "Newsletters leave after a week" },
+  { bucket: "shipping", hours: 72, name: "Tracking leaves after 3 days" },
+  { bucket: "receipt", hours: 168, name: "Receipts leave after a week" },
+  { bucket: "social", hours: 24, name: "Social leaves after a day" },
+];
+
+const presetsEl = document.getElementById("presets") as HTMLDivElement | null;
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** How many of each kind arrived in the last 7 days, by the sort taxonomy. */
+export function weeklyByBucket(senders: readonly SenderSummary[], now: number): Map<SortBucket, number> {
+  const out = new Map<SortBucket, number>();
+  for (const s of senders) {
+    for (const m of s.messages) {
+      if (now - m.receivedAt >= WEEK_MS) continue;
+      const bucket = effectiveBucket(m.kind, domainOf(s.address), s.address, ctx.settings.sortOverrides, m.promotion ?? m.tab === "promotions");
+      if (bucket) out.set(bucket, (out.get(bucket) ?? 0) + 1);
+    }
+  }
+  return out;
+}
+
+/** The last preset change, so its card can offer Undo after the re-render. */
+type Limits = Record<string, number | null>;
+let undoable: { bucket: SortBucket; hours: Limits; on: boolean } | null = null;
+
+/** Sets every row and the switch, saves, and remembers `after` for Undo. */
+async function saveLimits(hours: Limits, on: boolean, after: typeof undoable): Promise<void> {
+  if (!toggleEl) return;
+  for (const bucket of ALL_SORT_BUCKETS) {
+    const select = selectFor(bucket);
+    if (select) select.value = choiceValue(hours[bucket] ?? null);
+  }
+  toggleEl.checked = on;
+  undoable = after;
+  if (await save()) return;
+  // The editor's status line says why; show it.
+  undoable = null;
+  document.getElementById("time-limits-section")?.setAttribute("open", "");
+  renderPresets();
+}
+
+let presetSenders: readonly SenderSummary[] = [];
+
+export function renderPresets(senders: readonly SenderSummary[] = presetSenders): void {
+  presetSenders = senders;
+  if (!presetsEl) return;
+  const cfg = ctx.settings.autoSort;
+  const weekly = weeklyByBucket(senders, Date.now());
+  presetsEl.replaceChildren(
+    ...PRESETS.map((p) => {
+      const on = cfg.timeLimitsEnabled && cfg.inboxHoursByBucket[p.bucket] === p.hours;
+      const card = document.createElement("div");
+      card.className = "rec-card";
+      const name = document.createElement("div");
+      name.className = "rec-name";
+      name.textContent = p.name;
+      const fact = document.createElement("div");
+      fact.className = "rec-fact";
+      const n = weekly.get(p.bucket) ?? 0;
+      fact.textContent = on ? "On" : n > 0 ? `About ${plural(n, "email")} a week` : "None this week";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-sm";
+      btn.textContent = on ? "Turn off" : "Turn on";
+      btn.onclick = () => {
+        btn.disabled = true;
+        const cfgNow = ctx.settings.autoSort;
+        // Switching on from off turns on this kind alone, not every default.
+        const base: Limits = cfgNow.timeLimitsEnabled
+          ? { ...cfgNow.inboxHoursByBucket }
+          : Object.fromEntries(ALL_SORT_BUCKETS.map((b) => [b, null]));
+        void saveLimits({ ...base, [p.bucket]: on ? null : p.hours }, true, {
+          bucket: p.bucket,
+          hours: { ...cfgNow.inboxHoursByBucket },
+          on: cfgNow.timeLimitsEnabled,
+        });
+      };
+      const actions = document.createElement("div");
+      actions.className = "rec-actions";
+      actions.append(btn);
+      card.append(name, fact, actions);
+      const last = undoable;
+      if (last?.bucket === p.bucket) {
+        const undo = document.createElement("button");
+        undo.type = "button";
+        undo.className = "btn btn-sm btn-ghost";
+        undo.textContent = "Undo";
+        undo.onclick = () => {
+          undo.disabled = true;
+          void saveLimits(last.hours, last.on, null);
+        };
+        actions.append(undo);
+      }
+      return card;
+    }),
+  );
 }
 
 export function wireTimeLimits(): void {

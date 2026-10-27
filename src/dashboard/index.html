@@ -285,13 +285,15 @@
           <section class="screen" data-screen="organize" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Sorting</h1>
+                <h1 class="page-title">Organize</h1>
                 <p class="lead">Choose how long each kind of mail stays in your inbox.</p>
               </div>
             </div>
 
-            <section id="time-limits-section">
-              <div class="section-head"><h2 class="section-label">Time in your inbox</h2></div>
+            <div class="rec-grid" id="presets"></div>
+
+            <details class="disclosure" id="time-limits-section">
+              <summary>Make your own</summary>
               <label class="toggle-card">
                 <span class="tc-text">
                   <b>Move mail out of my inbox when its time is up</b>
@@ -307,7 +309,7 @@
               </div>
               <p id="time-limits-last" class="hint"></p>
               <div id="time-limits-backlog" class="banner" hidden></div>
-            </section>
+            </details>
 
             <section id="sort-inbox-section">
               <h3 class="section-label">Sort my inbox</h3>

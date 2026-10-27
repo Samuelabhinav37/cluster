@@ -76,3 +76,34 @@ describe("Inbox time limits", () => {
     expect(dash.gmailApi.batchModify).toHaveBeenCalledWith("gmail-token", ["m1", "m2"], ["label-id"], []);
   });
 });
+
+describe("Organize presets", () => {
+  it("Turn on sets that one kind's limit, saves to Gmail, and Undo puts it back", async () => {
+    const dash = await bootDashboard();
+    await openOrganize(dash);
+    const promoCard = () =>
+      Array.from(document.querySelectorAll<HTMLElement>("#presets .rec-card")).find((c) =>
+        c.textContent!.includes("Promotions skip the inbox"),
+      )!;
+    const card = promoCard();
+    expect(card.querySelector("button")!.textContent).toBe("Turn on");
+    card.querySelector("button")!.click();
+    await vi.waitFor(() => {
+      expect(dash.storedSettings().autoSort.inboxHoursByBucket.promotions).toBe(0);
+      expect(dash.storedSettings().autoSort.timeLimitsEnabled).toBe(true);
+    });
+    // Only Promotions went live, not every default limit.
+    expect(dash.storedSettings().autoSort.inboxHoursByBucket.otp).toBeNull();
+    const undo = await vi.waitFor(() => {
+      const b = Array.from(promoCard().querySelectorAll("button")).find((x) => x.textContent === "Undo");
+      if (!b) throw new Error("no Undo yet");
+      return b;
+    });
+    undo.click();
+    await vi.waitFor(() => {
+      expect(dash.storedSettings().autoSort.timeLimitsEnabled).toBe(false);
+      expect(dash.storedSettings().autoSort.inboxHoursByBucket.otp).toBe(24);
+    });
+    await vi.waitFor(() => expect(promoCard().textContent).not.toContain("Undo"));
+  });
+});

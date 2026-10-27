@@ -171,7 +171,9 @@ async function applyPersona(persona: Persona, select: (screen: string) => Promis
   if (plan.hours) {
     await select("organize");
     proposeTimeLimits(plan.hours, "Suggested by your setup. Press Save to apply it.");
-    document.getElementById("time-limits-section")?.scrollIntoView({ block: "start" });
+    const section = document.getElementById("time-limits-section");
+    section?.setAttribute("open", "");
+    section?.scrollIntoView({ block: "start" });
   } else {
     await select(plan.simpleMode ? "simple" : "overview");
   }
