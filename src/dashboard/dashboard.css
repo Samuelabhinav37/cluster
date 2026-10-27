@@ -3883,3 +3883,326 @@ circle.chart-track {
 .list-row--child {
   padding-left: 40px;
 }
+
+/* ══ Rail shell (2026-10): icon rail, a panel with every page, crumbs ═══════
+   One brand colour on the rail tile; mono type for the chrome (nav, labels,
+   crumbs, leads), the UI font for content. */
+:root {
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --brand-tile: #ff5a1f;
+  --rail: var(--canvas);
+  --panel: var(--glass);
+}
+
+.app-body {
+  align-items: stretch;
+  min-height: 100vh;
+}
+
+.rail {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: 64px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 0;
+  background: var(--rail);
+  border-right: 1px solid var(--hairline);
+}
+
+.rail-brand {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--brand-tile);
+}
+
+.rail-brand .brand-mark {
+  width: 22px;
+  height: 22px;
+  color: #fff;
+}
+
+.rail-areas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.rail-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--label-4);
+  cursor: pointer;
+}
+
+.rail-btn svg.nav-icon {
+  width: 22px;
+  height: 22px;
+  color: inherit;
+}
+
+.rail-btn:hover,
+.rail-btn:focus-visible {
+  color: var(--label);
+  background: var(--neutral-fill);
+}
+
+.rail-btn.active {
+  color: var(--label);
+  background: var(--neutral-fill-hover);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.rail-spacer {
+  flex: 1;
+}
+
+.rail .account-pill {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.rail .account-pill:has(.avatar:empty) {
+  padding: 0;
+}
+
+.rail .avatar {
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
+}
+
+.rail .account-pill:has(.avatar:not(:empty)) .account-glyph {
+  display: none;
+}
+
+.rail .account-menu {
+  left: calc(100% + 10px);
+  right: auto;
+  top: auto;
+  bottom: 0;
+}
+
+.side-panel {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: 248px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--panel), var(--rail));
+  border-right: 1px solid var(--hairline);
+}
+
+.panel-search {
+  margin: 14px 12px 4px;
+  min-height: 38px;
+  border-radius: 10px;
+}
+
+.panel-search input,
+.panel-search kbd {
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.side-panel .sidebar {
+  position: static;
+  width: auto;
+  height: auto;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 12px 18px;
+  border-right: 0;
+}
+
+.sidebar .nav-group-label,
+.sidebar .nav-group-label:first-of-type {
+  padding: 18px 10px 8px;
+  font: 400 11px/1.3 var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sidebar .nav-item,
+.sidebar .nav-item.nav-child {
+  min-height: 36px;
+  padding: 7px 10px;
+  gap: 12px;
+  border: 0;
+  border-radius: 8px;
+  font: 400 13.5px/1.3 var(--mono);
+  letter-spacing: 0;
+  color: var(--label-3);
+}
+
+.sidebar .nav-item svg.nav-icon {
+  width: 19px;
+  height: 19px;
+}
+
+.sidebar .nav-children {
+  margin: 0;
+}
+
+.sidebar .nav-item:hover {
+  background: var(--neutral-fill);
+  color: var(--label);
+}
+
+.sidebar .nav-item.active,
+.sidebar .nav-item.nav-child.active {
+  background: var(--neutral-fill);
+  box-shadow: none;
+  color: var(--label);
+  font-weight: 600;
+}
+
+.sidebar .nav-item.active svg.nav-icon,
+.nav-area.open > .nav-item:not(.active) svg.nav-icon {
+  color: var(--label);
+}
+
+.nav-area.open > .nav-item:not(.active) {
+  font-weight: 400;
+}
+
+.sidebar .nav-count {
+  font: 400 12px/1.3 var(--mono);
+}
+
+.sidebar-note {
+  padding: 12px 10px 0;
+  font: 400 11px/1.55 var(--mono);
+}
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 18px 32px 0;
+}
+
+.crumbs:empty {
+  display: none;
+}
+
+.crumbs span {
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: var(--neutral-fill);
+  font: 400 13px/1.3 var(--mono);
+  color: var(--label-4);
+}
+
+.crumbs span:not(:last-child)::after {
+  content: "›";
+  margin-left: 8px;
+}
+
+.crumbs span:last-child {
+  color: var(--label);
+}
+
+.page-title {
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+
+.page-head {
+  padding-bottom: 18px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+
+.lead {
+  font-family: var(--mono);
+  letter-spacing: 0;
+}
+
+.lead,
+.page-titles .lead {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--label-4);
+}
+
+body.simple .rail-areas {
+  display: none;
+}
+
+/* Narrow: the rail becomes a top bar and the panel the old scrolling strip */
+@media (max-width: 900px) {
+  .app-body {
+    flex-direction: column;
+  }
+
+  .rail {
+    position: sticky;
+    z-index: 20;
+    height: auto;
+    width: 100%;
+    flex-direction: row;
+    padding: 8px 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .rail-areas {
+    flex-direction: row;
+    padding: 0;
+    border: 0;
+  }
+
+  .rail .account-menu {
+    left: auto;
+    right: 0;
+    top: calc(100% + 8px);
+    bottom: auto;
+  }
+
+  .side-panel {
+    position: static;
+    height: auto;
+    width: 100%;
+    border-right: 0;
+  }
+
+  .sidebar .nav-group-label,
+  .sidebar-note {
+    display: none;
+  }
+}
+
+body[data-state="connect"] .side-panel,
+body[data-state="connect"] .rail-areas,
+body[data-state="connect"] .crumbs {
+  display: none;
+}
+
+.connect-card .lead {
+  font-family: var(--font);
+}

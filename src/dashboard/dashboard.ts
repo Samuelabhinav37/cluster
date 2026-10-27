@@ -250,7 +250,27 @@ function showScreen(name: string) {
   for (const area of Array.from(document.querySelectorAll<HTMLElement>("#sidebar .nav-area"))) {
     const open = Boolean(area.querySelector(`button[data-screen="${target}"]`));
     area.classList.toggle("open", open);
+    document.querySelector(`.rail-btn[data-area="${area.dataset.area}"]`)?.classList.toggle("active", open);
   }
+  renderCrumbs(navButtons.find((b) => b.dataset.screen === target));
+}
+
+/** "Clean up › Stop mail" above the page: the item's group label, then its own name. */
+function renderCrumbs(btn: HTMLButtonElement | undefined) {
+  const crumbs = document.getElementById("crumbs");
+  if (!crumbs) return;
+  // The item's own text nodes only, so a count badge is left out.
+  const name = btn
+    ? Array.from(btn.childNodes).filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent).join("").trim()
+    : "";
+  const group = btn?.closest(".nav-area")?.querySelector(".nav-group-label")?.textContent ?? "";
+  crumbs.replaceChildren(
+    ...[group, name].filter(Boolean).map((text) => {
+      const span = document.createElement("span");
+      span.textContent = text;
+      return span;
+    }),
+  );
 }
 
 /** A sidebar item that is neither hidden nor tucked inside a closed area. */
@@ -279,6 +299,9 @@ function wireNav() {
       panel.setAttribute("aria-labelledby", btn.id);
     }
     btn.onclick = () => void selectScreen(name);
+  }
+  for (const btn of Array.from(document.querySelectorAll<HTMLButtonElement>(".rail-btn[data-go]"))) {
+    btn.onclick = () => void selectScreen(btn.dataset.go!);
   }
 
   list?.addEventListener("keydown", (event) => {

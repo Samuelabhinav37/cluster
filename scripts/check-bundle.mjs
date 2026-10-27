@@ -30,7 +30,8 @@ const BUDGETS = {
   "dashboard JS": 540 * KB,
   // 2026-10-16: +10 KB for Kai's corner guide and chat (dashboard.css Kai
   // section, ~8 KB raw / 1.5 KB gzip), on top of 47 KB before Kai.
-  "dashboard CSS": 60 * KB,
+  // 2026-10-26: 60 → 64 KB for the rail shell (rail, panel, crumbs; ~3 KB raw).
+  "dashboard CSS": 64 * KB,
 };
 
 function file(name) {
