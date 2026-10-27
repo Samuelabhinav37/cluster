@@ -3,18 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cluster Home and Clean up</title>
+<meta name="color-scheme" content="light dark">
+<!-- The page has its own dark theme; stop Dark Reader recolouring it. -->
+<meta name="darkreader-lock">
+<title>Cluster Dashboard Mockup</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Serve from the repo root (python -m http.server) so Kai's real files load. -->
+<link rel="stylesheet" href="../src/dashboard/kai/kai.css">
 <style>
-/* Track 2 + 3 mockup (docs/dashboard-plan.md). Tokens copied from src/dashboard/dashboard.css.
+/* Mockup for Tracks 2, 3 and 5 (docs/dashboard-plan.md). Tokens from src/dashboard/dashboard.css;
+   chart colours validated with the dataviz checker (light on #fff, dark on #161618).
    The app window is drawn at 1280x800, the size the targets are measured at. */
 :root {
   --page: #e9e9ee; --canvas: #f5f5f7; --glass: #ffffff; --glass-bar: #ffffff;
   --separator: #e3e3e8; --label: #1d1d1f; --label-2: #3a3a3c; --label-4: #636369;
   --accent: #3563c7; --accent-text: #2f5fc4; --accent-fill: rgba(53, 99, 199, 0.1);
-  --danger-text: #b42e2e; --neutral-fill: #f2f2f5; --neutral-fill-hover: #e8e8ed; --row-hover: #f2f2f5;
+  --danger-text: #b42e2e; --danger-fill: rgba(180, 46, 46, 0.08); --success-text: #15875f; --success-fill: rgba(21, 135, 95, 0.1);
+  --neutral-fill: #f2f2f5; --neutral-fill-hover: #e8e8ed; --row-hover: #f2f2f5; --logo-ground: #ffffff;
   --shadow-bar: 0 12px 40px rgba(30, 25, 45, 0.14);
+  --k-primary: #2a78d6; --k-trans: #1baf7a; --k-updates: #6250d6; --k-promo: #eb6834;
   --font: "Inter Tight", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", sans-serif;
 }
 @media (prefers-color-scheme: dark) {
@@ -22,8 +30,10 @@
     --page: #050506; --canvas: #0a0a0c; --glass: #161618; --glass-bar: #1f1f22;
     --separator: #262629; --label: #f5f5f7; --label-2: #dcdce0; --label-4: #a1a1a8;
     --accent: #3f6fd1; --accent-text: #6f9be0; --accent-fill: rgba(111, 155, 224, 0.15);
-    --danger-text: #fa6d6d; --neutral-fill: #1f1f22; --neutral-fill-hover: #28282c; --row-hover: #1f1f22;
+    --danger-text: #fa6d6d; --danger-fill: rgba(250, 109, 109, 0.12); --success-text: #7fdc78; --success-fill: rgba(67, 193, 58, 0.14);
+    --neutral-fill: #1f1f22; --neutral-fill-hover: #28282c; --row-hover: #1f1f22;
     --shadow-bar: 0 12px 40px rgba(0, 0, 0, 0.5);
+    --k-primary: #3987e5; --k-trans: #199e70; --k-updates: #9085e9; --k-promo: #d95926;
     color-scheme: dark;
   }
 }
@@ -31,13 +41,16 @@
   --page: #050506; --canvas: #0a0a0c; --glass: #161618; --glass-bar: #1f1f22;
   --separator: #262629; --label: #f5f5f7; --label-2: #dcdce0; --label-4: #a1a1a8;
   --accent: #3f6fd1; --accent-text: #6f9be0; --accent-fill: rgba(111, 155, 224, 0.15);
-  --danger-text: #fa6d6d; --neutral-fill: #1f1f22; --neutral-fill-hover: #28282c; --row-hover: #1f1f22;
+  --danger-text: #fa6d6d; --danger-fill: rgba(250, 109, 109, 0.12); --success-text: #7fdc78; --success-fill: rgba(67, 193, 58, 0.14);
+  --neutral-fill: #1f1f22; --neutral-fill-hover: #28282c; --row-hover: #1f1f22;
   --shadow-bar: 0 12px 40px rgba(0, 0, 0, 0.5);
+  --k-primary: #3987e5; --k-trans: #199e70; --k-updates: #9085e9; --k-promo: #d95926;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--page); color: var(--label); font: 14px/1.45 var(--font); }
 button { font: inherit; color: inherit; cursor: pointer; }
+svg.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 .review { display: flex; gap: 16px; align-items: center; padding: 12px 16px; font-size: 13px; color: var(--label-4); flex-wrap: wrap; }
 .review b { color: var(--label); font-weight: 600; }
@@ -55,7 +68,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
   text-align: left; font-size: 14px; color: var(--label-2); }
 .nav:hover { background: var(--row-hover); }
 .nav[aria-current="page"] { background: var(--neutral-fill); color: var(--label); font-weight: 600; }
-.nav svg { width: 18px; height: 18px; flex: none; }
 .nav .badge { margin-left: auto; font-size: 12px; color: var(--danger-text); font-weight: 600; }
 .account { margin-top: auto; position: relative; }
 .account > button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; background: none;
@@ -64,57 +76,126 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center;
   font-size: 11px; font-weight: 600; }
 .menu { position: absolute; bottom: 44px; left: 0; right: 0; background: var(--glass-bar); border: 1px solid var(--separator);
-  border-radius: 10px; padding: 4px; box-shadow: var(--shadow-bar); }
-.menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 6px; }
+  border-radius: 10px; padding: 4px; box-shadow: var(--shadow-bar); z-index: 5; }
+.menu button { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 6px; }
 .menu button:hover { background: var(--neutral-fill-hover); }
 
 .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .scroll { flex: 1; overflow: auto; }
-.screen { max-width: 760px; margin: 0 auto; padding: 44px 40px 32px; }
+.screen { max-width: 760px; margin: 0 auto; padding: 36px 40px 32px; }
+.head { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 24px; }
+.head > div:first-child { flex: 1; }
 h1 { font-size: 30px; line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 6px; font-weight: 700; }
-.sub { color: var(--label-4); margin: 0 0 28px; font-size: 15px; }
-h2 { font-size: 13px; font-weight: 600; color: var(--label-4); margin: 32px 0 10px; }
+.sub { color: var(--label-4); margin: 0; font-size: 15px; }
+h2 { font-size: 13px; font-weight: 600; color: var(--label-4); margin: 28px 0 10px; display: flex; align-items: center; gap: 8px; }
+
+/* Kai says the one line that matters, like Cleanfox's fox. */
+.kai-row { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+.kai-row .kai { --kai-w: 58px; }
+.bubble { background: var(--glass); border: 1px solid var(--separator); border-radius: 14px 14px 14px 4px; padding: 10px 14px;
+  font-size: 15px; font-weight: 500; transition: transform 0.2s; }
+.bubble.pop { transform: scale(1.04); }
 
 /* Home: one picture, like iPhone Storage. */
-.big { font-size: 15px; color: var(--label-4); margin-bottom: 12px; }
-.big b { font-size: 34px; font-weight: 700; color: var(--label); letter-spacing: -0.02em; margin-right: 6px; }
-.bar { display: flex; height: 22px; border-radius: 6px; overflow: hidden; gap: 2px; }
-.bar span { display: block; }
-.legend { display: flex; gap: 22px; margin-top: 12px; font-size: 13px; color: var(--label-2); flex-wrap: wrap; }
+.big { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; color: var(--label-4); font-size: 15px; }
+.big b { font-size: 40px; font-weight: 700; color: var(--label); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.big .delta { margin-left: auto; font-size: 13px; }
+.bar { display: flex; height: 24px; gap: 2px; }
+.bar span { display: block; transition: flex 0.5s, opacity 0.2s; cursor: default; }
+.bar span:first-child { border-radius: 6px 0 0 6px; }
+.bar span:last-child { border-radius: 0 6px 6px 0; }
+.legend { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.legend button { border: 0; background: none; padding: 4px 8px; border-radius: 6px; font-size: 13px; color: var(--label-2); }
+.legend button:hover, .legend button[aria-pressed="true"] { background: var(--neutral-fill); }
 .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
 .legend em { font-style: normal; color: var(--label-4); margin-left: 4px; font-variant-numeric: tabular-nums; }
+.dim { opacity: 0.25; }
+.chart { display: block; width: 100%; overflow: visible; }
+.chart text { fill: var(--label-4); font-size: 11px; }
+.chart rect { transition: opacity 0.2s; }
+.chart .hit { fill: transparent; }
+.chart .hit:hover { fill: var(--neutral-fill); }
 
-/* A list card: recommendations and businesses share it. */
+/* A list card: recommendations, businesses and protect rows share it. */
 .list { background: var(--glass); border: 1px solid var(--separator); border-radius: 14px; overflow: hidden; }
-.row { display: flex; align-items: center; gap: 14px; padding: 12px 16px; min-height: 56px; }
+.row { display: flex; align-items: center; gap: 14px; padding: 11px 16px; min-height: 58px; transition: background 0.2s, opacity 0.3s; }
 .row + .row { border-top: 1px solid var(--separator); }
 .row.tap { cursor: pointer; }
 .row.tap:hover { background: var(--row-hover); }
 .row .text { flex: 1; min-width: 0; }
 .row .name { font-weight: 600; }
 .row .fact { color: var(--label-4); font-size: 13px; }
-.dot { display: inline-block; margin-right: 8px; vertical-align: 1px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger-text); flex: none; }
-.logo { width: 32px; height: 32px; border-radius: 8px; background: var(--neutral-fill); display: grid; place-items: center;
-  font-weight: 600; font-size: 13px; color: var(--label-2); flex: none; }
+.row.done .name { color: var(--label-4); font-weight: 500; }
+.ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex: none; background: var(--accent-fill); color: var(--accent-text); }
+.ic.red { background: var(--danger-fill); color: var(--danger-text); }
+.ic.ok { background: var(--success-fill); color: var(--success-text); }
+.ic.grey { background: var(--neutral-fill); color: var(--label-2); }
+.logo { width: 34px; height: 34px; border-radius: 9px; background: var(--logo-ground); display: grid; place-items: center; flex: none;
+  overflow: hidden; border: 1px solid var(--separator); font-weight: 600; color: #333; }
+.logo img { width: 20px; height: 20px; }
+.vol { width: 110px; height: 6px; border-radius: 3px; background: var(--neutral-fill); flex: none; overflow: hidden; }
+.vol div { height: 100%; background: var(--k-promo); border-radius: 3px; }
 .btn { border: 0; border-radius: 980px; padding: 6px 14px; background: var(--neutral-fill); color: var(--accent-text); font-weight: 600;
-  font-size: 13px; white-space: nowrap; }
+  font-size: 13px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
 .btn:hover { background: var(--neutral-fill-hover); }
 .btn.primary { background: var(--accent); color: #fff; }
+.btn.big { padding: 10px 20px; font-size: 14px; }
 .more { border: 0; background: none; color: var(--label-4); width: 28px; height: 28px; border-radius: 50%; font-size: 18px; line-height: 1; }
 .more:hover { background: var(--neutral-fill-hover); }
 .showall { display: block; width: 100%; border: 0; border-top: 1px solid var(--separator); background: none; padding: 12px;
   color: var(--accent-text); font-weight: 600; }
 .showall:hover { background: var(--row-hover); }
 
-/* Scan progress, as built in Track 0. */
-.progress { padding: 10px 40px 12px; border-top: 1px solid var(--separator); background: var(--glass-bar); color: var(--label-2); font-size: 13px; }
-.track { height: 4px; border-radius: 2px; background: var(--neutral-fill); margin-top: 6px; overflow: hidden; }
-.track div { height: 100%; width: 25%; background: var(--accent); }
+.seg { display: inline-flex; background: var(--neutral-fill); border-radius: 9px; padding: 3px; }
+.seg button { border: 0; background: none; border-radius: 7px; padding: 5px 12px; display: inline-flex; gap: 6px; align-items: center;
+  font-size: 13px; color: var(--label-2); }
+.seg button[aria-pressed="true"] { background: var(--glass); color: var(--label); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
 
-/* Digest: tap a business. */
+/* Cards: decide one business at a time, like Cleanfox. Drag, click or use ← →. */
+.deck { display: flex; flex-direction: column; align-items: center; gap: 14px; padding-top: 4px; }
+.deck .count { color: var(--label-4); font-size: 13px; font-variant-numeric: tabular-nums; }
+.stack { position: relative; width: 420px; height: 280px; }
+.card { position: absolute; inset: 0; background: var(--glass); border: 1px solid var(--separator); border-radius: 18px; padding: 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; touch-action: none; user-select: none;
+  transition: transform 0.3s, opacity 0.3s; box-shadow: var(--shadow-bar); }
+.card.behind { transform: translateY(10px) scale(0.96); opacity: 0.6; }
+.card.dragging { transition: none; cursor: grabbing; }
+.card .logo { width: 52px; height: 52px; border-radius: 14px; margin-bottom: 8px; }
+.card .logo img { width: 30px; height: 30px; }
+.card .name { font-weight: 700; font-size: 19px; }
+.card .fact { color: var(--label-4); font-size: 13px; }
+.card .stamp { position: absolute; top: 18px; padding: 4px 10px; border-radius: 8px; font-weight: 700; font-size: 13px; opacity: 0; }
+.card .stamp.keep { left: 18px; color: var(--success-text); background: var(--success-fill); }
+.card .stamp.go { right: 18px; color: var(--accent-text); background: var(--accent-fill); }
+.deck .choices { display: flex; gap: 12px; }
+
+/* Protect: tiles switch the subsection below them. */
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.tile { text-align: left; border: 1px solid var(--separator); background: var(--glass); border-radius: 14px; padding: 14px 16px;
+  color: var(--label-2); font-size: 13px; display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; align-items: center; }
+.tile .ic { grid-row: span 2; }
+.tile b { font-size: 24px; font-weight: 700; color: var(--label); letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile:hover { background: var(--row-hover); }
+.tile[aria-selected="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.hbar { display: flex; align-items: center; gap: 12px; padding: 9px 16px; }
+.hbar + .hbar { border-top: 1px solid var(--separator); }
+.hbar .name { width: 90px; font-weight: 600; }
+.hbar .track { flex: 1; height: 8px; background: var(--neutral-fill); border-radius: 4px; overflow: hidden; }
+.hbar .track div { height: 100%; background: var(--accent); border-radius: 4px; }
+.hbar .n { width: 24px; text-align: right; color: var(--label-4); font-variant-numeric: tabular-nums; }
+.switch-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-top: 14px; }
+.switch-row span { flex: 1; }
+.switch { width: 42px; height: 26px; border-radius: 13px; border: 0; background: var(--neutral-fill-hover); position: relative; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left 0.15s; }
+.switch[aria-checked="true"] { background: var(--accent); }
+.switch[aria-checked="true"]::after { left: 19px; }
+
+.progress { padding: 10px 40px 12px; border-top: 1px solid var(--separator); background: var(--glass-bar); color: var(--label-2); font-size: 13px; }
+.progress .track { height: 4px; border-radius: 2px; background: var(--neutral-fill); margin-top: 6px; overflow: hidden; }
+.progress .track div { height: 100%; width: 25%; background: var(--accent); }
+
 .sheet { position: absolute; inset: 0 0 0 auto; width: 400px; background: var(--glass); border-left: 1px solid var(--separator);
-  box-shadow: var(--shadow-bar); padding: 28px; display: flex; flex-direction: column; gap: 20px; overflow: auto; }
-.sheet[hidden] { display: none; }
+  box-shadow: var(--shadow-bar); padding: 28px; display: flex; flex-direction: column; gap: 20px; overflow: auto; z-index: 4; }
 .sheet header { display: flex; align-items: center; gap: 12px; }
 .sheet h3 { margin: 0; font-size: 20px; flex: 1; }
 .sheet h4 { margin: 0 0 6px; font-size: 13px; color: var(--label-4); font-weight: 600; }
@@ -122,53 +203,63 @@ h2 { font-size: 13px; font-weight: 600; color: var(--label-4); margin: 32px 0 10
 .sheet li { padding: 6px 0; border-top: 1px solid var(--separator); font-size: 13px; color: var(--label-2); }
 .sheet li:first-child { border-top: 0; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-/* Protect: tiles switch the subsection below them. */
-.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 8px; }
-.tile { text-align: left; border: 1px solid var(--separator); background: var(--glass); border-radius: 14px; padding: 14px 16px;
-  color: var(--label-2); font-size: 13px; }
-.tile b { display: block; font-size: 26px; font-weight: 700; color: var(--label); letter-spacing: -0.02em; }
-.tile b.warn { color: var(--danger-text); }
-.tile:hover { background: var(--row-hover); }
-.tile[aria-selected="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.count { color: var(--label-4); font-variant-numeric: tabular-nums; }
-.switch-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; margin-top: 16px; }
-.switch { width: 42px; height: 26px; border-radius: 13px; border: 0; background: var(--neutral-fill-hover); position: relative; }
-.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff;
-  transition: left 0.15s; }
-.switch[aria-checked="true"] { background: var(--accent); }
-.switch[aria-checked="true"]::after { left: 19px; }
-.card { background: var(--glass); border: 1px solid var(--separator); border-radius: 14px; padding: 28px; display: flex;
-  flex-direction: column; align-items: center; gap: 6px; text-align: center; }
-.card .logo { width: 48px; height: 48px; font-size: 18px; margin-bottom: 6px; }
-.card .name { font-weight: 600; font-size: 17px; }
-.card .subject { margin: 10px 0 14px; color: var(--label-2); }
-.card .actions { justify-content: center; }
+
+.tip { position: fixed; pointer-events: none; background: var(--glass-bar); border: 1px solid var(--separator); border-radius: 8px;
+  padding: 6px 10px; font-size: 12px; box-shadow: var(--shadow-bar); z-index: 10; white-space: nowrap; }
+.tip b { display: block; font-size: 13px; }
+.tip i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
 [hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/></symbol>
+  <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6zM9 12l2 2 4-4"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3zM12 10v4M12 17.5v.01"/></symbol>
+  <symbol id="i-mail-off" viewBox="0 0 24 24"><path d="M20 12V6H4v12h9M4 7l8 6 8-6M16 18h6"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-mask" viewBox="0 0 24 24"><path d="M4 6c3 1.2 13 1.2 16 0v5c0 5-4 8-8 8s-8-3-8-8zM8 11h2.5M13.5 11H16"/></symbol>
+  <symbol id="i-shield-x" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6zM10 10l4 4M14 10l-4 4"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3L5 13h6l-1 8 8-10h-6z"/></symbol>
+  <symbol id="i-user-check" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 11l2 2 4-4"/></symbol>
+  <symbol id="i-user-plus" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 21V5l8-2v18M12 8h8v13M7 8h2M7 12h2M7 16h2M15 12h2M15 16h2"/></symbol>
+  <symbol id="i-user-q" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M17 8a2 2 0 1 1 2.6 1.9c-.6.2-1.1.7-1.1 1.4M18.5 15v.01"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3"/></symbol>
+  <symbol id="i-cards" viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M3 6v12M21 6v12"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></symbol>
+</svg>
+
 <div class="review">
-  <span><b>Mockup</b> · Home, Clean up and Protect, 1280×800, fake mailbox. Click a business for its digest, or a Protect tile.</span>
+  <span><b>Mockup</b> · 1280×800, fake mailbox. Hover the charts, press the buttons, try Cards in Clean up.</span>
   <span class="meter" id="meter"></span>
 </div>
 
 <div class="window">
   <nav class="side" aria-label="Places">
     <div class="brand"><i></i>Cluster</div>
-    <button class="nav" data-go="home" aria-current="page">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</button>
-    <button class="nav" data-go="senders">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>Senders</button>
-    <button class="nav" data-go="cleanup">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Clean up</button>
-    <button class="nav" data-go="organize">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></svg>Organize</button>
-    <button class="nav" data-go="protect">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/></svg>Protect<span class="badge">4</span></button>
+    <button class="nav" data-go="home" aria-current="page"><svg class="i"><use href="#i-home"/></svg>Home</button>
+    <button class="nav" data-go="senders"><svg class="i"><use href="#i-users"/></svg>Senders</button>
+    <button class="nav" data-go="cleanup"><svg class="i"><use href="#i-trash"/></svg>Clean up</button>
+    <button class="nav" data-go="organize"><svg class="i"><use href="#i-layers"/></svg>Organize</button>
+    <button class="nav" data-go="protect"><svg class="i"><use href="#i-shield"/></svg>Protect<span class="badge" id="badge">4</span></button>
     <div class="account">
       <div class="menu" id="menu" hidden>
-        <button>Activity</button><button>Settings</button><button>Disconnect</button>
+        <button><svg class="i"><use href="#i-history"/></svg>Activity</button>
+        <button><svg class="i"><use href="#i-gear"/></svg>Settings</button>
+        <button><svg class="i"><use href="#i-logout"/></svg>Disconnect</button>
       </div>
       <button id="account"><span class="avatar">SA</span>Account</button>
     </div>
@@ -177,121 +268,69 @@ h2 { font-size: 13px; font-weight: 600; color: var(--label-4); margin: 32px 0 10
   <div class="main">
     <div class="scroll">
 
-      <!-- Home: ≤ 40 words, ≤ 5 controls, no scrolling. -->
+      <!-- Home: Kai's one line, one number, one picture, three next steps. No scrolling. -->
       <section class="screen" id="home">
-        <h1 style="margin-bottom:28px">Home</h1>
-        <div class="big"><b>804</b>emails in your inbox</div>
-        <div class="bar" role="img" aria-label="Primary 112, Transactions 96, Updates 268, Promotions 328">
-          <span style="flex:112;background:var(--accent)"></span>
-          <span style="flex:96;background:color-mix(in srgb, var(--accent) 70%, var(--canvas))"></span>
-          <span style="flex:268;background:color-mix(in srgb, var(--accent) 42%, var(--canvas))"></span>
-          <span style="flex:328;background:color-mix(in srgb, var(--label-4) 35%, var(--canvas))"></span>
+        <div class="kai-row">
+          <div class="kai" id="kai" aria-hidden="true"></div>
+          <div class="bubble" id="say">Most of your mail is promotions. Start there?</div>
         </div>
-        <div class="legend">
-          <span><i style="background:var(--accent)"></i>Primary<em>112</em></span>
-          <span><i style="background:color-mix(in srgb, var(--accent) 70%, var(--canvas))"></i>Transactions<em>96</em></span>
-          <span><i style="background:color-mix(in srgb, var(--accent) 42%, var(--canvas))"></i>Updates<em>268</em></span>
-          <span><i style="background:color-mix(in srgb, var(--label-4) 35%, var(--canvas))"></i>Promotions<em>328</em></span>
-        </div>
+        <div class="big"><b id="total">804</b>emails in your inbox<span class="delta" id="delta">+62 this week</span></div>
+        <div class="bar" id="kindbar" role="img"></div>
+        <div class="legend" id="legend"></div>
+        <h2>Last 8 weeks</h2>
+        <svg class="chart" id="weeks" height="120" role="img" aria-label="Emails per week by kind"></svg>
         <h2>Recommended</h2>
-        <div class="list">
-          <div class="row">
-            <div class="text"><div class="name"><span class="dot" aria-hidden="true"></span>4 emails look like scams</div></div>
-            <button class="btn" data-go="protect">Review</button></div>
-          <div class="row">
-            <div class="text"><div class="name">Unsubscribe from 13 you never open</div><div class="fact">150 emails</div></div>
-            <button class="btn" data-go="cleanup">Unsubscribe</button></div>
-          <div class="row">
-            <div class="text"><div class="name">Trash old codes and expired mail</div><div class="fact">29 emails</div></div>
-            <button class="btn" data-go="cleanup">Trash</button></div>
-        </div>
+        <div class="list" id="recs"></div>
       </section>
 
       <!-- Clean up: ≤ 120 words, ≤ 25 controls before "Show all". -->
       <section class="screen" id="cleanup" hidden>
-        <h1>Clean up</h1>
-        <p class="sub">211 emails you can clear.</p>
-        <div class="list">
-          <div class="row">
-            <div class="text"><div class="name">13 senders you never open</div><div class="fact">150 emails</div></div>
-            <button class="btn primary">Unsubscribe all</button></div>
-          <div class="row">
-            <div class="text"><div class="name">Old codes and expired mail</div><div class="fact">29 emails</div></div>
-            <button class="btn">Trash</button></div>
+        <div class="head">
+          <div><h1>Clean up</h1><p class="sub"><b id="clearable">211</b> emails you can clear.</p></div>
+          <div class="seg" role="group" aria-label="View">
+            <button aria-pressed="true" data-view="list"><svg class="i"><use href="#i-list"/></svg>List</button>
+            <button aria-pressed="false" data-view="cards"><svg class="i"><use href="#i-cards"/></svg>Cards</button>
+          </div>
         </div>
-        <h2>Most mail first</h2>
-        <div class="list" id="businesses"></div>
+        <div id="view-list">
+          <div class="list" id="bulk"></div>
+          <h2>Most mail first</h2>
+          <div class="list" id="businesses"></div>
+        </div>
+        <div id="view-cards" hidden></div>
       </section>
 
       <!-- Protect: three subsections as tiles (Watchtower, Apple Passwords), ≤ 120 words each. -->
       <section class="screen" id="protect" hidden>
-        <h1>Protect</h1>
-        <p class="sub"><span class="dot" aria-hidden="true"></span>4 emails need a look.</p>
+        <div class="head"><div><h1>Protect</h1><p class="sub" id="protect-sub"></p></div></div>
         <div class="tiles" role="tablist">
-          <button class="tile" role="tab" data-pane="scams" aria-selected="true"><b class="warn">4</b>Likely scams</button>
-          <button class="tile" role="tab" data-pane="new" aria-selected="false"><b>26</b>New senders</button>
-          <button class="tile" role="tab" data-pane="held" aria-selected="false"><b>12</b>Held so far</button>
+          <button class="tile" role="tab" data-pane="scams" aria-selected="true"><span class="ic red"><svg class="i"><use href="#i-alert"/></svg></span><b id="n-scams">4</b>Likely scams</button>
+          <button class="tile" role="tab" data-pane="new" aria-selected="false"><span class="ic"><svg class="i"><use href="#i-user-plus"/></svg></span><b id="n-new">26</b>New senders</button>
+          <button class="tile" role="tab" data-pane="held" aria-selected="false"><span class="ic ok"><svg class="i"><use href="#i-shield-check"/></svg></span><b>12</b>Held so far</button>
         </div>
 
         <div class="pane" id="pane-scams">
           <h2>High priority</h2>
-          <div class="list">
-            <div class="row"><span class="logo">P</span>
-              <div class="text"><div class="name">“Your account has been limited”</div><div class="fact">Says PayPal, but the address isn't PayPal's</div></div>
-              <button class="btn">Trash</button><button class="more" aria-label="More">⋯</button></div>
-            <div class="row"><span class="logo">N</span>
-              <div class="text"><div class="name">“Payment declined”</div><div class="fact">Says Netflix, but the address isn't Netflix's</div></div>
-              <button class="btn">Trash</button><button class="more" aria-label="More">⋯</button></div>
-            <div class="row"><span class="logo">A</span>
-              <div class="text"><div class="name">“Your Apple ID was used to sign in”</div><div class="fact">Failed Apple's sender check</div></div>
-              <button class="btn">Trash</button><button class="more" aria-label="More">⋯</button></div>
-          </div>
+          <div class="list" id="scams-high"></div>
           <h2>Worth a look</h2>
-          <div class="list">
-            <div class="row"><span class="logo">D</span>
-              <div class="text"><div class="name">“Your parcel is waiting”</div><div class="fact">New sender, rushes you to pay</div></div>
-              <button class="btn">It's fine</button><button class="more" aria-label="More">⋯</button></div>
-          </div>
+          <div class="list" id="scams-low"></div>
           <div class="list switch-row"><span>Hold likely scams</span><button class="switch" role="switch" aria-checked="true" aria-label="Hold likely scams"></button></div>
         </div>
 
         <div class="pane" id="pane-new" hidden>
           <div id="new-groups">
             <h2>Waiting to get in</h2>
-            <div class="list">
-              <div class="row"><span class="logo">9</span>
-                <div class="text"><div class="name">People you've written to</div></div>
-                <button class="btn">Let in all</button></div>
-              <div class="row"><span class="logo">14</span>
-                <div class="text"><div class="name">Businesses you already get mail from</div></div>
-                <button class="btn">Let in all</button></div>
-              <div class="row"><span class="logo">3</span>
-                <div class="text"><div class="name">Strangers</div></div>
-                <button class="btn primary" id="review-start">Review</button></div>
-            </div>
+            <div class="list" id="groups"></div>
             <div class="list switch-row"><span>Hold new senders</span><button class="switch" role="switch" aria-checked="true" aria-label="Hold new senders"></button></div>
           </div>
-          <div id="review" hidden>
-            <h2 id="review-count"></h2>
-            <div class="card">
-              <span class="logo" id="r-logo"></span>
-              <div class="name" id="r-name"></div>
-              <div class="fact" id="r-address"></div>
-              <div class="subject" id="r-subject"></div>
-              <div class="actions"><button class="btn" data-decide="hold">Hold</button><button class="btn primary" data-decide="in">Let in</button></div>
-              <div class="fact">← Hold · Let in →</div>
-            </div>
-          </div>
+          <div id="review" hidden></div>
         </div>
 
         <div class="pane" id="pane-held" hidden>
+          <h2>Held each week</h2>
+          <svg class="chart" id="held-weeks" height="110" role="img" aria-label="Emails held per week"></svg>
           <h2>Pretended to be</h2>
-          <div class="list">
-            <div class="row"><span class="logo">P</span><div class="text"><div class="name">PayPal</div></div><span class="count">5</span></div>
-            <div class="row"><span class="logo">N</span><div class="text"><div class="name">Netflix</div></div><span class="count">4</span></div>
-            <div class="row"><span class="logo">A</span><div class="text"><div class="name">Apple</div></div><span class="count">3</span></div>
-          </div>
-          <p class="fact" style="margin-top:12px">Last 8 weeks. You marked 2 as safe.</p>
+          <div class="list" id="pretend"></div>
         </div>
       </section>
 
@@ -313,112 +352,375 @@ h2 { font-size: 13px; font-weight: 600; color: var(--label-4); margin: 32px 0 10
     <div><h4>Recent</h4><ul id="d-subjects"></ul></div>
   </aside>
 </div>
+<div class="tip" id="tip" hidden></div>
 
+<script src="../src/dashboard/kai/kaiLife.js"></script>
 <script>
-// Fake businesses: one row each, all of a brand's addresses folded in.
-const businesses = [
-  ["LinkedIn", 26, "none opened", ["messages-noreply@linkedin.com", "jobs-listings@linkedin.com", "notifications-noreply@linkedin.com"],
-    ["5 new jobs for you", "You appeared in 9 searches", "Samuel, add to your network"]],
-  ["Medium", 18, "1 opened", ["noreply@medium.com"], ["Your daily digest", "Stories for you", "Top reads this week"]],
-  ["Morning Brew", 14, "none opened", ["crew@morningbrew.com"], ["Markets rally", "The weekend edition", "Tuesday's brew"]],
-  ["UNIQLO", 12, "none opened", ["info@mail.uniqlo.com", "news@uniqlo.com"], ["Limited offers end soon", "New arrivals", "Members' week"]],
-  ["Reddit", 11, "none opened", ["noreply@redditmail.com"], ["Trending today", "A post you might like", "Popular in your communities"]],
-  ["Amazon", 9, "2 opened", ["store-news@amazon.com", "deals@amazon.com"], ["Deals picked for you", "Your recommendations", "Prime Day is back"]],
-  ["Nike", 9, "none opened", ["nike@official.nike.com"], ["Just dropped", "Members get it first", "Your weekend picks"]],
-  ["Groupon", 8, "none opened", ["noreply@r.groupon.com"], ["Today's deals near you", "Up to 70% off", "Last chance"]],
-  ["Pinterest", 7, "none opened", ["recommendations@pinterest.com"], ["Ideas for you", "Pins you might love", "Trending boards"]],
-  ["Quora", 6, "none opened", ["digest-noreply@quora.com"], ["Your Quora digest", "Answers you might like", "Top stories"]],
+const $ = (id) => document.getElementById(id);
+const icon = (name) => `<svg class="i"><use href="#i-${name}"/></svg>`;
+// Real logos come from each sender's site; the mockup borrows Google's favicon service.
+const logo = (domain, name) =>
+  `<span class="logo"><img alt="" src="https://www.google.com/s2/favicons?domain=${domain}&sz=64" onerror="this.replaceWith('${name[0]}')"></span>`;
+
+/* Tooltip shared by every chart. */
+const tip = $("tip");
+function showTip(e, html) {
+  tip.innerHTML = html;
+  tip.hidden = false;
+  tip.style.left = `${e.clientX + 14}px`;
+  tip.style.top = `${e.clientY + 14}px`;
+}
+const hideTip = () => { tip.hidden = true; };
+
+/* Kai, the real one when its files load. */
+const kai = window.Kai ? window.Kai($("kai"), { src: "../public/characters/", imgWidth: 160, calm: true }) : null;
+function say(text, mood = "happy") {
+  const b = $("say");
+  b.textContent = text;
+  b.classList.add("pop");
+  setTimeout(() => b.classList.remove("pop"), 200);
+  if (kai) { kai.setMood(mood, 1800); kai.do("hop"); kai.talk(900); }
+}
+
+/* ---------- Home ---------- */
+const KINDS = [
+  { key: "primary", label: "Primary", color: "var(--k-primary)" },
+  { key: "trans", label: "Transactions", color: "var(--k-trans)" },
+  { key: "updates", label: "Updates", color: "var(--k-updates)" },
+  { key: "promo", label: "Promotions", color: "var(--k-promo)" },
 ];
-const SHOWN = 10, TOTAL = 39;
+const inbox = { primary: 112, trans: 96, updates: 268, promo: 328 };
+const WEEKS = [
+  ["Sep 7", 12, 11, 30, 35], ["Sep 14", 15, 12, 31, 38], ["Sep 21", 13, 10, 35, 40], ["Sep 28", 14, 13, 32, 44],
+  ["Oct 5", 16, 12, 33, 39], ["Oct 12", 13, 11, 36, 42], ["Oct 19", 14, 12, 34, 43], ["This week", 15, 15, 37, 47],
+];
+let focusKind = null;
 
-const list = document.getElementById("businesses");
-for (const [name, count, fact, addresses, subjects] of businesses) {
+function renderKinds() {
+  const total = Object.values(inbox).reduce((a, b) => a + b, 0);
+  $("total").textContent = total.toLocaleString();
+  $("kindbar").setAttribute("aria-label", KINDS.map((k) => `${k.label} ${inbox[k.key]}`).join(", "));
+  $("kindbar").innerHTML = KINDS.map((k) =>
+    `<span data-k="${k.key}" style="flex:${inbox[k.key]};background:${k.color}" class="${focusKind && focusKind !== k.key ? "dim" : ""}"></span>`).join("");
+  $("kindbar").querySelectorAll("span").forEach((s) => {
+    const k = KINDS.find((x) => x.key === s.dataset.k);
+    s.onmousemove = (e) => showTip(e, `<b>${k.label}</b>${inbox[k.key]} emails · ${Math.round((inbox[k.key] / total) * 100)}%`);
+    s.onmouseleave = hideTip;
+    s.onclick = () => setFocus(k.key);
+  });
+  $("legend").innerHTML = KINDS.map((k) =>
+    `<button data-k="${k.key}" aria-pressed="${focusKind === k.key}"><i style="background:${k.color}"></i>${k.label}<em>${inbox[k.key]}</em></button>`).join("");
+  $("legend").querySelectorAll("button").forEach((b) => (b.onclick = () => setFocus(b.dataset.k)));
+}
+function setFocus(key) {
+  focusKind = focusKind === key ? null : key;
+  renderKinds();
+  renderWeeks();
+}
+
+/* Stacked columns: 2px gaps, rounded tops, hover a week for its numbers. */
+function renderWeeks() {
+  const svg = $("weeks");
+  const W = svg.clientWidth || 680, H = 120, base = H - 18;
+  const max = Math.max(...WEEKS.map((w) => w[1] + w[2] + w[3] + w[4]));
+  const colW = W / WEEKS.length, barW = Math.min(44, colW - 18);
+  let out = "";
+  WEEKS.forEach(([label, ...vals], i) => {
+    const x = i * colW + (colW - barW) / 2;
+    out += `<rect class="hit" data-i="${i}" x="${i * colW + 2}" y="0" width="${colW - 4}" height="${base}" rx="6"/>`;
+    let y = base;
+    vals.forEach((v, j) => {
+      const h = (v / max) * (base - 8) - 2;
+      const top = j === vals.length - 1;
+      const k = KINDS[j];
+      y -= h + 2;
+      out += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="${top ? 4 : 0}" fill="${k.color}" pointer-events="none"
+        class="${focusKind && focusKind !== k.key ? "dim" : ""}"/>`;
+    });
+    out += `<text x="${x + barW / 2}" y="${H - 4}" text-anchor="middle">${label}</text>`;
+  });
+  svg.innerHTML = out;
+  svg.querySelectorAll(".hit").forEach((r) => {
+    const [label, ...vals] = WEEKS[r.dataset.i];
+    r.onmousemove = (e) => showTip(e, `<b>${label} · ${vals.reduce((a, b) => a + b)} emails</b>` +
+      KINDS.map((k, j) => `<div><i style="background:${k.color}"></i>${k.label} ${vals[j]}</div>`).join(""));
+    r.onmouseleave = hideTip;
+  });
+}
+
+/* A row whose button acts, then offers Undo in place. */
+function actionRow({ ic, tone = "", name, fact, verb, doneName, apply, undo, primary, more }) {
   const row = document.createElement("div");
-  row.className = "row tap";
-  row.innerHTML = `<span class="logo">${name[0]}</span>
-    <div class="text"><div class="name">${name}</div><div class="fact">${count} emails, ${fact}</div></div>
-    <button class="btn">Unsubscribe</button><button class="more" aria-label="More for ${name}">⋯</button>`;
-  row.onclick = (e) => { if (!e.target.closest("button")) openDigest(name, count, addresses, subjects); };
-  list.appendChild(row);
+  row.className = "row";
+  const draw = (done) => {
+    row.classList.toggle("done", done);
+    row.innerHTML = `<span class="ic ${done ? "ok" : tone}">${icon(done ? "check" : ic)}</span>
+      <div class="text"><div class="name">${done ? doneName : name}</div>${fact ? `<div class="fact">${fact}</div>` : ""}</div>
+      <button class="btn ${!done && primary ? "primary" : ""}">${done ? `${icon("undo")}Undo` : verb}</button>
+      ${more && !done ? `<button class="more" aria-label="${more}">⋯</button>` : ""}`;
+    row.querySelector(".btn").onclick = (e) => {
+      e.stopPropagation();
+      if (done) undo?.(); else apply?.();
+      draw(!done);
+      measure();
+    };
+  };
+  draw(false);
+  return row;
 }
-const showAll = document.createElement("button");
-showAll.className = "showall";
-showAll.textContent = `Show all ${TOTAL}`;
-list.appendChild(showAll);
 
-function openDigest(name, count, addresses, subjects) {
-  document.getElementById("d-logo").textContent = name[0];
-  document.getElementById("d-name").textContent = name;
-  document.getElementById("d-actions").innerHTML =
-    `<button class="btn primary">Unsubscribe</button><button class="btn">Trash all ${count}</button><button class="btn">Mute</button><button class="btn">Keep</button>`;
-  document.getElementById("d-addresses").innerHTML = addresses.map((a) => `<li>${a}</li>`).join("");
-  document.getElementById("d-subjects").innerHTML = subjects.map((s) => `<li>${s}</li>`).join("");
-  document.getElementById("sheet").hidden = false;
+function renderRecs() {
+  const recs = $("recs");
+  recs.replaceChildren(
+    actionRow({ ic: "alert", tone: "red", name: "4 emails look like scams", verb: "Review", doneName: "4 emails look like scams",
+      apply: () => go("protect") }),
+    actionRow({ ic: "mail-off", name: "Unsubscribe from 13 you never open", fact: "150 emails", verb: "Unsubscribe",
+      doneName: "Unsubscribed from 13 senders",
+      apply: () => { inbox.promo -= 150; renderKinds(); say("150 fewer emails. Nice."); },
+      undo: () => { inbox.promo += 150; renderKinds(); say("Put back. No harm done.", "neutral"); } }),
+    actionRow({ ic: "clock", name: "Trash old codes and expired mail", fact: "29 emails", verb: "Trash",
+      doneName: "Moved 29 to Trash",
+      apply: () => { inbox.updates -= 29; renderKinds(); say("Old codes gone. Trash keeps them 30 days."); },
+      undo: () => { inbox.updates += 29; renderKinds(); say("Back in your inbox.", "neutral"); } }),
+  );
+  // The scam row only navigates, so it never shows Undo.
+  recs.firstChild.querySelector(".btn").onclick = () => go("protect");
 }
-document.getElementById("d-close").onclick = () => { document.getElementById("sheet").hidden = true; };
 
-function go(place) {
-  document.querySelectorAll(".nav").forEach((n) => n.toggleAttribute("aria-current", n.dataset.go === place));
-  document.querySelectorAll(".nav[aria-current]").forEach((n) => n.setAttribute("aria-current", "page"));
-  const shown = ["home", "cleanup", "protect"].includes(place) ? place : "other";
-  for (const id of ["home", "cleanup", "protect", "other"]) document.getElementById(id).hidden = id !== shown;
-  document.getElementById("other-title").textContent = place[0].toUpperCase() + place.slice(1);
-  document.getElementById("sheet").hidden = true;
+/* ---------- Clean up ---------- */
+const businesses = [
+  ["LinkedIn", "linkedin.com", 26, 0, ["messages-noreply@linkedin.com", "jobs-listings@linkedin.com", "notifications-noreply@linkedin.com"],
+    ["5 new jobs for you", "You appeared in 9 searches", "Samuel, add to your network"], [2, 3, 3, 4, 3, 4, 3, 4]],
+  ["Medium", "medium.com", 18, 1, ["noreply@medium.com"], ["Your daily digest", "Stories for you", "Top reads this week"], [2, 2, 3, 2, 2, 3, 2, 2]],
+  ["Morning Brew", "morningbrew.com", 14, 0, ["crew@morningbrew.com"], ["Markets rally", "The weekend edition", "Tuesday's brew"], [2, 2, 2, 1, 2, 2, 1, 2]],
+  ["UNIQLO", "uniqlo.com", 12, 0, ["info@mail.uniqlo.com", "news@uniqlo.com"], ["Limited offers end soon", "New arrivals", "Members' week"], [1, 1, 2, 1, 2, 1, 2, 2]],
+  ["Reddit", "reddit.com", 11, 0, ["noreply@redditmail.com"], ["Trending today", "A post you might like", "Popular in your communities"], [1, 2, 1, 1, 2, 1, 1, 2]],
+  ["Amazon", "amazon.com", 9, 2, ["store-news@amazon.com", "deals@amazon.com"], ["Deals picked for you", "Your recommendations", "Prime Day is back"], [1, 1, 1, 1, 1, 2, 1, 1]],
+  ["Nike", "nike.com", 9, 0, ["nike@official.nike.com"], ["Just dropped", "Members get it first", "Your weekend picks"], [1, 1, 1, 2, 1, 1, 1, 1]],
+  ["Groupon", "groupon.com", 8, 0, ["noreply@r.groupon.com"], ["Today's deals near you", "Up to 70% off", "Last chance"], [1, 1, 1, 1, 1, 1, 1, 1]],
+  ["Pinterest", "pinterest.com", 7, 0, ["recommendations@pinterest.com"], ["Ideas for you", "Pins you might love", "Trending boards"], [1, 1, 0, 1, 1, 1, 1, 1]],
+  ["Quora", "quora.com", 6, 0, ["digest-noreply@quora.com"], ["Your Quora digest", "Answers you might like", "Top stories"], [1, 0, 1, 1, 1, 1, 0, 1]],
+];
+let clearable = 211;
+const setClearable = (d) => { clearable += d; $("clearable").textContent = clearable; };
+const opened = (n) => (n === 0 ? "none opened" : `${n} opened`);
+
+function renderCleanup() {
+  $("bulk").replaceChildren(
+    actionRow({ ic: "mail-off", name: "13 senders you never open", fact: "150 emails", verb: "Unsubscribe all", primary: true,
+      doneName: "Unsubscribed from 13 senders", apply: () => setClearable(-150), undo: () => setClearable(150) }),
+    actionRow({ ic: "clock", name: "Old codes and expired mail", fact: "29 emails", verb: "Trash",
+      doneName: "Moved 29 to Trash", apply: () => setClearable(-29), undo: () => setClearable(29) }),
+  );
+  const list = $("businesses");
+  list.innerHTML = "";
+  const top = businesses[0][2];
+  for (const b of businesses) {
+    const [name, domain, count, open, addresses, subjects] = b;
+    const row = document.createElement("div");
+    row.className = "row tap";
+    const draw = (done) => {
+      row.classList.toggle("done", done);
+      row.innerHTML = `${logo(domain, name)}
+        <div class="text"><div class="name">${done ? `Unsubscribed from ${name}` : name}</div><div class="fact">${count} emails, ${opened(open)}</div></div>
+        ${done ? "" : `<div class="vol" title="${count} emails"><div style="width:${(count / top) * 100}%"></div></div>`}
+        <button class="btn">${done ? `${icon("undo")}Undo` : "Unsubscribe"}</button>${done ? "" : `<button class="more" aria-label="More for ${name}">⋯</button>`}`;
+      row.querySelector(".btn").onclick = (e) => { e.stopPropagation(); setClearable(done ? count : -count); draw(!done); measure(); };
+    };
+    draw(false);
+    row.onclick = (e) => { if (!e.target.closest("button")) openDigest(b); };
+    list.appendChild(row);
+  }
+  const showAll = document.createElement("button");
+  showAll.className = "showall";
+  showAll.textContent = "Show all 39";
+  list.appendChild(showAll);
+}
+
+function openDigest([name, domain, count, , addresses, subjects]) {
+  $("d-logo").outerHTML = logo(domain, name).replace('class="logo"', 'class="logo" id="d-logo"');
+  $("d-name").textContent = name;
+  $("d-actions").innerHTML = `<button class="btn primary">Unsubscribe</button><button class="btn">Trash all ${count}</button><button class="btn">Mute</button><button class="btn">Keep</button>`;
+  $("d-addresses").innerHTML = addresses.map((a) => `<li>${a}</li>`).join("");
+  $("d-subjects").innerHTML = subjects.map((s) => `<li>${s}</li>`).join("");
+  $("sheet").hidden = false;
+}
+$("d-close").onclick = () => { $("sheet").hidden = true; };
+
+/* A deck: one card at a time. Drag it, press a button or use ← →. */
+let activeDeck = null;
+function deck(host, items, { card, left, right, onDecide, onEnd }) {
+  let at = 0;
+  const draw = () => {
+    if (at >= items.length) { activeDeck = null; onEnd(); return; }
+    host.innerHTML = `<div class="deck"><div class="count">${at + 1} of ${items.length}</div>
+      <div class="stack">${at + 1 < items.length ? `<div class="card behind">${card(items[at + 1])}</div>` : ""}
+        <div class="card" id="top"><span class="stamp keep">${left}</span><span class="stamp go">${right}</span>${card(items[at])}</div></div>
+      <div class="choices"><button class="btn big" data-d="left">${icon("left")}${left}</button>
+        <button class="btn big primary" data-d="right">${right}${icon("right")}</button></div></div>`;
+    const top = host.querySelector("#top");
+    let startX = null;
+    top.onpointerdown = (e) => { startX = e.clientX; top.setPointerCapture(e.pointerId); top.classList.add("dragging"); };
+    top.onpointermove = (e) => {
+      if (startX === null) return;
+      const dx = e.clientX - startX;
+      top.style.transform = `translateX(${dx}px) rotate(${dx / 25}deg)`;
+      top.querySelector(".keep").style.opacity = Math.max(0, -dx / 120);
+      top.querySelector(".go").style.opacity = Math.max(0, dx / 120);
+    };
+    top.onpointerup = (e) => {
+      const dx = e.clientX - startX;
+      startX = null;
+      top.classList.remove("dragging");
+      if (Math.abs(dx) > 120) decide(dx < 0 ? "left" : "right");
+      else { top.style.transform = ""; top.querySelectorAll(".stamp").forEach((s) => (s.style.opacity = 0)); }
+    };
+    host.querySelectorAll("[data-d]").forEach((b) => (b.onclick = () => decide(b.dataset.d)));
+    measure();
+  };
+  const decide = (side) => {
+    const top = host.querySelector("#top");
+    top.style.transform = `translateX(${side === "left" ? -520 : 520}px) rotate(${side === "left" ? -18 : 18}deg)`;
+    top.style.opacity = 0;
+    onDecide(items[at], side);
+    at++;
+    setTimeout(draw, 250);
+  };
+  activeDeck = { decide };
+  draw();
+}
+document.addEventListener("keydown", (e) => {
+  if (!activeDeck) return;
+  if (e.key === "ArrowLeft") activeDeck.decide("left");
+  if (e.key === "ArrowRight") activeDeck.decide("right");
+});
+
+/* Eight weeks as small columns inside a card. */
+const spark = (vals) => {
+  const max = Math.max(...vals, 1);
+  return `<svg width="160" height="40" style="margin:10px 0 14px">${vals.map((v, i) =>
+    `<rect x="${i * 20 + 3}" y="${40 - (v / max) * 36 - 2}" width="14" height="${(v / max) * 36 + 2}" rx="3" fill="var(--k-promo)"/>`).join("")}</svg>`;
+};
+
+function setView(view) {
+  document.querySelectorAll("[data-view]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === view)));
+  $("view-list").hidden = view !== "list";
+  $("view-cards").hidden = view !== "cards";
+  if (view === "cards") {
+    deck($("view-cards"), businesses, {
+      left: "Keep", right: "Unsubscribe",
+      card: ([name, domain, count, open, , subjects, weeks]) =>
+        `${logo(domain, name)}<div class="name">${name}</div><div class="fact">${count} emails in 8 weeks, ${opened(open)}</div>${spark(weeks)}<div>“${subjects[0]}”</div>`,
+      onDecide: (b, side) => { if (side === "right") setClearable(-b[2]); },
+      onEnd: () => { setView("list"); say("All sorted. That was quick."); },
+    });
+  } else activeDeck = null;
   measure();
 }
-document.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => go(b.dataset.go)));
-document.getElementById("account").onclick = () => { const m = document.getElementById("menu"); m.hidden = !m.hidden; };
+document.querySelectorAll("[data-view]").forEach((b) => (b.onclick = () => setView(b.dataset.view)));
 
-// Protect: tiles pick the subsection; strangers are reviewed one card at a time.
+/* ---------- Protect ---------- */
+let scams = 4;
+const setScams = (d) => {
+  scams += d;
+  $("n-scams").textContent = scams;
+  $("badge").textContent = scams || "";
+  $("protect-sub").innerHTML = scams ? `${scams} emails need a look.` : `${icon("check")} All clear.`;
+};
+const REASON = { mask: "mask", fail: "shield-x", rush: "bolt" };
+function scamRow(domain, brand, subject, reason, why, verb) {
+  return actionRow({ ic: REASON[reason], tone: "red", name: `“${subject}”`, fact: why, verb, doneName: `Moved “${subject}” to Trash`,
+    apply: () => setScams(-1), undo: () => setScams(1), more: "Block, report or deep scan" });
+}
+function renderProtect() {
+  setScams(0);
+  $("scams-high").replaceChildren(
+    scamRow("paypal.com", "PayPal", "Your account has been limited", "mask", "Says PayPal, but the address isn't PayPal's", "Trash"),
+    scamRow("netflix.com", "Netflix", "Payment declined", "mask", "Says Netflix, but the address isn't Netflix's", "Trash"),
+    scamRow("apple.com", "Apple", "Your Apple ID was used to sign in", "fail", "Failed Apple's sender check", "Trash"),
+  );
+  const low = actionRow({ ic: "bolt", tone: "", name: "“Your parcel is waiting”", fact: "New sender, rushes you to pay", verb: "It's fine",
+    doneName: "Marked as fine", apply: () => setScams(-1), undo: () => setScams(1), more: "Trash, block or report" });
+  $("scams-low").replaceChildren(low);
+
+  let waiting = 26;
+  const setWaiting = (d) => { waiting += d; $("n-new").textContent = waiting; };
+  const reviewRow = actionRow({ ic: "user-q", tone: "grey", name: "3 strangers", verb: "Review", primary: true, doneName: "3 strangers reviewed" });
+  $("groups").replaceChildren(
+    actionRow({ ic: "user-check", tone: "ok", name: "9 people you've written to", verb: "Let in all", doneName: "Let in 9 people",
+      apply: () => setWaiting(-9), undo: () => setWaiting(9) }),
+    actionRow({ ic: "building", name: "14 businesses you already get mail from", verb: "Let in all", doneName: "Let in 14 businesses",
+      apply: () => setWaiting(-14), undo: () => setWaiting(14) }),
+    reviewRow,
+  );
+  reviewRow.querySelector(".btn").onclick = () => {
+    $("new-groups").hidden = true;
+    $("review").hidden = false;
+    deck($("review"), [
+      ["Jordan Lee", "jordan@lee-studio.co", "Quick question about your portfolio"],
+      ["Parcel Notice", "notice@parcel-track-help.top", "Delivery attempt failed"],
+      ["Riverside Dental", "hello@riversidedental.com", "Your appointment on Friday"],
+    ], {
+      left: "Hold", right: "Let in",
+      card: ([name, address, subject]) =>
+        `<span class="logo">${name[0]}</span><div class="name">${name}</div><div class="fact">${address}</div><div style="margin-top:16px">“${subject}”</div>`,
+      onDecide: () => setWaiting(-1),
+      onEnd: () => { $("review").hidden = true; $("new-groups").hidden = false; measure(); },
+    });
+  };
+
+  const held = [["Sep 7", 1], ["Sep 14", 0], ["Sep 21", 2], ["Sep 28", 1], ["Oct 5", 3], ["Oct 12", 1], ["Oct 19", 2], ["This week", 2]];
+  const svg = $("held-weeks");
+  const W = 680, H = 110, base = H - 18, max = 3, colW = W / held.length, barW = 36;
+  svg.innerHTML = held.map(([label, v], i) => {
+    const x = i * colW + (colW - barW) / 2, h = Math.max(2, (v / max) * (base - 10));
+    return `<rect class="hit" data-i="${i}" x="${i * colW + 2}" y="0" width="${colW - 4}" height="${base}" rx="6"/>
+      <rect x="${x}" y="${base - h}" width="${barW}" height="${h}" rx="4" fill="var(--accent)" pointer-events="none"/>
+      <text x="${x + barW / 2}" y="${H - 4}" text-anchor="middle">${label}</text>`;
+  }).join("");
+  svg.querySelectorAll(".hit").forEach((r) => {
+    const [label, v] = held[r.dataset.i];
+    r.onmousemove = (e) => showTip(e, `<b>${label}</b>${v} held`);
+    r.onmouseleave = hideTip;
+  });
+  $("pretend").innerHTML = [["PayPal", "paypal.com", 5], ["Netflix", "netflix.com", 4], ["Apple", "apple.com", 3]].map(([n, d, v]) =>
+    `<div class="hbar">${logo(d, n)}<span class="name">${n}</span><span class="track"><div style="width:${(v / 5) * 100}%"></div></span><span class="n">${v}</span></div>`).join("");
+}
+
 document.querySelectorAll(".tile").forEach((tile) => tile.addEventListener("click", () => {
   document.querySelectorAll(".tile").forEach((t) => t.setAttribute("aria-selected", String(t === tile)));
-  for (const pane of ["scams", "new", "held"]) document.getElementById(`pane-${pane}`).hidden = pane !== tile.dataset.pane;
+  for (const pane of ["scams", "new", "held"]) $(`pane-${pane}`).hidden = pane !== tile.dataset.pane;
   measure();
 }));
 document.querySelectorAll(".switch").forEach((s) => s.addEventListener("click", () =>
   s.setAttribute("aria-checked", String(s.getAttribute("aria-checked") !== "true"))));
-const strangers = [
-  ["Jordan Lee", "jordan@lee-studio.co", "Quick question about your portfolio"],
-  ["Parcel Notice", "notice@parcel-track-help.top", "Delivery attempt failed"],
-  ["Riverside Dental", "hello@riversidedental.com", "Your appointment on Friday"],
-];
-let reviewAt = 0;
-function showStranger() {
-  if (reviewAt >= strangers.length) {
-    document.getElementById("review").hidden = true;
-    document.getElementById("new-groups").hidden = false;
-    reviewAt = 0;
-    return measure();
-  }
-  const [name, address, subject] = strangers[reviewAt];
-  document.getElementById("review-count").textContent = `${reviewAt + 1} of ${strangers.length}`;
-  document.getElementById("r-logo").textContent = name[0];
-  document.getElementById("r-name").textContent = name;
-  document.getElementById("r-address").textContent = address;
-  document.getElementById("r-subject").textContent = `“${subject}”`;
+
+/* ---------- Shell ---------- */
+function go(place) {
+  document.querySelectorAll(".nav").forEach((n) => {
+    if (n.dataset.go === place) n.setAttribute("aria-current", "page");
+    else n.removeAttribute("aria-current");
+  });
+  const shown = ["home", "cleanup", "protect"].includes(place) ? place : "other";
+  for (const id of ["home", "cleanup", "protect", "other"]) $(id).hidden = id !== shown;
+  $("other-title").textContent = place[0].toUpperCase() + place.slice(1);
+  $("sheet").hidden = true;
+  if (place !== "cleanup") activeDeck = null;
+  if (place === "home") renderWeeks();
   measure();
 }
-document.getElementById("review-start").onclick = () => {
-  document.getElementById("new-groups").hidden = true;
-  document.getElementById("review").hidden = false;
-  showStranger();
-};
-document.querySelectorAll("[data-decide]").forEach((b) => b.addEventListener("click", () => { reviewAt++; showStranger(); }));
-document.addEventListener("keydown", (e) => {
-  if (document.getElementById("review").hidden || !["ArrowLeft", "ArrowRight"].includes(e.key)) return;
-  reviewAt++;
-  showStranger();
-});
+document.querySelectorAll(".nav").forEach((b) => b.addEventListener("click", () => go(b.dataset.go)));
+$("account").onclick = () => { $("menu").hidden = !$("menu").hidden; };
 
 // The same count as the research note: visible words and controls in the screen.
-const TARGETS = { home: [40, 5], cleanup: [120, 25], protect: [120, 25] };
+const TARGETS = { home: [60, 10], cleanup: [120, 25], protect: [120, 25] };
 function measure() {
   const screen = [...document.querySelectorAll(".screen")].find((s) => !s.hidden);
   const target = TARGETS[screen.id];
-  const meter = document.getElementById("meter");
+  const meter = $("meter");
   if (!target) { meter.textContent = ""; return; }
   const words = screen.innerText.split(/\s+/).filter(Boolean).length;
-  const controls = screen.querySelectorAll("button").length;
+  const controls = [...screen.querySelectorAll("button")].filter((b) => b.offsetParent).length;
   const scroller = document.querySelector(".scroll");
   const fits = scroller.scrollHeight <= scroller.clientHeight;
   const mark = (ok, text) => `<span class="${ok ? "ok" : ""}">${text}</span>`;
@@ -428,7 +730,12 @@ function measure() {
     screen.id === "home" ? mark(fits, fits ? "no scrolling" : "scrolls") : "",
   ].filter(Boolean).join(" · ");
 }
-document.fonts.ready.then(measure);
+
+renderKinds();
+renderRecs();
+renderCleanup();
+renderProtect();
+document.fonts.ready.then(() => { renderWeeks(); measure(); });
 </script>
 </body>
 </html>
