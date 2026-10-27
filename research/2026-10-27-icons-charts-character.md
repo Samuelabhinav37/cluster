@@ -95,3 +95,26 @@ colourful, and Kai should be back in its corner on every page, able to do what y
     (scams, codes, receipts, new senders) and settings ("turn off new sender hold").
   - In the mockup this is keyword intents. The extension would use the same matcher first and
     Chrome's on-device Prompt API for anything it can't match. Nothing leaves the browser.
+
+## Round 3 (same day): Details is where you work
+
+Asked: use the tables more, make it less complicated, and let a click on a week or day show
+exactly those emails.
+
+- **One fake mailbox (804 emails) drives every number**, so a click anywhere opens the same
+  emails the count promised.
+- **Everything opens Details already filtered.**
+  - A kind in Home's bar or legend opens those emails.
+  - A recommendation's count ("435 emails") opens exactly those emails or senders.
+  - A Clean up row opens that sender's emails; "See all" opens Senders.
+  - Protect's chart and "Pretended to be" bars open the matching flagged mail.
+- **Drill down in place.** The chart above the table shows weeks; click a week and it becomes
+  that week's seven days; click a day and the table shows that day.
+- **Filters are chips** you remove with ×, plus two or three quick ones (+ Never opened,
+  + This week).
+- **Tables you can act on.**
+  - Emails are grouped by day, unread in bold, with a hover Trash on each row.
+  - Senders show emails with a small bar and the share opened, sort by any column, and open a
+    row to see the latest subjects.
+  - Tick rows (or all) and a bar at the bottom offers Trash, Unsubscribe or It's fine. Kai
+    confirms with Undo, and every screen's counts follow.
