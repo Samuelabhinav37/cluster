@@ -26,6 +26,7 @@ import {
 } from "../lib/expiryTriage";
 import { buildProtectionContext, idsSafeToMoveOut } from "../lib/protectionPolicy";
 import { clusterLabelName } from "../lib/clusterLabels";
+import { runReplyReminders } from "../lib/replyReminders";
 import { markRepliesToYou } from "../lib/correspondents";
 import { getElevatedAuthToken, getProfileEmail, GmailApiError } from "../lib/gmailApi";
 import { clearMetadataCache } from "../lib/metadataCache";
@@ -585,7 +586,9 @@ async function main() {
   wireSortInbox();
   wireTimeLimits();
   setPresetActions(() =>
-    [neverOpenedSkipsInboxCard(), keepNewestInInboxCard()].filter((c): c is HTMLElement => c !== null),
+    [replyReminderCard(), neverOpenedSkipsInboxCard(), keepNewestInInboxCard()].filter(
+      (c): c is HTMLElement => c !== null,
+    ),
   );
   wireScreenerTab();
   wireOfflineHandling();
@@ -2769,6 +2772,42 @@ function neverOpenedSkipsInboxCard(): HTMLElement | null {
       return `${done} of ${senders.length} now skip the inbox. Undo from Activity.`;
     },
   );
+}
+
+/** A standing switch: sent mail nobody answered comes back to the inbox. */
+function replyReminderCard(): HTMLElement {
+  const cfg = ctx.settings.replyReminders;
+  const card = document.createElement("div");
+  card.className = "rec-card";
+  card.dataset.preset = "no-reply";
+  const name = document.createElement("div");
+  name.className = "rec-name";
+  name.textContent = `Remind me if no reply in ${cfg.days} days`;
+  const fact = document.createElement("div");
+  fact.className = "rec-fact";
+  fact.textContent = presetNotes.get("no-reply") ?? (cfg.enabled ? "On" : "Brings your sent mail back to the inbox");
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn btn-sm";
+  btn.textContent = cfg.enabled ? "Turn off" : "Turn on";
+  btn.onclick = async () => {
+    btn.disabled = true;
+    ctx.settings = await updateSettings({ replyReminders: { ...cfg, enabled: !cfg.enabled } });
+    presetNotes.delete("no-reply");
+    if (!cfg.enabled) {
+      try {
+        const n = await runReplyReminders(await gmailProvider.getAuthToken(false));
+        presetNotes.set("no-reply", n > 0 ? `On. ${n} brought back now.` : "On. Nothing waiting now.");
+        if (n > 0) await logAction("snooze", `Brought back ${n} sent ${n === 1 ? "email" : "emails"} with no reply`);
+      } catch (err) {
+        log.error("Reply reminders failed", err);
+        presetNotes.set("no-reply", "On. Couldn't check Gmail just now.");
+      }
+    }
+    renderPresets();
+  };
+  card.append(name, fact, btn);
+  return card;
 }
 
 function resetKeepNewestSlot() {

@@ -18,6 +18,7 @@ import type { ClusterSettings } from "./lib/settingsStore";
 import { getSettings, mutateSettings, updateSettings } from "./lib/settingsStore";
 import { excludeSnoozedMessages } from "./lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
+import { runReplyReminders } from "./lib/replyReminders";
 import { flushAthenaSecurityEvents, queueAthenaSecurityEvents } from "./lib/athenaIntegration";
 import { buildIncrementalSenderSummaries } from "./lib/incrementalSync";
 import { gmailQuotaHeadroom } from "./lib/gmailQuotaLedger";
@@ -95,6 +96,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 function handleAlarm(alarm: chrome.alarms.Alarm): void {
   if (alarm.name === TRIAGE_ALARM) {
     resurfaceDueSnoozed(gmailProvider).catch((err) => log.error("Resurfacing snoozed mail failed", err));
+    gmailProvider
+      .getAuthToken(false)
+      .then((token) => runReplyReminders(token))
+      .catch((err) => log.error("Reply reminders failed", err));
     runBackgroundTriage();
   }
   if (alarm.name === ATHENA_ALARM) void flushAthenaSecurityEvents();

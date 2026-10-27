@@ -771,6 +771,21 @@ export async function snoozeMessages(token: string, ids: string[]): Promise<void
   await batchModify(token, ids, [labelId], ["INBOX"]);
 }
 
+/** A thread's messages with only ids, dates and labels (threads.get minimal). */
+export async function getThreadMinimal(
+  token: string,
+  threadId: string,
+): Promise<{ id: string; messages: { id: string; at: number; labelIds: string[] }[] }> {
+  const data = await gmailFetch<{ id: string; messages?: { id: string; internalDate?: string; labelIds?: string[] }[] }>(
+    `/users/me/threads/${encodeURIComponent(threadId)}?format=minimal`,
+    token,
+  );
+  return {
+    id: data.id,
+    messages: (data.messages ?? []).map((m) => ({ id: m.id, at: Number(m.internalDate ?? 0), labelIds: m.labelIds ?? [] })),
+  };
+}
+
 export async function resurfaceMessages(token: string, ids: string[]): Promise<void> {
   const labelIds = await findLabelIds(token, SNOOZE_LABEL_NAME);
   await batchModify(token, ids, ["INBOX"], labelIds);

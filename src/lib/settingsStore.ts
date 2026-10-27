@@ -40,6 +40,9 @@ export interface ClusterSettings {
   onboardingDismissed: boolean;
   // Gmail-only — keyed by message id (see gmailApi.snoozeMessages).
   snoozedMessages: Record<string, { resurfaceAt: number; provider: ProviderId }>;
+  /** Gmail-only: bring a sent thread back when nobody answered (replyReminders.ts).
+   * `reminded` is threadId → the message last brought back, so each goes once. */
+  replyReminders: { enabled: boolean; days: number; reminded: Record<string, string> };
 
   // ── Power features (Phases 2–6) ──────────────────────────────────────────
   /** Standing user rules — Auto Clean equivalent (see rules.ts / ruleRunner.ts). */
@@ -182,6 +185,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   fastPermanentDeleteEnabled: false,
   onboardingDismissed: false,
   snoozedMessages: {},
+  replyReminders: { enabled: false, days: 3, reminded: {} },
   rules: [],
   actionLog: [],
   mutedSenders: [],

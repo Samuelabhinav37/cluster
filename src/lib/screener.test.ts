@@ -14,6 +14,7 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
     fastPermanentDeleteEnabled: false,
     onboardingDismissed: false,
     snoozedMessages: {},
+    replyReminders: { enabled: false, days: 3, reminded: {} },
     rules: [],
     actionLog: [],
     mutedSenders: [],
