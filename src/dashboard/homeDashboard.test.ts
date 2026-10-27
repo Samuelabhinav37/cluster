@@ -2,14 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 import { inboxTabOf } from "../lib/senderModel";
-import {
-  mailByTab,
-  readRate,
-  renderHomeDashboard,
-  topCompanies,
-  verifiedShare,
-  type DashboardFacts,
-} from "./homeDashboard";
+import { homeRecommendations, kindOf, mailByKind, renderHomeDashboard, type HomeFacts } from "./homeDashboard";
 
 const NOW = Date.UTC(2026, 9, 17);
 const DAY = 24 * 60 * 60 * 1000;
@@ -59,162 +52,92 @@ describe("inboxTabOf", () => {
   });
 });
 
-describe("mailByTab", () => {
-  it("counts messages per tab", () => {
-    const counts = mailByTab([
-      sender("a@x.com", [msg({ tab: "primary" }), msg({ tab: "promotions" }), msg({ tab: "promotions" })]),
-      sender("b@y.com", [msg({ tab: "updates" })]),
-    ]);
-    expect(counts).toEqual({ primary: 1, promotions: 2, social: 0, updates: 1, forums: 0 });
-  });
-
-  it("is null when no message has a tab", () => {
-    expect(mailByTab([sender("a@outlook.com", [msg()])])).toBeNull();
+describe("kindOf", () => {
+  it("sorts mail into Apple Mail's four kinds", () => {
+    expect(kindOf(msg({ kind: "receipt", tab: "promotions" }))).toBe("trans");
+    expect(kindOf(msg({ kind: "shipping" }))).toBe("trans");
+    expect(kindOf(msg({ learnedTransactional: "you" }))).toBe("trans");
+    expect(kindOf(msg({ tab: "promotions" }))).toBe("promo");
+    expect(kindOf(msg({ kind: "otp" }))).toBe("updates");
+    expect(kindOf(msg({ kind: "newsletter", tab: "primary" }))).toBe("updates");
+    expect(kindOf(msg({ tab: "forums" }))).toBe("updates");
+    expect(kindOf(msg({ tab: "primary" }))).toBe("primary");
+    expect(kindOf(msg())).toBe("primary");
   });
 });
 
-describe("readRate", () => {
-  it("gives the overall share and one value per week, oldest first", () => {
-    const { overall, byWeek } = readRate(
+describe("mailByKind", () => {
+  it("counts each kind, the total and the last seven days", () => {
+    const got = mailByKind(
       [
-        sender("a@x.com", [
-          msg({ receivedAt: NOW - DAY, unread: false }),
-          msg({ receivedAt: NOW - 2 * DAY, unread: true }),
-          msg({ receivedAt: NOW - 10 * DAY, unread: true }),
-        ]),
+        sender("shop@example.com", [msg({ tab: "promotions" }), msg({ tab: "promotions", receivedAt: NOW - 9 * DAY })]),
+        sender("friend@example.com", [msg()]),
       ],
       NOW,
-      4,
     );
-    expect(overall).toBeCloseTo(1 / 3);
-    expect(byWeek.map((w) => w.rate)).toEqual([null, null, 0, 0.5]);
-  });
-
-  it("is null with no mail", () => {
-    expect(readRate([], NOW).overall).toBeNull();
-  });
-  it("leaves mail older than the window out of the overall share too", () => {
-    const { overall } = readRate(
-      [sender("a@x.com", [msg({ receivedAt: NOW - DAY, unread: true }), msg({ receivedAt: NOW - 60 * DAY, unread: false })])],
-      NOW,
-      4,
-    );
-    expect(overall).toBe(0);
+    expect(got).toEqual({ kinds: { primary: 1, trans: 0, updates: 0, promo: 2 }, total: 3, thisWeek: 2 });
   });
 });
 
-describe("verifiedShare", () => {
-  it("counts mail from senders that passed DKIM or DMARC", () => {
-    const share = verifiedShare([
-      sender("a@x.com", [msg(), msg(), msg()], {
-        authVerdicts: { spf: "pass", dkim: "pass", dmarc: "pass" },
-      }),
-      sender("b@y.com", [msg()]),
-    ]);
-    expect(share).toBe(0.75);
-  });
-});
-
-describe("topCompanies", () => {
-  it("takes the biggest companies first", () => {
-    const groups = [
-      { key: "a", senders: [], total: 3, unread: 0, openRate: null },
-      { key: "b", senders: [], total: 9, unread: 0, openRate: null },
-    ];
-    expect(topCompanies(groups, (g) => g.key.toUpperCase(), 1)).toEqual([{ name: "B", total: 9 }]);
-  });
-});
-
-const facts: DashboardFacts = {
-  score: 62,
-  scoreDelta: 4,
-  tabs: { primary: 10, promotions: 30, social: 5, updates: 8, forums: 0 },
-  companies: [
-    { name: "LinkedIn", total: 40 },
-    { name: "Amazon", total: 12 },
-  ],
-  companyCount: 2,
-  read: readRate([], NOW),
-  clear: { expired: 4, spam: 2, neverRead: 6 },
+const calm: HomeFacts = {
+  kinds: { primary: 10, trans: 5, updates: 20, promo: 30 },
+  total: 65,
+  thisWeek: 12,
   suspicious: 0,
   waiting: 0,
-  verified: 0.8,
-  holdingOn: true,
+  neverOpened: { senders: 0, emails: 0 },
+  pastDate: 0,
 };
 
-describe("renderHomeDashboard", () => {
-  it("shows one number, one chart and one action on each of six tiles", () => {
-    const grid = renderHomeDashboard(facts, vi.fn());
-    const tiles = Array.from(grid.querySelectorAll<HTMLElement>(".home-tile"));
-    expect(tiles.map((t) => t.dataset.tile)).toEqual([
-      "health",
-      "clear",
-      "safety",
-      "tabs",
-      "companies",
-      "read",
-    ]);
-    for (const t of tiles) {
-      expect(t.querySelectorAll(".home-tile-value")).toHaveLength(1);
-      expect(t.querySelectorAll(".home-tile-chart")).toHaveLength(1);
-      expect(t.querySelectorAll("button")).toHaveLength(1);
-    }
-    expect(grid.querySelector('[data-tile="clear"] .home-tile-value')!.textContent).toBe("12 emails");
-    expect(grid.querySelector('[data-tile="health"] .home-tile-note')!.textContent).toBe(
-      "Up 4 since last week",
-    );
-  });
-
-  it("sends each action to its screen", () => {
-    const go = vi.fn();
-    const grid = renderHomeDashboard(facts, go);
-    grid.querySelector<HTMLButtonElement>('[data-tile="companies"] button')!.click();
-    grid.querySelector<HTMLButtonElement>('[data-tile="read"] button')!.click();
-    expect(go).toHaveBeenNthCalledWith(1, "senders");
-    expect(go).toHaveBeenNthCalledWith(2, "subscriptions", "senders-worth-decision");
-  });
-
-  it("leads Safety with suspicious senders and marks it as danger", () => {
-    const grid = renderHomeDashboard({ ...facts, suspicious: 2, waiting: 5 }, vi.fn());
-    const safety = grid.querySelector<HTMLElement>('[data-tile="safety"]')!;
-    expect(safety.classList.contains("danger")).toBe(true);
-    expect(safety.querySelector(".home-tile-value")!.textContent).toBe("2 suspicious senders");
-  });
-
-  it("puts a Safety tile that needs you first, names who, and makes its action the filled one", () => {
-    const grid = renderHomeDashboard(
-      { ...facts, suspicious: 4, attention: ["Bank Alerts", "PayPaI", "Netflix Billing", "DHL"] },
+describe("homeRecommendations", () => {
+  it("puts a scam warning first and stops at three", () => {
+    const recs = homeRecommendations(
+      { ...calm, suspicious: 2, waiting: 4, neverOpened: { senders: 12, emails: 150 }, pastDate: 29 },
       vi.fn(),
     );
-    const first = grid.querySelector<HTMLElement>(".home-tile")!;
-    expect(first.dataset.tile).toBe("safety");
-    expect(Array.from(first.querySelectorAll(".name-list li")).map((li) => li.textContent)).toEqual([
-      "Bank Alerts",
-      "PayPaI",
-      "Netflix Billing",
-      "and 1 more",
+    expect(recs.map((r) => r.name)).toEqual([
+      "2 senders look like a scam",
+      "Mute 12 senders you never open",
+      "Trash mail past its date",
     ]);
-    expect(first.textContent).not.toContain("verified");
-    expect(first.querySelector("button")!.classList.contains("btn-accent")).toBe(true);
   });
 
-  it("explains the health score on its title", () => {
-    const grid = renderHomeDashboard(facts, vi.fn());
-    expect(grid.querySelector('[data-tile="health"] .term-tip')!.textContent).toMatch(/unread mail/);
+  it("each button opens its place and starts that place's own confirm", () => {
+    const go = vi.fn();
+    for (const r of homeRecommendations({ ...calm, neverOpened: { senders: 1, emails: 3 }, pastDate: 2, waiting: 1 }, go)) r.go();
+    expect(go.mock.calls).toEqual([["subscriptions", "mute-never-opened"], ["delete", "trash-past-date"], ["screener"]]);
+  });
+});
+
+describe("renderHomeDashboard", () => {
+  it("shows the total, one bar segment per kind with mail, and a labelled legend", () => {
+    const el = renderHomeDashboard({ ...calm, kinds: { ...calm.kinds, trans: 0 } }, vi.fn());
+    expect(el.querySelector(".home-big")!.textContent).toBe("65 emails in your inbox+12 this week");
+    expect(el.querySelectorAll(".kind-bar span")).toHaveLength(3);
+    expect(el.querySelector(".kind-bar")!.getAttribute("aria-label")).toBe(
+      "Primary 10, Transactions 0, Updates 20, Promotions 30",
+    );
+    expect(Array.from(el.querySelectorAll(".kind-legend li")).map((li) => li.textContent)).toEqual([
+      "Primary10",
+      "Transactions0",
+      "Updates20",
+      "Promotions30",
+    ]);
   });
 
-  it("offers scam holding when it is off and nothing is wrong", () => {
-    const grid = renderHomeDashboard({ ...facts, holdingOn: false }, vi.fn());
-    expect(grid.querySelector('[data-tile="safety"] button')!.textContent).toBe("Turn on scam holding");
+  it("says nothing needs you when there is nothing to recommend", () => {
+    const el = renderHomeDashboard(calm, vi.fn());
+    expect(el.querySelector(".rec-grid")!.textContent).toBe("Nothing needs you right now");
+    expect(el.querySelectorAll(".rec-grid button")).toHaveLength(0);
   });
 
-  it("leaves out the tab tile without Gmail tabs", () => {
-    const grid = renderHomeDashboard({ ...facts, tabs: null }, vi.fn());
-    expect(grid.querySelector('[data-tile="tabs"]')).toBeNull();
-  });
-
-  it("uses no dashes in its text", () => {
-    const grid = renderHomeDashboard({ ...facts, scoreDelta: -3 }, vi.fn());
-    expect(grid.textContent).not.toMatch(/[–—]/);
+  it("keeps Home under its word budget with every card showing", () => {
+    const el = renderHomeDashboard(
+      { ...calm, suspicious: 1, neverOpened: { senders: 12, emails: 150 }, pastDate: 29 },
+      vi.fn(),
+    );
+    const words = (el.textContent ?? "").replace(/(\d)([A-Z])/g, "$1 $2").split(/\s+/).filter(Boolean);
+    expect(words.length).toBeLessThanOrEqual(40);
+    expect(el.textContent).not.toMatch(/[–—]/);
   });
 });

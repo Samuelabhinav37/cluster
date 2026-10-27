@@ -57,6 +57,13 @@ sub-pages (Stop mail, Rules, New senders, Scam report) fold into their place in 
 - Nothing else. The other five tiles' facts move to the screen they belong to.
 - Target: ≤ 40 words, ≤ 5 controls, no scrolling at 1280×800.
 
+Done 2026-10-27: the total (whole inbox, from the security lane) with "+N this week", the
+four-kind bar in muted blues with a legend, and up to three cards (scams, Mute senders you never
+open, Trash mail past its date, new senders waiting). A card's button opens its place and starts
+that place's own confirm, so nothing changes without a second click. The six tiles, the health
+ring, "Working while you were away" and "Recently done" are gone (Activity has the history).
+Pages are now up to 1320px wide.
+
 ## Track 3: lists that end
 
 - Every list is businesses sorted by volume, top 10, "Show all".

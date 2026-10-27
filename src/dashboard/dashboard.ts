@@ -116,8 +116,7 @@ import {
 import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib/inboxHealth";
 import { senderTile, type TileSize } from "./senderTile";
 import { wireAccountMenu, wireHeaderSearch } from "./accountMenu";
-import { homeHeadline, type HomeFacts } from "./homeTab";
-import { mailByTab, readRate, renderHomeDashboard, topCompanies, verifiedShare } from "./homeDashboard";
+import { mailByKind, renderHomeDashboard, type HomeFacts } from "./homeDashboard";
 import { listGroup, listRow } from "./listRow";
 import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
@@ -137,7 +136,6 @@ let engagementSuggestions: Suggestion[] = [];
 const SECURITY_SCAN_MAX_MESSAGES = 250;
 
 const statusEl = document.getElementById("status") as HTMLParagraphElement;
-const homeLeadEl = document.getElementById("home-lead");
 const overviewContentEl = document.getElementById("overview-content") as HTMLDivElement;
 const overviewHeadlineEl = document.getElementById("overview-headline") as HTMLParagraphElement;
 const senderGroupsEl = document.getElementById("sender-groups") as HTMLDivElement;
@@ -1040,9 +1038,7 @@ function setPhishingNavSeverity(securitySenders: SenderSummary[]) {
 }
 
 // ── Overview screen (v3) ────────────────────────────────────────────────
-// Home: a headline (homeTab.ts) and six tiles (homeDashboard.ts), then a
-// "working while you were away" summary and a Recently-done preview. Every
-// number is deterministic and already computed elsewhere.
+// Home: the total, the kind bar and up to three next steps (homeDashboard.ts).
 function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary[]) {
   const health = buildInboxHealth({ senders, securitySenders, settings: ctx.settings });
   const byId = new Map(health.metrics.map((m) => [m.id, m.value]));
@@ -1053,173 +1049,31 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
   const plan = clearOutPlan(senders);
 
   overviewContentEl.innerHTML = "";
-  const stack = document.createElement("div");
-  stack.className = "stack";
-
-  // ── Headline (homeTab.ts), then the tiles (homeDashboard.ts) ──
   const facts: HomeFacts = {
+    // The security lane is the whole inbox; `senders` is only the cleanup tabs.
+    ...mailByKind(securitySenders, Date.now()),
     suspicious: byId.get("flagged-senders") ?? 0,
     waiting: byId.get("screener-queue") ?? 0,
-    cleanupMessages: plan.total,
+    neverOpened: {
+      senders: unopenedSuggestions(currentSuggestions(senders)).length,
+      emails: plan.neverReadMsgs,
+    },
+    pastDate: plan.expiryTotal,
   };
-  if (homeLeadEl) homeLeadEl.textContent = homeHeadline(facts);
-
-  const score = inboxHealthScore(senders);
-  const history = ctx.settings.healthHistory;
-  const prev = history.length >= 2 ? history[history.length - 2].score : undefined;
-  const groups = groupByCompany(senders, ctx.profiles);
-  stack.appendChild(
-    renderHomeDashboard(
-      {
-        score,
-        scoreDelta: prev === undefined ? undefined : score - prev,
-        tabs: mailByTab(senders),
-        companies: topCompanies(groups, companyName),
-        companyCount: groups.length,
-        read: readRate(senders, Date.now()),
-        clear: { expired: plan.expiryTotal, spam: plan.spamMsgs, neverRead: plan.neverReadMsgs },
-        suspicious: facts.suspicious,
-        waiting: facts.waiting,
-        attention:
-          facts.suspicious > 0
-            ? securitySenders
-                .filter((s) => riskTier(senderRiskScore(s.threatSignals)) !== "low")
-                .map((s) => s.displayName || s.address)
-            : ctx.settings.screenerEnabled
-              ? ctx.settings.screenedSenders
-              : [],
-        verified: verifiedShare(senders),
-        holdingOn: ctx.settings.autoQuarantineHighRisk,
-      },
-      (screen, focus) => {
-        void selectScreen(screen).then(() => {
-          if (focus) document.getElementById(focus)?.scrollIntoView({ block: "start" });
-        });
-      },
-    ),
+  overviewContentEl.appendChild(
+    renderHomeDashboard(facts, (screen, act) => {
+      void selectScreen(screen).then(() => {
+        if (act === "mute-never-opened") neverReadMuteBtn.click();
+        if (act === "trash-past-date") confirmIn("expiry-section", expiryCleanupBtn);
+      });
+    }),
   );
-
-  const footNote = document.createElement("p");
-  footNote.className = "text-meta home-foot";
-  footNote.hidden = !lastScanCapHit;
-  footNote.textContent = `Based on your latest ${MAIL_INDEX_CAP.toLocaleString()} messages per account.`;
-
-  // ── Bottom two-up: "Working while you were away" + "Recently done" ──
-  const bottomGrid = document.createElement("div");
-  bottomGrid.className = "two-up";
-
-  const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
-  const recentLog = ctx.settings.actionLog.filter((e) => !e.undone);
-  const filedByRules = recentLog
-    .filter((e) => Date.now() - e.at < MONTH_MS && ["rule", "sort", "keepSorted"].includes(e.kind))
-    .reduce((n, e) => n + (e.undo?.ids.length ?? 0), 0);
-  const mutedCount = ctx.settings.mutedSenders.length;
-  const cleanupsDone = recentLog.filter(
-    (e) => Date.now() - e.at < MONTH_MS && ["trash", "archive"].includes(e.kind),
-  ).length;
-
-  const awayEntries: Array<[string, string]> = [];
-  if (filedByRules > 0)
-    awayEntries.push([filedByRules.toLocaleString(), "messages filed by your rules this month"]);
-  if (mutedCount > 0)
-    awayEntries.push([String(mutedCount), `sender${mutedCount === 1 ? "" : "s"} muted and staying quiet`]);
-  if (cleanupsDone > 0)
-    awayEntries.push([String(cleanupsDone), `cleanup${cleanupsDone === 1 ? "" : "s"} done this month`]);
-
-  if (awayEntries.length > 0) {
-    const wrap = document.createElement("div");
-    const head = document.createElement("div");
-    head.className = "section-head";
-    head.innerHTML = '<h2 class="section-label">Working while you were away</h2>';
-    const list = document.createElement("div");
-    list.className = "grouped-list";
-    awayEntries.forEach(([n, t], i) => {
-      if (i > 0) {
-        const sep = document.createElement("div");
-        sep.className = "row-sep";
-        sep.style.marginLeft = "18px";
-        list.appendChild(sep);
-      }
-      const line = document.createElement("div");
-      line.className = "metric-line";
-      const nEl = document.createElement("span");
-      nEl.className = "n";
-      nEl.textContent = n;
-      const tEl = document.createElement("span");
-      tEl.className = "t";
-      tEl.textContent = t;
-      line.append(nEl, tEl);
-      list.appendChild(line);
-    });
-    wrap.append(head, list);
-    bottomGrid.appendChild(wrap);
+  if (lastScanCapHit) {
+    const footNote = document.createElement("p");
+    footNote.className = "text-meta";
+    footNote.textContent = `Based on your latest ${MAIL_INDEX_CAP.toLocaleString()} messages per account.`;
+    overviewContentEl.appendChild(footNote);
   }
-
-  // Recently done preview
-  const recentWrap = document.createElement("div");
-  const recentHead = document.createElement("div");
-  recentHead.className = "section-head";
-  recentHead.innerHTML =
-    '<h2 class="section-label">Recently done</h2><span class="spacer"></span>';
-  const fullLink = document.createElement("a");
-  fullLink.href = "#";
-  fullLink.textContent = "Full history";
-  fullLink.onclick = (e) => {
-    e.preventDefault();
-    void selectScreen("recent");
-  };
-  recentHead.appendChild(fullLink);
-  const recentList = document.createElement("div");
-  recentList.className = "grouped-list";
-  const recentEntries = [...ctx.settings.actionLog].reverse().slice(0, 3);
-  if (recentEntries.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "list-row";
-    empty.textContent = "Nothing done yet.";
-    recentList.appendChild(empty);
-  } else {
-    recentEntries.forEach((entry, i) => {
-      if (i > 0) {
-        const sep = document.createElement("div");
-        sep.className = "row-sep";
-        sep.style.marginLeft = "18px";
-        recentList.appendChild(sep);
-      }
-      const row = document.createElement("div");
-      row.className = "list-row";
-      row.style.gridTemplateColumns = "minmax(0,1fr) max-content";
-      const text = document.createElement("div");
-      text.className = "row-title-wrap";
-      const line = document.createElement("div");
-      line.className = "recent-line";
-      const firstSpace = entry.summary.indexOf(" ");
-      if (firstSpace > 0) {
-        const verb = document.createElement("span");
-        verb.className = "recent-verb";
-        verb.textContent = entry.summary.slice(0, firstSpace);
-        line.append(verb, document.createTextNode(entry.summary.slice(firstSpace)));
-      } else {
-        line.textContent = entry.summary;
-      }
-      const detail = document.createElement("div");
-      detail.className = "recent-detail";
-      detail.textContent =
-        formatRelativeTime(entry.at) + (entry.undone ? " · undone" : "");
-      text.append(line, detail);
-      const btn = document.createElement("button");
-      btn.className = "btn btn-sm";
-      btn.textContent = entry.undo && !entry.undone ? "Undo" : "View";
-      btn.onclick = () => void selectScreen("recent");
-      row.append(text, btn);
-      recentList.appendChild(row);
-    });
-  }
-  recentWrap.append(recentHead, recentList);
-  bottomGrid.appendChild(recentWrap);
-
-  stack.appendChild(bottomGrid);
-  stack.appendChild(footNote);
-  overviewContentEl.appendChild(stack);
 }
 
 function showScanError(err: unknown) {

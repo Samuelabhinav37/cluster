@@ -1,485 +1,242 @@
-// Home as a dashboard: six tiles that answer "what's in my inbox", "what
-// can I get rid of", "how should new mail be sorted" and "is anything
-// dangerous". Each tile has one number, one chart and one action (audit
-// section 4, research/2026-10-16-brutal-audit.md). The facts are computed
-// here from the scan; the dashboard only supplies totals it already has.
+// Home, the iPhone Storage way: one number, one bar of your inbox by Apple
+// Mail's four kinds, and up to three next steps, most urgent first
+// (docs/dashboard-plan.md Track 2; approved mockup
+// research/2026-10-27-home-cleanup-mockup.html). Facts are computed here from
+// the scan; the dashboard supplies the counts it already has.
 
-import type { InboxTab, SenderSummary } from "../lib/senderModel";
-import { senderVolume } from "../lib/census";
-import type { CompanyGroup } from "../lib/senderListView";
+import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 
-export const TAB_ORDER: InboxTab[] = ["primary", "promotions", "social", "updates", "forums"];
-export const TAB_NAMES: Record<InboxTab, string> = {
-  primary: "Primary",
-  promotions: "Promotions",
-  social: "Social",
-  updates: "Updates",
-  forums: "Forums",
-};
+export type HomeKind = "primary" | "trans" | "updates" | "promo";
 
-/** Messages per Gmail tab. Null when no message carries a tab (Outlook). */
-export function mailByTab(senders: readonly SenderSummary[]): Record<InboxTab, number> | null {
-  const counts: Record<InboxTab, number> = { primary: 0, promotions: 0, social: 0, updates: 0, forums: 0 };
-  let any = false;
-  for (const s of senders) {
-    for (const m of s.messages) {
-      if (!m.tab) continue;
-      counts[m.tab] += 1;
-      any = true;
-    }
-  }
-  return any ? counts : null;
-}
+export const HOME_KINDS: ReadonlyArray<{ key: HomeKind; label: string }> = [
+  { key: "primary", label: "Primary" },
+  { key: "trans", label: "Transactions" },
+  { key: "updates", label: "Updates" },
+  { key: "promo", label: "Promotions" },
+];
 
-export interface WeekRate {
-  /** Start of the week, epoch ms. */
-  start: number;
-  /** Share of that week's mail that was opened, 0 to 1; null with no mail. */
-  rate: number | null;
+/** Apple Mail's four kinds: receipts and shipping are Transactions, Gmail's
+ * Promotions tab is Promotions, codes, lists, social and Gmail's other tabs
+ * are Updates, and the rest is Primary. */
+export function kindOf(m: MessageRecord): HomeKind {
+  if (m.kind === "receipt" || m.kind === "shipping" || m.learnedTransactional) return "trans";
+  if (m.tab === "promotions" || m.promotion) return "promo";
+  if (m.kind === "otp" || m.kind === "newsletter" || m.kind === "social") return "updates";
+  if (m.tab && m.tab !== "primary") return "updates";
+  return "primary";
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Share of read mail over the last `weeks` weeks, and for each of them, oldest first. */
-export function readRate(
+/** Messages per kind, the total, and how many arrived in the last 7 days. */
+export function mailByKind(
   senders: readonly SenderSummary[],
   now: number,
-  weeks = 8,
-): { overall: number | null; byWeek: WeekRate[] } {
-  const read = new Array<number>(weeks).fill(0);
-  const total = new Array<number>(weeks).fill(0);
+): { kinds: Record<HomeKind, number>; total: number; thisWeek: number } {
+  const kinds: Record<HomeKind, number> = { primary: 0, trans: 0, updates: 0, promo: 0 };
+  let total = 0;
+  let thisWeek = 0;
   for (const s of senders) {
     for (const m of s.messages) {
-      const ago = Math.floor((now - m.receivedAt) / WEEK_MS);
-      if (ago < 0 || ago >= weeks) continue;
-      const i = weeks - 1 - ago;
-      total[i] += 1;
-      if (!m.unread) read[i] += 1;
+      kinds[kindOf(m)] += 1;
+      total += 1;
+      if (now - m.receivedAt < WEEK_MS) thisWeek += 1;
     }
   }
-  const all = total.reduce((a, b) => a + b, 0);
-  return {
-    overall: all > 0 ? read.reduce((a, b) => a + b, 0) / all : null,
-    byWeek: total.map((n, i) => ({
-      start: now - (weeks - i) * WEEK_MS,
-      rate: n > 0 ? read[i] / n : null,
-    })),
-  };
+  return { kinds, total, thisWeek };
 }
 
-/** Share of mail whose sender passed DKIM or DMARC. Null with no mail. */
-export function verifiedShare(senders: readonly SenderSummary[]): number | null {
-  let verified = 0;
-  let all = 0;
-  for (const s of senders) {
-    const n = s.messages.length;
-    all += n;
-    if (s.authVerdicts.dkim === "pass" || s.authVerdicts.dmarc === "pass") verified += n;
-  }
-  return all > 0 ? verified / all : null;
-}
-
-export interface TopCompany {
-  name: string;
+export interface HomeFacts {
+  kinds: Record<HomeKind, number>;
   total: number;
-}
-
-export function topCompanies(
-  groups: readonly CompanyGroup[],
-  nameOf: (g: CompanyGroup) => string,
-  limit = 5,
-): TopCompany[] {
-  return [...groups]
-    .sort((a, b) => b.total - a.total)
-    .slice(0, limit)
-    .map((g) => ({ name: nameOf(g), total: g.total }));
-}
-
-/** Senders without a company (people, free mail) still count as mail volume. */
-export function totalVolume(senders: readonly SenderSummary[]): number {
-  return senders.reduce((n, s) => n + senderVolume(s), 0);
-}
-
-export interface DashboardFacts {
-  score: number;
-  /** Change since last week's score, if there is one. */
-  scoreDelta?: number;
-  tabs: Record<InboxTab, number> | null;
-  companies: TopCompany[];
-  companyCount: number;
-  read: { overall: number | null; byWeek: WeekRate[] };
-  clear: { expired: number; spam: number; neverRead: number };
+  thisWeek: number;
+  /** Senders with scam warnings. */
   suspicious: number;
+  /** New senders waiting in the screener. */
   waiting: number;
-  /** Who needs a look: suspicious senders first, else new senders waiting. */
-  attention?: string[];
-  verified: number | null;
-  holdingOn: boolean;
+  /** Bulk senders you have never opened, and their mail. */
+  neverOpened: { senders: number; emails: number };
+  /** Mail past its date (old codes, delivered parcels, expired offers). */
+  pastDate: number;
 }
 
-export type Go = (screen: string, focus?: string) => void;
+/** Open a place; `act` also starts that place's own confirm step for the card. */
+export type HomeAct = "mute-never-opened" | "trash-past-date";
+export type Go = (screen: string, act?: HomeAct) => void;
 
-// ── Rendering ──────────────────────────────────────────────────────────
+function plural(n: number, one: string, many = `${one}s`): string {
+  return `${n.toLocaleString()} ${n === 1 ? one : many}`;
+}
+
+// Lucide 0.460 (ISC), drawn at 24 with a 1.75 stroke. Built with DOM calls,
+// not innerHTML, so nothing here is parsed as markup.
+type Shape = [tag: string, attrs: Record<string, string>];
+const ICONS: Record<string, Shape[]> = {
+  "shield-alert": [
+    ["path", { d: "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" }],
+    ["path", { d: "M12 8v4" }],
+    ["path", { d: "M12 16h.01" }],
+  ],
+  "mail-x": [
+    ["path", { d: "M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h9" }],
+    ["path", { d: "m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" }],
+    ["path", { d: "m17 17 4 4" }],
+    ["path", { d: "m21 17-4 4" }],
+  ],
+  clock: [
+    ["circle", { cx: "12", cy: "12", r: "10" }],
+    ["polyline", { points: "12 6 12 12 16 14" }],
+  ],
+  "user-plus": [
+    ["path", { d: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" }],
+    ["circle", { cx: "9", cy: "7", r: "4" }],
+    ["line", { x1: "19", x2: "19", y1: "8", y2: "14" }],
+    ["line", { x1: "22", x2: "16", y1: "11", y2: "11" }],
+  ],
+  check: [
+    ["path", { d: "M20 6 9 17l-5-5" }],
+  ],
+};
+
+interface Rec {
+  icon: string;
+  name: string;
+  fact?: string;
+  verb: string;
+  go: () => void;
+  danger?: boolean;
+}
+
+/** Up to three next steps, most urgent first. A scam warning always leads. */
+export function homeRecommendations(f: HomeFacts, go: Go): Rec[] {
+  const recs: Rec[] = [];
+  if (f.suspicious > 0)
+    recs.push({
+      icon: "shield-alert",
+      name: `${plural(f.suspicious, "sender")} ${f.suspicious === 1 ? "looks" : "look"} like a scam`,
+      verb: "Review",
+      go: () => go("impersonation"),
+      danger: true,
+    });
+  if (f.neverOpened.senders > 0)
+    recs.push({
+      icon: "mail-x",
+      name: `Mute ${plural(f.neverOpened.senders, "sender")} you never open`,
+      fact: plural(f.neverOpened.emails, "email"),
+      verb: "Mute",
+      go: () => go("subscriptions", "mute-never-opened"),
+    });
+  if (f.pastDate > 0)
+    recs.push({
+      icon: "clock",
+      name: "Trash mail past its date",
+      fact: plural(f.pastDate, "email"),
+      verb: "Trash",
+      go: () => go("delete", "trash-past-date"),
+    });
+  if (f.waiting > 0)
+    recs.push({
+      icon: "user-plus",
+      name: `${plural(f.waiting, "new sender")} waiting`,
+      verb: "Review",
+      go: () => go("screener"),
+    });
+  return recs.slice(0, 3);
+}
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
-function svg(tag: string, attrs: Record<string, string | number>): SVGElement {
-  const el = document.createElementNS(SVG_NS, tag);
-  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
-  return el;
+function icon(name: string): SVGElement {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("class", "i");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  for (const [tag, attrs] of ICONS[name]) {
+    const el = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    svg.append(el);
+  }
+  return svg;
 }
 
-function pct(x: number): string {
-  return `${Math.round(x * 100)}%`;
-}
+/** The total, the kind bar with its legend, and the recommendations. */
+export function renderHomeDashboard(f: HomeFacts, go: Go): HTMLElement {
+  const root = document.createElement("div");
+  root.className = "home";
 
-interface TileSpec {
-  id: string;
-  title: string;
-  value: string;
-  unit?: string;
-  /** One short line under the number. */
-  note?: string;
-  chart: HTMLElement | SVGElement;
-  action: string;
-  go: () => void;
-  danger?: boolean;
-  /** What the number means, on hover or focus of the title. */
-  hint?: string;
-  /** The tile that needs you: its action is the filled one. */
-  primary?: boolean;
-}
-
-function tile(spec: TileSpec): HTMLElement {
-  const el = document.createElement("section");
-  el.className = `home-tile${spec.danger ? " danger" : ""}`;
-  el.dataset.tile = spec.id;
-  const titleId = `home-tile-${spec.id}`;
-  el.setAttribute("aria-labelledby", titleId);
-
-  const h = document.createElement("h2");
-  h.className = "home-tile-title";
-  h.id = titleId;
-  h.textContent = spec.title;
-  if (spec.hint) {
-    const term = document.createElement("span");
-    term.className = "term";
-    term.tabIndex = 0;
-    term.textContent = spec.title;
-    const tip = document.createElement("span");
-    tip.className = "term-tip";
-    tip.setAttribute("role", "tooltip");
-    tip.textContent = spec.hint;
-    term.appendChild(tip);
-    h.replaceChildren(term);
+  const big = document.createElement("p");
+  big.className = "home-big";
+  const n = document.createElement("b");
+  n.textContent = f.total.toLocaleString();
+  big.append(n, ` ${f.total === 1 ? "email" : "emails"} in your inbox`);
+  if (f.thisWeek > 0) {
+    const delta = document.createElement("span");
+    delta.className = "home-delta";
+    delta.textContent = `+${f.thisWeek.toLocaleString()} this week`;
+    big.append(delta);
   }
 
-  const figure = document.createElement("p");
-  figure.className = "home-tile-value";
-  figure.textContent = spec.value;
-  if (spec.unit) {
-    const unit = document.createElement("span");
-    unit.className = "home-tile-unit";
-    unit.textContent = spec.unit;
-    figure.appendChild(unit);
-  }
-
-  const chart = document.createElement("div");
-  chart.className = "home-tile-chart";
-  chart.appendChild(spec.chart);
-
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = `btn btn-sm home-tile-action${spec.primary ? " btn-accent" : ""}`;
-  btn.textContent = spec.action;
-  btn.onclick = spec.go;
-
-  el.append(h, figure);
-  if (spec.note) {
-    const note = document.createElement("p");
-    note.className = "home-tile-note";
-    note.textContent = spec.note;
-    el.appendChild(note);
-  }
-  el.append(chart, btn);
-  return el;
-}
-
-/** A ring filled to `share` (0 to 1). */
-function ring(share: number, label: string): SVGElement {
-  const r = 26;
-  const c = 2 * Math.PI * r;
-  const root = svg("svg", { viewBox: "0 0 64 64", width: 64, height: 64, role: "img", "aria-label": label });
-  root.append(
-    svg("circle", { cx: 32, cy: 32, r, class: "chart-track", fill: "none", "stroke-width": 7 }),
-    svg("circle", {
-      cx: 32,
-      cy: 32,
-      r,
-      class: "chart-fill",
-      fill: "none",
-      "stroke-width": 7,
-      "stroke-linecap": "round",
-      "stroke-dasharray": `${(c * Math.max(0, Math.min(1, share))).toFixed(1)} ${c.toFixed(1)}`,
-      transform: "rotate(-90 32 32)",
-    }),
-  );
-  return root;
-}
-
-/** One bar split into parts, with a legend underneath. */
-function splitBar(parts: Array<{ name: string; n: number }>, label: string): HTMLElement {
-  const wrap = document.createElement("div");
-  wrap.className = "split";
   const bar = document.createElement("div");
-  bar.className = "split-bar";
+  bar.className = "kind-bar";
   bar.setAttribute("role", "img");
-  bar.setAttribute("aria-label", label);
-  const total = parts.reduce((n, p) => n + p.n, 0) || 1;
+  bar.setAttribute("aria-label", HOME_KINDS.map((k) => `${k.label} ${f.kinds[k.key]}`).join(", "));
   const legend = document.createElement("ul");
-  legend.className = "split-legend";
-  parts.forEach((p, i) => {
-    if (p.n > 0) {
+  legend.className = "kind-legend";
+  for (const k of HOME_KINDS) {
+    const count = f.kinds[k.key];
+    if (count > 0) {
       const seg = document.createElement("span");
-      seg.className = `split-seg s${i}`;
-      seg.style.flexGrow = String(p.n / total);
-      bar.appendChild(seg);
+      seg.className = `kind-${k.key}`;
+      seg.style.flexGrow = String(count);
+      seg.title = `${k.label}: ${count.toLocaleString()}`;
+      bar.append(seg);
     }
-    const item = document.createElement("li");
-    const dot = document.createElement("span");
-    dot.className = `split-dot s${i}`;
-    const name = document.createElement("span");
-    name.textContent = p.name;
-    const n = document.createElement("span");
-    n.className = "split-n";
-    n.textContent = p.n.toLocaleString();
-    item.append(dot, name, n);
-    legend.appendChild(item);
-  });
-  wrap.append(bar, legend);
-  return wrap;
-}
-
-/** Horizontal bars, longest first. */
-function barList(rows: TopCompany[]): HTMLElement {
-  const list = document.createElement("ol");
-  list.className = "bar-list";
-  const max = Math.max(1, ...rows.map((r) => r.total));
-  for (const row of rows) {
     const li = document.createElement("li");
-    const name = document.createElement("span");
-    name.className = "bar-name";
-    name.textContent = row.name;
-    const track = document.createElement("span");
-    track.className = "bar-track";
-    const fill = document.createElement("span");
-    fill.className = "bar-fill";
-    fill.style.width = `${Math.max(4, (row.total / max) * 100)}%`;
-    track.appendChild(fill);
-    const n = document.createElement("span");
-    n.className = "bar-n";
-    n.textContent = row.total.toLocaleString();
-    li.append(name, track, n);
-    list.appendChild(li);
+    const swatch = document.createElement("i");
+    swatch.className = `kind-${k.key}`;
+    li.append(swatch, k.label);
+    const em = document.createElement("em");
+    em.textContent = count.toLocaleString();
+    li.append(em);
+    legend.append(li);
   }
-  return list;
-}
 
-/** Weekly columns of read share, oldest on the left. */
-function weekColumns(weeks: WeekRate[]): SVGElement {
-  const w = 160;
-  const h = 56;
-  const gap = 4;
-  const bw = (w - gap * (weeks.length - 1)) / weeks.length;
-  const label = weeks
-    .map((wk, i) => `${weeks.length - i} weeks ago: ${wk.rate === null ? "no mail" : pct(wk.rate)}`)
-    .join(", ");
-  const root = svg("svg", {
-    viewBox: `0 0 ${w} ${h}`,
-    width: "100%",
-    height: h,
-    role: "img",
-    "aria-label": label,
-  });
-  root.setAttribute("preserveAspectRatio", "none");
-  weeks.forEach((wk, i) => {
-    const x = i * (bw + gap);
-    root.appendChild(svg("rect", { x, y: 0, width: bw, height: h, rx: 3, class: "chart-track" }));
-    if (wk.rate !== null && wk.rate > 0) {
-      const bh = Math.max(2, wk.rate * h);
-      root.appendChild(
-        svg("rect", { x, y: h - bh, width: bw, height: bh, rx: 3, class: "chart-fill-solid" }),
-      );
-    }
-  });
-  return root;
-}
-
-/** A thin meter filled to `share`. */
-function meter(share: number, label: string): HTMLElement {
-  const track = document.createElement("div");
-  track.className = "meter";
-  track.setAttribute("role", "img");
-  track.setAttribute("aria-label", label);
-  const fill = document.createElement("span");
-  fill.className = "meter-fill";
-  fill.style.width = pct(Math.max(0, Math.min(1, share)));
-  track.appendChild(fill);
-  return track;
-}
-
-/** Up to three names, then how many more. */
-function nameList(names: readonly string[], total: number): HTMLElement {
-  const list = document.createElement("ul");
-  list.className = "name-list";
-  for (const name of names.slice(0, 3)) {
-    const li = document.createElement("li");
-    li.textContent = name;
-    list.appendChild(li);
-  }
-  if (total > 3) {
-    const li = document.createElement("li");
-    li.className = "name-more";
-    li.textContent = `and ${total - 3} more`;
-    list.appendChild(li);
-  }
-  return list;
-}
-
-function plural(n: number, one: string, many = `${one}s`): string {
-  return n === 1 ? one : many;
-}
-
-/** The six Home tiles in a grid. */
-export function renderHomeDashboard(f: DashboardFacts, go: Go): HTMLElement {
+  const head = document.createElement("h2");
+  head.className = "section-label";
+  head.textContent = "Recommended";
   const grid = document.createElement("div");
-  grid.className = "home-grid";
-
-  grid.appendChild(
-    tile({
-      id: "health",
-      title: "Inbox health",
-      value: String(f.score),
-      unit: "/100",
-      note:
-        f.scoreDelta === undefined || f.scoreDelta === 0
-          ? undefined
-          : `${f.scoreDelta > 0 ? "Up" : "Down"} ${Math.abs(f.scoreDelta)} since last week`,
-      chart: ring(f.score / 100, `Inbox health ${f.score} of 100`),
-      hint: "Starts at 100. Goes down for unread mail, senders you never open, lists you rarely read and mail past its date.",
-      action: "Improve it",
-      go: () => go("delete"),
-    }),
-  );
-
-  const clearTotal = f.clear.expired + f.clear.spam + f.clear.neverRead;
-  grid.appendChild(
-    tile({
-      id: "clear",
-      title: "Ready to clear",
-      value: clearTotal.toLocaleString(),
-      unit: ` ${plural(clearTotal, "email")}`,
-      chart: splitBar(
-        [
-          { name: "Past their date", n: f.clear.expired },
-          { name: "Looks like spam", n: f.clear.spam },
-          { name: "Never opened", n: f.clear.neverRead },
-        ],
-        `${clearTotal} emails ready to clear`,
-      ),
-      action: "Clear out",
-      go: () => go("delete"),
-    }),
-  );
-
-  // The tile that needs you goes top left, where people look first.
-  const safety = safetyTile(f, go);
-  if (f.suspicious > 0 || f.waiting > 0) grid.prepend(safety);
-  else grid.appendChild(safety);
-
-  if (f.tabs) {
-    const tabs = f.tabs;
-    const total = TAB_ORDER.reduce((n, t) => n + tabs[t], 0);
-    grid.appendChild(
-      tile({
-        id: "tabs",
-        title: "Mail by tab",
-        value: total.toLocaleString(),
-        unit: ` ${plural(total, "email")}`,
-        chart: splitBar(
-          TAB_ORDER.filter((t) => tabs[t] > 0).map((t) => ({ name: TAB_NAMES[t], n: tabs[t] })),
-          TAB_ORDER.map((t) => `${TAB_NAMES[t]} ${tabs[t]}`).join(", "),
-        ),
-        action: "Sort new mail",
-        go: () => go("organize"),
-      }),
-    );
+  grid.className = "rec-grid";
+  const recs = homeRecommendations(f, go);
+  if (recs.length === 0)
+    recs.push({ icon: "check", name: "Nothing needs you right now", verb: "", go: () => undefined });
+  for (const r of recs) {
+    const card = document.createElement("div");
+    card.className = "rec-card";
+    const ic = document.createElement("span");
+    ic.className = `rec-ic${r.danger ? " danger" : r.verb ? "" : " ok"}`;
+    ic.append(icon(r.icon));
+    card.append(ic);
+    const name = document.createElement("div");
+    name.className = "rec-name";
+    name.textContent = r.name;
+    card.append(name);
+    if (r.fact) {
+      const fact = document.createElement("div");
+      fact.className = "rec-fact";
+      fact.textContent = r.fact;
+      card.append(fact);
+    }
+    if (r.verb) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-sm";
+      btn.textContent = r.verb;
+      btn.onclick = r.go;
+      card.append(btn);
+    }
+    grid.append(card);
   }
 
-  grid.appendChild(
-    tile({
-      id: "companies",
-      title: "Top companies",
-      value: f.companyCount.toLocaleString(),
-      unit: ` ${plural(f.companyCount, "company", "companies")}`,
-      chart: barList(f.companies),
-      action: "See all senders",
-      go: () => go("senders"),
-    }),
-  );
-
-  grid.appendChild(
-    tile({
-      id: "read",
-      title: "Read rate",
-      value: f.read.overall === null ? "None" : pct(f.read.overall),
-      note: "Last 8 weeks",
-      chart: weekColumns(f.read.byWeek),
-      action: "Mute what you skip",
-      go: () => go("subscriptions", "senders-worth-decision"),
-    }),
-  );
-
-  return grid;
-}
-
-function safetyTile(f: DashboardFacts, go: Go): HTMLElement {
-  const verified = f.verified ?? 0;
-  const names = f.attention ?? [];
-  if (f.suspicious > 0) {
-    return tile({
-      id: "safety",
-      title: "Safety",
-      value: f.suspicious.toLocaleString(),
-      unit: ` suspicious ${plural(f.suspicious, "sender")}`,
-      chart: nameList(names, f.suspicious),
-      action: "Review",
-      go: () => go("impersonation"),
-      danger: true,
-      primary: true,
-    });
-  }
-  if (f.waiting > 0) {
-    return tile({
-      id: "safety",
-      title: "Safety",
-      value: f.waiting.toLocaleString(),
-      unit: ` new ${plural(f.waiting, "sender")} waiting`,
-      chart: nameList(names, f.waiting),
-      action: "Let in or block",
-      go: () => go("screener"),
-      primary: true,
-    });
-  }
-  // All clear: the meter backs the zero, since signed mail is harder to fake.
-  return tile({
-    id: "safety",
-    title: "Safety",
-    value: "0",
-    unit: " suspicious senders",
-    note: f.verified === null ? undefined : `${pct(verified)} from verified senders`,
-    chart: meter(verified, `${pct(verified)} of mail is from verified senders`),
-    action: f.holdingOn ? "Open Safety" : "Turn on scam holding",
-    go: () => go("impersonation"),
-  });
+  root.append(big, bar, legend, head, grid);
+  return root;
 }
