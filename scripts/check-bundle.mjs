@@ -27,7 +27,9 @@ const BUDGETS = {
   // 2026-10-16: 500 → 540 KB for the mail index, sender profiles,
   // suggestions v2 and the unsubscribe work that follows (~174 KB gzip at
   // the raise). Lazy-loading the tabs is the next lever if it grows again.
-  "dashboard JS": 540 * KB,
+  // 2026-10-26: 540 → 560 KB for the Unicode confusables table (7.5 KB) and
+  // the algorithm-plan fixes; lazy tabs are still the next lever.
+  "dashboard JS": 560 * KB,
   // 2026-10-16: +10 KB for Kai's corner guide and chat (dashboard.css Kai
   // section, ~8 KB raw / 1.5 KB gzip), on top of 47 KB before Kai.
   // 2026-10-26: 60 → 64 KB for the rail shell (rail, panel, crumbs; ~3 KB raw).

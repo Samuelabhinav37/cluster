@@ -191,24 +191,24 @@ describe("phishing / threat scoring", () => {
   it("real Facebook mail (facebookmail.com, DMARC pass) isn't flagged as impersonation", () => {
     expect(threats({ fromAddress: "notification@facebookmail.com", fromDisplayName: "Facebook" })).toEqual([]);
   });
-  it.fails("KNOWN BUG: a person named Chase on gmail.com is scored HIGH risk as a Chase-bank claim", () => {
+  it("a person named Chase on gmail.com is not a Chase-bank claim", () => {
     expect(tierOf({ fromAddress: "chase.miller@gmail.com", fromDisplayName: "Chase Miller", unsubscribe: {} })).not.toBe("high");
   });
-  it.fails("KNOWN BUG: chess.com is flagged as a lookalike of chase.com", () => {
+  it("chess.com is not a lookalike of chase.com", () => {
     expect(threats({ fromAddress: "hello@chess.com", fromDisplayName: "Chess.com" })).toEqual([]);
   });
-  it.fails("KNOWN BUG: 'Start-Ups Weekly' matches the UPS brand", () => {
+  it("'Start-Ups Weekly' does not match the UPS brand", () => {
     expect(threats({ fromAddress: "editor@startupsweekly.example", fromDisplayName: "Start-Ups Weekly" })).toEqual([]);
   });
 
-  // False negatives: free-mail domains listed as the brand's own.
-  it.fails("KNOWN BUG: 'Microsoft Account Team' sending from an outlook.com mailbox is not flagged", () => {
+  // Free-mail domains on a brand's list (gmail.com is Google's) count only for its no-reply address.
+  it("'Microsoft Account Team' sending from an outlook.com mailbox is flagged", () => {
     expect(threats({ fromAddress: "ms.account.recovery@outlook.com", fromDisplayName: "Microsoft Account Team" })).not.toEqual([]);
   });
-  it.fails("KNOWN BUG: 'Google Security' sending from a gmail.com mailbox is not flagged", () => {
+  it("'Google Security' sending from a gmail.com mailbox is flagged", () => {
     expect(threats({ fromAddress: "google.security.alerts@gmail.com", fromDisplayName: "Google Security" })).not.toEqual([]);
   });
-  it.fails("KNOWN BUG: 'Apple Support' sending from an icloud.com mailbox is not flagged", () => {
+  it("'Apple Support' sending from an icloud.com mailbox is flagged", () => {
     expect(threats({ fromAddress: "appleid.support.team@icloud.com", fromDisplayName: "Apple Support" })).not.toEqual([]);
   });
 

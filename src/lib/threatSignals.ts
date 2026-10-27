@@ -131,19 +131,21 @@ export async function refreshBrandDomains(publicKeyB64?: string): Promise<boolea
 const FREEMAIL_DOMAINS = new Set(["gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "aol.com", "icloud.com", "protonmail.com"]);
 
 // A lookalike this far off in edit distance from a brand's real domain is
-// close enough to be deliberate confusion, not coincidence -- 2 covers a
-// single character substitution/insertion/deletion plus a little slack
-// (paypa1.com is distance 1 from paypal.com; arnazon.com is distance 2 from
-// amazon.com), without also matching domains that just happen to share a
-// short common substring with an unrelated brand name.
-const LOOKALIKE_MAX_DISTANCE = 2;
+// close enough to be deliberate confusion, not coincidence. One edit for a
+// brand label under 8 letters (paypa1.com), two from 8 up (coinbsae.com is
+// one swap; coinbasse.com one insertion). Two edits on a short name hit
+// real neighbours: chess.com is two from chase.com. Homoglyph swaps
+// (arnazon.com) are caught by the skeleton at distance 0, not here.
+function lookalikeMaxDistance(brandDomain: string): number {
+  return brandDomain.split(".")[0].length >= 8 ? 2 : 1;
+}
 // Below this length, small edit distances stop being meaningful signal --
 // short domains are close to lots of unrelated short domains by chance.
 const LOOKALIKE_MIN_DOMAIN_LENGTH = 6;
 // The same coincidence problem, from the brand's side: edit-distance
 // lookalike matching is only trustworthy when the brand's own label (the
 // bit before the first dot) is long enough that a legitimate unrelated
-// domain is unlikely to land within LOOKALIKE_MAX_DISTANCE of it by chance.
+// domain is unlikely to land within lookalikeMaxDistance of it by chance.
 // ups.com is one substitution from ubs.com (UBS, a real bank); att.com is
 // two edits from att.net (AT&T's own other domain) -- neither is a
 // typosquat. Senders impersonating a short-label brand still get caught by
@@ -163,15 +165,17 @@ function escapeRegExp(literal: string): string {
 // ("capital one") or punctuation ("at&t", "t-mobile"): escape any regex
 // metacharacters, and let a run of whitespace in the key match any
 // whitespace in the display name so "Capital  One" or a non-breaking space
-// still matches. Word-boundary anchored -- "irs" must not match inside
-// "shirsley" -- and only ever tested against the display name, a short,
+// still matches. Word-boundary anchored, with a hyphen counted as part of
+// the word -- "irs" must not match inside "shirsley", nor "ups" inside
+// "Start-Ups" -- and only ever tested against the display name, a short,
 // human-authored field, not free text. Both sides are skeletons
 // (normalize.ts), so "PаyPal" with a Cyrillic а or "PayPal" with a hidden
 // zero-width space inside still reads as PayPal.
 const BRAND_MATCHERS: Array<{ brand: string; skel: string; re: RegExp }> = Object.keys(BRAND_DOMAINS).map(
   (brand) => {
     const skel = skeleton(brand);
-    return { brand, skel, re: new RegExp(`\\b${escapeRegExp(skel).replace(/\s+/g, "\\s+")}\\b`) };
+    const words = escapeRegExp(skel).replace(/\s+/g, "\\s+");
+    return { brand, skel, re: new RegExp(`(?<![a-z0-9-])${words}(?![a-z0-9-])`) };
   },
 );
 
@@ -199,17 +203,18 @@ function matchedBrand(displayName: string): string | null {
 // Standard Levenshtein edit distance, iterative single-row form -- no
 // dependency needed for this. Only ever called on short domain strings, so
 // the O(n*m) cost is negligible.
+// Two swapped neighbours count as one edit (coinbsae.com), the classic typo.
 function editDistance(a: string, b: string): number {
-  let previousRow = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 0; i < a.length; i++) {
-    const currentRow = [i + 1];
-    for (let j = 0; j < b.length; j++) {
-      const cost = a[i] === b[j] ? 0 : 1;
-      currentRow.push(Math.min(currentRow[j] + 1, previousRow[j + 1] + 1, previousRow[j] + cost));
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array<number>(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
     }
-    previousRow = currentRow;
   }
-  return previousRow[b.length];
+  return d[a.length][b.length];
 }
 
 // Words that turn "brand name inside a domain" from coincidence into a
@@ -247,10 +252,10 @@ function findLookalikeBrand(senderDomain: string): LookalikeMatch | null {
       // digit 1 in paypa1.com, rn for m in arnazon.com. The strongest
       // lookalike case, and one raw edit distance misses for homoglyphs.
       if (skel === legitSkel && registrable !== legitDomain) return { brand, confidence: "high" };
-      if (editDistanceWithin(registrable, legitDomain, LOOKALIKE_MAX_DISTANCE)) return { brand, confidence: "high" };
+      if (editDistanceWithin(registrable, legitDomain, lookalikeMaxDistance(legitDomain))) return { brand, confidence: "high" };
       // A homoglyph swap plus an ordinary typo can push the raw string past
       // the threshold while the skeleton stays close -- check that too.
-      if (editDistanceWithin(skel, legitSkel, LOOKALIKE_MAX_DISTANCE)) return { brand, confidence: "high" };
+      if (editDistanceWithin(skel, legitSkel, lookalikeMaxDistance(legitDomain))) return { brand, confidence: "high" };
     }
   }
   const combosquat = findCombosquatBrand(registrable);
@@ -280,17 +285,42 @@ function editDistanceWithin(a: string, b: string, max: number): boolean {
   return distance > 0 && distance <= max;
 }
 
+const SYSTEM_LOCAL_PART_RE = /^(no[-_.]?reply|do[-_.]?not[-_.]?reply)$/;
+
+// Words a brand puts next to its name; anything else (a first or last name)
+// means a person who happens to share it.
+const ROLE_WORDS = new Set(
+  [
+    ...COMBOSQUAT_LURE_WORDS,
+    "team", "teams", "dept", "department", "center", "centre", "desk", "official", "online", "notice",
+    "notification", "notifications", "info", "fraud", "bank", "banking", "mail", "inc", "ltd", "llc", "corp",
+    "the", "of", "your", "from", "com", "noreply", "no", "reply", "admin", "updates", "express", "prime",
+  ].map(skeleton),
+);
+
+function soundsOfficial(displayName: string, brand: string): boolean {
+  const rest = skeleton(displayName).replace(skeleton(brand), " ");
+  return rest.split(/[^a-z0-9]+/).every((word) => word === "" || ROLE_WORDS.has(word));
+}
+
 function brandSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
   const brand = matchedBrand(message.fromDisplayName);
   if (!brand) return null;
 
   const senderDomain = domainOf(message.fromAddress);
-  const legitimateDomains = BRAND_DOMAINS[brand];
-  if (legitimateDomains.some((d) => isSameOrSubdomain(senderDomain, d))) return null;
+  const freemail = FREEMAIL_DOMAINS.has(senderDomain);
+  const ownDomain = BRAND_DOMAINS[brand].some((d) => isSameOrSubdomain(senderDomain, d));
+  // gmail.com is Google's and icloud.com Apple's, but anyone can open a
+  // mailbox there: only the brand's own no-reply address counts as the brand.
+  const localPart = message.fromAddress.slice(0, message.fromAddress.lastIndexOf("@")).toLowerCase();
+  if (ownDomain && (!freemail || SYSTEM_LOCAL_PART_RE.test(localPart))) return null;
 
-  if (FREEMAIL_DOMAINS.has(senderDomain)) {
+  if (freemail) {
     // Highest-confidence case: a real bank/brand never sends from a
-    // consumer free-mail domain.
+    // consumer free-mail domain. But people share names with brands
+    // ("Chase Miller", "Jordan Apple"), so on free-mail the name must be
+    // the brand and role words only ("Chase Fraud Team", "Apple Support").
+    if (!soundsOfficial(message.fromDisplayName, brand)) return null;
     return { kind: "freemail-brand-claim", brand, confidence: "high" };
   }
   return { kind: "brand-impersonation", brand, confidence: "medium" };

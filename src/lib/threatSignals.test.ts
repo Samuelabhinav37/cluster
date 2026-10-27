@@ -511,3 +511,23 @@ describe("refreshBrandDomains", () => {
     ).toContainEqual(expect.objectContaining({ kind: "brand-impersonation" }));
   });
 });
+
+describe("scoreMessageForThreats: names people share with brands", () => {
+  const kinds = (fromDisplayName: string, fromAddress: string) =>
+    scoreMessageForThreats(message({ fromDisplayName, fromAddress })).map((s) => s.kind);
+
+  it("on free-mail, a brand plus role words is a claim; a brand plus a person's name is not", () => {
+    expect(kinds("Chase Fraud Team", "chase.fraud.team@gmail.com")).toContain("freemail-brand-claim");
+    expect(kinds("Chase Miller", "chase.miller@gmail.com")).toEqual([]);
+    expect(kinds("Jordan Apple", "jordan.apple@icloud.com")).toEqual([]);
+  });
+
+  it("the brand's own no-reply address on its free-mail domain is still the brand", () => {
+    expect(kinds("iCloud", "noreply@icloud.com")).toEqual([]);
+    expect(kinds("Apple Support", "appleid.support.team@icloud.com")).toContain("freemail-brand-claim");
+  });
+
+  it("two swapped letters count as one edit on a long brand name", () => {
+    expect(kinds("Account notice", "no-reply@coinbsae.com")).toContain("lookalike-domain");
+  });
+});
