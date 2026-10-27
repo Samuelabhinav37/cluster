@@ -1,4 +1,5 @@
 import type { MessageRecord, SenderSummary } from "./senderModel";
+import { looksLikeDisposableCode } from "./messageKind";
 import { cleanText } from "./normalize";
 import { knownSenderSet } from "./screener";
 import type { ClusterSettings } from "./settingsStore";
@@ -45,10 +46,12 @@ export interface ProtectionOptions {
 }
 
 const SENSITIVE_SUBJECT =
-  /\b(tax|w-?2|1099|ticket|boarding pass|reservation|booking|appointment|password reset|security alert|new sign[- ]?in|account recovery|legal notice)\b/i;
+  /\b(tax|w-?2|1099|(e-?)?tickets?|boarding pass(es)?|reservations?|bookings?|appointments?|itinerar(y|ies)|rental agreement|password reset|reset your password|password (was )?changed|security alert|new sign[- ]?in|account recovery|legal notice)\b/i;
 
+// Windows the user may still need. Sale deadlines ("ends tonight") aren't
+// one: they would make any promotion undeletable.
 const ACTIVE_OFFER_OR_WINDOW_RE =
-  /\b(expires?|valid (thru|through|until)|offer ends|ends? (tonight|today|soon)|return (by|window)|exchange (by|window)|redeem by|use by|last day to (return|use|redeem))\b/i;
+  /\b(expires?|valid (thru|through|until)|return (by|window)|exchange (by|window)|redeem by|use by|last day to (return|use|redeem))\b/i;
 
 /** Central guard used by every bulk-delete-adjacent surface. */
 export function protectionDecision(
@@ -76,12 +79,11 @@ export function protectionDecision(
   if (SENSITIVE_SUBJECT.test(subject)) {
     return { protected: true, reason: "sensitive-subject" };
   }
-  // Only "other" reaches here without any positive kind signal (otp/shipping/
-  // receipt/social/newsletter were all already recognized above or by
-  // classifyMessageKind itself) -- this is the ambiguous, unclassified case
-  // where "no bulk-mail header at all" is the best evidence that a real
-  // person, not a company, wrote this.
-  if (message.kind === "other" && !message.looksAutomated) {
+  // No bulk-mail header at all is the best evidence that a real person, not
+  // a company, wrote this, whatever the subject made the kind ("Enable 2FA
+  // on the shared account" reads like a code). Only a subject that really
+  // looks like a code to type in stays deletable.
+  if (!message.looksAutomated && !(message.kind === "otp" && looksLikeDisposableCode(subject))) {
     return { protected: true, reason: "no-bulk-signal" };
   }
   return { protected: false };

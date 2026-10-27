@@ -20,8 +20,7 @@ export const KIND_PHRASES: Record<SubjectKind, string[]> = {
     "one-time",
     "login code",
     "sign-in code",
-    "is your code",
-    "your code is",
+    // No "is your code" / "your code is": the client needs a code beside them.
     "passcode",
     "2FA",
     "two-factor",

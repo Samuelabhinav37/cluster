@@ -72,7 +72,7 @@ describe("protectionDecision", () => {
 
   it("protects a message with an active discount/return-window subject regardless of kind", () => {
     expect(
-      protectionDecision(message({ id: "discount", subject: "20% off — offer ends tonight" })).reason,
+      protectionDecision(message({ id: "discount", subject: "Your 20% coupon expires Friday" })).reason,
     ).toBe("active-offer-or-window");
     expect(
       protectionDecision(message({ id: "return", subject: "Reminder: your return window closes soon" }))

@@ -130,16 +130,16 @@ describe("message-kind classifier", () => {
 
   // Each of these flips a promo/newsletter into a protected kind
   // (transactional), so it can never be cleaned up.
-  it.fails("KNOWN BUG: 'Free delivery' promo copy is classified as shipping", () => {
+  it("'Free delivery' promo copy is a newsletter, not shipping", () => {
     expect(classifyMessageKind("Free delivery on all orders this weekend", true)).toBe("newsletter");
   });
-  it.fails("KNOWN BUG: 'tracking' in a newsletter subject is classified as shipping", () => {
+  it("'tracking' in a newsletter subject is not shipping", () => {
     expect(classifyMessageKind("Tracking your 2026 fitness goals", true)).toBe("newsletter");
   });
-  it.fails("KNOWN BUG: 'statement' in a newsletter subject is classified as a receipt", () => {
+  it("'statement' in a newsletter subject is not a receipt", () => {
     expect(classifyMessageKind("Our statement on today's outage", true)).toBe("newsletter");
   });
-  it.fails("KNOWN GAP: 'Please verify your device' is not recognised as a one-time code", () => {
+  it("'Please verify your device' is a one-time code", () => {
     expect(classifyMessageKind("[GitHub] Please verify your device", false)).toBe("otp");
   });
 });
@@ -152,17 +152,17 @@ describe("protection policy precision", () => {
     }
   });
 
-  it.fails("KNOWN BUG: ordinary 'ends tonight' promo copy is treated as an active offer and becomes undeletable", () => {
+  it("ordinary 'ends tonight' promo copy does not make a promotion undeletable", () => {
     expect(protectionDecision(record({ subject: "Flash sale ends tonight — 40% off" })).protected).toBe(false);
   });
 
   it("protects a singular 'ticket' subject", () => {
     expect(protectionDecision(record({ subject: "Your ticket for Saturday" })).protected).toBe(true);
   });
-  it.fails("KNOWN BUG: plural 'tickets' from a bulk sender is not protected (e-tickets become deletable)", () => {
+  it("plural 'tickets' from a bulk sender is protected", () => {
     expect(protectionDecision(record({ subject: "Your tickets for Taylor Swift | The Eras Tour" })).protected).toBe(true);
   });
-  it.fails("KNOWN BUG: plural 'reservations' is not protected", () => {
+  it("plural 'reservations' is protected", () => {
     expect(protectionDecision(record({ subject: "Your reservations in Lisbon are confirmed" })).protected).toBe(true);
   });
 });

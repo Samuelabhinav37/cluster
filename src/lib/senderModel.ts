@@ -147,7 +147,10 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     id: meta.id,
     subject: meta.subject,
     receivedAt: meta.receivedAt,
-    kind: classifyMessageKind(meta.subject, hasUnsubscribe(meta.unsubscribe)),
+    kind: classifyMessageKind(meta.subject, hasUnsubscribe(meta.unsubscribe), {
+      address: meta.fromAddress,
+      displayName: meta.fromDisplayName,
+    }),
     isProtected: meta.isProtected,
     unread: meta.unread,
     sizeBytes: meta.sizeBytes,

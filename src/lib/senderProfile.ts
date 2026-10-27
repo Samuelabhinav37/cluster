@@ -136,7 +136,7 @@ function kindVote(m: NormalizedMessageMetadata, repliesToYou: boolean): Exclude<
   if (repliesToYou) return "person";
   const labels = m.labelIds ?? [];
   const bulk = isBulk(m);
-  const kind = classifyMessageKind(m.subject, hasUnsubscribe(m));
+  const kind = classifyMessageKind(m.subject, hasUnsubscribe(m), { address: m.fromAddress, displayName: m.fromDisplayName });
   if (kind === "otp" || kind === "receipt" || kind === "shipping") return kind;
   if (kind === "social" || labels.includes("CATEGORY_SOCIAL")) return "social";
   if (m.gmailPromotion) return "promotion";

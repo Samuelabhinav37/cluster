@@ -6,23 +6,50 @@ import { cleanText } from "./normalize";
 
 export type MessageKind = "otp" | "receipt" | "shipping" | "newsletter" | "social" | "other";
 
+// "Your code is" and "is your code" only count next to an actual code, so a
+// colleague's "Your code is in the repo now" stays mail from a person. The
+// last line covers the same phrase in French, Spanish, Portuguese, German,
+// Italian and Dutch.
 const OTP_RE =
-  /\b(one[- ]?time|verification code|security code|otp|passcode|confirm your (email|sign[- ]?in)|(login|sign[- ]?in) code|is your code|your code is|2fa|two-factor)\b/i;
+  /\b(one[- ]?time|(verification|security|confirmation) code|otp|passcode|confirm your (email|sign[- ]?in)|(login|sign[- ]?in) code|\d{4,8} is your( \w+)? code|your( \w+)? code is:?\s*[A-Z0-9-]*\d|verify your device|use \d{4,8} to (sign|log) ?in|2fa|two-factor|code de (vérification|confirmation|sécurité)|código de (verificación|verificação|seguridad|segurança|acceso)|(bestätigungs|sicherheits|verifizierungs|anmelde)code|codice di (verifica|sicurezza)|verificatiecode)\b/i;
 // Security notices that mention codes or 2FA ("Two-factor authentication was
 // disabled", "Security alert") are not disposable codes. Mirrors
 // OTP_EXCLUDED_PHRASES in categoryQueries.ts.
 const OTP_EXCLUDE_RE = /\b(alert|disabled|changed|new sign[- ]?in|suspicious)\b/i;
+// Phrases, not lone words: "Free delivery this weekend" and "Tracking your
+// fitness goals" are promotions, "Our statement on the outage" is news.
 const SHIPPING_RE =
-  /\b(shipped|out for delivery|delivery|delivered|tracking|order (confirm|confirmed|confirmation)|order #|has shipped|arriving|on its way)\b/i;
-const RECEIPT_RE = /\b(receipt|invoice|payment (received|confirmation)|your bill|statement|paid)\b/i;
+  /\b(shipped|out for delivery|delivery (update|attempt|scheduled|exception|confirmation)|delivered|tracking (number|info|information|update|details)|track your (order|package|parcel|shipment)|order (confirm|confirmed|confirmation)|order #|order (is |has been )?(confirmed|placed|received)|has shipped|arriving|on its way)\b/i;
+const RECEIPT_RE =
+  /\b(receipt|invoice|payment (received|confirmation)|your bill|e-?statement|statement (is )?(ready|available)|your (\w+ )?statement|paid|will renew|renews on|is renewing|renewal (notice|reminder|confirmation)|auto-?renew)\b/i;
 const SOCIAL_RE = /\b(mentioned you|tagged you|new follower|friend request|liked your|commented on)\b/i;
+// When the subject says nothing ("Your Thursday evening trip with Uber"), a
+// sender named for receipts or orders still does: "Uber Receipts",
+// reservations@hertz.com, shipment-tracking@amazon.com.
+const SHIPPING_SENDER_RE = /\b(shipping|shipments?|tracking|deliver(y|ies))\b/i;
+const RECEIPT_SENDER_RE =
+  /\b(receipts?|orders?|billing|invoices?|payments?|bookings?|reservations?|tickets?)\b/i;
 
-export function classifyMessageKind(subject: string, hasListUnsubscribe: boolean): MessageKind {
+export interface KindSender {
+  address: string;
+  displayName: string;
+}
+
+export function classifyMessageKind(
+  subject: string,
+  hasListUnsubscribe: boolean,
+  sender?: KindSender,
+): MessageKind {
   const s = cleanText(subject || "");
   if (OTP_RE.test(s) && !OTP_EXCLUDE_RE.test(s)) return "otp";
   if (SHIPPING_RE.test(s)) return "shipping";
   if (RECEIPT_RE.test(s)) return "receipt";
   if (SOCIAL_RE.test(s)) return "social";
+  if (sender) {
+    const who = `${sender.address.split("@")[0].replace(/[._+-]/g, " ")} ${cleanText(sender.displayName)}`;
+    if (SHIPPING_SENDER_RE.test(who)) return "shipping";
+    if (RECEIPT_SENDER_RE.test(who)) return "receipt";
+  }
   if (hasListUnsubscribe) return "newsletter";
   return "other";
 }

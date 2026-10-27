@@ -132,7 +132,7 @@ describe("accuracy corpus", () => {
 
     const current = { costPer1000: Number(costPer1000.toFixed(1)), violations: found };
     expect(
-      found.filter((v) => !baseline.violations.includes(v)),
+      found.filter((v) => !(baseline.violations as string[]).includes(v)),
       "new hard-gate violations",
     ).toEqual([]);
     expect(current.costPer1000, "cost went up").toBeLessThanOrEqual(baseline.costPer1000);

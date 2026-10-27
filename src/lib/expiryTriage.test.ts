@@ -69,7 +69,7 @@ describe("buildExpiryBuckets", () => {
       makeMessage({
         id: "discount",
         kind: "newsletter",
-        subject: "20% off — offer ends tonight",
+        subject: "20% off, redeem by Oct 31",
         receivedAt: Date.now() - 40 * DAY_MS,
       }),
     ]);
