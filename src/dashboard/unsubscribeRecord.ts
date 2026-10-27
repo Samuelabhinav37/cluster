@@ -3,6 +3,7 @@
 // up to 10 business days, so asking again isn't blocked, just labelled.
 import { recordEngagementFeedback } from "../lib/engagementModel";
 import { log } from "../lib/log";
+import { learnFromFeedback } from "./suggestionLearning";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { addGmailBackstop, addGmailTrashFilter, removeGmailBackstop } from "../lib/unsubscribeBackstop";
 import type { SenderSummary } from "../lib/senderModel";
@@ -20,6 +21,10 @@ export async function recordUnsubscribeRequests(
 ): Promise<void> {
   if (senders.length === 0) return;
   const now = Date.now();
+  void learnFromFeedback(
+    senders.map((sender) => sender.key),
+    "accept",
+  );
   const filterIds = await addBackstops(senders);
   ctx.settings = await mutateSettings((current) => {
     const requests = { ...current.unsubscribeRequests };

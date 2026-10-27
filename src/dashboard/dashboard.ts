@@ -78,6 +78,7 @@ import { readUnsubscribeReplies, unsubscribeOutcomeFor } from "./unsubscribeReco
 import { buildSuggestions, SUGGESTION_ACTION_LABELS, unopenedSuggestions, type Suggestion } from "../lib/suggestions";
 import { markFirstContact } from "../lib/firstContact";
 import { log } from "../lib/log";
+import { initSuggestionModel, learnFromFeedback, suggestionModel } from "./suggestionLearning";
 import { isAuthCancelled } from "../lib/chromeError";
 import {
   formatRelativeTime,
@@ -498,7 +499,7 @@ async function main() {
   });
   statusEl.textContent = "Connecting…";
   // Domain matching needs the Public Suffix List (a local file, quick to load).
-  const [settings] = await Promise.all([getSettings(), loadPublicSuffixList()]);
+  const [settings] = await Promise.all([getSettings(), loadPublicSuffixList(), initSuggestionModel()]);
   ctx.settings = settings;
   applyTheme(ctx.settings.theme);
   applySimpleMode(ctx.settings.simpleMode);
@@ -1301,7 +1302,14 @@ function renderCategoryGroups<T>(
 // ── Sender table ─────────────────────────────────────────────────────────
 /** Clean-up suggestions for these senders, from their profiles. */
 function currentSuggestions(senders: SenderSummary[]): Suggestion[] {
-  return buildSuggestions(senders, ctx.profiles, ctx.settings.senderEngagement, buildProtectionContext(ctx.settings));
+  return buildSuggestions(
+    senders,
+    ctx.profiles,
+    ctx.settings.senderEngagement,
+    buildProtectionContext(ctx.settings),
+    undefined,
+    suggestionModel(),
+  );
 }
 
 /** Messages in the Clear out plan. Home, the metric band and the sidebar
@@ -1804,6 +1812,7 @@ function buildMuteCell(sender: SenderSummary): HTMLDivElement {
           mutedSenders: [...new Set([...current.mutedSenders, sender.address])],
           senderEngagement: recordEngagementFeedback(current.senderEngagement, [sender.key], "accept"),
         }));
+        void learnFromFeedback([sender.key], "accept");
         await logAction("mute", `Muted ${sender.address}`, {
           provider: sender.provider,
           ids: sender.messageIds,
@@ -2138,6 +2147,7 @@ function makeLogoTile(
 
 async function saveEngagementFeedback(senderKeys: string[], feedback: EngagementFeedback) {
   if (senderKeys.length === 0) return;
+  void learnFromFeedback(senderKeys, feedback);
   ctx.settings = await mutateSettings((current) => ({
     ...current,
     senderEngagement: recordEngagementFeedback(current.senderEngagement, senderKeys, feedback),
@@ -3081,6 +3091,10 @@ function wireBulkHandlers() {
             "accept",
           ),
         }));
+        void learnFromFeedback(
+          succeeded.map(({ sender }) => sender.key),
+          "accept",
+        );
         await logAction(
           "mute",
           `Muted ${succeeded.length} personalized suggestion${succeeded.length === 1 ? "" : "s"}`,

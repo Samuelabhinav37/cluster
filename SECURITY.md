@@ -12,6 +12,7 @@ to send it to.
 | Message headers (see below) | Gmail / Microsoft Graph API | not persisted — held in memory for the current scan only | nowhere |
 | Message labels / flags, received date, size estimate | same | same | nowhere |
 | Your settings, rules, action log | you, in the dashboard | `chrome.storage.local` (this browser only) | nowhere |
+| Suggestion ranking: how often you took or dismissed suggestions, per generic feature (e.g. `tab:promotions`, `act:mute`) | your answers to suggestions | `chrome.storage.local` (no addresses, subjects or message IDs; old answers fade over ~90 days) | nowhere |
 | Incremental sync checkpoints, durable job receipts, and background-rule completion receipts | Gmail / Microsoft Graph operations | `chrome.storage.local` (opaque cursors, bounded message IDs, status/timestamps only) | nowhere |
 | Outlook access token | Microsoft sign-in | `chrome.storage.session` (memory-backed; trusted extension contexts only) | Microsoft Graph |
 | Outlook refresh token | Microsoft sign-in | `chrome.storage.local` (trusted extension contexts only) | only to `login.microsoftonline.com` to refresh |

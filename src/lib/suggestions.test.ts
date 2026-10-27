@@ -4,6 +4,7 @@ import { recordEngagementFeedback } from "./engagementModel";
 import type { NormalizedMessageMetadata, SentRecord } from "./providers/emailProvider";
 import { buildSenderProfiles } from "./senderProfile";
 import { buildSuggestions, unopenedSuggestions } from "./suggestions";
+import { emptySuggestionModel, learn, suggestionFeatures } from "./suggestionModel";
 
 async function suggest(rows: NormalizedMessageMetadata[], sent: SentRecord[] = [], feedback = {}) {
   const list = await senders(rows);
@@ -76,6 +77,26 @@ describe("buildSuggestions", () => {
     const out = await suggest(rows);
     expect(out.map((s) => s.action)).toEqual(["keepSorted"]);
     expect(unopenedSuggestions(out)).toEqual([]);
+  });
+
+  it("ranks what you tend to take above a bigger pile you tend to dismiss", async () => {
+    const rows = [
+      ...many(12, { fromAddress: "promo@big.example", receivedAt: NOW - 20 * DAY, unsubscribe: {}, precedence: "bulk" }),
+      ...ignored("deals@small.example"),
+    ];
+    const list = await senders(rows);
+    const profiles = buildSenderProfiles({ rows, now: NOW });
+    const plain = buildSuggestions(list, profiles, {}, undefined, NOW);
+    expect(plain.map((s) => s.action)).toEqual(["mute", "unsubscribe"]);
+    // Same order with an empty model: no history, no change.
+    expect(buildSuggestions(list, profiles, {}, undefined, NOW, emptySuggestionModel(NOW))).toEqual(plain);
+    let model = emptySuggestionModel(NOW);
+    for (const s of plain) {
+      const features = suggestionFeatures(s.sender, s.profile, s.action);
+      for (let i = 0; i < 3; i++) model = learn(model, features, s.action === "mute" ? "dismiss" : "accept", NOW);
+    }
+    const learned = buildSuggestions(list, profiles, {}, undefined, NOW, model);
+    expect(learned.map((s) => s.action)).toEqual(["unsubscribe", "mute"]);
   });
 
   it("hides a dismissed sender for 30 days and an undone one until accepted again", async () => {

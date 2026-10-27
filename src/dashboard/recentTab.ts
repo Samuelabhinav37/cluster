@@ -4,6 +4,7 @@
 // attaches after a bulk delete. Kept together because they're one unit: an
 // entry is only useful if it can be undone and re-rendered.
 import { log } from "../lib/log";
+import { learnFromFeedback } from "./suggestionLearning";
 import {
   appendActionLog,
   makeLogId,
@@ -87,6 +88,7 @@ async function undoEntry(entry: ActionLogEntry) {
       entry.undo.wasFiledOut ?? false,
     );
   }
+  if (entry.undo?.senderKeys) void learnFromFeedback(entry.undo.senderKeys, "undo");
   ctx.settings = await mutateSettings((current) => ({
     ...current,
     mutedSenders:
