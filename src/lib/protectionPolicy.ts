@@ -1,4 +1,5 @@
 import type { MessageRecord, SenderSummary } from "./senderModel";
+import { cleanText } from "./normalize";
 import { knownSenderSet } from "./screener";
 import type { ClusterSettings } from "./settingsStore";
 
@@ -61,7 +62,8 @@ export function protectionDecision(
   if (senderAddress && ctx.knownSenders.has(senderAddress.toLowerCase())) {
     return { protected: true, reason: "known-correspondent" };
   }
-  if (ACTIVE_OFFER_OR_WINDOW_RE.test(message.subject ?? "")) {
+  const subject = cleanText(message.subject ?? "");
+  if (ACTIVE_OFFER_OR_WINDOW_RE.test(subject)) {
     return { protected: true, reason: "active-offer-or-window" };
   }
   if (options?.contentHeuristics === false) return { protected: false };
@@ -71,7 +73,7 @@ export function protectionDecision(
   if (["receipt", "shipping"].includes(message.kind)) {
     return { protected: true, reason: "transactional" };
   }
-  if (SENSITIVE_SUBJECT.test(message.subject ?? "")) {
+  if (SENSITIVE_SUBJECT.test(subject)) {
     return { protected: true, reason: "sensitive-subject" };
   }
   // Only "other" reaches here without any positive kind signal (otp/shipping/

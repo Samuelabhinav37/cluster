@@ -2,6 +2,8 @@
 // List-Unsubscribe signal already parsed for the unsubscribe feature. This is
 // a heuristic, not a verified fact — false negatives just fall back to
 // "other", which carries no default retention policy (see retentionPolicy.ts).
+import { cleanText } from "./normalize";
+
 export type MessageKind = "otp" | "receipt" | "shipping" | "newsletter" | "social" | "other";
 
 const OTP_RE =
@@ -16,7 +18,7 @@ const RECEIPT_RE = /\b(receipt|invoice|payment (received|confirmation)|your bill
 const SOCIAL_RE = /\b(mentioned you|tagged you|new follower|friend request|liked your|commented on)\b/i;
 
 export function classifyMessageKind(subject: string, hasListUnsubscribe: boolean): MessageKind {
-  const s = subject || "";
+  const s = cleanText(subject || "");
   if (OTP_RE.test(s) && !OTP_EXCLUDE_RE.test(s)) return "otp";
   if (SHIPPING_RE.test(s)) return "shipping";
   if (RECEIPT_RE.test(s)) return "receipt";
@@ -34,7 +36,7 @@ const CODE_TOKEN_RE = /\b\d{4,8}\b|\b(?=[A-Z0-9]*\d)[A-Z0-9]{6,8}\b/;
 /** True when a one-time-code subject looks like a disposable code, the only
  * kind of "code" mail it is safe to trash automatically. */
 export function looksLikeDisposableCode(subject: string | undefined): boolean {
-  const s = subject ?? "";
+  const s = cleanText(subject ?? "");
   return CODE_PHRASE_RE.test(s) || CODE_TOKEN_RE.test(s);
 }
 

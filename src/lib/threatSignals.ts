@@ -29,6 +29,7 @@ import type { NormalizedMessageMetadata } from "./providers/emailProvider";
 import { parseAuthenticationResults } from "./emailAuth";
 import { isBlockedDomain } from "./blocklist";
 import { domainToUnicode } from "./punycode";
+import { cleanText, skeleton } from "./normalize";
 import { isSameOrSubdomain, registrableDomain } from "./registrableDomain";
 import { getDataset, refreshDataset } from "./remoteDataset";
 import brandDomainsFallback from "./data/brandDomains.json";
@@ -164,38 +165,35 @@ function escapeRegExp(literal: string): string {
 // whitespace in the display name so "Capital  One" or a non-breaking space
 // still matches. Word-boundary anchored -- "irs" must not match inside
 // "shirsley" -- and only ever tested against the display name, a short,
-// human-authored field, not free text.
-const BRAND_MATCHERS: Array<{ brand: string; re: RegExp }> = Object.keys(BRAND_DOMAINS).map((brand) => ({
-  brand,
-  re: new RegExp(`\\b${escapeRegExp(brand).replace(/\s+/g, "\\s+")}\\b`, "i"),
-}));
+// human-authored field, not free text. Both sides are skeletons
+// (normalize.ts), so "PаyPal" with a Cyrillic а or "PayPal" with a hidden
+// zero-width space inside still reads as PayPal.
+const BRAND_MATCHERS: Array<{ brand: string; skel: string; re: RegExp }> = Object.keys(BRAND_DOMAINS).map(
+  (brand) => {
+    const skel = skeleton(brand);
+    return { brand, skel, re: new RegExp(`\\b${escapeRegExp(skel).replace(/\s+/g, "\\s+")}\\b`) };
+  },
+);
+
+// "PayPalSupport", "GoogleSecurity": a long brand name run together with a
+// scam word. Only brands of five letters or more, and only next to one of
+// COMBOSQUAT_LURE_WORDS, so "Upstart" or "Chaseland" never count.
+const RUN_ON_MIN_BRAND_LENGTH = 5;
 
 function matchedBrand(displayName: string): string | null {
+  const name = skeleton(displayName);
   for (const { brand, re } of BRAND_MATCHERS) {
-    if (re.test(displayName)) return brand;
+    if (re.test(name)) return brand;
+  }
+  const lureWords = new Set([...COMBOSQUAT_LURE_WORDS].map(skeleton));
+  for (const token of name.split(/[^a-z0-9]+/)) {
+    for (const { brand, skel } of BRAND_MATCHERS) {
+      if (skel.length >= RUN_ON_MIN_BRAND_LENGTH && token.startsWith(skel) && lureWords.has(token.slice(skel.length))) {
+        return brand;
+      }
+    }
   }
   return null;
-}
-
-// Unicode/ASCII confusables actually used in domain phishing, each mapped
-// to the ASCII character it imitates. Deliberately not the full ~6000-entry
-// Unicode confusables table -- just the Cyrillic/Greek letters that render
-// identically to a Latin letter in a domain, plus the classic digit/letter
-// swaps (paypa1.com, g00gle.com). Applied to build an "ASCII skeleton" of a
-// domain so a homoglyph swap that would otherwise be a large raw edit
-// distance (Cyrillic 'а' is a different code point, not one substitution)
-// still resolves to the brand it's imitating.
-const CONFUSABLES: Record<string, string> = {
-  // Cyrillic letters that render identically to a lowercase Latin letter
-  а: "a", е: "e", о: "o", р: "p", с: "c", х: "x", у: "y", ѕ: "s", і: "i", ј: "j", ԁ: "d",
-  // Greek, same test
-  ο: "o", α: "a", ρ: "p", ν: "v", ι: "i", ϲ: "c",
-  // classic digit-for-letter swaps
-  "0": "o", "1": "l", "5": "s",
-};
-
-function asciiSkeleton(domain: string): string {
-  return [...domain.toLowerCase()].map((ch) => CONFUSABLES[ch] ?? ch).join("");
 }
 
 // Standard Levenshtein edit distance, iterative single-row form -- no
@@ -239,21 +237,20 @@ function findLookalikeBrand(senderDomain: string): LookalikeMatch | null {
   if (registrable.length < LOOKALIKE_MIN_DOMAIN_LENGTH) return null;
   // Headers carry internationalised domains as punycode (xn--pypl-53dc.com),
   // so decode before the confusables map can see the Cyrillic letters.
-  const skeleton = asciiSkeleton(domainToUnicode(registrable));
+  const skel = skeleton(domainToUnicode(registrable));
   for (const [brand, domains] of Object.entries(BRAND_DOMAINS)) {
     for (const legitDomain of domains) {
       if (legitDomain.split(".")[0].length < LOOKALIKE_MIN_BRAND_LABEL_LENGTH) continue;
+      const legitSkel = skeleton(legitDomain);
       // Confusable-normalised exact match: the domain renders identically to
       // the brand's real one but isn't it -- a Cyrillic 'а' in pаypаl.com, a
-      // digit 1 in paypa1.com. The strongest lookalike case, and one raw
-      // edit distance misses entirely for the homoglyph variant.
-      if (skeleton === legitDomain && registrable !== legitDomain) return { brand, confidence: "high" };
+      // digit 1 in paypa1.com, rn for m in arnazon.com. The strongest
+      // lookalike case, and one raw edit distance misses for homoglyphs.
+      if (skel === legitSkel && registrable !== legitDomain) return { brand, confidence: "high" };
       if (editDistanceWithin(registrable, legitDomain, LOOKALIKE_MAX_DISTANCE)) return { brand, confidence: "high" };
       // A homoglyph swap plus an ordinary typo can push the raw string past
       // the threshold while the skeleton stays close -- check that too.
-      if (skeleton !== registrable && editDistanceWithin(skeleton, legitDomain, LOOKALIKE_MAX_DISTANCE)) {
-        return { brand, confidence: "high" };
-      }
+      if (editDistanceWithin(skel, legitSkel, LOOKALIKE_MAX_DISTANCE)) return { brand, confidence: "high" };
     }
   }
   const combosquat = findCombosquatBrand(registrable);
@@ -333,7 +330,7 @@ const LURE_RE =
   /\b(account (has been )?(suspended|locked|disabled|compromised|on hold)|verify (your )?(account|identity|payment|information)( within| in the next)? \d+ ?(hours?|days?)|unusual (sign[- ]?in|login|activity)|password (will )?expir|confirm your (identity|account) (now|immediately)|payment (was )?(declined|failed)|update your (billing|payment) (details|information) (to avoid|or)|final (notice|warning)|your (account|access) will be (closed|terminated|deleted))\b/i;
 
 function lureLanguageSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
-  if (!LURE_RE.test(message.subject || "")) return null;
+  if (!LURE_RE.test(cleanText(message.subject || ""))) return null;
   return { kind: "lure-language", brand: domainOf(message.fromAddress) || "unknown sender", confidence: "medium" };
 }
 
