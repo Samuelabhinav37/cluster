@@ -176,8 +176,8 @@
           <section class="screen" data-screen="delete" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Clear out</h1>
-                <p class="lead">Mail you can get rid of now.</p>
+                <h1 class="page-title">Clean up</h1>
+                <p class="lead" id="cleanup-lead"></p>
               </div>
             </div>
             <p class="trust-line">
@@ -186,17 +186,48 @@
                 is skipped</span><span>Trash keeps it 30 days</span><span>Undo from Activity</span>
             </p>
 
-            <div id="suggested-metric-band"></div>
 
-            <section id="suggested-actions-section" hidden>
-              <div class="section-head">
-                <h2 class="section-label">Your cleanup plan</h2>
-                <span class="muted" id="cleanup-plan-count"></span>
+            <div class="rec-grid">
+              <div class="rec-card" id="never-opened-card" hidden>
+                <div class="rec-name" id="never-opened-name"></div>
+                <div class="rec-fact" id="never-opened-fact"></div>
+                <span id="never-read-mute-slot"><button id="never-read-mute-btn" class="btn btn-sm">Mute…</button></span>
               </div>
-              <div class="grouped-list" id="cleanup-plan-list"></div>
+              <div class="rec-card" id="past-date-card" hidden>
+                <div class="rec-name">Old codes and mail past its date</div>
+                <div class="rec-fact" id="past-date-fact"></div>
+                <span id="expiry-cleanup-slot"><button id="expiry-cleanup-btn" class="btn btn-sm">Trash…</button></span>
+              </div>
+            </div>
 
-              <!-- Legacy per-section slots the current render code targets;
-                   re-skinned into the plan list screen-by-screen. -->
+            <section id="senders-worth-decision">
+              <div class="section-head">
+                <h2 class="section-label">Most mail first</h2>
+                <span class="muted" id="worth-decision-count"></span>
+                <span class="spacer"></span>
+                <a href="#" id="see-all-senders-link">See all in Details</a>
+              </div>
+              <div id="sender-groups" hidden></div>
+
+              <div id="sender-bulk-bar" class="toolbar" hidden>
+                <button id="select-safe-senders" class="btn">Select safe</button>
+                <span id="sender-selected-count">0 selected</span>
+                <span id="unsubscribe-bulk-slot"><button id="bulk-unsubscribe-btn" class="btn btn-accent" disabled>Bulk unsubscribe selected</button></span>
+                <span id="keep-sorted-bulk-slot"><button id="bulk-keep-sorted-btn" class="btn" disabled>Bulk keep sorted selected</button></span>
+                <label>
+                  Snooze for:
+                  <select id="snooze-duration-select">
+                    <option value="1">1 day</option>
+                    <option value="7" selected>1 week</option>
+                    <option value="30">1 month</option>
+                  </select>
+                </label>
+                <span id="snooze-bulk-slot"><button id="bulk-snooze-btn" class="btn" disabled>Bulk snooze selected</button></span>
+              </div>
+            </section>
+
+            <details class="disclosure" id="cleanup-more">
+              <summary>More ways to clean up</summary>
               <section id="never-read-section" class="review-panel" hidden>
                 <h3 class="section-label">Personalized cleanup suggestions</h3>
                 <p class="hint">Senders you never open. Starred senders are left out.</p>
@@ -223,35 +254,31 @@
                 <p class="hint">Codes, shipping updates and newsletters past their use.</p>
                 <div id="expiry-bar" class="confirm-slot">
                   <span id="expiry-breakdown"></span>
-                  <span id="expiry-cleanup-slot"><button id="expiry-cleanup-btn" class="btn btn-accent">Clean up</button></span>
                 </div>
               </section>
-            </section>
+              <details class="disclosure" id="keep-newest-section">
+                <summary>Keep only each sender's newest mail</summary>
+                <p class="hint">Keep each sender's newest few messages and trash the rest.</p>
+                <div id="keep-newest-bar" class="confirm-slot">
+                  <label>
+                    Trim each sender to its newest
+                    <input type="number" id="keep-newest-n" min="1" max="100" value="3" />
+                    messages
+                  </label>
+                  <span id="keep-newest-slot"><button id="keep-newest-btn" class="btn btn-danger">Trim…</button></span>
+                </div>
+              </details>
 
-            <details class="disclosure" id="keep-newest-section">
-              <summary>Keep only each sender's newest mail</summary>
-              <p class="hint">Keep each sender's newest few messages and trash the rest.</p>
-              <div id="keep-newest-bar" class="confirm-slot">
-                <label>
-                  Trim each sender to its newest
-                  <input type="number" id="keep-newest-n" min="1" max="100" value="3" />
-                  messages
-                </label>
-                <span id="keep-newest-slot"><button id="keep-newest-btn" class="btn btn-danger">Trim…</button></span>
-              </div>
+              <section id="domain-groups" hidden>
+                <h3 class="section-label">By domain</h3>
+                <div id="domain-bulk-bar" class="toolbar" hidden>
+                  <button id="select-safe-domains" class="btn">Select safe</button>
+                  <span id="domain-selected-count">0 selected</span>
+                  <span id="delete-domains-bulk-slot"><button id="bulk-delete-domains-btn" class="btn btn-danger" disabled>Delete selected domains…</button></span>
+                </div>
+                <div id="domain-group-list" class="scroll-x"></div>
+              </section>
             </details>
-
-            <section id="domain-groups" hidden>
-              <h3 class="section-label">By domain</h3>
-              <div id="domain-bulk-bar" class="toolbar" hidden>
-                <button id="select-safe-domains" class="btn">Select safe</button>
-                <span id="domain-selected-count">0 selected</span>
-                <span id="delete-domains-bulk-slot"><button id="bulk-delete-domains-btn" class="btn btn-danger" disabled>Delete selected domains…</button></span>
-              </div>
-              <div id="domain-group-list" class="scroll-x"></div>
-            </section>
-
-            <div id="suggested-floating-bar"></div>
           </section>
 
           <!-- ══ Organize ══════════════════════════════════════════════ -->
@@ -379,35 +406,6 @@
                 <p class="lead">Unsubscribe from lists and mute senders you don't need.</p>
               </div>
             </div>
-
-            <section id="senders-worth-decision">
-              <div class="section-head">
-                <h2 class="section-label">Senders worth a decision</h2>
-                <span class="muted" id="worth-decision-count"></span>
-                <span class="spacer"></span>
-                <a href="#" id="see-all-senders-link">See all senders</a>
-              </div>
-              <div class="toolbar">
-                <span id="never-read-mute-slot"><button id="never-read-mute-btn" class="btn btn-accent">Mute the ones you don't open…</button></span>
-              </div>
-              <div id="sender-groups" hidden></div>
-
-              <div id="sender-bulk-bar" class="toolbar" hidden>
-                <button id="select-safe-senders" class="btn">Select safe</button>
-                <span id="sender-selected-count">0 selected</span>
-                <span id="unsubscribe-bulk-slot"><button id="bulk-unsubscribe-btn" class="btn btn-accent" disabled>Bulk unsubscribe selected</button></span>
-                <span id="keep-sorted-bulk-slot"><button id="bulk-keep-sorted-btn" class="btn" disabled>Bulk keep sorted selected</button></span>
-                <label>
-                  Snooze for:
-                  <select id="snooze-duration-select">
-                    <option value="1">1 day</option>
-                    <option value="7" selected>1 week</option>
-                    <option value="30">1 month</option>
-                  </select>
-                </label>
-                <span id="snooze-bulk-slot"><button id="bulk-snooze-btn" class="btn" disabled>Bulk snooze selected</button></span>
-              </div>
-            </section>
 
             <section id="paid-subscriptions-section">
               <div class="section-head">

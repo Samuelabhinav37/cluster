@@ -27,7 +27,7 @@ beforeEach(() => {
 describe("Organize screen — decision rows", () => {
   it("Chase has no unsubscribe link, so its primary action is Mute — clicking it through to Confirm mutes the sender", async () => {
     const dash = await bootDashboard();
-    dash.showScreen("subscriptions");
+    dash.showScreen("delete");
 
     const wrap = findDecisionRowWrap(dash.el("sender-groups"), "Chase");
     const primary = wrap.querySelector<HTMLButtonElement>(".row-actions button")!;
@@ -51,7 +51,7 @@ describe("Organize screen — decision rows", () => {
 
   it("Shop has a one-click unsubscribe link, so its primary action is Unsubscribe, not Mute", async () => {
     const dash = await bootDashboard();
-    dash.showScreen("subscriptions");
+    dash.showScreen("delete");
 
     const wrap = findDecisionRowWrap(dash.el("sender-groups"), "Shop");
     const primary = wrap.querySelector<HTMLButtonElement>(".row-actions button")!;
@@ -60,7 +60,7 @@ describe("Organize screen — decision rows", () => {
 
   it("excludes the fully-starred sender from the decide list, showing it only as the dimmed protected row", async () => {
     const dash = await bootDashboard();
-    dash.showScreen("subscriptions");
+    dash.showScreen("delete");
 
     const groups = dash.el("sender-groups");
     const protectedRow = groups.querySelector(".protected-row");

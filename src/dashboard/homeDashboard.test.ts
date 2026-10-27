@@ -105,7 +105,7 @@ describe("homeRecommendations", () => {
   it("each button opens its place and starts that place's own confirm", () => {
     const go = vi.fn();
     for (const r of homeRecommendations({ ...calm, neverOpened: { senders: 1, emails: 3 }, pastDate: 2, waiting: 1 }, go)) r.go();
-    expect(go.mock.calls).toEqual([["subscriptions", "mute-never-opened"], ["delete", "trash-past-date"], ["screener"]]);
+    expect(go.mock.calls).toEqual([["delete", "mute-never-opened"], ["delete", "trash-past-date"], ["screener"]]);
   });
 });
 

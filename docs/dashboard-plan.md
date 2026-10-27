@@ -77,6 +77,13 @@ until brand grouping lands (PayPal question).
 
 ## Track 3: lists that end
 
+Clean up done 2026-10-27: one lead line, two cards (senders you never open with Mute, mail past
+its date with Trash) holding the existing confirms, then "Most mail first": the ten biggest
+unprotected senders with one fact, a volume bar, one button and "⋯". A row opens Details for
+that sender; "See all in Details" opens its Senders view. Older tools (spam, keep newest, by
+domain) sit in "More ways to clean up". The cleanup plan, metric band and floating bar are gone.
+Still open: rows are per address, not per business; the List/Cards swipe toggle is skipped.
+
 - Every list is businesses sorted by volume, top 10, "Show all".
 - A row: logo, name, one fact ("41 emails · you open none"), one button. Other actions in a
   "⋯" menu.

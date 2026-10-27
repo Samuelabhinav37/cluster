@@ -125,7 +125,6 @@ import { CLUSTER_FIRST_ON, CLUSTER_QUESTIONS, initKaiGuide } from "./kaiGuide";
 
 const selectedSenderKeys = new Set<string>();
 const selectedDomainKeys = new Set<string>();
-const selectedPlanGroups = new Set<string>();
 let currentDomainGroups: DomainGroup[] = [];
 let currentExpiryBuckets: ExpiryBucket[] = [];
 // True when the cleanup scan filled its per-account candidate cap — every
@@ -346,7 +345,7 @@ function wireNav() {
 
   seeAllSendersLink?.addEventListener("click", (event) => {
     event.preventDefault();
-    void selectScreen("senders");
+    details?.open({ view: "senders" });
   });
 
   showScreen(ctx.settings.activeTab);
@@ -975,9 +974,8 @@ async function scanAndRender({ refresh = false, quiet = false }: { refresh?: boo
   safeRender("subscriptions", () => renderSubscriptionsTab(senders));
   safeRender("delete", () => renderNeverReadSection(senders));
   safeRender("delete", () => renderSpamSection(senders));
-  // The v3 "Your cleanup plan" list (renderCleanupPlan) is the primary
-  // surface for these three; their detailed sections are collapsed by default
-  // and only opened via a row's "Review" button (revealLegacySection).
+  // Clean up's cards are the primary surface for these three; their detailed
+  // sections stay collapsed in "More ways to clean up".
   neverReadSectionEl.hidden = true;
   spamSectionEl.hidden = true;
   expirySectionEl.hidden = true;
@@ -1010,7 +1008,6 @@ function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummar
   const health = buildInboxHealth({ senders, securitySenders, settings: ctx.settings });
   const byId = new Map(health.metrics.map((m) => [m.id, m.value]));
   setNavCount("delete", clearOutPlan(senders).total, true, "emails to clear out");
-  setNavCount("organize", pickDecisionSenders(senders).decide.length, true, "to review");
   setNavCount("senders", senders.length);
   setNavCount("subscriptions", byId.get("unsubscribe-capable") ?? 0, true);
   setNavCount("impersonation", byId.get("flagged-senders") ?? 0);
@@ -1070,7 +1067,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
       (screen, act) => {
         void selectScreen(screen).then(() => {
           if (act === "mute-never-opened") neverReadMuteBtn.click();
-          if (act === "trash-past-date") confirmIn("expiry-section", expiryCleanupBtn);
+          if (act === "trash-past-date") expiryCleanupBtn.click();
         });
       },
       (kind) => details?.open({ kind }),
@@ -1256,244 +1253,13 @@ function clearOutPlan(senders: SenderSummary[]) {
   return { expiryTotal, spamMsgs, neverReadMsgs, total: expiryTotal + spamMsgs + neverReadMsgs };
 }
 
-// ── Suggested cleanup: metric band ─────────────────────────────────────
-function renderSuggestedMetricBand(senders: SenderSummary[]) {
-  const band = document.getElementById("suggested-metric-band");
-  if (!band) return;
-  const { expiryTotal, spamMsgs, neverReadMsgs, total: planTotal } = clearOutPlan(senders);
-  const scanned = senders.reduce((n, s) => n + s.count, 0);
-  const pct = scanned > 0 ? Math.round((planTotal / scanned) * 100) : 0;
-
-  band.className = "metric-band";
-  band.innerHTML = "";
-  const heroWrap = document.createElement("div");
-  heroWrap.style.flex = "none";
-  const heroLine = document.createElement("div");
-  heroLine.style.display = "flex";
-  heroLine.style.alignItems = "baseline";
-  heroLine.style.gap = "10px";
-  heroLine.style.flexWrap = "wrap";
-  const hero = document.createElement("span");
-  hero.className = "metric-hero";
-  hero.textContent = planTotal.toLocaleString();
-  const pctPill = document.createElement("span");
-  pctPill.className = "pill accent";
-  pctPill.textContent = `${pct}% of scan`;
-  heroLine.append(hero, pctPill);
-  const heroCap = document.createElement("div");
-  heroCap.className = "row-sub";
-  heroCap.style.color = "var(--label-2)";
-  heroCap.style.marginTop = "8px";
-  heroCap.textContent = lastScanCapHit ? "messages ready to clean up in this scan" : "messages ready to clean up";
-  heroWrap.append(heroLine, heroCap);
-  band.appendChild(heroWrap);
-
-  const divider = document.createElement("div");
-  divider.className = "divider";
-  band.appendChild(divider);
-
-  // Delete-only tiles — no Subscriptions/Phishing counts here (those belong
-  // to their own screens; see the 2026-09-18 phishing-UX research on not
-  // letting other categories' findings bleed into a routine cleanup surface).
-  const secondary: Array<[number, string, boolean]> = [
-    [senders.length, "senders scanned", false],
-    [expiryTotal, "past their window", false],
-    [neverReadMsgs, "never opened", false],
-    [spamMsgs, "suspected spam", false],
-  ];
-  for (const [n, cap, danger] of secondary) {
-    const cell = document.createElement("div");
-    cell.className = danger ? "metric-secondary danger" : "metric-secondary";
-    cell.style.flex = "none";
-    const nEl = document.createElement("div");
-    nEl.className = "n";
-    nEl.textContent = String(n);
-    const capEl = document.createElement("div");
-    capEl.className = "cap";
-    capEl.textContent = cap;
-    cell.append(nEl, capEl);
-    band.appendChild(cell);
-  }
-}
-
-// ── Suggested cleanup: "Your cleanup plan" (3 grouped decisions) ────────
-type PlanRow = {
-  id: string;
-  checked: boolean;
-  title: string;
-  sub: string;
-  badge?: string;
-  primaryLabel: string;
-  primaryClass: string;
-  onPrimary: () => void;
-  showReview: boolean;
-  reviewTarget: string;
-  stack?: SenderSummary[];
-};
-
-function renderCleanupPlan(senders: SenderSummary[]) {
-  const list = document.getElementById("cleanup-plan-list");
-  const countEl = document.getElementById("cleanup-plan-count");
-  if (!list) return;
-
-  const protectionCtx = buildProtectionContext(ctx.settings);
-  const expiryBuckets = buildExpiryBuckets(senders, protectionCtx);
-  const expiryCount = totalExpiryCount(expiryBuckets);
-  const engagement = unopenedSuggestions(currentSuggestions(senders));
-  const neverMsgs = engagement.reduce((n, s) => n + s.safeMessageIds.length, 0);
-  const spam = suggestSpamSenders(senders, undefined, protectionCtx);
-  const spamMsgs = spam.reduce((n, s) => n + s.messageCount, 0);
-
-  const rows: PlanRow[] = [];
-
-  if (engagement.length > 0) {
-    rows.push({
-      id: "never-opened",
-      // Trash now (muting lives on Stop mail), so it needs a look first like the rows below.
-      checked: false,
-      title: `${engagement.length} sender${engagement.length === 1 ? "" : "s"} you don't open`,
-      sub: `${neverMsgs} message${neverMsgs === 1 ? "" : "s"}, almost none opened`,
-      primaryLabel: "Trash",
-      primaryClass: "btn btn-accent",
-      onPrimary: () => confirmIn("never-read-section", neverReadTrashBtn),
-      showReview: true,
-      reviewTarget: "never-read-section",
-      stack: engagement.map((e) => e.sender),
-    });
-  }
-  if (expiryCount > 0) {
-    rows.push({
-      id: "expired",
-      // Delete-adjacent, so this one requires an explicit look before it's
-      // included in a bulk confirm -- unlike the mute-only row above.
-      checked: false,
-      title: `${expiryCount} one-time code${expiryCount === 1 ? "" : "s"} and stale mail past their use`,
-      sub: expiryBuckets.map((b) => `${b.count} ${b.label.toLowerCase()}`).join(", ") + " · judged by age alone",
-      primaryLabel: "Trash",
-      primaryClass: "btn btn-accent",
-      onPrimary: () => confirmIn("expiry-section", expiryCleanupBtn),
-      showReview: true,
-      reviewTarget: "expiry-section",
-    });
-  }
-  if (spam.length > 0) {
-    rows.push({
-      id: "spam",
-      checked: false,
-      title: `${spam.length} sender${spam.length === 1 ? "" : "s"} on a spam or throwaway list`,
-      sub: `${spamMsgs} message${spamMsgs === 1 ? "" : "s"} · off by default`,
-      badge: "Needs review",
-      primaryLabel: `Review ${spam.length}`,
-      primaryClass: "btn btn-danger",
-      onPrimary: () => revealLegacySection("spam-section"),
-      showReview: false,
-      reviewTarget: "spam-section",
-    });
-  }
-
-  list.innerHTML = "";
-  if (countEl) countEl.textContent = `${rows.length} group${rows.length === 1 ? "" : "s"} · one action each`;
-  const suggestedWrap = document.getElementById("suggested-actions-section") as HTMLElement;
-  if (suggestedWrap) suggestedWrap.hidden = rows.length === 0;
-  if (rows.length === 0) return;
-
-  const rowEls = rows.map((r) => {
-    if (r.checked) selectedPlanGroups.add(r.id);
-    return buildCleanupPlanRow(r);
-  });
-  list.appendChild(listGroup(rowEls));
-  renderSuggestedFloatingBar();
-}
-
-function buildCleanupPlanRow(r: PlanRow): HTMLElement {
-  const actions: HTMLElement[] = [];
-  const primary = document.createElement("button");
-  primary.className = r.primaryClass;
-  primary.textContent = r.primaryLabel;
-  primary.onclick = r.onPrimary;
-  actions.push(primary);
-  if (r.showReview) {
-    const review = document.createElement("button");
-    review.className = "btn";
-    review.textContent = "Review";
-    review.onclick = () => revealLegacySection(r.reviewTarget);
-    actions.push(review);
-  }
-
-  let titleBadges: HTMLElement[] | undefined;
-  if (r.badge) {
-    const badge = document.createElement("span");
-    badge.className = "pill danger";
-    badge.textContent = r.badge;
-    titleBadges = [badge];
-  }
-
-  const row = listRow({
-    selectable: {
-      checked: r.checked,
-      label: `Include ${r.title}`,
-      data: { planGroup: r.id },
-      onChange: () => renderSuggestedFloatingBar(),
-    },
-    title: r.title,
-    titleBadges,
-    wrapText: true,
-    sub: r.sub,
-    actions,
-  });
-
-  if (r.stack && r.stack.length > 0) {
-    const stackRow = document.createElement("div");
-    stackRow.style.display = "flex";
-    stackRow.style.alignItems = "center";
-    stackRow.style.gap = "10px";
-    stackRow.style.marginTop = "10px";
-    const stack = document.createElement("span");
-    stack.className = "favicon-stack";
-    r.stack.slice(0, 4).forEach((s) => stack.appendChild(makeLogoTile(s, "sz-26")));
-    stackRow.appendChild(stack);
-    if (r.stack.length > 4) {
-      const more = document.createElement("span");
-      more.className = "row-sub";
-      more.textContent = `+${r.stack.length - 4} more`;
-      stackRow.appendChild(more);
-    }
-    row.querySelector(".row-title-wrap")?.appendChild(stackRow);
-  }
-
-  return row;
-}
-
-// The plan's buttons start a confirm that renders next to the section's own
-// button. Those sections start hidden, so reveal (and scroll to) the section
-// first, or the confirm appears where nobody can see it.
-function confirmIn(sectionId: string, button: HTMLButtonElement) {
-  revealLegacySection(sectionId);
-  button.click();
-}
-
-function revealLegacySection(id: string) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.hidden = false;
-  el.closest("details")?.setAttribute("open", "");
-  const moreTools = document.getElementById("more-tools");
-  if (moreTools && el.closest("#more-tools")) moreTools.setAttribute("open", "");
-  el.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
 // ── Suggested cleanup: "Senders worth a decision" ──────────────────────
 type PrimaryAct = "unsubscribe" | "mute" | "keepSorted";
 
 function decisionReason(sender: SenderSummary): string {
-  const suggestion = currentSuggestions([sender])[0];
-  if (suggestion) return suggestion.reasons.join(" ");
-  const unread = senderUnread(sender);
   const total = senderVolume(sender);
-  const base = unread === total ? `nothing opened of ${total}` : `${unread} unread of ${total}`;
-  if (sender.unsubscribe.postUrl) return `${base} · verified one-click unsubscribe`;
-  if (sender.firstContact) return `${base} · new since Cluster started tracking`;
-  return base;
+  const opened = total - senderUnread(sender);
+  return `${total.toLocaleString()} ${total === 1 ? "email" : "emails"}, ${opened === 0 ? "none" : opened.toLocaleString()} opened`;
 }
 
 function primaryActionFor(sender: SenderSummary): { act: PrimaryAct; label: string } {
@@ -1517,23 +1283,17 @@ function buildActionGroups(sender: SenderSummary): Array<{ act: string; label: s
   ];
 }
 
+/** Clean up's list: the ten unprotected senders with the most mail, plus the
+ * biggest protected one shown dimmed. */
 function pickDecisionSenders(senders: SenderSummary[]): { decide: SenderSummary[]; protectedOne?: SenderSummary } {
-  const engagementKeys = new Set(currentSuggestions(senders).map((s) => s.sender.key));
-  const eligible = senders.filter((s) => s.protectedMessageIds.length === 0);
-  const ranked = [...eligible].sort((a, b) => {
-    const aEng = engagementKeys.has(a.key) ? 1 : 0;
-    const bEng = engagementKeys.has(b.key) ? 1 : 0;
-    if (aEng !== bEng) return bEng - aEng;
-    const score = (s: SenderSummary) =>
-      (senderUnread(s) / Math.max(1, senderVolume(s))) * Math.log2(senderVolume(s) + 1);
-    const aScore = score(a);
-    const bScore = score(b);
-    return bScore - aScore;
-  });
+  const decide = senders
+    .filter((s) => s.protectedMessageIds.length === 0)
+    .sort((a, b) => senderVolume(b) - senderVolume(a))
+    .slice(0, 10);
   const protectedOne = senders
     .filter((s) => s.protectedMessageIds.length > 0)
     .sort((a, b) => b.count - a.count)[0];
-  return { decide: ranked.slice(0, 8), protectedOne };
+  return { decide, protectedOne };
 }
 
 function updateSenderState(senders: SenderSummary[]) {
@@ -1544,9 +1304,19 @@ function updateSenderState(senders: SenderSummary[]) {
   );
 }
 
+// Clean up's head and its two bulk cards. Each card's button is the existing
+// confirm (mute never-opened, trash past-date), moved into the card.
 function renderDeleteScreen(senders: SenderSummary[]) {
-  renderSuggestedMetricBand(senders);
-  renderCleanupPlan(senders);
+  const plan = clearOutPlan(senders);
+  const unopened = unopenedSuggestions(currentSuggestions(senders)).length;
+  const emails = (n: number) => `${n.toLocaleString()} ${n === 1 ? "email" : "emails"}`;
+  document.getElementById("cleanup-lead")!.textContent = `${emails(plan.total)} you can clear.`;
+  document.getElementById("never-opened-card")!.hidden = unopened === 0;
+  document.getElementById("never-opened-name")!.textContent =
+    `${unopened} ${unopened === 1 ? "sender" : "senders"} you never open`;
+  document.getElementById("never-opened-fact")!.textContent = emails(plan.neverReadMsgs);
+  document.getElementById("past-date-card")!.hidden = plan.expiryTotal === 0;
+  document.getElementById("past-date-fact")!.textContent = emails(plan.expiryTotal);
 }
 
 function renderOrganizeScreen(senders: SenderSummary[]) {
@@ -1557,7 +1327,7 @@ function renderOrganizeScreen(senders: SenderSummary[]) {
 function renderDecisionSenders(senders: SenderSummary[]) {
   const { decide, protectedOne } = pickDecisionSenders(senders);
   const countEl = document.getElementById("worth-decision-count");
-  if (countEl) countEl.textContent = `${decide.length} of ${senders.length} · highest fit first`;
+  if (countEl) countEl.textContent = `${decide.length} of ${senders.length}`;
 
   senderGroupsEl.innerHTML = "";
   const list = document.createElement("div");
@@ -1591,12 +1361,13 @@ function renderDecisionSenders(senders: SenderSummary[]) {
   hdr.append(hdrLabel, hdrCount);
   list.appendChild(hdr);
 
+  const most = Math.max(1, ...decide.map(senderVolume));
   for (const sender of decide) {
     const sep = document.createElement("div");
     sep.className = "row-sep";
     sep.style.marginLeft = "56px";
     list.appendChild(sep);
-    list.appendChild(buildDecisionRow(sender, senders));
+    list.appendChild(buildDecisionRow(sender, senders, most));
   }
 
   if (protectedOne) {
@@ -1629,7 +1400,7 @@ function renderDecisionSenders(senders: SenderSummary[]) {
   senderGroupsEl.appendChild(list);
 }
 
-function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): HTMLElement {
+function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[], most: number): HTMLElement {
   const { act, label } = primaryActionFor(sender);
   const primary = document.createElement("button");
   primary.className = "btn btn-accent";
@@ -1700,9 +1471,21 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): H
     lead: makeLogoTile(sender, "sz-34"),
     title: sender.displayName || sender.address,
     sub: decisionReason(sender),
+    meta: volumeBar(senderVolume(sender) / most),
     actions: [primary, ellipsis],
     disclosure,
+    href: () => details?.open({ senderKey: sender.key }),
   });
+}
+
+function volumeBar(share: number): HTMLElement {
+  const bar = document.createElement("span");
+  bar.className = "cellbar";
+  bar.setAttribute("aria-hidden", "true");
+  const fill = document.createElement("i");
+  fill.style.width = `${Math.round(share * 100)}%`;
+  bar.append(fill);
+  return bar;
 }
 
 // ── Mute (local BlackHole) ───────────────────────────────────────────────
@@ -1832,66 +1615,6 @@ function updateSenderBulkBar() {
   bulkUnsubscribeBtn.disabled = selectedSenderKeys.size === 0;
   bulkKeepSortedBtn.disabled = selectedSenderKeys.size === 0;
   bulkSnoozeBtn.disabled = selectedSenderKeys.size === 0;
-}
-
-// ── Delete: sticky floating action bar ──────────────────────────────────
-// Reflects the checked "cleanup plan" groups. "Apply plan" runs the checked
-// plan groups (each delegates to its existing bulk-action confirm). Senders
-// worth a decision (Organize screen) has its own selection state, actioned
-// per-row or from the All-senders bulk bar — it never shares this bar.
-function renderSuggestedFloatingBar() {
-  const host = document.getElementById("suggested-floating-bar");
-  if (!host) return;
-  const planBoxes = Array.from(
-    document.querySelectorAll<HTMLInputElement>("#cleanup-plan-list input[data-plan-group]"),
-  );
-  const checkedGroups = planBoxes.filter((b) => b.checked);
-  selectedPlanGroups.clear();
-  for (const b of checkedGroups) selectedPlanGroups.add(b.dataset.planGroup!);
-
-  if (checkedGroups.length === 0) {
-    host.className = "";
-    host.innerHTML = "";
-    return;
-  }
-
-  host.className = "floating-bar";
-  host.innerHTML = "";
-  const bar = document.createElement("div");
-
-  const title = document.createElement("span");
-  title.className = "fb-title";
-  title.textContent = `${checkedGroups.length} group${checkedGroups.length === 1 ? "" : "s"}`;
-
-  const sub = document.createElement("span");
-  sub.className = "fb-sub";
-  // Honest about Trash: with fast permanent delete on, the expired-mail
-  // cleanup skips Trash entirely. Otherwise the page's trust line says it.
-  sub.textContent = ctx.settings.fastPermanentDeleteEnabled
-    ? "Expired mail is deleted forever, because fast delete is on."
-    : "";
-
-  const clear = document.createElement("button");
-  clear.className = "btn btn-ghost";
-  clear.textContent = "Clear";
-  clear.onclick = () => {
-    for (const b of planBoxes) b.checked = false;
-    renderDeleteScreen(ctx.senders);
-  };
-
-  const apply = document.createElement("button");
-  apply.className = "btn-accent-solid";
-  apply.textContent = "Apply plan";
-  apply.disabled = checkedGroups.length === 0;
-  apply.onclick = () => {
-    const groups = new Set(selectedPlanGroups);
-    if (groups.has("never-opened")) confirmIn("never-read-section", neverReadTrashBtn);
-    if (groups.has("expired")) confirmIn("expiry-section", expiryCleanupBtn);
-    if (groups.has("spam")) revealLegacySection("spam-section");
-  };
-
-  bar.append(title, sub, clear, apply);
-  host.appendChild(bar);
 }
 
 // ── All senders screen ──────────────────────────────────────────────────
@@ -2432,7 +2155,7 @@ function renderExpirySection(senders: SenderSummary[]) {
 
 function resetExpiryCleanupSlot() {
   expiryCleanupSlot.innerHTML = "";
-  expiryCleanupBtn.textContent = `Clean up ${totalExpiryCount(currentExpiryBuckets)} items…`;
+  expiryCleanupBtn.textContent = "Trash…";
   expiryCleanupSlot.appendChild(expiryCleanupBtn);
 }
 

@@ -124,7 +124,7 @@ export function homeRecommendations(f: HomeFacts, go: Go): Rec[] {
       name: `Mute ${plural(f.neverOpened.senders, "sender")} you never open`,
       fact: plural(f.neverOpened.emails, "email"),
       verb: "Mute",
-      go: () => go("subscriptions", "mute-never-opened"),
+      go: () => go("delete", "mute-never-opened"),
     });
   if (f.pastDate > 0)
     recs.push({
