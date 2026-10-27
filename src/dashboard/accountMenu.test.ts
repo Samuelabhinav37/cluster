@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { wireAccountMenu, wireHeaderSearch } from "./accountMenu";
+import { wireAccountMenu } from "./accountMenu";
 
 function mount() {
   document.body.innerHTML = `
@@ -11,9 +11,7 @@ function mount() {
         <button class="menu-item" id="b">Connect Outlook</button>
       </div>
     </div>
-    <p id="outside">x</p>
-    <input id="header-search" />
-    <input id="sender-search" />`;
+    <p id="outside">x</p>`;
 }
 
 describe("account menu", () => {
@@ -54,31 +52,5 @@ describe("account menu", () => {
     document.getElementById("account-pill")!.click();
     document.getElementById("account-menu")!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
     expect(document.activeElement?.id).toBe("a");
-  });
-});
-
-describe("header search", () => {
-  beforeEach(mount);
-
-  it("opens Senders and mirrors the text into its search", () => {
-    const open = vi.fn();
-    wireHeaderSearch(open);
-    const seen: string[] = [];
-    const target = document.getElementById("sender-search") as HTMLInputElement;
-    target.addEventListener("input", () => seen.push(target.value));
-    const input = document.getElementById("header-search") as HTMLInputElement;
-    input.value = "groupon";
-    input.dispatchEvent(new Event("input"));
-    expect(open).toHaveBeenCalled();
-    expect(seen).toEqual(["groupon"]);
-  });
-
-  it("focuses on / unless the person is typing", () => {
-    wireHeaderSearch(() => {});
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "/" }));
-    expect(document.activeElement?.id).toBe("header-search");
-    (document.getElementById("sender-search") as HTMLInputElement).focus();
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "/" }));
-    expect(document.activeElement?.id).toBe("sender-search");
   });
 });

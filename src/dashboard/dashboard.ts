@@ -116,9 +116,10 @@ import {
 } from "./subscriptionsTab";
 import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib/inboxHealth";
 import { senderTile, type TileSize } from "./senderTile";
-import { wireAccountMenu, wireHeaderSearch } from "./accountMenu";
-import { mailByKind, renderHomeDashboard, type HomeFacts } from "./homeDashboard";
-import { idsByProvider, initDetailsPanel, type DetailsPanel } from "./detailsPanel";
+import { wireAccountMenu } from "./accountMenu";
+import { initAskKai, type AskFacts } from "./askKai";
+import { mailByKind, renderHomeDashboard, type HomeAct, type HomeFacts } from "./homeDashboard";
+import { detailSenders, idsByProvider, initDetailsPanel, type DetailsPanel } from "./detailsPanel";
 import { listGroup, listRow } from "./listRow";
 import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
@@ -528,7 +529,10 @@ async function main() {
   wireNav();
   wireDetails();
   wireAccountMenu();
-  wireHeaderSearch(() => void selectScreen("senders"));
+  initAskKai(document.getElementById("ask-kai-open")!, () => askFacts, {
+    details: (filter) => details?.open(filter),
+    go: goAndAct,
+  });
   wireAllSendersControls();
   fastDeleteToggle.checked = ctx.settings.fastPermanentDeleteEnabled;
   wireFastDeleteToggle();
@@ -1006,6 +1010,16 @@ function safeRender(screen: string, fn: () => void) {
   }
 }
 
+let askFacts: AskFacts = { senders: [], kinds: { primary: 0, trans: 0, updates: 0, promo: 0 }, scams: 0, waiting: 0 };
+
+/** Open a place and, for a card or Ask Kai hit, start that place's own confirm. */
+function goAndAct(screen: string, act?: HomeAct) {
+  void selectScreen(screen).then(() => {
+    if (act === "mute-never-opened") neverReadMuteBtn.click();
+    if (act === "trash-past-date") expiryCleanupBtn.click();
+  });
+}
+
 function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummary[]) {
   const health = buildInboxHealth({ senders, securitySenders, settings: ctx.settings });
   const byId = new Map(health.metrics.map((m) => [m.id, m.value]));
@@ -1014,6 +1028,12 @@ function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummar
   setNavCount("subscriptions", byId.get("unsubscribe-capable") ?? 0, true);
   setNavCount("impersonation", byId.get("flagged-senders") ?? 0);
   setPhishingNavSeverity(securitySenders);
+  askFacts = {
+    senders: detailSenders(securitySenders),
+    kinds: mailByKind(securitySenders, Date.now()).kinds,
+    scams: byId.get("flagged-senders") ?? 0,
+    waiting: byId.get("screener-queue") ?? 0,
+  };
   setNavCount("rules", ctx.settings.rules.length);
   setNavCount("screener", byId.get("screener-queue") ?? 0);
   renderProtectTiles(
@@ -1102,12 +1122,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
   overviewContentEl.appendChild(
     renderHomeDashboard(
       facts,
-      (screen, act) => {
-        void selectScreen(screen).then(() => {
-          if (act === "mute-never-opened") neverReadMuteBtn.click();
-          if (act === "trash-past-date") expiryCleanupBtn.click();
-        });
-      },
+      goAndAct,
       (kind) => details?.open({ kind }),
     ),
   );

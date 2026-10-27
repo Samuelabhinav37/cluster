@@ -97,7 +97,12 @@ One head on all three of Protect's views: "Protect", one line, and three tiles (
 New senders, Held so far) that switch between them; the sidebar shows Protect alone. Scams are
 split into High priority (warned or held) and Worth a look (weak signs only). New senders gets
 "Let in all" for senders you already get mail from: a list, or someone writing for over two
-weeks, never anyone with a scam warning; one confirm, one rescan. Kai / Ask Kai is next.
+weeks, never anyone with a scam warning; one confirm, one rescan.
+
+Ask Kai (done 2026-10-27) replaces the sidebar's sender search: "/" or Ctrl+K opens a box that
+reads what you type (a sender, a kind, a week, never opened, old codes, scams, new senders, a
+place) and offers up to six hits. Every hit opens Details, a place, or that place's own confirm;
+nothing runs from the box. Keyword matching only for now. Dashboard JS budget 560 to 580 KB.
 
 ## Track 4: presets for Organize
 

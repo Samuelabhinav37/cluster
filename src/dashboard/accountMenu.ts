@@ -41,33 +41,3 @@ export function wireAccountMenu(): void {
     if (!menu.hidden && !(event.target as HTMLElement).closest(".account-wrap")) setOpen(false);
   });
 }
-
-/**
- * The header search box filters the Senders list. Typing opens Senders and
- * mirrors the text into that screen's own search field; "/" focuses it.
- */
-export function wireHeaderSearch(openSenders: () => void): void {
-  const input = document.getElementById("header-search") as HTMLInputElement | null;
-  const target = document.getElementById("sender-search") as HTMLInputElement | null;
-  if (!input || !target) return;
-
-  input.addEventListener("input", () => {
-    openSenders();
-    target.value = input.value;
-    target.dispatchEvent(new Event("input"));
-  });
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      openSenders();
-      target.focus();
-    }
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey) return;
-    const active = document.activeElement as HTMLElement | null;
-    if (active && (active.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName))) return;
-    event.preventDefault();
-    input.focus();
-  });
-}

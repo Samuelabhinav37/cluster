@@ -29,7 +29,8 @@ const BUDGETS = {
   // the raise). Lazy-loading the tabs is the next lever if it grows again.
   // 2026-10-26: 540 → 560 KB for the Unicode confusables table (7.5 KB) and
   // the algorithm-plan fixes; lazy tabs are still the next lever.
-  "dashboard JS": 560 * KB,
+  // 2026-10-27: 560 → 580 KB for Details, Protect's tiles and Ask Kai.
+  "dashboard JS": 580 * KB,
   // 2026-10-16: +10 KB for Kai's corner guide and chat (dashboard.css Kai
   // section, ~8 KB raw / 1.5 KB gzip), on top of 47 KB before Kai.
   // 2026-10-26: 60 → 64 KB for the rail shell (rail, panel, crumbs; ~3 KB raw).

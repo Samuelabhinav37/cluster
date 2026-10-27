@@ -3758,3 +3758,23 @@ body.details-open:has(.details.wide) .kai-guide { right: calc(50vw + 24px); }
 .tier[hidden] { display: none; }
 .tier + .tier { margin-top: 26px; }
 [data-screen="impersonation"] + .nav-children { display: none !important; }
+
+/* Ask Kai (Track 5): a box that takes you where you asked. */
+.ask-open { width: calc(100% - 24px); border: 0; font: 400 13px/1.3 var(--mono); text-align: left; cursor: pointer; }
+.ask-open span { flex: 1; }
+.ask-open:hover { color: var(--label); }
+.ask { position: fixed; inset: 0; z-index: 40; display: flex; justify-content: center; align-items: flex-start; padding: 12vh 16px 0;
+  background: rgba(0, 0, 0, 0.35); }
+.ask[hidden] { display: none; }
+.ask-box { width: min(620px, 100%); overflow: hidden; border: 1px solid var(--separator); border-radius: 16px; background: var(--glass-bar);
+  box-shadow: var(--shadow-card); }
+.ask-input { width: 100%; padding: 16px 18px; border: 0; border-bottom: 1px solid var(--separator); background: none; color: var(--label);
+  font: 400 17px/1.3 var(--font); outline: none; }
+.ask-results { max-height: 50vh; overflow: auto; padding: 8px; }
+.ask-results h3 { margin: 8px 8px 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--label-4); }
+.ask-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 8px; background: none;
+  color: var(--label); font: inherit; text-align: left; cursor: pointer; }
+.ask-row small { color: var(--label-4); font-size: 12px; }
+.ask-row em { margin-left: auto; font-style: normal; font-weight: 600; color: var(--accent-text); }
+.ask-row[aria-selected="true"], .ask-row:hover { background: var(--accent-fill); }
+.ask-hint { display: flex; gap: 14px; padding: 9px 16px; border-top: 1px solid var(--separator); font-size: 12px; color: var(--label-4); }
