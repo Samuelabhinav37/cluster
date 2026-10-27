@@ -4,6 +4,7 @@
 // senders from it. A provider whose index isn't built yet, or that has no
 // change feed, is left to the old scans until the dashboard builds it.
 import { markRepliesToYou } from "./correspondents";
+import { emptyKindModel, loadKindModel, markLearnedTransactional } from "./kindModel";
 import { buildCorrespondents, mergeCorrespondentAddresses, type Correspondent } from "./correspondents";
 import { log } from "./log";
 import { openMailIndex, type MailIndexStore } from "./mailIndex";
@@ -77,6 +78,7 @@ export async function readIndexedSenders(
   ).security;
   const sent = (await Promise.all(providers.map((p) => index.allSent(p.id)))).flat();
   markRepliesToYou([...cleanup, ...security], metas, sent);
+  markLearnedTransactional([...cleanup, ...security], await loadKindModel().catch(() => emptyKindModel()));
   return { cleanup, security };
 }
 

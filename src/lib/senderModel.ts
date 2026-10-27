@@ -64,6 +64,9 @@ export interface MessageRecord {
   /** In a thread you wrote in, or answering one of your sent messages
    * (set by markRepliesToYou). */
   repliesToYou?: boolean;
+  /** "you": you said this sender sends receipts. "model": the kind model is
+   * sure it's one, a content guess (set by kindModel.markLearnedTransactional). */
+  learnedTransactional?: "you" | "model";
 }
 
 export interface SenderSummary {

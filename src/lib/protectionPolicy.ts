@@ -9,6 +9,7 @@ export type ProtectionReason =
   | "provider-marked-personal"
   | "known-correspondent"
   | "reply-to-you"
+  | "learned-transactional"
   | "active-offer-or-window"
   | "transactional"
   | "sensitive-subject"
@@ -68,6 +69,7 @@ export function protectionDecision(
     return { protected: true, reason: "known-correspondent" };
   }
   if (message.repliesToYou) return { protected: true, reason: "reply-to-you" };
+  if (message.learnedTransactional === "you") return { protected: true, reason: "learned-transactional" };
   const subject = cleanText(message.subject ?? "");
   if (ACTIVE_OFFER_OR_WINDOW_RE.test(subject)) {
     return { protected: true, reason: "active-offer-or-window" };
@@ -79,6 +81,7 @@ export function protectionDecision(
   if (["receipt", "shipping"].includes(message.kind)) {
     return { protected: true, reason: "transactional" };
   }
+  if (message.learnedTransactional === "model") return { protected: true, reason: "learned-transactional" };
   if (SENSITIVE_SUBJECT.test(subject)) {
     return { protected: true, reason: "sensitive-subject" };
   }
@@ -117,6 +120,7 @@ export function buildSenderCleanupPlan(
       "provider-marked-personal": 0,
       "known-correspondent": 0,
       "reply-to-you": 0,
+      "learned-transactional": 0,
       "active-offer-or-window": 0,
       transactional: 0,
       "sensitive-subject": 0,

@@ -53,9 +53,14 @@ const LOCAL_PART: [RegExp, string][] = [
   [/(support|help|service|care)/, "support"],
 ];
 
+/** "noreply", "orders", "billing"... from an address's local part. */
+export function localPartClass(address: string): string {
+  const local = address.split("@")[0].toLowerCase();
+  return LOCAL_PART.find(([re]) => re.test(local))?.[1] ?? "other";
+}
+
 /** Named facts about a sender, readable as reasons. Never addresses or text. */
 export function suggestionFeatures(sender: SenderSummary, profile: SenderProfile, action?: string): string[] {
-  const local = sender.address.split("@")[0].toLowerCase();
   const u = sender.unsubscribe;
   const features = [
     `tier:${profile.tier}`,
@@ -66,7 +71,7 @@ export function suggestionFeatures(sender: SenderSummary, profile: SenderProfile
     `sending:${profile.stillSending ? "yes" : "stopped"}`,
     `list:${profile.listId ? "id" : "none"}`,
     `unsub:${u.postUrl ? "oneclick" : u.httpUrl || u.mailto ? "link" : "none"}`,
-    `local:${LOCAL_PART.find(([re]) => re.test(local))?.[1] ?? "other"}`,
+    `local:${localPartClass(sender.address)}`,
   ];
   if (action) features.push(`act:${action}`);
   return features;

@@ -79,6 +79,8 @@ import { buildSuggestions, SUGGESTION_ACTION_LABELS, unopenedSuggestions, type S
 import { markFirstContact } from "../lib/firstContact";
 import { log } from "../lib/log";
 import { initSuggestionModel, learnFromFeedback, suggestionModel } from "./suggestionLearning";
+import { answerKind, initKindModel, kindModel } from "./kindLearning";
+import { markLearnedTransactional, sendersToAsk } from "../lib/kindModel";
 import { isAuthCancelled } from "../lib/chromeError";
 import {
   formatRelativeTime,
@@ -499,7 +501,12 @@ async function main() {
   });
   statusEl.textContent = "Connecting…";
   // Domain matching needs the Public Suffix List (a local file, quick to load).
-  const [settings] = await Promise.all([getSettings(), loadPublicSuffixList(), initSuggestionModel()]);
+  const [settings] = await Promise.all([
+    getSettings(),
+    loadPublicSuffixList(),
+    initSuggestionModel(),
+    initKindModel(),
+  ]);
   ctx.settings = settings;
   applyTheme(ctx.settings.theme);
   applySimpleMode(ctx.settings.simpleMode);
@@ -856,6 +863,7 @@ async function scanAndRender({ refresh = false }: { refresh?: boolean } = {}) {
   applyCensus(combined.security, censusRows);
   const sent = (await Promise.all(providers.map((p) => store.allSent(p.id)))).flat();
   markRepliesToYou([...combined.cleanup, ...combined.security], metas, sent);
+  markLearnedTransactional([...combined.cleanup, ...combined.security], kindModel());
   ctx.profiles = buildSenderProfiles({
     rows: metas,
     sent,
@@ -2672,6 +2680,14 @@ function renderNeverReadSection(senders: SenderSummary[]) {
   thead.appendChild(headerRow(["Sender", "Why", "Suggested", "Feedback"]));
   table.appendChild(thead);
   const tbody = document.createElement("tbody");
+  // Ask about at most three rows, the ones the kind model is least sure of.
+  // Mailing lists are never receipts, so they're never asked about.
+  const ask = new Set(
+    sendersToAsk(
+      kindModel(),
+      engagementSuggestions.filter((s) => !s.profile.listId).map((s) => s.sender),
+    ).map((s) => s.key),
+  );
   for (const suggestion of engagementSuggestions) {
     const { sender } = suggestion;
     const row = document.createElement("tr");
@@ -2690,6 +2706,23 @@ function renderNeverReadSection(senders: SenderSummary[]) {
       await saveEngagementFeedback([sender.key], "dismiss");
       renderNeverReadSection(ctx.senders);
     };
+    if (ask.has(sender.key)) {
+      const keepBtn = document.createElement("button");
+      keepBtn.textContent = "Receipts? Keep them";
+      keepBtn.title = "Keep this sender's mail and learn what your receipts look like";
+      const noBtn = document.createElement("button");
+      noBtn.textContent = "No";
+      noBtn.title = "Not receipts";
+      const reply = (value: "yes" | "no") => async () => {
+        keepBtn.disabled = noBtn.disabled = true;
+        await answerKind(sender, value).catch((err) => log.error("Could not save your answer", err));
+        renderDeleteScreen(ctx.senders);
+        renderNeverReadSection(ctx.senders);
+      };
+      keepBtn.onclick = reply("yes");
+      noBtn.onclick = reply("no");
+      feedbackCell.append(keepBtn, noBtn);
+    }
     feedbackCell.appendChild(dismissBtn);
     row.append(nameCell, reasonCell, actionCell, feedbackCell);
     tbody.appendChild(row);
