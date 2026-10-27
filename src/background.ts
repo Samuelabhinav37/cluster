@@ -19,6 +19,7 @@ import { getSettings, mutateSettings, updateSettings } from "./lib/settingsStore
 import { excludeSnoozedMessages } from "./lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
 import { runReplyReminders } from "./lib/replyReminders";
+import { deliverNewsletters } from "./lib/newsletterDay";
 import { flushAthenaSecurityEvents, queueAthenaSecurityEvents } from "./lib/athenaIntegration";
 import { buildIncrementalSenderSummaries } from "./lib/incrementalSync";
 import { gmailQuotaHeadroom } from "./lib/gmailQuotaLedger";
@@ -109,9 +110,9 @@ function handleAlarm(alarm: chrome.alarms.Alarm): void {
   }
   if (alarm.name === DATASET_ALARM) void refreshPublicDatasets();
   if (alarm.name === INBOX_LIMITS_ALARM) {
-    void runInboxTimeLimitsIfQuota().then(() =>
-      runUnsubscribedSweep().catch((err) => log.error("Unsubscribed sweep failed", err)),
-    );
+    void runInboxTimeLimitsIfQuota()
+      .then(() => runUnsubscribedSweep().catch((err) => log.error("Unsubscribed sweep failed", err)))
+      .then(() => deliverNewsletters().catch((err) => log.error("Newsletter delivery failed", err)));
   }
 }
 

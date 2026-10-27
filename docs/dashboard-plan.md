@@ -112,6 +112,14 @@ editor and saves through it; switching on from off turns on that kind alone. Und
 puts every row and the switch back. The editor is under "Make your own". "Mute what you never
 open" stays in Clean up rather than appearing twice.
 
+More presets, 2026-10-27 (research/2026-10-27-organizing-rules.md, top 8): Shopping, App updates,
+one Receipts and tracking card; Keep each sender's newest 3 in your inbox (archives the rest,
+one time, Undo in Activity); Mail you never open skips the inbox (Keep sorted to Read later,
+Undo removes the filter); a line saying starred mail and people you write to never leave on a
+timer (the sweep already skipped them); Remind me if no reply in 3 days (replyReminders.ts, on
+the 6 hour check); Newsletters on Saturday (newsletterDay.ts: held by a 10 minute limit, back
+in the inbox Saturday 8 am, pinned). Eleven cards now; grouping them is a Track 6 question.
+
 - A gallery of 6 to 8 named presets, grouped like Shortcuts: "Codes: delete after 2 days",
   "Receipts: file under Receipts", "Newsletters: archive after a week", "Promotions: trash
   after 30 days", "Mute what you never open", "Social: skip the inbox".

@@ -43,6 +43,8 @@ export interface ClusterSettings {
   /** Gmail-only: bring a sent thread back when nobody answered (replyReminders.ts).
    * `reminded` is threadId → the message last brought back, so each goes once. */
   replyReminders: { enabled: boolean; days: number; reminded: Record<string, string> };
+  /** Newsletters held out of the inbox and delivered on Saturday morning (newsletterDay.ts). */
+  newsletterDay: { enabled: boolean; lastDelivered: number };
 
   // ── Power features (Phases 2–6) ──────────────────────────────────────────
   /** Standing user rules — Auto Clean equivalent (see rules.ts / ruleRunner.ts). */
@@ -186,6 +188,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   onboardingDismissed: false,
   snoozedMessages: {},
   replyReminders: { enabled: false, days: 3, reminded: {} },
+  newsletterDay: { enabled: false, lastDelivered: 0 },
   rules: [],
   actionLog: [],
   mutedSenders: [],

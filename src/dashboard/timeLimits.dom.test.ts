@@ -175,3 +175,19 @@ describe("Never opened skips the inbox", () => {
     expect(address).toBeTruthy();
   });
 });
+
+describe("Newsletters on Saturday", () => {
+  it("holds newsletters through the sweep (10 minutes) and shows On", async () => {
+    const dash = await bootDashboard();
+    await openOrganize(dash);
+    const card = () => document.querySelector<HTMLElement>('#presets [data-preset="saturday"]')!;
+    card().querySelector("button")!.click();
+    await vi.waitFor(() => {
+      const s = dash.storedSettings();
+      expect(s.newsletterDay.enabled).toBe(true);
+      expect(s.autoSort.inboxHoursByBucket.newsletter).toBeCloseTo(1 / 6);
+      expect(s.autoSort.inboxHoursByBucket.otp).toBeNull();
+    });
+    await vi.waitFor(() => expect(card().querySelector(".rec-fact")!.textContent).toBe("On"));
+  });
+});

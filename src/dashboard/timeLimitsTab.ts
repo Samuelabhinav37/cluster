@@ -10,6 +10,7 @@ import { log } from "../lib/log";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { getSettings, updateSettings } from "../lib/settingsStore";
 import { domainOf } from "../lib/domainGrouping";
+import { deliverNewsletters, HOLD_HOURS, newsletterDayOn } from "../lib/newsletterDay";
 import type { SenderSummary } from "../lib/senderModel";
 import { ALL_SORT_BUCKETS, effectiveBucket, type SortBucket } from "../lib/sortTaxonomy";
 import { logAction } from "./recentTab";
@@ -335,6 +336,40 @@ async function saveLimits(hours: Limits, on: boolean, after: typeof undoable): P
   renderPresets();
 }
 
+/** Newsletters held out of the inbox, delivered Saturday at 8 am. Off brings
+ * the held ones back now. */
+function newsletterDayCard(): HTMLElement {
+  const on = newsletterDayOn(ctx.settings);
+  const card = document.createElement("div");
+  card.className = "rec-card";
+  card.dataset.preset = "saturday";
+  const name = document.createElement("div");
+  name.className = "rec-name";
+  name.textContent = "Newsletters on Saturday";
+  const fact = document.createElement("div");
+  fact.className = "rec-fact";
+  fact.textContent = on ? "On" : "Read them all at once, Saturday at 8 am";
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn btn-sm";
+  btn.textContent = on ? "Turn off" : "Turn on";
+  btn.onclick = async () => {
+    btn.disabled = true;
+    const cfg = ctx.settings.autoSort;
+    ctx.settings = await updateSettings({ newsletterDay: { enabled: !on, lastDelivered: Date.now() } });
+    const base: Limits = cfg.timeLimitsEnabled
+      ? { ...cfg.inboxHoursByBucket }
+      : Object.fromEntries(ALL_SORT_BUCKETS.map((b) => [b, null]));
+    await saveLimits({ ...base, newsletter: on ? null : HOLD_HOURS }, true, null);
+    if (on) await deliverNewsletters(Date.now(), true).catch((err) => log.error("Newsletter delivery failed", err));
+  };
+  const actions = document.createElement("div");
+  actions.className = "rec-actions";
+  actions.append(btn);
+  card.append(name, fact, actions);
+  return card;
+}
+
 let presetSenders: readonly SenderSummary[] = [];
 let extraCards: () => HTMLElement[] = () => [];
 
@@ -397,6 +432,7 @@ export function renderPresets(senders: readonly SenderSummary[] = presetSenders)
       }
       return card;
     }),
+    newsletterDayCard(),
     ...extraCards(),
   );
 }
