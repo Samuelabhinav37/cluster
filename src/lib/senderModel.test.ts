@@ -283,9 +283,11 @@ describe("buildCombinedSenderSummaries", () => {
       makeMeta({ id: "b1", fromAddress: "news@brand.example", lanes: ["cleanup", "security"] }),
     ]);
 
-    const { cleanup, security, scannedCount } = await buildCombinedSenderSummaries([gmail]);
+    const { cleanup, security, all, scannedCount } = await buildCombinedSenderSummaries([gmail]);
 
     expect(scannedCount).toBe(3);
+    // Home's total: b1 sits in both lanes but is one email.
+    expect(all.reduce((n, s) => n + s.messages.length, 0)).toBe(3);
     expect(cleanup.map((s) => s.address).sort()).toEqual(["news@brand.example", "promo@shop.example"]);
     expect(security.map((s) => s.address).sort()).toEqual(["boss@work.example", "news@brand.example"]);
     // getMessageMetadata called once per message, not once per lane.
@@ -304,7 +306,7 @@ describe("buildCombinedSenderSummaries", () => {
     );
     const gmail = makeProvider("gmail", metas);
 
-    const { cleanup, security } = await buildCombinedSenderSummaries(
+    const { cleanup, security, all } = await buildCombinedSenderSummaries(
       [gmail],
       500,
       180,
@@ -313,6 +315,7 @@ describe("buildCombinedSenderSummaries", () => {
 
     expect(cleanup).toHaveLength(10);
     expect(security).toHaveLength(3);
+    expect(all).toHaveLength(10);
     expect(security.map((s) => s.address)).toEqual(["s0@x.example", "s1@x.example", "s2@x.example"]);
   });
 });

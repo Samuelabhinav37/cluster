@@ -961,9 +961,10 @@ async function scanAndRender({
   const censusRows = (await Promise.all(providers.map((p) => store.allCensus(p.id)))).flat();
   applyCensus(combined.cleanup, censusRows);
   applyCensus(combined.security, censusRows);
+  applyCensus(combined.all, censusRows);
   const sent = (await Promise.all(providers.map((p) => store.allSent(p.id)))).flat();
-  markRepliesToYou([...combined.cleanup, ...combined.security], metas, sent);
-  markLearnedTransactional([...combined.cleanup, ...combined.security], kindModel());
+  markRepliesToYou([...combined.cleanup, ...combined.security, ...combined.all], metas, sent);
+  markLearnedTransactional([...combined.cleanup, ...combined.security, ...combined.all], kindModel());
   ctx.profiles = buildSenderProfiles({
     rows: metas,
     sent,
@@ -977,6 +978,7 @@ async function scanAndRender({
   for (const { run } of runs) refreshWhenDone(run);
   let senders = combined.cleanup;
   const securitySenders = combined.security;
+  const allSenders = combined.all;
 
   const activeSnoozedIds = new Set(
     Object.entries(ctx.settings.snoozedMessages)
@@ -1024,8 +1026,8 @@ async function scanAndRender({
   // The scan itself succeeded — a throw in one render must not blank the rest
   // (or trip the global "couldn't load your mail"). Each block is isolated.
   updateSenderState(senders);
-  safeRender("overview", () => renderOverview(senders, securitySenders));
-  safeRender("details", () => details?.update(securitySenders));
+  safeRender("overview", () => renderOverview(senders, securitySenders, allSenders));
+  safeRender("details", () => details?.update(allSenders));
   safeRender("delete", () => renderDeleteScreen(senders));
   safeRender("subscriptions", () => renderOrganizeScreen(senders));
   safeRender("senders", () => renderAllSenders(senders));
@@ -1047,7 +1049,7 @@ async function scanAndRender({
   safeRender("organize", () => renderTimeLimits());
   safeRender("organize", () => renderPresets(securitySenders));
   safeRender("screener", () => renderScreenerTab(senders));
-  safeRender("overview", () => updateNavCounts(senders, securitySenders));
+  safeRender("overview", () => updateNavCounts(senders, securitySenders, allSenders));
   generateDigestBtn.disabled = false;
 }
 
@@ -1083,7 +1085,7 @@ function goAndAct(screen: string, act?: HomeAct) {
   });
 }
 
-function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummary[]) {
+function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummary[], allSenders: SenderSummary[]) {
   const health = buildInboxHealth({ senders, securitySenders, settings: ctx.settings });
   const byId = new Map(health.metrics.map((m) => [m.id, m.value]));
   setNavCount("delete", clearOutPlan(senders).total, true, "emails to clear out");
@@ -1092,8 +1094,8 @@ function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummar
   setNavCount("impersonation", byId.get("flagged-senders") ?? 0);
   setPhishingNavSeverity(securitySenders);
   askFacts = {
-    senders: detailSenders(securitySenders),
-    kinds: mailByKind(securitySenders, Date.now()).kinds,
+    senders: detailSenders(allSenders),
+    kinds: mailByKind(allSenders, Date.now()).kinds,
     scams: byId.get("flagged-senders") ?? 0,
     waiting: byId.get("screener-queue") ?? 0,
   };
@@ -1177,7 +1179,7 @@ function fakedBrands(senders: SenderSummary[]): string[] {
 
 // ── Overview screen (v3) ────────────────────────────────────────────────
 // Home: the total, the kind bar and up to three next steps (homeDashboard.ts).
-function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary[]) {
+function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary[], allSenders: SenderSummary[]) {
   const health = buildInboxHealth({ senders, securitySenders, settings: ctx.settings });
   const byId = new Map(health.metrics.map((m) => [m.id, m.value]));
   overviewHeadlineEl.textContent = `Scanned ${health.scannedSenders} sender${
@@ -1188,8 +1190,8 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
 
   overviewContentEl.innerHTML = "";
   const facts: HomeFacts = {
-    // The security lane is the whole inbox; `senders` is only the cleanup tabs.
-    ...mailByKind(securitySenders, Date.now()),
+    // All mail read, so Clean up's part and the total share one population.
+    ...mailByKind(allSenders, Date.now()),
     suspicious: byId.get("flagged-senders") ?? 0,
     waiting: byId.get("screener-queue") ?? 0,
     neverOpened: {

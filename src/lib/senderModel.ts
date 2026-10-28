@@ -343,6 +343,8 @@ export async function buildSenderSummaries(
 export interface CombinedScanResult {
   cleanup: SenderSummary[];
   security: SenderSummary[];
+  /** Every message read, by sender, uncapped: Home's and Details' one total. */
+  all: SenderSummary[];
   /** Total messages fetched in the single pass, and whether the per-provider
    * candidate list hit `maxMessagesPerProvider` (every count downstream is
    * then a sample of the most recent N). */
@@ -424,6 +426,7 @@ export function summarizeCombined(
   return {
     cleanup: summariesFrom(metas.filter((m) => inLane(m, "cleanup"))),
     security: summariesFrom(securityMetas),
+    all: summariesFrom(metas),
     scannedCount: metas.length,
     capHit,
   };

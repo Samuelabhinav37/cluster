@@ -101,7 +101,7 @@ const tileOf = (el: HTMLElement, name: string) =>
 
 describe("renderHomeDashboard", () => {
   it("lays out four tiles: Inbox and Protect, then Clean up and Organize", () => {
-    expect(tiles(renderHomeDashboard(calm, vi.fn()))).toEqual(["Inbox", "Protect", "Clean up", "Organize"]);
+    expect(tiles(renderHomeDashboard(calm, vi.fn()))).toEqual(["All mail", "Protect", "Clean up", "Organize"]);
   });
 
   it("Inbox shows the total, one bar segment per kind with mail, and a labelled legend", () => {
@@ -140,7 +140,7 @@ describe("renderHomeDashboard", () => {
     expect(tileOf(el, "Protect").querySelector(".tile-note")!.textContent).toBe(
       "Pretending to be PayPal, Netflix",
     );
-    expect(tileOf(el, "Clean up").querySelector(".tile-stat")!.textContent).toBe("4emails ready to go");
+    expect(tileOf(el, "Clean up").querySelector(".tile-stat")!.textContent).toBe("4of 65 ready to go");
     expect(tileOf(el, "Clean up").textContent).not.toMatch(/\b3\b/);
     expect(el.querySelectorAll(".tile-body button")).toHaveLength(0);
     for (const name of ["Protect", "Clean up", "Organize"])

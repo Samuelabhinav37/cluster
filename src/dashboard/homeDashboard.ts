@@ -268,16 +268,16 @@ const BRAND_NAMES: Record<string, string> = {
 };
 const brandName = (key: string) => BRAND_NAMES[key] ?? key.replace(/\b\w/g, (c) => c.toUpperCase());
 
-/** Home as a bento grid: Inbox and Protect, then Clean up and Organize.
+/** Home as a bento grid: All mail and Protect, then Clean up and Organize.
  * `openKind` opens those emails in Details. */
 export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: HomeKind) => void): HTMLElement {
   const root = el("div", "home bento");
 
-  // Inbox: the number, the bar and the legend, like iCloud's storage.
+  // All mail read: the number, the bar and the legend, like iCloud's storage.
   const inbox = tile({
     app: "inbox",
     ic: "mail",
-    name: "Inbox",
+    name: "All mail",
     wide: true,
     open: () => openKind?.("primary"),
   });
@@ -341,7 +341,8 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
   const clean = tile({ app: "clean", ic: "trash", name: "Clean up", wide: true, open: () => go("delete") });
   if (clearable === 0) clean.body.append(quiet("check", "Nothing to clear", "ok"));
   else {
-    clean.body.append(stat(clearable, clearable === 1 ? "email ready to go" : "emails ready to go"));
+    // "of N" names the total it is part of, the All mail number above.
+    clean.body.append(stat(clearable, `of ${f.total.toLocaleString()} ready to go`));
     const parts: Array<[ic: string, name: string]> = [];
     if (f.neverOpened.senders > 0) parts.push(["mail-x", "Never opened"]);
     if (f.pastDate > 0) parts.push(["clock", "Past its date"]);
