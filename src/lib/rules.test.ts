@@ -313,3 +313,17 @@ describe("Trash rules never lose mail they shouldn't (B2)", () => {
     expect([...matchRule(label, [s]).values()].flat()).toEqual(["r"]);
   });
 });
+
+describe("appliesFrom", () => {
+  it("leaves mail that was already there alone", () => {
+    const now = Date.now();
+    const s = sender({
+      address: "news@x.example",
+      messages: [msg({ id: "old", receivedAt: now - 1000 }), msg({ id: "new", receivedAt: now + 1000 })],
+    });
+    const fresh = matchRule(rule({ conditions: { fromAddress: "news@x.example" }, appliesFrom: now }), [s]);
+    expect([...fresh.values()].flat()).toEqual(["new"]);
+    const all = matchRule(rule({ conditions: { fromAddress: "news@x.example" } }), [s]);
+    expect([...all.values()].flat().sort()).toEqual(["new", "old"]);
+  });
+});

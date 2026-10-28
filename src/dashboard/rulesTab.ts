@@ -60,6 +60,23 @@ const ruleDraftBtn = document.getElementById("rule-draft-btn") as HTMLButtonElem
 const ruleSaveDraftBtn = document.getElementById("rule-save-draft-btn") as HTMLButtonElement;
 const ruleDraftStatus = document.getElementById("rule-draft-status") as HTMLSpanElement;
 let pendingRuleDraft: ClusterRule | undefined;
+const ruleExistingInput = document.getElementById("rule-existing") as HTMLInputElement;
+const ruleExistingText = document.getElementById("rule-existing-text") as HTMLSpanElement;
+
+/** "Also do this to the 42 you have now": off by default, so a new rule only
+ * touches mail that arrives after it is saved. */
+function showExistingCount(rule: ClusterRule | undefined) {
+  const n = rule
+    ? previewRuleMatches([{ ...rule, enabled: true, appliesFrom: undefined }], ctx.senders, buildProtectionContext(ctx.settings))
+    : 0;
+  ruleExistingText.textContent = rule ? `Also do this to the ${n} you have now` : "Also do this to mail you have now";
+}
+
+function appliesFrom(): number | undefined {
+  const all = ruleExistingInput.checked;
+  ruleExistingInput.checked = false;
+  return all ? undefined : Date.now();
+}
 
 export function renderRulesTab() {
   rulesListEl.innerHTML = "";
@@ -291,6 +308,22 @@ export function wireRulesTab() {
   ruleActionSel.onchange = () => {
     ruleLabelInput.hidden = ruleActionSel.value !== "label";
   };
+  ruleForm.addEventListener("input", () => {
+    const conditions = collectRuleConditions();
+    showExistingCount(
+      ruleHasConditions(conditions)
+        ? {
+            id: "preview",
+            name: "",
+            enabled: true,
+            conditions,
+            exceptions: collectRuleExceptions(),
+            action: ruleActionSel.value as RuleAction,
+            labelName: ruleLabelInput.value.trim() || "preview",
+          }
+        : undefined,
+    );
+  });
 
   ruleForm.onsubmit = async (e) => {
     e.preventDefault();
@@ -323,6 +356,7 @@ export function wireRulesTab() {
       stopProcessing: ruleStopProcessingInput.checked,
       action,
       labelName,
+      appliesFrom: appliesFrom(),
     };
     const broad = ruleGuardWarning(rule);
     if (broad) {
@@ -346,6 +380,7 @@ export function wireRulesTab() {
     try {
       const draft = await draftRuleFromNaturalLanguage(ruleNaturalLanguageInput.value);
       pendingRuleDraft = draft.rule;
+      showExistingCount(draft.rule);
       const reviewRule = { ...draft.rule, enabled: true };
       const matches = previewRuleMatches([reviewRule], ctx.senders, buildProtectionContext(ctx.settings));
       const conflicts = findRuleConflicts([...ctx.settings.rules, reviewRule], ctx.senders).filter(
@@ -368,7 +403,7 @@ export function wireRulesTab() {
       return;
     }
     ctx.settings = await updateSettings({
-      rules: [...ctx.settings.rules, { ...pendingRuleDraft, enabled: true }],
+      rules: [...ctx.settings.rules, { ...pendingRuleDraft, enabled: true, appliesFrom: appliesFrom() }],
     });
     pendingRuleDraft = undefined;
     ruleSaveDraftBtn.disabled = true;

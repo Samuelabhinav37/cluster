@@ -68,6 +68,9 @@ export interface ClusterRule {
    * it out. Set by the "keep sorting" rules "Sort my inbox" saves for
    * label-in-place buckets (Shopping, Finance, …). */
   labelKeepInInbox?: boolean;
+  /** Only mail that arrived from this time on; set unless the user ticked
+   * "also do this to the mail you have now". Older rules have none. */
+  appliesFrom?: number;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -155,6 +158,7 @@ export function evaluateRuleMessage(
   if (!ruleHasConditions(rule.conditions) || !conditionsMatch(rule.conditions, sender, message, now)) {
     return "conditions-miss";
   }
+  if (rule.appliesFrom !== undefined && message.receivedAt < rule.appliesFrom) return "conditions-miss";
   if (message.isProtected) return "protected";
   if (ruleTrashes(rule)) {
     // Trash is the one action that can lose mail: the central protection

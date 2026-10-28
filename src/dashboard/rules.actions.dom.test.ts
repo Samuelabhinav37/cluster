@@ -15,6 +15,9 @@ import { bootDashboard, confirmStep, fixtureMailbox, makeGmailSpy } from "./test
 async function addTrashRuleForDomain(dash: Awaited<ReturnType<typeof bootDashboard>>, domain: string) {
   (dash.el("rule-from-domain") as HTMLInputElement).value = domain;
   (dash.el("rule-action") as HTMLSelectElement).value = "trash";
+  dash.el("rule-form").dispatchEvent(new Event("input", { bubbles: true }));
+  // These tests run the rule on mail already scanned, so tick "the N you have now".
+  (dash.el("rule-existing") as HTMLInputElement).checked = true;
   (dash.el("rule-add-btn") as HTMLButtonElement).click();
   // ruleForm.onsubmit's ctx.settings write is async.
   await vi.waitFor(() => {
@@ -54,6 +57,18 @@ describe("Rules screen — manual rule composer", () => {
       enabled: true,
     });
     expect(dash.el("rules-list").textContent).toContain("shop.example");
+  });
+});
+
+describe("Rules screen — new rules and mail you have now", () => {
+  it("counts the mail a new rule would touch, and leaves it alone unless ticked", async () => {
+    const dash = await bootDashboard();
+    dash.showScreen("organize");
+    (dash.el("rule-from-domain") as HTMLInputElement).value = "shop.example";
+    dash.el("rule-form").dispatchEvent(new Event("input", { bubbles: true }));
+    expect(dash.el("rule-existing-text").textContent).toBe("Also do this to the 3 you have now");
+    (dash.el("rule-add-btn") as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(dash.storedSettings().rules?.[0]?.appliesFrom).toBeGreaterThan(0));
   });
 });
 
