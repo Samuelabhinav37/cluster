@@ -1228,6 +1228,9 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
     // Until reading is done the total covers only recent mail, so say how far back.
     since: [...indexRuns.values()].some((r) => r.progress?.phase === "reading") ? oldestRead(allSenders) : undefined,
   };
+  // Day one: the census has counted senders' mail before it is all read.
+  const counted = allSenders.reduce((n, s) => n + senderVolume(s), 0);
+  if (counted > facts.total) Object.assign(facts, { total: counted, since: undefined });
   overviewContentEl.appendChild(renderHomeDashboard(facts, goAndAct, (kind) => details?.open({ kind })));
   // Kai's tip, once a visit: the kind that fills most of the inbox.
   const top = HOME_KINDS.reduce((a, b) => (facts.kinds[b.key] > facts.kinds[a.key] ? b : a));
