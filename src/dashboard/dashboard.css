@@ -1271,22 +1271,6 @@ body[data-state="connect"] .screen {
   margin: 0;
 }
 
-.connect-points {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  font: 400 15px/1.5 var(--font);
-  color: var(--label-3);
-}
-
-.connect-points strong {
-  color: var(--label);
-  font-weight: 600;
-}
-
 .connect-actions {
   display: flex;
   flex-wrap: wrap;
