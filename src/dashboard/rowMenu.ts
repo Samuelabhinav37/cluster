@@ -23,6 +23,16 @@ function wireDocument() {
   document.addEventListener("click", (event) => {
     if (openMenu && !openMenu.menu.parentElement!.contains(event.target as Node)) close();
   });
+  // Capture phase, so an open menu takes Escape before Details or a sheet does.
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key !== "Escape" || !openMenu) return;
+      event.stopPropagation();
+      close(true);
+    },
+    true,
+  );
 }
 
 export function rowMenu(entries: MenuEntry[], label = "More actions"): HTMLElement {
@@ -76,8 +86,6 @@ export function rowMenu(entries: MenuEntry[], label = "More actions"): HTMLEleme
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       list[(at + (event.key === "ArrowDown" ? 1 : -1) + list.length) % list.length]?.focus();
-    } else if (event.key === "Escape") {
-      close(true);
     }
   });
 
