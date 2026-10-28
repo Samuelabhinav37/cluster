@@ -463,7 +463,7 @@ export function renderPresets(senders: readonly SenderSummary[] = presetSenders)
 const PRESET_GROUPS: ReadonlyArray<[head: string, ids: string[]]> = [
   ["Archive after a while", PRESETS.map((p) => p.id)],
   ["Arrive on time", ["saturday", "no-reply"]],
-  ["Tidy once", ["never-opened", "keep-newest"]],
+  ["Tidy once", ["never-opened", "keep-newest", "delivered"]],
 ];
 
 const PRESET_ICONS: Record<string, string> = {
@@ -478,6 +478,7 @@ const PRESET_ICONS: Record<string, string> = {
   "no-reply": "reply",
   "never-opened": "mail-x",
   "keep-newest": "inbox",
+  delivered: "check",
 };
 
 export function wireTimeLimits(): void {

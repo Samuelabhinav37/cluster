@@ -109,6 +109,7 @@ import { reasonLabel, suggestSpamSenders, type SpamSuggestion } from "../lib/spa
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { spamListSize } from "../lib/spamList";
 import { keepNewestExcess } from "../lib/keepNewest";
+import { deliveredUpdates } from "../lib/orderEvents";
 import { appendUndoButton, logAction, renderRecentTab, undoEntry } from "./recentTab";
 import { openRuleSheetFor, renderRulesTab, wireRulesTab } from "./rulesTab";
 import { renderLearned, SIGNED_OUT_KEY, wireSettingsMore } from "./settingsMore";
@@ -648,7 +649,7 @@ async function main() {
   wireSortInbox();
   wireTimeLimits();
   setPresetActions(() =>
-    [replyReminderCard(), neverOpenedSkipsInboxCard(), keepNewestInInboxCard()].filter(
+    [replyReminderCard(), neverOpenedSkipsInboxCard(), keepNewestInInboxCard(), deliveredOrdersCard()].filter(
       (c): c is HTMLElement => c !== null,
     ),
   );
@@ -2947,6 +2948,36 @@ function presetActionCard(
   reset();
   card.append(title, note, slot);
   return card;
+}
+
+/** Shipping updates for orders that say delivered (orderEvents.ts): archive. */
+function deliveredOrdersCard(): HTMLElement | null {
+  const merged = deliveredUpdates(ctx.senders, buildProtectionContext(ctx.settings));
+  const total = [...merged.values()].reduce((n, ids) => n + ids.length, 0);
+  if (total === 0 && !presetNotes.has("delivered")) return null;
+  return presetActionCard(
+    "delivered",
+    "Delivered orders",
+    `${total.toLocaleString()} shipping ${total === 1 ? "update" : "updates"} done`,
+    "Move out",
+    async () => {
+      let moved = 0;
+      for (const [pid, ids] of merged) {
+        const provider = providerById.get(pid);
+        if (!provider?.archiveMessages || ids.length === 0) continue;
+        await provider.archiveMessages(await provider.getAuthToken(false), ids);
+        moved += ids.length;
+      }
+      const gmailIds = merged.get("gmail") ?? [];
+      await logAction(
+        "archive",
+        `Moved out ${moved} shipping updates for delivered orders`,
+        gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "unarchive" } : undefined,
+      );
+      void scanAndRender();
+      return `Moved ${moved.toLocaleString()} out. Undo from Activity.`;
+    },
+  );
 }
 
 /** Keep each sender's newest few in the inbox and move the rest out (archive,

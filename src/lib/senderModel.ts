@@ -42,6 +42,8 @@ export interface MessageRecord {
   /** Subject is retained in memory for explainable protection decisions. */
   subject?: string;
   receivedAt: number;
+  /** Provider thread id; links shipping updates into one order (orderEvents.ts). */
+  threadId?: string;
   kind: MessageKind;
   isProtected: boolean;
   unread: boolean;
@@ -153,6 +155,7 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     id: meta.id,
     subject: meta.subject,
     receivedAt: meta.receivedAt,
+    threadId: meta.threadId,
     kind: classifyMessageKind(meta.subject, hasUnsubscribe(meta.unsubscribe), {
       address: meta.fromAddress,
       displayName: meta.fromDisplayName,
