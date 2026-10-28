@@ -63,6 +63,8 @@ export interface ClusterSettings {
   groupSendersByCompany: boolean;
   /** Screener master switch (Phase 6). */
   screenerEnabled: boolean;
+  /** Off: the Screener holds only lists and automated mail. */
+  screenerHoldPeople: boolean;
   /** Addresses the user has explicitly let through the Screener. */
   screenerAllowlist: string[];
   /** Addresses currently held in the Screener label, awaiting a
@@ -211,6 +213,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   personOverrides: {},
   groupSendersByCompany: true,
   screenerEnabled: false,
+  screenerHoldPeople: true,
   screenerAllowlist: [],
   screenedSenders: [],
   sentCorrespondents: { addresses: [], fetchedAt: 0 },

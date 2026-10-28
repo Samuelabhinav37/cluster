@@ -31,6 +31,7 @@ function firstWrote(sender: SenderSummary): string {
 }
 
 const screenerToggle = document.getElementById("screener-toggle") as HTMLInputElement;
+const holdPeopleToggle = document.getElementById("screener-people") as HTMLInputElement | null;
 const screenerQueueEl = document.getElementById("screener-queue") as HTMLDivElement;
 const screenerAllowlistEl = document.getElementById("screener-allowlist") as HTMLDivElement;
 const screenerQueueCountEl = document.getElementById("screener-queue-count") as HTMLElement | null;
@@ -45,7 +46,7 @@ async function screenPending(senders: SenderSummary[]) {
   const excluded = new Set(
     [...ctx.settings.mutedSenders, ...ctx.settings.screenedSenders].map((a) => a.toLowerCase()),
   );
-  const pending = pendingScreenerSenders(senders, known, excluded);
+  const pending = pendingScreenerSenders(senders, known, excluded, ctx.settings.screenerHoldPeople);
   const screened: string[] = [];
   for (const s of pending) {
     const provider = providerById.get(s.provider);
@@ -141,6 +142,7 @@ function buildFamiliarBatch(familiar: SenderSummary[]): HTMLDivElement {
 
 export function renderScreenerTab(senders: SenderSummary[]) {
   screenerToggle.checked = ctx.settings.screenerEnabled;
+  if (holdPeopleToggle) holdPeopleToggle.checked = ctx.settings.screenerHoldPeople;
   renderScreenerBacklog().catch((err) => log.error("Screener backlog render failed", err));
 
   screenerQueueEl.innerHTML = "";
@@ -156,7 +158,7 @@ export function renderScreenerTab(senders: SenderSummary[]) {
   } else {
     const known = knownSenderSet(ctx.settings);
     const muted = new Set(ctx.settings.mutedSenders.map((a) => a.toLowerCase()));
-    const queue = pendingScreenerSenders(senders, known, muted);
+    const queue = pendingScreenerSenders(senders, known, muted, ctx.settings.screenerHoldPeople);
 
     if (queue.length === 0) {
       const p = document.createElement("p");
@@ -288,4 +290,9 @@ export function wireScreenerTab() {
       renderScreenerTab(ctx.senders);
     }
   };
+  if (holdPeopleToggle)
+    holdPeopleToggle.onchange = async () => {
+      ctx.settings = await updateSettings({ screenerHoldPeople: holdPeopleToggle.checked });
+      renderScreenerTab(ctx.senders);
+    };
 }

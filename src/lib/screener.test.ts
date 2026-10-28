@@ -23,6 +23,7 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
     personOverrides: {},
     groupSendersByCompany: true,
     screenerEnabled: false,
+    screenerHoldPeople: true,
     screenerAllowlist: [],
     screenedSenders: [],
     sentCorrespondents: { addresses: [], fetchedAt: 0 },
@@ -114,6 +115,14 @@ describe("sentCorrespondentsStale", () => {
 
 describe("pendingScreenerSenders", () => {
   const known = new Set(["known@x.com"]);
+
+  it("holds only lists and automated mail when people are let through", () => {
+    const list = { ...sender({ address: "news@x.com" }), unsubscribe: { mailto: "u@x.com" } } as SenderSummary;
+    const person = sender({ address: "new.friend@x.com" });
+    expect(pendingScreenerSenders([list, person], known, new Set(), false).map((s) => s.address)).toEqual([
+      "news@x.com",
+    ]);
+  });
 
   it("returns unknown senders (any provider) with no starred mail", () => {
     const senders = [

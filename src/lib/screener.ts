@@ -48,6 +48,11 @@ export async function refreshSentCorrespondents(
   return sent;
 }
 
+/** A list or an automated sender, not a person writing for the first time. */
+function looksBulk(s: SenderSummary): boolean {
+  return Boolean(s.unsubscribe.postUrl || s.unsubscribe.httpUrl || s.unsubscribe.mailto) || s.messages.some((m) => m.looksAutomated);
+}
+
 export function knownSenderSet(settings: ClusterSettings): Set<string> {
   return new Set(
     [...settings.screenerAllowlist, ...settings.sentCorrespondents.addresses].map((a) => a.toLowerCase()),
@@ -64,9 +69,11 @@ export function pendingScreenerSenders(
   senders: SenderSummary[],
   known: Set<string>,
   excluded: Set<string> = new Set(),
+  holdPeople = true,
 ): SenderSummary[] {
   return senders.filter(
     (s) =>
+      (holdPeople || looksBulk(s)) &&
       s.protectedMessageIds.length === 0 &&
       !s.messages.some((m) => m.providerMarkedPersonal || m.repliesToYou) &&
       !known.has(s.address.toLowerCase()) &&

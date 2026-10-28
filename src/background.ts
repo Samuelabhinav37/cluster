@@ -187,7 +187,7 @@ async function runScreener(
   const excluded = new Set(
     [...settings.mutedSenders, ...settings.screenedSenders].map((a) => a.toLowerCase()),
   );
-  const pending = pendingScreenerSenders(senders, known, excluded);
+  const pending = pendingScreenerSenders(senders, known, excluded, settings.screenerHoldPeople);
 
   const screened: string[] = [];
   const tokenByProvider = new Map<ProviderId, string | null>();
