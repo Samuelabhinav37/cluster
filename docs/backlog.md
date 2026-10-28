@@ -22,7 +22,7 @@ This is the master list. It covers today's chat plus research docs `2026-10-10-a
 | 2.1 | Read the last 30 days completely first, then older mail | today (Superhuman) | M |
 | 2.2 | Label each number with the date range it covers until reading is done | today | S |
 | 2.3 | Use `census.ts` totals for "how big" figures on day one | today | S |
-| 2.4 | Spike: real read rate, Gemini Nano seconds per batch, share of mail the rules place on their own | today | S |
+| 2.4 | Spike: real read rate and share of mail the rules place on their own, both on your real mailbox. (Nano measured 2026-10-28: 3.1–3.7 s per 25, unreliable alone; see the cost doc §C) | today | S |
 | 2.5 | Check for new mail every 5 min on the existing alarm (verify: the 5-min sweep exists; unclear whether it groups new mail) | sync doc, unsubscribe doc §3 | S–M |
 
 ## 3. Understanding

@@ -40,7 +40,11 @@ Facts from `research/2026-09-06-gmail-quota-403-audit.md`: `messages.get` costs 
 
 ## C. Classifying (no cloud models)
 - AI only for the leftovers the rules can't place, using on-device Gemini Nano (Cluster already uses it, in batches of 25, in `aiMessageKind.ts`). Cost: $0.
-- Nano's speed has **no published benchmark**. At most 2,000 prompts (50,000 / 25); at 1–3 s each (unmeasured guess) that's **30–100 min**. It runs at the same time as the 3-hour read, so it adds almost nothing to the total. The spike measures it.
+- **Measured 2026-10-28** (your Chrome, Prompt API "available", 25 test subjects, 10 category names, JSON-array output):
+  - Session start: 7.7 s once. One subject alone: 5.7 s.
+  - A batch of 25: **3.1 to 3.7 s** (4 runs). 50,000 emails = 2,000 batches ≈ **1.9 h**, overlapping the 3.2 h read.
+  - Quality was poor. One run returned 24 answers for 25 subjects (so every answer after the gap is misaligned). Two identical runs disagreed on 8 of 25. Clear mistakes in both: "Security alert for your account" → health, "Your refund has been issued" → travel / security, "Receipt for your payment" → personal, "50% off this weekend" → purchases (should be temporary).
+  - **Conclusion:** Nano can't be trusted to pick 1 of 10 on its own. The rules (sender, type, auth) must do the placing. Nano is only a tie-breaker, accepted when two runs agree and the answer has the right length, else the email stays "unsure" for the user.
 
 ## D. Big-O for N = 50,000 (local work)
 | Stage | Complexity | Real time (estimate) |
@@ -52,7 +56,7 @@ Facts from `research/2026-09-06-gmail-quota-403-audit.md`: `messages.get` costs 
 | Event linking (order no., thread id, trip date → bucket) | O(N) hash buckets, then O(k log k) per event to order its emails by time | <1 s |
 | Sort for display | O(N log N) ≈ 50k × 16 ≈ 800k comparisons | milliseconds |
 | Save to IndexedDB | O(N) writes, batched | seconds to ~1 min |
-| AI for the leftovers only | O(U), U = emails the rules couldn't place | 0 to 100 min, overlapped with fetch |
+| AI for the leftovers only | O(U), U = emails the rules couldn't place | ≈ 3.4 s per 25 measured → up to 1.9 h at U = 50k, overlapped with fetch |
 | Apply labels | O(N / 1000) calls | ~1 min |
 
 **Total ≈ O(N log N) compute, but wall-clock ≈ O(N) network: about 3.2 hours for 50,000 emails on the first run, then minutes per day.** Showing the last 30 days first (§2 below) puts useful results on screen in minutes, not hours.
