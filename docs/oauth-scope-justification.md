@@ -53,8 +53,9 @@ IDs — never subjects or bodies.
 
 ## `https://www.googleapis.com/auth/gmail.settings.basic` — restricted
 
-**Requested at install.** (A future release may move this to incremental
-authorization, requested the first time a filter-backed feature is used.)
+**Requested the first time a filter-backed feature is used** (incremental
+authorization). Install asks only for `gmail.modify`. If the user unticks this
+scope, the filter feature says so and asks again next time.
 
 ### Features that require it
 

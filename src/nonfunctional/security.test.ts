@@ -51,11 +51,8 @@ describe("manifest: permission surface", () => {
     expect(m.externally_connectable).toBeUndefined();
   });
 
-  it("asks Google only for gmail.modify + gmail.settings.basic at install (full mail scope stays opt-in)", () => {
-    expect([...manifest.oauth2.scopes].sort()).toEqual([
-      "https://www.googleapis.com/auth/gmail.modify",
-      "https://www.googleapis.com/auth/gmail.settings.basic",
-    ]);
+  it("asks Google only for gmail.modify at install (filters and full mail scope are asked for when used)", () => {
+    expect([...manifest.oauth2.scopes]).toEqual(["https://www.googleapis.com/auth/gmail.modify"]);
     expect(manifest.oauth2.scopes).not.toContain("https://mail.google.com/");
   });
 

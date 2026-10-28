@@ -1,11 +1,13 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   GmailApiError,
   createFilter,
   createSenderFilter,
   deleteFilter,
   deleteSenderFilters,
+  FilterPermissionError,
   getAuthToken as getAuthToken_,
+  getFilterAuthToken,
   getCurrentHistoryId,
   findLabelIds,
   getOrCreateLabel,
@@ -67,7 +69,54 @@ describe("gmailQuotaCost", () => {
   });
 });
 
+const FILTER = "https://www.googleapis.com/auth/gmail.settings.basic";
+const MODIFY = "https://www.googleapis.com/auth/gmail.modify";
+
+/** chrome.identity that hands back `granted` for every token request. */
+function stubIdentity(granted: string[] | null) {
+  const getAuthToken = vi.fn((_o: unknown, cb: (t?: string, g?: string[]) => void) =>
+    granted ? cb("filter-token", granted) : cb(undefined),
+  );
+  vi.stubGlobal("chrome", { identity: { getAuthToken }, runtime: {} });
+  return getAuthToken;
+}
+
+describe("filter permission", () => {
+  it("uses a token that holds the filter scope", async () => {
+    stubIdentity([MODIFY, FILTER]);
+    const fetchMock = vi.fn(async () => json({}));
+    vi.stubGlobal("fetch", fetchMock);
+    await listFilters("plain-token");
+    const headers = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer filter-token");
+  });
+
+  it("refuses when the filter scope was unticked", async () => {
+    stubIdentity([MODIFY]);
+    await expect(getFilterAuthToken()).rejects.toBeInstanceOf(FilterPermissionError);
+  });
+
+  it("never prompts from the service worker", async () => {
+    const get = stubIdentity(null);
+    vi.stubGlobal("document", undefined);
+    await expect(getFilterAuthToken()).rejects.toBeInstanceOf(FilterPermissionError);
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(get.mock.calls[0][0]).toMatchObject({ interactive: false });
+  });
+
+  it("refuses a main token without gmail.modify", async () => {
+    vi.stubGlobal("chrome", {
+      identity: { getAuthToken: (_o: unknown, cb: (t: string, g: string[]) => void) => cb("t", [FILTER]) },
+      runtime: {},
+    });
+    await expect(getAuthToken_(false)).rejects.toThrow(/read and organize/);
+  });
+});
+
 describe("Gmail filter API request shape", () => {
+  beforeEach(() => {
+    stubIdentity([MODIFY, FILTER]);
+  });
   it("lists filters and tolerates an empty response", async () => {
     vi.stubGlobal(
       "fetch",

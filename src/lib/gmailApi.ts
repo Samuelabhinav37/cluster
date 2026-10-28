@@ -56,16 +56,50 @@ export class GmailApiError extends Error {
   }
 }
 
+const MODIFY_SCOPE = "https://www.googleapis.com/auth/gmail.modify";
+const FILTER_SCOPE = "https://www.googleapis.com/auth/gmail.settings.basic";
+
+/** Gmail filters need one more permission and the user refused or unticked it. */
+export class FilterPermissionError extends Error {
+  constructor() {
+    super("Gmail filters need one more permission. Try again and allow it.");
+  }
+}
+
 export async function getAuthToken(interactive = true): Promise<string> {
   return new Promise((resolve, reject) => {
-    chrome.identity.getAuthToken({ interactive }, (token) => {
+    chrome.identity.getAuthToken({ interactive }, (token, grantedScopes) => {
       if (chrome.runtime.lastError || !token) {
         reject(lastErrorAsError("No auth token returned"));
+        return;
+      }
+      // Google's consent screen lets the user untick a scope; the token still comes back.
+      if (grantedScopes && !grantedScopes.includes(MODIFY_SCOPE)) {
+        reject(new Error("Cluster needs permission to read and organize your mail."));
         return;
       }
       resolve(token);
     });
   });
+}
+
+function filterTokenOnce(interactive: boolean): Promise<string | null> {
+  return new Promise((resolve) => {
+    chrome.identity.getAuthToken({ interactive, scopes: [MODIFY_SCOPE, FILTER_SCOPE] }, (token, grantedScopes) => {
+      const ok = !chrome.runtime.lastError && token && (!grantedScopes || grantedScopes.includes(FILTER_SCOPE));
+      resolve(ok ? token : null);
+    });
+  });
+}
+
+/** A token that can manage filters. Asked for the first time a filter is
+ * needed, and only from an open page: the service worker never prompts.
+ * Code that runs on page load passes false. */
+export async function getFilterAuthToken(mayPrompt = true): Promise<string> {
+  const prompt = mayPrompt && typeof document !== "undefined";
+  const token = (await filterTokenOnce(false)) ?? (prompt ? await filterTokenOnce(true) : null);
+  if (!token) throw new FilterPermissionError();
+  return token;
 }
 
 // Drop a token from Chrome's in-memory cache so the next getAuthToken()
@@ -95,6 +129,10 @@ async function gmailFetch<T = unknown>(
   refreshToken: () => Promise<string> = () => getAuthToken(false),
 ): Promise<T> {
   let bearer = token;
+  if (path.startsWith("/users/me/settings/filters")) {
+    bearer = await getFilterAuthToken();
+    refreshToken = getFilterAuthToken;
+  }
   const cost = gmailQuotaCost(path, (init.method ?? "GET").toUpperCase());
   for (let attempt = 0; ; attempt++) {
     await reserveGmailQuota(cost);
@@ -619,11 +657,7 @@ export async function deleteFilter(token: string, id: string): Promise<void> {
 // a user opts into "Fast permanent delete" (see settingsStore), and would
 // trigger a CASA security review if this extension is ever published beyond
 // OAuth "Testing" status.
-const ELEVATED_SCOPES = [
-  "https://www.googleapis.com/auth/gmail.modify",
-  "https://www.googleapis.com/auth/gmail.settings.basic",
-  "https://mail.google.com/",
-];
+const ELEVATED_SCOPES = [MODIFY_SCOPE, FILTER_SCOPE, "https://mail.google.com/"];
 
 export async function getElevatedAuthToken(interactive: boolean): Promise<string> {
   return new Promise((resolve, reject) => {

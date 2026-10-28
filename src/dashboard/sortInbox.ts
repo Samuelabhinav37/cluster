@@ -30,6 +30,7 @@ import {
   skipOverridesFor,
 } from "../lib/seedFromExisting";
 import {
+  getFilterAuthToken,
   listFilters,
   listLabelNames,
   listLabels,
@@ -622,7 +623,12 @@ async function maybeShowSeedCard() {
   let filterTargets: string[];
   try {
     const token = await gmailProvider.getAuthToken(false);
-    const [labels, filters] = await Promise.all([listLabels(token), listFilters(token)]);
+    // Runs on load, so never prompt: no filter permission yet means no filters to offer.
+    const filtersIfAllowed = getFilterAuthToken(false).then(
+      () => listFilters(token),
+      () => [],
+    );
+    const [labels, filters] = await Promise.all([listLabels(token), filtersIfAllowed]);
     labelNames = labels.map((l) => l.name);
     filterTargets = filteredFromTargets(filters, clusterLabelIdSet(labels, ctx.settings.clusterOwnedLabels));
   } catch (err) {
