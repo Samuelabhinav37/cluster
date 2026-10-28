@@ -90,19 +90,6 @@
                 </svg>
                 Organize
               </button>
-              <div class="nav-children">
-                <button type="button" class="nav-item nav-child" data-screen="rules">
-                  <svg class="nav-icon ni-sliders" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M5 7h9"></path>
-                    <path d="M18 7h1"></path>
-                    <circle cx="16" cy="7" r="2"></circle>
-                    <path d="M5 17h1"></path>
-                    <path d="M10 17h9"></path>
-                    <circle cx="8" cy="17" r="2"></circle>
-                  </svg>
-                  Rules
-                </button>
-              </div>
             </div>
             <div class="nav-area" data-area="safety">
               <button type="button" class="nav-item" data-screen="impersonation">
@@ -396,38 +383,12 @@
               </div>
             </div>
 
-            <div class="rec-grid" id="presets"></div>
-            <p class="hint presets-guard">
-              Starred mail and mail from people you write to never leave on a timer.
-            </p>
-
-            <details class="disclosure" id="time-limits-section">
-              <summary>Make your own</summary>
-              <label class="toggle-card">
-                <span class="tc-text">
-                  <b>Move mail out of my inbox when its time is up</b>
-                  <span class="tc-sub">Starred mail and people you write to stay. Gmail only.</span>
-                </span>
-                <input type="checkbox" class="switch" role="switch" id="time-limits-toggle" />
-              </label>
-              <div id="time-limits-rows" class="limit-rows"></div>
-              <div class="tidy-actions">
-                <button type="button" id="time-limits-save" class="btn btn-accent">Save time limits</button>
-                <button type="button" id="time-limits-backlog-btn" class="btn" hidden>
-                  Apply to mail already in my inbox…
-                </button>
-                <span id="time-limits-status" class="hint" role="status"></span>
-              </div>
-              <p id="time-limits-last" class="hint"></p>
-              <div id="time-limits-backlog" class="banner" hidden></div>
-            </details>
-
             <section id="sort-inbox-section">
-              <h3 class="section-label">Sort my inbox</h3>
+              <h3 class="section-label">Sort now</h3>
               <p class="hint">Files recent mail into labels after a preview.</p>
               <div id="sort-inbox-bar" class="confirm-slot">
                 <span id="sort-inbox-slot"
-                  ><button id="sort-inbox-btn" class="btn btn-accent">Sort my inbox</button></span
+                  ><button id="sort-inbox-btn" class="btn btn-accent-solid">Sort my inbox</button></span
                 >
                 <span id="sort-inbox-count" class="hint"></span>
               </div>
@@ -447,7 +408,113 @@
               <section id="sort-seed-card" class="banner" hidden></section>
               <div id="sort-inbox-preview"></div>
             </section>
+            <div class="rec-grid" id="presets"></div>
+            <p class="hint presets-guard">
+              Starred mail and mail from people you write to never leave on a timer.
+            </p>
 
+            <section id="your-rules">
+              <h3 class="section-label">Your rules</h3>
+            <div class="glass-card" id="rule-composer">
+              <label class="section-label" for="rule-natural-language">New rule</label>
+              <input
+                type="text"
+                id="rule-natural-language"
+                class="composer-input"
+                placeholder="e.g. Archive unread newsletters older than 14 days"
+              />
+              <div class="chip-row">
+                <span class="hint">Try</span>
+                <span id="rule-example-chips" class="chip-row"></span>
+                <span style="flex: 1"></span>
+                <button type="button" id="rule-draft-btn" class="btn btn-accent">Draft rule locally</button>
+                <button type="button" id="rule-save-draft-btn" class="btn" disabled>
+                  Save reviewed draft
+                </button>
+              </div>
+              <span id="rule-draft-status" class="hint"></span>
+              <p class="hint">On-device AI drafts it, and nothing runs until you save.</p>
+            </div>
+            <div id="rules-list"></div>
+            <div id="rule-preview"></div>
+            <details id="rule-form-details" class="disclosure">
+              <summary>Build a rule step by step</summary>
+              <form id="rule-form" class="form-grid">
+                <input type="text" id="rule-name" placeholder="Rule name" />
+                <input type="text" id="rule-from-domain" placeholder="from domain, e.g. news.example.com" />
+                <input type="text" id="rule-from-address" placeholder="from address (exact)" />
+                <input type="text" id="rule-except-domain" placeholder="except domain" />
+                <input type="text" id="rule-except-address" placeholder="except address" />
+                <label>older than <input type="number" id="rule-older-days" min="1" max="3650" /> days</label>
+                <select id="rule-kind">
+                  <option value="">any kind</option>
+                  <option value="otp">otp</option>
+                  <option value="shipping">shipping</option>
+                  <option value="receipt">receipt</option>
+                  <option value="newsletter">newsletter</option>
+                  <option value="social">social</option>
+                  <option value="other">other</option>
+                </select>
+                <select id="rule-unsub">
+                  <option value="">unsubscribe: any</option>
+                  <option value="yes">has unsubscribe</option>
+                  <option value="no">no unsubscribe</option>
+                </select>
+                <select id="rule-unread">
+                  <option value="">read state: any</option>
+                  <option value="yes">unread</option>
+                  <option value="no">already read</option>
+                </select>
+                <select id="rule-action">
+                  <option value="archive">archive</option>
+                  <option value="trash">move to Trash</option>
+                  <option value="markRead">mark read</option>
+                  <option value="label">label</option>
+                </select>
+                <input type="text" id="rule-label" placeholder="Label name" hidden />
+                <label
+                  >priority <input type="number" id="rule-priority" min="-100" max="100" value="0"
+                /></label>
+                <label
+                  >max per run <input type="number" id="rule-limit" min="1" max="500" value="100"
+                /></label>
+                <label class="check-label"
+                  ><input type="checkbox" id="rule-stop-processing" /> <span>stop later rules</span></label
+                >
+                <button type="submit" id="rule-add-btn" class="btn btn-accent">Add rule</button>
+                <span id="rule-form-error" class="field-error"></span>
+              </form>
+            </details>
+            <details class="disclosure" id="time-limits-section">
+              <summary>Custom times for each kind</summary>
+              <label class="toggle-card">
+                <span class="tc-text">
+                  <b>Move mail out of my inbox when its time is up</b>
+                  <span class="tc-sub">Starred mail and people you write to stay. Gmail only.</span>
+                </span>
+                <input type="checkbox" class="switch" role="switch" id="time-limits-toggle" />
+              </label>
+              <div id="time-limits-rows" class="limit-rows"></div>
+              <div class="tidy-actions">
+                <button type="button" id="time-limits-save" class="btn btn-accent">Save time limits</button>
+                <button type="button" id="time-limits-backlog-btn" class="btn" hidden>
+                  Apply to mail already in my inbox…
+                </button>
+                <span id="time-limits-status" class="hint" role="status"></span>
+              </div>
+              <p id="time-limits-last" class="hint"></p>
+              <div id="time-limits-backlog" class="banner" hidden></div>
+            </details>
+            <div id="rule-apply-slot">
+              <button id="rule-apply-btn" class="btn">Apply enabled rules now</button>
+            </div>
+            </section>
+
+
+
+
+            <details class="disclosure" id="more-tools">
+              <summary>More tools</summary>
             <section id="smart-views-section">
               <h3 class="section-label">Smart views</h3>
               <div id="smart-views-bar" class="toolbar">
@@ -456,9 +523,6 @@
               </div>
               <div id="smart-view-result-slot"></div>
             </section>
-
-            <details class="disclosure" id="more-tools">
-              <summary>More tools</summary>
 
               <section id="digest-section" hidden>
                 <h3 class="section-label">Digest</h3>
@@ -661,7 +725,7 @@
               <div class="ios-group" id="protect-checks"></div>
             </section>
             <section class="ios-section">
-              <h2 class="ios-head">Rules</h2>
+              <h2 class="ios-head">Holding</h2>
               <div class="ios-group">
                 <label class="ios-row" id="auto-quarantine-row">
                   <span class="app-ic app-protect"
@@ -703,91 +767,6 @@
           </section>
 
           <!-- ══ Rules ═════════════════════════════════════════════════ -->
-          <section class="screen" data-screen="rules" role="tabpanel" hidden>
-            <div class="page-head">
-              <div class="page-titles">
-                <h1 class="page-title">Rules</h1>
-                <p class="lead">Describe a rule for new mail in plain words.</p>
-              </div>
-            </div>
-
-            <div class="glass-card" id="rule-composer">
-              <label class="section-label" for="rule-natural-language">New rule</label>
-              <input
-                type="text"
-                id="rule-natural-language"
-                class="composer-input"
-                placeholder="e.g. Archive unread newsletters older than 14 days"
-              />
-              <div class="chip-row">
-                <span class="hint">Try</span>
-                <span id="rule-example-chips" class="chip-row"></span>
-                <span style="flex: 1"></span>
-                <button type="button" id="rule-draft-btn" class="btn btn-accent">Draft rule locally</button>
-                <button type="button" id="rule-save-draft-btn" class="btn" disabled>
-                  Save reviewed draft
-                </button>
-              </div>
-              <span id="rule-draft-status" class="hint"></span>
-              <p class="hint">On-device AI drafts it, and nothing runs until you save.</p>
-            </div>
-
-            <div id="rules-list"></div>
-            <div id="rule-preview"></div>
-
-            <details id="rule-form-details" class="disclosure">
-              <summary>Customize manually</summary>
-              <form id="rule-form" class="form-grid">
-                <input type="text" id="rule-name" placeholder="Rule name" />
-                <input type="text" id="rule-from-domain" placeholder="from domain, e.g. news.example.com" />
-                <input type="text" id="rule-from-address" placeholder="from address (exact)" />
-                <input type="text" id="rule-except-domain" placeholder="except domain" />
-                <input type="text" id="rule-except-address" placeholder="except address" />
-                <label>older than <input type="number" id="rule-older-days" min="1" max="3650" /> days</label>
-                <select id="rule-kind">
-                  <option value="">any kind</option>
-                  <option value="otp">otp</option>
-                  <option value="shipping">shipping</option>
-                  <option value="receipt">receipt</option>
-                  <option value="newsletter">newsletter</option>
-                  <option value="social">social</option>
-                  <option value="other">other</option>
-                </select>
-                <select id="rule-unsub">
-                  <option value="">unsubscribe: any</option>
-                  <option value="yes">has unsubscribe</option>
-                  <option value="no">no unsubscribe</option>
-                </select>
-                <select id="rule-unread">
-                  <option value="">read state: any</option>
-                  <option value="yes">unread</option>
-                  <option value="no">already read</option>
-                </select>
-                <select id="rule-action">
-                  <option value="archive">archive</option>
-                  <option value="trash">move to Trash</option>
-                  <option value="markRead">mark read</option>
-                  <option value="label">label</option>
-                </select>
-                <input type="text" id="rule-label" placeholder="Label name" hidden />
-                <label
-                  >priority <input type="number" id="rule-priority" min="-100" max="100" value="0"
-                /></label>
-                <label
-                  >max per run <input type="number" id="rule-limit" min="1" max="500" value="100"
-                /></label>
-                <label class="check-label"
-                  ><input type="checkbox" id="rule-stop-processing" /> <span>stop later rules</span></label
-                >
-                <button type="submit" id="rule-add-btn" class="btn btn-accent">Add rule</button>
-                <span id="rule-form-error" class="field-error"></span>
-              </form>
-            </details>
-
-            <div id="rule-apply-slot">
-              <button id="rule-apply-btn" class="btn">Apply enabled rules now</button>
-            </div>
-          </section>
 
           <!-- ══ Screener ══════════════════════════════════════════════ -->
           <section class="screen" data-screen="screener" role="tabpanel" hidden>

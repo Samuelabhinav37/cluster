@@ -220,6 +220,8 @@ const SCREEN_ALIASES: Record<string, string> = {
   cleanup: "delete",
   suggested: "delete",
   security: "impersonation",
+  // Rules live in Organize now.
+  rules: "organize",
 };
 function resolveScreen(name: string): string {
   const target = screenForMode(SCREEN_ALIASES[name] ?? name);
@@ -1102,7 +1104,6 @@ function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummar
     scams: byId.get("flagged-senders") ?? 0,
     waiting: byId.get("screener-queue") ?? 0,
   };
-  setNavCount("rules", ctx.settings.rules.length);
   setNavCount("screener", byId.get("screener-queue") ?? 0);
   const held = heldByWeek(ctx.settings.scamHistory, 8).reduce((n, w) => n + w.held, 0);
   renderProtectTiles(byId.get("flagged-senders") ?? 0, byId.get("screener-queue") ?? 0, held);

@@ -3668,3 +3668,7 @@ select:not([multiple]):hover { background-color: var(--neutral-fill-hover); }
   box-shadow: 0 0 0 2px var(--glass); }
 .scam-chev { font-size: 18px; transition: transform 0.15s ease; }
 .scam-chev[aria-expanded="true"] { transform: rotate(90deg); }
+
+/* Sort preview: Apply sits above the buckets; the done line replaces it. */
+.sort-apply-bar { margin-bottom: 12px; }
+.sort-done { color: var(--label); font-weight: 600; }

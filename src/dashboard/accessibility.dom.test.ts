@@ -8,7 +8,7 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { bootDashboard, type BootedDashboard } from "./testHarness";
 
-const SCREENS = ["overview", "delete", "organize", "subscriptions", "impersonation", "senders", "rules", "screener", "recent"];
+const SCREENS = ["overview", "delete", "organize", "subscriptions", "impersonation", "senders", "screener", "recent"];
 
 let dash: BootedDashboard;
 beforeAll(async () => {
@@ -102,8 +102,8 @@ describe("accessibility baseline (every screen, after a scan)", () => {
   });
 
   it("the active nav item is exposed to assistive tech (aria-current or aria-selected)", () => {
-    dash.showScreen("rules");
-    const active = document.querySelector('#sidebar button[data-screen="rules"]')!;
+    dash.showScreen("organize");
+    const active = document.querySelector('#sidebar button[data-screen="organize"]')!;
     const exposed = active.getAttribute("aria-current") ?? active.getAttribute("aria-selected");
     expect(exposed && exposed !== "false").toBeTruthy();
   });

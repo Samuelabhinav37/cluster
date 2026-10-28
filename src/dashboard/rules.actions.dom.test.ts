@@ -29,7 +29,7 @@ beforeEach(() => {
 describe("Rules screen — manual rule composer", () => {
   it("rejects an untargeted Trash rule (ruleGuardWarning) without saving it", async () => {
     const dash = await bootDashboard();
-    dash.showScreen("rules");
+    dash.showScreen("organize");
 
     (dash.el("rule-action") as HTMLSelectElement).value = "trash";
     (dash.el("rule-older-days") as HTMLInputElement).value = "30";
@@ -41,7 +41,7 @@ describe("Rules screen — manual rule composer", () => {
 
   it("saves a domain-targeted Trash rule and lists it", async () => {
     const dash = await bootDashboard();
-    dash.showScreen("rules");
+    dash.showScreen("organize");
 
     await addTrashRuleForDomain(dash, "shop.example");
 
@@ -60,7 +60,7 @@ describe("Rules screen — manual rule composer", () => {
 describe("Rules screen — Apply enabled rules now", () => {
   it("trashes every matching message for a clean rule", async () => {
     const dash = await bootDashboard();
-    dash.showScreen("rules");
+    dash.showScreen("organize");
     await addTrashRuleForDomain(dash, "shop.example");
 
     const applyBtn = dash.el("rule-apply-btn") as HTMLButtonElement;
@@ -87,7 +87,7 @@ describe("Rules screen — Apply enabled rules now", () => {
       listProtectedMessageIds: vi.fn(async () => new Set(["s2"])),
     });
     const dash = await bootDashboard({ gmail });
-    dash.showScreen("rules");
+    dash.showScreen("organize");
     await addTrashRuleForDomain(dash, "shop.example");
 
     const applyBtn = dash.el("rule-apply-btn") as HTMLButtonElement;
@@ -106,7 +106,7 @@ describe("Rules screen — Apply enabled rules now", () => {
 
   it("shows an error and applies nothing when there are no enabled rules", async () => {
     const dash = await bootDashboard();
-    dash.showScreen("rules");
+    dash.showScreen("organize");
 
     const applyBtn = dash.el("rule-apply-btn") as HTMLButtonElement;
     applyBtn.click();
@@ -126,7 +126,7 @@ describe("Rules screen — natural-language draft (deterministic fallback)", () 
     // hang in an environment with zero AI surface — not the on-device model
     // path itself, which needs a real Chrome build to exercise at all.
     const dash = await bootDashboard();
-    dash.showScreen("rules");
+    dash.showScreen("organize");
 
     (dash.el("rule-natural-language") as HTMLInputElement).value =
       "Archive unread newsletters older than 14 days";

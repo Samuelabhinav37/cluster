@@ -208,6 +208,7 @@ function renderSortLabelConflicts(conflicts: PlanLabelConflict[], retry: () => v
   }
 
   const cancelBtn = document.createElement("button");
+  cancelBtn.className = "btn btn-ghost";
   cancelBtn.textContent = "Cancel";
   cancelBtn.onclick = resetSortInboxSlot;
   sortInboxSlot.appendChild(cancelBtn);
@@ -295,8 +296,11 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
 
   const applyBtn = document.createElement("button");
   const cancelBtn = document.createElement("button");
+  applyBtn.className = "btn btn-accent-solid";
+  cancelBtn.className = "btn btn-ghost";
   const status = document.createElement("span");
   status.className = "hint";
+  const bar = document.createElement("div");
 
   const includedCount = () =>
     chosen.flatMap((e) => e.messages).filter((m) => !excludedSortIds.has(m.id)).length;
@@ -309,11 +313,12 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
   for (const entry of chosen) {
     const bucketEl = document.createElement("details");
     bucketEl.className = "sort-preview-bucket";
-    bucketEl.open = true;
+    // Closed by default: the label and its count are the summary.
     const summary = document.createElement("summary");
-    summary.textContent = `${entry.label}: ${entry.count} · ${
-      entry.fileOut ? "filed out of the inbox" : "labelled in place"
-    }`;
+    const where = document.createElement("span");
+    where.className = "hint";
+    where.textContent = entry.fileOut ? "files out" : "stays in inbox";
+    summary.append(`${entry.label} · ${entry.count} `, where);
     bucketEl.appendChild(summary);
 
     const bySender = new Map<string, SortPlanMessage[]>();
@@ -372,7 +377,10 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
     cancelBtn.disabled = true;
     status.textContent = "Sorting…";
     try {
-      status.textContent = await applySortPlan(chosen, knownLower);
+      const done = await applySortPlan(chosen, knownLower);
+      status.textContent = `✓ ${done}`;
+      status.className = "sort-done";
+      bar.replaceChildren(status);
     } catch (err) {
       log.error(err);
       status.textContent = "Sort failed, try again";
@@ -381,10 +389,9 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
     }
   };
 
-  const bar = document.createElement("div");
-  bar.className = "confirm-slot";
+  bar.className = "confirm-slot sort-apply-bar";
   bar.append(applyBtn, cancelBtn, status);
-  sortInboxPreviewEl.appendChild(bar);
+  sortInboxPreviewEl.prepend(bar);
   refreshApplyLabel();
 }
 
