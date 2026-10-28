@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Gmail sign-in spike</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
+      pre { background: #f4f4f5; padding: 12px; border-radius: 8px; white-space: pre-wrap; }
+      button { font: inherit; padding: 8px 16px; }
+    </style>
+  </head>
+  <body>
+    <h1>Gmail sign-in spike</h1>
+    <p>Signs in with Google's own window, without a client secret. Tokens are never shown.</p>
+    <button id="run">Run the test</button>
+    <pre id="out">Not run yet.</pre>
+    <script type="module" src="./gmailAuth.ts"></script>
+  </body>
+</html>
