@@ -132,3 +132,14 @@ Later on 2026-10-28 (see git log):
 - 5.5–5.11: Clean up rows lead with Trash; company cards Mute all; Keep sorted is File away; Organize words; setup on Home; no tidy-up on fresh install; "Pretends to be X" first; Checkup removed; Details' sender list hidden on Senders.
 - 5.7: real send rates, plain method names. 6.1 was already built (backstop filter). 6.2: offer the company's other list addresses. 6.3: waiting label says how it was sent. 6.4: quiet senders get Clear out old mail.
 - Dashboard JS budget 585 → 595 KB.
+- 6.5, 2.2, 2.3, 3.14, 4.3 ("Always do this" after Trash), 4.4 (rule sheet from a sender): see git log.
+- 4.2: Home "Moved today" card for the time-limit sweep, Back to inbox or Looks right.
+- 4.7: Sort now shows each place with its count above the one Sort button. Organize control budget 30 → 31.
+- 4.10: covered by Stop and trash/archive old, File away, and the rule sheet's "the N you have now". No new control.
+- 4.14: the newsletter batch was newsletters only, Saturday only. It now offers Saturday or every day at 8 am.
+- 5.12: Details Archive, the Move out cards and Read later run at once, Undo from Activity. Trash, unsubscribe and filters still confirm.
+- 2.1: the index reads the last 30 days in full before the sender census. 2.5 checked: the 5-minute alarm only runs time limits; Screener and scam holds run in the 6-hour triage. Unchanged until a live test.
+- 3.13: Delivered orders card. Order or booking number, else thread, links one sender's shipping mail; in-transit updates of delivered orders move out (archive).
+- Dashboard JS budget 595 → 600 KB.
+
+Still open: 5.3 + 5.4 (one sender row everywhere, one home per sender) change screens you approved, so they wait for your call. Step e and 3.15 need the hand-labelled sample. 1.4's spike needs a redirect URI added to the Google Cloud OAuth client.
