@@ -674,6 +674,7 @@ export function initDetailsPanel(
   }
 
   function render(fromScan = false) {
+    root.dataset.view = st.view;
     renderTabs();
     renderChips();
     if (st.view === "emails") {

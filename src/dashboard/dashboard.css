@@ -3058,6 +3058,8 @@ body {
   color: var(--label-4);
 }
 
+/* Senders has its own list and card; Details' sender list would repeat it. */
+body[data-screen="senders"] .details[data-view="senders"],
 body[data-state="connect"] .details,
 body[data-state="connect"] .side-panel,
 body[data-state="connect"] .crumbs {
