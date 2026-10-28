@@ -4,7 +4,6 @@ import {
   evaluateSmartView,
   evaluateSmartViewForTrash,
   smartViewMessageCount,
-  smartViewSenderCount,
 } from "./smartViews";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 
@@ -108,12 +107,11 @@ describe("evaluateSmartViewForTrash", () => {
 });
 
 describe("smartView counts", () => {
-  it("message and sender counts agree with the evaluator", () => {
+  it("message count agrees with the evaluator", () => {
     const senders = [
       sender("gmail", "a@x.com", [msg({ id: "1", kind: "otp" }), msg({ id: "2", kind: "otp" })]),
       sender("gmail", "b@x.com", [msg({ id: "3", kind: "other" })]),
     ];
     expect(smartViewMessageCount(view("otp"), senders)).toBe(2);
-    expect(smartViewSenderCount(view("otp"), senders)).toBe(1);
   });
 });

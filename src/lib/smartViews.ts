@@ -93,11 +93,3 @@ export function smartViewMessageCount(view: SmartView, senders: SenderSummary[])
   for (const ids of evaluateSmartView(view, senders).values()) n += ids.length;
   return n;
 }
-
-export function smartViewSenderCount(view: SmartView, senders: SenderSummary[]): number {
-  let n = 0;
-  for (const s of senders) {
-    if (s.messages.some((m) => !m.isProtected && view.match(m))) n += 1;
-  }
-  return n;
-}

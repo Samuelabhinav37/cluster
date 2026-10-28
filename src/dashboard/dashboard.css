@@ -1527,8 +1527,7 @@ details.disclosure > summary {
 
 /* ============================================================================
    Legacy / utility surfaces — the parts not yet rebuilt as glass rows
-   (domain-category tables, the rule dry-run, the sort-inbox preview tree,
-   smart-view chips). Given a coherent-enough look so they don't clash with
+   (domain-category tables, the rule dry-run, the sort-inbox preview tree). Given a coherent-enough look so they don't clash with
    the redesigned screens; most live behind a "More tools" / "Review"
    disclosure.
    ============================================================================ */
@@ -1607,13 +1606,6 @@ table td:first-child:has(input[type="checkbox"]) {
   text-transform: uppercase;
   color: var(--label-4);
   margin: 20px 0 8px;
-}
-
-.smart-view-chip {
-  min-height: 38px;
-  border-radius: var(--r-pill);
-  padding: 8px 14px;
-  font-size: 14px;
 }
 
 /* Sort-my-inbox preview tree */

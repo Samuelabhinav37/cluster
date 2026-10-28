@@ -78,45 +78,24 @@ describe("Organize screen — decision rows", () => {
   });
 });
 
-describe("Organize screen — Smart Views", () => {
-  it("archives the large message via the 'Large' smart view", async () => {
+describe("Details — smart views", () => {
+  it("archives the large message from the Large chip", async () => {
     const dash = await bootDashboard();
-    dash.showScreen("organize");
-
-    const chip = Array.from(
-      dash.el("smart-view-chips").querySelectorAll<HTMLButtonElement>("button"),
-    ).find((b) => b.textContent?.startsWith("Large"));
-    expect(chip, "no Large smart-view chip rendered").toBeTruthy();
+    const root = dash.el("details");
+    root.querySelector<HTMLButtonElement>(".details-tab")!.click();
+    const chip = Array.from(root.querySelectorAll<HTMLButtonElement>(".chips button")).find((b) =>
+      b.textContent?.includes("Large"),
+    );
+    expect(chip, "no Large chip in Details").toBeTruthy();
     chip!.click();
-
-    const slot = dash.el("smart-view-result-slot");
-    const archiveBtn = Array.from(slot.querySelectorAll("button")).find(
-      (b) => b.textContent === "Archive",
-    )!;
-    archiveBtn.click();
-    await confirmStep(slot);
+    root.querySelector<HTMLInputElement>("tbody .tick:not(:disabled)")!.click();
+    const bar = root.querySelector<HTMLElement>(".selbar")!;
+    Array.from(bar.querySelectorAll("button")).find((b) => b.textContent === "Archive")!.click();
+    await confirmStep(bar);
 
     expect(dash.gmail.archiveMessages).toHaveBeenCalledTimes(1);
     const [, ids] = (dash.gmail.archiveMessages as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(ids).toEqual(["b1"]);
-  });
-
-  it("disables Trash for the shipping smart view (return-window protection, never auto-trashed)", async () => {
-    const dash = await bootDashboard();
-    dash.showScreen("organize");
-
-    const chip = Array.from(
-      dash.el("smart-view-chips").querySelectorAll<HTMLButtonElement>("button"),
-    ).find((b) => b.textContent?.startsWith("Order & shipping"));
-    // The fixture has no message classified as shipping, so this chip may be
-    // disabled from a zero count alone — either way it must never be a live
-    // Trash button when it does have matches. Skip cleanly if absent/disabled.
-    if (!chip || chip.disabled) return;
-    chip.click();
-    const trashBtn = Array.from(
-      dash.el("smart-view-result-slot").querySelectorAll<HTMLButtonElement>("button"),
-    ).find((b) => b.textContent === "Trash");
-    expect(trashBtn?.disabled).toBe(true);
   });
 });
 

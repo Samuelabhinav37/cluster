@@ -105,14 +105,6 @@ import {
 import { reasonLabel, suggestSpamSenders, type SpamSuggestion } from "../lib/spamSuggestions";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { spamListSize } from "../lib/spamList";
-import {
-  SMART_VIEWS,
-  evaluateSmartView,
-  evaluateSmartViewForTrash,
-  smartViewMessageCount,
-  smartViewSenderCount,
-  type SmartView,
-} from "../lib/smartViews";
 import { keepNewestExcess } from "../lib/keepNewest";
 import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
 import { renderRulesTab, wireRulesTab } from "./rulesTab";
@@ -244,8 +236,6 @@ const spamTrashSlot = document.getElementById("spam-trash-slot") as HTMLSpanElem
 const spamTrashBtn = document.getElementById("spam-trash-btn") as HTMLButtonElement;
 const spamListEl = document.getElementById("spam-list") as HTMLDivElement;
 
-const smartViewChipsEl = document.getElementById("smart-view-chips") as HTMLSpanElement;
-const smartViewResultSlot = document.getElementById("smart-view-result-slot") as HTMLDivElement;
 const keepNewestNInput = document.getElementById("keep-newest-n") as HTMLInputElement;
 const keepNewestSlot = document.getElementById("keep-newest-slot") as HTMLSpanElement;
 const keepNewestBtn = document.getElementById("keep-newest-btn") as HTMLButtonElement;
@@ -1052,7 +1042,6 @@ async function scanAndRender({
   safeRender("organize", () => renderSortInbox(senders));
   safeRender("organize", () => renderTimeLimits());
   safeRender("organize", () => renderPresets(securitySenders));
-  safeRender("organize", () => renderSmartViews(senders));
   safeRender("screener", () => renderScreenerTab(senders));
   safeRender("overview", () => updateNavCounts(senders, securitySenders));
   generateDigestBtn.disabled = false;
@@ -1672,6 +1661,30 @@ function wireDetails() {
         return message;
       });
     },
+    archive: [...providerById.values()].some((p) => p.archiveMessages)
+      ? (messages, slot, reset, settle) => {
+          const merged = idsByProvider(messages);
+          const total = [...merged.values()].reduce((n, ids) => n + ids.length, 0);
+          renderConfirmStep(slot, reset, `Archive ${total} email${total === 1 ? "" : "s"}?`, false, async () => {
+            let done = 0;
+            for (const [pid, ids] of merged) {
+              const provider = providerById.get(pid);
+              if (!provider?.archiveMessages || ids.length === 0) continue;
+              await provider.archiveMessages(await provider.getAuthToken(false), ids);
+              settle.gone(ids);
+              done += ids.length;
+            }
+            const gmailIds = merged.get("gmail") ?? [];
+            await logAction(
+              "archive",
+              `Archived ${done} from Details`,
+              gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "unarchive" } : undefined,
+            );
+            void refreshView();
+            return `Archived ${done} ✓`;
+          });
+        }
+      : undefined,
     mute: [...providerById.values()].some((p) => p.muteSender)
       ? (senders, slot, reset, settle) => {
           const can = senders.filter((s) => providerById.get(s.provider)?.muteSender);
@@ -2686,94 +2699,6 @@ function renderSpamSection(senders: SenderSummary[]) {
   table.appendChild(tbody);
   spamListEl.appendChild(table);
   updateSpamCount();
-}
-
-// ── Smart Views + Keep-newest (Clean up tab) ─────────────────────────────
-async function applySmartView(view: SmartView, action: "archive" | "trash"): Promise<string> {
-  let merged =
-    action === "trash"
-      ? evaluateSmartViewForTrash(view, ctx.senders, buildProtectionContext(ctx.settings))
-      : evaluateSmartView(view, ctx.senders);
-  if (action === "trash") ({ safe: merged } = await filterOutProtected(merged, providerById));
-  const gmailIds = merged.get("gmail") ?? [];
-  let total = 0;
-  for (const [pid, ids] of merged) {
-    const provider = providerById.get(pid);
-    if (!provider || ids.length === 0) continue;
-    const token = await provider.getAuthToken(false);
-    if (action === "trash") {
-      await provider.trashMessages(token, ids);
-      total += ids.length;
-    } else if (provider.archiveMessages) {
-      await provider.archiveMessages(token, ids);
-      total += ids.length;
-    }
-  }
-  const via = action === "trash" ? "untrash" : "unarchive";
-  await logAction(
-    action === "trash" ? "trash" : "archive",
-    `View "${view.label}": ${action}, ${total} message${total === 1 ? "" : "s"}`,
-    gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via } : undefined,
-  );
-  await scanAndRender();
-  return `${action === "trash" ? "Trashed" : "Archived"} ${total}`;
-}
-
-function clearSmartViewResult() {
-  smartViewResultSlot.innerHTML = "";
-}
-
-function openSmartView(view: SmartView, msgCount: number, senderCount: number) {
-  smartViewResultSlot.innerHTML = "";
-  smartViewResultSlot.className = "confirm-slot";
-
-  const info = document.createElement("span");
-  info.textContent = `${view.label}: ${msgCount} message${msgCount === 1 ? "" : "s"} across ${senderCount} sender${senderCount === 1 ? "" : "s"}`;
-
-  const archiveBtn = document.createElement("button");
-  archiveBtn.textContent = "Archive";
-  archiveBtn.onclick = () =>
-    renderConfirmStep(smartViewResultSlot, clearSmartViewResult, `Archive ${msgCount}?`, false, () =>
-      applySmartView(view, "archive"),
-    );
-
-  const trashBtn = document.createElement("button");
-  trashBtn.className = "danger";
-  trashBtn.textContent = "Trash";
-  // Order confirmations are never auto-trashed (see protectionPolicy.ts) --
-  // a return window can easily outlast any fixed age cutoff. Archive still
-  // works; Trash is disabled and explained rather than silently doing
-  // nothing or quietly excluding every message.
-  if (view.id === "shipping") {
-    trashBtn.disabled = true;
-    trashBtn.title = "Order confirmations aren't trashed automatically. Archive them instead.";
-  } else {
-    trashBtn.onclick = () =>
-      renderConfirmStep(smartViewResultSlot, clearSmartViewResult, `Move ${msgCount} to Trash?`, true, () =>
-        applySmartView(view, "trash"),
-      );
-  }
-
-  const cancel = document.createElement("button");
-  cancel.textContent = "Cancel";
-  cancel.onclick = clearSmartViewResult;
-
-  smartViewResultSlot.append(info, archiveBtn, trashBtn, cancel);
-}
-
-function renderSmartViews(senders: SenderSummary[]) {
-  smartViewChipsEl.innerHTML = "";
-  clearSmartViewResult();
-  for (const view of SMART_VIEWS) {
-    const msgCount = smartViewMessageCount(view, senders);
-    const chip = document.createElement("button");
-    chip.className = "smart-view-chip";
-    chip.textContent = `${view.label} (${msgCount})`;
-    chip.title = view.hint;
-    chip.disabled = msgCount === 0;
-    chip.onclick = () => openSmartView(view, msgCount, smartViewSenderCount(view, senders));
-    smartViewChipsEl.appendChild(chip);
-  }
 }
 
 // ── Organize: one-time action cards beside the time-limit presets ──────

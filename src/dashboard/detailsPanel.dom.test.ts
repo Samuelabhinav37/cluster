@@ -123,6 +123,23 @@ describe("Details panel", () => {
     expect(trash.mock.calls[0][0].map((m) => m.subject)).toEqual(["Sale today"]);
   });
 
+  it("smart views are chips, and Archive gets only what was ticked", () => {
+    const archive = vi.fn<NonNullable<DetailsActions["archive"]>>();
+    const panel = initDetailsPanel(root, { trash, archive }, () => NOW);
+    panel.update([
+      ...mailbox(),
+      sender("big@files.example", [msg({ subject: "Video", sizeBytes: 5 * 1024 * 1024 })], "Files"),
+    ]);
+    panel.open();
+    click(root, ".chips button", "Large");
+    expect(rows(root)).toEqual(["Files Video"]);
+    root.querySelector<HTMLInputElement>("tbody .tick")!.click();
+    click(root, ".selbar button", "Archive");
+    expect(archive.mock.calls[0][0].map((m) => m.subject)).toEqual(["Video"]);
+    click(root, ".chips button.on", "Large");
+    expect(rows(root)).toHaveLength(4);
+  });
+
   it("hides what an action moved at once, and brings it back on Undo", () => {
     const panel = boot();
     panel.open();

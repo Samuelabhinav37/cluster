@@ -8,6 +8,7 @@
 
 import type { ProviderId } from "../lib/providers/emailProvider";
 import type { SenderSummary } from "../lib/senderModel";
+import { SMART_VIEWS } from "../lib/smartViews";
 import { HOME_KINDS, kindOf, type HomeKind } from "./homeDashboard";
 import { senderTile } from "./senderTile";
 
@@ -26,6 +27,8 @@ export interface DetailMessage {
   unread: boolean;
   kind: HomeKind;
   isProtected: boolean;
+  /** Ids of the smart views (smartViews.ts) this message is in. */
+  views: string[];
 }
 
 export interface DetailSender {
@@ -47,6 +50,8 @@ export interface DetailsFilter {
   week?: number | null;
   day?: number | null;
   never?: boolean;
+  /** A smart view id, e.g. "large". */
+  smart?: string | null;
   q?: string;
 }
 
@@ -61,11 +66,14 @@ export interface Settle {
 export interface DetailsActions {
   /** Ask, then move these to Trash. Renders its confirm (and Undo) into `slot`. */
   trash(messages: DetailMessage[], slot: HTMLElement, reset: () => void, settle: Settle): void;
+  /** Ask, then archive these. Missing when no connected provider can. */
+  archive?(messages: DetailMessage[], slot: HTMLElement, reset: () => void, settle: Settle): void;
   /** Ask, then mute these senders. Missing when no connected provider can. */
   mute?(senders: SenderSummary[], slot: HTMLElement, reset: () => void, settle: Settle): void;
 }
 
-type State = Required<Omit<DetailsFilter, "senderKey" | "kind" | "week" | "day">> & {
+type State = Required<Omit<DetailsFilter, "senderKey" | "kind" | "week" | "day" | "smart">> & {
+  smart: string | null;
   kind: HomeKind | null;
   senderKey: string | null;
   week: number | null;
@@ -79,6 +87,7 @@ const BLANK: State = {
   week: null,
   day: null,
   never: false,
+  smart: null,
   q: "",
 };
 
@@ -98,6 +107,7 @@ export function detailMessages(senders: readonly SenderSummary[]): DetailMessage
         unread: m.unread,
         kind: kindOf(m),
         isProtected: m.isProtected,
+        views: SMART_VIEWS.filter((v) => v.match(m)).map((v) => v.id),
       });
   return out.sort((a, b) => b.at - a.at);
 }
@@ -274,6 +284,7 @@ export function initDetailsPanel(
         (!st.kind || m.kind === st.kind) &&
         (!st.senderKey || m.senderKey === st.senderKey) &&
         (!never || never.has(m.senderKey)) &&
+        (!st.smart || m.views.includes(st.smart)) &&
         (!q || `${m.name} ${m.address} ${m.subject}`.toLowerCase().includes(q)),
     );
   }
@@ -316,6 +327,8 @@ export function initDetailsPanel(
     if (st.senderKey)
       on.push([senders.find((s) => s.key === st.senderKey)?.name ?? "Sender", { senderKey: null }]);
     if (st.never) on.push(["Never opened", { never: false }]);
+    const smart = SMART_VIEWS.find((v) => v.id === st.smart);
+    if (smart) on.push([smart.label, { smart: null }]);
     if (st.week !== null)
       on.push([
         st.week === WEEKS - 1 ? "This week" : `Week of ${fmtShort(weekStart(st.week))}`,
@@ -332,6 +345,10 @@ export function initDetailsPanel(
     if (!st.never) quick.push(["Never opened", { never: true }]);
     if (!st.kind) quick.push(["Promotions", { kind: "promo" }]);
     if (st.week === null) quick.push(["This week", { week: WEEKS - 1 }]);
+    // The views the four kinds don't already cover.
+    if (!st.smart)
+      for (const v of SMART_VIEWS.filter((v) => v.id === "older-1y" || v.id === "large"))
+        quick.push([v.label, { smart: v.id, view: "emails" }]);
     chips.replaceChildren(
       ...on.map(([label, patch]) => {
         const b = button("chip on", `${label} ✕`, () => set(patch));
@@ -616,6 +633,10 @@ export function initDetailsPanel(
     const acts: HTMLButtonElement[] = [];
     if (st.view === "emails") {
       const picked = messages.filter((m) => selected.has(m.id));
+      if (actions.archive) {
+        const archive = actions.archive;
+        acts.push(button("btn btn-sm", "Archive", () => archive(picked, bar, reset, settle)));
+      }
       acts.push(
         button("btn btn-accent-solid btn-sm", "Move to Trash", () =>
           actions.trash(picked, bar, reset, settle),
