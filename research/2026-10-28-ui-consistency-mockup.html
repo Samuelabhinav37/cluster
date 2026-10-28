@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cluster one look</title>
+<style>
+:root{
+  --canvas:#0a0a0c;--panel:#161618;--panel-2:#1f1f22;--hair:#262629;--hover:#202024;
+  --l1:#f5f5f7;--l2:#dcdce0;--l3:#a1a1a8;--l4:#7d7d85;
+  --accent:#3f6fd1;--accent-t:#6f9be0;--accent-f:rgba(111,155,224,.15);
+  --red:#fa6d6d;--red-f:rgba(250,109,109,.13);--amber:#e0b16f;--green:#4cc38a;
+  --font:"Inter Tight",-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--canvas);color:var(--l1);font:14px/1.4 var(--font);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+.side{background:var(--panel);border-right:1px solid var(--hair);padding:16px 10px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh}
+.brand{display:flex;gap:8px;align-items:center;font-weight:650;font-size:16px;padding:4px 8px 14px}
+.nav{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px;cursor:pointer;color:var(--l2);border:0;background:none;text-align:left;width:100%}
+.nav:hover{background:var(--hover)}.nav.on{background:#26262a;color:var(--l1);font-weight:600}
+.nav .n{margin-left:auto;color:var(--l3);font-size:12px}.nav .n.red{color:var(--red)}
+.side .foot{margin-top:auto;font-size:12px;color:var(--l3);padding:8px}
+.ic{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;flex:none;color:#fff}
+.ic svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.c-home{background:#2f7cf6}.c-send{background:#8e8e93}.c-clean{background:#f08a24}.c-org{background:#8b5cf6}.c-prot{background:#4f5bd5}.c-set{background:#636366}
+.ic.lg{width:30px;height:30px;border-radius:8px}.ic.lg svg{width:16px;height:16px}
+main{position:relative;padding:28px 40px 120px;min-width:0}
+.wrap{max-width:860px;margin:0 auto}
+.with-details .wrap{margin:0}
+.head{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.head h1{font-size:28px;font-weight:700;letter-spacing:-.02em;margin:0}
+.spacer{flex:1}
+.note{border:1px dashed #3a3a40;color:var(--l3);border-radius:10px;padding:10px 12px;font-size:12.5px;margin:0 0 18px}
+.note b{color:var(--l2)}
+h2.sec{font-size:13px;font-weight:600;color:var(--l3);margin:26px 4px 8px;display:flex;align-items:center;gap:8px}
+h2.sec .r{margin-left:auto;font-weight:500}
+/* buttons: three styles, two sizes */
+.b{border:0;border-radius:8px;height:28px;padding:0 12px;font-size:13px;font-weight:550;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.b.lg{height:32px;padding:0 14px;font-size:13.5px}
+.b.fill{background:var(--accent);color:#fff}.b.fill:hover{background:#4a7be0}
+.b.gray{background:#2a2a2e;color:var(--l1)}.b.gray:hover{background:#333338}
+.b.plain{background:none;color:var(--accent-t);padding:0 6px}.b.plain:hover{text-decoration:underline}
+.b.red{background:none;color:var(--red);padding:0 6px}
+.b.icon{width:28px;padding:0;justify-content:center;background:none;color:var(--l3)}.b.icon:hover{background:#2a2a2e;color:var(--l1)}
+.b svg{width:16px;height:16px;fill:currentColor}
+a.link{color:var(--accent-t);text-decoration:none;font-size:13px}
+/* grouped list */
+.group{background:var(--panel);border:1px solid var(--hair);border-radius:14px;overflow:visible}
+.row{display:flex;align-items:center;gap:12px;padding:10px 14px;min-height:52px;border-top:1px solid var(--hair);position:relative}
+.row:first-child{border-top:0}
+.row.click{cursor:pointer}.row.click:hover{background:var(--hover)}
+.row:first-child.click:hover{border-radius:14px 14px 0 0}.row:last-child.click:hover{border-radius:0 0 14px 14px}
+.row .t{font-weight:560}.row .s{font-size:12.5px;color:var(--l3)}
+.row .v{color:var(--l3);font-variant-numeric:tabular-nums;font-size:13px;min-width:28px;text-align:right}
+.row .grow{flex:1;min-width:0}
+.row .grow > *{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chev{color:var(--l4);font-size:16px}
+.logo{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:13px;color:#fff;flex:none;position:relative}
+.logo.sm{width:22px;height:22px;border-radius:6px;font-size:10px}
+.badge{position:absolute;right:-4px;bottom:-4px;width:15px;height:15px;border-radius:50%;background:var(--red);border:2px solid var(--panel);display:grid;place-items:center;font-size:9px;font-weight:800;color:#fff}
+.sw{width:38px;height:22px;border-radius:11px;background:#39393d;position:relative;flex:none;cursor:pointer}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s}
+.sw.on{background:#34c759}.sw.on::after{left:18px}
+/* menu */
+.menu{position:absolute;right:10px;top:44px;z-index:20;min-width:200px;background:#2a2a2e;border:1px solid #3a3a40;border-radius:10px;padding:5px;box-shadow:0 12px 40px rgba(0,0,0,.5);display:none}
+.menu.open{display:block}
+.menu button{display:flex;width:100%;border:0;background:none;padding:7px 10px;border-radius:6px;text-align:left;cursor:pointer;font-size:13px;gap:8px;align-items:center}
+.menu button:hover{background:var(--accent);color:#fff}
+.menu hr{border:0;border-top:1px solid #3a3a40;margin:4px 6px}
+.menu .redt{color:var(--red)}.menu .redt:hover{background:#c43c3c;color:#fff}
+.menu .k{margin-left:auto;color:var(--l3);font-size:12px}
+/* tiles */
+.bento{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.tile{background:var(--panel);border:1px solid var(--hair);border-radius:16px;padding:16px 18px;cursor:pointer;display:flex;flex-direction:column;gap:12px;min-height:150px}
+.tile:hover{border-color:#3a3a40}
+.tile .th{display:flex;align-items:center;gap:10px;font-weight:650;font-size:15px}
+.tile .th .chev{margin-left:auto}
+.big{font-size:40px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.big small{font-size:14px;font-weight:500;color:var(--l3);letter-spacing:0;margin-left:6px}
+.span4{grid-column:span 4}.span2{grid-column:span 2}.span3{grid-column:span 3}.span6{grid-column:span 6}
+.stack{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px}
+.legend{display:flex;gap:16px;font-size:12.5px;color:var(--l3);flex-wrap:wrap}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+.faces{display:flex}.faces .logo{border:2px solid var(--panel);margin-left:-6px}.faces .logo:first-child{margin-left:0}
+.mini{display:flex;flex-direction:column;gap:8px;margin-top:auto}
+.mini .mr{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--l2)}
+.mini .mr .v{margin-left:auto;color:var(--l3)}
+.bar{height:6px;border-radius:3px;background:#2a2a2e;overflow:hidden}.bar > i{display:block;height:100%;background:var(--accent);border-radius:3px}
+/* columns chart */
+.cols{display:flex;align-items:flex-end;gap:8px;height:110px}
+.cols div{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.cols b{display:block;width:100%;background:var(--accent);border-radius:4px 4px 0 0;min-height:2px}
+.cols b.r{background:var(--red)}
+.cols span{font-size:11px;color:var(--l3)}
+/* details panel */
+.details{position:fixed;top:37px;right:0;bottom:0;width:380px;background:var(--panel);border-left:1px solid var(--hair);padding:16px;display:none}
+.with-details .details{display:block}
+.with-details main{margin-right:380px}
+.seg{display:inline-flex;background:#26262a;border-radius:8px;padding:2px}
+.seg button{border:0;background:none;padding:4px 12px;border-radius:6px;font-size:13px;color:var(--l3);cursor:pointer}
+.seg button.on{background:#3a3a40;color:var(--l1)}
+/* kai */
+.kai{position:fixed;right:24px;bottom:24px;width:48px;height:48px;border-radius:14px;background:#1c1c1f;border:1px solid #3a3a40;display:grid;place-items:center;box-shadow:0 8px 30px rgba(0,0,0,.45);z-index:30;transition:right .2s}
+.with-details .kai{right:404px}
+.kai span{display:flex}.kai i{display:block;width:7px;height:7px;background:#fff;border-radius:2px;margin:0 2px}
+.gap-guide{position:fixed;bottom:0;height:24px;width:1px;background:repeating-linear-gradient(#e0b16f 0 3px,transparent 3px 6px);right:48px;z-index:29}
+.with-details .gap-guide{right:428px}
+/* senders */
+.split{display:grid;grid-template-columns:200px 1fr 300px;gap:20px;align-items:start}
+.lists .nav{font-size:13.5px}
+.search{width:100%;height:34px;border-radius:9px;border:1px solid var(--hair);background:var(--panel);color:var(--l1);padding:0 12px;font:inherit;margin-bottom:12px}
+.card{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:18px;position:sticky;top:20px}
+.card .who{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding-bottom:14px;border-bottom:1px solid var(--hair)}
+.card .logo{width:56px;height:56px;border-radius:14px;font-size:22px}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);text-align:center;padding:14px 0;border-bottom:1px solid var(--hair)}
+.facts b{display:block;font-size:18px}.facts span{font-size:11.5px;color:var(--l3)}
+.acts{display:flex;flex-direction:column;gap:8px;padding-top:14px}
+.acts .b{justify-content:center;width:100%}
+.row.sel{background:#22293a}
+/* sheet */
+.sheet{background:var(--panel);border:1px solid #3a3a40;border-radius:16px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.sentence{width:100%;min-height:44px;border-radius:10px;border:1px solid #3a3a40;background:#111113;color:var(--l1);font:inherit;padding:11px 12px}
+.when{display:grid;grid-template-columns:90px 1fr;gap:10px 14px;align-items:center;margin-top:16px;font-size:13.5px}
+.when .lbl{color:var(--l3)}
+.pop{display:inline-flex;align-items:center;gap:6px;background:#2a2a2e;border-radius:8px;height:28px;padding:0 10px;font-size:13px;cursor:pointer}
+.pop::after{content:"⌄";color:var(--l3);margin-top:-4px}
+.tok{display:inline-flex;align-items:center;gap:6px;background:var(--accent-f);color:#d4e2fb;border-radius:6px;padding:2px 8px;font-size:13px}
+.result{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.result .r1{background:#1b1b1e;border-radius:10px;padding:10px 12px}
+.result .r1 b{font-size:20px;display:block}.result .r1 span{font-size:12px;color:var(--l3)}
+/* protect tiles */
+.ptiles{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.pt{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer}
+.pt.on{border-color:var(--accent)}
+.pt .num{margin-left:auto;font-size:28px;font-weight:700;letter-spacing:-.02em}
+.pt .num.red{color:var(--red)}.pt .num.dim{color:var(--l4)}
+.status{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;flex:none}
+.status.ok{background:rgba(76,195,138,.16);color:var(--green)}
+.status.bad{background:var(--red-f);color:var(--red)}
+.status.warn{background:rgba(224,177,111,.16);color:var(--amber)}
+.reasons{padding:0 14px 12px 56px;font-size:13px;color:var(--l2);display:none}
+.reasons.open{display:block}
+.reasons li{margin:3px 0}
+.tag{font-size:11px;font-weight:650;color:var(--red);background:var(--red-f);border-radius:5px;padding:1px 6px}
+.page{display:none}.page.on{display:block}
+.tabs{position:sticky;top:0;z-index:40;background:rgba(10,10,12,.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--hair);padding:8px 40px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.tabs .lbl{color:var(--l3);font-size:12px;margin-right:6px}
+.tabs button{border:0;background:#1d1d20;color:var(--l2);border-radius:7px;padding:5px 10px;font-size:12.5px;cursor:pointer}
+.tabs button.on{background:var(--accent);color:#fff}
+table.spec{border-collapse:collapse;width:100%;font-size:13px}
+table.spec td{padding:10px 12px;border-top:1px solid var(--hair);vertical-align:middle}
+table.spec td:first-child{color:var(--l3);width:150px}
+</style>
+</head>
+<body>
+<div class="tabs" id="tabs"><span class="lbl">Mockup, 2026-10-28:</span></div>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="ic lg c-clean" style="background:#ff6a2b"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2"/><path d="m4 8 8 5 8-5"/></svg></span>Cluster</div>
+    <button class="nav" data-go="home"><span class="ic c-home"><svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7v9H3z"/></svg></span>Home</button>
+    <button class="nav" data-go="senders"><span class="ic c-send"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M21 20c0-2-1-4-3-5"/></svg></span>Senders</button>
+    <button class="nav" data-go="clean"><span class="ic c-clean"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></span>Clean up<span class="n">17</span></button>
+    <button class="nav" data-go="organize"><span class="ic c-org"><svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5zM3 13l9 5 9-5"/></svg></span>Organize</button>
+    <button class="nav" data-go="protect"><span class="ic c-prot"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/></svg></span>Protect<span class="n red">3</span></button>
+    <div class="foot">you@example.com</div>
+  </aside>
+  <main>
+
+<!-- ───────── BUTTONS ───────── -->
+<section class="page" id="p-buttons"><div class="wrap">
+  <div class="head"><h1>One button system</h1></div>
+  <p class="note"><b>Today:</b> 40 button and pill rules, outlined pills, bordered buttons, native dropdowns, "…" in labels. <b>After:</b> three styles, two heights, one menu. Apple: one or two prominent buttons per view, use style not size to show the preferred choice.</p>
+  <div class="group" style="padding:4px 0">
+    <table class="spec">
+      <tr><td>Filled</td><td><button class="b fill lg">Unsubscribe all</button></td><td class="s" style="color:var(--l3)">One per view. The main thing this screen is for.</td></tr>
+      <tr><td>Gray</td><td><button class="b gray">Unsubscribe</button> <button class="b gray">Let in</button> <button class="b gray">Turn on</button></td><td style="color:var(--l3)">Row actions. Same height in every list.</td></tr>
+      <tr><td>Plain</td><td><button class="b plain">See all</button> <button class="b plain">Not now</button></td><td style="color:var(--l3)">Low stakes, navigation, cancel.</td></tr>
+      <tr><td>Red text</td><td><button class="b red">Block sender</button> <button class="b red">Move to Trash</button></td><td style="color:var(--l3)">Only for Trash, Block, Delete. Always confirmed.</td></tr>
+      <tr><td>More ⋯</td><td><button class="b icon"><svg viewBox="0 0 20 20"><circle cx="5" cy="10" r="1.6"/><circle cx="10" cy="10" r="1.6"/><circle cx="15" cy="10" r="1.6"/></svg></button></td><td style="color:var(--l3)">Opens a real menu with three or more items. Never the main action. Gone where there's nothing to put in it.</td></tr>
+      <tr><td>Choices</td><td><span class="pop">1 week</span> <span class="seg"><button class="on">Emails</button><button>Senders</button></span></td><td style="color:var(--l3)">Pop-up menu replaces native selects. Segmented control replaces pill rows.</td></tr>
+      <tr><td>On or off</td><td><span class="sw on"></span></td><td style="color:var(--l3)">Switches only. No "Turn on…" buttons for things that stay on.</td></tr>
+    </table>
+  </div>
+  <h2 class="sec">Heights</h2>
+  <div class="group" style="padding:4px 0"><table class="spec">
+    <tr><td>28 px</td><td>Every button inside a row or card</td></tr>
+    <tr><td>32 px</td><td>Page header buttons and the one filled button</td></tr>
+    <tr><td>Retired</td><td>Outlined pills, "Unsubscribe + clean…", "Read later…", bordered option strips, "…" at the end of labels, native &lt;select&gt;</td></tr>
+  </table></div>
+</div></section>
+
+<!-- ───────── HOME ───────── -->
+<section class="page" id="p-home"><div class="wrap">
+  <div class="head"><h1>Home</h1><span class="spacer"></span><button class="b gray lg">Details</button></div>
+  <p class="note"><b>Changes:</b> no subtitles under titles. Each tile says one number once, with one picture that explains it. No buttons inside tiles: the whole tile opens its place. Protect shows who is being faked instead of a red "3".</p>
+  <div class="bento">
+    <div class="tile span4">
+      <div class="th"><span class="ic lg c-home"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>Inbox<span class="chev">›</span></div>
+      <div class="big">150<small>emails</small></div>
+      <div class="stack"><i style="flex:13;background:#9fb6e8"></i><i style="flex:15;background:#6f9be0"></i><i style="flex:81;background:#3f6fd1"></i><i style="flex:41;background:#2a4a8f"></i></div>
+      <div class="legend"><span><i style="background:#9fb6e8"></i>Primary 13</span><span><i style="background:#6f9be0"></i>Transactions 15</span><span><i style="background:#3f6fd1"></i>Updates 81</span><span><i style="background:#2a4a8f"></i>Promotions 41</span></div>
+    </div>
+    <div class="tile span2">
+      <div class="th"><span class="ic lg c-prot"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/></svg></span>Protect<span class="chev">›</span></div>
+      <div class="big" style="color:var(--red)">3<small>to review</small></div>
+      <div class="mini">
+        <div class="faces"><span class="logo sm" style="background:#e50914">N</span><span class="logo sm" style="background:#003087">P</span><span class="logo sm" style="background:#555">A</span></div>
+        <div style="font-size:12.5px;color:var(--l3)">Pretending to be Netflix, PayPal, Apple</div>
+      </div>
+    </div>
+    <div class="tile span3">
+      <div class="th"><span class="ic lg c-clean"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></span>Clean up<span class="chev">›</span></div>
+      <div class="big">17<small>emails ready to go</small></div>
+      <div class="mini">
+        <div class="mr"><span class="logo sm" style="background:#555">✉</span>Never opened</div>
+        <div class="mr"><span class="logo sm" style="background:#555">⏱</span>Past its date</div>
+      </div>
+    </div>
+    <div class="tile span3">
+      <div class="th"><span class="ic lg c-org"><svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5zM3 13l9 5 9-5"/></svg></span>Organize<span class="chev">›</span></div>
+      <div class="big">0<small>of 9 automations on</small></div>
+      <div class="mini">
+        <div class="mr">Newsletters could leave after a week<span class="v">75 a week</span></div>
+        <div class="mr">Receipts could file themselves<span class="v">9 a week</span></div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<!-- ───────── SENDERS ───────── -->
+<section class="page" id="p-senders"><div class="wrap" style="max-width:1100px">
+  <div class="head"><h1>Senders</h1></div>
+  <p class="note"><b>Changes:</b> rows like Gmail's Manage subscriptions: logo, name, one gray line, the count on the right. No buttons and no bars in rows. Companies with several addresses are one row. Pick a row and its card on the right holds the actions (like Contacts).</p>
+  <div class="split">
+    <div class="lists">
+      <button class="nav on">All<span class="n">212</span></button>
+      <button class="nav">People<span class="n">31</span></button>
+      <button class="nav">Companies<span class="n">140</span></button>
+      <button class="nav">Subscriptions<span class="n">28</span></button>
+      <button class="nav">Never opened<span class="n">19</span></button>
+      <button class="nav">Gone quiet<span class="n">22</span></button>
+      <button class="nav">Muted<span class="n">0</span></button>
+    </div>
+    <div>
+      <input class="search" placeholder="Search senders">
+      <div class="group" id="sender-list"></div>
+    </div>
+    <div class="card" id="sender-card"></div>
+  </div>
+</div></section>
+
+<!-- ───────── CLEAN UP ───────── -->
+<section class="page" id="p-clean"><div class="wrap">
+  <div class="head"><h1>Clean up</h1><span class="spacer"></span><button class="b gray lg">Details</button></div>
+  <p class="note"><b>Changes:</b> one gray button per row, the same size everywhere. ⋯ opens a real menu (try it). The old bordered options strip and the week dropdown are gone. Clicking a row opens that sender's mail in Details.</p>
+  <div class="group">
+    <div class="row"><span class="logo" style="background:#3a3a40">✉</span><div class="grow"><span class="t">Never opened</span><span class="s">2 senders · 16 emails</span></div><button class="b gray">Mute</button></div>
+    <div class="row"><span class="logo" style="background:#3a3a40">⏱</span><div class="grow"><span class="t">Past its date</span><span class="s">Old codes and expired offers · 1 email</span></div><button class="b gray">Trash</button></div>
+  </div>
+  <h2 class="sec">Most mail first <span style="font-weight:500">10 of 37</span><a class="link r" href="#">See all</a></h2>
+  <div class="group" id="clean-list"></div>
+  <h2 class="sec">Stop mail</h2>
+  <div class="group">
+    <div class="row"><span class="logo" style="background:#3a3a40">↯</span><div class="grow"><span class="t">24 newsletters can stop in one click</span><span class="s">Only future mail stops</span></div><button class="b fill lg">Unsubscribe all</button></div>
+    <div class="row click"><span class="logo" style="background:#e50914">N</span><div class="grow"><span class="t">Netflix</span><span class="s">Renews · cancel with the company</span></div><span class="v">7h ago</span><span class="chev">›</span></div>
+  </div>
+</div></section>
+
+<!-- ───────── ORGANIZE ───────── -->
+<section class="page" id="p-organize"><div class="wrap">
+  <div class="head"><h1>Organize</h1></div>
+  <p class="note"><b>Changes:</b> Sort now comes first. Presets and your own rules live in one Automations list, so Rules leaves the sidebar and "Make your own" stops being a grid of dropdowns. New rule opens one sheet. Smart views move into Details as filter chips.</p>
+
+  <h2 class="sec">Sort now</h2>
+  <div class="group" id="sort-card">
+    <div class="row"><span class="logo" style="background:#8b5cf6">⇣</span><div class="grow"><span class="t">Sort 136 emails into 6 labels</span><span class="s">Newsletters, Receipts, Shopping, Travel, Social, Updates</span></div><button class="b plain">Change labels</button><button class="b fill lg" id="sort-go">Sort</button></div>
+  </div>
+
+  <h2 class="sec">Automations <span class="r"><button class="b gray" id="new-rule">New rule</button></span></h2>
+  <div class="group">
+    <div class="row"><span class="logo" style="background:#5856d6">🔑</span><div class="grow"><span class="t">Codes leave after a day</span><span class="s">About 2 a week</span></div><span class="sw"></span></div>
+    <div class="row"><span class="logo" style="background:#ff9500">🏷</span><div class="grow"><span class="t">Promotions skip the inbox</span><span class="s">About 40 a week</span></div><span class="sw"></span></div>
+    <div class="row"><span class="logo" style="background:#007aff">📰</span><div class="grow"><span class="t">Newsletters leave after a week</span><span class="s">About 75 a week</span></div><span class="sw on"></span></div>
+    <div class="row"><span class="logo" style="background:#34c759">🧾</span><div class="grow"><span class="t">Receipts go to Receipts</span><span class="s">About 9 a week</span></div><span class="sw"></span></div>
+    <div class="row"><span class="logo" style="background:#ff2d55">📅</span><div class="grow"><span class="t">Newsletters arrive Saturday 8 am</span><span class="s">All at once</span></div><span class="sw"></span></div>
+    <div class="row"><span class="logo" style="background:#af52de">↩</span><div class="grow"><span class="t">No reply in 3 days comes back</span><span class="s">Mail you sent</span></div><span class="sw"></span></div>
+    <div class="row click"><span class="logo" style="background:#3a3a40">✎</span><div class="grow"><span class="t">Archive LinkedIn older than 14 days</span><span class="s">Your rule · 26 emails now</span></div><span class="sw on"></span><span class="chev">›</span></div>
+  </div>
+  <p style="color:var(--l3);font-size:12.5px;margin:8px 4px">Starred mail and people you write to are never moved.</p>
+
+  <h2 class="sec">Tidy once</h2>
+  <div class="group">
+    <div class="row"><span class="logo" style="background:#3a3a40">≡</span><div class="grow"><span class="t">Keep the newest 3 per sender</span><span class="s">43 older emails move out</span></div><button class="b gray">Move out</button></div>
+  </div>
+
+  <h2 class="sec" style="margin-top:34px">The New rule sheet</h2>
+  <div class="sheet">
+    <div style="display:flex;align-items:center;margin-bottom:12px"><b style="font-size:16px">New rule</b><span class="spacer"></span><button class="b plain">Cancel</button><button class="b fill lg">Save</button></div>
+    <input class="sentence" value="Archive unread newsletters older than 14 days">
+    <div class="when">
+      <span class="lbl">When</span><span><span class="tok">Newsletters</span> <span class="tok">unread</span> <span class="tok">older than 14 days</span> <button class="b plain">Add condition</button></span>
+      <span class="lbl">Do</span><span><span class="pop">Archive</span></span>
+      <span class="lbl">Except</span><span><span class="pop">Starred and people you write to</span></span>
+    </div>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--hair);color:var(--l3);font-size:13px">Matches 38 emails now · <a class="link" href="#">Show them</a></div>
+  </div>
+</div></section>
+
+<!-- ───────── PROTECT ───────── -->
+<section class="page" id="p-protect"><div class="wrap">
+  <div class="head"><h1>Protect</h1></div>
+  <p class="note"><b>Changes:</b> the number sits on the right of each tile. Scam rows show the brand being faked with a red badge, like Apple Passwords shows each site's icon. A chevron opens the reasons, ⋯ holds the other actions. Numbers become a bento grid. Checkup uses status marks like Google's Security Checkup.</p>
+  <div class="ptiles">
+    <div class="pt on"><span class="status bad">!</span><b>Likely scams</b><span class="num red">3</span></div>
+    <div class="pt"><span class="status ok">✓</span><b>New senders</b><span class="num dim">0</span></div>
+    <div class="pt"><span class="status ok">✓</span><b>Held so far</b><span class="num dim">0</span></div>
+  </div>
+
+  <h2 class="sec">High priority</h2>
+  <div class="group" id="scam-list"></div>
+
+  <h2 class="sec">This scan</h2>
+  <div class="bento">
+    <div class="tile span4" style="cursor:default">
+      <div class="th" style="font-size:14px">Scams per week<span class="spacer"></span><span style="color:var(--l3);font-weight:500;font-size:12.5px">last 8 weeks</span></div>
+      <div class="cols">
+        <div><b style="height:10%"></b><span>Sep 3</span></div><div><b style="height:0"></b><span>Sep 10</span></div><div><b style="height:20%"></b><span>Sep 17</span></div><div><b style="height:10%"></b><span>Sep 24</span></div>
+        <div><b style="height:0"></b><span>Oct 1</span></div><div><b style="height:30%"></b><span>Oct 8</span></div><div><b class="r" style="height:100%"></b><span>Oct 15</span></div><div><b class="r" style="height:60%"></b><span>Oct 22</span></div>
+      </div>
+    </div>
+    <div class="tile span2" style="cursor:default">
+      <div class="th" style="font-size:14px">Sender checks</div>
+      <div class="big">98%<small>passed</small></div>
+      <div class="bar"><i style="width:98%;background:var(--green)"></i></div>
+      <div style="font-size:12.5px;color:var(--l3)">3 of 150 failed</div>
+    </div>
+    <div class="tile span3" style="cursor:default">
+      <div class="th" style="font-size:14px">Brands faked</div>
+      <div class="mini" style="margin-top:0">
+        <div class="mr"><span class="logo sm" style="background:#e50914">N</span>Netflix<span class="v">1</span></div>
+        <div class="mr"><span class="logo sm" style="background:#003087">P</span>PayPal<span class="v">1</span></div>
+        <div class="mr"><span class="logo sm" style="background:#555">A</span>Apple<span class="v">1</span></div>
+      </div>
+    </div>
+    <div class="tile span3" style="cursor:default">
+      <div class="th" style="font-size:14px">Warning signs</div>
+      <div class="mini" style="margin-top:0">
+        <div class="mr" style="display:block">Failed sender check<span style="float:right;color:var(--l3)">3</span><div class="bar" style="margin-top:5px"><i style="width:100%;background:var(--red)"></i></div></div>
+        <div class="mr" style="display:block">Brand name on a lookalike address<span style="float:right;color:var(--l3)">3</span><div class="bar" style="margin-top:5px"><i style="width:100%;background:var(--red)"></i></div></div>
+        <div class="mr" style="display:block">Urgent wording<span style="float:right;color:var(--l3)">2</span><div class="bar" style="margin-top:5px"><i style="width:66%;background:var(--amber)"></i></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="sec">Checkup</h2>
+  <div class="group">
+    <div class="row"><span class="status bad">!</span><div class="grow"><span class="t">Sender checks</span></div><span class="v" style="color:var(--red)">3 failed</span><span class="chev">›</span></div>
+    <div class="row"><span class="status bad">!</span><div class="grow"><span class="t">Fake brand names</span></div><span class="v" style="color:var(--red)">3</span><span class="chev">›</span></div>
+    <div class="row"><span class="status ok">✓</span><div class="grow"><span class="t">Replies sent elsewhere</span></div><span class="v">None</span></div>
+    <div class="row"><span class="status ok">✓</span><div class="grow"><span class="t">Known bad links</span></div><span class="v">None</span></div>
+  </div>
+
+  <h2 class="sec">Holding</h2>
+  <div class="group">
+    <div class="row"><div class="grow"><span class="t">Hold likely scams</span><span class="s">Moves them out of your inbox</span></div><span class="sw"></span></div>
+    <div class="row"><div class="grow"><span class="t">Hold forged mail</span><span class="s">Fails the checks that prove who sent it</span></div><span class="sw"></span></div>
+    <div class="row"><div class="grow"><span class="t">Send held mail to Spam</span><span class="s">Also teaches Gmail's filter</span></div><span class="sw"></span></div>
+  </div>
+</div></section>
+
+<!-- ───────── SETTINGS ───────── -->
+<section class="page" id="p-settings"><div class="wrap" style="max-width:720px">
+  <div class="head"><h1>Settings</h1></div>
+  <p class="note"><b>Changes:</b> only grouped lists, switches and pop-up menus. The two banners become one row each. Groups marked <span class="tok">new</span> are features to pick from. Tell me which ones you want.</p>
+  <div class="group">
+    <div class="row"><span class="ic lg c-org"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h6"/></svg></span><div class="grow"><span class="t">Tidy up Cluster's labels</span><span class="s">Rename 1 label left by older versions</span></div><button class="b gray">Tidy up</button></div>
+    <div class="row"><span class="ic lg c-home"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></span><div class="grow"><span class="t">Set Cluster up for you</span><span class="s">One question</span></div><button class="b gray">Start</button></div>
+  </div>
+  <h2 class="sec">Mail</h2>
+  <div class="group">
+    <div class="row"><div class="grow"><span class="t">Look back</span></div><span class="pop">6 months</span></div>
+    <div class="row"><div class="grow"><span class="t">Read my mail again</span></div><button class="b gray">Rescan</button></div>
+    <div class="row"><div class="grow"><span class="t">Accounts</span><span class="s">you@example.com</span></div><span class="tok">new</span><button class="b gray">Add Outlook</button></div>
+  </div>
+  <h2 class="sec">Notifications <span class="tok">new</span></h2>
+  <div class="group">
+    <div class="row"><div class="grow"><span class="t">Weekly summary</span><span class="s">Monday morning, in Chrome</span></div><span class="sw"></span></div>
+    <div class="row"><div class="grow"><span class="t">Tell me when a scam is held</span></div><span class="sw on"></span></div>
+  </div>
+  <h2 class="sec">Safety net <span class="tok">new</span></h2>
+  <div class="group">
+    <div class="row"><div class="grow"><span class="t">Undo for</span></div><span class="pop">30 days</span></div>
+    <div class="row click"><div class="grow"><span class="t">Activity</span><span class="s">Everything Cluster did, with Undo</span></div><span class="chev">›</span></div>
+  </div>
+  <h2 class="sec">Appearance</h2>
+  <div class="group">
+    <div class="row"><div class="grow"><span class="t">Theme</span></div><span class="seg"><button>Light</button><button>Dark</button><button class="on">System</button></span></div>
+    <div class="row"><div class="grow"><span class="t">Simple mode</span><span class="s">Bigger text, fewer screens</span></div><span class="sw"></span></div>
+    <div class="row"><div class="grow"><span class="t">Show Kai</span></div><span class="tok">new</span><span class="sw on"></span></div>
+  </div>
+  <h2 class="sec">Privacy <span class="tok">new</span></h2>
+  <div class="group">
+    <div class="row click"><div class="grow"><span class="t">What Cluster keeps on this computer</span></div><span class="chev">›</span></div>
+    <div class="row"><div class="grow"><span class="t">Export my settings and rules</span></div><button class="b gray">Export</button></div>
+    <div class="row"><div class="grow"><span class="t">Erase everything Cluster stored</span></div><button class="b red">Erase</button></div>
+  </div>
+  <h2 class="sec">Keyboard <span class="tok">new</span></h2>
+  <div class="group">
+    <div class="row"><div class="grow"><span class="t">Shortcuts</span><span class="s">/ Ask Kai · G then H Home · E Trash · M Mute</span></div><span class="sw on"></span></div>
+  </div>
+</div></section>
+
+  </main>
+</div>
+<aside class="details">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span class="seg"><button class="on">Emails</button><button>Senders</button></span><span class="spacer"></span><button class="b icon" title="Minimize">⇥</button></div>
+  <input class="search" placeholder="Search">
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"><span class="tok">Morning Brew ✕</span><span class="pop">Never opened</span><span class="pop">This week</span><span class="pop">Large</span></div>
+  <div style="color:var(--l3);font-size:12.5px">Smart views live here now, as filter chips.</div>
+</aside>
+<div class="gap-guide" title="24 px gap"></div>
+<div class="kai" title="Kai: bottom right, 24 px from the edges and from Details"><span><i></i><i></i></span></div>
+
+<script>
+const pages=[["buttons","Buttons"],["home","Home"],["senders","Senders"],["clean","Clean up"],["organize","Organize"],["protect","Protect"],["settings","Settings"]];
+const tabs=document.getElementById("tabs");
+const detailsOn={clean:true};
+function go(id){
+  document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.id==="p-"+id));
+  tabs.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.id===id));
+  document.querySelectorAll(".side .nav").forEach(b=>b.classList.toggle("on",b.dataset.go===id));
+  document.body.classList.toggle("with-details",!!detailsOn[id]);
+  try{localStorage.setItem("mock-page",id)}catch(e){}
+  scrollTo(0,0);
+}
+for(const [id,label] of pages){const b=document.createElement("button");b.textContent=label;b.dataset.id=id;b.onclick=()=>go(id);tabs.append(b)}
+document.querySelectorAll(".side .nav").forEach(b=>b.onclick=()=>go(b.dataset.go));
+
+const more='<svg viewBox="0 0 20 20"><circle cx="5" cy="10" r="1.6"/><circle cx="10" cy="10" r="1.6"/><circle cx="15" cy="10" r="1.6"/></svg>';
+function closeMenus(){document.querySelectorAll(".menu.open").forEach(m=>m.classList.remove("open"))}
+document.addEventListener("click",e=>{if(!e.target.closest(".menu,[data-menu]"))closeMenus()});
+function menuBtn(items){
+  const wrap=document.createElement("span");
+  wrap.innerHTML=`<button class="b icon" data-menu aria-label="More">${more}</button><div class="menu">${items}</div>`;
+  wrap.firstChild.onclick=e=>{e.stopPropagation();const m=wrap.lastChild;const was=m.classList.contains("open");closeMenus();m.classList.toggle("open",!was)};
+  return wrap;
+}
+
+// Clean up
+const clean=[["LinkedIn","#0a66c2","in","9% opened",11,"Unsubscribe"],["UNIQLO","#c00","U","Never opened",8,"Mute"],["Medium Daily Digest","#111","M","Never opened",8,"Unsubscribe"],["Amazon","#ff9900","a","Never opened",8,"Unsubscribe"],["Morning Brew","#2a6cf0","M","71% opened",7,"Unsubscribe"],["Quora Digest","#b92b27","Q","Never opened",7,"Unsubscribe"],["Reddit","#ff4500","r","20% opened",5,"Unsubscribe"],["Chase","#117aca","C","Always opened",5,"Mute"]];
+const cl=document.getElementById("clean-list");
+for(const [n,c,l,s,v,a] of clean){
+  const r=document.createElement("div");r.className="row click";
+  r.innerHTML=`<span class="logo" style="background:${c}">${l}</span><div class="grow"><span class="t">${n}</span><span class="s">${s}</span></div><span class="v">${v}</span><button class="b gray">${a}</button>`;
+  r.append(menuBtn(`<button>Keep sorted</button><button>Mute</button><hr><button>Snooze 1 day</button><button>Snooze 1 week</button><button>Snooze 1 month</button><hr><button>Show emails</button><button>Not useful</button><hr><button class="redt">Trash all ${v} emails</button>`));
+  cl.append(r);
+}
+
+// Senders
+const senders=[["LinkedIn","#0a66c2","in","5 addresses · opens 23%",26,"Company"],["UNIQLO","#c00","U","3 a month · never opened",8,"Subscription"],["Medium Daily Digest","#111","M","3 a month · never opened",8,"Subscription"],["Amazon","#ff9900","a","2 addresses · opens 13%",9,"Company"],["Morning Brew","#2a6cf0","M","2 a month · opens 71%",7,"Subscription"],["Chase","#117aca","C","2 a month · always opened",5,"Company"],["Mom","#34c759","M","You write back",3,"Person"]];
+const sl=document.getElementById("sender-list"),card=document.getElementById("sender-card");
+function showSender(i){
+  const [n,c,l,s,v,k]=senders[i];
+  sl.querySelectorAll(".row").forEach((r,j)=>r.classList.toggle("sel",j===i));
+  const sub=k==="Subscription";
+  card.innerHTML=`<div class="who"><span class="logo" style="background:${c}">${l}</span><b style="font-size:17px">${n}</b><span style="color:var(--l3);font-size:12.5px">${k}</span></div>
+  <div class="facts"><div><b>${v}</b><span>emails</span></div><div><b>${s.includes("never")?"0%":s.match(/\d+%/)?.[0]||"100%"}</b><span>opened</span></div><div><b>${s.includes("addresses")?s.match(/\d+/)[0]:1}</b><span>addresses</span></div></div>
+  <div class="acts">${sub?'<button class="b fill lg">Unsubscribe</button>':''}<button class="b gray">Show emails</button><button class="b gray">Mute</button><button class="b gray">Always keep</button><button class="b red">Trash all ${v} emails</button></div>`;
+}
+senders.forEach(([n,c,l,s,v],i)=>{
+  const r=document.createElement("div");r.className="row click";
+  r.innerHTML=`<span class="logo" style="background:${c}">${l}</span><div class="grow"><span class="t">${n}</span><span class="s">${s}</span></div><span class="v">${v}</span><span class="chev">›</span>`;
+  r.onclick=()=>showSender(i);sl.append(r);
+});
+showSender(0);
+
+// Protect
+const scams=[["Netflix","#e50914","N","Payment declined, update your billing details","netflix-account-update.xyz"],["PayPal","#003087","P","Your account has been limited","paypa1-secure.com"],["Apple","#555","A","Your Apple ID was used to sign in on a new device","apple-id-verify.co"]];
+const scl=document.getElementById("scam-list");
+for(const [b,c,l,subj,dom] of scams){
+  const r=document.createElement("div");r.className="row click";
+  r.innerHTML=`<span class="logo" style="background:${c}">${l}<span class="badge">!</span></span><div class="grow"><span class="t">${subj}</span><span class="s">Pretends to be ${b} · from ${dom}</span></div><span class="tag">High risk</span><button class="b red">Block</button>`;
+  const reasons=document.createElement("div");reasons.className="reasons";
+  reasons.innerHTML=`<ul style="margin:0;padding-left:16px"><li>It failed the check that proves it came from ${dom}.</li><li>It says it's from ${b}, but the address isn't one ${b} uses.</li><li>The subject pushes you to act fast.</li></ul>`;
+  r.append(menuBtn(`<button>It's fine</button><button>Report</button><button>Deep scan</button><hr><button class="redt">Block sender</button>`));
+  r.onclick=e=>{if(!e.target.closest("button,.menu"))reasons.classList.toggle("open")};
+  const g=document.createElement("div");g.append(r,reasons);scl.append(g);
+}
+document.getElementById("sort-go").onclick=()=>{
+  document.getElementById("sort-card").innerHTML=`<div class="row" style="display:block;padding:16px"><div style="display:flex;align-items:center"><span class="status ok">✓</span><b style="margin-left:10px">Sorted 136 emails</b><span class="spacer"></span><button class="b plain">Undo</button><button class="b gray">Open in Gmail</button></div>
+  <div class="result"><div class="r1"><b>58</b><span>Newsletters</span></div><div class="r1"><b>31</b><span>Updates</span></div><div class="r1"><b>19</b><span>Receipts</span></div><div class="r1"><b>14</b><span>Shopping</span></div><div class="r1"><b>9</b><span>Social</span></div><div class="r1"><b>5</b><span>Travel</span></div></div></div>`;
+};
+let start="buttons";try{start=localStorage.getItem("mock-page")||start}catch(e){}
+go(start);
+</script>
+</body>
+</html>
