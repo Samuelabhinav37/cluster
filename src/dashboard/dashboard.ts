@@ -1222,7 +1222,7 @@ function movedTodayCard(): HTMLElement | null {
   const fine = Object.assign(document.createElement("button"), {
     type: "button",
     className: "btn btn-sm",
-    textContent: "Looks right",
+    textContent: "Keep doing this",
   });
   fine.onclick = () => {
     movedTodayDismissed = true;

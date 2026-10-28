@@ -39,12 +39,12 @@ describe("Moved today", () => {
     expect(dash.gmail.unarchiveMessages).toHaveBeenCalledWith("gmail-token", ["m1", "m2"]);
   });
 
-  it("hides on Looks right and skips user sorts and older moves", async () => {
+  it("hides on Keep doing this and skips user sorts and older moves", async () => {
     await bootDashboard({ settings: { actionLog: [sweepEntry] } });
     await vi.waitFor(() => {
       if (!card()) throw new Error("no card yet");
     });
-    buttonIn(card()!, "Looks right").click();
+    buttonIn(card()!, "Keep doing this").click();
     expect(card()).toBeNull();
 
     document.body.innerHTML = "";
