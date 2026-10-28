@@ -142,4 +142,7 @@ Later on 2026-10-28 (see git log):
 - 3.13: Delivered orders card. Order or booking number, else thread, links one sender's shipping mail; in-transit updates of delivered orders move out (archive).
 - Dashboard JS budget 595 → 600 KB.
 
+- 3.3: company list 37 → 70 brands, distinctive names only (no surnames or common words). Company grouping already required aligned DKIM.
+- 4.2 finished: "Keep doing this" replaces "Looks right". "Archive all" left out: the sweep has already archived that mail.
+
 Still open: 5.3 + 5.4 (one sender row everywhere, one home per sender) change screens you approved, so they wait for your call. Step e and 3.15 need the hand-labelled sample. 1.4's spike needs a redirect URI added to the Google Cloud OAuth client.
