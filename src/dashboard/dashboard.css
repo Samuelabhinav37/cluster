@@ -3664,3 +3664,5 @@ select:not([multiple]):hover { background-color: var(--neutral-fill-hover); }
 /* Sort preview: Apply sits above the buckets; the done line replaces it. */
 .sort-apply-bar { margin-bottom: 12px; }
 .sort-done { color: var(--label); font-weight: 600; }
+.protect-bento .tile-wide { grid-column: span 2; }
+@media (max-width: 900px) { .protect-bento .tile-wide { grid-column: auto; } }

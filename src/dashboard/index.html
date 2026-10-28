@@ -722,6 +722,30 @@
             </section>
             <p id="security-empty" class="empty-state">Nothing looks like a scam right now.</p>
             <section class="ios-section">
+              <h2 class="ios-head">This scan</h2>
+              <div class="bento protect-bento">
+                <div class="glass-card chart-card tile-wide">
+                  <h2>Scams per week</h2>
+                  <p class="lead-sm" id="report-held-sub">Last 8 weeks</p>
+                  <div class="vbars" id="report-held-bars" role="img"></div>
+                  <div class="vlabels" id="report-held-labels" aria-hidden="true"></div>
+                </div>
+                <div class="glass-card chart-card">
+                  <h2>Sender checks</h2>
+                  <p class="tile-stat"><b id="report-checks-pct">–</b>passed</p>
+                  <p class="lead-sm" id="report-checks-sub"></p>
+                </div>
+                <div class="glass-card chart-card">
+                  <h2>Brands faked</h2>
+                  <div class="hbars" id="report-brands"></div>
+                </div>
+                <div class="glass-card chart-card tile-wide">
+                  <h2>Warning signs</h2>
+                  <div class="hbars" id="report-kinds"></div>
+                </div>
+              </div>
+            </section>
+            <section class="ios-section">
               <h2 class="ios-head">Checkup</h2>
               <div class="ios-group" id="protect-checks"></div>
             </section>
@@ -1002,24 +1026,6 @@
             </div>
             <div class="protect-tiles" role="tablist" aria-label="Protect" data-protect-tiles></div>
             <div class="report-kpis" id="report-kpis"></div>
-            <div class="glass-card chart-card">
-              <h2>Emails held each week</h2>
-              <p class="lead-sm" id="report-held-sub">Last 8 weeks</p>
-              <div class="vbars" id="report-held-bars" role="img"></div>
-              <div class="vlabels" id="report-held-labels" aria-hidden="true"></div>
-            </div>
-            <div class="report-grid">
-              <div class="glass-card chart-card">
-                <h2>Who they pretended to be</h2>
-                <p class="lead-sm">Senders in this scan with warning signs</p>
-                <div class="hbars" id="report-brands"></div>
-              </div>
-              <div class="glass-card chart-card">
-                <h2>Warning signs</h2>
-                <p class="lead-sm">Senders in this scan showing each one</p>
-                <div class="hbars" id="report-kinds"></div>
-              </div>
-            </div>
             <details class="disclosure">
               <summary>Show the numbers as a table</summary>
               <div id="report-table"></div>

@@ -14,9 +14,9 @@ const BUDGET: Record<string, { words: number; controls: number }> = {
   delete: { words: 120, controls: 26 },
   subscriptions: { words: 130, controls: 12 },
   organize: { words: 220, controls: 30 }, // holds Rules since 2026-10-28
-  impersonation: { words: 100, controls: 11 },
+  impersonation: { words: 130, controls: 11 }, // holds the scan charts since 2026-10-28
   screener: { words: 70, controls: 6 },
-  report: { words: 105, controls: 6 },
+  report: { words: 50, controls: 6 },
   senders: { words: 85, controls: 18 },
   settings: { words: 80, controls: 12 },
   recent: { words: 20, controls: 2 },

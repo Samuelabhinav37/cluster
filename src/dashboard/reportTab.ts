@@ -171,6 +171,14 @@ export function renderScamReport(securitySenders: SenderSummary[]): void {
     for (const kind of new Set(signals.map((s) => s.kind))) kindCounts.set(kind, (kindCounts.get(kind) ?? 0) + 1);
   }
   const brandRows = [...brandCounts].sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const scanned = ctx.senders.length;
+  const failed = kindCounts.get("failed-authentication") ?? 0;
+  const pct = $("report-checks-pct");
+  const pctSub = $("report-checks-sub");
+  if (pct && pctSub) {
+    pct.textContent = scanned > 0 ? `${Math.floor(((scanned - failed) / scanned) * 100)}%` : "–";
+    pctSub.textContent = scanned > 0 ? `${failed} of ${scanned} senders failed` : "";
+  }
   const kindRows: [string, number][] = [...kindCounts].sort((a, b) => b[1] - a[1]).map(([k, n]) => [KIND_NAME[k], n]);
   const brandsEl = $("report-brands");
   const kindsEl = $("report-kinds");
