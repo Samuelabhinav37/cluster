@@ -58,6 +58,15 @@ function fromAny(addresses: string[]): string {
   return `from:(${addresses.join(" OR ")})`;
 }
 
+/** Mail you need right now: a hold (Screener) must never catch it. */
+export const TIME_SENSITIVE_QUERY = subjectAny([
+  ...KIND_PHRASES.otp,
+  "security alert",
+  "new sign-in",
+  "out for delivery",
+  "arriving today",
+]);
+
 const ALL_KIND_PHRASES = KIND_ORDER.flatMap((k) => KIND_PHRASES[k]);
 
 function isSubjectKind(bucket: SortBucket): bucket is SubjectKind {

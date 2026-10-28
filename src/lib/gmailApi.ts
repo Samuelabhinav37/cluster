@@ -6,6 +6,7 @@ import { fetchWithRetry } from "./httpRetry";
 import { penalizeGmailQuota, reserveGmailQuota } from "./gmailQuotaLedger";
 import { extractLinksFromHtml, type ExtractedLink } from "./linkMismatch";
 import { riskyAttachmentGmailQuery } from "./riskyAttachments";
+import { TIME_SENSITIVE_QUERY } from "./categoryQueries";
 import { lastErrorAsError } from "./chromeError";
 import { canonicalLabelName, clusterLabelName, labelLookupNames } from "./clusterLabels";
 
@@ -554,7 +555,8 @@ const SCREENER_LABEL_NAME = clusterLabelName("screener");
 // and always reversible with allowSenderThrough.
 export async function screenSender(token: string, fromAddress: string, existingIds: string[]): Promise<void> {
   const labelId = await getOrCreateLabel(token, SCREENER_LABEL_NAME);
-  await createSenderFilter(token, fromAddress, labelId);
+  // A new sender's sign-in code or delivery notice still reaches the inbox.
+  await createSenderFilter(token, fromAddress, labelId, TIME_SENSITIVE_QUERY);
   if (existingIds.length > 0) await batchModify(token, existingIds, [labelId], ["INBOX"]);
 }
 
@@ -825,12 +827,17 @@ export async function resurfaceMessages(token: string, ids: string[]): Promise<v
   await batchModify(token, ids, ["INBOX"], labelIds);
 }
 
-export async function createSenderFilter(token: string, fromAddress: string, labelId: string): Promise<void> {
+export async function createSenderFilter(
+  token: string,
+  fromAddress: string,
+  labelId: string,
+  negatedQuery?: string,
+): Promise<void> {
   await gmailFetch("/users/me/settings/filters", token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      criteria: { from: fromAddress },
+      criteria: { from: fromAddress, negatedQuery },
       action: { addLabelIds: [labelId], removeLabelIds: ["INBOX"] },
     }),
   });

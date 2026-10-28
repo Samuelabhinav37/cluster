@@ -15,6 +15,7 @@ import {
   listFilters,
   listInboxMessageIdsSince,
   listMailboxChangesSince,
+  screenSender,
   unmuteSender,
 } from "./gmailApi";
 
@@ -165,6 +166,18 @@ describe("Gmail filter API request shape", () => {
       criteria: { from: "spam@x.com" },
       action: { addLabelIds: ["LABEL_9"], removeLabelIds: ["INBOX"] },
     });
+  });
+
+  it("the Screener's hold lets codes and delivery notices through", async () => {
+    const fetchMock = vi.fn(async (url: string) =>
+      url.endsWith("/labels") ? json({ labels: [{ id: "SCR", name: "Cluster/Screener" }] }) : json({ id: "f" }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await screenSender("t", "new@x.com", []);
+    const filter = fetchMock.mock.calls.findIndex(([url]) => String(url).endsWith("/settings/filters"));
+    const criteria = call(fetchMock, filter).body.criteria;
+    expect(criteria.negatedQuery).toContain('"verification code"');
+    expect(criteria.negatedQuery).toContain('"out for delivery"');
   });
 
   it("deleteSenderFilters removes only the filters whose from: matches, case-insensitively", async () => {
