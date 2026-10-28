@@ -100,11 +100,11 @@ export function reasonText(signal: ThreatSignal): string {
     case "blocklisted-domain":
       return `The sending address (${signal.brand}) is on a public list of scam and malware sites.`;
     case "freemail-brand-claim":
-      return `It says it's from ${brand}, but it was sent from a free email account.`;
+      return `Pretends to be ${brand}, from a free email account.`;
     case "brand-impersonation":
-      return `It says it's from ${brand}, but the address isn't one ${brand} uses.`;
+      return `Pretends to be ${brand}. The address isn't one ${brand} uses.`;
     case "lookalike-domain":
-      return `The address looks like ${brand}'s, but it isn't the same.`;
+      return `Pretends to be ${brand} with a look-alike address.`;
     case "failed-authentication":
       return `It failed the check that proves it really came from ${signal.brand}.`;
     case "reply-to-mismatch":
@@ -174,7 +174,12 @@ export function senderVerdict(sender: SenderSummary, context: VerdictContext): V
   const { tier, score } = judge(signals, adjustment);
   const reasons = signals
     .map((signal) => ({ kind: signal.kind, text: reasonText(signal), points: signalPoints(signal) }))
-    .sort((a, b) => b.points - a.points);
+    // "Pretends to be Netflix" reads first; the technical checks back it up.
+    .sort(
+      (a, b) =>
+        Number(LOOKS_LIKE_A_BRAND.has(b.kind)) - Number(LOOKS_LIKE_A_BRAND.has(a.kind)) ||
+        b.points - a.points,
+    );
 
   // Each message is judged on the signals about the sender's address plus
   // its own, so a hold takes only the messages that earn it: one hijacked

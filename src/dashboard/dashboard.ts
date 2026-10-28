@@ -111,7 +111,7 @@ import { keepNewestExcess } from "../lib/keepNewest";
 import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
 import { renderRulesTab, wireRulesTab } from "./rulesTab";
 import { wireSettingsMore } from "./settingsMore";
-import { initBodyChecks, renderSecurityChecks, renderSecuritySection } from "./securityTab";
+import { initBodyChecks, renderSecuritySection } from "./securityTab";
 import { renderScamReport } from "./reportTab";
 import { heldByWeek } from "../lib/scamHistory";
 import { applySimpleMode, renderSettingsSetup, renderSimpleHome, screenForMode, wireSetup } from "./setupTab";
@@ -1108,7 +1108,6 @@ function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummar
   setNavCount("screener", byId.get("screener-queue") ?? 0);
   const held = heldByWeek(ctx.settings.scamHistory, 8).reduce((n, w) => n + w.held, 0);
   renderProtectTiles(byId.get("flagged-senders") ?? 0, byId.get("screener-queue") ?? 0, held);
-  renderSecurityChecks(securitySenders, held);
 }
 
 // Protect's three views share one head: a line and three tiles that switch

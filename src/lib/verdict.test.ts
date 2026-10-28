@@ -109,9 +109,16 @@ describe("reasons", () => {
   it("lists the strongest reason first, in plain words", () => {
     const verdict = senderVerdict(sender([lure, freemailBank]), stranger);
     expect(verdict.reasons.map((r) => r.text)).toEqual([
-      "It says it's from Bank of America, but it was sent from a free email account.",
+      "Pretends to be Bank of America, from a free email account.",
       "The subject pushes you to act fast or to sign in.",
     ]);
+  });
+
+  it("leads with who it pretends to be, even over a stronger technical check", () => {
+    const failed = { kind: "failed-authentication" as const, brand: "netflix-account-update.xyz" };
+    const claim = { kind: "brand-impersonation" as const, brand: "netflix" };
+    const verdict = senderVerdict(sender([failed, claim] as never), stranger);
+    expect(verdict.reasons[0].text).toBe("Pretends to be Netflix. The address isn't one Netflix uses.");
   });
 
   it("names the new domain in an identity change", () => {
