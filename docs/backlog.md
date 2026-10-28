@@ -103,3 +103,19 @@ This is the master list. It covers today's chat plus research docs `2026-10-10-a
    - **f.** 3.13 event linking.
    - **g.** The rest of sections 4, 6 and 5 by value, then 2.1–2.3, then 1.3–1.4.
 
+
+## Done
+2026-10-28, on feat/dashboard-simplify-2026-10 (not pushed):
+- 2.4 (part): Gemini Nano measured, 3.1–3.7 s per 25, unreliable alone (18ad279).
+- 4.6 / 5.1 bug 1: a stalled rule draft falls back after 15 s (a983313).
+- 5.1 bug 2 + 5.2: Clean up counts each email once (d3d7bb6); Home is one "All mail" total for everything read, Clean up reads "30 of 150 ready to go" (426bfcf). You chose "All mail everywhere".
+- 5.1 bug 3: a new page opens at its top (beff761).
+- 5.1 bug 4: Escape closes an open ⋯ menu before Details (59e5be0).
+- 5.1 bug 5: old bulk bar hidden (38b90e1). Its code stays until Clean up has row selection.
+- 5.1 bug 6: domain and spam row checkboxes labelled (8d0f142).
+- 5.1 bug 7: Protect's empty chart names the real switch (a9769b2).
+- 3.1: Sort now never labels mail failing DMARC or with a warn/hold verdict (9060707). Gmail filters still match on From text.
+- 3.4 + 3.5: platform list (Workday, Greenhouse, Paylocity, Mailchimp) and the platformRoots data rule (d1f064b).
+- 3.9 + 3.10: People need a non-machine person sender, role addresses count as machines (fee87cf).
+
+Still open in step c: 3.6 "via" names, 3.7 List-Id key, 3.8 group-by-company toggle, 3.11 Companies you talk to, 3.12 Not a person.
