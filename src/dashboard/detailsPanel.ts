@@ -156,6 +156,15 @@ export interface DetailsPanel {
   update(senders: readonly SenderSummary[]): void;
 }
 
+export const DETAILS_PREF = "cluster.details";
+const remember = (v: "open" | "min") => {
+  try {
+    localStorage.setItem(DETAILS_PREF, v);
+  } catch {
+    // Storage blocked: the panel just forgets between visits.
+  }
+};
+
 export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now = () => Date.now()): DetailsPanel {
   let raw: readonly SenderSummary[] = [];
   let messages: DetailMessage[] = [];
@@ -202,8 +211,10 @@ export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now
     render();
   });
   wideBtn.setAttribute("aria-label", "Wider");
-  const closeBtn = button("icon-btn", "✕", () => panel.close());
-  closeBtn.setAttribute("aria-label", "Close details");
+  const closeBtn = button("icon-btn", "⇥", () => panel.close());
+  closeBtn.setAttribute("aria-label", "Minimize details");
+  // Minimized, the panel stays as a strip at the edge; clicking it opens it again.
+  const tab = button("details-tab", "Details", () => panel.open());
   head.append(tabs, spacer, wideBtn, closeBtn);
 
   const search = h("input", "details-search");
@@ -222,7 +233,9 @@ export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now
   wrap.append(table);
   const bar = h("div", "selbar");
   bar.hidden = true;
-  root.append(head, search, chips, chart, wrap, bar);
+  root.append(tab, head, search, chips, chart, wrap, bar);
+  root.hidden = false;
+  root.classList.add("min");
 
   const set = (patch: Partial<State>) => {
     st = { ...st, ...patch };
@@ -573,15 +586,17 @@ export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now
       expanded = null;
       limit = PAGE;
       search.value = st.q;
-      root.hidden = false;
+      root.classList.remove("min");
       document.body.classList.add("details-open");
+      remember("open");
       render();
     },
     close() {
-      root.hidden = true;
+      root.classList.add("min");
       document.body.classList.remove("details-open");
+      remember("min");
     },
-    isOpen: () => !root.hidden,
+    isOpen: () => !root.classList.contains("min"),
     update(next) {
       raw = next;
       const present = new Set(next.flatMap((s) => s.messages.map((m) => m.id)));
@@ -589,7 +604,7 @@ export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now
       rebuild();
       const keep = new Set([...messages.map((m) => m.id), ...senders.map((s) => s.key)]);
       for (const id of selected) if (!keep.has(id)) selected.delete(id);
-      if (!root.hidden) render(true);
+      if (panel.isOpen()) render(true);
     },
   };
 

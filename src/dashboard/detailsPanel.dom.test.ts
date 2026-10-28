@@ -149,10 +149,14 @@ describe("Details panel", () => {
     expect(rows(root)).toEqual(["Shop Sale today", "Shop Old sale"]);
   });
 
-  it("Escape closes it", () => {
+  it("Escape minimizes it to a strip that opens it again", () => {
     const panel = boot();
     panel.open();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(panel.isOpen()).toBe(false);
+    const root = document.getElementById("details")!;
+    expect(root.hidden).toBe(false);
+    root.querySelector<HTMLButtonElement>(".details-tab")!.click();
+    expect(panel.isOpen()).toBe(true);
   });
 });

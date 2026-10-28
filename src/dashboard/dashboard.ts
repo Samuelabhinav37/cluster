@@ -121,7 +121,7 @@ import { senderTile, type TileSize } from "./senderTile";
 import { wireAccountMenu } from "./accountMenu";
 import { initAskKai, type AskFacts } from "./askKai";
 import { HOME_KINDS, icon as homeIcon, mailByKind, renderHomeDashboard, type HomeAct, type HomeFacts } from "./homeDashboard";
-import { detailSenders, idsByProvider, initDetailsPanel, type DetailsPanel } from "./detailsPanel";
+import { DETAILS_PREF, detailSenders, idsByProvider, initDetailsPanel, type DetailsPanel } from "./detailsPanel";
 import { listGroup, listRow } from "./listRow";
 import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
@@ -236,8 +236,6 @@ const keepNewestBtn = document.getElementById("keep-newest-btn") as HTMLButtonEl
 
 
 // ── Sidebar navigation (WAI-ARIA tabs pattern, vertical) ────────────────
-const DETAILS_BESIDE_MIN = 1200;
-let detailsOpenedForCleanup = false;
 
 function showScreen(name: string) {
   const target = resolveScreen(name);
@@ -258,15 +256,6 @@ function showScreen(name: string) {
   if (!navButtons.some((b) => b.dataset.screen === target)) {
     const first = navButtons.find(navItemShown);
     if (first) first.tabIndex = 0;
-  }
-  // Clean up works beside Details, so it opens there when the window has
-  // room for both, and closes again on leaving if it opened itself.
-  if (target === "delete" && window.innerWidth >= DETAILS_BESIDE_MIN && details && !details.isOpen()) {
-    details.open({ view: "senders" });
-    detailsOpenedForCleanup = true;
-  } else if (target !== "delete" && detailsOpenedForCleanup) {
-    details?.close();
-    detailsOpenedForCleanup = false;
   }
   // A place's sub-pages show only while one of its screens is open.
   for (const area of Array.from(document.querySelectorAll<HTMLElement>("#sidebar .nav-area"))) {
@@ -1647,6 +1636,14 @@ function wireDetails() {
         }
       : undefined,
   });
+  // Always there: open beside the page on wide windows unless minimized last time.
+  let pref: string | null = null;
+  try {
+    pref = localStorage.getItem(DETAILS_PREF);
+  } catch {
+    // Storage blocked: fall back to the width.
+  }
+  if (window.innerWidth >= 1200 && pref !== "min") details.open({ view: "senders" });
   for (const btn of Array.from(document.querySelectorAll<HTMLButtonElement>("[data-details]"))) {
     btn.onclick = () => (details!.isOpen() ? details!.close() : details!.open());
   }
