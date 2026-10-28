@@ -173,10 +173,46 @@ function median(values: number[]): number {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-function companyKeyFor(address: string, rows: readonly NormalizedMessageMetadata[]): string | null {
+/** At least this many addresses on one domain before names are checked. */
+const PLATFORM_MIN_ADDRESSES = 10;
+
+/**
+ * Domains that look like a platform sending for many customers, so the list
+ * in freeMail.ts need not be complete. A company's addresses mostly carry its
+ * own name ("Amazon.com", "Bank of America" for bankofamerica.com); a
+ * platform's carry its customers' ("Walmart", "Target Careers" on
+ * myworkday.com). O(rows).
+ */
+export function platformRoots(rows: readonly NormalizedMessageMetadata[]): Set<string> {
+  const byRoot = new Map<string, Map<string, string>>();
+  for (const m of rows) {
+    const domain = domainOfAddress(m.fromAddress);
+    if (!domain) continue;
+    const root = registrableDomain(domain);
+    const names = byRoot.get(root) ?? new Map<string, string>();
+    byRoot.set(root, names);
+    if (!names.has(m.fromAddress)) names.set(m.fromAddress, m.fromDisplayName);
+  }
+  const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const out = new Set<string>();
+  for (const [root, names] of byRoot) {
+    if (names.size < PLATFORM_MIN_ADDRESSES) continue;
+    const label = squash(root.split(".")[0] ?? "");
+    const named = [...names.values()].filter((n) => label && squash(n).includes(label)).length;
+    if (named * 2 < names.size) out.add(root);
+  }
+  return out;
+}
+
+function companyKeyFor(
+  address: string,
+  rows: readonly NormalizedMessageMetadata[],
+  platforms: ReadonlySet<string>,
+): string | null {
   const domain = domainOfAddress(address);
   if (!domain || isSharedSenderDomain(domain)) return null;
   const root = registrableDomain(domain);
+  if (platforms.has(root)) return null;
   const aligned = rows.some((m) =>
     passingDkimDomains(m.authenticationResults).some((d) => registrableDomain(d) === root),
   );
@@ -240,6 +276,7 @@ export function buildSenderProfiles(inputs: ProfileInputs): Map<string, SenderPr
     entry.rows.push(m);
   }
 
+  const platforms = platformRoots(inputs.rows);
   const profiles = new Map<string, SenderProfile>();
   for (const [key, { rows, dupIds }] of bySender) {
     if (rows.length === 0) continue;
@@ -292,7 +329,7 @@ export function buildSenderProfiles(inputs: ProfileInputs): Map<string, SenderPr
       machine: bulkCount * 2 > rows.length,
       kind: majority(votes, voted),
       listId: mostCommon(rows.map((m) => m.listId)),
-      companyKey: companyKeyFor(address, rows),
+      companyKey: companyKeyFor(address, rows, platforms),
       templates: buildTemplates(rows),
       duplicates: dupIds.length,
       duplicateIds: dupIds,

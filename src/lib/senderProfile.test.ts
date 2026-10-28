@@ -157,6 +157,24 @@ describe("buildSenderProfiles", () => {
     expect(out.get("gmail:someone@gmail.com")!.companyKey).toBeNull();
   });
 
+  it("never makes a hiring or newsletter platform one company", () => {
+    const signedBy = (d: string) => ({ authenticationResults: `mx.google.com; dkim=pass header.d=${d}; spf=pass` });
+    const listed = msg("walmart@myworkday.com", 5, { fromDisplayName: "Walmart Careers", ...signedBy("myworkday.com") });
+    // Not on the list: 10 senders whose names don't carry the domain's name.
+    const employers = ["Acme", "Globex", "Initech", "Umbrella", "Hooli", "Stark", "Wayne", "Wonka", "Tyrell", "Cyberdyne"];
+    const unlisted = employers.map((name, i) =>
+      msg(`${name.toLowerCase()}@hirehub.example`, i + 1, { fromDisplayName: `${name} Recruiting`, ...signedBy("hirehub.example") }),
+    );
+    // A real company with as many addresses keeps its key.
+    const company = Array.from({ length: 10 }, (_, i) =>
+      msg(`team${i}@bankofamerica.example`, i + 1, { fromDisplayName: "Bank of America", ...signedBy("bankofamerica.example") }),
+    );
+    const out = profile([listed, ...unlisted, ...company]);
+    expect(out.get("gmail:walmart@myworkday.com")!.companyKey).toBeNull();
+    expect(out.get("gmail:acme@hirehub.example")!.companyKey).toBeNull();
+    expect(out.get("gmail:team0@bankofamerica.example")!.companyKey).toBe("bankofamerica.example");
+  });
+
   it("counts a copy delivered twice once", () => {
     const a = msg("n@news.example", 30, { messageIdHeader: "<same@n>" });
     const b = msg("n@news.example", 30, { messageIdHeader: "<same@n>" });
