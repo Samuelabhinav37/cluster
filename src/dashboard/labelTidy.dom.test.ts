@@ -61,4 +61,12 @@ describe("Tidy up Cluster's labels", () => {
     });
     expect(clean.el("label-tidy-banner").hidden).toBe(true);
   });
+
+  it("stays hidden on a fresh install where the only match is the user's own Travel label", async () => {
+    const fresh = await bootDashboard({ labels: [{ id: "T", name: "Travel", type: "user" }] });
+    await vi.waitFor(() => {
+      if (fresh.gmailApi.listLabels.mock.calls.length === 0) throw new Error("not checked yet");
+    });
+    expect(fresh.el("label-tidy-banner").hidden).toBe(true);
+  });
 });

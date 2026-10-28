@@ -56,7 +56,8 @@ export async function maybeShowLabelTidyCard(): Promise<void> {
     log.error("label tidy-up: could not read labels", err);
     return;
   }
-  if (steps.length === 0) return;
+  // A fresh install with the user's own "Travel" label has nothing of ours to tidy.
+  if (!steps.some((s) => s.certain)) return;
 
   const counts = await Promise.all(
     steps.map((s) =>
