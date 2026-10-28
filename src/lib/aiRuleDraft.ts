@@ -179,22 +179,38 @@ function deterministicDraft(instruction: string): ClusterRule {
   });
 }
 
-export async function draftRuleFromNaturalLanguage(
-  instruction: string,
-  api: PromptApi | undefined = promptApi(),
-): Promise<RuleDraftResult> {
-  if (!instruction.trim()) throw new Error("Describe the rule first");
-  if (!api || (await api.availability()) === "unavailable") {
-    return { rule: deterministicDraft(instruction), source: "deterministic" };
-  }
+// A cold Gemini Nano session took 7.7 s to start and 4 to 6 s per prompt in
+// Chrome (measured 2026-10-28), so this leaves room for one cold draft.
+const AI_DRAFT_TIMEOUT_MS = 15_000;
+
+async function promptForDraft(instruction: string, api: PromptApi): Promise<string | undefined> {
+  if ((await api.availability()) === "unavailable") return undefined;
   const session = await api.create({
     systemPrompt:
       "Convert only the user's rule intent to the supplied JSON schema. Never add actions or conditions the user did not request. Permanent delete and sending mail are forbidden.",
   });
   try {
-    const output = await session.prompt(instruction, { responseConstraint: RULE_DRAFT_SCHEMA });
-    return { rule: validateDraft(JSON.parse(output)), source: "on-device-ai" };
+    return await session.prompt(instruction, { responseConstraint: RULE_DRAFT_SCHEMA });
   } finally {
     session.destroy();
   }
+}
+
+export async function draftRuleFromNaturalLanguage(
+  instruction: string,
+  api: PromptApi | undefined = promptApi(),
+  timeoutMs = AI_DRAFT_TIMEOUT_MS,
+): Promise<RuleDraftResult> {
+  if (!instruction.trim()) throw new Error("Describe the rule first");
+  // A model that stalls or fails falls back to the local parser; a model that
+  // answers is still validated, so an unsafe answer is rejected, not replaced.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const output = api
+    ? await Promise.race([
+        promptForDraft(instruction, api).catch(() => undefined),
+        new Promise<undefined>((resolve) => (timer = setTimeout(resolve, timeoutMs))),
+      ]).finally(() => clearTimeout(timer))
+    : undefined;
+  if (output === undefined) return { rule: deterministicDraft(instruction), source: "deterministic" };
+  return { rule: validateDraft(JSON.parse(output)), source: "on-device-ai" };
 }

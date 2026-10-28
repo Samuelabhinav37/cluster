@@ -50,6 +50,22 @@ describe("natural-language rule drafting", () => {
     expect(destroy).toHaveBeenCalled();
   });
 
+  it("falls back to the local parser when the model stalls or fails", async () => {
+    const stalled = {
+      availability: vi.fn(async () => "available"),
+      create: vi.fn(() => new Promise<never>(() => {})),
+    };
+    const stalledResult = await draftRuleFromNaturalLanguage("Archive unread newsletters", stalled, 10);
+    expect(stalledResult.source).toBe("deterministic");
+    expect(stalledResult.rule.action).toBe("archive");
+
+    const failing = {
+      availability: vi.fn(async () => "available"),
+      create: vi.fn(async () => ({ prompt: vi.fn(async () => Promise.reject(new Error("kErrorUnknown"))), destroy: vi.fn() })),
+    };
+    expect((await draftRuleFromNaturalLanguage("Archive unread newsletters", failing)).source).toBe("deterministic");
+  });
+
   it("rejects an unsupported autonomous action even if a model returns it", async () => {
     const api = {
       availability: vi.fn(async () => "available"),
