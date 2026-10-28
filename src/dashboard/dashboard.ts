@@ -109,7 +109,7 @@ import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { spamListSize } from "../lib/spamList";
 import { keepNewestExcess } from "../lib/keepNewest";
 import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
-import { renderRulesTab, wireRulesTab } from "./rulesTab";
+import { openRuleSheetFor, renderRulesTab, wireRulesTab } from "./rulesTab";
 import { renderLearned, SIGNED_OUT_KEY, wireSettingsMore } from "./settingsMore";
 import { initBodyChecks, renderSecuritySection } from "./securityTab";
 import { renderScamReport } from "./reportTab";
@@ -1592,6 +1592,7 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): H
     { label: "Snooze 1 month", run: () => run("snooze", 30) },
     "sep",
     { label: "Show emails", run: () => details?.open({ view: "emails", senderKey: sender.key }) },
+    { label: "New rule…", run: () => openRuleSheetFor(sender) },
     { label: "Not useful", run: () => void notUseful() },
   ]);
 

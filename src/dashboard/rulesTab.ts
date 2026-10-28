@@ -20,6 +20,7 @@ import { buildRuleDryRunReport, describeActionSupport } from "../lib/ruleDryRun"
 import { recordRuleCompletions } from "../lib/ruleCompletionLedger";
 import { draftRuleFromNaturalLanguage } from "../lib/aiRuleDraft";
 import type { MessageKind } from "../lib/messageKind";
+import type { SenderSummary } from "../lib/senderModel";
 import { renderConfirmStep } from "./ui";
 import { listGroup, listRow } from "./listRow";
 import { ctx, providerById, rescan } from "./state";
@@ -49,6 +50,15 @@ const ruleSheet = document.getElementById("rule-sheet") as HTMLDialogElement;
 function openRuleSheet() {
   // jsdom has no showModal; the sheet's fields still work there.
   if (!ruleSheet.open) ruleSheet.showModal?.();
+}
+/** The rule sheet, already filled in for one sender. */
+export function openRuleSheetFor(sender: SenderSummary) {
+  ruleForm.reset();
+  ruleNameInput.value = sender.displayName || sender.address;
+  ruleFromAddressInput.value = sender.address;
+  (document.getElementById("rule-form-details") as HTMLDetailsElement | null)?.setAttribute("open", "");
+  ruleForm.dispatchEvent(new Event("input"));
+  openRuleSheet();
 }
 function closeRuleSheet() {
   if (ruleSheet.open) ruleSheet.close?.();
