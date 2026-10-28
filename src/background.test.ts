@@ -36,6 +36,7 @@ const SETTINGS = {
   rules: [],
   screenerEnabled: false,
   autoQuarantineHighRisk: false,
+  securityRules: { toSpam: false, holdAuthFails: false },
   senderEngagement: {},
   mutedSenders: [],
   screenedSenders: [],
@@ -336,7 +337,25 @@ describe("auto-quarantine (opt-in)", () => {
 
   it("quarantines an unknown high-risk sender when the setting is on", async () => {
     await triageWith(highRiskSender("stranger@gmail.com"), []);
-    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"]);
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"], false);
+  });
+
+  it("also sends held mail to Spam when that rule is on", async () => {
+    await triageWith(highRiskSender("stranger@gmail.com"), [], { securityRules: { toSpam: true, holdAuthFails: false } });
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"], true);
+  });
+
+  it("holds mail that fails sender checks on that alone, but not from someone the user writes to", async () => {
+    const forged = {
+      ...highRiskSender("billing@bank.example"),
+      threatSignals: [],
+      authVerdicts: { spf: "pass", dkim: "fail", dmarc: "fail" },
+    } as unknown as ReturnType<typeof highRiskSender>;
+    const rules = { autoQuarantineHighRisk: false, securityRules: { toSpam: false, holdAuthFails: true } };
+    await triageWith(forged, [], rules);
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"], false);
+    await triageWith(forged, ["billing@bank.example"], rules);
+    expect(await labelSuspiciousSpy()).not.toHaveBeenCalled();
   });
 
   // Audit finding (fixed in R0 B8): someone you email, here a friend whose
@@ -361,7 +380,7 @@ describe("auto-quarantine (opt-in)", () => {
 
   it("holds only the hijacked message from someone the user corresponds with", async () => {
     await triageWith(hijacked("billing@acme.example"), ["billing@acme.example"]);
-    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["bad"]);
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["bad"], false);
   });
 
   it("records what it held in the weekly scam history", async () => {
@@ -392,12 +411,12 @@ describe("auto-quarantine (opt-in)", () => {
     await triageWith(highRiskSender("stranger@gmail.com"), [], {
       quarantinedSenders: { "gmail:stranger@gmail.com": { at: 0, messageIds: ["q1"] } },
     });
-    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q2"]);
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q2"], false);
   });
 
   it("still quarantines a known address when its authentication fails", async () => {
     const spoofed = { ...highRiskSender("chase.miller@gmail.com"), authVerdicts: { spf: "fail", dkim: "fail", dmarc: "fail" } };
     await triageWith(spoofed, ["chase.miller@gmail.com"]);
-    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"]);
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"], false);
   });
 });

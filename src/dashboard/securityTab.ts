@@ -20,6 +20,8 @@ import { senderTile } from "./senderTile";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
 import { clusterLabelName } from "../lib/clusterLabels";
+import { failsSenderChecks } from "../lib/emailAuth";
+import { icon } from "./homeDashboard";
 import {
   applyBodyChecks,
   bodyCheckKey,
@@ -513,3 +515,57 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
   return li;
 }
 
+
+// ── Checkup: what Cluster looked for, Google Security Checkup style ──────
+const FAKE_KINDS = new Set(["brand-impersonation", "freemail-brand-claim", "lookalike-domain"]);
+
+export interface CheckRow {
+  ic: string;
+  name: string;
+  value: string;
+  warn: boolean;
+}
+
+/** One row per check, with how many senders tripped it. */
+export function securityChecks(senders: readonly SenderSummary[], held: number): CheckRow[] {
+  const count = (hit: (s: SenderSummary) => boolean) => senders.filter(hit).length;
+  const has = (kinds: Set<string> | string) => (s: SenderSummary) =>
+    s.threatSignals.some((x) => (typeof kinds === "string" ? x.kind === kinds : kinds.has(x.kind)));
+  const row = (ic: string, name: string, n: number): CheckRow => ({ ic, name, value: n > 0 ? n.toLocaleString() : "None", warn: n > 0 });
+  const judged = count((s) => s.authVerdicts.dmarc !== "unknown" || s.authVerdicts.spf !== "unknown");
+  const forged = count(failsSenderChecks);
+  return [
+    {
+      ic: "shield-check",
+      name: "Sender checks",
+      value: forged > 0 ? `${forged.toLocaleString()} failed` : judged > 0 ? "All passed" : "Not checked yet",
+      warn: forged > 0,
+    },
+    row("tag", "Fake brand names", count(has(FAKE_KINDS))),
+    row("reply", "Replies sent elsewhere", count(has("reply-to-mismatch"))),
+    row("link", "Known bad links", count(has("blocklisted-link"))),
+    { ic: "inbox", name: "Held so far", value: held.toLocaleString(), warn: false },
+  ];
+}
+
+export function renderSecurityChecks(senders: readonly SenderSummary[], held: number): void {
+  const host = document.getElementById("protect-checks");
+  if (!host) return;
+  host.replaceChildren(
+    ...securityChecks(senders, held).map((c) => {
+      const row = document.createElement("div");
+      row.className = "ios-row";
+      const mark = document.createElement("span");
+      mark.className = `app-ic ${c.warn ? "app-warn" : "app-ok"}`;
+      mark.append(icon(c.ic));
+      const name = document.createElement("span");
+      name.className = "grow";
+      name.textContent = c.name;
+      const value = document.createElement("span");
+      value.className = `ios-value${c.warn ? " warn" : ""}`;
+      value.textContent = c.value;
+      row.append(mark, name, value);
+      return row;
+    }),
+  );
+}

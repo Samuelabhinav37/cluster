@@ -1,3 +1,4 @@
+import { failsSenderChecks } from "./lib/emailAuth";
 import { buildProtectionContext, idsSafeToMoveOut } from "./lib/protectionPolicy";
 import { log } from "./lib/log";
 import { buildExpiryBuckets, totalExpiryCount } from "./lib/expiryTriage";
@@ -233,7 +234,8 @@ function heldBatch(targets: SenderSummary[], idsBySender: Map<string, string[]>)
 }
 
 async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]): Promise<number> {
-  if (!settings.autoQuarantineHighRisk) return 0;
+  const rules = settings.securityRules;
+  if (!settings.autoQuarantineHighRisk && !rules.holdAuthFails) return 0;
   // senderVerdict (verdict.ts) holds only on two kinds of signal or one
   // decisive one, judges each message on its own evidence, and weighs a
   // sender the user released lower. Only the messages that earn a hold move,
@@ -245,13 +247,15 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
   const heldIds = new Map<string, string[]>();
   for (const s of senders) {
     if (!providerById.get(s.provider)?.labelSuspicious) continue;
-    const verdict = senderVerdict(s, {
-      knownCorrespondent: known.has(s.address.toLowerCase()),
-      review: settings.quarantineReview[s.key],
-    });
+    const isKnown = known.has(s.address.toLowerCase());
+    const verdict = senderVerdict(s, { knownCorrespondent: isKnown, review: settings.quarantineReview[s.key] });
     const protectedSet = new Set(s.protectedMessageIds);
     const alreadyHeld = new Set(settings.quarantinedSenders[s.key]?.messageIds ?? []);
-    const ids = verdict.heldMessageIds.filter((id) => !protectedSet.has(id) && !alreadyHeld.has(id));
+    const candidates = [
+      ...(settings.autoQuarantineHighRisk ? verdict.heldMessageIds : []),
+      ...(rules.holdAuthFails && !isKnown && failsSenderChecks(s) ? s.messageIds : []),
+    ];
+    const ids = [...new Set(candidates)].filter((id) => !protectedSet.has(id) && !alreadyHeld.has(id));
     if (ids.length > 0) heldIds.set(s.key, ids);
   }
   const targets = senders.filter((s) => heldIds.has(s.key));
@@ -280,7 +284,7 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
     if (ids.length === 0) continue;
 
     try {
-      await provider.labelSuspicious(token, ids);
+      await provider.labelSuspicious(token, ids, rules.toSpam);
       const now = Date.now();
       await appendActionLog([
         {

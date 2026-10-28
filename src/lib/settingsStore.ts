@@ -43,6 +43,10 @@ export interface ClusterSettings {
   /** Gmail-only: bring a sent thread back when nobody answered (replyReminders.ts).
    * `reminded` is threadId → the message last brought back, so each goes once. */
   replyReminders: { enabled: boolean; days: number; reminded: Record<string, string> };
+  /** Protect's opt-in rules, run with auto-quarantine (background.ts runQuarantine):
+   * held scams also go to Gmail's Spam, and mail failing DMARC (or both SPF
+   * and DKIM) from someone you don't write to is held on that alone. */
+  securityRules: { toSpam: boolean; holdAuthFails: boolean };
   /** Newsletters held out of the inbox and delivered on Saturday morning (newsletterDay.ts). */
   newsletterDay: { enabled: boolean; lastDelivered: number };
 
@@ -188,6 +192,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   onboardingDismissed: false,
   snoozedMessages: {},
   replyReminders: { enabled: false, days: 3, reminded: {} },
+  securityRules: { toSpam: false, holdAuthFails: false },
   newsletterDay: { enabled: false, lastDelivered: 0 },
   rules: [],
   actionLog: [],

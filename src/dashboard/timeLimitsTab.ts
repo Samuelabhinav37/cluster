@@ -317,24 +317,43 @@ export function weeklyByBucket(senders: readonly SenderSummary[], now: number): 
   return out;
 }
 
-/** The last preset change, so its card can offer Undo after the re-render. */
 type Limits = Record<string, number | null>;
-let undoable: { id: string; hours: Limits; on: boolean } | null = null;
 
-/** Sets every row and the switch, saves, and remembers `after` for Undo. */
-async function saveLimits(hours: Limits, on: boolean, after: typeof undoable): Promise<void> {
+/** Sets every row and the switch, then saves. Time limits stay on while any
+ * kind has one. */
+async function saveLimits(hours: Limits): Promise<void> {
   if (!toggleEl) return;
   for (const bucket of ALL_SORT_BUCKETS) {
     const select = selectFor(bucket);
     if (select) select.value = choiceValue(hours[bucket] ?? null);
   }
-  toggleEl.checked = on;
-  undoable = after;
+  toggleEl.checked = Object.values(hours).some((h) => h != null);
   if (await save()) return;
   // The editor's status line says why; show it.
-  undoable = null;
   document.getElementById("time-limits-section")?.setAttribute("open", "");
   renderPresets();
+}
+
+/** The current limits, or all off when time limits are off, so switching one
+ * kind on never turns on every default. */
+function currentLimits(): Limits {
+  const cfg = ctx.settings.autoSort;
+  return cfg.timeLimitsEnabled ? { ...cfg.inboxHoursByBucket } : Object.fromEntries(ALL_SORT_BUCKETS.map((b) => [b, null]));
+}
+
+/** An iOS-style switch for a preset row. Flipping it back is the undo. */
+export function presetSwitch(label: string, on: boolean, flip: () => void | Promise<void>): HTMLInputElement {
+  const sw = document.createElement("input");
+  sw.type = "checkbox";
+  sw.className = "switch";
+  sw.setAttribute("role", "switch");
+  sw.setAttribute("aria-label", label);
+  sw.checked = on;
+  sw.onchange = () => {
+    sw.disabled = true;
+    void flip();
+  };
+  return sw;
 }
 
 /** Newsletters held out of the inbox, delivered Saturday at 8 am. Off brings
@@ -350,24 +369,13 @@ function newsletterDayCard(): HTMLElement {
   const fact = document.createElement("div");
   fact.className = "rec-fact";
   fact.textContent = on ? "On" : "All at once, 8 am Saturday";
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "btn btn-sm";
-  btn.textContent = on ? "Turn off" : "Turn on";
-  btn.onclick = async () => {
-    btn.disabled = true;
-    const cfg = ctx.settings.autoSort;
+  const sw = presetSwitch("Saturday newsletters", on, async () => {
+    const base = currentLimits();
     ctx.settings = await updateSettings({ newsletterDay: { enabled: !on, lastDelivered: Date.now() } });
-    const base: Limits = cfg.timeLimitsEnabled
-      ? { ...cfg.inboxHoursByBucket }
-      : Object.fromEntries(ALL_SORT_BUCKETS.map((b) => [b, null]));
-    await saveLimits({ ...base, newsletter: on ? null : HOLD_HOURS }, true, null);
+    await saveLimits({ ...base, newsletter: on ? null : HOLD_HOURS });
     if (on) await deliverNewsletters(Date.now(), true).catch((err) => log.error("Newsletter delivery failed", err));
-  };
-  const actions = document.createElement("div");
-  actions.className = "rec-actions";
-  actions.append(btn);
-  card.append(name, fact, actions);
+  });
+  card.append(name, fact, sw);
   return card;
 }
 
@@ -384,7 +392,7 @@ export function renderPresets(senders: readonly SenderSummary[] = presetSenders)
   if (!presetsEl) return;
   const cfg = ctx.settings.autoSort;
   const weekly = weeklyByBucket(senders, Date.now());
-  presetsEl.replaceChildren(
+  const cards = [
     ...PRESETS.map((p) => {
       const kinds = Object.entries(p.hours) as Array<[SortBucket, number]>;
       const on = cfg.timeLimitsEnabled && kinds.every(([b, h]) => cfg.inboxHoursByBucket[b] === h);
@@ -398,47 +406,36 @@ export function renderPresets(senders: readonly SenderSummary[] = presetSenders)
       fact.className = "rec-fact";
       const n = kinds.reduce((sum, [b]) => sum + (weekly.get(b) ?? 0), 0);
       fact.textContent = on ? "On" : `${p.rule} · ${n > 0 ? `about ${n.toLocaleString()} a week` : "none this week"}`;
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "btn btn-sm";
-      btn.textContent = on ? "Turn off" : "Turn on";
-      btn.onclick = () => {
-        btn.disabled = true;
-        const cfgNow = ctx.settings.autoSort;
-        // Switching on from off turns on this kind alone, not every default.
-        const base: Limits = cfgNow.timeLimitsEnabled
-          ? { ...cfgNow.inboxHoursByBucket }
-          : Object.fromEntries(ALL_SORT_BUCKETS.map((b) => [b, null]));
+      const sw = presetSwitch(p.name, on, () => {
         const next = Object.fromEntries(kinds.map(([b, h]) => [b, on ? null : h]));
-        void saveLimits({ ...base, ...next }, true, {
-          id: p.id,
-          hours: { ...cfgNow.inboxHoursByBucket },
-          on: cfgNow.timeLimitsEnabled,
-        });
-      };
-      const actions = document.createElement("div");
-      actions.className = "rec-actions";
-      actions.append(btn);
-      card.append(name, fact, actions);
-      const last = undoable;
-      if (last?.id === p.id) {
-        const undo = document.createElement("button");
-        undo.type = "button";
-        undo.className = "btn btn-sm btn-ghost";
-        undo.textContent = "Undo";
-        undo.onclick = () => {
-          undo.disabled = true;
-          void saveLimits(last.hours, last.on, null);
-        };
-        actions.append(undo);
-      }
+        return saveLimits({ ...currentLimits(), ...next });
+      });
+      card.append(name, fact, sw);
       return card;
     }),
     newsletterDayCard(),
     ...extraCards(),
+  ];
+  // Grouped lists, like iOS Settings: what leaves on a timer, what arrives
+  // on a schedule, and one-time tidy-ups.
+  presetsEl.replaceChildren(
+    ...PRESET_GROUPS.map(([head, ids]) => {
+      const rows = cards.filter((c) => ids.includes(c.dataset.preset ?? ""));
+      const wrap = document.createElement("section");
+      wrap.className = "ios-section";
+      wrap.hidden = rows.length === 0;
+      const h = document.createElement("h2");
+      h.className = "ios-head";
+      h.textContent = head;
+      const group = document.createElement("div");
+      group.className = "ios-group";
+      group.append(...rows);
+      wrap.append(h, group);
+      return wrap;
+    }),
   );
   // Each preset wears its own colored icon, like a Reminders list.
-  for (const card of Array.from(presetsEl.querySelectorAll<HTMLElement>(".rec-card[data-preset]"))) {
+  for (const card of cards) {
     const glyph = PRESET_ICONS[card.dataset.preset!];
     if (!glyph) continue;
     const mark = document.createElement("span");
@@ -447,6 +444,12 @@ export function renderPresets(senders: readonly SenderSummary[] = presetSenders)
     card.prepend(mark);
   }
 }
+
+const PRESET_GROUPS: ReadonlyArray<[head: string, ids: string[]]> = [
+  ["Leave the inbox", PRESETS.map((p) => p.id)],
+  ["Arrive on time", ["saturday", "no-reply"]],
+  ["Tidy once", ["never-opened", "keep-newest"]],
+];
 
 const PRESET_ICONS: Record<string, string> = {
   codes: "key",

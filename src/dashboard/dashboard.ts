@@ -69,7 +69,7 @@ import {
 import { activeProviders, ctx, providerById, setBridge } from "./state";
 import { maybeShowSeedCard, renderSortInbox, wireSortInbox } from "./sortInbox";
 import { maybeShowLabelTidyCard } from "./labelTidy";
-import { renderPresets, renderTimeLimits, setPresetActions, wireTimeLimits } from "./timeLimitsTab";
+import { presetSwitch, renderPresets, renderTimeLimits, setPresetActions, wireTimeLimits } from "./timeLimitsTab";
 import { excludeSnoozedMessages } from "../lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "../lib/snoozeResurface";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
@@ -106,7 +106,7 @@ import {
 import { keepNewestExcess } from "../lib/keepNewest";
 import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
 import { renderRulesTab, wireRulesTab } from "./rulesTab";
-import { initBodyChecks, renderSecuritySection } from "./securityTab";
+import { initBodyChecks, renderSecurityChecks, renderSecuritySection } from "./securityTab";
 import { renderScamReport } from "./reportTab";
 import { heldByWeek } from "../lib/scamHistory";
 import { applySimpleMode, renderSettingsSetup, renderSimpleHome, screenForMode, wireSetup } from "./setupTab";
@@ -551,6 +551,14 @@ async function main() {
   autoQuarantineToggle.onchange = async () => {
     ctx.settings = await updateSettings({ autoQuarantineHighRisk: autoQuarantineToggle.checked });
   };
+  // Protect's rules: they run with the background hold (background.ts runQuarantine).
+  for (const [id, key] of [["rule-auth-fails", "holdAuthFails"], ["rule-to-spam", "toSpam"]] as const) {
+    const sw = document.getElementById(id) as HTMLInputElement;
+    sw.checked = ctx.settings.securityRules[key];
+    sw.onchange = async () => {
+      ctx.settings = await updateSettings({ securityRules: { ...ctx.settings.securityRules, [key]: sw.checked } });
+    };
+  }
   scanWindowInput.value = String(ctx.settings.scanWindowDays);
   wireScanSettings();
   await wireAthenaConnection();
@@ -1053,11 +1061,9 @@ function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummar
   };
   setNavCount("rules", ctx.settings.rules.length);
   setNavCount("screener", byId.get("screener-queue") ?? 0);
-  renderProtectTiles(
-    byId.get("flagged-senders") ?? 0,
-    byId.get("screener-queue") ?? 0,
-    heldByWeek(ctx.settings.scamHistory, 8).reduce((n, w) => n + w.held, 0),
-  );
+  const held = heldByWeek(ctx.settings.scamHistory, 8).reduce((n, w) => n + w.held, 0);
+  renderProtectTiles(byId.get("flagged-senders") ?? 0, byId.get("screener-queue") ?? 0, held);
+  renderSecurityChecks(securitySenders, held);
 }
 
 // Protect's three views share one head: a line and three tiles that switch
@@ -2223,6 +2229,8 @@ function wireFastDeleteToggle() {
 }
 
 function wireScanSettings() {
+  // Settings' Rescan row runs the account menu's Rescan.
+  document.getElementById("settings-rescan")!.onclick = () => applyScanSettingsBtn.click();
   applyScanSettingsBtn.onclick = async () => {
     const scanWindowDays = Math.min(
       3650,
@@ -2763,12 +2771,7 @@ function replyReminderCard(): HTMLElement {
   const fact = document.createElement("div");
   fact.className = "rec-fact";
   fact.textContent = presetNotes.get("no-reply") ?? (cfg.enabled ? "On" : "Bring it back to your inbox");
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "btn btn-sm";
-  btn.textContent = cfg.enabled ? "Turn off" : "Turn on";
-  btn.onclick = async () => {
-    btn.disabled = true;
+  const sw = presetSwitch(name.textContent, cfg.enabled, async () => {
     ctx.settings = await updateSettings({ replyReminders: { ...cfg, enabled: !cfg.enabled } });
     presetNotes.delete("no-reply");
     if (!cfg.enabled) {
@@ -2782,8 +2785,8 @@ function replyReminderCard(): HTMLElement {
       }
     }
     renderPresets();
-  };
-  card.append(name, fact, btn);
+  });
+  card.append(name, fact, sw);
   return card;
 }
 

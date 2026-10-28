@@ -2289,67 +2289,14 @@ input.switch:disabled {
 
 /* ══ v4 Settings, simple mode, setup (stage 4) ════════════════════════════ */
 
-.settings-list {
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-lg);
-  background: var(--glass);
-}
-
-.set-sec {
-  display: grid;
-  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
-  gap: 16px;
-  padding: 18px 20px;
-  border-top: 1px solid var(--separator);
-}
-
-.set-sec:first-child {
-  border-top: 0;
-}
-
-.set-sec h2 {
-  margin: 0;
-  font: 600 15px/1.35 var(--font);
-}
-
 .lead-sm {
   margin: 2px 0 0;
   font: 400 13px/1.45 var(--font);
   color: var(--label-4);
 }
 
-.set-rows {
-  display: grid;
-  gap: 4px;
-}
-
-.set-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-height: 44px;
-  font: 400 14px/1.4 var(--font);
-}
-
-.set-row .grow {
-  flex: 1;
-  min-width: 0;
-}
-
-.set-row .sub {
-  display: block;
-  font: 400 13px/1.45 var(--font);
-  color: var(--label-4);
-}
-
 .set-row input[type="number"] {
   width: 110px;
-}
-
-@media (max-width: 900px) {
-  .set-sec {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 .setup-banner {
@@ -3736,9 +3683,7 @@ body.details-open:has(.details.wide) .kai-guide { right: calc(50vw + 24px); }
 .ask-row em { margin-left: auto; font-style: normal; font-weight: 600; color: var(--accent-text); }
 .ask-row[aria-selected="true"], .ask-row:hover { background: var(--accent-fill); }
 .ask-hint { display: flex; gap: 14px; padding: 9px 16px; border-top: 1px solid var(--separator); font-size: 12px; color: var(--label-4); }
-#presets { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .presets-guard { margin: 10px 0 20px; }
-@media (max-width: 760px) { #presets { grid-template-columns: 1fr; } }
 .rec-actions { display: flex; gap: 8px; margin-top: auto; }
 
 /* ── Mockup skin (2026-10-27) ─────────────────────────────────────────
@@ -3912,8 +3857,8 @@ table.sheet { font-size: 12px; }
 }
 
 /* Organize presets and Clean up cards wear colored icons, Reminders style. */
-#presets .rec-card, [data-screen="delete"] .rec-card { gap: 4px; }
-#presets .app-ic, [data-screen="delete"] .rec-card .app-ic { width: 34px; height: 34px; margin-bottom: 8px; }
+[data-screen="delete"] .rec-card { gap: 4px; }
+[data-screen="delete"] .rec-card .app-ic { width: 34px; height: 34px; margin-bottom: 8px; }
 .rec-card .app-ic .i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .preset-codes { background: linear-gradient(#ffd23d, #f2a60a); }
 .preset-promotions { background: linear-gradient(#ff7a9c, #e9406b); }
@@ -3924,3 +3869,37 @@ table.sheet { font-size: 12px; }
 .preset-updates { background: linear-gradient(#9aa0a8, #6e747c); }
 .preset-no-reply, .preset-keep-newest { background: linear-gradient(#3d9bff, #0a6cff); }
 .preset-never-opened { background: linear-gradient(#a879ff, #7a4cf0); }
+
+/* ── iOS Settings lists (2026-10-27): Organize, Settings, Protect ── */
+/* Titles stand alone, no sentence under them (screens still fill .lead for
+   Ask Kai and screen readers' context; it is just not shown). */
+.screen .page-head .lead { display: none; }
+.ios-section[hidden] { display: none; }
+.ios-head, .set-sec > h2 { margin: 0 0 6px 16px; font-size: 13px; font-weight: 600; color: var(--label-4); }
+.ios-group, .set-rows { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--separator); border-radius: 14px;
+  background: var(--glass); }
+/* One row: icon, words, control. Organize's preset cards become rows too. */
+.ios-row, .set-row, #presets .rec-card { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; column-gap: 14px; align-items: center;
+  min-height: 52px; padding: 10px 16px; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.ios-row + .ios-row, .set-row + .set-row, #presets .rec-card + .rec-card { border-top: 1px solid var(--separator); }
+.ios-row .app-ic, .set-ic, #presets .rec-card .app-ic { grid-row: 1 / span 2; width: 30px; height: 30px; margin: 0; border-radius: 8px; }
+.ios-row .app-ic .i, .set-ic svg, #presets .rec-card .app-ic .i { width: 17px; height: 17px; fill: none; stroke: #fff; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round; }
+.ios-row .grow, .set-row .grow { grid-row: 1 / span 2; display: flex; flex-direction: column; font-size: 15px; color: var(--label); }
+.ios-row .sub, .set-row .sub { font-size: 12px; color: var(--label-4); }
+.ios-row > :last-child, .set-row > :last-child, #presets .rec-card > :last-child { grid-column: 3; grid-row: 1 / span 2; justify-self: end; }
+#presets .rec-card { grid-template-rows: auto auto; row-gap: 1px; }
+#presets .rec-name { grid-column: 2; font-size: 15px; font-weight: 500; }
+#presets .rec-fact { grid-column: 2; font-size: 12px; font-weight: 400; color: var(--label-4); }
+#presets { display: flex; flex-direction: column; gap: 24px; }
+.ios-value { color: var(--label-4); font-size: 14px; }
+.ios-value.warn { color: var(--danger-text); font-weight: 600; }
+.set-ic { display: grid; place-items: center; }
+.set-ic-gray, .app-gray { background: linear-gradient(#9aa0a8, #6e747c); }
+.set-ic-red, .app-warn { background: linear-gradient(#ff6961, #e0352b); }
+.set-ic-blue { background: linear-gradient(#3d9bff, #0a6cff); }
+.set-ic-green, .app-ok { background: linear-gradient(#4cd964, #28a745); }
+.set-ic-indigo { background: linear-gradient(#5a6cff, #3346d9); }
+.set-sec { display: block; padding: 0; border: 0; }
+.settings-list { display: flex; flex-direction: column; gap: 24px; }
+#auto-quarantine-row { padding: 10px 16px; border-radius: 0; }

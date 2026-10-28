@@ -16,6 +16,12 @@ export interface AuthenticationVerdicts {
 
 export type AuthenticationProvider = "gmail" | "outlook";
 
+/** Fails the checks that prove where mail came from: DMARC, or both SPF and DKIM. */
+export function failsSenderChecks(s: { authVerdicts: AuthenticationVerdicts }): boolean {
+  const a = s.authVerdicts;
+  return a.dmarc === "fail" || (a.spf === "fail" && a.dkim === "fail");
+}
+
 const KNOWN_VERDICTS = new Set<AuthVerdict>(["pass", "fail", "softfail", "neutral", "none"]);
 
 function authenticationServiceId(headerValue: string): string {

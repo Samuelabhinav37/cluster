@@ -78,33 +78,25 @@ describe("Inbox time limits", () => {
 });
 
 describe("Organize presets", () => {
-  it("Turn on sets that one kind's limit, saves to Gmail, and Undo puts it back", async () => {
+  it("its switch sets that one kind's limit, saves to Gmail, and switching back off undoes it", async () => {
     const dash = await bootDashboard();
     await openOrganize(dash);
-    const promoCard = () =>
-      Array.from(document.querySelectorAll<HTMLElement>("#presets .rec-card")).find((c) =>
-        c.dataset.preset === "promotions",
-      )!;
-    const card = promoCard();
-    expect(card.querySelector("button")!.textContent).toBe("Turn on");
-    card.querySelector("button")!.click();
+    const promoSwitch = () =>
+      document.querySelector<HTMLInputElement>('#presets .rec-card[data-preset="promotions"] input.switch')!;
+    expect(promoSwitch().checked).toBe(false);
+    promoSwitch().click();
     await vi.waitFor(() => {
       expect(dash.storedSettings().autoSort.inboxHoursByBucket.promotions).toBe(0);
       expect(dash.storedSettings().autoSort.timeLimitsEnabled).toBe(true);
     });
     // Only Promotions went live, not every default limit.
     expect(dash.storedSettings().autoSort.inboxHoursByBucket.otp).toBeNull();
-    const undo = await vi.waitFor(() => {
-      const b = Array.from(promoCard().querySelectorAll("button")).find((x) => x.textContent === "Undo");
-      if (!b) throw new Error("no Undo yet");
-      return b;
-    });
-    undo.click();
+    await vi.waitFor(() => expect(promoSwitch().checked && !promoSwitch().disabled).toBe(true));
+    promoSwitch().click();
     await vi.waitFor(() => {
+      expect(dash.storedSettings().autoSort.inboxHoursByBucket.promotions).toBeNull();
       expect(dash.storedSettings().autoSort.timeLimitsEnabled).toBe(false);
-      expect(dash.storedSettings().autoSort.inboxHoursByBucket.otp).toBe(24);
     });
-    await vi.waitFor(() => expect(promoCard().textContent).not.toContain("Undo"));
   });
 });
 
@@ -116,7 +108,7 @@ describe("Organize presets, several kinds", () => {
       Array.from(document.querySelectorAll<HTMLElement>("#presets .rec-card")).find((c) =>
         c.dataset.preset === "receipts",
       )!;
-    card().querySelector("button")!.click();
+    card().querySelector<HTMLInputElement>("input.switch")!.click();
     await vi.waitFor(() => {
       const hours = dash.storedSettings().autoSort.inboxHoursByBucket;
       expect([hours.receipt, hours.shipping]).toEqual([168, 168]);
@@ -181,7 +173,7 @@ describe("Newsletters on Saturday", () => {
     const dash = await bootDashboard();
     await openOrganize(dash);
     const card = () => document.querySelector<HTMLElement>('#presets [data-preset="saturday"]')!;
-    card().querySelector("button")!.click();
+    card().querySelector<HTMLInputElement>("input.switch")!.click();
     await vi.waitFor(() => {
       const s = dash.storedSettings();
       expect(s.newsletterDay.enabled).toBe(true);

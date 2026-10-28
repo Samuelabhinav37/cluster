@@ -15,6 +15,7 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
     onboardingDismissed: false,
     snoozedMessages: {},
     replyReminders: { enabled: false, days: 3, reminded: {} },
+    securityRules: { toSpam: false, holdAuthFails: false },
     newsletterDay: { enabled: false, lastDelivered: 0 },
     rules: [],
     actionLog: [],

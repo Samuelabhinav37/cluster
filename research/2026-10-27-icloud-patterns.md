@@ -15,3 +15,13 @@ Looked at iCloud.com in the user's own signed-in browser (layout only). What mak
 | Apple Account sign-in | Big mark, title, one short line, one field, two buttons, small privacy note | Connect screen |
 
 Not used yet: Photos' dim-until-selected icon toolbar (could suit Details), Drive's month groups (could suit Activity), Contacts' A–Z index.
+
+## Settings, Organize and Protect (round 3)
+
+| Source | Pattern | Cluster |
+|---|---|---|
+| iOS Settings | Grouped inset lists: a small grey group heading, rounded group, rows of 29px colored icon, name, optional grey second line, a switch or value on the right. No sentence under the screen title. | Organize presets, Settings and Protect use one row style (`.ios-group`, `.ios-row`); page-title sentences hidden |
+| Google Security Checkup (myaccount.google.com/security-checkup) | One line per check with a green or red status, issues first | Protect "Checkup": sender checks (SPF/DKIM/DMARC), fake brand names, replies sent elsewhere, known bad links, held so far |
+| Gmail "Report spam" / "Block sender" | Spam moves mail out and trains the filter; blocked senders go to Spam | Rule "Send held mail to Spam" adds Gmail's SPAM label to held mail (Undo removes it) |
+| Gmail's "Be careful with this message" banners, DMARC | Mail that fails authentication is the strongest single forgery signal | Rule "Hold forged mail": DMARC fail, or SPF and DKIM both fail, from someone you don't write to, held on that alone |
+| Apple Mail / iOS "Silence Unknown Callers" | One switch decides what strangers can reach you | Existing Screener (New senders) stays the screen for that |

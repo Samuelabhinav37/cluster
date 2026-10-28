@@ -345,14 +345,15 @@ export const gmailProvider: EmailProvider = {
     await apiResurfaceMessages(token, ids);
   },
 
-  async labelSuspicious(token, ids) {
+  async labelSuspicious(token, ids, toSpam = false) {
     const labelId = await getOrCreateLabel(token, SUSPICIOUS_LABEL_NAME);
-    await batchModify(token, ids, [labelId], ["INBOX"]);
+    // Spam also teaches Gmail's own filter, like its Report spam button.
+    await batchModify(token, ids, toSpam ? [labelId, "SPAM"] : [labelId], ["INBOX"]);
   },
 
   async unlabelSuspicious(token, ids) {
     const labelIds = await findLabelIds(token, SUSPICIOUS_LABEL_NAME);
-    await batchModify(token, ids, ["INBOX"], labelIds);
+    await batchModify(token, ids, ["INBOX"], [...labelIds, "SPAM"]);
   },
 
   async getMessageLinks(token, id) {
