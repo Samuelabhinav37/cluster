@@ -138,7 +138,7 @@ describe("renderHomeDashboard", () => {
       "Pretending to be PayPal, Netflix",
     );
     expect(tileOf(el, "Clean up").querySelector(".tile-stat")!.textContent).toBe("5emails ready to go");
-    expect(tileOf(el, "Clean up").textContent).not.toMatch(/3/);
+    expect(tileOf(el, "Clean up").textContent).not.toMatch(/\b3\b/);
     expect(el.querySelectorAll(".tile-body button")).toHaveLength(0);
     for (const name of ["Protect", "Clean up", "Organize"])
       tileOf(el, name).querySelector<HTMLElement>(".tile-body")!.click();

@@ -13,7 +13,11 @@ import {
   totalDeletableAcrossGroups,
 } from "../lib/bulkActions";
 import { buildDigestInput, checkDigestAvailability, generateDigest } from "../lib/aiDigest";
-import { aiVerdictAllowed, checkMessageKindAiAvailability, classifyOtherSubjects } from "../lib/aiMessageKind";
+import {
+  aiVerdictAllowed,
+  checkMessageKindAiAvailability,
+  classifyOtherSubjects,
+} from "../lib/aiMessageKind";
 import { DOMAIN_CATEGORY_LABELS, type DomainCategory } from "../lib/domainCategories";
 import { loadPublicSuffixList } from "../lib/publicSuffix";
 import { applySenderLedger } from "../lib/senderLedgerStore";
@@ -60,16 +64,17 @@ import {
   sortSenders,
   type SenderSortId,
 } from "../lib/senderListView";
-import {
-  getSettings,
-  mutateSettings,
-  updateSettings,
-  type ClusterSettings,
-} from "../lib/settingsStore";
+import { getSettings, mutateSettings, updateSettings, type ClusterSettings } from "../lib/settingsStore";
 import { activeProviders, ctx, providerById, setBridge } from "./state";
 import { maybeShowSeedCard, renderSortInbox, wireSortInbox } from "./sortInbox";
 import { maybeShowLabelTidyCard } from "./labelTidy";
-import { presetSwitch, renderPresets, renderTimeLimits, setPresetActions, wireTimeLimits } from "./timeLimitsTab";
+import {
+  presetSwitch,
+  renderPresets,
+  renderTimeLimits,
+  setPresetActions,
+  wireTimeLimits,
+} from "./timeLimitsTab";
 import { excludeSnoozedMessages } from "../lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "../lib/snoozeResurface";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
@@ -77,7 +82,12 @@ import { athenaOriginPatterns, getAthenaConfig } from "../lib/athenaIntegration"
 import { recordEngagementFeedback, type EngagementFeedback } from "../lib/engagementModel";
 import { openUnsubscribeSheet } from "./unsubscribeSheet";
 import { readUnsubscribeReplies, unsubscribeOutcomeFor } from "./unsubscribeRecord";
-import { buildSuggestions, SUGGESTION_ACTION_LABELS, unopenedSuggestions, type Suggestion } from "../lib/suggestions";
+import {
+  buildSuggestions,
+  SUGGESTION_ACTION_LABELS,
+  unopenedSuggestions,
+  type Suggestion,
+} from "../lib/suggestions";
 import { markFirstContact } from "../lib/firstContact";
 import { log } from "../lib/log";
 import { initSuggestionModel, learnFromFeedback, suggestionModel } from "./suggestionLearning";
@@ -111,17 +121,26 @@ import { renderScamReport } from "./reportTab";
 import { heldByWeek } from "../lib/scamHistory";
 import { applySimpleMode, renderSettingsSetup, renderSimpleHome, screenForMode, wireSetup } from "./setupTab";
 import { renderScreenerTab, wireScreenerTab } from "./screenerTab";
-import {
-  recordUnsubscribeRequests,
-  renderSubscriptionsTab,
-  wireSubscriptionsTab,
-} from "./subscriptionsTab";
+import { recordUnsubscribeRequests, renderSubscriptionsTab, wireSubscriptionsTab } from "./subscriptionsTab";
 import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib/inboxHealth";
 import { senderTile, type TileSize } from "./senderTile";
 import { wireAccountMenu } from "./accountMenu";
 import { initAskKai, type AskFacts } from "./askKai";
-import { HOME_KINDS, icon as homeIcon, mailByKind, renderHomeDashboard, type HomeAct, type HomeFacts } from "./homeDashboard";
-import { DETAILS_PREF, detailSenders, idsByProvider, initDetailsPanel, type DetailsPanel } from "./detailsPanel";
+import {
+  HOME_KINDS,
+  icon as homeIcon,
+  mailByKind,
+  renderHomeDashboard,
+  type HomeAct,
+  type HomeFacts,
+} from "./homeDashboard";
+import {
+  DETAILS_PREF,
+  detailSenders,
+  idsByProvider,
+  initDetailsPanel,
+  type DetailsPanel,
+} from "./detailsPanel";
 import { listGroup, listRow } from "./listRow";
 import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
@@ -165,7 +184,6 @@ const selectSafeDomainsBtn = document.getElementById("select-safe-domains") as H
 const deleteDomainsBulkSlot = document.getElementById("delete-domains-bulk-slot") as HTMLSpanElement;
 const bulkDeleteDomainsBtn = document.getElementById("bulk-delete-domains-btn") as HTMLButtonElement;
 
-
 const expirySectionEl = document.getElementById("expiry-section") as HTMLElement;
 const expiryBreakdownEl = document.getElementById("expiry-breakdown") as HTMLSpanElement;
 const expiryCleanupSlot = document.getElementById("expiry-cleanup-slot") as HTMLSpanElement;
@@ -192,9 +210,7 @@ const athenaSectionEl = document.getElementById("athena-section") as HTMLElement
 const athenaConnectBtn = document.getElementById("athena-connect-btn") as HTMLButtonElement;
 const athenaStatusEl = document.getElementById("athena-status") as HTMLSpanElement;
 
-const navButtons = Array.from(
-  document.querySelectorAll<HTMLButtonElement>("#sidebar button[data-screen]"),
-);
+const navButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("#sidebar button[data-screen]"));
 const screenPanels = Array.from(document.querySelectorAll<HTMLElement>("section.screen[data-screen]"));
 const seeAllSendersLink = document.getElementById("see-all-senders-link") as HTMLAnchorElement | null;
 const allSendersListEl = document.getElementById("all-senders-list") as HTMLDivElement | null;
@@ -211,8 +227,6 @@ function resolveScreen(name: string): string {
   return screenPanels.some((p) => p.dataset.screen === target) ? target : screenForMode("overview");
 }
 
-
-
 const neverReadSectionEl = document.getElementById("never-read-section") as HTMLElement;
 const neverReadCountEl = document.getElementById("never-read-count") as HTMLSpanElement;
 const neverReadMuteSlot = document.getElementById("never-read-mute-slot") as HTMLSpanElement;
@@ -228,13 +242,11 @@ const spamTrashSlot = document.getElementById("spam-trash-slot") as HTMLSpanElem
 const spamTrashBtn = document.getElementById("spam-trash-btn") as HTMLButtonElement;
 const spamListEl = document.getElementById("spam-list") as HTMLDivElement;
 
-
 const smartViewChipsEl = document.getElementById("smart-view-chips") as HTMLSpanElement;
 const smartViewResultSlot = document.getElementById("smart-view-result-slot") as HTMLDivElement;
 const keepNewestNInput = document.getElementById("keep-newest-n") as HTMLInputElement;
 const keepNewestSlot = document.getElementById("keep-newest-slot") as HTMLSpanElement;
 const keepNewestBtn = document.getElementById("keep-newest-btn") as HTMLButtonElement;
-
 
 // ── Sidebar navigation (WAI-ARIA tabs pattern, vertical) ────────────────
 
@@ -275,7 +287,13 @@ function renderCrumbs(btn: HTMLButtonElement | undefined) {
   if (!crumbs) return;
   // The item's own text nodes only, so a count badge is left out.
   const label = (b: HTMLButtonElement | null | undefined) =>
-    b ? Array.from(b.childNodes).filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent).join("").trim() : "";
+    b
+      ? Array.from(b.childNodes)
+          .filter((n) => n.nodeType === Node.TEXT_NODE)
+          .map((n) => n.textContent)
+          .join("")
+          .trim()
+      : "";
   const name = label(btn);
   const group = btn?.classList.contains("nav-child")
     ? label(btn.closest(".nav-area")?.querySelector<HTMLButtonElement>(":scope > .nav-item"))
@@ -404,8 +422,7 @@ function showConnectGate(): Promise<string> {
   if (ctx.settings.healthHistory.length > 0) {
     titleEl.textContent = "Reconnect Gmail";
     const lead = document.getElementById("connect-lead") as HTMLElement;
-    lead.textContent =
-      "Your Google sign-in expired. Reconnect to continue. Your settings are kept.";
+    lead.textContent = "Your Google sign-in expired. Reconnect to continue. Your settings are kept.";
   }
   void showPinTip();
 
@@ -515,7 +532,8 @@ async function main() {
   kaiGuide = initKaiGuide(document, {
     questions: CLUSTER_QUESTIONS,
     firstOn: CLUSTER_FIRST_ON,
-    currentScreen: () => document.querySelector<HTMLElement>("#sidebar .nav-item.active")?.dataset.screen ?? "overview",
+    currentScreen: () =>
+      document.querySelector<HTMLElement>("#sidebar .nav-item.active")?.dataset.screen ?? "overview",
   });
   // Kai sits bottom right and keeps a 24 px gap from Details (CSS reads --details-w).
   const detailsPanel = document.getElementById("details");
@@ -542,10 +560,13 @@ async function main() {
   wireThemeSelect();
   wireNav();
   // Each page title wears its place's app icon, like iCloud Drive's headers.
-  for (const icon of Array.from(document.querySelectorAll<SVGElement>(".sidebar .nav-item[data-screen] svg.nav-icon"))) {
+  for (const icon of Array.from(
+    document.querySelectorAll<SVGElement>(".sidebar .nav-item[data-screen] svg.nav-icon"),
+  )) {
     const screen = (icon.closest(".nav-item") as HTMLElement).dataset.screen;
     const title = document.querySelector(`section.screen[data-screen="${screen}"] .page-title`);
-    if (screen !== "overview" && title && !title.querySelector(".nav-icon")) title.prepend(icon.cloneNode(true));
+    if (screen !== "overview" && title && !title.querySelector(".nav-icon"))
+      title.prepend(icon.cloneNode(true));
   }
   wireDetails();
   wireAccountMenu();
@@ -561,11 +582,16 @@ async function main() {
     ctx.settings = await updateSettings({ autoQuarantineHighRisk: autoQuarantineToggle.checked });
   };
   // Protect's rules: they run with the background hold (background.ts runQuarantine).
-  for (const [id, key] of [["rule-auth-fails", "holdAuthFails"], ["rule-to-spam", "toSpam"]] as const) {
+  for (const [id, key] of [
+    ["rule-auth-fails", "holdAuthFails"],
+    ["rule-to-spam", "toSpam"],
+  ] as const) {
     const sw = document.getElementById(id) as HTMLInputElement;
     sw.checked = ctx.settings.securityRules[key];
     sw.onchange = async () => {
-      ctx.settings = await updateSettings({ securityRules: { ...ctx.settings.securityRules, [key]: sw.checked } });
+      ctx.settings = await updateSettings({
+        securityRules: { ...ctx.settings.securityRules, [key]: sw.checked },
+      });
     };
   }
   scanWindowInput.value = String(ctx.settings.scanWindowDays);
@@ -732,9 +758,10 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
             updateIndexStatus();
           },
           waitForHeadroom: provider.id === "gmail" ? waitForGmailHeadroom : undefined,
-          onSentReady: () => updateCorrespondentsFromIndex(provider).catch((err) =>
-            log.error("Could not update people you write to", err),
-          ),
+          onSentReady: () =>
+            updateCorrespondentsFromIndex(provider).catch((err) =>
+              log.error("Could not update people you write to", err),
+            ),
         }),
       );
       await updateCorrespondentsFromIndex(provider).catch((err) =>
@@ -767,15 +794,16 @@ const VIEW_REFRESH_EVERY = 500;
 function updateIndexStatus() {
   const active = [...indexRuns.values()]
     .map((run) => run.progress)
-    .filter(
-      (p): p is SyncProgress => p?.phase === "reading" || p?.phase === "sent" || p?.phase === "detail",
-    );
+    .filter((p): p is SyncProgress => p?.phase === "reading" || p?.phase === "sent" || p?.phase === "detail");
   if (active.length === 0 || !statusEl.hidden) {
     indexStatusEl.hidden = true;
     return;
   }
   const done = active.reduce((sum, p) => sum + p.done, 0);
-  const total = Math.max(done, active.reduce((sum, p) => sum + p.total, 0));
+  const total = Math.max(
+    done,
+    active.reduce((sum, p) => sum + p.total, 0),
+  );
   const phase = active.some((p) => p.phase === "sent") ? "sent" : "mail";
   if (paceSample?.phase !== phase || done < paceSample.done) paceSample = { phase, at: Date.now(), done };
   const elapsed = Date.now() - paceSample.at;
@@ -854,7 +882,10 @@ function refreshWhenDone(run: IndexRun) {
   });
 }
 
-async function scanAndRender({ refresh = false, quiet = false }: { refresh?: boolean; quiet?: boolean } = {}) {
+async function scanAndRender({
+  refresh = false,
+  quiet = false,
+}: { refresh?: boolean; quiet?: boolean } = {}) {
   if (!quiet) {
     statusEl.hidden = false;
     indexStatusEl.hidden = true;
@@ -884,8 +915,7 @@ async function scanAndRender({ refresh = false, quiet = false }: { refresh?: boo
       ({ run }) => run.progressAt !== undefined && Date.now() - run.progressAt > QUOTA_PAUSE_MS,
     );
     if (paused) {
-      statusEl.textContent =
-        "Gmail limits how fast apps can read mail. Cluster will continue in a moment…";
+      statusEl.textContent = "Gmail limits how fast apps can read mail. Cluster will continue in a moment…";
       return;
     }
     const reading = runs.map(({ run }) => run.progress).filter((p) => p?.phase === "reading");
@@ -958,7 +988,6 @@ async function scanAndRender({ refresh = false, quiet = false }: { refresh?: boo
       .map(([id]) => id),
   );
   senders = excludeSnoozedMessages(senders, activeSnoozedIds);
-
 
   const firstContact = markFirstContact(
     securitySenders,
@@ -1044,7 +1073,12 @@ function safeRender(screen: string, fn: () => void) {
   }
 }
 
-let askFacts: AskFacts = { senders: [], kinds: { primary: 0, trans: 0, updates: 0, promo: 0 }, scams: 0, waiting: 0 };
+let askFacts: AskFacts = {
+  senders: [],
+  kinds: { primary: 0, trans: 0, updates: 0, promo: 0 },
+  scams: 0,
+  waiting: 0,
+};
 
 /** Open a place and, for a card or Ask Kai hit, start that place's own confirm. */
 function goAndAct(screen: string, act?: HomeAct) {
@@ -1078,10 +1112,14 @@ function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummar
 // Protect's three views share one head: a line and three tiles that switch
 // between Scams, New senders and the report. Each screen has its own copy.
 function renderProtectTiles(scams: number, waiting: number, held: number) {
-  const sub = scams > 0
-    ? `${scams} ${scams === 1 ? "sender needs" : "senders need"} a look.`
-    : waiting > 0 ? `${waiting} new ${waiting === 1 ? "sender" : "senders"} waiting.` : "All clear.";
-  for (const el of Array.from(document.querySelectorAll<HTMLElement>("[data-protect-sub]"))) el.textContent = sub;
+  const sub =
+    scams > 0
+      ? `${scams} ${scams === 1 ? "sender needs" : "senders need"} a look.`
+      : waiting > 0
+        ? `${waiting} new ${waiting === 1 ? "sender" : "senders"} waiting.`
+        : "All clear.";
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>("[data-protect-sub]")))
+    el.textContent = sub;
   const tiles: Array<[screen: string, count: number, label: string, ic: string]> = [
     ["impersonation", scams, "Likely scams", "shield-alert"],
     ["screener", waiting, "New senders", "user-plus"],
@@ -1170,18 +1208,15 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
       : 0,
     fakedBrands: fakedBrands(securitySenders),
   };
-  overviewContentEl.appendChild(
-    renderHomeDashboard(
-      facts,
-      goAndAct,
-      (kind) => details?.open({ kind }),
-    ),
-  );
+  overviewContentEl.appendChild(renderHomeDashboard(facts, goAndAct, (kind) => details?.open({ kind })));
   // Kai's tip, once a visit: the kind that fills most of the inbox.
   const top = HOME_KINDS.reduce((a, b) => (facts.kinds[b.key] > facts.kinds[a.key] ? b : a));
   if (!kaiTipped && facts.total > 0 && facts.kinds[top.key] / facts.total >= 0.4) {
     kaiTipped = true;
-    setTimeout(() => kaiGuide?.tip(`Most of your mail is ${top.label.toLowerCase()}. Tap the bar to see it.`), 1500);
+    setTimeout(
+      () => kaiGuide?.tip(`Most of your mail is ${top.label.toLowerCase()}. Tap the bar to see it.`),
+      1500,
+    );
   }
   if (lastScanCapHit) {
     const footNote = document.createElement("p");
@@ -1396,7 +1431,10 @@ function buildActionGroups(sender: SenderSummary): Array<{ act: string; label: s
 
 /** Clean up's list: the ten unprotected senders with the most mail, plus the
  * biggest protected one shown dimmed. */
-function pickDecisionSenders(senders: SenderSummary[]): { decide: SenderSummary[]; protectedOne?: SenderSummary } {
+function pickDecisionSenders(senders: SenderSummary[]): {
+  decide: SenderSummary[];
+  protectedOne?: SenderSummary;
+} {
   const decide = senders
     .filter((s) => s.protectedMessageIds.length === 0)
     .sort((a, b) => senderVolume(b) - senderVolume(a))
@@ -1423,7 +1461,8 @@ function renderDeleteScreen(senders: SenderSummary[]) {
   const emails = (n: number) => `${n.toLocaleString()} ${n === 1 ? "email" : "emails"}`;
   document.getElementById("cleanup-lead")!.textContent = `${emails(plan.total)} you can clear.`;
   document.getElementById("never-opened-card")!.hidden = unopened === 0;
-  document.getElementById("never-opened-name")!.textContent = `${unopened} ${unopened === 1 ? "sender" : "senders"}`;
+  document.getElementById("never-opened-name")!.textContent =
+    `${unopened} ${unopened === 1 ? "sender" : "senders"}`;
   document.getElementById("never-opened-fact")!.textContent = emails(plan.neverReadMsgs);
   document.getElementById("past-date-card")!.hidden = plan.expiryTotal === 0;
   document.getElementById("past-date-fact")!.textContent = emails(plan.expiryTotal);
@@ -1474,24 +1513,19 @@ function renderDecisionSenders(senders: SenderSummary[]) {
   senderGroupsEl.appendChild(list);
 }
 
-function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): HTMLElement {
-  const { act, label } = primaryActionFor(sender);
-  const primary = document.createElement("button");
-  primary.className = "btn";
-  primary.textContent = label;
-
-  // The confirm area below the row: a chosen action's two-step confirm needs
-  // the full width. Only the chosen action shows; the menu picks it.
-  const disclosure = document.createElement("div");
-  disclosure.className = "instead-strip";
-  disclosure.hidden = true;
+/** A confirm area for one sender's actions: a chosen action's two-step
+ * confirm needs the full width, so only that action shows. */
+function actionArea(sender: SenderSummary) {
+  const area = document.createElement("div");
+  area.className = "instead-strip";
+  area.hidden = true;
   const groups = buildActionGroups(sender);
   for (const g of groups) {
     g.el.dataset.act = g.act;
-    disclosure.appendChild(g.el);
+    area.appendChild(g.el);
   }
   const run = (act: string, snoozeDays?: number) => {
-    disclosure.hidden = false;
+    area.hidden = false;
     const target = groups.find((g) => g.act === act);
     for (const g of groups) g.el.hidden = g !== target;
     const days = target?.el.querySelector("select");
@@ -1499,6 +1533,16 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): H
     target?.el.querySelector("button")?.click();
     target?.el.scrollIntoView?.({ block: "nearest" });
   };
+  return { area, groups, run };
+}
+
+function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): HTMLElement {
+  const { act, label } = primaryActionFor(sender);
+  const primary = document.createElement("button");
+  primary.className = "btn";
+  primary.textContent = label;
+
+  const { area: disclosure, groups, run } = actionArea(sender);
   primary.onclick = () => run(act);
 
   const notUseful = async () => {
@@ -1506,7 +1550,9 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): H
     renderDecisionSenders(allSenders);
   };
   const menu = rowMenu([
-    ...groups.filter((g) => g.act !== act && g.act !== "snooze").map((g) => ({ label: g.label, run: () => run(g.act) })),
+    ...groups
+      .filter((g) => g.act !== act && g.act !== "snooze")
+      .map((g) => ({ label: g.label, run: () => run(g.act) })),
     "sep",
     { label: "Snooze 1 day", run: () => run("snooze", 1) },
     { label: "Snooze 1 week", run: () => run("snooze", 7) },
@@ -1617,7 +1663,9 @@ function wireDetails() {
         await logAction(
           "trash",
           `Moved ${plural(total)} to Trash from Details`,
-          undoableGmailIds.length > 0 ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" } : undefined,
+          undoableGmailIds.length > 0
+            ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" }
+            : undefined,
         );
         void refreshView();
         return message;
@@ -1627,16 +1675,22 @@ function wireDetails() {
       ? (senders, slot, reset, settle) => {
           const can = senders.filter((s) => providerById.get(s.provider)?.muteSender);
           const n = can.length;
-          renderConfirmStep(slot, reset, `Hide all mail from ${n} sender${n === 1 ? "" : "s"}, now and in future?`, false, async () => {
-            let done = 0;
-            for (const sender of can) {
-              if (!(await muteOneSender(sender))) continue;
-              done += 1;
-              settle.gone(idsSafeToMoveOut(sender));
-            }
-            void refreshView();
-            return `Muted ${done} ✓`;
-          });
+          renderConfirmStep(
+            slot,
+            reset,
+            `Hide all mail from ${n} sender${n === 1 ? "" : "s"}, now and in future?`,
+            false,
+            async () => {
+              let done = 0;
+              for (const sender of can) {
+                if (!(await muteOneSender(sender))) continue;
+                done += 1;
+                settle.gone(idsSafeToMoveOut(sender));
+              }
+              void refreshView();
+              return `Muted ${done} ✓`;
+            },
+          );
         }
       : undefined,
   });
@@ -1676,35 +1730,116 @@ let allSendersFilter: SenderFilterId = "all";
 let allSendersSort: SenderSortId = "volume";
 let allSendersQuery = "";
 let allSendersLimit = 25;
-/** Companies opened to show their addresses on the Senders screen. */
-const openCompanies = new Set<string>();
 
-/** One row for a company, followed by its addresses when opened. */
-function buildCompanyEntry(group: CompanyGroup, all: SenderSummary[]): HTMLElement[] {
-  const open = openCompanies.has(group.key);
-  const toggle = document.createElement("button");
-  toggle.className = "btn btn-sm";
-  toggle.textContent = open ? "Hide addresses" : "Show addresses";
-  toggle.setAttribute("aria-expanded", String(open));
-  toggle.onclick = () => {
-    if (open) openCompanies.delete(group.key);
-    else openCompanies.add(group.key);
-    renderAllSenders(all);
-  };
+/** The sender or company shown in the Senders card. */
+let senderCardPick: { company: CompanyGroup } | { sender: SenderSummary } | null = null;
+
+/** One row for a company; its addresses are listed in the card. */
+function buildCompanyEntry(group: CompanyGroup): HTMLElement {
   const opens = group.openRate === null ? "" : ` · opens ${Math.round(group.openRate * 100)}%`;
   const row = listRow({
     lead: makeLogoTile(group.senders[0], "sz-34"),
     title: companyName(group),
-    sub: `${group.senders.length} addresses · ${group.total.toLocaleString()} messages${opens}`,
-    actions: [toggle],
+    sub: `${group.senders.length} addresses${opens}`,
+    meta: rowCount(group.total),
+    href: () => pickSenderCard({ company: group }),
   });
-  if (!open) return [row];
-  const children = group.senders.map((sender) => {
-    const child = buildAllSendersRow(sender);
-    child.classList.add("list-row--child");
-    return child;
+  row.dataset.pick = `company:${group.key}`;
+  return row;
+}
+
+function rowCount(n: number): HTMLElement {
+  return Object.assign(document.createElement("span"), {
+    className: "ios-value",
+    textContent: n.toLocaleString(),
   });
-  return [row, ...children];
+}
+
+function textEl(tag: string, text: string, className = ""): HTMLElement {
+  return Object.assign(document.createElement(tag), { textContent: text, className });
+}
+
+function pickSenderCard(pick: NonNullable<typeof senderCardPick>) {
+  senderCardPick = pick;
+  const key = "company" in pick ? `company:${pick.company.key}` : `sender:${pick.sender.key}`;
+  allSendersListEl
+    ?.querySelectorAll<HTMLElement>(".list-row")
+    .forEach((r) => r.classList.toggle("picked", r.dataset.pick === key));
+  renderSenderCard();
+}
+
+/** Contacts-style card beside the list: who it is, three facts, the actions. */
+function renderSenderCard() {
+  let card = document.getElementById("sender-card");
+  if (!card) {
+    card = Object.assign(document.createElement("aside"), { id: "sender-card", className: "sender-card" });
+    card.setAttribute("aria-live", "polite");
+    document.querySelector("[data-screen=senders] .contacts")?.append(card);
+  }
+  card.replaceChildren();
+  const pick = senderCardPick;
+  if (!pick) return;
+  const who = textEl("div", "", "card-who");
+  const facts = textEl("div", "", "card-facts");
+  const fact = (n: string, label: string) => {
+    const f = document.createElement("div");
+    f.append(textEl("b", n), textEl("span", label));
+    facts.append(f);
+  };
+  const acts = textEl("div", "", "card-acts");
+  const btn = (label: string, cls: string, onclick: () => void) => {
+    const b = Object.assign(document.createElement("button"), {
+      type: "button",
+      className: cls,
+      textContent: label,
+    });
+    b.onclick = onclick;
+    acts.append(b);
+  };
+
+  if ("company" in pick) {
+    const g = pick.company;
+    who.append(makeLogoTile(g.senders[0], "sz-44"), textEl("b", companyName(g)));
+    fact(g.total.toLocaleString(), "emails");
+    fact(g.openRate === null ? "None" : `${Math.round(g.openRate * 100)}%`, "opened");
+    fact(String(g.senders.length), "addresses");
+    const list = textEl("div", "", "card-list");
+    for (const sender of g.senders) {
+      const r = Object.assign(document.createElement("button"), {
+        type: "button",
+        className: "card-list-row",
+      });
+      r.append(textEl("span", sender.address), rowCount(senderVolume(sender)));
+      r.onclick = () => pickSenderCard({ sender });
+      list.append(r);
+    }
+    card.append(who, facts, list);
+    return;
+  }
+
+  const sender = pick.sender;
+  const total = senderVolume(sender);
+  who.append(
+    makeLogoTile(sender, "sz-44"),
+    textEl("b", sender.displayName || sender.address),
+    textEl("span", sender.displayName ? sender.address : ""),
+  );
+  fact(total.toLocaleString(), total === 1 ? "email" : "emails");
+  fact(total > 0 ? `${Math.round((1 - senderUnread(sender) / total) * 100)}%` : "None", "opened");
+  fact(profileLine(ctx.profiles.get(sender.key)) || "Now and then", "how often");
+
+  const { area, groups, run } = actionArea(sender);
+  if (sender.protectedMessageIds.length > 0)
+    acts.append(textEl("p", "Starred mail keeps this sender out of cleanup.", "hint"));
+  else if (ctx.settings.mutedSenders.includes(sender.address))
+    acts.append(textEl("p", "Muted. New mail skips your inbox.", "hint"));
+  else {
+    const { act, label } = primaryActionFor(sender);
+    btn(label, "btn btn-accent-solid", () => run(act));
+    for (const g of groups) if (g.act !== act && g.act !== "snooze") btn(g.label, "btn", () => run(g.act));
+  }
+  btn("Show emails", "btn", () => details?.open({ view: "emails", senderKey: sender.key }));
+  card.append(who, facts, acts, area);
 }
 
 function hasAnyUnsubscribe(u: SenderSummary["unsubscribe"]): boolean {
@@ -1738,7 +1873,9 @@ function wireAllSendersControls() {
 }
 
 function filteredSenders(senders: SenderSummary[]): SenderSummary[] {
-  const neverKeys = new Set(neverReadSenders(senders, buildProtectionContext(ctx.settings)).map((s) => s.key));
+  const neverKeys = new Set(
+    neverReadSenders(senders, buildProtectionContext(ctx.settings)).map((s) => s.key),
+  );
   return senders.filter((s) => {
     const profile = ctx.profiles.get(s.key);
     if (allSendersFilter === "never" && !neverKeys.has(s.key)) return false;
@@ -1761,10 +1898,12 @@ function renderCompanyRows(senders: SenderSummary[]) {
   const groups = groupByCompany(senders, ctx.profiles);
   allSendersListEl.innerHTML = "";
   if (groups.length === 0) {
-    allSendersListEl.appendChild(Object.assign(document.createElement("p"), {
-      className: "empty-state",
-      textContent: "No company senders match this filter.",
-    }));
+    allSendersListEl.appendChild(
+      Object.assign(document.createElement("p"), {
+        className: "empty-state",
+        textContent: "No company senders match this filter.",
+      }),
+    );
     return;
   }
   const rows = groups.slice(0, allSendersLimit).map((group) => {
@@ -1801,17 +1940,35 @@ function renderAllSenders(senders: SenderSummary[]) {
     return;
   }
   // A company's addresses fold into one row (LinkedIn, not five LinkedIns).
-  const rows = foldByCompany(sortSenders(filteredSenders(senders), ctx.profiles, allSendersSort), ctx.profiles);
+  const rows = foldByCompany(
+    sortSenders(filteredSenders(senders), ctx.profiles, allSendersSort),
+    ctx.profiles,
+  );
+  // A folded company counts all its addresses, so re-rank by the total.
+  if (allSendersSort === "volume") {
+    const size = (e: (typeof rows)[number]) => (e.kind === "sender" ? senderVolume(e.sender) : e.group.total);
+    rows.sort((a, b) => size(b) - size(a));
+  }
   const shown = rows.slice(0, allSendersLimit);
 
   allSendersListEl.innerHTML = "";
   allSendersListEl.appendChild(
     listGroup(
       shown.flatMap((entry) =>
-        entry.kind === "sender" ? [buildAllSendersRow(entry.sender)] : buildCompanyEntry(entry.group, senders),
+        entry.kind === "sender" ? [buildAllSendersRow(entry.sender)] : [buildCompanyEntry(entry.group)],
       ),
     ),
   );
+
+  const pickKey = (e: (typeof shown)[number]) =>
+    e.kind === "sender" ? `sender:${e.sender.key}` : `company:${e.group.key}`;
+  const current =
+    senderCardPick &&
+    ("company" in senderCardPick
+      ? `company:${senderCardPick.company.key}`
+      : `sender:${senderCardPick.sender.key}`);
+  const keep = shown.find((e) => pickKey(e) === current) ?? shown[0];
+  if (keep) pickSenderCard(keep.kind === "sender" ? { sender: keep.sender } : { company: keep.group });
 
   if (rows.length > shown.length) {
     const more = document.createElement("div");
@@ -1844,61 +2001,22 @@ function renderAllSenders(senders: SenderSummary[]) {
 }
 
 function buildAllSendersRow(sender: SenderSummary): HTMLElement {
-  const unread = senderUnread(sender);
-  const total = senderVolume(sender);
-  const profile = ctx.profiles.get(sender.key);
-  const sub = [profileLine(profile), sender.displayName ? sender.address : ""].filter(Boolean).join(" · ");
-
-  // Count + engagement bar (unread ratio).
-  const count = document.createElement("div");
-  count.style.minWidth = "0";
-  const n = document.createElement("div");
-  n.className = "row-title";
-  n.style.fontSize = "15px";
-  n.textContent = `${total} msg`;
-  const ratio = total > 0 ? unread / total : 0;
-  const bar = document.createElement("div");
-  bar.className = "eng-bar";
-  const fill = document.createElement("span");
-  fill.style.width = `${Math.round(ratio * 100)}%`;
-  if (ratio <= 0.6) fill.classList.add("low");
-  bar.appendChild(fill);
-  count.append(n, bar);
-
-  const actions: HTMLElement[] = [];
-  const isProtected = sender.protectedMessageIds.length > 0;
-  const isMuted = ctx.settings.mutedSenders.includes(sender.address);
-  if (isProtected) {
-    const chip = document.createElement("span");
-    chip.className = "pill dashed";
-    chip.textContent = "Protected";
-    actions.push(chip);
-  } else if (isMuted) {
-    const chip = document.createElement("span");
-    chip.className = "pill neutral";
-    chip.textContent = "Muted";
-    actions.push(chip);
-  } else {
-    const { act, label } = primaryActionFor(sender);
-    const primary = document.createElement("button");
-    primary.className = "btn btn-accent btn-sm";
-    primary.textContent = label;
-    primary.onclick = () => {
-      const group = buildActionGroups(sender).find((g) => g.act === act);
-      if (!group) return;
-      primary.replaceWith(group.el);
-      group.el.querySelector("button")?.click();
-    };
-    actions.push(primary);
-  }
-
-  return listRow({
+  const marks = [
+    sender.protectedMessageIds.length > 0 ? "Starred" : "",
+    ctx.settings.mutedSenders.includes(sender.address) ? "Muted" : "",
+  ];
+  const sub = [...marks, profileLine(ctx.profiles.get(sender.key)), sender.displayName ? sender.address : ""]
+    .filter(Boolean)
+    .join(" · ");
+  const row = listRow({
     lead: makeLogoTile(sender, "sz-34"),
     title: sender.displayName || sender.address,
     sub,
-    meta: count,
-    actions,
+    meta: rowCount(senderVolume(sender)),
+    href: () => pickSenderCard({ sender }),
   });
+  row.dataset.pick = `sender:${sender.key}`;
+  return row;
 }
 
 /** Sender tile: favicon over a coloured monogram fallback (see senderTile.ts). */
@@ -2308,7 +2426,7 @@ async function wireAiMessageKind() {
         sender.messages.filter((message) => message.kind === "other" && message.subject),
       );
       if (otherMessages.length === 0) {
-        aiKindStatusEl.textContent = "Nothing classified as \"other\" in the current scan.";
+        aiKindStatusEl.textContent = 'Nothing classified as "other" in the current scan.';
         return;
       }
       const verdicts = await classifyOtherSubjects(otherMessages.map((message) => message.subject ?? ""));
@@ -2569,7 +2687,6 @@ function renderSpamSection(senders: SenderSummary[]) {
   updateSpamCount();
 }
 
-
 // ── Smart Views + Keep-newest (Clean up tab) ─────────────────────────────
 async function applySmartView(view: SmartView, action: "archive" | "trash"): Promise<string> {
   let merged =
@@ -2663,7 +2780,14 @@ function renderSmartViews(senders: SenderSummary[]) {
 const presetNotes = new Map<string, string>();
 const KEEP_IN_INBOX = 3;
 
-function presetActionCard(id: string, name: string, fact: string, verb: string, summary: string, run: () => Promise<string>): HTMLElement {
+function presetActionCard(
+  id: string,
+  name: string,
+  fact: string,
+  verb: string,
+  summary: string,
+  run: () => Promise<string>,
+): HTMLElement {
   const card = document.createElement("div");
   card.className = "rec-card";
   card.dataset.preset = id;
@@ -2783,7 +2907,8 @@ function replyReminderCard(): HTMLElement {
       try {
         const n = await runReplyReminders(await gmailProvider.getAuthToken(false));
         presetNotes.set("no-reply", n > 0 ? `On. ${n} brought back now.` : "On. Nothing waiting now.");
-        if (n > 0) await logAction("snooze", `Brought back ${n} sent ${n === 1 ? "email" : "emails"} with no reply`);
+        if (n > 0)
+          await logAction("snooze", `Brought back ${n} sent ${n === 1 ? "email" : "emails"} with no reply`);
       } catch (err) {
         log.error("Reply reminders failed", err);
         presetNotes.set("no-reply", "On. Couldn't check Gmail just now.");
@@ -2872,7 +2997,8 @@ function wireBulkHandlers() {
 
     renderConfirmStep(unsubscribeBulkSlot, resetUnsubscribeBulkSlot, summaryText, false, async (summary) => {
       if (byEmail.length > 0) void openUnsubscribeSheet(byEmail, () => renderDeleteScreen(ctx.senders));
-      if (automatable.length === 0) return `Nothing to send with one click. ${manual.length - byEmail.length} need a manual look`;
+      if (automatable.length === 0)
+        return `Nothing to send with one click. ${manual.length - byEmail.length} need a manual look`;
       summary.textContent = "Requesting permission…";
       const granted = await ensureOriginsPermission(automatable.map((s) => s.unsubscribe.postUrl!));
       if (!granted) return "Permission denied, so nothing was unsubscribed";
@@ -2895,7 +3021,8 @@ function wireBulkHandlers() {
   bulkKeepSortedBtn.onclick = () => {
     const selected = ctx.senders.filter((s) => selectedSenderKeys.has(s.key));
     const { eligible, unsupported } = partitionForKeepSorted(selected, providerById);
-    const skipped = unsupported.length > 0 ? ` (${unsupported.length} skipped: not supported for this provider)` : "";
+    const skipped =
+      unsupported.length > 0 ? ` (${unsupported.length} skipped: not supported for this provider)` : "";
     const summaryText = `From now on, new mail from ${eligible.length} sender${eligible.length === 1 ? "" : "s"} will skip your inbox and go to a label named after each sender${skipped}.`;
 
     renderConfirmStep(keepSortedBulkSlot, resetKeepSortedBulkSlot, summaryText, false, async () => {
@@ -2984,7 +3111,6 @@ function wireBulkHandlers() {
       return message;
     });
   };
-
 
   // ── Local engagement suggestions: mute all / trash all ──
   neverReadMuteBtn.onclick = () => {
