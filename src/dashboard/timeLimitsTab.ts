@@ -13,6 +13,7 @@ import { domainOf } from "../lib/domainGrouping";
 import { deliverNewsletters, HOLD_HOURS, newsletterDayOn } from "../lib/newsletterDay";
 import type { SenderSummary } from "../lib/senderModel";
 import { ALL_SORT_BUCKETS, effectiveBucket, type SortBucket } from "../lib/sortTaxonomy";
+import { icon } from "./homeDashboard";
 import { logAction } from "./recentTab";
 import { ctx } from "./state";
 
@@ -288,16 +289,16 @@ function renderBacklogPreview(token: string, rows: BacklogRow[]): void {
 // Each is a ready-made value for one row of the editor below, saved through
 // the same path, so "Make your own" and a preset never disagree.
 
-export const PRESETS: ReadonlyArray<{ id: string; hours: Partial<Record<SortBucket, number>>; name: string }> = [
-  { id: "codes", hours: { otp: 24 }, name: "Codes leave after a day" },
-  { id: "promotions", hours: { promotions: 0 }, name: "Promotions skip the inbox" },
-  { id: "newsletters", hours: { newsletter: 168 }, name: "Newsletters leave after a week" },
+export const PRESETS: ReadonlyArray<{ id: string; hours: Partial<Record<SortBucket, number>>; name: string; rule: string }> = [
+  { id: "codes", hours: { otp: 24 }, name: "Codes", rule: "Leave after a day" },
+  { id: "promotions", hours: { promotions: 0 }, name: "Promotions", rule: "Skip the inbox" },
+  { id: "newsletters", hours: { newsletter: 168 }, name: "Newsletters", rule: "Leave after a week" },
   // One place for your paper trail, like HEY's Paper Trail and Apple's Transactions.
-  { id: "receipts", hours: { receipt: 168, shipping: 168 }, name: "Receipts and tracking leave after a week" },
-  { id: "social", hours: { social: 24 }, name: "Social leaves after a day" },
-  { id: "shopping", hours: { shopping: 72 }, name: "Shopping leaves after 3 days" },
+  { id: "receipts", hours: { receipt: 168, shipping: 168 }, name: "Receipts and tracking", rule: "Leave after a week" },
+  { id: "social", hours: { social: 24 }, name: "Social", rule: "Leave after a day" },
+  { id: "shopping", hours: { shopping: 72 }, name: "Shopping", rule: "Leave after 3 days" },
   // Slack, GitHub, Notion and other app notices.
-  { id: "updates", hours: { productivity: 168 }, name: "App updates leave after a week" },
+  { id: "updates", hours: { productivity: 168 }, name: "App updates", rule: "Leave after a week" },
 ];
 
 const presetsEl = document.getElementById("presets") as HTMLDivElement | null;
@@ -345,10 +346,10 @@ function newsletterDayCard(): HTMLElement {
   card.dataset.preset = "saturday";
   const name = document.createElement("div");
   name.className = "rec-name";
-  name.textContent = "Newsletters on Saturday";
+  name.textContent = "Saturday newsletters";
   const fact = document.createElement("div");
   fact.className = "rec-fact";
-  fact.textContent = on ? "On" : "Read them all at once, Saturday at 8 am";
+  fact.textContent = on ? "On" : "All at once, 8 am Saturday";
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "btn btn-sm";
@@ -389,13 +390,14 @@ export function renderPresets(senders: readonly SenderSummary[] = presetSenders)
       const on = cfg.timeLimitsEnabled && kinds.every(([b, h]) => cfg.inboxHoursByBucket[b] === h);
       const card = document.createElement("div");
       card.className = "rec-card";
+      card.dataset.preset = p.id;
       const name = document.createElement("div");
       name.className = "rec-name";
       name.textContent = p.name;
       const fact = document.createElement("div");
       fact.className = "rec-fact";
       const n = kinds.reduce((sum, [b]) => sum + (weekly.get(b) ?? 0), 0);
-      fact.textContent = on ? "On" : n > 0 ? `About ${plural(n, "email")} a week` : "None this week";
+      fact.textContent = on ? "On" : `${p.rule} · ${n > 0 ? `about ${n.toLocaleString()} a week` : "none this week"}`;
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "btn btn-sm";
@@ -435,7 +437,30 @@ export function renderPresets(senders: readonly SenderSummary[] = presetSenders)
     newsletterDayCard(),
     ...extraCards(),
   );
+  // Each preset wears its own colored icon, like a Reminders list.
+  for (const card of Array.from(presetsEl.querySelectorAll<HTMLElement>(".rec-card[data-preset]"))) {
+    const glyph = PRESET_ICONS[card.dataset.preset!];
+    if (!glyph) continue;
+    const mark = document.createElement("span");
+    mark.className = `app-ic preset-${card.dataset.preset}`;
+    mark.append(icon(glyph));
+    card.prepend(mark);
+  }
 }
+
+const PRESET_ICONS: Record<string, string> = {
+  codes: "key",
+  promotions: "tag",
+  newsletters: "news",
+  receipts: "receipt",
+  social: "users",
+  shopping: "bag",
+  updates: "bell",
+  saturday: "calendar",
+  "no-reply": "reply",
+  "never-opened": "mail-x",
+  "keep-newest": "inbox",
+};
 
 export function wireTimeLimits(): void {
   if (saveBtn) saveBtn.onclick = () => void save();

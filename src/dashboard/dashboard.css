@@ -3819,11 +3819,10 @@ table.sheet { font-size: 12px; }
 .app-ic { width: 36px; height: 36px; }
 .app-ic .i, .tile-empty .i { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
 .app-ic .i { width: 20px; height: 20px; stroke-width: 2; }
-.app-inbox, .sidebar .nav-item svg.nav-icon.ni-home { background: linear-gradient(#3d9bff, #0a6cff); }
-.app-clean, .sidebar .nav-item svg.nav-icon:is(.ni-bin, .ni-stop) { background: linear-gradient(#ffa63d, #f47a0a); }
-.app-organize, .sidebar .nav-item svg.nav-icon:is(.ni-layers, .ni-sliders) { background: linear-gradient(#a879ff, #7a4cf0); }
-.app-protect, .sidebar .nav-item svg.nav-icon:is(.ni-shield, .ni-new, .ni-chart) { background: linear-gradient(#5a6cff, #3346d9); }
-.sidebar .nav-item svg.nav-icon.ni-people { background: linear-gradient(#9aa0a8, #6e747c); }
+.app-inbox { background: linear-gradient(#3d9bff, #0a6cff); }
+.app-clean { background: linear-gradient(#ffa63d, #f47a0a); }
+.app-organize { background: linear-gradient(#a879ff, #7a4cf0); }
+.app-protect { background: linear-gradient(#5a6cff, #3346d9); }
 .sidebar .nav-item svg.nav-icon { width: 24px; height: 24px; padding: 4px; }
 .sidebar .nav-item svg.nav-icon.nav-icon, .sidebar .nav-item svg.nav-icon * { color: #fff; stroke-width: 2; }
 .sidebar .nav-item.nav-child svg.nav-icon { width: 20px; height: 20px; padding: 3.5px; }
@@ -3879,3 +3878,49 @@ table.sheet { font-size: 12px; }
 .connect-points strong { color: var(--label-3); }
 .connect-actions { justify-content: center; }
 .connect-actions .btn-accent-solid { padding: 11px 28px; font-size: 15px; }
+
+/* ── iCloud apps (2026-10-27): page icons, Contacts-style Senders, preset icons ── */
+/* App colors apply wherever a place's icon appears (sidebar and page titles). */
+:is(.nav-item, .page-title) svg.nav-icon.ni-home { background: linear-gradient(#3d9bff, #0a6cff); }
+:is(.nav-item, .page-title) svg.nav-icon:is(.ni-bin, .ni-stop) { background: linear-gradient(#ffa63d, #f47a0a); }
+:is(.nav-item, .page-title) svg.nav-icon:is(.ni-layers, .ni-sliders) { background: linear-gradient(#a879ff, #7a4cf0); }
+:is(.nav-item, .page-title) svg.nav-icon:is(.ni-shield, .ni-new, .ni-chart) { background: linear-gradient(#5a6cff, #3346d9); }
+:is(.nav-item, .page-title) svg.nav-icon.ni-people { background: linear-gradient(#9aa0a8, #6e747c); }
+.page-title { display: flex; align-items: center; gap: 12px; }
+.page-title svg.nav-icon { flex: none; width: 34px; height: 34px; padding: 6px; border-radius: 22.5%; color: #fff;
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25); }
+.page-title svg.nav-icon * { stroke: #fff; stroke-width: 2; }
+
+/* Senders as iCloud Contacts: a Lists column, then search and the list. */
+.contacts { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 24px; align-items: start; }
+.lists { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 4px; }
+.lists-head { margin: 0 0 6px 8px; font-size: 20px; font-weight: 700; }
+.list-group { display: flex; flex-direction: column; gap: 2px; }
+.list-group button { display: flex; align-items: center; gap: 10px; min-height: 0; padding: 7px 10px; border: 0; border-radius: 8px;
+  background: none; color: var(--label-2); font-size: 14px; text-align: left; }
+.list-group button:hover { background: var(--neutral-fill); }
+.list-group [aria-pressed="true"] { background: var(--neutral-fill); color: var(--label); font-weight: 600; }
+.list-group .li { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--accent-text); stroke-width: 1.8; stroke-linecap: round;
+  stroke-linejoin: round; }
+.contacts-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.contacts-main .toolbar-row { display: flex; gap: 10px; margin: 0; }
+.contacts-main .search { flex: 1; }
+@media (max-width: 760px) {
+  .contacts { grid-template-columns: minmax(0, 1fr); }
+  .lists { position: static; }
+  .list-group { flex-direction: row; overflow-x: auto; }
+}
+
+/* Organize presets and Clean up cards wear colored icons, Reminders style. */
+#presets .rec-card, [data-screen="delete"] .rec-card { gap: 4px; }
+#presets .app-ic, [data-screen="delete"] .rec-card .app-ic { width: 34px; height: 34px; margin-bottom: 8px; }
+.rec-card .app-ic .i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.preset-codes { background: linear-gradient(#ffd23d, #f2a60a); }
+.preset-promotions { background: linear-gradient(#ff7a9c, #e9406b); }
+.preset-newsletters, .preset-saturday { background: linear-gradient(#ffa63d, #f47a0a); }
+.preset-receipts { background: linear-gradient(#4cd0a0, #1fa077); }
+.preset-social { background: linear-gradient(#5ac8fa, #1e95d6); }
+.preset-shopping { background: linear-gradient(#d07cff, #a446e0); }
+.preset-updates { background: linear-gradient(#9aa0a8, #6e747c); }
+.preset-no-reply, .preset-keep-newest { background: linear-gradient(#3d9bff, #0a6cff); }
+.preset-never-opened { background: linear-gradient(#a879ff, #7a4cf0); }

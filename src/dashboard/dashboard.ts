@@ -532,6 +532,12 @@ async function main() {
   renderSettingsSetup();
   wireThemeSelect();
   wireNav();
+  // Each page title wears its place's app icon, like iCloud Drive's headers.
+  for (const icon of Array.from(document.querySelectorAll<SVGElement>(".sidebar .nav-item[data-screen] svg.nav-icon"))) {
+    const screen = (icon.closest(".nav-item") as HTMLElement).dataset.screen;
+    const title = document.querySelector(`section.screen[data-screen="${screen}"] .page-title`);
+    if (screen !== "overview" && title && !title.querySelector(".nav-icon")) title.prepend(icon.cloneNode(true));
+  }
   wireDetails();
   wireAccountMenu();
   initAskKai(document.getElementById("ask-kai-open")!, () => askFacts, {
@@ -2680,7 +2686,7 @@ function keepNewestInInboxCard(): HTMLElement | null {
   if (total === 0 && !presetNotes.has("keep-newest")) return null;
   return presetActionCard(
     "keep-newest",
-    `Keep each sender's newest ${KEEP_IN_INBOX} in your inbox`,
+    `Newest ${KEEP_IN_INBOX} per sender`,
     `${total.toLocaleString()} older ${total === 1 ? "email moves" : "emails move"} out`,
     "Move out…",
     `Move ${total.toLocaleString()} older ${total === 1 ? "email" : "emails"} out of your inbox? They stay in All Mail.`,
@@ -2713,11 +2719,10 @@ function neverOpenedSkipsInboxCard(): HTMLElement | null {
     .map((s) => s.sender)
     .filter((s) => providerById.get(s.provider)?.keepSorted);
   if (senders.length === 0 && !presetNotes.has("never-opened")) return null;
-  const emails = senders.reduce((n, s) => n + idsSafeToMoveOut(s).length, 0);
   return presetActionCard(
     "never-opened",
-    "Mail you never open skips the inbox",
-    `${senders.length} ${senders.length === 1 ? "sender" : "senders"}, ${emails.toLocaleString()} ${emails === 1 ? "email" : "emails"}`,
+    "Never opened",
+    `Skip the inbox · ${senders.length} ${senders.length === 1 ? "sender" : "senders"}`,
     "Turn on…",
     `Send mail from ${senders.length} ${senders.length === 1 ? "sender" : "senders"} you never open to "${label}", now and from now on?`,
     async () => {
@@ -2754,10 +2759,10 @@ function replyReminderCard(): HTMLElement {
   card.dataset.preset = "no-reply";
   const name = document.createElement("div");
   name.className = "rec-name";
-  name.textContent = `Remind me if no reply in ${cfg.days} days`;
+  name.textContent = `No reply in ${cfg.days} days`;
   const fact = document.createElement("div");
   fact.className = "rec-fact";
-  fact.textContent = presetNotes.get("no-reply") ?? (cfg.enabled ? "On" : "Brings your sent mail back to the inbox");
+  fact.textContent = presetNotes.get("no-reply") ?? (cfg.enabled ? "On" : "Bring it back to your inbox");
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "btn btn-sm";

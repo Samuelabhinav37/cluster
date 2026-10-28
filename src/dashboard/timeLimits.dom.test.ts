@@ -83,7 +83,7 @@ describe("Organize presets", () => {
     await openOrganize(dash);
     const promoCard = () =>
       Array.from(document.querySelectorAll<HTMLElement>("#presets .rec-card")).find((c) =>
-        c.textContent!.includes("Promotions skip the inbox"),
+        c.dataset.preset === "promotions",
       )!;
     const card = promoCard();
     expect(card.querySelector("button")!.textContent).toBe("Turn on");
@@ -114,7 +114,7 @@ describe("Organize presets, several kinds", () => {
     await openOrganize(dash);
     const card = () =>
       Array.from(document.querySelectorAll<HTMLElement>("#presets .rec-card")).find((c) =>
-        c.textContent!.includes("Receipts and tracking"),
+        c.dataset.preset === "receipts",
       )!;
     card().querySelector("button")!.click();
     await vi.waitFor(() => {
