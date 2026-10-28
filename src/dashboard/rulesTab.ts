@@ -43,6 +43,16 @@ const rulePriorityInput = document.getElementById("rule-priority") as HTMLInputE
 const ruleLimitInput = document.getElementById("rule-limit") as HTMLInputElement;
 const ruleStopProcessingInput = document.getElementById("rule-stop-processing") as HTMLInputElement;
 const ruleFormError = document.getElementById("rule-form-error") as HTMLSpanElement;
+const ruleApplyStatus = document.getElementById("rule-apply-status") as HTMLSpanElement;
+const ruleSheet = document.getElementById("rule-sheet") as HTMLDialogElement;
+
+function openRuleSheet() {
+  // jsdom has no showModal; the sheet's fields still work there.
+  if (!ruleSheet.open) ruleSheet.showModal?.();
+}
+function closeRuleSheet() {
+  if (ruleSheet.open) ruleSheet.close?.();
+}
 const ruleApplySlot = document.getElementById("rule-apply-slot") as HTMLDivElement;
 const ruleApplyBtn = document.getElementById("rule-apply-btn") as HTMLButtonElement;
 const ruleNaturalLanguageInput = document.getElementById("rule-natural-language") as HTMLInputElement;
@@ -81,6 +91,7 @@ function buildRuleRow(rule: ClusterRule): HTMLElement {
   editBtn.className = "btn btn-sm";
   editBtn.textContent = "Edit";
   editBtn.onclick = () => {
+    openRuleSheet();
     document.getElementById("rule-form-details")?.setAttribute("open", "");
     ruleNameInput.value = rule.name;
     ruleFromDomainInput.value = rule.conditions.fromDomain ?? "";
@@ -89,7 +100,6 @@ function buildRuleRow(rule: ClusterRule): HTMLElement {
     ruleActionSel.value = rule.action;
     ruleLabelInput.hidden = rule.action !== "label";
     ruleLabelInput.value = rule.labelName ?? "";
-    document.getElementById("rule-form-details")?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
   const del = document.createElement("button");
@@ -255,6 +265,9 @@ const RULE_EXAMPLES = [
 ];
 
 export function wireRulesTab() {
+  document.getElementById("rule-new-btn")!.onclick = openRuleSheet;
+  document.getElementById("rule-sheet-close")!.onclick = closeRuleSheet;
+
   const chipHost = document.getElementById("rule-example-chips");
   if (chipHost && chipHost.childElementCount === 0) {
     for (const example of RULE_EXAMPLES) {
@@ -316,6 +329,7 @@ export function wireRulesTab() {
     rulePriorityInput.value = "0";
     ruleLimitInput.value = String(DEFAULT_RULE_MAX_MESSAGES_PER_RUN);
     ruleLabelInput.hidden = true;
+    closeRuleSheet();
     renderRulesTab();
   };
 
@@ -356,13 +370,14 @@ export function wireRulesTab() {
     ruleNaturalLanguageInput.value = "";
     ruleDraftStatus.textContent =
       "Reviewed draft saved and enabled. It can run when you apply rules or during the background sweep.";
+    closeRuleSheet();
     renderRulesTab();
   };
 
   ruleApplyBtn.onclick = () => {
     const enabled = ctx.settings.rules.filter((r) => r.enabled);
     if (enabled.length === 0) {
-      ruleFormError.textContent = "No enabled rules to apply.";
+      ruleApplyStatus.textContent = "No enabled rules to apply.";
       return;
     }
     const dryRun = buildRuleDryRunReport(

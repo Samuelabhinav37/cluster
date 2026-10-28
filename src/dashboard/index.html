@@ -414,8 +414,16 @@
             </p>
 
             <section id="your-rules">
-              <h3 class="section-label">Your rules</h3>
-            <div class="glass-card" id="rule-composer">
+              <div class="section-head">
+                <h3 class="section-label">Your rules</h3>
+                <span class="spacer"></span>
+                <button type="button" id="rule-new-btn" class="btn btn-accent-solid">New rule</button>
+              </div>
+            <div id="rules-list"></div>
+            <div id="rule-preview"></div>
+            <dialog id="rule-sheet" class="unsub-sheet" aria-labelledby="rule-sheet-title">
+            <h2 class="unsub-title" id="rule-sheet-title">New rule</h2>
+            <div id="rule-composer">
               <label class="section-label" for="rule-natural-language">New rule</label>
               <input
                 type="text"
@@ -435,10 +443,8 @@
               <span id="rule-draft-status" class="hint"></span>
               <p class="hint">On-device AI drafts it, and nothing runs until you save.</p>
             </div>
-            <div id="rules-list"></div>
-            <div id="rule-preview"></div>
             <details id="rule-form-details" class="disclosure">
-              <summary>Build a rule step by step</summary>
+              <summary>Or set each part</summary>
               <form id="rule-form" class="form-grid">
                 <input type="text" id="rule-name" placeholder="Rule name" />
                 <input type="text" id="rule-from-domain" placeholder="from domain, e.g. news.example.com" />
@@ -485,6 +491,8 @@
                 <span id="rule-form-error" class="field-error"></span>
               </form>
             </details>
+            <div class="unsub-footer"><button type="button" id="rule-sheet-close" class="btn btn-ghost">Done</button></div>
+            </dialog>
             <details class="disclosure" id="time-limits-section">
               <summary>Custom times for each kind</summary>
               <label class="toggle-card">
@@ -508,6 +516,7 @@
             <div id="rule-apply-slot">
               <button id="rule-apply-btn" class="btn">Apply enabled rules now</button>
             </div>
+            <span id="rule-apply-status" class="field-error"></span>
             </section>
 
 

@@ -111,7 +111,7 @@ describe("Rules screen — Apply enabled rules now", () => {
     const applyBtn = dash.el("rule-apply-btn") as HTMLButtonElement;
     applyBtn.click();
 
-    expect(dash.el("rule-form-error").textContent).toMatch(/no enabled rules/i);
+    expect(dash.el("rule-apply-status").textContent).toMatch(/no enabled rules/i);
     expect(dash.gmail.trashMessages).not.toHaveBeenCalled();
   });
 });
