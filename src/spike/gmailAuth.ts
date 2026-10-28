@@ -128,8 +128,7 @@ async function implicitToken(extra: Record<string, string>, interactive: boolean
 
 async function fallback(): Promise<void> {
   lines.length = 0;
-  say("Fallback: 1-hour pass straight from Google, renewed quietly.
-");
+  say("Fallback: 1-hour pass straight from Google, renewed quietly.\n");
   say("1. Google sign-in window…");
   let state = base64Url(crypto.getRandomValues(new Uint8Array(16)));
   const first = await implicitToken({ prompt: "select_account" }, true, state);
@@ -139,8 +138,7 @@ async function fallback(): Promise<void> {
   if (!access) return say("   No pass came back.");
   say(`   Got a pass, good for ${first.searchParams.get("expires_in")} seconds.`);
 
-  say("
-2. Read your Gmail profile with it…");
+  say("\n2. Read your Gmail profile with it…");
   const profile = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
     headers: { Authorization: `Bearer ${access}` },
   });
@@ -148,8 +146,7 @@ async function fallback(): Promise<void> {
   if (!profile.ok || !p.emailAddress) return say(`   Failed: ${profile.status}`);
   say(`   Signed in as ${p.emailAddress} (${p.messagesTotal} emails)`);
 
-  say("
-3. Quiet renewal for that account, no window…");
+  say("\n3. Quiet renewal for that account, no window…");
   state = base64Url(crypto.getRandomValues(new Uint8Array(16)));
   let renewed = "";
   try {
@@ -169,8 +166,7 @@ async function fallback(): Promise<void> {
       () => {},
     );
   }
-  say("
-Done. The test's access was revoked again.");
+  say("\nDone. The test's access was revoked again.");
 }
 
 document.getElementById("fallback")!.onclick = () =>
