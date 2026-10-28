@@ -27,3 +27,12 @@ export function senderVolume(sender: SenderSummary): number {
 export function senderUnread(sender: SenderSummary): number {
   return sender.totalUnread ?? sender.messages.filter((m) => m.unread).length;
 }
+
+/** How often they really send, from the mail read: "Daily", "3 a week". */
+export function cadenceLabel(count: number, windowDays: number): string {
+  const perWeek = count / Math.max(1, windowDays / 7);
+  if (perWeek >= 5) return "Daily";
+  if (perWeek >= 1) return `${Math.round(perWeek)} a week`;
+  const perMonth = Math.round(perWeek * 4.3);
+  return perMonth >= 1 ? `${perMonth} a month` : "Now and then";
+}

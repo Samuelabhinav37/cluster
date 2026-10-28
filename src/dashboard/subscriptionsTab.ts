@@ -1,9 +1,9 @@
 // Subscriptions tab: every sender in the scan with an unsubscribe option,
 // ranked by outcome, plus per-row Unsubscribe / Unsubscribe+clean / Read
-// later and the "unsubscribe all verified one-click" bulk action.
+// later and the one-click "Unsubscribe all" bulk action.
 // recordUnsubscribeRequests is exported because the Clean-up tab's sender
 // table also records a request when its inline Unsubscribe button fires.
-import { senderVolume } from "../lib/census";
+import { cadenceLabel, senderVolume } from "../lib/census";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
 import { executeBulkUnsubscribe, filterOutProtected } from "../lib/bulkActions";
 import {
@@ -37,14 +37,6 @@ const selectedSubKeys = new Set<string>();
 
 function subTile(sender: SenderSummary, size: "sz-30" | "sz-34" = "sz-34"): HTMLElement {
   return senderTile(sender.address, sender.displayName, size);
-}
-
-function cadenceLabel(sender: SenderSummary): "Daily" | "Weekly" | "Monthly" {
-  const weeks = Math.max(1, ctx.settings.scanWindowDays / 7);
-  const perWeek = senderVolume(sender) / weeks;
-  if (perWeek >= 4) return "Daily";
-  if (perWeek >= 0.9) return "Weekly";
-  return "Monthly";
 }
 
 const subsBulkBar = document.getElementById("subscriptions-bulk-bar") as HTMLDivElement;
@@ -84,9 +76,9 @@ function renderPaidSubscriptions(senders: SenderSummary[]) {
 export { recordUnsubscribeRequests };
 
 function unsubMethodLabel(u: SenderSummary["unsubscribe"]): string {
-  if (u.postUrl) return "one-click";
-  if (u.httpUrl) return "page";
-  return "email";
+  if (u.postUrl) return "Stops in one click";
+  if (u.httpUrl) return "Finish on their site";
+  return "Stops by email";
 }
 
 function dominantKind(s: SenderSummary): string {
@@ -311,7 +303,7 @@ function renderSubsFloatingBar(oneClickCount: number) {
   const bar = document.createElement("div");
   const title = document.createElement("span");
   title.className = "fb-title";
-  title.textContent = selected > 0 ? `${selected} selected` : `${oneClickCount} verified one-click`;
+  title.textContent = selected > 0 ? `${selected} selected` : `${oneClickCount} stop in one click`;
   const sub = document.createElement("span");
   sub.className = "fb-sub";
   sub.textContent = "Only future mail stops.";
@@ -442,7 +434,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
       const outcomeText = outcome.requestAt
         ? `${outcome.label} · requested ${formatRelativeTime(outcome.requestAt)}`
         : `${unsubMethodLabel(sender.unsubscribe)} · mostly ${dominantKind(sender)}`;
-      const subLine = [cadenceLabel(sender), outcomeText, sender.displayName ? sender.address : ""]
+      const subLine = [cadenceLabel(senderVolume(sender), ctx.settings.scanWindowDays), outcomeText, sender.displayName ? sender.address : ""]
         .filter(Boolean)
         .join(" · ");
 

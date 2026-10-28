@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCensus, senderUnread, senderVolume } from "./census";
+import { applyCensus, cadenceLabel, senderUnread, senderVolume } from "./census";
 import type { SenderSummary } from "./senderModel";
 
 function sender(address: string, count: number, unread: number): SenderSummary {
@@ -34,5 +34,14 @@ describe("applyCensus", () => {
     expect([senderVolume(pal), senderUnread(pal)]).toEqual([2, 0]);
     // Actions still see only what was read.
     expect(shop.count).toBe(3);
+  });
+});
+
+describe("cadenceLabel", () => {
+  it("names the real rate", () => {
+    expect(cadenceLabel(60, 30)).toBe("Daily");
+    expect(cadenceLabel(13, 30)).toBe("3 a week");
+    expect(cadenceLabel(2, 30)).toBe("2 a month");
+    expect(cadenceLabel(1, 90)).toBe("Now and then");
   });
 });
