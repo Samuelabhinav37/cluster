@@ -4,13 +4,20 @@
 import { deleteFiltersInto, getAuthToken, listLabels, revokeGoogleAccess } from "../lib/gmailApi";
 import { log } from "../lib/log";
 import { clusterLabelIdSet } from "../lib/seedFromExisting";
-import { updateSettings } from "../lib/settingsStore";
+import { getSettings, updateSettings } from "../lib/settingsStore";
+import { kindModel, resetKindModel } from "./kindLearning";
 import { ctx } from "./state";
 import { renderConfirmStep } from "./ui";
 
 const MAIL_INDEX_DB = "cluster-mail-index";
 // Gmail-style "G then a letter" jumps to a place.
-const GO_KEYS: Record<string, string> = { h: "overview", s: "senders", c: "delete", o: "organize", p: "impersonation" };
+const GO_KEYS: Record<string, string> = {
+  h: "overview",
+  s: "senders",
+  c: "delete",
+  o: "organize",
+  p: "impersonation",
+};
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
 
@@ -58,6 +65,58 @@ export async function eraseEverything(): Promise<void> {
   });
 }
 
+/** "What Cluster learned": your corrections, each kind with a count and Reset. */
+export function renderLearned(): void {
+  const host = $("settings-learned");
+  if (!host) return;
+  const rows: [label: string, count: number, reset: () => Promise<unknown>][] = [
+    [
+      "Sort choices",
+      Object.keys(ctx.settings.sortOverrides).length,
+      () => updateSettings({ sortOverrides: {} }),
+    ],
+    [
+      "Person calls",
+      Object.keys(ctx.settings.personOverrides).length,
+      () => updateSettings({ personOverrides: {} }),
+    ],
+    ["Receipt senders", Object.keys(kindModel().answers).length, resetKindModel],
+  ];
+  host.replaceChildren(
+    ...rows.map(([label, count, reset]) => {
+      const row = Object.assign(document.createElement("div"), { className: "set-row" });
+      const name = Object.assign(document.createElement("span"), { className: "grow", textContent: label });
+      const value = Object.assign(document.createElement("span"), {
+        className: "ios-value",
+        textContent: count > 0 ? String(count) : "None",
+      });
+      const slot = document.createElement("span");
+      const btn = Object.assign(document.createElement("button"), {
+        type: "button",
+        className: "btn",
+        textContent: "Reset",
+      });
+      const back = () => slot.replaceChildren(btn);
+      btn.onclick = () =>
+        renderConfirmStep(
+          slot,
+          back,
+          `Forget ${count} ${count === 1 ? "choice" : "choices"}?`,
+          false,
+          async () => {
+            await reset();
+            ctx.settings = await getSettings();
+            renderLearned();
+            return "Forgotten";
+          },
+        );
+      if (count > 0) back();
+      row.append(name, value, slot);
+      return row;
+    }),
+  );
+}
+
 export const SIGNED_OUT_KEY = "cluster.signedOut";
 
 /** Revoke Google access, optionally removing the filters that file into Cluster's labels. Labels stay. */
@@ -83,13 +142,21 @@ function wireSignOut() {
   if (!slot || !btn) return;
   const reset = () => slot.replaceChildren(btn);
   const choice = (label: string, cls: string, run: () => void) =>
-    Object.assign(document.createElement("button"), { type: "button", className: cls, textContent: label, onclick: run });
+    Object.assign(document.createElement("button"), {
+      type: "button",
+      className: cls,
+      textContent: label,
+      onclick: run,
+    });
   btn.onclick = () => {
     const go = (remove: boolean) => () => {
       slot.replaceChildren("Signing out…");
       signOut(remove).catch((err) => {
         log.error(err);
-        slot.replaceChildren("Sign out failed. ", choice("Try again", "btn", () => btn.click()));
+        slot.replaceChildren(
+          "Sign out failed. ",
+          choice("Try again", "btn", () => btn.click()),
+        );
       });
     };
     slot.replaceChildren(
@@ -143,11 +210,17 @@ export function wireSettingsMore(showScreen: (name: string) => void): void {
   if (slot && eraseBtn) {
     const reset = () => slot.replaceChildren(eraseBtn);
     eraseBtn.onclick = () =>
-      renderConfirmStep(slot, reset, "Erase all of Cluster's data on this computer? Your mail isn't touched.", true, async () => {
-        await eraseEverything();
-        location.reload();
-        return "Erased";
-      });
+      renderConfirmStep(
+        slot,
+        reset,
+        "Erase all of Cluster's data on this computer? Your mail isn't touched.",
+        true,
+        async () => {
+          await eraseEverything();
+          location.reload();
+          return "Erased";
+        },
+      );
   }
 
   let goPending = 0;

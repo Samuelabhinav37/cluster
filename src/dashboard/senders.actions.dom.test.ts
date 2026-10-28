@@ -39,3 +39,18 @@ describe("Settings — Sign out", () => {
     expect([...ids]).toEqual(["L1"]);
   });
 });
+
+describe("Settings — What Cluster learned", () => {
+  it("counts your sort corrections and forgets them on Reset", async () => {
+    const dash = await bootDashboard({ settings: { sortOverrides: { "deals@shop.example": "never" } } });
+    dash.showScreen("settings");
+    const host = dash.el("settings-learned");
+    const row = Array.from(host.querySelectorAll<HTMLElement>(".set-row")).find((r) =>
+      r.textContent?.startsWith("Sort choices"),
+    )!;
+    expect(row.querySelector(".ios-value")!.textContent).toBe("1");
+    row.querySelector("button")!.click();
+    await confirmStep(row.querySelector("span:last-child") as HTMLElement);
+    await vi.waitFor(() => expect(dash.storedSettings().sortOverrides).toEqual({}));
+  });
+});

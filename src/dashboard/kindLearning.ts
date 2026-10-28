@@ -26,6 +26,13 @@ export function kindModel(): KindModel {
   return model;
 }
 
+/** Forgets every "Receipts? Keep them" answer. Mail already marked stays
+ * marked until the next scan. */
+export async function resetKindModel(): Promise<void> {
+  model = emptyKindModel();
+  await saveKindModel(model);
+}
+
 /** Saves the answer and re-marks the current scan. */
 export async function answerKind(sender: SenderSummary, value: KindAnswer): Promise<void> {
   const next = answer(model, sender, value);

@@ -110,7 +110,7 @@ import { spamListSize } from "../lib/spamList";
 import { keepNewestExcess } from "../lib/keepNewest";
 import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
 import { renderRulesTab, wireRulesTab } from "./rulesTab";
-import { SIGNED_OUT_KEY, wireSettingsMore } from "./settingsMore";
+import { renderLearned, SIGNED_OUT_KEY, wireSettingsMore } from "./settingsMore";
 import { initBodyChecks, renderSecuritySection } from "./securityTab";
 import { renderScamReport } from "./reportTab";
 import { heldByWeek } from "../lib/scamHistory";
@@ -250,6 +250,7 @@ function showScreen(name: string) {
   // A new page opens at its top; re-showing the same page keeps the scroll.
   if (screenPanels.some((p) => !p.hidden && p.dataset.screen !== target)) window.scrollTo(0, 0);
   document.body.dataset.screen = target;
+  if (target === "settings") renderLearned();
   for (const panel of screenPanels) {
     const active = panel.dataset.screen === target;
     panel.hidden = !active;
