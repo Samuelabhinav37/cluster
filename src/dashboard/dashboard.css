@@ -317,10 +317,9 @@ a:hover {
 
 @media (prefers-reduced-transparency: reduce) {
   .glass,
-  .glass-card,
-  .grouped-list,
-  .floating-bar > div,
-  .segmented {
+.glass-card,
+.grouped-list,
+.floating-bar > div {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     background: var(--glass-solid) !important;
@@ -958,56 +957,6 @@ a:hover {
   color: var(--label-4);
 }
 
-.segmented {
-  display: flex;
-  gap: 3px;
-  padding: 3px;
-  background: var(--neutral-fill);
-  border: 0.5px solid var(--neutral-border);
-  border-radius: var(--r-ctl);
-  flex: none;
-}
-
-.segmented button {
-  min-height: 38px;
-  font: 500 14px/1.25 var(--font);
-  letter-spacing: -0.01em;
-  color: var(--label-3);
-  background: transparent;
-  border: 0.5px solid transparent;
-  border-radius: 10px;
-  padding: 8px 14px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.18s ease;
-}
-
-.segmented button[aria-pressed="true"] {
-  background: var(--accent-fill-hover);
-  border-color: var(--accent-fill-border);
-  color: var(--accent-fill-text);
-  box-shadow: 0 0.5px 0 rgba(255, 255, 255, 0.18) inset;
-}
-
-/* Engagement bar (All senders) */
-.eng-bar {
-  height: 4px;
-  border-radius: 3px;
-  background: var(--neutral-fill-hover);
-  margin-top: 6px;
-  overflow: hidden;
-}
-
-.eng-bar > span {
-  display: block;
-  height: 4px;
-  background: var(--accent);
-}
-
-.eng-bar > span.low {
-  background: var(--label-4);
-}
-
 /* ── Floating action bar (Suggested cleanup, Subscriptions) ──────────── */
 
 .floating-bar {
@@ -1186,22 +1135,6 @@ a:hover {
 .instead-strip .spacer {
   flex: 1;
   min-width: 8px;
-}
-
-.link-btn {
-  min-height: 0;
-  background: transparent;
-  border: none;
-  padding: 9px 4px;
-  font: 400 13px/1.25 var(--font);
-  color: var(--label-3);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color 0.18s ease;
-}
-
-.link-btn:hover {
-  color: var(--label);
 }
 
 /* ── Comparison grid (Impersonation) ────────────────────────────────── */
@@ -2851,7 +2784,6 @@ body {
 .kg-log { display: flex; flex-direction: column; gap: 10px; }
 .kg-msg { max-width: 88%; padding: 10px 14px; border-radius: 18px; font-size: 14.5px; line-height: 1.5; overflow-wrap: anywhere; animation: kg-in .3s cubic-bezier(.2, .8, .2, 1) both; }
 .kg-msg.kg-kai { align-self: flex-start; background: var(--neutral-fill); color: var(--label); border: 1px solid var(--hairline); border-bottom-left-radius: 6px; }
-.kg-msg.kg-me { align-self: flex-end; background: var(--accent-solid); color: #fff; border-bottom-right-radius: 6px; }
 .kg-msg.typing { display: inline-flex; gap: 5px; padding: 14px 16px; }
 .kg-msg.typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--label-3); animation: kg-dot 1s ease-in-out infinite; }
 .kg-msg.typing i:nth-child(2) { animation-delay: .15s; }
@@ -2962,8 +2894,7 @@ body {
   min-height: 44px;
 }
 
-/* Senders: a company's addresses, shown under its row when opened. */
-.list-row--child {
+/* Senders: a company's addresses {
   padding-left: 40px;
 }
 
@@ -3426,7 +3357,6 @@ table.sheet { width: 100%; border-collapse: collapse; table-layout: fixed; font-
 .ask-row[aria-selected="true"], .ask-row:hover { background: var(--accent-fill); }
 .ask-hint { display: flex; gap: 14px; padding: 9px 16px; border-top: 1px solid var(--separator); font-size: 12px; color: var(--label-4); }
 .presets-guard { margin: 10px 0 20px; }
-.rec-actions { display: flex; gap: 8px; margin-top: auto; }
 
 /* ── Mockup skin (2026-10-27) ─────────────────────────────────────────
    The approved mockup's sizes on the real page
