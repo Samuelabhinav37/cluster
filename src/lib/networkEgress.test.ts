@@ -74,6 +74,7 @@ const ALLOWED_DYNAMIC_IMPORT_CALLERS = ["dashboard/testHarness.ts"];
 // *scope identifiers* (URNs that happen to be URL-shaped), never fetched.
 const ALLOWED_HOSTS = [
   "gmail.googleapis.com",
+  "oauth2.googleapis.com", // sign out: revokes Cluster's grant
   "graph.microsoft.com",
   "login.microsoftonline.com",
   "samuelabhinav37.github.io",

@@ -25,3 +25,17 @@ describe("Senders — a company's card", () => {
     await vi.waitFor(() => expect(dash.gmail.muteSender).toHaveBeenCalledTimes(2));
   });
 });
+
+describe("Settings — Sign out", () => {
+  it("asks about Cluster's filters, removes them on request, and revokes Google access", async () => {
+    const dash = await bootDashboard({ labels: [{ id: "L1", name: "🔇 Muted", type: "user" }] });
+    dash.showScreen("settings");
+    (dash.el("settings-signout") as HTMLButtonElement).click();
+    const slot = dash.el("settings-signout-slot");
+    expect(slot.textContent).toContain("Cluster's Gmail filters");
+    Array.from(slot.querySelectorAll("button")).find((b) => b.textContent === "Remove them")!.click();
+    await vi.waitFor(() => expect(dash.gmailApi.revokeGoogleAccess).toHaveBeenCalled());
+    const [, ids] = dash.gmailApi.deleteFiltersInto.mock.calls[0] as [string, Set<string>];
+    expect([...ids]).toEqual(["L1"]);
+  });
+});

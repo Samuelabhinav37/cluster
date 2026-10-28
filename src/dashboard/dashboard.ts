@@ -110,7 +110,7 @@ import { spamListSize } from "../lib/spamList";
 import { keepNewestExcess } from "../lib/keepNewest";
 import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
 import { renderRulesTab, wireRulesTab } from "./rulesTab";
-import { wireSettingsMore } from "./settingsMore";
+import { SIGNED_OUT_KEY, wireSettingsMore } from "./settingsMore";
 import { initBodyChecks, renderSecuritySection } from "./securityTab";
 import { renderScamReport } from "./reportTab";
 import { heldByWeek } from "../lib/scamHistory";
@@ -420,7 +420,15 @@ function showConnectGate(): Promise<string> {
   if (ctx.settings.healthHistory.length > 0) {
     titleEl.textContent = "Reconnect Gmail";
     const lead = document.getElementById("connect-lead") as HTMLElement;
-    lead.textContent = "Your Google sign-in expired. Reconnect to continue. Your settings are kept.";
+    let signedOut = false;
+    try {
+      signedOut = sessionStorage.getItem(SIGNED_OUT_KEY) === "1";
+    } catch {
+      // Storage blocked: assume the sign-in expired.
+    }
+    lead.textContent = signedOut
+      ? "You signed out. Connect again any time. Your settings are kept."
+      : "Your Google sign-in expired. Reconnect to continue. Your settings are kept.";
   }
   void showPinTip();
 

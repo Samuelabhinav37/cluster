@@ -191,6 +191,8 @@ export interface BootedDashboard {
     getOrCreateLabel: ReturnType<typeof vi.fn>;
     createFilter: ReturnType<typeof vi.fn>;
     deleteFilter: ReturnType<typeof vi.fn>;
+    deleteFiltersInto: ReturnType<typeof vi.fn>;
+    revokeGoogleAccess: ReturnType<typeof vi.fn>;
     listLabels: ReturnType<typeof vi.fn>;
     getLabel: ReturnType<typeof vi.fn>;
     renameLabel: ReturnType<typeof vi.fn>;
@@ -242,6 +244,7 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
         cb("token");
       },
       removeCachedAuthToken: (_d: unknown, cb: () => void) => cb(),
+      clearAllCachedAuthTokens: vi.fn(async () => {}),
     },
     runtime: { lastError: undefined as unknown, getURL: (p: string) => p, id: "test" },
     action: { setBadgeText: vi.fn(async () => {}), setBadgeBackgroundColor: vi.fn(async () => {}) },
@@ -285,6 +288,8 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
     getOrCreateLabel: vi.fn(async () => "label-id"),
     createFilter: vi.fn(async () => "filter-id"),
     deleteFilter: vi.fn(async () => {}),
+    deleteFiltersInto: vi.fn(async () => 0),
+    revokeGoogleAccess: vi.fn(async () => true),
     listLabels: vi.fn(async () => opts.labels ?? []),
     getLabel: vi.fn(async (_t: string, id: string) => {
       const label = (opts.labels ?? []).find((l) => l.id === id);

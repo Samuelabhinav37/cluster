@@ -4,6 +4,7 @@ import {
   createFilter,
   createSenderFilter,
   deleteFilter,
+  deleteFiltersInto,
   deleteSenderFilters,
   FilterPermissionError,
   getAuthToken as getAuthToken_,
@@ -15,6 +16,7 @@ import {
   listFilters,
   listInboxMessageIdsSince,
   listMailboxChangesSince,
+  revokeGoogleAccess,
   screenSender,
   unmuteSender,
 } from "./gmailApi";
@@ -442,5 +444,39 @@ describe("getAuthToken errors", () => {
     const err = await getAuthToken_(true).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(Error);
     expect((err as Error).message).toBe("The user did not approve access.");
+  });
+});
+
+describe("sign out", () => {
+  beforeEach(() => {
+    stubIdentity([MODIFY, FILTER]);
+  });
+
+  it("deletes only filters that file into the given labels", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        json({
+          filter: [
+            { id: "ours", action: { addLabelIds: ["L_CLUSTER"] } },
+            { id: "theirs", action: { addLabelIds: ["L_USER"] } },
+          ],
+        }),
+      )
+      .mockResolvedValue(noContent());
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(deleteFiltersInto("t", new Set(["L_CLUSTER"]))).resolves.toBe(1);
+    expect(call(fetchMock, 1)).toMatchObject({ method: "DELETE" });
+    expect(call(fetchMock, 1).url).toMatch(/\/filters\/ours$/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("posts the token to Google's revoke endpoint", async () => {
+    const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(revokeGoogleAccess("tok")).resolves.toBe(true);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://oauth2.googleapis.com/revoke");
+    expect(String(init.body)).toBe("token=tok");
   });
 });

@@ -650,6 +650,31 @@ export async function createFilter(
   return data.id;
 }
 
+/** Deletes the Gmail filters that file mail into any of these labels. */
+export async function deleteFiltersInto(token: string, labelIds: ReadonlySet<string>): Promise<number> {
+  const ours = (await listFilters(token)).filter((f) => f.action?.addLabelIds?.some((id) => labelIds.has(id)));
+  for (const f of ours) await deleteFilter(token, f.id);
+  return ours.length;
+}
+
+/** Ends Cluster's Google grant. False when Google couldn't be reached. */
+export async function revokeGoogleAccess(token: string): Promise<boolean> {
+  try {
+    const res = await fetchWithRetry(
+      "https://oauth2.googleapis.com/revoke",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ token }),
+      },
+      { maxRetries: 1 },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function deleteFilter(token: string, id: string): Promise<void> {
   await gmailFetch(`/users/me/settings/filters/${id}`, token, { method: "DELETE" });
 }

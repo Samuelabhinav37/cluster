@@ -1,6 +1,9 @@
 // Settings groups added 2026-10-28: Accounts, Notifications, Safety net,
 // Show Kai, Privacy (export, erase) and Keyboard. The background worker sends
 // the notifications (background.ts); this file only stores the choices.
+import { deleteFiltersInto, getAuthToken, listLabels, revokeGoogleAccess } from "../lib/gmailApi";
+import { log } from "../lib/log";
+import { clusterLabelIdSet } from "../lib/seedFromExisting";
 import { updateSettings } from "../lib/settingsStore";
 import { ctx } from "./state";
 import { renderConfirmStep } from "./ui";
@@ -55,6 +58,49 @@ export async function eraseEverything(): Promise<void> {
   });
 }
 
+export const SIGNED_OUT_KEY = "cluster.signedOut";
+
+/** Revoke Google access, optionally removing the filters that file into Cluster's labels. Labels stay. */
+async function signOut(removeFilters: boolean): Promise<void> {
+  const token = await getAuthToken(false);
+  if (removeFilters) {
+    const labels = await listLabels(token);
+    await deleteFiltersInto(token, clusterLabelIdSet(labels, ctx.settings.clusterOwnedLabels));
+  }
+  if (!(await revokeGoogleAccess(token))) log.error("Sign out: Google didn't confirm the revoke");
+  await chrome.identity.clearAllCachedAuthTokens();
+  try {
+    sessionStorage.setItem(SIGNED_OUT_KEY, "1");
+  } catch {
+    // Storage blocked: the gate just says the sign-in expired.
+  }
+  location.reload();
+}
+
+function wireSignOut() {
+  const slot = $("settings-signout-slot");
+  const btn = $<HTMLButtonElement>("settings-signout");
+  if (!slot || !btn) return;
+  const reset = () => slot.replaceChildren(btn);
+  const choice = (label: string, cls: string, run: () => void) =>
+    Object.assign(document.createElement("button"), { type: "button", className: cls, textContent: label, onclick: run });
+  btn.onclick = () => {
+    const go = (remove: boolean) => () => {
+      slot.replaceChildren("Signing out…");
+      signOut(remove).catch((err) => {
+        log.error(err);
+        slot.replaceChildren("Sign out failed. ", choice("Try again", "btn", () => btn.click()));
+      });
+    };
+    slot.replaceChildren(
+      "Cluster's Gmail filters: ",
+      choice("Keep them", "btn", go(false)),
+      choice("Remove them", "btn", go(true)),
+      choice("Cancel", "btn btn-ghost", reset),
+    );
+  };
+}
+
 export function wireSettingsMore(showScreen: (name: string) => void): void {
   // Mirror the header: its email and its Connect Outlook item fill in after sign-in.
   const account = $("settings-account");
@@ -72,6 +118,7 @@ export function wireSettingsMore(showScreen: (name: string) => void): void {
   if (outlook) watch.observe(outlook, { attributes: true, attributeFilter: ["hidden"] });
   if (addOutlook) addOutlook.onclick = () => outlook?.click();
 
+  wireSignOut();
   wireNotifySwitch("notify-scam-toggle", "notifyScamHeld");
   wireNotifySwitch("notify-weekly-toggle", "notifyWeekly");
 
