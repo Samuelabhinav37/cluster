@@ -140,6 +140,7 @@ import { listGroup, listRow } from "./listRow";
 import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import { rowMenu } from "./rowMenu";
+import type { ClusterRule } from "../lib/rules";
 import { CLUSTER_FIRST_ON, CLUSTER_QUESTIONS, initKaiGuide, type KaiGuide } from "./kaiGuide";
 
 const selectedSenderKeys = new Set<string>();
@@ -1610,6 +1611,30 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): H
   });
 }
 
+/** "Always do this": a rule that trashes this sender's new mail from now on. */
+function alwaysDoThis(sender: SenderSummary): HTMLButtonElement {
+  const btn = Object.assign(document.createElement("button"), {
+    type: "button",
+    className: "btn btn-sm",
+    textContent: "Always do this",
+  });
+  btn.onclick = async () => {
+    btn.disabled = true;
+    const rule: ClusterRule = {
+      id: crypto.randomUUID(),
+      name: `Trash mail from ${sender.displayName || sender.address}`,
+      enabled: true,
+      conditions: { fromAddress: sender.address },
+      action: "trash",
+      appliesFrom: Date.now(),
+    };
+    ctx.settings = await updateSettings({ rules: [...ctx.settings.rules, rule] });
+    renderRulesTab();
+    btn.textContent = "Rule saved ✓";
+  };
+  return btn;
+}
+
 /** Trash a sender's mail, minus what protection keeps, with Undo. */
 function buildTrashCell(sender: SenderSummary): HTMLDivElement {
   const cell = document.createElement("div");
@@ -1628,6 +1653,7 @@ function buildTrashCell(sender: SenderSummary): HTMLDivElement {
         const merged = new Map([[sender.provider, ids]]);
         const { message, undoableGmailIds } = await executeSmartDelete(merged);
         appendUndoButton(cell, undoableGmailIds);
+        cell.append(alwaysDoThis(sender));
         await logAction(
           "trash",
           `Moved ${ids.length} from ${sender.address} to Trash`,

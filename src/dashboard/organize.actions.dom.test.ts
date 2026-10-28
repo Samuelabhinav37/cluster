@@ -39,6 +39,13 @@ describe("Organize screen — decision rows", () => {
     expect(resultText).toContain("Trash");
     expect(dash.gmail.trashMessages).toHaveBeenCalledTimes(1);
     expect((dash.gmail.trashMessages as ReturnType<typeof vi.fn>).mock.calls[0][1]).toEqual(["f1", "f2"]);
+
+    Array.from(trashCell.querySelectorAll("button")).find((b) => b.textContent === "Always do this")!.click();
+    await vi.waitFor(() => {
+      const [rule] = dash.storedSettings().rules ?? [];
+      expect(rule).toMatchObject({ action: "trash", conditions: { fromAddress: "statements@chase.com" } });
+      expect(rule.appliesFrom).toBeGreaterThan(0);
+    });
   });
 
   it("keeps Unsubscribe and Mute in the row's ⋯ menu", async () => {
