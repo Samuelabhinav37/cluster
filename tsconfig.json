@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src", "manifest.json", "vite.config.ts"]
+  "include": ["src", "auth-worker/src", "manifest.json", "vite.config.ts"]
 }

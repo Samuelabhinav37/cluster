@@ -1,0 +1,25 @@
+# Cluster's Gmail sign-in helper (see src/index.ts). Holds the Google client
+# secret, which can't live in the extension, and swaps sign-in codes and
+# refresh tokens for access tokens. Stores and logs nothing.
+#   npx wrangler secret put GOOGLE_CLIENT_SECRET --config auth-worker/wrangler.toml
+#   npx wrangler deploy --config auth-worker/wrangler.toml
+name = "cluster-auth"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+# Nothing about requests is kept: no Workers logs or traces.
+[observability]
+enabled = false
+
+[vars]
+GOOGLE_CLIENT_ID = "995931931748-bthcfr7bc5s12u86dafnlvfmogg4pnh9.apps.googleusercontent.com"
+EXTENSION_ID = "liaceeofdpmhnmklhphnldjjpchcpbcn"
+
+# Counted per Cloudflare location. Limits must use a period of 10 or 60 seconds.
+[[ratelimits]]
+name = "IP_LIMITER"
+namespace_id = "7401"
+  [ratelimits.simple]
+  limit = 30
+  period = 60
