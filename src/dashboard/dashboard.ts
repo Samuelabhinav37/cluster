@@ -1423,7 +1423,7 @@ function primaryActionFor(sender: SenderSummary): { act: PrimaryAct; label: stri
   if (provider?.muteSender && !ctx.settings.mutedSenders.includes(sender.address)) {
     return { act: "mute", label: "Mute" };
   }
-  if (provider?.keepSorted) return { act: "keepSorted", label: "Keep sorted" };
+  if (provider?.keepSorted) return { act: "keepSorted", label: "File away" };
   return { act: "mute", label: "Mute" };
 }
 
@@ -1433,7 +1433,7 @@ function buildActionGroups(sender: SenderSummary): Array<{ act: string; label: s
   return [
     { act: "trash", label: "Trash their mail", el: buildTrashCell(sender) },
     { act: "unsubscribe", label: "Unsubscribe", el: buildUnsubscribeCell(sender) },
-    { act: "keepSorted", label: "Keep sorted", el: buildKeepSortedCell(sender) },
+    { act: "keepSorted", label: "File away", el: buildKeepSortedCell(sender) },
     { act: "mute", label: "Mute", el: buildMuteCell(sender) },
     { act: "snooze", label: "Snooze", el: buildSnoozeCell(sender) },
   ];
@@ -1898,7 +1898,30 @@ function renderSenderCard() {
       r.onclick = () => pickSenderCard({ sender });
       list.append(r);
     }
-    card.append(who, facts, list);
+    const canMute = g.senders.filter(
+      (s) => providerById.get(s.provider)?.muteSender && !ctx.settings.mutedSenders.includes(s.address),
+    );
+    const slot = textEl("div", "", "card-acts");
+    const muteAll = Object.assign(document.createElement("button"), {
+      type: "button",
+      className: "btn",
+      textContent: "Mute all",
+    });
+    const reset = () => slot.replaceChildren(muteAll);
+    muteAll.onclick = () =>
+      renderConfirmStep(
+        slot,
+        reset,
+        `Hide all mail from ${companyName(g)}'s ${canMute.length} addresses, now and in future?`,
+        false,
+        async () => {
+          let done = 0;
+          for (const s of canMute) if (await muteOneSender(s)) done += 1;
+          return `Muted ${done} ✓`;
+        },
+      );
+    if (canMute.length > 0) reset();
+    card.append(who, facts, slot, list);
     return;
   }
 
@@ -2214,7 +2237,7 @@ function buildUnsubscribeCell(sender: SenderSummary): HTMLDivElement {
 function buildKeepSortedCell(sender: SenderSummary): HTMLDivElement {
   const cell = document.createElement("div");
   const btn = document.createElement("button");
-  btn.textContent = "Keep sorted";
+  btn.textContent = "File away";
   const labelName = sender.displayName || sender.address;
   btn.title = `New mail from ${sender.address} skips your inbox and goes to "${labelName}".`;
   btn.onclick = async () => {
