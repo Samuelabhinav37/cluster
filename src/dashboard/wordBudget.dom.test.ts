@@ -13,7 +13,7 @@ const BUDGET: Record<string, { words: number; controls: number }> = {
   overview: { words: 60, controls: 16 },
   delete: { words: 120, controls: 26 },
   subscriptions: { words: 130, controls: 12 },
-  organize: { words: 220, controls: 30 }, // holds Rules since 2026-10-28
+  organize: { words: 220, controls: 31 }, // holds Rules since 2026-10-28; Sort now places shown (4.7)
   impersonation: { words: 130, controls: 11 }, // holds the scan charts since 2026-10-28
   screener: { words: 70, controls: 6 },
   report: { words: 50, controls: 6 },
