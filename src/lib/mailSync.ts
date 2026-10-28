@@ -31,6 +31,8 @@ export const REFRESH_WINDOW_MS = 7 * DAY_MS;
 const WRITE_BATCH = 25;
 /** First list page, read before the full listing so the first screen is quick. */
 const FIRST_PAGE = 500;
+/** Mail this recent is read in full before older mail is counted by sender. */
+const RECENT_DAYS = 30;
 /** 150 headers cost 3,000 of Gmail's ~5,500 units a minute, so the first
  * screen fits inside one minute's quota with room for the page's own calls. */
 export const DEFAULT_QUICK_COUNT = 150;
@@ -321,13 +323,35 @@ async function buildFromListing(
   // then the counted mail in detail, and older-shape rows last.
   const fresh = stubs.filter((stub) => !known.has(stub.id) || stale.has(stub.id)).map((s) => s.id);
   const upgrade = stubs.filter((stub) => outdated.has(stub.id)).map((s) => s.id);
-  const discovery = await discoverAndCount(provider, token, store, fresh, listed, options, now);
+  // The last 30 days in full first, so recent screens are complete early;
+  // older mail then goes through the sender census.
+  const recent =
+    options.windowDays > RECENT_DAYS && fresh.length > 0
+      ? new Set((await provider.listCandidateMessages(token, cap, RECENT_DAYS, "combined")).map((s) => s.id))
+      : new Set<string>();
+  const recentRead = await readInto(
+    provider,
+    token,
+    store,
+    fresh.filter((id) => recent.has(id)),
+    options,
+    true,
+  );
+  const discovery = await discoverAndCount(
+    provider,
+    token,
+    store,
+    fresh.filter((id) => !recent.has(id)),
+    listed,
+    options,
+    now,
+  );
   const rest = [...discovery.pending, ...upgrade];
   const detail = await readInto(provider, token, store, rest, options, true, "detail");
   if (!state.sentComplete) sentRead += await backfillSent(provider, token, store, state, options);
   return {
     mode: "build",
-    read: quickRead + sentRead + discovery.read + detail,
+    read: quickRead + sentRead + recentRead + discovery.read + detail,
     removed: gone.length,
     updated: 0,
   };

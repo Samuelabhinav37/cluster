@@ -30,8 +30,9 @@ function fakeGmail(mailbox: NormalizedMessageMetadata[], account = "me@example.c
     id: "gmail",
     isConnected: async () => true,
     getAuthToken: async () => "t",
-    listCandidateMessages: vi.fn(async (_t: string, max: number) =>
+    listCandidateMessages: vi.fn(async (_t: string, max: number, windowDays = Infinity) =>
       [...mailbox]
+        .filter((m) => m.receivedAt >= NOW - windowDays * DAY)
         .sort((a, b) => b.receivedAt - a.receivedAt)
         .slice(0, max)
         .map((m) => ({ id: m.id, provider: "gmail" as const })),
@@ -493,7 +494,7 @@ describe("syncMailIndex: fetch one, count many", () => {
   }
 
   it("reads one message per bulk sender, counts the rest by search, then reads them in detail", async () => {
-    const shop = Array.from({ length: 40 }, (_, i) => bulk(`shop${i}`, "deals@shop.com", i + 1));
+    const shop = Array.from({ length: 40 }, (_, i) => bulk(`shop${i}`, "deals@shop.com", i + 31));
     const people = [message("p1", ["INBOX"], 0), message("p2", ["INBOX"], 50)];
     const mailbox = [...people, ...shop];
     const fake = fakeGmail(mailbox);
@@ -534,9 +535,9 @@ describe("syncMailIndex: fetch one, count many", () => {
 
   it("counts a person once they've written twice", async () => {
     const mailbox = [
-      { ...message("a1", ["INBOX"], 1), fromAddress: "pal@x.com" },
-      { ...message("a2", ["INBOX"], 2), fromAddress: "pal@x.com" },
-      { ...message("a3", ["INBOX"], 3), fromAddress: "pal@x.com" },
+      { ...message("a1", ["INBOX"], 31), fromAddress: "pal@x.com" },
+      { ...message("a2", ["INBOX"], 32), fromAddress: "pal@x.com" },
+      { ...message("a3", ["INBOX"], 33), fromAddress: "pal@x.com" },
     ];
     const fake = fakeGmail(mailbox);
     const listFrom = vi.fn(async () => ["a1", "a2", "a3"]);
@@ -549,5 +550,32 @@ describe("syncMailIndex: fetch one, count many", () => {
     const [row] = await store.allCensus("gmail");
     expect(row.ids.sort()).toEqual(["a1", "a2", "a3"]);
     expect(row.unread).toBe(-1);
+  });
+
+  it("reads the last 30 days in full before counting older mail (2.1)", async () => {
+    const recent = Array.from({ length: 20 }, (_, i) => bulk(`new${i}`, "deals@shop.com", i + 1));
+    const old = Array.from({ length: 20 }, (_, i) => bulk(`old${i}`, "deals@shop.com", i + 40));
+    const mailbox = [...recent, ...old];
+    const fake = fakeGmail(mailbox);
+    const listFrom = vi.fn(async (_t: string, address: string) =>
+      mailbox.filter((m) => m.fromAddress === address).map((m) => m.id),
+    );
+    const provider = Object.assign(fake.provider, { listMessageIdsFrom: listFrom });
+    const store = createMemoryMailIndex();
+    let recentReadFirst = false;
+
+    await syncMailIndex(provider, "t", store, {
+      ...options,
+      quickCount: 0,
+      onCounted: async () => {
+        const ids = await store.ids("gmail");
+        recentReadFirst = recent.every((m) => ids.has(m.id));
+      },
+    });
+
+    expect(recentReadFirst).toBe(true);
+    // Older mail still goes through the census: one search, not 20 reads.
+    expect(listFrom).toHaveBeenCalledTimes(1);
+    expect((await store.ids("gmail")).size).toBe(40);
   });
 });
