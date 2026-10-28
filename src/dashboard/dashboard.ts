@@ -1739,7 +1739,10 @@ function refreshSenderCheckboxes() {
 }
 
 function updateSenderBulkBar() {
-  senderBulkBar.hidden = ctx.senders.length === 0;
+  // No row draws a checkbox any more, so "Select safe" would pick senders the
+  // user can't see. shortcut: the bar and its bulk handlers stay in the code
+  // hidden; delete them when Clean up gets its own row selection (backlog 5.4).
+  senderBulkBar.hidden = true;
   senderSelectedCountEl.textContent = `${selectedSenderKeys.size} selected`;
   bulkUnsubscribeBtn.disabled = selectedSenderKeys.size === 0;
   bulkKeepSortedBtn.disabled = selectedSenderKeys.size === 0;
