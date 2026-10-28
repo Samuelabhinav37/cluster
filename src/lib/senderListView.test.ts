@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DAY, NOW, many, senders } from "../test/mailFixtures";
 import type { NormalizedMessageMetadata, SentRecord } from "./providers/emailProvider";
-import { companyName, foldByCompany, groupByCompany, mainTemplate, profileLine, sortSenders } from "./senderListView";
+import { companyName, foldByCompany, groupByCompany, isPerson, mainTemplate, profileLine, sortSenders } from "./senderListView";
 import { buildSenderProfiles } from "./senderProfile";
 
 async function setup(rows: NormalizedMessageMetadata[], sent: SentRecord[] = []) {
@@ -58,6 +58,21 @@ describe("groupByCompany", () => {
     const { list, profiles } = await setup(rows);
     const groups = groupByCompany(list, profiles);
     expect(groups.map((g) => [g.key, g.senders.length, g.total])).toEqual([["brand.example", 2, 5]]);
+  });
+
+  it("keeps a starred receipt address in its company (PayPal stayed split)", async () => {
+    const rows = [
+      ...many(3, {
+        fromAddress: "service@paypal.com",
+        subject: "Receipt for your payment to Shop",
+        isProtected: true,
+        authenticationResults: signed("paypal.com"),
+      }),
+      ...many(3, { fromAddress: "paypal@mail.paypal.com", listId: "promo", authenticationResults: signed("paypal.com") }),
+    ];
+    const { list, profiles } = await setup(rows);
+    expect(isPerson(profiles.get("gmail:service@paypal.com"))).toBe(true);
+    expect(groupByCompany(list, profiles).map((g) => [g.key, g.senders.length])).toEqual([["paypal.com", 2]]);
   });
 });
 

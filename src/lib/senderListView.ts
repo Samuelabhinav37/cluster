@@ -22,6 +22,12 @@ export function isPerson(profile: SenderProfile | undefined): boolean {
   return profile?.tier === "close" || profile?.tier === "known";
 }
 
+// A starred or answered receipt is still the company's mail; only mail that
+// reads like a person's stays out of the company row.
+function staysOutOfCompany(profile: SenderProfile | undefined): boolean {
+  return isPerson(profile) && profile?.kind === "person";
+}
+
 export function sortSenders(
   senders: readonly SenderSummary[],
   profiles: ReadonlyMap<string, SenderProfile>,
@@ -80,7 +86,7 @@ export function groupByCompany(
   const groups = new Map<string, CompanyGroup & { judged: number; opened: number }>();
   for (const sender of senders) {
     const profile = profiles.get(sender.key);
-    if (!profile?.companyKey || isPerson(profile)) continue;
+    if (!profile?.companyKey || staysOutOfCompany(profile)) continue;
     const group = groups.get(profile.companyKey) ?? {
       key: profile.companyKey,
       senders: [],
@@ -135,7 +141,7 @@ export function foldByCompany(
   const placed = new Set<string>();
   for (const sender of sorted) {
     const key = profiles.get(sender.key)?.companyKey;
-    const group = key && !isPerson(profiles.get(sender.key)) ? groups.get(key) : undefined;
+    const group = key && !staysOutOfCompany(profiles.get(sender.key)) ? groups.get(key) : undefined;
     if (!group) {
       out.push({ kind: "sender", sender });
       continue;
