@@ -22,7 +22,7 @@ function card(): HTMLElement | null {
 }
 
 function buttonIn(el: HTMLElement, label: string): HTMLButtonElement {
-  return [...el.querySelectorAll("button")].find((b) => b.textContent === label)!;
+  return Array.from(el.querySelectorAll("button")).find((b) => b.textContent === label)!;
 }
 
 describe("Moved today", () => {
