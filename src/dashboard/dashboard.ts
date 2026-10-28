@@ -1431,6 +1431,7 @@ function primaryActionFor(sender: SenderSummary): { act: PrimaryAct; label: stri
  * button opens its own confirm (reused from the pre-redesign row). */
 function buildActionGroups(sender: SenderSummary): Array<{ act: string; label: string; el: HTMLDivElement }> {
   return [
+    { act: "trash", label: "Trash their mail", el: buildTrashCell(sender) },
     { act: "unsubscribe", label: "Unsubscribe", el: buildUnsubscribeCell(sender) },
     { act: "keepSorted", label: "Keep sorted", el: buildKeepSortedCell(sender) },
     { act: "mute", label: "Mute", el: buildMuteCell(sender) },
@@ -1546,7 +1547,9 @@ function actionArea(sender: SenderSummary) {
 }
 
 function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): HTMLElement {
-  const { act, label } = primaryActionFor(sender);
+  // Clean up is for clearing mail; stopping it is Stop mail's job, so it sits in ⋯.
+  const act = "trash";
+  const label = "Trash";
   const primary = document.createElement("button");
   primary.className = "btn";
   primary.textContent = label;
@@ -1583,6 +1586,38 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): H
     disclosure,
     href: () => details?.open({ view: "emails", senderKey: sender.key }),
   });
+}
+
+/** Trash a sender's mail, minus what protection keeps, with Undo. */
+function buildTrashCell(sender: SenderSummary): HTMLDivElement {
+  const cell = document.createElement("div");
+  const ids = idsSafeToMoveOut(sender);
+  const btn = Object.assign(document.createElement("button"), { textContent: "Trash their mail" });
+  btn.disabled = ids.length === 0;
+  const reset = () => cell.replaceChildren(btn);
+  btn.onclick = () => {
+    const kept = senderVolume(sender) - ids.length;
+    renderConfirmStep(
+      cell,
+      reset,
+      `Move ${ids.length} email${ids.length === 1 ? "" : "s"} from ${sender.address} to Trash?${kept > 0 ? ` ${kept} protected stay.` : ""}`,
+      true,
+      async () => {
+        const merged = new Map([[sender.provider, ids]]);
+        const { message, undoableGmailIds } = await executeSmartDelete(merged);
+        appendUndoButton(cell, undoableGmailIds);
+        await logAction(
+          "trash",
+          `Moved ${ids.length} from ${sender.address} to Trash`,
+          undoableGmailIds.length > 0 ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" } : undefined,
+        );
+        void refreshView();
+        return message;
+      },
+    );
+  };
+  reset();
+  return cell;
 }
 
 // ── Mute (local BlackHole) ───────────────────────────────────────────────
@@ -1888,7 +1923,8 @@ function renderSenderCard() {
   else {
     const { act, label } = primaryActionFor(sender);
     btn(label, "btn btn-accent-solid", () => run(act));
-    for (const g of groups) if (g.act !== act && g.act !== "snooze") btn(g.label, "btn", () => run(g.act));
+    for (const g of groups)
+      if (g.act !== act && g.act !== "snooze" && g.act !== "trash") btn(g.label, "btn", () => run(g.act));
   }
   btn("Show emails", "btn", () => details?.open({ view: "emails", senderKey: sender.key }));
   if (profile) {

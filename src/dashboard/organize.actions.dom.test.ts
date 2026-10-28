@@ -25,37 +25,32 @@ beforeEach(() => {
 });
 
 describe("Organize screen — decision rows", () => {
-  it("Chase has no unsubscribe link, so its primary action is Mute — clicking it through to Confirm mutes the sender", async () => {
+  it("leads with Trash, which moves the sender's mail to Trash after a confirm", async () => {
     const dash = await bootDashboard();
     dash.showScreen("delete");
 
     const wrap = findDecisionRowWrap(dash.el("sender-groups"), "Chase");
     const primary = wrap.querySelector<HTMLButtonElement>(".row-actions button")!;
-    expect(primary.textContent).toBe("Mute");
+    expect(primary.textContent).toBe("Trash");
     primary.click();
 
-    // Primary's onclick opens the disclosure and auto-clicks the matching
-    // action group's own button, which renders its confirm immediately.
-    const muteCell = wrap.querySelector<HTMLElement>('[data-act="mute"]')!;
-    const resultText = await confirmStep(muteCell);
-
-    expect(resultText).toContain("Muted");
-    expect(dash.gmail.muteSender).toHaveBeenCalledTimes(1);
-    const [, address] = (dash.gmail.muteSender as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(address).toBe("statements@chase.com");
-    expect(dash.storedSettings().mutedSenders).toContain("statements@chase.com");
-
-    dash.showScreen("recent");
-    expect(dash.el("recent-list").textContent).toContain("statements@chase.com");
+    const trashCell = wrap.querySelector<HTMLElement>('[data-act="trash"]')!;
+    const resultText = await confirmStep(trashCell);
+    expect(resultText).toContain("Trash");
+    expect(dash.gmail.trashMessages).toHaveBeenCalledTimes(1);
+    expect((dash.gmail.trashMessages as ReturnType<typeof vi.fn>).mock.calls[0][1]).toEqual(["f1", "f2"]);
   });
 
-  it("Shop has a one-click unsubscribe link, so its primary action is Unsubscribe, not Mute", async () => {
+  it("keeps Unsubscribe and Mute in the row's ⋯ menu", async () => {
     const dash = await bootDashboard();
     dash.showScreen("delete");
 
     const wrap = findDecisionRowWrap(dash.el("sender-groups"), "Shop");
-    const primary = wrap.querySelector<HTMLButtonElement>(".row-actions button")!;
-    expect(primary.textContent).toBe("Unsubscribe");
+    expect(wrap.querySelector<HTMLButtonElement>(".row-actions button")!.textContent).toBe("Trash");
+    const muteCell = wrap.querySelector<HTMLElement>('[data-act="mute"]')!;
+    muteCell.querySelector("button")!.click();
+    await confirmStep(muteCell);
+    expect(dash.gmail.muteSender).toHaveBeenCalledTimes(1);
   });
 
   it("excludes the fully-starred sender from the decide list, showing it only as the dimmed protected row", async () => {
