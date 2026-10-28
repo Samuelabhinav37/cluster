@@ -37,6 +37,7 @@
   ],
   "optional_permissions": ["notifications"],
   "optional_host_permissions": ["https://*/*"],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2Zoa3YX7UuLPNDHGfp4U1G4TXTJSSGMxgCAXNsAnpWvQssi3Pm+ST/l+zIQ77uftQ2GsDYiJAzBqM3h+0V9S8a+tsPLxjVh87gkydKsGRfFx8Aq3t1gAvFFknN45IaNyfwLZey6Du3VFVqa1LBlxZh1NKxgwS7ySsJhUlvPbzi2GXYhSMY4+dA81ltuQhGosnVM0nTI5HTfyA0rDD/uYu/3gxUWqk0p/ZrBdtoEGERuv1SbRMdXJ8KKI3pYz3u/VeRcxq16jmdrvwsI2OiakV6gtz6WIDOcOfoyZCpIRQyDqskIQMBlEpJczi5gM1Aa6FRXTTF/VzwmNbVuW3nOiyQIDAQAB",
   "oauth2": {
     "client_id": "995931931748-0hjufbdg626m372dm5pi1f9toe7ausuc.apps.googleusercontent.com",
     "scopes": [
