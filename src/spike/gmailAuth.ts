@@ -108,4 +108,71 @@ async function run(): Promise<void> {
   say("\nDone. The test's access was revoked again.");
 }
 
+/** One implicit-flow call: a 1-hour access token straight back, no secret. */
+async function implicitToken(extra: Record<string, string>, interactive: boolean, state: string): Promise<URL> {
+  const auth = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  for (const [k, v] of Object.entries({
+    client_id: CLIENT_ID,
+    redirect_uri: chrome.identity.getRedirectURL(),
+    response_type: "token",
+    scope: SCOPE,
+    include_granted_scopes: "true",
+    state,
+    ...extra,
+  }))
+    auth.searchParams.set(k, v);
+  const url = (await chrome.identity.launchWebAuthFlow({ url: auth.toString(), interactive })) ?? "";
+  // The token comes back in the fragment, not the query.
+  return new URL(`https://x/?${new URL(url).hash.slice(1)}`);
+}
+
+async function fallback(): Promise<void> {
+  lines.length = 0;
+  say("Fallback: 1-hour pass straight from Google, renewed quietly.
+");
+  say("1. Google sign-in window…");
+  let state = base64Url(crypto.getRandomValues(new Uint8Array(16)));
+  const first = await implicitToken({ prompt: "select_account" }, true, state);
+  if (first.searchParams.get("error")) return say(`   Google said: ${first.searchParams.get("error")}`);
+  if (first.searchParams.get("state") !== state) return say("   State did not match. Stopped.");
+  const access = first.searchParams.get("access_token");
+  if (!access) return say("   No pass came back.");
+  say(`   Got a pass, good for ${first.searchParams.get("expires_in")} seconds.`);
+
+  say("
+2. Read your Gmail profile with it…");
+  const profile = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
+    headers: { Authorization: `Bearer ${access}` },
+  });
+  const p = (await profile.json()) as { emailAddress?: string; messagesTotal?: number };
+  if (!profile.ok || !p.emailAddress) return say(`   Failed: ${profile.status}`);
+  say(`   Signed in as ${p.emailAddress} (${p.messagesTotal} emails)`);
+
+  say("
+3. Quiet renewal for that account, no window…");
+  state = base64Url(crypto.getRandomValues(new Uint8Array(16)));
+  let renewed = "";
+  try {
+    const again = await implicitToken({ prompt: "none", login_hint: p.emailAddress }, false, state);
+    renewed = again.searchParams.get("access_token") ?? "";
+    say(
+      renewed && again.searchParams.get("state") === state
+        ? `   Renewed without a window, good for ${again.searchParams.get("expires_in")} seconds.`
+        : `   Google said: ${again.searchParams.get("error") ?? "no pass"}`,
+    );
+  } catch (err) {
+    say(`   Failed: ${(err as Error).message}`);
+  }
+
+  for (const token of [access, renewed].filter(Boolean)) {
+    await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, { method: "POST" }).catch(
+      () => {},
+    );
+  }
+  say("
+Done. The test's access was revoked again.");
+}
+
+document.getElementById("fallback")!.onclick = () =>
+  void fallback().catch((err) => say(`Error: ${(err as Error).message}`));
 document.getElementById("run")!.onclick = () => void run().catch((err) => say(`Error: ${(err as Error).message}`));
