@@ -49,6 +49,16 @@ describe("buildSortPlan", () => {
     ]);
   });
 
+  it("never sorts mail that fails authentication or looks like a scam", () => {
+    const spoofed = sender("orders@amazon.com", "gmail", [msg("f1", "shipping")]);
+    spoofed.authVerdicts = { spf: "pass", dkim: "fail", dmarc: "fail" };
+    const lookalike = sender("billing@amaz0n-orders.com", "gmail", [msg("f2", "receipt")]);
+    lookalike.threatSignals = [{ kind: "lookalike-domain", brand: "amazon", confidence: "high" }];
+    const real = sender("ship@amazon.com", "gmail", [msg("r1", "shipping")]);
+    const plan = buildSortPlan([spoofed, lookalike, real]);
+    expect(plan.flatMap((e) => e.messages.map((m) => m.id))).toEqual(["r1"]);
+  });
+
   it("excludes starred/flagged messages", () => {
     const plan = buildSortPlan([
       sender("code@auth.example", "gmail", [msg("d", "otp"), msg("e", "otp", true)]),

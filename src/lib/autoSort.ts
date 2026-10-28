@@ -9,6 +9,7 @@ import { protectionDecision } from "./protectionPolicy";
 import type { SenderKind } from "./senderProfile";
 import type { ProviderId } from "./providers/emailProvider";
 import type { SenderSummary } from "./senderModel";
+import { senderFailedAuthentication, senderVerdict } from "./verdict";
 import {
   bucketLabelName,
   DEFAULT_FILE_OUT_OF_INBOX,
@@ -61,6 +62,11 @@ export function buildSortPlan(
   const byBucket = new Map<SortBucket, SortPlanEntry>();
 
   for (const sender of senders) {
+    // Trust first: mail that may not be from who it says never gets a normal
+    // label, so a fake "Amazon" order can't land in Shopping. It stays in the
+    // inbox for Protect to warn about or hold.
+    if (senderFailedAuthentication(sender) || senderVerdict(sender, { knownCorrespondent: false }).tier !== "none")
+      continue;
     const domain = domainOf(sender.address);
     const senderKind = senderKinds.get(sender.key);
     for (const msg of sender.messages) {
