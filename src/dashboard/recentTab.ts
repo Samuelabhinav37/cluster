@@ -55,7 +55,7 @@ export function appendUndoButton(container: HTMLElement, gmailIds: string[]) {
   container.appendChild(undoBtn);
 }
 
-async function undoEntry(entry: ActionLogEntry) {
+export async function undoEntry(entry: ActionLogEntry) {
   if (!entry.undo) return;
   const provider = providerById.get(entry.undo.provider);
   if (!provider) throw new Error(`Provider ${entry.undo.provider} is unavailable`);

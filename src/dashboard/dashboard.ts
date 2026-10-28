@@ -108,7 +108,7 @@ import { reasonLabel, suggestSpamSenders, type SpamSuggestion } from "../lib/spa
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { spamListSize } from "../lib/spamList";
 import { keepNewestExcess } from "../lib/keepNewest";
-import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
+import { appendUndoButton, logAction, renderRecentTab, undoEntry } from "./recentTab";
 import { openRuleSheetFor, renderRulesTab, wireRulesTab } from "./rulesTab";
 import { renderLearned, SIGNED_OUT_KEY, wireSettingsMore } from "./settingsMore";
 import { initBodyChecks, renderSecuritySection } from "./securityTab";
@@ -1193,6 +1193,43 @@ function fakedBrands(senders: SenderSummary[]): string[] {
   return [...counts].sort((a, b) => b[1] - a[1]).map(([brand]) => brand);
 }
 
+let movedTodayDismissed = false;
+
+/** "Moved today": what the sweeps filed out of the inbox today, with a way back. */
+function movedTodayCard(): HTMLElement | null {
+  const today = new Date().setHours(0, 0, 0, 0);
+  const entries = ctx.settings.actionLog.filter(
+    (e) => e.kind === "sort" && !e.undone && e.undo?.via === "unarchive" && e.at >= today,
+  );
+  const n = entries.reduce((sum, e) => sum + (e.undo?.ids.length ?? 0), 0);
+  if (n === 0 || movedTodayDismissed) return null;
+  const card = Object.assign(document.createElement("div"), { className: "banner moved-today" });
+  const text = Object.assign(document.createElement("span"), {
+    textContent: `Cluster moved ${n} email${n === 1 ? "" : "s"} out of your inbox today.`,
+  });
+  const back = Object.assign(document.createElement("button"), {
+    type: "button",
+    className: "btn btn-sm",
+    textContent: "Back to inbox",
+  });
+  back.onclick = async () => {
+    back.disabled = true;
+    for (const e of entries) await undoEntry(e);
+    card.remove();
+  };
+  const fine = Object.assign(document.createElement("button"), {
+    type: "button",
+    className: "btn btn-sm",
+    textContent: "Looks right",
+  });
+  fine.onclick = () => {
+    movedTodayDismissed = true;
+    card.remove();
+  };
+  card.append(text, back, fine);
+  return card;
+}
+
 /** The oldest message read so far, or undefined when none is. */
 function oldestRead(senders: SenderSummary[]): number | undefined {
   let oldest = Infinity;
@@ -1234,6 +1271,8 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
   const counted = allSenders.reduce((n, s) => n + senderVolume(s), 0);
   if (counted > facts.total) Object.assign(facts, { total: counted, since: undefined });
   overviewContentEl.appendChild(renderHomeDashboard(facts, goAndAct, (kind) => details?.open({ kind })));
+  const moved = movedTodayCard();
+  if (moved) overviewContentEl.appendChild(moved);
   // Kai's tip, once a visit: the kind that fills most of the inbox.
   const top = HOME_KINDS.reduce((a, b) => (facts.kinds[b.key] > facts.kinds[a.key] ? b : a));
   if (!kaiTipped && facts.total > 0 && facts.kinds[top.key] / facts.total >= 0.4) {
