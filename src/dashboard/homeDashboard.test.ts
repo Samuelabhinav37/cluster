@@ -70,7 +70,10 @@ describe("mailByKind", () => {
   it("counts each kind, the total and the last seven days", () => {
     const got = mailByKind(
       [
-        sender("shop@example.com", [msg({ tab: "promotions" }), msg({ tab: "promotions", receivedAt: NOW - 9 * DAY })]),
+        sender("shop@example.com", [
+          msg({ tab: "promotions" }),
+          msg({ tab: "promotions", receivedAt: NOW - 9 * DAY }),
+        ]),
         sender("friend@example.com", [msg()]),
       ],
       NOW,
@@ -91,7 +94,9 @@ const calm: HomeFacts = {
 };
 const tiles = (el: HTMLElement) => Array.from(el.querySelectorAll(".tile-name")).map((t) => t.textContent);
 const tileOf = (el: HTMLElement, name: string) =>
-  Array.from(el.querySelectorAll<HTMLElement>(".tile")).find((t) => t.querySelector(".tile-name")!.textContent === name)!;
+  Array.from(el.querySelectorAll<HTMLElement>(".tile")).find(
+    (t) => t.querySelector(".tile-name")!.textContent === name,
+  )!;
 
 describe("renderHomeDashboard", () => {
   it("lays out four tiles: Inbox and Protect, then Clean up and Organize", () => {
@@ -101,7 +106,7 @@ describe("renderHomeDashboard", () => {
   it("Inbox shows the total, one bar segment per kind with mail, and a labelled legend", () => {
     const el = renderHomeDashboard({ ...calm, kinds: { ...calm.kinds, trans: 0 } }, vi.fn());
     expect(el.querySelector(".home-big")!.textContent).toBe("65 emails");
-    expect(tileOf(el, "Inbox").querySelector(".tile-sub")!.textContent).toBe("+12 this week");
+    expect(el.querySelector(".tile-sub")).toBeNull();
     expect(el.querySelectorAll(".kind-bar span")).toHaveLength(3);
     expect(el.querySelector(".kind-bar")!.getAttribute("aria-label")).toBe(
       "Primary 10, Transactions 0, Updates 20, Promotions 30",
@@ -114,15 +119,30 @@ describe("renderHomeDashboard", () => {
     ]);
   });
 
-  it("each button opens its place and starts that place's own confirm; scams lead Protect", () => {
+  it("says each number once, has no buttons in tiles, and opens the place from anywhere on the tile", () => {
     const go = vi.fn();
     const el = renderHomeDashboard(
-      { ...calm, suspicious: 2, waiting: 4, neverOpened: { senders: 1, emails: 3 }, pastDate: 2 },
+      {
+        ...calm,
+        suspicious: 2,
+        waiting: 4,
+        neverOpened: { senders: 1, emails: 3 },
+        pastDate: 2,
+        fakedBrands: ["paypal", "netflix"],
+      },
       go,
     );
-    expect(tileOf(el, "Protect").querySelector(".tile-stat")!.textContent).toBe("2look like scams");
-    for (const b of Array.from(el.querySelectorAll<HTMLButtonElement>(".tile-body button"))) b.click();
-    expect(go.mock.calls).toEqual([["impersonation"], ["delete", "mute-never-opened"], ["delete", "trash-past-date"], ["organize"]]);
+    expect(tileOf(el, "Protect").querySelector(".tile-stat")!.textContent).toBe("2to review");
+    expect(tileOf(el, "Protect").querySelectorAll(".tile-faces .logo-tile")).toHaveLength(2);
+    expect(tileOf(el, "Protect").querySelector(".tile-note")!.textContent).toBe(
+      "Pretending to be PayPal, Netflix",
+    );
+    expect(tileOf(el, "Clean up").querySelector(".tile-stat")!.textContent).toBe("5emails ready to go");
+    expect(tileOf(el, "Clean up").textContent).not.toMatch(/3/);
+    expect(el.querySelectorAll(".tile-body button")).toHaveLength(0);
+    for (const name of ["Protect", "Clean up", "Organize"])
+      tileOf(el, name).querySelector<HTMLElement>(".tile-body")!.click();
+    expect(go.mock.calls).toEqual([["impersonation"], ["delete"], ["organize"]]);
   });
 
   it("shows calm tiles with no buttons when nothing needs you", () => {
@@ -130,8 +150,8 @@ describe("renderHomeDashboard", () => {
     expect(Array.from(el.querySelectorAll(".tile-empty")).map((e) => e.textContent)).toEqual([
       "Nothing looks off",
       "Nothing to clear",
-      "Your inbox tidies itself",
     ]);
+    expect(tileOf(el, "Organize").querySelector(".tile-stat")!.textContent).toBe("3kinds tidy themselves");
     expect(el.querySelectorAll(".tile-body button")).toHaveLength(0);
   });
 
@@ -140,7 +160,10 @@ describe("renderHomeDashboard", () => {
       { ...calm, suspicious: 1, neverOpened: { senders: 12, emails: 150 }, pastDate: 29 },
       vi.fn(),
     );
-    const words = (el.textContent ?? "").replace(/(\d)([A-Z])/g, "$1 $2").split(/\s+/).filter(Boolean);
+    const words = (el.textContent ?? "")
+      .replace(/(\d)([A-Z])/g, "$1 $2")
+      .split(/\s+/)
+      .filter(Boolean);
     expect(words.length).toBeLessThanOrEqual(45);
     expect(el.textContent).not.toMatch(/[–—]/);
   });

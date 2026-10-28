@@ -1133,6 +1133,16 @@ function setPhishingNavSeverity(securitySenders: SenderSummary[]) {
   }
 }
 
+/** Brands flagged senders pretend to be, most-faked first. */
+function fakedBrands(senders: SenderSummary[]): string[] {
+  const counts = new Map<string, number>();
+  for (const s of senders) {
+    const brand = s.threatSignals.find((x) => x.brand)?.brand;
+    if (brand) counts.set(brand, (counts.get(brand) ?? 0) + 1);
+  }
+  return [...counts].sort((a, b) => b[1] - a[1]).map(([brand]) => brand);
+}
+
 // ── Overview screen (v3) ────────────────────────────────────────────────
 // Home: the total, the kind bar and up to three next steps (homeDashboard.ts).
 function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary[]) {
@@ -1158,6 +1168,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
     limitsOn: ctx.settings.autoSort.timeLimitsEnabled
       ? Object.values(ctx.settings.autoSort.inboxHoursByBucket).filter((h) => h != null).length
       : 0,
+    fakedBrands: fakedBrands(securitySenders),
   };
   overviewContentEl.appendChild(
     renderHomeDashboard(

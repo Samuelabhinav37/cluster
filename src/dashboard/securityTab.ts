@@ -122,7 +122,9 @@ async function runDeepScan(sender: SenderSummary, resultEl: HTMLElement): Promis
 
 function parseSenderKey(key: string): { providerId: string; address: string } {
   const sep = key.indexOf(":");
-  return sep === -1 ? { providerId: "", address: key } : { providerId: key.slice(0, sep), address: key.slice(sep + 1) };
+  return sep === -1
+    ? { providerId: "", address: key }
+    : { providerId: key.slice(0, sep), address: key.slice(sep + 1) };
 }
 
 // Auto-quarantine files a sender's mail out of the inbox, so a quarantined
@@ -316,7 +318,9 @@ export function renderSecuritySection(senders: SenderSummary[], autoCheck = true
   // Two tiers: warned or held first, lone weak signs under "Worth a look".
   const high = flagged.filter(({ verdict }) => verdict.tier !== "none");
   const low = flagged.filter(({ verdict }) => verdict.tier === "none");
-  securitySenderListEl.replaceChildren(...high.map(({ sender, verdict }) => buildThreatCard(sender, verdict)));
+  securitySenderListEl.replaceChildren(
+    ...high.map(({ sender, verdict }) => buildThreatCard(sender, verdict)),
+  );
   securityLowListEl.replaceChildren(...low.map(({ sender, verdict }) => buildThreatCard(sender, verdict)));
   document.getElementById("security-high")!.hidden = high.length === 0;
   document.getElementById("security-low")!.hidden = low.length === 0;
@@ -335,7 +339,10 @@ async function checkFlaggedBodies(
   const todo = flagged
     .filter(({ verdict }) => verdict.tier !== "none")
     .map(({ sender, verdict }) => ({ sender, id: headlineMessage(sender, verdict)?.id }))
-    .filter(({ sender, id }) => id && providerById.get(sender.provider)?.getMessageLinks && !bodyChecks[bodyCheckKey(sender, id)])
+    .filter(
+      ({ sender, id }) =>
+        id && providerById.get(sender.provider)?.getMessageLinks && !bodyChecks[bodyCheckKey(sender, id)],
+    )
     .slice(0, MAX_CHECKS_PER_SCAN);
   let found = false;
   for (const { sender, id } of todo) {
@@ -366,7 +373,9 @@ function fakedBrandTile(sender: SenderSummary): HTMLElement {
   const brand = sender.threatSignals.find((s) => s.brand)?.brand;
   const domain = brand ? brandHomeDomain(brand) : undefined;
   const name = brand ? brand.replace(/\b\w/g, (c) => c.toUpperCase()) : undefined;
-  const tile = domain ? senderTile(`no-reply@${domain}`, name, "sz-34") : senderTile(sender.address, sender.displayName, "sz-34");
+  const tile = domain
+    ? senderTile(`no-reply@${domain}`, name, "sz-34")
+    : senderTile(sender.address, sender.displayName, "sz-34");
   const wrap = document.createElement("span");
   wrap.className = "faked-brand";
   const badge = document.createElement("span");
@@ -440,8 +449,7 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
     const b = document.createElement("b");
     b.textContent = "Before you pay anything";
     const text = document.createElement("span");
-    text.textContent =
-      "Call them on a number you already have, not one in this email.";
+    text.textContent = "Call them on a number you already have, not one in this email.";
     const wrap = document.createElement("div");
     wrap.append(b, text);
     card.appendChild(wrap);
@@ -523,7 +531,9 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
 
   // The row's own button: block (its confirm opens below) for real warnings,
   // "It's fine" for a lone weak sign.
-  const blockBtn = Array.from(actions.querySelectorAll("button")).find((b) => b.textContent === "Block sender");
+  const blockBtn = Array.from(actions.querySelectorAll("button")).find(
+    (b) => b.textContent === "Block sender",
+  );
   const target = verdict.tier !== "none" && blockBtn ? blockBtn : genuine;
   quick.textContent = target === genuine ? "It's fine" : "Block";
   if (target !== genuine) quick.classList.add("btn-danger");
@@ -541,8 +551,12 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
     rowMenu([
       ...(target === genuine ? [] : [{ label: "It's fine", run: () => genuine.click() }]),
       { label: "Report", run: () => only(report.button) },
-      ...(scanBtn ? [{ label: "Deep scan", run: () => only(scanBtn, scanBtn.nextElementSibling as HTMLElement) }] : []),
-      ...(blockBtn && target !== blockBtn ? ["sep" as const, { label: "Block sender", danger: true, run: () => only(blockBtn) }] : []),
+      ...(scanBtn
+        ? [{ label: "Deep scan", run: () => only(scanBtn, scanBtn.nextElementSibling as HTMLElement) }]
+        : []),
+      ...(blockBtn && target !== blockBtn
+        ? ["sep" as const, { label: "Block sender", danger: true, run: () => only(blockBtn) }]
+        : []),
     ]),
   );
   // Until an action runs, the reasons show without the old button row.
@@ -550,7 +564,6 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
 
   return li;
 }
-
 
 // ── Checkup: what Cluster looked for, Google Security Checkup style ──────
 const FAKE_KINDS = new Set(["brand-impersonation", "freemail-brand-claim", "lookalike-domain"]);
@@ -567,7 +580,12 @@ export function securityChecks(senders: readonly SenderSummary[], held: number):
   const count = (hit: (s: SenderSummary) => boolean) => senders.filter(hit).length;
   const has = (kinds: Set<string> | string) => (s: SenderSummary) =>
     s.threatSignals.some((x) => (typeof kinds === "string" ? x.kind === kinds : kinds.has(x.kind)));
-  const row = (ic: string, name: string, n: number): CheckRow => ({ ic, name, value: n > 0 ? n.toLocaleString() : "None", warn: n > 0 });
+  const row = (ic: string, name: string, n: number): CheckRow => ({
+    ic,
+    name,
+    value: n > 0 ? n.toLocaleString() : "None",
+    warn: n > 0,
+  });
   const judged = count((s) => s.authVerdicts.dmarc !== "unknown" || s.authVerdicts.spf !== "unknown");
   const forged = count(failsSenderChecks);
   return [
