@@ -14,12 +14,10 @@ import {
 import { buildProtectionContext, buildSenderCleanupPlan } from "../lib/protectionPolicy";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import type { SenderSummary } from "../lib/senderModel";
-import {
-  buildSubscriptionCandidates,
-  SUBSCRIPTION_SIGNAL_LABELS,
-} from "../lib/subscriptionSignals";
+import { buildSubscriptionCandidates, SUBSCRIPTION_SIGNAL_LABELS } from "../lib/subscriptionSignals";
 import { formatRelativeTime, headerRow, pruneSelection, renderConfirmStep } from "./ui";
 import { listGroup, listRow } from "./listRow";
+import { menuForControls } from "./rowMenu";
 import { senderTile } from "./senderTile";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
@@ -177,7 +175,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
       const cleanSlot = document.createElement("span");
       const cleanBtn = document.createElement("button");
       cleanBtn.className = "danger";
-      cleanBtn.textContent = "Unsubscribe + clean";
+      cleanBtn.textContent = "Unsubscribe and clear old mail";
       const reset = () => {
         cleanSlot.replaceChildren(cleanBtn);
       };
@@ -313,18 +311,14 @@ function renderSubsFloatingBar(oneClickCount: number) {
   const bar = document.createElement("div");
   const title = document.createElement("span");
   title.className = "fb-title";
-  title.textContent =
-    selected > 0
-      ? `${selected} selected`
-      : `${oneClickCount} verified one-click`;
+  title.textContent = selected > 0 ? `${selected} selected` : `${oneClickCount} verified one-click`;
   const sub = document.createElement("span");
   sub.className = "fb-sub";
   sub.textContent = "Only future mail stops.";
   const allBtn = document.createElement("button");
   allBtn.className = "btn-accent-solid";
   allBtn.textContent = selected > 0 ? "Unsubscribe selected" : "Unsubscribe all";
-  allBtn.onclick = () =>
-    (document.getElementById("subs-unsub-all-btn") as HTMLButtonElement | null)?.click();
+  allBtn.onclick = () => (document.getElementById("subs-unsub-all-btn") as HTMLButtonElement | null)?.click();
   bar.append(title, sub, allBtn);
   host.appendChild(bar);
 }
@@ -410,34 +404,6 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
     return;
   }
 
-  // Metric band
-  const cadenceCounts = { Daily: 0, Weekly: 0, Monthly: 0 };
-  for (const s of available) cadenceCounts[cadenceLabel(s)] += 1;
-  const band = document.createElement("div");
-  band.className = "metric-band";
-  band.style.marginBottom = "24px";
-  const heroWrap = document.createElement("div");
-  heroWrap.style.flex = "none";
-  heroWrap.innerHTML =
-    `<div class="metric-hero">${available.length}</div>` +
-    `<div class="row-sub" style="color:var(--label-2);margin-top:8px">mailing lists in this scan</div>`;
-  band.appendChild(heroWrap);
-  const divider = document.createElement("div");
-  divider.className = "divider";
-  band.appendChild(divider);
-  for (const [cap, n] of [
-    ["daily", cadenceCounts.Daily],
-    ["weekly", cadenceCounts.Weekly],
-    ["monthly or less", cadenceCounts.Monthly],
-  ] as const) {
-    const cell = document.createElement("div");
-    cell.className = "metric-secondary";
-    cell.style.flex = "none";
-    cell.innerHTML = `<div class="n">${n}</div><div class="cap">${cap}</div>`;
-    band.appendChild(cell);
-  }
-  subscriptionsListEl.appendChild(band);
-
   if (visibleCurrentRows.length > 0) {
     // Select-all header — not itself a list item (no title/media), so it
     // reuses the check-media-actions grid class directly rather than going
@@ -473,35 +439,26 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
     hdr.append(selAllLabel, selCount, sortedNote);
 
     const rows = visibleCurrentRows.map(({ sender, outcome }) => {
-      const subLine = document.createElement("div");
-      subLine.style.display = "flex";
-      subLine.style.alignItems = "center";
-      subLine.style.gap = "8px";
-      subLine.style.marginTop = "4px";
-      subLine.style.flexWrap = "wrap";
-      const cadencePill = document.createElement("span");
-      cadencePill.className = "pill neutral";
-      cadencePill.textContent = cadenceLabel(sender);
-      const detail = document.createElement("span");
-      detail.className = "row-sub";
       const outcomeText = outcome.requestAt
         ? `${outcome.label} · requested ${formatRelativeTime(outcome.requestAt)}`
         : `${unsubMethodLabel(sender.unsubscribe)} · mostly ${dominantKind(sender)}`;
-      detail.textContent = sender.displayName ? `${outcomeText} · ${sender.address}` : outcomeText;
-      subLine.append(cadencePill, detail);
+      const subLine = [cadenceLabel(sender), outcomeText, sender.displayName ? sender.address : ""]
+        .filter(Boolean)
+        .join(" · ");
 
-      const actions = document.createElement("div");
-      // Transplant the working unsubscribe / clean / read-later buttons.
+      // One visible button (the way to stop the mail); the rest sit in ⋯.
       const cell = subUnsubscribeCell(sender);
-      while (cell.firstChild) actions.appendChild(cell.firstChild);
-      for (const btn of Array.from(actions.querySelectorAll("button"))) {
-        if (btn.textContent === "Unsubscribe") btn.className = "btn btn-accent btn-sm";
-        else btn.classList.add("btn-sm");
-      }
-      if (outcome.requestAt) for (const btn of requestActions(sender.key, sender.provider, outcome.state)) actions.appendChild(btn);
+      const controls = Array.from(cell.children) as HTMLElement[];
+      const primary = controls.shift();
+      if (primary) primary.className = "btn";
+      if (outcome.requestAt) controls.push(...requestActions(sender.key, sender.provider, outcome.state));
       const keep = document.createElement("button");
-      keep.className = "btn btn-sm";
+      keep.className = "btn";
       keep.textContent = "Keep";
+      controls.push(keep);
+      const strip = document.createElement("div");
+      strip.className = "instead-strip";
+      const menu = menuForControls(controls, strip);
 
       const row = listRow({
         // Every row keeps the checkbox column even without a one-click
@@ -517,14 +474,21 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
                 renderSubscriptionsTab(ctx.senders);
               },
             }
-          : { checked: false, disabled: true, label: "No one-click unsubscribe to select", onChange: () => {} },
+          : {
+              checked: false,
+              disabled: true,
+              label: "No one-click unsubscribe to select",
+              onChange: () => {},
+            },
         lead: subTile(sender),
         title: sender.displayName || sender.address,
         sub: subLine,
-        actions: [...Array.from(actions.children) as HTMLElement[], keep],
+        actions: primary ? [primary, menu] : [menu],
+        disclosure: strip,
       });
       keep.onclick = () => {
         row.hidden = true;
+        strip.hidden = true;
         // listGroup() puts an anonymous row-sep before every row but the
         // first; hide it too so a dismissed row doesn't leave a stray line.
         const sep = row.previousElementSibling;

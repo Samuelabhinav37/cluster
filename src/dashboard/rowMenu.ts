@@ -84,3 +84,28 @@ export function rowMenu(entries: MenuEntry[], label = "More actions"): HTMLEleme
   wrap.append(button, menu);
   return wrap;
 }
+
+/** Moves a row's secondary controls into `strip` (shown under the row) and
+ * returns a ⋯ menu that runs one of them, showing only that one's confirm. */
+export function menuForControls(controls: HTMLElement[], strip: HTMLElement): HTMLElement {
+  strip.hidden = true;
+  const entries: MenuEntry[] = [];
+  for (const control of controls) {
+    strip.appendChild(control);
+    const button = control instanceof HTMLButtonElement ? control : control.querySelector("button");
+    if (!button) continue;
+    entries.push({
+      label: button.textContent ?? "",
+      danger: button.classList.contains("danger") || button.classList.contains("btn-danger"),
+      run: () => {
+        strip.hidden = false;
+        for (const c of controls) c.hidden = c !== control;
+        button.click();
+      },
+    });
+  }
+  // Destructive items go last, after a separator, so focus never lands on them first.
+  const safe = entries.filter((e) => e !== "sep" && !e.danger);
+  const risky = entries.filter((e) => e !== "sep" && e.danger);
+  return rowMenu(risky.length > 0 && safe.length > 0 ? [...safe, "sep", ...risky] : [...safe, ...risky]);
+}
