@@ -29,6 +29,23 @@ function message(overrides: Partial<NormalizedMessageMetadata>): NormalizedMessa
 }
 
 describe("scoreMessageForThreats: brand-impersonation / freemail-brand-claim", () => {
+  it("knows the brands added in 3.3: real domains pass, fakes and lookalikes don't", () => {
+    for (const [name, from] of [
+      ["Instagram", "security@mail.instagram.com"],
+      ["Geek Squad", "service@bestbuy.com"],
+      ["TurboTax", "noreply@intuit.com"],
+      ["Walmart", "help@walmart.com"],
+    ]) {
+      expect(scoreMessageForThreats(message({ fromDisplayName: name, fromAddress: from })), name).toEqual([]);
+    }
+    expect(
+      scoreMessageForThreats(message({ fromDisplayName: "Geek Squad Billing", fromAddress: "renewal@gs-billing.example" })),
+    ).toEqual([{ kind: "brand-impersonation", brand: "geek squad", confidence: "medium" }]);
+    expect(
+      scoreMessageForThreats(message({ fromDisplayName: "Music", fromAddress: "hi@spotifty.com" })).map((s) => s.kind),
+    ).toContain("lookalike-domain");
+  });
+
   it("returns no signals for a brand-named sender using its own real domain", () => {
     expect(scoreMessageForThreats(message({ fromDisplayName: "PayPal", fromAddress: "service@paypal.com" }))).toEqual([]);
   });
