@@ -136,6 +136,50 @@ function requestActions(key: string, provider: string, state: string): HTMLEleme
   return out;
 }
 
+/** Moves a sender's old list mail to Trash, re-checking protection live. */
+async function trashOldMail(sender: SenderSummary, ids: string[], kept: number): Promise<string> {
+  const provider = providerById.get(sender.provider);
+  if (!provider) return "Couldn't reach your mail, so nothing was moved";
+  const { safe, skipped } = await filterOutProtected(new Map([[sender.provider, ids]]), providerById);
+  const targetIds = safe.get(sender.provider) ?? [];
+  if (targetIds.length === 0)
+    return skipped > 0 ? `Skipped ${skipped} you starred since the scan` : "Nothing left to move";
+  const job = await createDurableJob({ provider: sender.provider, operation: "trash", targetIds });
+  const result = await runDurableJob(job.id, providerById);
+  if (result.succeededIds.length > 0) {
+    await logAction(
+      "trash",
+      `Moved ${result.succeededIds.length} old message${result.succeededIds.length === 1 ? "" : "s"} from ${sender.address} to Trash`,
+      provider.untrashMessages
+        ? { provider: sender.provider, ids: result.succeededIds, via: "untrash" }
+        : undefined,
+    );
+  }
+  const skippedNote = skipped > 0 ? `, skipped ${skipped} you starred since the scan` : "";
+  return result.failures.length > 0
+    ? `Moved ${result.succeededIds.length}, failed ${result.failures.length}, kept ${kept}${skippedNote}`
+    : `Moved ${result.succeededIds.length} to Trash, kept ${kept}${skippedNote}`;
+}
+
+/** They stopped on their own: nothing to unsubscribe from, only old mail to clear. */
+function clearOldMailButton(sender: SenderSummary): HTMLElement | null {
+  const cleanup = buildSenderCleanupPlan(sender, buildProtectionContext(ctx.settings));
+  const n = cleanup.safeNewsletterIds.length;
+  if (n === 0) return null;
+  const slot = document.createElement("span");
+  const btn = document.createElement("button");
+  btn.textContent = "Clear out old mail";
+  const reset = () => slot.replaceChildren(btn);
+  btn.onclick = () => {
+    const kept = cleanup.protectedIds.length + cleanup.retainedOtherIds.length;
+    renderConfirmStep(slot, reset, `Move ${n} old message${n === 1 ? "" : "s"} to Trash? ${kept} stay.`, true, () =>
+      trashOldMail(sender, cleanup.safeNewsletterIds, kept),
+    );
+  };
+  reset();
+  return slot;
+}
+
 function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
   const cell = document.createElement("td");
   const u = sender.unsubscribe;
@@ -181,38 +225,8 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
           async () => {
             const ok = await fireOneClickUnsubscribe(u.postUrl!);
             if (!ok) return "Unsubscribe failed, so no mail was moved";
-            const provider = providerById.get(sender.provider);
-            if (!provider) return "Couldn't reach your mail, so nothing was moved";
-            const { safe, skipped } = await filterOutProtected(
-              new Map([[sender.provider, cleanup.safeNewsletterIds]]),
-              providerById,
-            );
-            const targetIds = safe.get(sender.provider) ?? [];
             await recordUnsubscribeRequests([sender]);
-            if (targetIds.length === 0) {
-              return skipped > 0
-                ? `Unsubscribed; skipped ${skipped} you starred since the scan`
-                : "Unsubscribed; nothing left to move";
-            }
-            const job = await createDurableJob({
-              provider: sender.provider,
-              operation: "trash",
-              targetIds,
-            });
-            const result = await runDurableJob(job.id, providerById);
-            if (result.succeededIds.length > 0) {
-              await logAction(
-                "trash",
-                `Unsubscribed from ${sender.address} and moved ${result.succeededIds.length} newsletter message${result.succeededIds.length === 1 ? "" : "s"} to Trash`,
-                provider.untrashMessages
-                  ? { provider: sender.provider, ids: result.succeededIds, via: "untrash" }
-                  : undefined,
-              );
-            }
-            const skippedNote = skipped > 0 ? `, skipped ${skipped} you starred since the scan` : "";
-            return result.failures.length > 0
-              ? `Unsubscribed; moved ${result.succeededIds.length}, failed ${result.failures.length}, kept ${kept}${skippedNote}`
-              : `Unsubscribed and moved ${result.succeededIds.length} to Trash; kept ${kept}${skippedNote}`;
+            return `Unsubscribed. ${await trashOldMail(sender, cleanup.safeNewsletterIds, kept)}`;
           },
         );
       };
@@ -439,10 +453,15 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
         .join(" · ");
 
       // One visible button (the way to stop the mail); the rest sit in ⋯.
+      // A sender that already stopped gets "Clear out old mail" first.
       const cell = subUnsubscribeCell(sender);
       const controls = Array.from(cell.children) as HTMLElement[];
+      const quiet = !outcome.requestAt && ctx.profiles.get(sender.key)?.stillSending === false;
+      const clear = quiet ? clearOldMailButton(sender) : null;
+      if (clear) controls.unshift(clear);
       const primary = controls.shift();
-      if (primary) primary.className = "btn";
+      const primaryBtn = primary?.matches("button") ? primary : primary?.querySelector("button");
+      if (primaryBtn) primaryBtn.className = "btn";
       if (outcome.requestAt) controls.push(...requestActions(sender.key, sender.provider, outcome.state));
       const keep = document.createElement("button");
       keep.className = "btn";

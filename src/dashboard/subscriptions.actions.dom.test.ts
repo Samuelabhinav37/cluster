@@ -6,7 +6,7 @@
 // hits a non-List-Unsubscribe URL on the user's behalf — these tests assert
 // the actual fetch() call shape, not just that a button exists.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { bootDashboard, confirmStep } from "./testHarness";
+import { bootDashboard, confirmStep, fixtureMailbox } from "./testHarness";
 
 function findSubRow(container: HTMLElement, title: string): HTMLElement {
   const titleEl = Array.from(container.querySelectorAll(".row-title")).find(
@@ -91,6 +91,28 @@ describe("Subscriptions screen — one-click unsubscribe", () => {
     expect(unsubBtn.textContent).toBe("Failed, retry");
     expect(unsubBtn.disabled).toBe(false);
     expect(unsubscribeCalls(fetchImpl)).toHaveLength(0);
+  });
+});
+
+describe("Subscriptions screen — senders that already stopped", () => {
+  it("offers Clear out old mail first, not Unsubscribe", async () => {
+    const now = Date.now();
+    const old = fixtureMailbox(now).find((m) => m.id === "s1")!;
+    const quiet = [60, 90, 120].map((days, i) => ({
+      ...old,
+      id: `q${i}`,
+      fromAddress: "letters@quiet.example",
+      fromDisplayName: "Quiet Letters",
+      subject: `Issue ${i}`,
+      receivedAt: now - days * 24 * 60 * 60 * 1000,
+      listId: "letters.quiet.example",
+      unsubscribe: { postUrl: "https://quiet.example/u" },
+    }));
+    const dash = await bootDashboard({ mailbox: [...fixtureMailbox(now), ...quiet] });
+    dash.showScreen("subscriptions");
+    const row = findSubRow(dash.el("subscriptions-list"), "Quiet Letters");
+    expect(row.querySelector(".row-actions button, button")?.textContent).toBe("Clear out old mail");
+    expect(findSubRow(dash.el("subscriptions-list"), "Shop").querySelector("button")?.textContent).toBe("Unsubscribe");
   });
 });
 
