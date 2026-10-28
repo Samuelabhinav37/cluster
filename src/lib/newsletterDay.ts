@@ -13,12 +13,13 @@ export const HOLD_HOURS = 1 / 6;
 const DELIVERY_DAY = 6; // Saturday
 const DELIVERY_HOUR = 8;
 
-/** The latest Saturday 8 am (local time) at or before `now`. */
-export function lastDeliveryMoment(now: number): number {
+/** The latest Saturday 8 am (local time) at or before `now`, or the latest
+ * 8 am of any day when `daily`. */
+export function lastDeliveryMoment(now: number, daily = false): number {
   const d = new Date(now);
   d.setHours(DELIVERY_HOUR, 0, 0, 0);
-  d.setDate(d.getDate() - ((d.getDay() - DELIVERY_DAY + 7) % 7));
-  if (d.getTime() > now) d.setDate(d.getDate() - 7);
+  if (!daily) d.setDate(d.getDate() - ((d.getDay() - DELIVERY_DAY + 7) % 7));
+  if (d.getTime() > now) d.setDate(d.getDate() - (daily ? 1 : 7));
   return d.getTime();
 }
 
@@ -31,11 +32,11 @@ export function newsletterDayOn(settings: ClusterSettings): boolean {
 }
 
 /** Puts held newsletters from the last 8 days back in the inbox when a
- * Saturday has passed since the last delivery, or at once with `force`. */
+ * delivery moment has passed since the last delivery, or at once with `force`. */
 export async function deliverNewsletters(now = Date.now(), force = false): Promise<number> {
   const settings = await getSettings();
   if (!force && !newsletterDayOn(settings)) return 0;
-  if (!force && lastDeliveryMoment(now) <= settings.newsletterDay.lastDelivered) return 0;
+  if (!force && lastDeliveryMoment(now, settings.newsletterDay.daily) <= settings.newsletterDay.lastDelivered) return 0;
   const token = await gmailProvider.getAuthToken(false);
   const labelId = (await findLabelIds(token, categoryLabelName("newsletter", settings.labelChoices)))[0];
   const ids = labelId ? (await listMessageIds(token, "-in:inbox newer_than:8d", 500, [labelId])).map((m) => m.id) : [];

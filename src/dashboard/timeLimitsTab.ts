@@ -356,8 +356,8 @@ export function presetSwitch(label: string, on: boolean, flip: () => void | Prom
   return sw;
 }
 
-/** Newsletters held out of the inbox, delivered Saturday at 8 am. Off brings
- * the held ones back now. */
+/** Newsletters held out of the inbox, delivered Saturday (or every day) at
+ * 8 am. Off brings the held ones back now. */
 function newsletterDayCard(): HTMLElement {
   const on = newsletterDayOn(ctx.settings);
   const card = document.createElement("div");
@@ -369,6 +369,21 @@ function newsletterDayCard(): HTMLElement {
   const fact = document.createElement("div");
   fact.className = "rec-fact";
   fact.textContent = on ? "On" : "All at once, 8 am Saturday";
+  if (on) {
+    const when = document.createElement("select");
+    when.className = "newsletter-when";
+    when.setAttribute("aria-label", "When newsletters arrive");
+    for (const [value, label] of [
+      ["saturday", "Saturday"],
+      ["daily", "Every day"],
+    ]) when.add(new Option(label, value, false, (value === "daily") === Boolean(ctx.settings.newsletterDay.daily)));
+    when.onchange = async () => {
+      ctx.settings = await updateSettings({
+        newsletterDay: { ...ctx.settings.newsletterDay, daily: when.value === "daily" },
+      });
+    };
+    fact.append(", ", when);
+  }
   const sw = presetSwitch("Saturday newsletters", on, async () => {
     const base = currentLimits();
     ctx.settings = await updateSettings({ newsletterDay: { enabled: !on, lastDelivered: Date.now() } });

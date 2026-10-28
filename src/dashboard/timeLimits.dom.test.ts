@@ -180,6 +180,10 @@ describe("Newsletters on Saturday", () => {
       expect(s.autoSort.inboxHoursByBucket.newsletter).toBeCloseTo(1 / 6);
       expect(s.autoSort.inboxHoursByBucket.otp).toBeNull();
     });
-    await vi.waitFor(() => expect(card().querySelector(".rec-fact")!.textContent).toBe("On"));
+    await vi.waitFor(() => expect(card().querySelector(".rec-fact")!.textContent).toMatch(/^On, /));
+    const when = card().querySelector<HTMLSelectElement>("select.newsletter-when")!;
+    when.value = "daily";
+    when.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(dash.storedSettings().newsletterDay.daily).toBe(true));
   });
 });

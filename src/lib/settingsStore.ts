@@ -47,8 +47,9 @@ export interface ClusterSettings {
    * held scams also go to Gmail's Spam, and mail failing DMARC (or both SPF
    * and DKIM) from someone you don't write to is held on that alone. */
   securityRules: { toSpam: boolean; holdAuthFails: boolean };
-  /** Newsletters held out of the inbox and delivered on Saturday morning (newsletterDay.ts). */
-  newsletterDay: { enabled: boolean; lastDelivered: number };
+  /** Newsletters held out of the inbox and delivered on Saturday morning,
+   * or every morning with `daily` (newsletterDay.ts). */
+  newsletterDay: { enabled: boolean; lastDelivered: number; daily?: boolean };
 
   // ── Power features (Phases 2–6) ──────────────────────────────────────────
   /** Standing user rules — Auto Clean equivalent (see rules.ts / ruleRunner.ts). */
