@@ -38,6 +38,9 @@ function unsubscribeCalls(fetchImpl: typeof fetch) {
   );
 }
 
+// Single unsubscribes wait out a 3 s Undo grace before the request goes out.
+vi.setConfig({ testTimeout: 15_000 });
+
 beforeEach(() => {
   vi.restoreAllMocks();
 });
@@ -54,9 +57,13 @@ describe("Subscriptions screen — one-click unsubscribe", () => {
     )!;
     unsubBtn.click();
 
-    await vi.waitFor(() => {
-      if (unsubscribeCalls(fetchImpl).length === 0) throw new Error("fetch not called yet");
-    });
+    // The request waits out the 3 s Undo grace first.
+    await vi.waitFor(
+      () => {
+        if (unsubscribeCalls(fetchImpl).length === 0) throw new Error("fetch not called yet");
+      },
+      { timeout: 5000 },
+    );
 
     const [url, init] = unsubscribeCalls(fetchImpl)[0] as [string, RequestInit];
     expect(url).toBe("https://shop.example/u");
@@ -84,9 +91,7 @@ describe("Subscriptions screen — one-click unsubscribe", () => {
     )!;
     unsubBtn.click();
 
-    await vi.waitFor(() => {
-      if (unsubBtn.textContent === "Requesting…") throw new Error("still requesting");
-    });
+    await vi.waitFor(() => expect(unsubBtn.textContent).toBe("Failed, retry"), { timeout: 5000 });
 
     expect(unsubBtn.textContent).toBe("Failed, retry");
     expect(unsubBtn.disabled).toBe(false);
@@ -117,13 +122,47 @@ describe("Subscriptions screen — the same company's other addresses", () => {
     Array.from(findSubRow(list, "Shop").querySelectorAll("button"))
       .find((b) => b.textContent === "Unsubscribe")!
       .click();
-    await vi.waitFor(() => expect(list.querySelector(".banner")?.textContent).toContain("1 other address"));
+    await vi.waitFor(() => expect(list.querySelector(".banner")?.textContent).toContain("1 other address"), {
+      timeout: 5000,
+    });
     Array.from(list.querySelectorAll<HTMLButtonElement>(".banner button"))
       .find((b) => b.textContent === "Stop those too")!
       .click();
     await vi.waitFor(() =>
       expect(unsubscribeCalls(fetchImpl).map((c) => c[0])).toContain("https://shop.example/n"),
     );
+  });
+});
+
+describe("Subscriptions screen — Undo before the request goes out", () => {
+  it("sends nothing when Undo is pressed during the grace", async () => {
+    const fetchImpl = makeFetchImpl(async () => new Response("", { status: 202 }));
+    const dash = await bootDashboard({ grantOrigins: true, fetchImpl });
+    dash.showScreen("subscriptions");
+    const row = findSubRow(dash.el("subscriptions-list"), "Shop");
+    Array.from(row.querySelectorAll("button")).find((b) => b.textContent === "Unsubscribe")!.click();
+    Array.from(row.querySelectorAll("button")).find((b) => b.textContent === "Undo")!.click();
+    await new Promise((r) => setTimeout(r, 3200));
+    expect(unsubscribeCalls(fetchImpl)).toHaveLength(0);
+    expect(dash.storedSettings().unsubscribeRequests?.["gmail:deals@shop.example"]).toBeUndefined();
+  });
+});
+
+describe("Subscriptions screen — Stop and archive old", () => {
+  it("unsubscribes, then archives the old list mail instead of trashing it", async () => {
+    const fetchImpl = makeFetchImpl(async () => new Response("", { status: 202 }));
+    const dash = await bootDashboard({ grantOrigins: true, fetchImpl });
+    dash.showScreen("subscriptions");
+    const list = dash.el("subscriptions-list");
+    const row = findSubRow(list, "Shop");
+    Array.from(row.querySelectorAll<HTMLButtonElement>("[role=menuitem]"))
+      .find((b) => b.textContent === "Stop and archive old")!
+      .click();
+    const confirm = Array.from(list.querySelectorAll(".instead-strip button")).find((b) => b.textContent === "Confirm")!;
+    const result = await confirmStep(confirm.parentElement as HTMLElement);
+    expect(result).toContain("to the archive");
+    expect(dash.gmail.archiveMessages).toHaveBeenCalled();
+    expect(dash.gmail.trashMessages).not.toHaveBeenCalled();
   });
 });
 

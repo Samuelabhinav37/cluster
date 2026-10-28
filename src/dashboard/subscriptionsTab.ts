@@ -170,7 +170,8 @@ function siblingOffer(available: SenderSummary[]): HTMLElement | null {
     }
     const { succeeded } = await executeBulkUnsubscribe(others, fireOneClickUnsubscribe);
     await recordUnsubscribeRequests(succeeded);
-    if (succeeded.length > 0) await logAction("unsubscribe", `Unsubscribed from ${succeeded.length} more ${name} addresses`);
+    if (succeeded.length > 0)
+      await logAction("unsubscribe", `Unsubscribed from ${succeeded.length} more ${name} addresses`);
     justStopped = null;
     renderSubscriptionsTab(ctx.senders);
   };
@@ -185,29 +186,64 @@ function siblingOffer(available: SenderSummary[]): HTMLElement | null {
   return banner;
 }
 
-/** Moves a sender's old list mail to Trash, re-checking protection live. */
-async function trashOldMail(sender: SenderSummary, ids: string[], kept: number): Promise<string> {
+/** Moves a sender's old list mail to Trash (or archives it), re-checking protection live. */
+async function trashOldMail(
+  sender: SenderSummary,
+  ids: string[],
+  kept: number,
+  op: "trash" | "archive" = "trash",
+): Promise<string> {
   const provider = providerById.get(sender.provider);
   if (!provider) return "Couldn't reach your mail, so nothing was moved";
   const { safe, skipped } = await filterOutProtected(new Map([[sender.provider, ids]]), providerById);
   const targetIds = safe.get(sender.provider) ?? [];
   if (targetIds.length === 0)
     return skipped > 0 ? `Skipped ${skipped} you starred since the scan` : "Nothing left to move";
-  const job = await createDurableJob({ provider: sender.provider, operation: "trash", targetIds });
+  const job = await createDurableJob({ provider: sender.provider, operation: op, targetIds });
   const result = await runDurableJob(job.id, providerById);
+  const where = op === "trash" ? "to Trash" : "to the archive";
   if (result.succeededIds.length > 0) {
+    const undo = op === "trash" ? provider.untrashMessages : provider.unarchiveMessages;
     await logAction(
-      "trash",
-      `Moved ${result.succeededIds.length} old message${result.succeededIds.length === 1 ? "" : "s"} from ${sender.address} to Trash`,
-      provider.untrashMessages
-        ? { provider: sender.provider, ids: result.succeededIds, via: "untrash" }
+      op,
+      `Moved ${result.succeededIds.length} old message${result.succeededIds.length === 1 ? "" : "s"} from ${sender.address} ${where}`,
+      undo
+        ? {
+            provider: sender.provider,
+            ids: result.succeededIds,
+            via: op === "trash" ? "untrash" : "unarchive",
+          }
         : undefined,
     );
   }
   const skippedNote = skipped > 0 ? `, skipped ${skipped} you starred since the scan` : "";
   return result.failures.length > 0
     ? `Moved ${result.succeededIds.length}, failed ${result.failures.length}, kept ${kept}${skippedNote}`
-    : `Moved ${result.succeededIds.length} to Trash, kept ${kept}${skippedNote}`;
+    : `Moved ${result.succeededIds.length} ${where}, kept ${kept}${skippedNote}`;
+}
+
+const UNSUBSCRIBE_GRACE_MS = 3000;
+
+/** "Unsubscribing… Undo" for a moment before the request goes out. True when it should go. */
+function graceWithUndo(cell: HTMLElement): Promise<boolean> {
+  const before = Array.from(cell.childNodes);
+  return new Promise((resolve) => {
+    const undo = Object.assign(document.createElement("button"), {
+      type: "button",
+      className: "btn",
+      textContent: "Undo",
+    });
+    const timer = setTimeout(() => {
+      cell.replaceChildren(...before);
+      resolve(true);
+    }, UNSUBSCRIBE_GRACE_MS);
+    undo.onclick = () => {
+      clearTimeout(timer);
+      cell.replaceChildren(...before);
+      resolve(false);
+    };
+    cell.replaceChildren("Unsubscribing… ", undo);
+  });
 }
 
 /** They stopped on their own: nothing to unsubscribe from, only old mail to clear. */
@@ -221,8 +257,12 @@ function clearOldMailButton(sender: SenderSummary): HTMLElement | null {
   const reset = () => slot.replaceChildren(btn);
   btn.onclick = () => {
     const kept = cleanup.protectedIds.length + cleanup.retainedOtherIds.length;
-    renderConfirmStep(slot, reset, `Move ${n} old message${n === 1 ? "" : "s"} to Trash? ${kept} stay.`, true, () =>
-      trashOldMail(sender, cleanup.safeNewsletterIds, kept),
+    renderConfirmStep(
+      slot,
+      reset,
+      `Move ${n} old message${n === 1 ? "" : "s"} to Trash? ${kept} stay.`,
+      true,
+      () => trashOldMail(sender, cleanup.safeNewsletterIds, kept),
     );
   };
   reset();
@@ -241,6 +281,8 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
         : "Request again"
       : "Unsubscribe";
     btn.onclick = async () => {
+      const host = btn.parentElement;
+      if (host && !(await graceWithUndo(host))) return;
       btn.disabled = true;
       btn.textContent = "Requesting…";
       const ok = await fireOneClickUnsubscribe(u.postUrl!);
@@ -257,31 +299,34 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
     cell.appendChild(btn);
 
     const cleanup = buildSenderCleanupPlan(sender, buildProtectionContext(ctx.settings));
-    if (cleanup.safeNewsletterIds.length > 0) {
-      const cleanSlot = document.createElement("span");
-      const cleanBtn = document.createElement("button");
-      cleanBtn.className = "danger";
-      cleanBtn.textContent = "Unsubscribe and clear old mail";
-      const reset = () => {
-        cleanSlot.replaceChildren(cleanBtn);
-      };
-      cleanBtn.onclick = () => {
-        const kept = cleanup.protectedIds.length + cleanup.retainedOtherIds.length;
+    const n = cleanup.safeNewsletterIds.length;
+    const kept = cleanup.protectedIds.length + cleanup.retainedOtherIds.length;
+    const stopAnd = (label: string, op: "trash" | "archive") => {
+      const slot = document.createElement("span");
+      const button = Object.assign(document.createElement("button"), {
+        textContent: label,
+        className: op === "trash" ? "danger" : "",
+      });
+      const reset = () => slot.replaceChildren(button);
+      button.onclick = () =>
         renderConfirmStep(
-          cleanSlot,
+          slot,
           reset,
-          `Unsubscribe from ${sender.address} and move ${cleanup.safeNewsletterIds.length} newsletter message${cleanup.safeNewsletterIds.length === 1 ? "" : "s"} to Trash? ${kept} transactional, sensitive, starred, or ambiguous message${kept === 1 ? " stays" : "s stay"}.`,
-          true,
+          `Unsubscribe from ${sender.address} and move ${n} old message${n === 1 ? "" : "s"} ${op === "trash" ? "to Trash" : "out of your inbox"}? ${kept} stay.`,
+          op === "trash",
           async () => {
             const ok = await fireOneClickUnsubscribe(u.postUrl!);
             if (!ok) return "Unsubscribe failed, so no mail was moved";
             await recordUnsubscribeRequests([sender]);
-            return `Unsubscribed. ${await trashOldMail(sender, cleanup.safeNewsletterIds, kept)}`;
+            return `Unsubscribed. ${await trashOldMail(sender, cleanup.safeNewsletterIds, kept, op)}`;
           },
         );
-      };
       reset();
-      cell.append(" ", cleanSlot);
+      cell.append(" ", slot);
+    };
+    if (n > 0) {
+      stopAnd("Stop and trash old", "trash");
+      if (providerById.get(sender.provider)?.archiveMessages) stopAnd("Stop and archive old", "archive");
     }
   } else if (u.mailto) {
     const button = document.createElement("button");
@@ -501,7 +546,11 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
       const outcomeText = outcome.requestAt
         ? `${outcome.label} · requested ${formatRelativeTime(outcome.requestAt)}`
         : `${unsubMethodLabel(sender.unsubscribe)} · mostly ${dominantKind(sender)}`;
-      const subLine = [cadenceLabel(senderVolume(sender), ctx.settings.scanWindowDays), outcomeText, sender.displayName ? sender.address : ""]
+      const subLine = [
+        cadenceLabel(senderVolume(sender), ctx.settings.scanWindowDays),
+        outcomeText,
+        sender.displayName ? sender.address : "",
+      ]
         .filter(Boolean)
         .join(" · ");
 
