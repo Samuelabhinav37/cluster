@@ -15,6 +15,8 @@ import { logAction } from "./recentTab";
 import { renderScreenerBacklog } from "./screenerBacklog";
 import { clusterLabelName } from "../lib/clusterLabels";
 import { renderConfirmStep } from "./ui";
+import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
+import { recordUnsubscribeRequests } from "./unsubscribeRecord";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -247,11 +249,17 @@ function buildScreenerRow(s: SenderSummary): HTMLDivElement {
   const block = document.createElement("button");
   block.className = "btn btn-ghost";
   block.textContent = "Block";
-  block.title = "Their mail goes to Muted from now on";
+  // Only a signed company gets an unsubscribe: to a spammer it just proves the address is read.
+  const stopUrl = ctx.profiles.get(s.key)?.companyKey ? s.unsubscribe.postUrl : undefined;
+  block.title = stopUrl
+    ? "Their mail goes to Muted from now on, and they're asked to stop"
+    : "Their mail goes to Muted from now on";
   block.onclick = async () => {
     block.disabled = true;
     try {
       await releaseHeldSender(s.address, idsSafeToMoveOut(s), s.provider, "block");
+      if (stopUrl && (await ensureOriginsPermission([stopUrl])) && (await fireOneClickUnsubscribe(stopUrl)))
+        await recordUnsubscribeRequests([s]);
     } catch (err) {
       block.disabled = false;
       log.error(err);

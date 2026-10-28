@@ -4,7 +4,7 @@
 // Action-flow tests for the Screener: turning it on holds every
 // never-corresponded-with sender, then Let in / Block release each one.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { bootDashboard } from "./testHarness";
+import { bootDashboard, fixtureMailbox } from "./testHarness";
 
 function findScreenerCard(container: HTMLElement, address: string): HTMLElement {
   const card = Array.from(container.querySelectorAll(".sender-row")).find((c) =>
@@ -124,6 +124,31 @@ describe("Screener", () => {
       expect(dash.storedSettings().mutedSenders).toContain("code@auth.example");
       expect(dash.storedSettings().screenedSenders).not.toContain("code@auth.example");
     });
+  });
+
+  it("Block also unsubscribes from a signed company", async () => {
+    const auth = "mx.google.com; dkim=pass header.d=shop.example; spf=pass; dmarc=pass";
+    const mailbox = fixtureMailbox().map((m) =>
+      m.fromAddress === "deals@shop.example" ? { ...m, authenticationResults: auth } : m,
+    );
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) =>
+      String(input).includes("googleapis.com")
+        ? new Response(JSON.stringify({ emailAddress: "test@example.com" }), { status: 200 })
+        : new Response("", { status: 202 }),
+    ) as unknown as typeof fetch;
+    const dash = await bootDashboard({ mailbox, fetchImpl, grantOrigins: true });
+    dash.showScreen("screener");
+    const toggle = dash.el("screener-toggle") as HTMLInputElement;
+    toggle.click();
+    toggle.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => findScreenerCard(dash.el("screener-queue"), "deals@shop.example"));
+    const card = findScreenerCard(dash.el("screener-queue"), "deals@shop.example");
+    Array.from(card.querySelectorAll("button")).find((b) => b.textContent === "Block")!.click();
+    await vi.waitFor(() =>
+      expect((fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]))).toContain(
+        "https://shop.example/u",
+      ),
+    );
   });
 
   it("Let in all lets familiar senders in after one confirm, never one with a scam warning", async () => {
