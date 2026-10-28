@@ -3798,10 +3798,10 @@ table.sheet { font-size: 12px; }
   writing-mode: vertical-rl; cursor: pointer; }
 .details-tab:hover { background: var(--neutral-fill); color: var(--label); }
 
-/* Kai lives at the foot of the sidebar; his bubble and chat open up and to the right. */
-.kai-guide { left: 22px; right: auto; bottom: 70px; }
+/* Kai in the bottom-right corner, where people expect an assistant. Details
+   keeps its last rows and action bar clear of him; minimized, he sits beside its strip. */
 .kg-launch { --kg-kai: 56px; }
-.kai-guide .kg-tag { left: 0; right: auto; transform-origin: calc(var(--kg-kai) / 2) calc(100% + 6px); }
-.kai-guide .kg-tag::after { left: calc(var(--kg-kai) / 2 - 5px); right: auto; }
-.kg-panel { left: -4px; right: auto; bottom: 100px; transform-origin: 40px 100%; }
-@media (max-width: 1000px) { .kai-guide { left: 8px; } .kg-launch { --kg-kai: 44px; } .kg-panel { bottom: 80px; } }
+.kg-panel { bottom: 100px; }
+body:has(.details.min) .kai-guide { right: 56px; }
+.details .sheet-wrap { padding-bottom: 72px; }
+.details .selbar { padding-right: 96px; }
