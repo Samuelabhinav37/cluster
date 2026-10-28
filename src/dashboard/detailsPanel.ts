@@ -68,6 +68,8 @@ export interface DetailsActions {
   trash(messages: DetailMessage[], slot: HTMLElement, reset: () => void, settle: Settle): void;
   /** Ask, then archive these. Missing when no connected provider can. */
   archive?(messages: DetailMessage[], slot: HTMLElement, reset: () => void, settle: Settle): void;
+  /** Pin these so no rule touches them. Missing when no connected provider can. */
+  pin?(messages: DetailMessage[], slot: HTMLElement): void;
   /** Ask, then mute these senders. Missing when no connected provider can. */
   mute?(senders: SenderSummary[], slot: HTMLElement, reset: () => void, settle: Settle): void;
 }
@@ -636,6 +638,10 @@ export function initDetailsPanel(
       if (actions.archive) {
         const archive = actions.archive;
         acts.push(button("btn btn-sm", "Archive", () => archive(picked, bar, reset, settle)));
+      }
+      if (actions.pin) {
+        const pin = actions.pin;
+        acts.push(button("btn btn-sm", "Pin", () => pin(picked, bar)));
       }
       acts.push(
         button("btn btn-accent-solid btn-sm", "Move to Trash", () =>

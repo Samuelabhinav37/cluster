@@ -140,6 +140,16 @@ describe("Details panel", () => {
     expect(rows(root)).toHaveLength(4);
   });
 
+  it("Pin gets only what was ticked", () => {
+    const pin = vi.fn<NonNullable<DetailsActions["pin"]>>();
+    const panel = initDetailsPanel(root, { trash, pin }, () => NOW);
+    panel.update(mailbox());
+    panel.open();
+    root.querySelector<HTMLInputElement>("tbody .tick:not(:disabled)")!.click();
+    click(root, ".selbar button", "Pin");
+    expect(pin.mock.calls[0][0].map((m) => m.subject)).toEqual(["Sale today"]);
+  });
+
   it("hides what an action moved at once, and brings it back on Undo", () => {
     const panel = boot();
     panel.open();

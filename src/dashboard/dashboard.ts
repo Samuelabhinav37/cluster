@@ -1704,6 +1704,20 @@ function wireDetails() {
           });
         }
       : undefined,
+    pin: [...providerById.values()].some((p) => p.pinMessages)
+      ? async (messages, slot) => {
+          let done = 0;
+          for (const [pid, ids] of idsByProvider(messages)) {
+            const provider = providerById.get(pid);
+            if (!provider?.pinMessages || ids.length === 0) continue;
+            await provider.pinMessages(await provider.getAuthToken(false), ids);
+            done += ids.length;
+          }
+          slot.replaceChildren(`Pinned ${done}. Rules leave them alone.`);
+          await logAction("pin", `Pinned ${done} from Details`);
+          void refreshView();
+        }
+      : undefined,
     mute: [...providerById.values()].some((p) => p.muteSender)
       ? (senders, slot, reset, settle) => {
           const can = senders.filter((s) => providerById.get(s.provider)?.muteSender);

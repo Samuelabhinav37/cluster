@@ -10,6 +10,7 @@ import { mutateSettings } from "./settingsStore";
 export type ActionLogKind =
   | "trash"
   | "archive"
+  | "pin"
   | "markRead"
   | "mute"
   | "unsubscribe"

@@ -287,6 +287,10 @@ export const gmailProvider: EmailProvider = {
     await apiArchiveMessages(token, ids);
   },
 
+  async pinMessages(token, ids) {
+    await batchModify(token, ids, ["STARRED"], []);
+  },
+
   async unarchiveMessages(token, ids) {
     await apiUnarchiveMessages(token, ids);
   },

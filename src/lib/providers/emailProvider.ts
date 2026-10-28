@@ -192,6 +192,8 @@ export interface EmailProvider {
    * PATCHes isRead / categories via Graph. `keepInInbox` labels in place.
    */
   archiveMessages?(token: string, ids: string[]): Promise<void>;
+  /** Pin: star the mail, which every rule, sort and sweep already leaves alone. */
+  pinMessages?(token: string, ids: string[]): Promise<void>;
   unarchiveMessages?(token: string, ids: string[]): Promise<void>;
   markReadMessages?(token: string, ids: string[]): Promise<void>;
   /** Apply a label. `keepInInbox` (default false) leaves the mail in the
