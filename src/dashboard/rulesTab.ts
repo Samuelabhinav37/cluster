@@ -64,7 +64,12 @@ let pendingRuleDraft: ClusterRule | undefined;
 export function renderRulesTab() {
   rulesListEl.innerHTML = "";
   renderRuleDryRun();
-  if (ctx.settings.rules.length === 0) {
+  // With no rules there is nothing to preview or apply.
+  const none = ctx.settings.rules.length === 0;
+  rulePreviewEl.hidden = none;
+  const applySlot = document.getElementById("rule-apply-slot");
+  if (applySlot) applySlot.hidden = none;
+  if (none) {
     const p = document.createElement("p");
     p.className = "empty-state";
     p.textContent = "No rules yet.";

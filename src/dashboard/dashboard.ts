@@ -2909,7 +2909,7 @@ function neverOpenedSkipsInboxCard(): HTMLElement | null {
     "never-opened",
     "Never opened",
     `Skip the inbox · ${senders.length} ${senders.length === 1 ? "sender" : "senders"}`,
-    "Turn on",
+    "Move out",
     `Send mail from ${senders.length} ${senders.length === 1 ? "sender" : "senders"} you never open to "${label}", now and from now on?`,
     async () => {
       let done = 0;

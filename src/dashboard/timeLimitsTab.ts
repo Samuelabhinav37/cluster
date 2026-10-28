@@ -446,7 +446,7 @@ export function renderPresets(senders: readonly SenderSummary[] = presetSenders)
 }
 
 const PRESET_GROUPS: ReadonlyArray<[head: string, ids: string[]]> = [
-  ["Leave the inbox", PRESETS.map((p) => p.id)],
+  ["Archive after a while", PRESETS.map((p) => p.id)],
   ["Arrive on time", ["saturday", "no-reply"]],
   ["Tidy once", ["never-opened", "keep-newest"]],
 ];

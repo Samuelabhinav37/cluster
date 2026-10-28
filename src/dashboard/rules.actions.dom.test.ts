@@ -57,7 +57,7 @@ describe("Rules screen — manual rule composer", () => {
   });
 });
 
-describe("Rules screen — Apply enabled rules now", () => {
+describe("Rules screen — Run rules now", () => {
   it("trashes every matching message for a clean rule", async () => {
     const dash = await bootDashboard();
     dash.showScreen("organize");
