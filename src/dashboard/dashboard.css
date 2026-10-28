@@ -3006,7 +3006,6 @@ body {
 /* where Kai points: a soft outline for a moment */
 .kai-here { outline: 2px solid var(--accent-text); outline-offset: 4px; border-radius: 14px; animation: kai-here 2.6s cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes kai-here { 0% { outline-color: transparent; } 12%, 70% { outline-color: var(--accent-text); } 100% { outline-color: transparent; } }
-@media (max-width: 600px) { .kai-guide { right: 12px; bottom: 10px; } .kg-launch { --kg-kai: 56px; } .kg-panel { bottom: 100px; } }
 @media (prefers-reduced-motion: reduce) {
   .kai-guide .kg-tag, .kg-tag-text, .kg-panel, .kg-msg, .kg-msg.typing i, .kai-list, .kai-here { animation: none; transition: none; }
   .kai-guide.thinking .kg-panel::before { animation: none; }
@@ -3527,8 +3526,6 @@ table.sheet { width: 100%; border-collapse: collapse; table-layout: fixed; font-
 .kind-legend button { margin-left: -6px; padding: 2px 6px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; }
 .kind-legend button:hover { background: var(--neutral-fill); }
 /* Kai steps left of the open sheet instead of covering its action bar. */
-body.details-open .kai-guide { right: calc(max(25vw, 320px) + 24px); }
-body.details-open:has(.details.wide) .kai-guide { right: calc(50vw + 24px); }
 @media (max-width: 900px) {
   .details, .details.wide { position: fixed; inset: 0; z-index: 40; width: auto; min-width: 0; height: auto; }
   .details.min { inset: 30% 0 auto auto; height: 140px; border-radius: 12px 0 0 12px; }
@@ -3741,15 +3738,6 @@ table.sheet { font-size: 12px; }
 [data-screen="delete"] .rec-card { gap: 4px; }
 [data-screen="delete"] .rec-card .app-ic { width: 34px; height: 34px; margin-bottom: 8px; }
 .rec-card .app-ic .i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.preset-codes { background: linear-gradient(#ffd23d, #f2a60a); }
-.preset-promotions { background: linear-gradient(#ff7a9c, #e9406b); }
-.preset-newsletters, .preset-saturday { background: linear-gradient(#ffa63d, #f47a0a); }
-.preset-receipts { background: linear-gradient(#4cd0a0, #1fa077); }
-.preset-social { background: linear-gradient(#5ac8fa, #1e95d6); }
-.preset-shopping { background: linear-gradient(#d07cff, #a446e0); }
-.preset-updates { background: linear-gradient(#9aa0a8, #6e747c); }
-.preset-no-reply, .preset-keep-newest { background: linear-gradient(#3d9bff, #0a6cff); }
-.preset-never-opened { background: linear-gradient(#a879ff, #7a4cf0); }
 
 /* ── iOS Settings lists (2026-10-27): Organize, Settings, Protect ── */
 /* Titles stand alone, no sentence under them (screens still fill .lead for
@@ -3763,8 +3751,9 @@ table.sheet { font-size: 12px; }
 .ios-row, .set-row, #presets .rec-card { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; column-gap: 14px; align-items: center;
   min-height: 52px; padding: 10px 16px; border: 0; border-radius: 0; background: none; box-shadow: none; }
 .ios-row + .ios-row, .set-row + .set-row, #presets .rec-card + .rec-card { border-top: 1px solid var(--separator); }
-.ios-row .app-ic, .set-ic, #presets .rec-card .app-ic { grid-row: 1 / span 2; width: 30px; height: 30px; margin: 0; border-radius: 8px; }
-.ios-row .app-ic .i, .set-ic svg, #presets .rec-card .app-ic .i { width: 17px; height: 17px; fill: none; stroke: #fff; stroke-width: 2;
+.ios-row .app-ic, .set-ic, #presets .rec-card .app-ic { grid-row: 1 / span 2; width: 30px; height: 30px; margin: 0; border-radius: 8px; background: var(--neutral-fill); }
+.ios-row .app-warn .i { stroke: var(--danger-text); }
+.ios-row .app-ic .i, .set-ic svg, #presets .rec-card .app-ic .i { width: 17px; height: 17px; fill: none; stroke: var(--label-2); stroke-width: 2;
   stroke-linecap: round; stroke-linejoin: round; }
 .ios-row .grow, .set-row .grow { grid-row: 1 / span 2; display: flex; flex-direction: column; font-size: 15px; color: var(--label); }
 .ios-row .sub, .set-row .sub { font-size: 12px; color: var(--label-4); }
@@ -3776,11 +3765,6 @@ table.sheet { font-size: 12px; }
 .ios-value { color: var(--label-4); font-size: 14px; }
 .ios-value.warn { color: var(--danger-text); font-weight: 600; }
 .set-ic { display: grid; place-items: center; }
-.set-ic-gray, .app-gray { background: linear-gradient(#9aa0a8, #6e747c); }
-.set-ic-red, .app-warn { background: linear-gradient(#ff6961, #e0352b); }
-.set-ic-blue { background: linear-gradient(#3d9bff, #0a6cff); }
-.set-ic-green, .app-ok { background: linear-gradient(#4cd964, #28a745); }
-.set-ic-indigo { background: linear-gradient(#5a6cff, #3346d9); }
 .set-sec { display: block; padding: 0; border: 0; }
 .settings-list { display: flex; flex-direction: column; gap: 24px; }
 #auto-quarantine-row { padding: 10px 16px; border-radius: 0; }
@@ -3813,4 +3797,11 @@ table.sheet { font-size: 12px; }
 .details-tab { flex: 1; padding: 14px 0; border: 0; background: none; color: var(--label-3); font: 600 12px var(--font);
   writing-mode: vertical-rl; cursor: pointer; }
 .details-tab:hover { background: var(--neutral-fill); color: var(--label); }
-body:has(.details.min) .kai-guide { right: 64px; }
+
+/* Kai lives at the foot of the sidebar; his bubble and chat open up and to the right. */
+.kai-guide { left: 22px; right: auto; bottom: 70px; }
+.kg-launch { --kg-kai: 56px; }
+.kai-guide .kg-tag { left: 0; right: auto; transform-origin: calc(var(--kg-kai) / 2) calc(100% + 6px); }
+.kai-guide .kg-tag::after { left: calc(var(--kg-kai) / 2 - 5px); right: auto; }
+.kg-panel { left: -4px; right: auto; bottom: 100px; transform-origin: 40px 100%; }
+@media (max-width: 1000px) { .kai-guide { left: 8px; } .kg-launch { --kg-kai: 44px; } .kg-panel { bottom: 80px; } }
