@@ -20,6 +20,8 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
     rules: [],
     actionLog: [],
     mutedSenders: [],
+    personOverrides: {},
+    groupSendersByCompany: true,
     screenerEnabled: false,
     screenerAllowlist: [],
     screenedSenders: [],

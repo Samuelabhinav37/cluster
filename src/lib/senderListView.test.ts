@@ -6,6 +6,7 @@ import {
   foldByCompany,
   groupByCompany,
   isPerson,
+  talksTo,
   mainTemplate,
   profileLine,
   sortSenders,
@@ -101,5 +102,39 @@ describe("foldByCompany", () => {
     if (company.kind !== "company") throw new Error("expected a company");
     expect(company.group.senders).toHaveLength(3);
     expect(companyName(company.group)).toBe("LinkedIn");
+  });
+});
+
+describe("List-Id groups, person override, companies you talk to", () => {
+  it("folds one signed newsletter across addresses, but not an unsigned copy", async () => {
+    const list = { listId: "weekly.letter.example", listIdSigned: true, authenticationResults: "" };
+    const rows = [
+      ...many(3, { fromAddress: "a@send1.example", ...list }),
+      ...many(2, { fromAddress: "b@send2.example", ...list }),
+      ...many(2, { fromAddress: "fake@other.example", listId: "weekly.letter.example", authenticationResults: "" }),
+    ];
+    const { list: senderList, profiles } = await setup(rows);
+    const groups = groupByCompany(senderList, profiles);
+    expect(groups.map((g) => [g.key, g.senders.length])).toEqual([["list:weekly.letter.example", 2]]);
+  });
+
+  it("lets the user's call win over the guess", async () => {
+    const { profiles } = await setup(many(3, { fromAddress: "pat@gmail.com", unread: false }));
+    const p = profiles.get("gmail:pat@gmail.com")!;
+    expect(isPerson({ ...p, personOverride: true })).toBe(true);
+    expect(isPerson({ ...p, personOverride: false })).toBe(false);
+  });
+
+  it("finds companies you write to", async () => {
+    const rows = [
+      ...many(3, { fromAddress: "help@bank.example", authenticationResults: signed("bank.example") }),
+      ...many(3, { fromAddress: "news@shop.example", authenticationResults: signed("shop.example") }),
+    ];
+    const sent: SentRecord[] = [
+      { id: "s", provider: "gmail", sentAt: NOW - DAY, to: [{ address: "help@bank.example", name: "" }], cc: [], bcc: [] },
+    ];
+    const { list, profiles } = await setup(rows, sent);
+    const talked = groupByCompany(list, profiles).filter((g) => talksTo(g, profiles));
+    expect(talked.map((g) => g.key)).toEqual(["bank.example"]);
   });
 });

@@ -5,7 +5,7 @@
 // scan each. Pure: no storage, no network.
 import { buildCorrespondents } from "./correspondents";
 import { passingDkimDomains } from "./emailAuth";
-import { isSharedSenderDomain } from "./freeMail";
+import { isListedPlatform, isSharedSenderDomain } from "./freeMail";
 import type { CensusRow } from "./mailIndex";
 import { classifyMessageKind, looksAutomated } from "./messageKind";
 import type { NormalizedMessageMetadata, ProviderId, SentRecord } from "./providers/emailProvider";
@@ -67,8 +67,15 @@ export interface SenderProfile {
   tier: SenderTier;
   /** Their most common List-Id, if their mail carries one. */
   listId?: string;
+  /** That List-Id is covered by a DKIM signature aligned with the sender. */
+  listIdSigned: boolean;
+  /** The user's own call from "This is a person" / "Not a person". */
+  personOverride?: boolean;
   /** Registrable domain of an authenticated company sender; null otherwise. */
   companyKey: string | null;
+  /** The platform that sent it for someone else, such as myworkday.com for
+   * "Walmart", shown as Gmail does: "via myworkday.com". */
+  via?: string;
   /** Repeated templates, most first, each with TEMPLATE_MIN or more. */
   templates: TemplateGroup[];
   /** Copies dropped because they shared a Message-ID with another row. */
@@ -223,6 +230,13 @@ function companyKeyFor(
   return aligned ? root : null;
 }
 
+function viaPlatform(address: string, platforms: ReadonlySet<string>): string | undefined {
+  const domain = domainOfAddress(address);
+  if (!domain) return undefined;
+  const root = registrableDomain(domain);
+  return isListedPlatform(domain) || platforms.has(root) ? root : undefined;
+}
+
 function buildTemplates(rows: readonly NormalizedMessageMetadata[]): TemplateGroup[] {
   const groups = new Map<string, TemplateGroup>();
   for (const m of rows) {
@@ -309,6 +323,7 @@ export function buildSenderProfiles(inputs: ProfileInputs): Map<string, SenderPr
     const counted = census.get(key);
     const unreadRead = rows.filter((m) => m.unread).length;
     const correspondent = correspondents.get(address);
+    const listId = mostCommon(rows.map((m) => m.listId));
     const base: Omit<SenderProfile, "tier"> = {
       key,
       provider: first.provider,
@@ -332,8 +347,10 @@ export function buildSenderProfiles(inputs: ProfileInputs): Map<string, SenderPr
       replied,
       machine: bulkCount * 2 > rows.length || ROLE_LOCAL_PART.test(address.split("@")[0] ?? ""),
       kind: majority(votes, voted),
-      listId: mostCommon(rows.map((m) => m.listId)),
+      listId,
+      listIdSigned: rows.some((m) => m.listIdSigned && m.listId === listId),
       companyKey: companyKeyFor(address, rows, platforms),
+      via: viaPlatform(address, platforms),
       templates: buildTemplates(rows),
       duplicates: dupIds.length,
       duplicateIds: dupIds,

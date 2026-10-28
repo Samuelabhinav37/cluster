@@ -22,6 +22,7 @@ const TIER_ORDER: SenderTier[] = ["close", "known", "regular", "other", "new", "
  * their mail reads person to person. Starring or answering a receipt makes
  * service@paypal.com important, not a person. */
 export function isPerson(profile: SenderProfile | undefined): boolean {
+  if (profile?.personOverride !== undefined) return profile.personOverride;
   return (
     (profile?.tier === "close" || profile?.tier === "known") && !profile.machine && profile.kind === "person"
   );
@@ -73,10 +74,18 @@ export interface CompanyGroup {
   openRate: number | null;
 }
 
+/** What folds a sender with others: its authenticated company, else its
+ * signed List-Id (one newsletter sent from several addresses). */
+export function groupKeyFor(profile: SenderProfile | undefined): string | null {
+  if (!profile || isPerson(profile)) return null;
+  if (profile.companyKey) return profile.companyKey;
+  return profile.listId && profile.listIdSigned ? `list:${profile.listId}` : null;
+}
+
 /**
- * Senders grouped by authenticated company (senderProfile companyKey).
- * Senders without one, such as people on free mail, are left out: a shared
- * domain never stands for one company.
+ * Senders grouped by authenticated company (senderProfile companyKey), or by
+ * signed List-Id when there is none. Other senders, such as people on free
+ * mail, are left out: a shared domain never stands for one company.
  */
 export function groupByCompany(
   senders: readonly SenderSummary[],
@@ -85,9 +94,10 @@ export function groupByCompany(
   const groups = new Map<string, CompanyGroup & { judged: number; opened: number }>();
   for (const sender of senders) {
     const profile = profiles.get(sender.key);
-    if (!profile?.companyKey || isPerson(profile)) continue;
-    const group = groups.get(profile.companyKey) ?? {
-      key: profile.companyKey,
+    const key = groupKeyFor(profile);
+    if (!profile || !key) continue;
+    const group = groups.get(key) ?? {
+      key,
       senders: [],
       total: 0,
       unread: 0,
@@ -100,7 +110,7 @@ export function groupByCompany(
     group.unread += senderUnread(sender);
     group.judged += profile.judged;
     group.opened += Math.round((profile.openRate ?? 0) * profile.judged);
-    groups.set(profile.companyKey, group);
+    groups.set(key, group);
   }
   return [...groups.values()]
     .map(({ judged, opened, ...g }) => ({ ...g, openRate: judged > 0 ? opened / judged : null }))
@@ -114,7 +124,7 @@ export function companyName(group: CompanyGroup): string {
     const name = s.displayName?.trim();
     if (name) byName.set(name, (byName.get(name) ?? 0) + senderVolume(s));
   }
-  let best = group.key;
+  let best = group.key.replace(/^list:/, "");
   let most = 0;
   for (const [name, n] of byName) if (n > most) [best, most] = [name, n];
   return best;
@@ -139,8 +149,8 @@ export function foldByCompany(
   const out: ListEntry[] = [];
   const placed = new Set<string>();
   for (const sender of sorted) {
-    const key = profiles.get(sender.key)?.companyKey;
-    const group = key && !isPerson(profiles.get(sender.key)) ? groups.get(key) : undefined;
+    const key = groupKeyFor(profiles.get(sender.key));
+    const group = key ? groups.get(key) : undefined;
     if (!group) {
       out.push({ kind: "sender", sender });
       continue;
@@ -150,4 +160,13 @@ export function foldByCompany(
     out.push({ kind: "company", group });
   }
   return out;
+}
+
+/** A company you write to or answer, such as your bank's support desk:
+ * not a person, but not mail to clear out either. */
+export function talksTo(group: CompanyGroup, profiles: ReadonlyMap<string, SenderProfile>): boolean {
+  return group.senders.some((s) => {
+    const p = profiles.get(s.key);
+    return Boolean(p && (p.youWrote > 0 || p.replied));
+  });
 }

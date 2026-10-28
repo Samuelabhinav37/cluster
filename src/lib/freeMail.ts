@@ -49,7 +49,12 @@ const SHARED_SENDER_PLATFORMS: ReadonlySet<string> = new Set([
   "rsgsv.net",
 ]);
 
+/** A listed platform that sends for many customers (Substack, Workday). */
+export function isListedPlatform(domain: string): boolean {
+  return SHARED_SENDER_PLATFORMS.has(registrableDomain(domain.toLowerCase()));
+}
+
 /** Free-mail or a newsletter platform: the domain never stands for one sender. */
 export function isSharedSenderDomain(domain: string): boolean {
-  return isFreeMailDomain(domain) || SHARED_SENDER_PLATFORMS.has(registrableDomain(domain.toLowerCase()));
+  return isFreeMailDomain(domain) || isListedPlatform(domain);
 }

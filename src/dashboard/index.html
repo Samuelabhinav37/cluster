@@ -581,6 +581,11 @@
                       ></path></svg
                     >Companies
                   </button>
+                  <button type="button" data-filter="talk" aria-pressed="false">
+                    <svg class="li" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg
+                    >You write to
+                  </button>
                   <button type="button" data-filter="subs" aria-pressed="false">
                     <svg class="li" viewBox="0 0 24 24" aria-hidden="true">
                       <rect width="18" height="16" x="3" y="4" rx="2"></rect>
@@ -638,6 +643,10 @@
                       <option value="lastOpened">Longest since opened</option>
                       <option value="people">People first</option>
                     </select>
+                  </label>
+                  <label class="sender-group">
+                    <input type="checkbox" class="switch" role="switch" id="sender-group-company" checked />
+                    Group companies
                   </label>
                 </div>
                 <div id="all-senders-list"></div>

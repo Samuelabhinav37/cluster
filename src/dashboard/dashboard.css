@@ -2825,6 +2825,12 @@ body {
 .sender-sort select {
   min-height: 44px;
 }
+.sender-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
 
 /* Senders: a company's addresses {
   padding-left: 40px;

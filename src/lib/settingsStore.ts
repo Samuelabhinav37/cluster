@@ -57,6 +57,10 @@ export interface ClusterSettings {
   actionLog: ActionLogEntry[];
   /** From-addresses the user has muted via the local BlackHole. */
   mutedSenders: string[];
+  /** "This is a person" (true) / "Not a person" (false), by sender key. */
+  personOverrides: Record<string, boolean>;
+  /** Senders list folds a company's addresses into one row. */
+  groupSendersByCompany: boolean;
   /** Screener master switch (Phase 6). */
   screenerEnabled: boolean;
   /** Addresses the user has explicitly let through the Screener. */
@@ -204,6 +208,8 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   rules: [],
   actionLog: [],
   mutedSenders: [],
+  personOverrides: {},
+  groupSendersByCompany: true,
   screenerEnabled: false,
   screenerAllowlist: [],
   screenedSenders: [],

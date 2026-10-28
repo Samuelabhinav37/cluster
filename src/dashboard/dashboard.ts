@@ -60,8 +60,10 @@ import {
   type CompanyGroup,
   groupByCompany,
   isPerson,
+  type ListEntry,
   profileLine,
   sortSenders,
+  talksTo,
   type SenderSortId,
 } from "../lib/senderListView";
 import { getSettings, mutateSettings, updateSettings, type ClusterSettings } from "../lib/settingsStore";
@@ -974,6 +976,10 @@ async function scanAndRender({
       .filter(Boolean),
     knownSenders: buildProtectionContext(ctx.settings).knownSenders,
   });
+  for (const [key, isPersonCall] of Object.entries(ctx.settings.personOverrides)) {
+    const profile = ctx.profiles.get(key);
+    if (profile) profile.personOverride = isPersonCall;
+  }
   readUnsubscribeReplies(metas);
   for (const { run } of runs) refreshWhenDone(run);
   let senders = combined.cleanup;
@@ -1755,7 +1761,7 @@ function updateSenderBulkBar() {
 // A flat, searchable, filterable list of every scanned sender. The pixel
 // exact "engagement bar + one action" row treatment lands in the All-senders
 // screen commit; this keeps the screen populated and the controls live.
-type SenderFilterId = "all" | "people" | "companies" | "subs" | "never" | "quiet" | "muted";
+type SenderFilterId = "all" | "people" | "companies" | "talk" | "subs" | "never" | "quiet" | "muted";
 let allSendersFilter: SenderFilterId = "all";
 let allSendersSort: SenderSortId = "volume";
 let allSendersQuery = "";
@@ -1856,7 +1862,9 @@ function renderSenderCard() {
   );
   fact(total.toLocaleString(), total === 1 ? "email" : "emails");
   fact(total > 0 ? `${Math.round((1 - senderUnread(sender) / total) * 100)}%` : "None", "opened");
-  fact(profileLine(ctx.profiles.get(sender.key)) || "Now and then", "how often");
+  const profile = ctx.profiles.get(sender.key);
+  fact(profileLine(profile) || "Now and then", "how often");
+  if (profile?.via) who.append(textEl("span", `via ${profile.via}`));
 
   const { area, groups, run } = actionArea(sender);
   if (sender.protectedMessageIds.length > 0)
@@ -1869,6 +1877,17 @@ function renderSenderCard() {
     for (const g of groups) if (g.act !== act && g.act !== "snooze") btn(g.label, "btn", () => run(g.act));
   }
   btn("Show emails", "btn", () => details?.open({ view: "emails", senderKey: sender.key }));
+  if (profile) {
+    const person = isPerson(profile);
+    btn(person ? "Not a person" : "This is a person", "btn", async () => {
+      ctx.settings = await mutateSettings((s) => ({
+        ...s,
+        personOverrides: { ...s.personOverrides, [sender.key]: !person },
+      }));
+      profile.personOverride = !person;
+      renderAllSenders(ctx.senders);
+    });
+  }
   card.append(who, facts, acts, area);
 }
 
@@ -1900,6 +1919,14 @@ function wireAllSendersControls() {
       renderAllSenders(ctx.senders);
     };
   });
+  const groupToggle = document.getElementById("sender-group-company") as HTMLInputElement | null;
+  if (groupToggle) {
+    groupToggle.checked = ctx.settings.groupSendersByCompany;
+    groupToggle.addEventListener("change", async () => {
+      ctx.settings = await updateSettings({ groupSendersByCompany: groupToggle.checked });
+      renderAllSenders(ctx.senders);
+    });
+  }
 }
 
 function filteredSenders(senders: SenderSummary[]): SenderSummary[] {
@@ -1949,7 +1976,7 @@ function renderCompanyRows(senders: SenderSummary[]) {
     const opens = group.openRate === null ? "" : ` · opens ${Math.round(group.openRate * 100)}%`;
     return listRow({
       lead: makeLogoTile(group.senders[0], "sz-34"),
-      title: group.key,
+      title: companyName(group),
       sub: `${group.senders.length} address${group.senders.length === 1 ? "" : "es"} · ${group.total.toLocaleString()} messages${opens}`,
       actions: [show],
     });
@@ -1969,11 +1996,14 @@ function renderAllSenders(senders: SenderSummary[]) {
     renderCompanyRows(filteredSenders(senders));
     return;
   }
+  const sorted = sortSenders(filteredSenders(senders), ctx.profiles, allSendersSort);
   // A company's addresses fold into one row (LinkedIn, not five LinkedIns).
-  const rows = foldByCompany(
-    sortSenders(filteredSenders(senders), ctx.profiles, allSendersSort),
-    ctx.profiles,
-  );
+  let rows: ListEntry[] =
+    ctx.settings.groupSendersByCompany || allSendersFilter === "talk"
+      ? foldByCompany(sorted, ctx.profiles)
+      : sorted.map((sender) => ({ kind: "sender", sender }));
+  if (allSendersFilter === "talk")
+    rows = rows.filter((e) => e.kind === "company" && talksTo(e.group, ctx.profiles));
   // A folded company counts all its addresses, so re-rank by the total.
   if (allSendersSort === "volume") {
     const size = (e: (typeof rows)[number]) => (e.kind === "sender" ? senderVolume(e.sender) : e.group.total);
@@ -2035,7 +2065,9 @@ function buildAllSendersRow(sender: SenderSummary): HTMLElement {
     sender.protectedMessageIds.length > 0 ? "Starred" : "",
     ctx.settings.mutedSenders.includes(sender.address) ? "Muted" : "",
   ];
-  const sub = [...marks, profileLine(ctx.profiles.get(sender.key)), sender.displayName ? sender.address : ""]
+  const profile = ctx.profiles.get(sender.key);
+  const via = profile?.via ? `via ${profile.via}` : "";
+  const sub = [...marks, via, profileLine(profile), sender.displayName ? sender.address : ""]
     .filter(Boolean)
     .join(" · ");
   const row = listRow({

@@ -173,6 +173,9 @@ describe("buildSenderProfiles", () => {
     expect(out.get("gmail:walmart@myworkday.com")!.companyKey).toBeNull();
     expect(out.get("gmail:acme@hirehub.example")!.companyKey).toBeNull();
     expect(out.get("gmail:team0@bankofamerica.example")!.companyKey).toBe("bankofamerica.example");
+    expect(out.get("gmail:walmart@myworkday.com")!.via).toBe("myworkday.com");
+    expect(out.get("gmail:acme@hirehub.example")!.via).toBe("hirehub.example");
+    expect(out.get("gmail:team0@bankofamerica.example")!.via).toBeUndefined();
   });
 
   it("counts a copy delivered twice once", () => {

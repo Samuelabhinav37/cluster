@@ -118,4 +118,6 @@ This is the master list. It covers today's chat plus research docs `2026-10-10-a
 - 3.4 + 3.5: platform list (Workday, Greenhouse, Paylocity, Mailchimp) and the platformRoots data rule (d1f064b).
 - 3.9 + 3.10: People need a non-machine person sender, role addresses count as machines (fee87cf).
 
-Still open in step c: 3.6 "via" names, 3.7 List-Id key, 3.8 group-by-company toggle, 3.11 Companies you talk to, 3.12 Not a person.
+- 3.6 + 3.7 + 3.8 + 3.11 + 3.12: "via myworkday.com" on platform senders, a signed List-Id folds one newsletter across addresses, "Group companies" switch on Senders, "You write to" filter, "This is a person" / "Not a person" on the sender card, remembered (see git log).
+
+Step c is done. Next: d (1.1–1.2 permissions, needs a live Google test).

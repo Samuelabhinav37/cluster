@@ -17,7 +17,7 @@ const BUDGET: Record<string, { words: number; controls: number }> = {
   impersonation: { words: 130, controls: 11 }, // holds the scan charts since 2026-10-28
   screener: { words: 70, controls: 6 },
   report: { words: 50, controls: 6 },
-  senders: { words: 85, controls: 18 },
+  senders: { words: 89, controls: 18 },
   settings: { words: 135, controls: 18 }, // six groups added 2026-10-28
   recent: { words: 20, controls: 2 },
 };
