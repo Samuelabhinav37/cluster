@@ -1,5 +1,6 @@
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import { looksLikeDisposableCode } from "./messageKind";
+import { isFreeMailDomain } from "./freeMail";
 import { cleanText } from "./normalize";
 import { knownSenderSet } from "./screener";
 import type { ClusterSettings } from "./settingsStore";
@@ -55,6 +56,14 @@ const SENSITIVE_SUBJECT =
 // one: they would make any promotion undeletable.
 const ACTIVE_OFFER_OR_WINDOW_RE =
   /\b(expires?|valid (thru|through|until)|return (by|window)|exchange (by|window)|redeem by|use by|last day to (return|use|redeem))\b/i;
+
+/** Mail no sort or sweep may move: a person writing to you from their own
+ * mailbox, with no bulk or automated sign. Company mail without bulk headers
+ * (an order, a receipt) still sorts. */
+export function neverMove(message: MessageRecord, senderAddress: string): boolean {
+  const domain = senderAddress.split("@")[1] ?? "";
+  return message.kind === "other" && !message.looksAutomated && !message.promotion && isFreeMailDomain(domain);
+}
 
 /** Central guard used by every bulk-delete-adjacent surface. */
 export function protectionDecision(

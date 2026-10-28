@@ -5,7 +5,7 @@
 import { domainOf } from "./domainGrouping";
 import { resolveLabelName } from "./labelResolver";
 import type { MessageKind } from "./messageKind";
-import { protectionDecision } from "./protectionPolicy";
+import { neverMove, protectionDecision } from "./protectionPolicy";
 import type { SenderKind } from "./senderProfile";
 import type { ProviderId } from "./providers/emailProvider";
 import type { SenderSummary } from "./senderModel";
@@ -70,7 +70,7 @@ export function buildSortPlan(
     const domain = domainOf(sender.address);
     const senderKind = senderKinds.get(sender.key);
     for (const msg of sender.messages) {
-      if (msg.isProtected) continue;
+      if (msg.isProtected || senderKind === "person" || neverMove(msg, sender.address)) continue;
       const kind = kindFromSender(senderKind, msg.kind);
       const promotion = senderKind === "promotion" || (senderKind === undefined || senderKind === "mixed" ? msg.promotion : false);
       const bucket = effectiveBucket(kind, domain, sender.address, overrides, promotion);

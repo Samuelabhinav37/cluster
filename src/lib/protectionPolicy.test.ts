@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildSenderCleanupPlan,
   idsSafeToMoveOut,
+  neverMove,
   protectionDecision,
   type ProtectionContext,
 } from "./protectionPolicy";
@@ -152,5 +153,18 @@ describe("idsSafeToMoveOut", () => {
     ]);
     // Receipts are kept from deletion, not from filing: a mute may file them.
     expect(idsSafeToMoveOut(s)).toEqual(["a", "d"]);
+  });
+});
+
+describe("neverMove", () => {
+  const personal = { id: "m", kind: "other" as const, looksAutomated: false };
+  it("keeps a person's own mail where it is", () => {
+    expect(neverMove(message(personal), "pat@gmail.com")).toBe(true);
+  });
+  it("still moves company mail without bulk headers", () => {
+    expect(neverMove(message(personal), "orders@shop.example")).toBe(false);
+  });
+  it("still moves a newsletter sent from free mail", () => {
+    expect(neverMove(message({ ...personal, looksAutomated: true }), "pat@gmail.com")).toBe(false);
   });
 });
