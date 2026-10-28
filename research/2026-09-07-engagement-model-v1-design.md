@@ -1,12 +1,31 @@
 # Engagement model v1 — design (global prior + per-user delta)
 
 **Date:** 2026-09-07
-**Status:** design only. **Do not ship ahead of live signal** — the
-research-lead memo (`2026-09-06-research-lead-read-and-direction.md`) sequences
-this as step 3, *after* the live-test checklist passes and a 15–25 person beta
-cohort exists to say whether the ranking feels right. Building it blind, with
-zero users and no verification, is the first item on that memo's "Traps" list.
-This doc exists so that when the gate opens the build is a known quantity.
+**Status:** the pure core is **built but NOT wired in** — `src/lib/engagement/`
+(`features.ts`, `logistic.ts`, `globalWeights.ts`, `score.ts`, + tests),
+branch `feature/engagement-model-v1` / draft PR. `engagementModel.ts` and the
+dashboard are untouched, so nothing ships or regresses. **Do not wire it in
+ahead of live signal** — the research-lead memo
+(`2026-09-06-research-lead-read-and-direction.md`) sequences the swap as step 3,
+*after* the live-test checklist passes and a 15–25 person beta cohort exists to
+say whether the ranking feels right. Building it blind, with zero users and no
+verification, is the first item on that memo's "Traps" list. The modules exist
+so that when the gate opens the swap is a known quantity.
+
+### What is built vs. still to do at wire-in time
+
+- **Built:** `extractFeatures` (content-free vector, FEATURE_NAMES contract),
+  `sigmoid` / `dot` / `sgdStep` (L2) / `logLoss`, `GLOBAL_WEIGHTS` (hand-seeded
+  prior, `ENGAGEMENT_WEIGHTS_VERSION`), `scoreSender` / `scoreSenders` /
+  `topReasons`. 22 tests: feature-shape + privacy, sigmoid bounds, SGD
+  convergence + L2, golden scores + contribution ordering + explainability.
+- **Still to do (the wire-in commit):** refit `GLOBAL_WEIGHTS` on a real
+  labelled holdout; `settingsStore` schema bump for `senderEngagementWeights` +
+  `engagementTrainingBuffer` (+ migration seeding zeros / empty); append a
+  training example and one `sgdStep` on each `recordEngagementFeedback`;
+  `buildEngagementSuggestions` consumes `p` behind a threshold, keeping the
+  "3+ messages, not snoozed, no starred" guards; order the "never open" /
+  "ready to clean up" lists by `p`.
 
 ---
 
