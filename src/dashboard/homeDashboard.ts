@@ -66,6 +66,8 @@ export interface HomeFacts {
   limitsOn: number;
   /** Brands the flagged senders pretend to be (keys, e.g. "paypal"), most first. */
   fakedBrands?: string[];
+  /** While mail is still being read: the oldest message read so far. */
+  since?: number;
 }
 
 /** Open a place; `act` also starts that place's own confirm step. */
@@ -283,6 +285,8 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
   });
   const big = el("p", "home-big");
   big.append(el("b", "", f.total.toLocaleString()), ` ${f.total === 1 ? "email" : "emails"}`);
+  if (f.since)
+    big.append(` since ${new Date(f.since).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`);
   const bar = el("div", "kind-bar");
   bar.setAttribute("role", "img");
   bar.setAttribute("aria-label", HOME_KINDS.map((k) => `${k.label} ${f.kinds[k.key]}`).join(", "));

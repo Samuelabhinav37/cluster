@@ -100,6 +100,11 @@ const tileOf = (el: HTMLElement, name: string) =>
   )!;
 
 describe("renderHomeDashboard", () => {
+  it("names how far back the total goes while mail is still being read", () => {
+    const el = renderHomeDashboard({ ...calm, kinds: { ...calm.kinds, trans: 0 }, since: NOW - 3 * DAY }, vi.fn());
+    expect(el.querySelector(".home-big")!.textContent).toMatch(/^65 emails since \w+ \d+$/);
+  });
+
   it("lays out four tiles: Inbox and Protect, then Clean up and Organize", () => {
     expect(tiles(renderHomeDashboard(calm, vi.fn()))).toEqual(["All mail", "Protect", "Clean up", "Organize"]);
   });

@@ -1191,6 +1191,13 @@ function fakedBrands(senders: SenderSummary[]): string[] {
   return [...counts].sort((a, b) => b[1] - a[1]).map(([brand]) => brand);
 }
 
+/** The oldest message read so far, or undefined when none is. */
+function oldestRead(senders: SenderSummary[]): number | undefined {
+  let oldest = Infinity;
+  for (const s of senders) for (const m of s.messages) if (m.receivedAt < oldest) oldest = m.receivedAt;
+  return Number.isFinite(oldest) ? oldest : undefined;
+}
+
 // ── Overview screen (v3) ────────────────────────────────────────────────
 // Home: the total, the kind bar and up to three next steps (homeDashboard.ts).
 function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary[], allSenders: SenderSummary[]) {
@@ -1218,6 +1225,8 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
       ? Object.values(ctx.settings.autoSort.inboxHoursByBucket).filter((h) => h != null).length
       : 0,
     fakedBrands: fakedBrands(securitySenders),
+    // Until reading is done the total covers only recent mail, so say how far back.
+    since: [...indexRuns.values()].some((r) => r.progress?.phase === "reading") ? oldestRead(allSenders) : undefined,
   };
   overviewContentEl.appendChild(renderHomeDashboard(facts, goAndAct, (kind) => details?.open({ kind })));
   // Kai's tip, once a visit: the kind that fills most of the inbox.
