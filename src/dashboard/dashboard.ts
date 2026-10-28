@@ -2255,6 +2255,7 @@ function buildDomainRow(group: DomainGroup): HTMLTableRowElement {
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
   checkbox.dataset.domainKey = group.key;
+  checkbox.setAttribute("aria-label", `Select ${group.isFreeMailException ? (group.senders[0]?.address ?? group.domain) : group.domain}`);
   checkbox.checked = selectedDomainKeys.has(group.key);
   checkbox.onchange = () => {
     if (checkbox.checked) selectedDomainKeys.add(group.key);
@@ -2692,6 +2693,7 @@ function renderSpamSection(senders: SenderSummary[]) {
     // rather than everything pre-selected for a one-click confirm.
     box.checked = false;
     box.dataset.key = sug.sender.key;
+    box.setAttribute("aria-label", `Select ${sug.sender.displayName || sug.sender.address}`);
     box.onchange = updateSpamCount;
     pickCell.appendChild(box);
 
