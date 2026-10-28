@@ -35,7 +35,7 @@ describe("Screener backlog", () => {
       settings: { screenerAllowlist: ["family@personal.example"] },
     });
     const card = await backlogShown(dash);
-    dash.button("screener-backlog", "Sort the held mail…")!.click();
+    dash.button("screener-backlog", "Sort the held mail")!.click();
 
     await vi.waitFor(() => {
       if (!card.textContent?.includes("Here's where the held mail would go")) throw new Error("no preview yet");

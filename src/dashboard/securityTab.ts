@@ -17,6 +17,8 @@ import type { SenderSummary } from "../lib/senderModel";
 import type { ProviderId } from "../lib/providers/emailProvider";
 import { renderConfirmStep } from "./ui";
 import { senderTile } from "./senderTile";
+import { rowMenu } from "./rowMenu";
+import { brandHomeDomain } from "../lib/threatSignals";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
 import { clusterLabelName } from "../lib/clusterLabels";
@@ -274,7 +276,7 @@ function reportSteps(): { button: HTMLButtonElement; steps: HTMLOListElement } {
   }
   const button = document.createElement("button");
   button.className = "btn btn-ghost";
-  button.textContent = "Report it…";
+  button.textContent = "Report it";
   button.setAttribute("aria-expanded", "false");
   button.onclick = () => {
     steps.hidden = !steps.hidden;
@@ -358,6 +360,23 @@ function headlineMessage(sender: SenderSummary, verdict: Verdict) {
   return [...(pool.length > 0 ? pool : sender.messages)].sort((a, b) => b.receivedAt - a.receivedAt)[0];
 }
 
+/** The brand a scam pretends to be, with a red badge (like Apple Passwords
+ * showing each site's icon); the sender's own tile when no brand is named. */
+function fakedBrandTile(sender: SenderSummary): HTMLElement {
+  const brand = sender.threatSignals.find((s) => s.brand)?.brand;
+  const domain = brand ? brandHomeDomain(brand) : undefined;
+  const name = brand ? brand.replace(/\b\w/g, (c) => c.toUpperCase()) : undefined;
+  const tile = domain ? senderTile(`no-reply@${domain}`, name, "sz-34") : senderTile(sender.address, sender.displayName, "sz-34");
+  const wrap = document.createElement("span");
+  wrap.className = "faked-brand";
+  const badge = document.createElement("span");
+  badge.className = "faked-badge";
+  badge.setAttribute("aria-hidden", "true");
+  badge.textContent = "!";
+  wrap.append(tile, badge);
+  return wrap;
+}
+
 function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
   const li = document.createElement("li");
   li.className = "glass-card scam-card";
@@ -386,12 +405,13 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
   const quick = document.createElement("button");
   quick.type = "button";
   quick.className = "btn";
+  // A chevron opens the reasons; ⋯ (added below) holds the other actions.
   const toggle = document.createElement("button");
   toggle.type = "button";
-  toggle.className = "btn btn-icon";
-  toggle.setAttribute("aria-label", "More");
+  toggle.className = "btn btn-icon scam-chev";
+  toggle.setAttribute("aria-label", "Why");
   toggle.setAttribute("aria-expanded", "false");
-  toggle.textContent = "⋯";
+  toggle.textContent = "›";
   const more = document.createElement("div");
   more.className = "scam-more";
   more.hidden = true;
@@ -403,7 +423,7 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
     more.hidden = !more.hidden;
     toggle.setAttribute("aria-expanded", String(!more.hidden));
   };
-  head.append(senderTile(sender.address, sender.displayName, "sz-34"), id, quick, toggle);
+  head.append(fakedBrandTile(sender), id, quick, toggle);
   li.appendChild(head);
   li.appendChild(more);
 
@@ -506,11 +526,27 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
   const blockBtn = Array.from(actions.querySelectorAll("button")).find((b) => b.textContent === "Block sender");
   const target = verdict.tier !== "none" && blockBtn ? blockBtn : genuine;
   quick.textContent = target === genuine ? "It's fine" : "Block";
-  quick.onclick = () => {
-    if (target === genuine) return genuine.click();
+  if (target !== genuine) quick.classList.add("btn-danger");
+  // Opens the reasons with just the step that's running below them.
+  const only = (button: HTMLElement, ...also: HTMLElement[]) => {
     expand();
-    target.click();
+    for (const child of Array.from(actions.children) as HTMLElement[]) {
+      child.hidden = !(child === button || child.contains(button) || also.includes(child));
+    }
+    button.click();
   };
+  const scanBtn = Array.from(actions.querySelectorAll("button")).find((b) => b.textContent === "Deep scan");
+  quick.onclick = () => (target === genuine ? genuine.click() : only(target));
+  head.appendChild(
+    rowMenu([
+      ...(target === genuine ? [] : [{ label: "It's fine", run: () => genuine.click() }]),
+      { label: "Report", run: () => only(report.button) },
+      ...(scanBtn ? [{ label: "Deep scan", run: () => only(scanBtn, scanBtn.nextElementSibling as HTMLElement) }] : []),
+      ...(blockBtn && target !== blockBtn ? ["sep" as const, { label: "Block sender", danger: true, run: () => only(blockBtn) }] : []),
+    ]),
+  );
+  // Until an action runs, the reasons show without the old button row.
+  for (const child of Array.from(actions.children) as HTMLElement[]) child.hidden = true;
 
   return li;
 }

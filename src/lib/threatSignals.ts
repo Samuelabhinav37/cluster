@@ -113,6 +113,11 @@ void getDataset<Record<string, string[]>>("brandDomains", {}).then((patch) => {
   if (isValidBrandDomainsPatch(patch)) BRAND_DOMAINS = mergeBrandDomains(patch);
 });
 
+/** A known brand's own main domain, for showing its real logo. */
+export function brandHomeDomain(brand: string): string | undefined {
+  return BRAND_DOMAINS[brand]?.[0];
+}
+
 /** Called by the background alarm on a schedule (see background.ts) -- never
  * from the interactive scan path. Returns whether the cache changed. */
 export async function refreshBrandDomains(publicKeyB64?: string): Promise<boolean> {

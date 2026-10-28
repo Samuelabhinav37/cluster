@@ -658,111 +658,7 @@ a:hover {
   gap: 28px;
 }
 
-/* ── Buttons ──────────────────────────────────────────────────────────── */
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 44px;
-  font: 400 15px/1.25 var(--font);
-  letter-spacing: -0.012em;
-  color: var(--label);
-  background: var(--neutral-fill);
-  border: 0.5px solid var(--neutral-border);
-  border-radius: var(--r-ctl);
-  padding: 11px 16px;
-  cursor: pointer;
-  white-space: nowrap;
-  flex: none;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease;
-}
-
-.btn:hover {
-  background: var(--neutral-fill-hover);
-}
-
-.btn:disabled {
-  color: var(--disabled-fg);
-  cursor: default;
-  opacity: 0.6;
-}
-
-.btn-accent {
-  font-weight: 590;
-  color: var(--accent-fill-text);
-  background: var(--accent-fill);
-  border-color: var(--accent-fill-border);
-  box-shadow: 0 0.5px 0 rgba(255, 255, 255, 0.16) inset;
-}
-
-.btn-accent:hover {
-  background: var(--accent-fill-hover);
-}
-
-.btn-accent-solid {
-  font: 590 16px/1.25 var(--font);
-  letter-spacing: -0.014em;
-  color: var(--accent-solid-text);
-  background: var(--accent-solid);
-  border: 0.5px solid var(--accent-solid-border);
-  border-radius: var(--r-btn-hero);
-  padding: 12px 22px;
-  box-shadow: var(--shadow-solid-btn);
-  transition:
-    filter 0.18s ease,
-    transform 0.18s ease;
-}
-
-.btn-accent-solid:hover {
-  /* Keep the fill: the generic button:hover rule is more specific than the class alone. */
-  background: var(--accent-solid);
-  filter: brightness(1.09);
-}
-
-.btn-accent-solid:active {
-  transform: scale(0.985);
-}
-
-.btn-danger {
-  font-weight: 590;
-  color: var(--danger-label);
-  background: var(--danger-fill);
-  border-color: var(--danger-border);
-  box-shadow: 0 0.5px 0 rgba(255, 255, 255, 0.14) inset;
-}
-
-.btn-danger:hover {
-  background: var(--danger-fill-hover);
-}
-
-.btn-ghost {
-  background: transparent;
-  border-color: transparent;
-  color: var(--label-3);
-}
-
-.btn-ghost:hover {
-  background: transparent;
-  color: var(--label);
-}
-
-.btn-sm {
-  min-height: 40px;
-  font-size: 14px;
-  padding: 9px 15px;
-  border-radius: var(--r-sm);
-}
-
-.btn-icon {
-  width: 44px;
-  min-height: 44px;
-  padding: 0;
-}
+/* ── Buttons: see "One button system" at the end of this file ── */
 
 .row-actions {
   display: flex;
@@ -2582,39 +2478,6 @@ body {
   padding: 18px 22px;
 }
 
-/* Buttons: pills */
-.btn,
-.btn-sm,
-.btn-accent-solid,
-.account-pill {
-  border-radius: var(--r-pill);
-}
-
-.btn {
-  border-color: transparent;
-}
-
-.btn-accent-solid {
-  font-size: 15px;
-  padding: 11px 20px;
-}
-
-/* Row actions read as links until hovered, so a list is not a column of boxes */
-.row-actions .btn:not(.btn-accent-solid),
-.scam-card .btn-danger {
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-  font-weight: 590;
-}
-
-.row-actions .btn:not(.btn-accent-solid):not(.btn-danger) {
-  color: var(--accent-text);
-}
-
-.row-actions .btn:not(.btn-accent-solid):hover {
-  background: var(--neutral-fill);
-}
 
 .btn-danger,
 .scam-card .btn-danger {
@@ -3576,12 +3439,6 @@ section.screen { max-width: 1120px; margin: 0 auto; padding: 32px 48px 96px; }
 .section-label { font-size: 13px; font-weight: 600; color: var(--label-4); margin: 28px 0 10px; }
 .section-head .section-label { margin: 0; }
 .section-head { margin: 0 0 10px; }
-.btn { border: 0; padding: 6px 14px; background: var(--neutral-fill); color: var(--accent-text); font-size: 13px; font-weight: 600; }
-.btn:hover { background: var(--neutral-fill-hover); }
-.btn-sm { padding: 6px 14px; font-size: 13px; }
-.btn.btn-danger { color: var(--danger-text); }
-.btn.btn-ghost { background: none; color: var(--label-4); }
-.btn-accent-solid { padding: 6px 14px; font-size: 13px; font-weight: 600; }
 .rec-card, .protect-tile { border: 1px solid var(--separator); background: var(--glass); }
 .rec-card { gap: 4px; min-height: 146px; }
 .rec-name { font-size: 15px; font-weight: 600; }
@@ -3618,7 +3475,6 @@ table.sheet { font-size: 12px; }
 #sender-groups .list-row--media-meta-actions { grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; padding: 6px 14px; }
 #sender-groups .logo-tile { width: 28px; height: 28px; border-radius: 7px; }
 #sender-groups .row-actions { justify-content: flex-end; }
-#sender-groups .row-actions .btn:not(.btn-icon) { background: var(--neutral-fill); }
 #sender-groups .row-actions .btn { min-height: 0; }
 /* Protect (mockup): icon tiles, then scams as one grouped list of rows. */
 .protect-tile { flex-direction: row; align-items: center; gap: 12px; }
@@ -3798,9 +3654,61 @@ table.sheet { font-size: 12px; }
   writing-mode: vertical-rl; cursor: pointer; }
 .details-tab:hover { background: var(--neutral-fill); color: var(--label); }
 
-/* Kai in the page header beside Details; his tip and chat drop down below him. */
-.page-head > .kai-guide { position: relative; right: auto; bottom: auto; align-self: center; }
-.page-head .kg-launch { --kg-kai: 40px; }
-.page-head .kai-guide .kg-tag { top: calc(100% + 8px); bottom: auto; transform-origin: calc(100% - 20px) -6px; }
-.page-head .kg-tag::after { top: -5px; bottom: auto; transform: rotate(225deg); }
-.page-head .kg-panel { top: calc(100% + 10px); bottom: auto; max-height: min(540px, calc(100vh - 150px)); transform-origin: calc(100% - 20px) 0; }
+/* Kai bottom right, 24 px from the window edge and from Details. */
+.kai-guide { right: calc(var(--details-w, 0px) + 24px); bottom: 24px; transition: right 0.2s ease; }
+
+/* One button system (research/2026-10-28-ui-consistency.md). Filled for the one
+   main action, gray for row actions, plain text for the rest, red text for Trash
+   and Block. 28 px in rows, 32 px in page headers. No outlines, no pills. */
+.btn, .btn-sm, .btn-accent, .tool, .chip {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 28px; min-height: 0; padding: 0 12px; border: 0; border-radius: 8px;
+  background: var(--neutral-fill); color: var(--label); box-shadow: none;
+  font: 600 13px/1 var(--font); white-space: nowrap; cursor: pointer; flex: none;
+  transition: background 0.18s ease, filter 0.18s ease;
+}
+.btn-accent-solid:active { transform: scale(0.985); }
+.btn:hover, .btn-accent:hover, .tool:hover, .chip:hover { background: var(--neutral-fill-hover); border: 0; }
+.btn-accent-solid, .btn.btn-accent-solid {
+  height: 32px; padding: 0 14px; border: 0; background: var(--accent-solid); color: var(--accent-solid-text);
+}
+.btn-accent-solid:hover, .btn.btn-accent-solid:hover { background: var(--accent-solid); filter: brightness(1.12); }
+.btn-danger, .btn.btn-danger { padding: 0 8px; border: 0; background: none; color: var(--danger-text); }
+.btn-danger:hover, .btn.btn-danger:hover { background: var(--danger-fill); }
+.btn-ghost, .btn.btn-ghost { padding: 0 8px; background: none; color: var(--accent-text); }
+.btn-ghost:hover, .btn.btn-ghost:hover { background: none; text-decoration: underline; }
+.btn-icon, .btn.btn-icon { width: 28px; padding: 0; background: none; color: var(--label-4); }
+.btn-icon:hover, .btn.btn-icon:hover { background: var(--neutral-fill); color: var(--label); }
+.btn:disabled, .btn-accent-solid:disabled { opacity: 0.45; filter: none; cursor: default; }
+.page-head .btn, .page-head .tool { height: 32px; padding: 0 14px; }
+.tool[aria-expanded="true"] { background: var(--accent-fill); color: var(--accent-fill-text); }
+.chip { color: var(--label-2); font-weight: 500; }
+.chip.on, .chip[aria-pressed="true"] { background: var(--accent-fill); color: var(--accent-fill-text); }
+.chip:disabled { opacity: 0.45; }
+/* Pop-up menus instead of native selects. */
+select:not([multiple]) {
+  appearance: none; height: 28px; min-height: 0; padding: 0 28px 0 10px; border: 0; border-radius: 8px;
+  background: var(--neutral-fill) no-repeat right 9px center / 10px
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238e8e93' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+  color: var(--label); font: 500 13px var(--font); cursor: pointer;
+}
+select:not([multiple]):hover { background-color: var(--neutral-fill-hover); }
+
+
+/* ⋯ row menus (rowMenu.ts). */
+.row-menu { position: relative; display: inline-flex; }
+.row-menu-list { top: calc(100% + 4px); min-width: 200px; padding: 5px; border-radius: 10px; }
+.row-menu-list .menu-item { min-height: 0; padding: 7px 10px; border-radius: 6px; font-size: 13px; }
+.row-menu-list .menu-item:hover, .row-menu-list .menu-item:focus-visible { background: var(--accent-solid); color: var(--accent-solid-text); }
+.row-menu-list .menu-item.danger { color: var(--danger-text); }
+.row-menu-list .menu-item.danger:hover, .row-menu-list .menu-item.danger:focus-visible { background: #c43c3c; color: #fff; }
+.menu-sep { border: 0; border-top: 1px solid var(--hairline); margin: 4px 6px; }
+/* The confirm area under a row shows one chosen action, no picker. */
+.instead-strip select { display: none; }
+/* Scam rows: the faked brand's logo with a red badge; a chevron opens the reasons. */
+.faked-brand { position: relative; display: inline-flex; flex: none; }
+.faked-badge { position: absolute; right: -4px; bottom: -4px; width: 15px; height: 15px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--danger-text); color: #fff; font: 800 9px/1 var(--font);
+  box-shadow: 0 0 0 2px var(--glass); }
+.scam-chev { font-size: 18px; transition: transform 0.15s ease; }
+.scam-chev[aria-expanded="true"] { transform: rotate(90deg); }

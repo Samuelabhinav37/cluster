@@ -177,7 +177,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
       const cleanSlot = document.createElement("span");
       const cleanBtn = document.createElement("button");
       cleanBtn.className = "danger";
-      cleanBtn.textContent = "Unsubscribe + clean…";
+      cleanBtn.textContent = "Unsubscribe + clean";
       const reset = () => {
         cleanSlot.replaceChildren(cleanBtn);
       };
@@ -248,7 +248,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
   if (readLaterPlan.safeNewsletterIds.length > 0 && provider?.labelMessages && provider.unlabelMessages) {
     const slot = document.createElement("span");
     const button = document.createElement("button");
-    button.textContent = "Read later…";
+    button.textContent = "Read later";
     const reset = () => slot.replaceChildren(button);
     button.onclick = () => {
       const kept = readLaterPlan.protectedIds.length + readLaterPlan.retainedOtherIds.length;

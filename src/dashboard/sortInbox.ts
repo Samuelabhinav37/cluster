@@ -220,7 +220,7 @@ async function resolveSortLabelConflict(desired: string, choice: LabelChoice, re
   retry();
 }
 
-// Labels the mailbox already has, captured on the "Sort my inbox…" click so a
+// Labels the mailbox already has, captured on the "Sort my inbox" click so a
 // "wrong bucket?" correction can re-resolve names without another fetch.
 let lastKnownLabelNames: string[] = [];
 

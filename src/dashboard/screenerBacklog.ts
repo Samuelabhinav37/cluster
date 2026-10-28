@@ -79,7 +79,7 @@ export async function renderScreenerBacklog(): Promise<void> {
     " ",
     "They never reached your inbox. Cluster can file each one where it belongs.",
   );
-  const start = button("Sort the held mail…", true);
+  const start = button("Sort the held mail", true);
   const status = document.createElement("span");
   status.className = "hint";
   status.setAttribute("role", "status");

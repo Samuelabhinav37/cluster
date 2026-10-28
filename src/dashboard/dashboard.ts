@@ -125,6 +125,7 @@ import { DETAILS_PREF, detailSenders, idsByProvider, initDetailsPanel, type Deta
 import { listGroup, listRow } from "./listRow";
 import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
+import { rowMenu } from "./rowMenu";
 import { CLUSTER_FIRST_ON, CLUSTER_QUESTIONS, initKaiGuide, type KaiGuide } from "./kaiGuide";
 
 const selectedSenderKeys = new Set<string>();
@@ -243,9 +244,6 @@ function showScreen(name: string) {
     const active = panel.dataset.screen === target;
     panel.hidden = !active;
     panel.tabIndex = active ? 0 : -1;
-    // Kai sits in the open page's header, beside Details, like Gemini in Gmail's toolbar.
-    const head = active && panel.querySelector(".page-head");
-    if (head && kaiGuide) head.append(kaiGuide.root);
   }
   for (const btn of navButtons) {
     const active = btn.dataset.screen === target;
@@ -514,12 +512,19 @@ let kaiGuide: KaiGuide | null = null;
 let kaiTipped = false;
 
 async function main() {
-  // Kai in the corner until a page seats him in its header (showScreen).
   kaiGuide = initKaiGuide(document, {
     questions: CLUSTER_QUESTIONS,
     firstOn: CLUSTER_FIRST_ON,
     currentScreen: () => document.querySelector<HTMLElement>("#sidebar .nav-item.active")?.dataset.screen ?? "overview",
   });
+  // Kai sits bottom right and keeps a 24 px gap from Details (CSS reads --details-w).
+  const detailsPanel = document.getElementById("details");
+  if (detailsPanel && typeof ResizeObserver !== "undefined") {
+    new ResizeObserver(() => {
+      const docked = getComputedStyle(detailsPanel).position !== "fixed";
+      document.documentElement.style.setProperty("--details-w", `${docked ? detailsPanel.offsetWidth : 0}px`);
+    }).observe(detailsPanel);
+  }
   statusEl.textContent = "Connecting…";
   // Domain matching needs the Public Suffix List (a local file, quick to load).
   const [settings] = await Promise.all([
@@ -1464,56 +1469,41 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): H
   primary.className = "btn";
   primary.textContent = label;
 
-  // Full-width options strip below the row — every action group lives here so
-  // its two-step confirm has room to render (rendering it inside the narrow
-  // max-content action column crushed the text).
+  // The confirm area below the row: a chosen action's two-step confirm needs
+  // the full width. Only the chosen action shows; the menu picks it.
   const disclosure = document.createElement("div");
   disclosure.className = "instead-strip";
   disclosure.hidden = true;
-  const insteadLabel = document.createElement("span");
-  insteadLabel.className = "lbl";
-  insteadLabel.textContent = "Options";
-  disclosure.appendChild(insteadLabel);
   const groups = buildActionGroups(sender);
   for (const g of groups) {
     g.el.dataset.act = g.act;
     disclosure.appendChild(g.el);
   }
-  const notUseful = document.createElement("button");
-  notUseful.className = "link-btn";
-  notUseful.textContent = "Not useful";
-  notUseful.onclick = async () => {
-    notUseful.disabled = true;
-    await saveEngagementFeedback([sender.key], "dismiss");
-    renderDecisionSenders(allSenders);
-  };
-  const spacer = document.createElement("span");
-  spacer.className = "spacer";
-  disclosure.append(spacer, notUseful);
-
-  // The primary button is a shortcut: open the options strip and fire the
-  // recommended action's confirm there (full-width), leaving both controls
-  // in place.
-  primary.onclick = () => {
+  const run = (act: string, snoozeDays?: number) => {
     disclosure.hidden = false;
-    ellipsis.setAttribute("aria-expanded", "true");
     const target = groups.find((g) => g.act === act);
+    for (const g of groups) g.el.hidden = g !== target;
+    const days = target?.el.querySelector("select");
+    if (days && snoozeDays) days.value = String(snoozeDays);
     target?.el.querySelector("button")?.click();
     target?.el.scrollIntoView?.({ block: "nearest" });
   };
+  primary.onclick = () => run(act);
 
-  disclosure.id = `opts-${sender.key.replace(/[^a-z0-9]+/gi, "-")}`;
-  const ellipsis = document.createElement("button");
-  ellipsis.className = "btn btn-icon";
-  ellipsis.setAttribute("aria-label", "More actions");
-  ellipsis.setAttribute("aria-expanded", "false");
-  ellipsis.setAttribute("aria-controls", disclosure.id);
-  ellipsis.innerHTML =
-    '<svg viewBox="0 0 20 20" width="17" height="17" fill="currentColor" aria-hidden="true"><circle cx="5" cy="10" r="1.5"></circle><circle cx="10" cy="10" r="1.5"></circle><circle cx="15" cy="10" r="1.5"></circle></svg>';
-  ellipsis.onclick = () => {
-    disclosure.hidden = !disclosure.hidden;
-    ellipsis.setAttribute("aria-expanded", String(!disclosure.hidden));
+  const notUseful = async () => {
+    await saveEngagementFeedback([sender.key], "dismiss");
+    renderDecisionSenders(allSenders);
   };
+  const menu = rowMenu([
+    ...groups.filter((g) => g.act !== act && g.act !== "snooze").map((g) => ({ label: g.label, run: () => run(g.act) })),
+    "sep",
+    { label: "Snooze 1 day", run: () => run("snooze", 1) },
+    { label: "Snooze 1 week", run: () => run("snooze", 7) },
+    { label: "Snooze 1 month", run: () => run("snooze", 30) },
+    "sep",
+    { label: "Show emails", run: () => details?.open({ view: "emails", senderKey: sender.key }) },
+    { label: "Not useful", run: () => void notUseful() },
+  ]);
 
   return listRow({
     lead: makeLogoTile(sender, "sz-34"),
@@ -1523,7 +1513,7 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): H
       className: "ios-value",
       textContent: `${senderVolume(sender).toLocaleString()} ${senderVolume(sender) === 1 ? "email" : "emails"}`,
     }),
-    actions: [primary, ellipsis],
+    actions: [primary, menu],
     disclosure,
     href: () => details?.open({ view: "emails", senderKey: sender.key }),
   });
@@ -2156,7 +2146,7 @@ function buildDeleteDomainCell(group: DomainGroup): HTMLTableCellElement {
 
   const btn = document.createElement("button");
   btn.className = "danger";
-  btn.textContent = "Delete domain…";
+  btn.textContent = "Delete domain";
   btn.disabled = deletable === 0;
 
   const resetCell = () => {
@@ -2204,7 +2194,7 @@ function renderExpirySection(senders: SenderSummary[]) {
 
 function resetExpiryCleanupSlot() {
   expiryCleanupSlot.innerHTML = "";
-  expiryCleanupBtn.textContent = "Trash…";
+  expiryCleanupBtn.textContent = "Trash";
   expiryCleanupSlot.appendChild(expiryCleanupBtn);
 }
 
@@ -2700,7 +2690,7 @@ function keepNewestInInboxCard(): HTMLElement | null {
     "keep-newest",
     `Newest ${KEEP_IN_INBOX} per sender`,
     `${total.toLocaleString()} older ${total === 1 ? "email moves" : "emails move"} out`,
-    "Move out…",
+    "Move out",
     `Move ${total.toLocaleString()} older ${total === 1 ? "email" : "emails"} out of your inbox? They stay in All Mail.`,
     async () => {
       let moved = 0;
@@ -2735,7 +2725,7 @@ function neverOpenedSkipsInboxCard(): HTMLElement | null {
     "never-opened",
     "Never opened",
     `Skip the inbox · ${senders.length} ${senders.length === 1 ? "sender" : "senders"}`,
-    "Turn on…",
+    "Turn on",
     `Send mail from ${senders.length} ${senders.length === 1 ? "sender" : "senders"} you never open to "${label}", now and from now on?`,
     async () => {
       let done = 0;

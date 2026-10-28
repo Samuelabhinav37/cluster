@@ -72,7 +72,15 @@ type State = Required<Omit<DetailsFilter, "senderKey" | "kind" | "week" | "day">
   day: number | null;
 };
 
-const BLANK: State = { view: "emails", kind: null, senderKey: null, week: null, day: null, never: false, q: "" };
+const BLANK: State = {
+  view: "emails",
+  kind: null,
+  senderKey: null,
+  week: null,
+  day: null,
+  never: false,
+  q: "",
+};
 
 /** Messages, newest first, from the whole inbox. */
 export function detailMessages(senders: readonly SenderSummary[]): DetailMessage[] {
@@ -131,7 +139,8 @@ function startOfDay(t: number): number {
 }
 
 const kindLabel = (k: HomeKind) => HOME_KINDS.find((x) => x.key === k)!.label;
-const fmtDay = (t: number) => new Date(t).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+const fmtDay = (t: number) =>
+  new Date(t).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 const fmtShort = (t: number) => new Date(t).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, cls = "", text?: string): HTMLElementTagNameMap[K] {
@@ -165,7 +174,11 @@ const remember = (v: "open" | "min") => {
   }
 };
 
-export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now = () => Date.now()): DetailsPanel {
+export function initDetailsPanel(
+  root: HTMLElement,
+  actions: DetailsActions,
+  now = () => Date.now(),
+): DetailsPanel {
   let raw: readonly SenderSummary[] = [];
   let messages: DetailMessage[] = [];
   let senders: DetailSender[] = [];
@@ -267,7 +280,14 @@ export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now
 
   function senderRows(): DetailSender[] {
     const q = st.q.toLowerCase();
-    const keys = st.week === null ? null : new Set(baseMessages().filter(inWeek).map((m) => m.senderKey));
+    const keys =
+      st.week === null
+        ? null
+        : new Set(
+            baseMessages()
+              .filter(inWeek)
+              .map((m) => m.senderKey),
+          );
     const rows = senders.filter(
       (s) =>
         (!st.kind || s.kind === st.kind) &&
@@ -275,7 +295,8 @@ export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now
         (!keys || keys.has(s.key)) &&
         (!q || `${s.name} ${s.address}`.toLowerCase().includes(q)),
     );
-    const val = (s: DetailSender) => (sortBy === "opened" ? s.opened / s.emails : sortBy === "name" ? s.name.toLowerCase() : s[sortBy]);
+    const val = (s: DetailSender) =>
+      sortBy === "opened" ? s.opened / s.emails : sortBy === "name" ? s.name.toLowerCase() : s[sortBy];
     return rows.sort((a, b) => (val(a) > val(b) ? 1 : val(a) < val(b) ? -1 : 0) * sortDir);
   }
 
@@ -292,10 +313,21 @@ export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now
   function renderChips() {
     const on: Array<[string, Partial<State>]> = [];
     if (st.kind) on.push([kindLabel(st.kind), { kind: null }]);
-    if (st.senderKey) on.push([senders.find((s) => s.key === st.senderKey)?.name ?? "Sender", { senderKey: null }]);
+    if (st.senderKey)
+      on.push([senders.find((s) => s.key === st.senderKey)?.name ?? "Sender", { senderKey: null }]);
     if (st.never) on.push(["Never opened", { never: false }]);
-    if (st.week !== null) on.push([st.week === WEEKS - 1 ? "This week" : `Week of ${fmtShort(weekStart(st.week))}`, { week: null, day: null }]);
-    if (st.day !== null && st.week !== null) on.push([fmtDay(weekStart(st.week) + st.day * DAY).split(" ")[0].replace(",", ""), { day: null }]);
+    if (st.week !== null)
+      on.push([
+        st.week === WEEKS - 1 ? "This week" : `Week of ${fmtShort(weekStart(st.week))}`,
+        { week: null, day: null },
+      ]);
+    if (st.day !== null && st.week !== null)
+      on.push([
+        fmtDay(weekStart(st.week) + st.day * DAY)
+          .split(" ")[0]
+          .replace(",", ""),
+        { day: null },
+      ]);
     const quick: Array<[string, Partial<State>]> = [];
     if (!st.never) quick.push(["Never opened", { never: true }]);
     if (!st.kind) quick.push(["Promotions", { kind: "promo" }]);
@@ -323,7 +355,13 @@ export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now
         if (w >= 0 && w < WEEKS) counts[w] += 1;
       }
       counts.forEach((n, w) =>
-        bars.push({ n, label: fmtShort(weekStart(w)), name: `Week of ${fmtShort(weekStart(w))}`, on: false, patch: { week: w } }),
+        bars.push({
+          n,
+          label: fmtShort(weekStart(w)),
+          name: `Week of ${fmtShort(weekStart(w))}`,
+          on: false,
+          patch: { week: w },
+        }),
       );
     } else {
       const counts = new Array<number>(7).fill(0);
@@ -343,10 +381,16 @@ export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now
       });
     }
     const max = Math.max(1, ...bars.map((b) => b.n));
-    const caption = h("div", "chart-head", st.week === null ? "Per week" : `Week of ${fmtShort(weekStart(st.week))}`);
+    const caption = h(
+      "div",
+      "chart-head",
+      st.week === null ? "Per week" : `Week of ${fmtShort(weekStart(st.week))}`,
+    );
     const cols = h("div", "cols");
     for (const b of bars) {
-      const col = button(`col${b.on ? " on" : ""}${st.day !== null && !b.on ? " dim" : ""}`, "", () => set(b.patch));
+      const col = button(`col${b.on ? " on" : ""}${st.day !== null && !b.on ? " dim" : ""}`, "", () =>
+        set(b.patch),
+      );
       col.setAttribute("aria-label", `${b.name}: ${b.n} ${b.n === 1 ? "email" : "emails"}`);
       col.title = `${b.name}: ${b.n}`;
       const track = h("span", "track");
@@ -394,7 +438,10 @@ export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now
     all.setAttribute("aria-label", "Select all shown");
     all.checked = ids.length > 0 && ids.every((id) => selected.has(id));
     all.onchange = () => {
-      for (const id of ids) all.checked ? selected.add(id) : selected.delete(id);
+      for (const id of ids) {
+        if (all.checked) selected.add(id);
+        else selected.delete(id);
+      }
       render();
     };
     return all;
@@ -407,7 +454,9 @@ export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now
     const shown = rows.slice(0, limit);
     const pickable = shown.filter((m) => !m.isProtected).map((m) => m.id);
     table.className = "sheet emails";
-    table.replaceChildren(headRow([selectAll(pickable), "From", "Subject", ...(wide ? ["Kind", "When"] : [])]));
+    table.replaceChildren(
+      headRow([selectAll(pickable), "From", "Subject", ...(wide ? ["Kind", "When"] : [])]),
+    );
     const body = h("tbody");
     let lastDay = "";
     const perDay = new Map<string, number>();
@@ -434,7 +483,11 @@ export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now
       const subj = h("td", "subj", m.subject || "(no subject)");
       subj.title = m.subject;
       tr.append(c, from, subj);
-      if (wide) tr.append(h("td", "", kindLabel(m.kind)), h("td", "", new Date(m.at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })));
+      if (wide)
+        tr.append(
+          h("td", "", kindLabel(m.kind)),
+          h("td", "", new Date(m.at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })),
+        );
       tr.onclick = () => {
         const box = c.querySelector("input")!;
         if (box.disabled) return;
@@ -450,10 +503,16 @@ export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now
       const tr = h("tr");
       const td = h("td");
       td.colSpan = cols();
-      td.append(button("link", `Show ${Math.min(PAGE, rows.length - limit)} more of ${rows.length.toLocaleString()}`, () => {
-        limit += PAGE;
-        render();
-      }));
+      td.append(
+        button(
+          "link",
+          `Show ${Math.min(PAGE, rows.length - limit)} more of ${rows.length.toLocaleString()}`,
+          () => {
+            limit += PAGE;
+            render();
+          },
+        ),
+      );
       tr.append(td);
       foot.append(tr);
       table.append(foot);
@@ -497,7 +556,11 @@ export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now
       const c = h("td", "c");
       c.append(tick(s.key, `Select ${s.name}`));
       const from = h("td", "from");
-      from.append(h("span", "caret", open ? "▾" : "▸"), senderTile(s.address, s.name, "sz-26"), h("span", "who", s.name));
+      from.append(
+        h("span", "caret", open ? "▾" : "▸"),
+        senderTile(s.address, s.name, "sz-26"),
+        h("span", "who", s.name),
+      );
       from.title = s.address;
       const n = h("td", "num");
       const cell = h("span", "cellbar");
@@ -526,7 +589,9 @@ export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now
         const more = h("tr", "sub");
         const td = h("td");
         td.colSpan = cols() + 1;
-        td.append(button("link", `All ${s.emails} from ${s.name}`, () => set({ view: "emails", senderKey: s.key })));
+        td.append(
+          button("link", `All ${s.emails} from ${s.name}`, () => set({ view: "emails", senderKey: s.key })),
+        );
         more.append(td);
         body.append(more);
       }
@@ -551,15 +616,32 @@ export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now
     const acts: HTMLButtonElement[] = [];
     if (st.view === "emails") {
       const picked = messages.filter((m) => selected.has(m.id));
-      acts.push(button("btn btn-accent-solid btn-sm", "Move to Trash", () => actions.trash(picked, bar, reset, settle)));
+      acts.push(
+        button("btn btn-accent-solid btn-sm", "Move to Trash", () =>
+          actions.trash(picked, bar, reset, settle),
+        ),
+      );
     } else {
       const picked = senders.filter((s) => selected.has(s.key));
       const mail = messages.filter((m) => selected.has(m.senderKey) && !m.isProtected);
       if (actions.mute) {
         const mute = actions.mute;
-        acts.push(button("btn btn-sm", "Mute", () => mute(picked.map((s) => s.summary), bar, reset, settle)));
+        acts.push(
+          button("btn btn-sm", "Mute", () =>
+            mute(
+              picked.map((s) => s.summary),
+              bar,
+              reset,
+              settle,
+            ),
+          ),
+        );
       }
-      acts.push(button("btn btn-accent-solid btn-sm", "Trash their mail", () => actions.trash(mail, bar, reset, settle)));
+      acts.push(
+        button("btn btn-accent-solid btn-sm", "Trash their mail", () =>
+          actions.trash(mail, bar, reset, settle),
+        ),
+      );
     }
     bar.replaceChildren(label, clear, h("span", "spacer"), ...acts);
   }
@@ -609,7 +691,8 @@ export function initDetailsPanel(root: HTMLElement, actions: DetailsActions, now
   };
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && panel.isOpen() && !(e.target as HTMLElement).closest?.(".confirm-slot")) panel.close();
+    if (e.key === "Escape" && panel.isOpen() && !(e.target as HTMLElement).closest?.(".confirm-slot"))
+      panel.close();
   });
 
   return panel;
@@ -624,4 +707,3 @@ export function idsByProvider(messages: readonly DetailMessage[]): Map<ProviderI
   }
   return out;
 }
-
