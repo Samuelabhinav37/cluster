@@ -245,6 +245,8 @@ const keepNewestBtn = document.getElementById("keep-newest-btn") as HTMLButtonEl
 
 function showScreen(name: string) {
   const target = resolveScreen(name);
+  // A new page opens at its top; re-showing the same page keeps the scroll.
+  if (screenPanels.some((p) => !p.hidden && p.dataset.screen !== target)) window.scrollTo(0, 0);
   for (const panel of screenPanels) {
     const active = panel.dataset.screen === target;
     panel.hidden = !active;
