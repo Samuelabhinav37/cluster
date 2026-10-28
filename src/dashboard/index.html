@@ -9,89 +9,178 @@
     <div class="ambient" aria-hidden="true"></div>
 
     <div class="app-shell">
-
       <div class="app-body">
         <!-- ── Panel: search and every page ──────────────────────────── -->
         <div class="side-panel">
-          <div class="panel-brand"><span class="brand-tile"><svg class="brand-mark" viewBox="0 0 256 256" width="22" height="22" aria-hidden="true" > <path d="M 110.68,26 Q 128,16 145.32,26 L 207.67,62 Q 224.99,72 224.99,92 L 224.99,164 Q 224.99,184 207.67,194 L 145.32,230 Q 128,240 110.68,230 L 48.33,194 Q 31.01,184 31.01,164 L 31.01,92 Q 31.01,72 48.33,62 Z M 81 88 h 94 a 12 12 0 0 1 12 12 v 56 a 12 12 0 0 1 -12 12 h -94 a 12 12 0 0 1 -12 -12 v -56 a 12 12 0 0 1 12 -12 Z M 75 96 L 128 129.6 L 181 96 L 181 82 L 75 82 Z" fill="currentColor" fill-rule="evenodd" /> </svg></span>Cluster</div>
+          <div class="panel-brand">
+            <span class="brand-tile"
+              ><svg class="brand-mark" viewBox="0 0 256 256" width="22" height="22" aria-hidden="true">
+                <path
+                  d="M 110.68,26 Q 128,16 145.32,26 L 207.67,62 Q 224.99,72 224.99,92 L 224.99,164 Q 224.99,184 207.67,194 L 145.32,230 Q 128,240 110.68,230 L 48.33,194 Q 31.01,184 31.01,164 L 31.01,92 Q 31.01,72 48.33,62 Z M 81 88 h 94 a 12 12 0 0 1 12 12 v 56 a 12 12 0 0 1 -12 12 h -94 a 12 12 0 0 1 -12 -12 v -56 a 12 12 0 0 1 12 -12 Z M 75 96 L 128 129.6 L 181 96 L 181 82 L 75 82 Z"
+                  fill="currentColor"
+                  fill-rule="evenodd"
+                /></svg></span
+            >Cluster
+          </div>
           <button type="button" class="header-search panel-search ask-open" id="ask-kai-open">
-            <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.4"></circle><path d="M13 13l4 4"></path></svg>
+            <svg
+              viewBox="0 0 20 20"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <circle cx="9" cy="9" r="5.4"></circle>
+              <path d="M13 13l4 4"></path>
+            </svg>
             <span>Ask Kai</span>
             <kbd aria-hidden="true">/</kbd>
           </button>
-        <!-- ── Sidebar ───────────────────────────────────────────────── -->
-        <nav class="sidebar" id="sidebar" aria-label="Sections">
-          <div class="nav-area" data-area="home">
-            <button type="button" class="nav-item" data-screen="overview">
-              <svg class="nav-icon ni-home" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"></path><path class="ni-door" d="M10 20v-5.2h4V20"></path></svg>
+          <!-- ── Sidebar ───────────────────────────────────────────────── -->
+          <nav class="sidebar" id="sidebar" aria-label="Sections">
+            <div class="nav-area" data-area="home">
+              <button type="button" class="nav-item" data-screen="overview">
+                <svg class="nav-icon ni-home" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"></path>
+                  <path class="ni-door" d="M10 20v-5.2h4V20"></path>
+                </svg>
+                Home
+              </button>
+            </div>
+            <button type="button" class="nav-item" data-screen="senders">
+              <svg class="nav-icon ni-people" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="9" cy="9" r="3.2"></circle>
+                <path d="M3.5 19c.9-3 3-4.5 5.5-4.5s4.6 1.5 5.5 4.5"></path>
+                <path d="M15.5 6.2a3 3 0 0 1 0 5.6"></path>
+                <path d="M17 14.8c1.7.5 2.9 1.9 3.5 4.2"></path>
+              </svg>
+              Senders
+            </button>
+            <div class="nav-area" data-area="clear">
+              <button type="button" class="nav-item" data-screen="delete">
+                <svg class="nav-icon ni-bin" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6.5 8.5 7.4 19a1.2 1.2 0 0 0 1.2 1.1h6.8a1.2 1.2 0 0 0 1.2-1.1l.9-10.5"></path>
+                  <g class="ni-lid">
+                    <path d="M4.5 6.5h15"></path>
+                    <path d="M9.5 6.5V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5"></path>
+                  </g>
+                </svg>
+                Clean up
+                <span class="nav-count" id="nav-count-delete"></span>
+              </button>
+              <div class="nav-children">
+                <button type="button" class="nav-item nav-child" data-screen="subscriptions">
+                  <svg class="nav-icon ni-stop" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="8"></circle>
+                    <path d="M6.4 6.4l11.2 11.2"></path>
+                  </svg>
+                  Stop mail
+                </button>
+              </div>
+            </div>
+            <div class="nav-area" data-area="sorting">
+              <button type="button" class="nav-item" data-screen="organize">
+                <svg class="nav-icon ni-layers" viewBox="0 0 24 24" aria-hidden="true">
+                  <path class="ni-l1" d="M12 4 4 8.5 12 13l8-4.5Z"></path>
+                  <path d="M4 12.5 12 17l8-4.5"></path>
+                  <path class="ni-l3" d="M4 16.5 12 21l8-4.5"></path>
+                </svg>
+                Organize
+              </button>
+              <div class="nav-children">
+                <button type="button" class="nav-item nav-child" data-screen="rules">
+                  <svg class="nav-icon ni-sliders" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 7h9"></path>
+                    <path d="M18 7h1"></path>
+                    <circle cx="16" cy="7" r="2"></circle>
+                    <path d="M5 17h1"></path>
+                    <path d="M10 17h9"></path>
+                    <circle cx="8" cy="17" r="2"></circle>
+                  </svg>
+                  Rules
+                </button>
+              </div>
+            </div>
+            <div class="nav-area" data-area="safety">
+              <button type="button" class="nav-item" data-screen="impersonation">
+                <svg class="nav-icon ni-shield" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 3.5 5 6v5.4c0 4 2.8 7.3 7 9.1 4.2-1.8 7-5.1 7-9.1V6z"></path>
+                  <path class="ni-tick" d="M9 12.2l2.1 2.1L15.2 10"></path>
+                </svg>
+                Protect
+                <span class="nav-count" id="nav-count-impersonation"></span>
+              </button>
+              <div class="nav-children">
+                <button type="button" class="nav-item nav-child" data-screen="screener">
+                  <svg class="nav-icon ni-new" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="10" cy="9" r="3.4"></circle>
+                    <path d="M4 19c.9-3.1 3.2-4.6 6-4.6 1.3 0 2.5.3 3.5 1"></path>
+                    <path d="M18 14v6"></path>
+                    <path d="M15 17h6"></path>
+                  </svg>
+                  New senders
+                  <span class="nav-count accent" id="nav-count-screener"></span>
+                </button>
+                <button type="button" class="nav-item nav-child" data-screen="report">
+                  <svg class="nav-icon ni-chart" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 19V5"></path>
+                    <path d="M5 19h14"></path>
+                    <path d="M9 15v-4"></path>
+                    <path d="M13 15V8"></path>
+                    <path d="M17 15v-6"></path>
+                  </svg>
+                  Scam report
+                </button>
+              </div>
+            </div>
+
+            <span class="sidebar-spacer"></span>
+            <button type="button" class="nav-item nav-simple-home" data-screen="simple" hidden>
+              <svg class="nav-icon ni-home" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"></path>
+                <path class="ni-door" d="M10 20v-5.2h4V20"></path>
+              </svg>
               Home
             </button>
-          </div>
-          <button type="button" class="nav-item" data-screen="senders">
-            <svg class="nav-icon ni-people" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="3.2"></circle><path d="M3.5 19c.9-3 3-4.5 5.5-4.5s4.6 1.5 5.5 4.5"></path><path d="M15.5 6.2a3 3 0 0 1 0 5.6"></path><path d="M17 14.8c1.7.5 2.9 1.9 3.5 4.2"></path></svg>
-            Senders
-          </button>
-          <div class="nav-area" data-area="clear">
-            <button type="button" class="nav-item" data-screen="delete">
-              <svg class="nav-icon ni-bin" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 8.5 7.4 19a1.2 1.2 0 0 0 1.2 1.1h6.8a1.2 1.2 0 0 0 1.2-1.1l.9-10.5"></path><g class="ni-lid"><path d="M4.5 6.5h15"></path><path d="M9.5 6.5V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5"></path></g></svg>
-              Clean up
-              <span class="nav-count" id="nav-count-delete"></span>
-            </button>
-            <div class="nav-children">
-              <button type="button" class="nav-item nav-child" data-screen="subscriptions">
-                <svg class="nav-icon ni-stop" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><path d="M6.4 6.4l11.2 11.2"></path></svg>
-                Stop mail
-              </button>
-            </div>
-          </div>
-          <div class="nav-area" data-area="sorting">
-            <button type="button" class="nav-item" data-screen="organize">
-              <svg class="nav-icon ni-layers" viewBox="0 0 24 24" aria-hidden="true"><path class="ni-l1" d="M12 4 4 8.5 12 13l8-4.5Z"></path><path d="M4 12.5 12 17l8-4.5"></path><path class="ni-l3" d="M4 16.5 12 21l8-4.5"></path></svg>
-              Organize
-            </button>
-            <div class="nav-children">
-              <button type="button" class="nav-item nav-child" data-screen="rules">
-                <svg class="nav-icon ni-sliders" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h9"></path><path d="M18 7h1"></path><circle cx="16" cy="7" r="2"></circle><path d="M5 17h1"></path><path d="M10 17h9"></path><circle cx="8" cy="17" r="2"></circle></svg>
-                Rules
-              </button>
-            </div>
-          </div>
-          <div class="nav-area" data-area="safety">
-            <button type="button" class="nav-item" data-screen="impersonation">
-              <svg class="nav-icon ni-shield" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 5 6v5.4c0 4 2.8 7.3 7 9.1 4.2-1.8 7-5.1 7-9.1V6z"></path><path class="ni-tick" d="M9 12.2l2.1 2.1L15.2 10"></path></svg>
-              Protect
-              <span class="nav-count" id="nav-count-impersonation"></span>
-            </button>
-            <div class="nav-children">
-              <button type="button" class="nav-item nav-child" data-screen="screener">
-                <svg class="nav-icon ni-new" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="9" r="3.4"></circle><path d="M4 19c.9-3.1 3.2-4.6 6-4.6 1.3 0 2.5.3 3.5 1"></path><path d="M18 14v6"></path><path d="M15 17h6"></path></svg>
-                New senders
-                <span class="nav-count accent" id="nav-count-screener"></span>
-              </button>
-              <button type="button" class="nav-item nav-child" data-screen="report">
-                <svg class="nav-icon ni-chart" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V5"></path><path d="M5 19h14"></path><path d="M9 15v-4"></path><path d="M13 15V8"></path><path d="M17 15v-6"></path></svg>
-                Scam report
-              </button>
-            </div>
-          </div>
-
-          <span class="sidebar-spacer"></span>
-          <button type="button" class="nav-item nav-simple-home" data-screen="simple" hidden>
-            <svg class="nav-icon ni-home" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"></path><path class="ni-door" d="M10 20v-5.2h4V20"></path></svg>
-            Home
-          </button>
-        </nav>
+          </nav>
           <div class="account-wrap">
-            <button type="button" class="account-pill" id="account-pill" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu">
+            <button
+              type="button"
+              class="account-pill"
+              id="account-pill"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-controls="account-menu"
+            >
               <span class="avatar" id="account-avatar" aria-hidden="true"></span>
               <span class="email" id="account-email">Account</span>
-              <svg class="account-glyph" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="9" r="3.6"></circle><path d="M5.5 19.5c1.2-3.2 3.6-4.8 6.5-4.8s5.3 1.6 6.5 4.8"></path></svg>
+              <svg
+                class="account-glyph"
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="9" r="3.6"></circle>
+                <path d="M5.5 19.5c1.2-3.2 3.6-4.8 6.5-4.8s5.3 1.6 6.5 4.8"></path>
+              </svg>
             </button>
             <div class="account-menu" id="account-menu" role="menu" aria-label="Account" hidden>
               <button type="button" class="menu-item" role="menuitem" data-open="recent">Activity</button>
               <button type="button" class="menu-item" role="menuitem" data-open="settings">Settings</button>
-              <button type="button" id="apply-scan-settings-btn" class="menu-item" role="menuitem">Rescan mail</button>
-              <button type="button" id="connect-outlook" class="menu-item" role="menuitem">Connect Outlook</button>
+              <button type="button" id="apply-scan-settings-btn" class="menu-item" role="menuitem">
+                Rescan mail
+              </button>
+              <button type="button" id="connect-outlook" class="menu-item" role="menuitem">
+                Connect Outlook
+              </button>
             </div>
           </div>
         </div>
@@ -102,7 +191,14 @@
           <!-- ══ Connect gate (first run / expired sign-in) ══════════════ -->
           <section id="connect-gate" class="connect-gate" aria-labelledby="connect-title" hidden>
             <div class="glass-card connect-card">
-              <span class="connect-mark"><svg class="brand-mark" viewBox="0 0 256 256" width="52" height="52" aria-hidden="true" > <path d="M 110.68,26 Q 128,16 145.32,26 L 207.67,62 Q 224.99,72 224.99,92 L 224.99,164 Q 224.99,184 207.67,194 L 145.32,230 Q 128,240 110.68,230 L 48.33,194 Q 31.01,184 31.01,164 L 31.01,92 Q 31.01,72 48.33,62 Z M 81 88 h 94 a 12 12 0 0 1 12 12 v 56 a 12 12 0 0 1 -12 12 h -94 a 12 12 0 0 1 -12 -12 v -56 a 12 12 0 0 1 12 -12 Z M 75 96 L 128 129.6 L 181 96 L 181 82 L 75 82 Z" fill="currentColor" fill-rule="evenodd" /> </svg></span>
+              <span class="connect-mark"
+                ><svg class="brand-mark" viewBox="0 0 256 256" width="52" height="52" aria-hidden="true">
+                  <path
+                    d="M 110.68,26 Q 128,16 145.32,26 L 207.67,62 Q 224.99,72 224.99,92 L 224.99,164 Q 224.99,184 207.67,194 L 145.32,230 Q 128,240 110.68,230 L 48.33,194 Q 31.01,184 31.01,164 L 31.01,92 Q 31.01,72 48.33,62 Z M 81 88 h 94 a 12 12 0 0 1 12 12 v 56 a 12 12 0 0 1 -12 12 h -94 a 12 12 0 0 1 -12 -12 v -56 a 12 12 0 0 1 12 -12 Z M 75 96 L 128 129.6 L 181 96 L 181 82 L 75 82 Z"
+                    fill="currentColor"
+                    fill-rule="evenodd"
+                  /></svg
+              ></span>
               <h1 class="page-title" id="connect-title">Connect Gmail to get started</h1>
               <p class="lead" id="connect-lead">Clean up, sort and protect your Gmail.</p>
               <ul class="connect-points">
@@ -110,12 +206,16 @@
                 <li>Moves nothing until you confirm.</li>
                 <li>Google asks for change access so Cluster can label, archive and trash.</li>
               </ul>
-              <p class="hint" id="connect-testing-note">Google will say the app isn't verified yet. Choose Continue.</p>
+              <p class="hint" id="connect-testing-note">
+                Google will say the app isn't verified yet. Choose Continue.
+              </p>
               <div class="connect-actions">
                 <button type="button" id="connect-gmail-btn" class="btn-accent-solid">Connect Gmail</button>
                 <span id="connect-error" class="connect-error" role="alert"></span>
               </div>
-              <p class="hint" id="connect-pin-tip" hidden>Tip: pin Cluster from Chrome's puzzle-piece menu.</p>
+              <p class="hint" id="connect-pin-tip" hidden>
+                Tip: pin Cluster from Chrome's puzzle-piece menu.
+              </p>
             </div>
           </section>
 
@@ -127,7 +227,12 @@
               <div class="page-titles">
                 <h1 class="page-title">Home</h1>
               </div>
-              <button type="button" class="tool" data-details aria-controls="details"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18M3 15h18M9 9v12M15 9v12"></path></svg>Details</button>
+              <button type="button" class="tool" data-details aria-controls="details">
+                <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect width="18" height="18" x="3" y="3" rx="2"></rect>
+                  <path d="M3 9h18M3 15h18M9 9v12M15 9v12"></path></svg
+                >Details
+              </button>
             </div>
 
             <p class="sr-only" id="overview-headline"></p>
@@ -141,21 +246,40 @@
                 <h1 class="page-title">Clean up</h1>
                 <p class="lead" id="cleanup-lead"></p>
               </div>
-              <button type="button" class="tool" data-details aria-controls="details"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18M3 15h18M9 9v12M15 9v12"></path></svg>Details</button>
+              <button type="button" class="tool" data-details aria-controls="details">
+                <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect width="18" height="18" x="3" y="3" rx="2"></rect>
+                  <path d="M3 9h18M3 15h18M9 9v12M15 9v12"></path></svg
+                >Details
+              </button>
             </div>
 
             <div class="ios-group cleanup-quick">
               <div class="ios-row" id="never-opened-card" hidden>
-                <span class="app-ic app-clean"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h9"></path><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path><path d="m17 17 4 4"></path><path d="m21 17-4 4"></path></svg></span>
+                <span class="app-ic app-clean"
+                  ><svg class="i" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h9"></path>
+                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+                    <path d="m17 17 4 4"></path>
+                    <path d="m21 17-4 4"></path></svg
+                ></span>
                 <span class="grow">Never opened<span class="sub" id="never-opened-name"></span></span>
                 <span class="ios-value" id="never-opened-fact"></span>
-                <span id="never-read-mute-slot"><button id="never-read-mute-btn" class="btn btn-sm">Mute…</button></span>
+                <span id="never-read-mute-slot"
+                  ><button id="never-read-mute-btn" class="btn btn-sm">Mute…</button></span
+                >
               </div>
               <div class="ios-row" id="past-date-card" hidden>
-                <span class="app-ic app-clean"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></span>
+                <span class="app-ic app-clean"
+                  ><svg class="i" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline></svg
+                ></span>
                 <span class="grow">Past its date<span class="sub">Old codes and expired offers</span></span>
                 <span class="ios-value" id="past-date-fact"></span>
-                <span id="expiry-cleanup-slot"><button id="expiry-cleanup-btn" class="btn btn-sm">Trash…</button></span>
+                <span id="expiry-cleanup-slot"
+                  ><button id="expiry-cleanup-btn" class="btn btn-sm">Trash…</button></span
+                >
               </div>
             </div>
 
@@ -171,8 +295,16 @@
               <div id="sender-bulk-bar" class="toolbar" hidden>
                 <button id="select-safe-senders" class="btn">Select safe</button>
                 <span id="sender-selected-count">0 selected</span>
-                <span id="unsubscribe-bulk-slot"><button id="bulk-unsubscribe-btn" class="btn btn-accent" disabled>Bulk unsubscribe selected</button></span>
-                <span id="keep-sorted-bulk-slot"><button id="bulk-keep-sorted-btn" class="btn" disabled>Bulk keep sorted selected</button></span>
+                <span id="unsubscribe-bulk-slot"
+                  ><button id="bulk-unsubscribe-btn" class="btn btn-accent" disabled>
+                    Bulk unsubscribe selected
+                  </button></span
+                >
+                <span id="keep-sorted-bulk-slot"
+                  ><button id="bulk-keep-sorted-btn" class="btn" disabled>
+                    Bulk keep sorted selected
+                  </button></span
+                >
                 <label>
                   Snooze for:
                   <select id="snooze-duration-select">
@@ -181,7 +313,9 @@
                     <option value="30">1 month</option>
                   </select>
                 </label>
-                <span id="snooze-bulk-slot"><button id="bulk-snooze-btn" class="btn" disabled>Bulk snooze selected</button></span>
+                <span id="snooze-bulk-slot"
+                  ><button id="bulk-snooze-btn" class="btn" disabled>Bulk snooze selected</button></span
+                >
               </div>
             </section>
 
@@ -192,7 +326,9 @@
                 <p class="hint">Senders you never open. Starred senders are left out.</p>
                 <div id="never-read-bulk-bar" class="toolbar">
                   <span id="never-read-count"></span>
-                  <span id="never-read-trash-slot"><button id="never-read-trash-btn" class="btn btn-danger">Trash suggested…</button></span>
+                  <span id="never-read-trash-slot"
+                    ><button id="never-read-trash-btn" class="btn btn-danger">Trash suggested…</button></span
+                  >
                 </div>
                 <div id="never-read-list" class="scroll-x"></div>
               </section>
@@ -201,9 +337,14 @@
                 <h3 class="section-label">Suggested spam</h3>
                 <p class="hint">Senders on a public spam or throwaway-email list.</p>
                 <div id="spam-bulk-bar" class="toolbar">
-                  <label class="check-label"><input type="checkbox" id="spam-select-all" class="check" checked /> <span>Select all</span></label>
+                  <label class="check-label"
+                    ><input type="checkbox" id="spam-select-all" class="check" checked />
+                    <span>Select all</span></label
+                  >
                   <span id="spam-count"></span>
-                  <span id="spam-trash-slot"><button id="spam-trash-btn" class="btn btn-danger">Trash selected…</button></span>
+                  <span id="spam-trash-slot"
+                    ><button id="spam-trash-btn" class="btn btn-danger">Trash selected…</button></span
+                  >
                 </div>
                 <div id="spam-list" class="scroll-x"></div>
               </section>
@@ -224,7 +365,9 @@
                     <input type="number" id="keep-newest-n" min="1" max="100" value="3" />
                     messages
                   </label>
-                  <span id="keep-newest-slot"><button id="keep-newest-btn" class="btn btn-danger">Trim…</button></span>
+                  <span id="keep-newest-slot"
+                    ><button id="keep-newest-btn" class="btn btn-danger">Trim…</button></span
+                  >
                 </div>
               </details>
 
@@ -233,7 +376,11 @@
                 <div id="domain-bulk-bar" class="toolbar" hidden>
                   <button id="select-safe-domains" class="btn">Select safe</button>
                   <span id="domain-selected-count">0 selected</span>
-                  <span id="delete-domains-bulk-slot"><button id="bulk-delete-domains-btn" class="btn btn-danger" disabled>Delete selected domains…</button></span>
+                  <span id="delete-domains-bulk-slot"
+                    ><button id="bulk-delete-domains-btn" class="btn btn-danger" disabled>
+                      Delete selected domains…
+                    </button></span
+                  >
                 </div>
                 <div id="domain-group-list" class="scroll-x"></div>
               </section>
@@ -250,7 +397,9 @@
             </div>
 
             <div class="rec-grid" id="presets"></div>
-            <p class="hint presets-guard">Starred mail and mail from people you write to never leave on a timer.</p>
+            <p class="hint presets-guard">
+              Starred mail and mail from people you write to never leave on a timer.
+            </p>
 
             <details class="disclosure" id="time-limits-section">
               <summary>Make your own</summary>
@@ -264,7 +413,9 @@
               <div id="time-limits-rows" class="limit-rows"></div>
               <div class="tidy-actions">
                 <button type="button" id="time-limits-save" class="btn btn-accent">Save time limits</button>
-                <button type="button" id="time-limits-backlog-btn" class="btn" hidden>Apply to mail already in my inbox…</button>
+                <button type="button" id="time-limits-backlog-btn" class="btn" hidden>
+                  Apply to mail already in my inbox…
+                </button>
                 <span id="time-limits-status" class="hint" role="status"></span>
               </div>
               <p id="time-limits-last" class="hint"></p>
@@ -273,16 +424,24 @@
 
             <section id="sort-inbox-section">
               <h3 class="section-label">Sort my inbox</h3>
-              <p class="hint">Files recent mail into labels. You see a preview first.</p>
+              <p class="hint">Files recent mail into labels after a preview.</p>
               <div id="sort-inbox-bar" class="confirm-slot">
-                <span id="sort-inbox-slot"><button id="sort-inbox-btn" class="btn btn-accent">Sort my inbox…</button></span>
+                <span id="sort-inbox-slot"
+                  ><button id="sort-inbox-btn" class="btn btn-accent">Sort my inbox…</button></span
+                >
                 <span id="sort-inbox-count" class="hint"></span>
               </div>
               <details id="sort-inbox-config">
                 <summary>Which labels, and where the mail goes</summary>
                 <div id="sort-inbox-buckets"></div>
-                <label class="check-label"><input type="checkbox" id="sort-keep-sorting" /> <span>Keep doing this for new mail</span></label>
-                <label class="check-label"><input type="checkbox" id="sort-expire-otp" /> <span>Also move one-time codes to Trash after 2 days</span></label>
+                <label class="check-label"
+                  ><input type="checkbox" id="sort-keep-sorting" />
+                  <span>Keep doing this for new mail</span></label
+                >
+                <label class="check-label"
+                  ><input type="checkbox" id="sort-expire-otp" />
+                  <span>Also move one-time codes to Trash after 2 days</span></label
+                >
                 <p class="hint">Sender-based labels use Gmail filters, so they work with Chrome closed.</p>
               </details>
               <section id="sort-seed-card" class="banner" hidden></section>
@@ -335,20 +494,75 @@
               <nav class="lists" aria-label="Lists">
                 <h2 class="lists-head">Lists</h2>
                 <div class="list-group" id="sender-filter" role="group" aria-label="Filter senders">
-                  <button type="button" data-filter="all" aria-pressed="true"><svg class="li" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="4"></circle><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>All</button>
-                  <button type="button" data-filter="people" aria-pressed="false"><svg class="li" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M5 21a7 7 0 0 1 14 0"></path></svg>People</button>
-                  <button type="button" data-filter="companies" aria-pressed="false"><svg class="li" viewBox="0 0 24 24" aria-hidden="true"><rect width="16" height="20" x="4" y="2" rx="2"></rect><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"></path></svg>Companies</button>
-                  <button type="button" data-filter="subs" aria-pressed="false"><svg class="li" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="16" x="3" y="4" rx="2"></rect><path d="M7 8h10M7 12h10M7 16h6"></path></svg>Subscriptions</button>
-                  <button type="button" data-filter="never" aria-pressed="false"><svg class="li" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h9"></path><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path><path d="m17 17 4 4M21 17l-4 4"></path></svg>Never opened</button>
-                  <button type="button" data-filter="quiet" aria-pressed="false"><svg class="li" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>Gone quiet</button>
-                  <button type="button" data-filter="muted" aria-pressed="false"><svg class="li" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 3A6 6 0 0 1 18 8c0 7 3 9 3 9h-3"></path><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0M2 2l20 20"></path></svg>Muted</button>
+                  <button type="button" data-filter="all" aria-pressed="true">
+                    <svg class="li" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="9" cy="7" r="4"></circle>
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                      <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg
+                    >All
+                  </button>
+                  <button type="button" data-filter="people" aria-pressed="false">
+                    <svg class="li" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="8" r="4"></circle>
+                      <path d="M5 21a7 7 0 0 1 14 0"></path></svg
+                    >People
+                  </button>
+                  <button type="button" data-filter="companies" aria-pressed="false">
+                    <svg class="li" viewBox="0 0 24 24" aria-hidden="true">
+                      <rect width="16" height="20" x="4" y="2" rx="2"></rect>
+                      <path
+                        d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"
+                      ></path></svg
+                    >Companies
+                  </button>
+                  <button type="button" data-filter="subs" aria-pressed="false">
+                    <svg class="li" viewBox="0 0 24 24" aria-hidden="true">
+                      <rect width="18" height="16" x="3" y="4" rx="2"></rect>
+                      <path d="M7 8h10M7 12h10M7 16h6"></path></svg
+                    >Subscriptions
+                  </button>
+                  <button type="button" data-filter="never" aria-pressed="false">
+                    <svg class="li" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h9"></path>
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+                      <path d="m17 17 4 4M21 17l-4 4"></path></svg
+                    >Never opened
+                  </button>
+                  <button type="button" data-filter="quiet" aria-pressed="false">
+                    <svg class="li" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg
+                    >Gone quiet
+                  </button>
+                  <button type="button" data-filter="muted" aria-pressed="false">
+                    <svg class="li" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M8.7 3A6 6 0 0 1 18 8c0 7 3 9 3 9h-3"></path>
+                      <path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"></path>
+                      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0M2 2l20 20"></path></svg
+                    >Muted
+                  </button>
                 </div>
               </nav>
               <div class="contacts-main">
                 <div class="toolbar-row">
                   <label class="search">
-                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.4"></circle><path d="M13 13l4 4"></path></svg>
-                    <input type="search" id="sender-search" placeholder="Search senders" aria-label="Search senders" />
+                    <svg
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.7"
+                      stroke-linecap="round"
+                      aria-hidden="true"
+                    >
+                      <circle cx="9" cy="9" r="5.4"></circle>
+                      <path d="M13 13l4 4"></path>
+                    </svg>
+                    <input
+                      type="search"
+                      id="sender-search"
+                      placeholder="Search senders"
+                      aria-label="Search senders"
+                    />
                   </label>
                   <label class="sender-sort">
                     <select id="sender-sort" aria-label="Sort senders">
@@ -379,7 +593,7 @@
               <div class="section-head">
                 <h2 class="section-label">Paid subscriptions &amp; trials</h2>
               </div>
-              <p class="hint">Found from trial and renewal emails. Cancel these with the company.</p>
+              <p class="hint">Cancel these trials and renewals with the company.</p>
               <div id="paid-subscriptions-list" class="scroll-x"></div>
             </section>
 
@@ -387,10 +601,16 @@
               <div class="section-head">
                 <h2 class="section-label">Newsletters</h2>
               </div>
-              <p class="hint">“Unsubscribe + clean” also trashes their old newsletters. “Read later” files them in a label.</p>
+              <p class="hint">
+                “Unsubscribe + clean” also trashes their old newsletters. “Read later” files them in a label.
+              </p>
               <div id="subscriptions-bulk-bar" class="toolbar" hidden>
                 <span id="subs-count">0 senders</span>
-                <span id="subs-unsub-all-slot"><button id="subs-unsub-all-btn" class="btn btn-accent">Unsubscribe all verified one-click</button></span>
+                <span id="subs-unsub-all-slot"
+                  ><button id="subs-unsub-all-btn" class="btn btn-accent">
+                    Unsubscribe all verified one-click
+                  </button></span
+                >
                 <label>
                   Outcome
                   <select id="subs-outcome-filter">
@@ -420,7 +640,6 @@
             </div>
             <div class="protect-tiles" role="tablist" aria-label="Protect" data-protect-tiles></div>
 
-
             <section id="quarantine-review-section" hidden>
               <div class="section-head">
                 <h2 class="section-label">Held for you</h2>
@@ -448,31 +667,50 @@
               <h2 class="ios-head">Rules</h2>
               <div class="ios-group">
                 <label class="ios-row" id="auto-quarantine-row">
-                  <span class="app-ic app-protect"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="M12 8v4M12 16h.01"></path></svg></span>
-                  <span class="grow">Hold likely scams<span class="sub">Moves them out of your inbox</span></span>
+                  <span class="app-ic app-protect"
+                    ><svg class="i" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+                      ></path>
+                      <path d="M12 8v4M12 16h.01"></path></svg
+                  ></span>
+                  <span class="grow"
+                    >Hold likely scams<span class="sub">Moves them out of your inbox</span></span
+                  >
                   <input type="checkbox" class="switch" role="switch" id="auto-quarantine-toggle" />
                 </label>
                 <label class="ios-row">
-                  <span class="app-ic app-gray"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>
-                  <span class="grow">Hold forged mail<span class="sub">Fails the checks that prove who sent it</span></span>
+                  <span class="app-ic app-gray"
+                    ><svg class="i" viewBox="0 0 24 24" aria-hidden="true">
+                      <rect width="18" height="11" x="3" y="11" rx="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg
+                  ></span>
+                  <span class="grow"
+                    >Hold forged mail<span class="sub">Fails the checks that prove who sent it</span></span
+                  >
                   <input type="checkbox" class="switch" role="switch" id="rule-auth-fails" />
                 </label>
                 <label class="ios-row">
-                  <span class="app-ic app-gray"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m4.9 4.9 14.2 14.2"></path></svg></span>
-                  <span class="grow">Send held mail to Spam<span class="sub">Also teaches Gmail's filter</span></span>
+                  <span class="app-ic app-gray"
+                    ><svg class="i" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <path d="m4.9 4.9 14.2 14.2"></path></svg
+                  ></span>
+                  <span class="grow"
+                    >Send held mail to Spam<span class="sub">Also teaches Gmail's filter</span></span
+                  >
                   <input type="checkbox" class="switch" role="switch" id="rule-to-spam" />
                 </label>
               </div>
             </section>
           </section>
 
-
           <!-- ══ Rules ═════════════════════════════════════════════════ -->
           <section class="screen" data-screen="rules" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Rules</h1>
-                <p class="lead">Rules that run on new mail. Describe one in plain words.</p>
+                <p class="lead">Describe a rule for new mail in plain words.</p>
               </div>
             </div>
 
@@ -489,10 +727,12 @@
                 <span id="rule-example-chips" class="chip-row"></span>
                 <span style="flex: 1"></span>
                 <button type="button" id="rule-draft-btn" class="btn btn-accent">Draft rule locally</button>
-                <button type="button" id="rule-save-draft-btn" class="btn" disabled>Save reviewed draft</button>
+                <button type="button" id="rule-save-draft-btn" class="btn" disabled>
+                  Save reviewed draft
+                </button>
               </div>
               <span id="rule-draft-status" class="hint"></span>
-              <p class="hint">Drafted by on-device AI. Nothing runs until you save.</p>
+              <p class="hint">On-device AI drafts it, and nothing runs until you save.</p>
             </div>
 
             <div id="rules-list"></div>
@@ -533,9 +773,15 @@
                   <option value="label">label</option>
                 </select>
                 <input type="text" id="rule-label" placeholder="Label name" hidden />
-                <label>priority <input type="number" id="rule-priority" min="-100" max="100" value="0" /></label>
-                <label>max per run <input type="number" id="rule-limit" min="1" max="500" value="100" /></label>
-                <label class="check-label"><input type="checkbox" id="rule-stop-processing" /> <span>stop later rules</span></label>
+                <label
+                  >priority <input type="number" id="rule-priority" min="-100" max="100" value="0"
+                /></label>
+                <label
+                  >max per run <input type="number" id="rule-limit" min="1" max="500" value="100"
+                /></label>
+                <label class="check-label"
+                  ><input type="checkbox" id="rule-stop-processing" /> <span>stop later rules</span></label
+                >
                 <button type="submit" id="rule-add-btn" class="btn btn-accent">Add rule</button>
                 <span id="rule-form-error" class="field-error"></span>
               </form>
@@ -584,14 +830,14 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Settings</h1>
-                <p class="lead">Set once. Changes apply right away.</p>
+                <p class="lead">Changes apply right away.</p>
               </div>
             </div>
 
             <div id="onboarding-banner" class="banner" hidden>
               <p>
-                Cluster reads senders, subjects and dates. It reads links only in mail that looks like a
-                scam. Nothing is deleted without your OK.
+                Cluster reads senders, subjects and dates, and checks links only in mail that looks like a
+                scam.
               </p>
               <button type="button" id="onboarding-dismiss-btn" class="btn btn-accent">Got it</button>
             </div>
@@ -621,8 +867,14 @@
                 <h2>You</h2>
                 <div class="set-rows">
                   <div class="set-row">
-                    <span class="set-ic set-ic-gray"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M5 21a7 7 0 0 1 14 0"></path></svg></span>
-                    <span class="grow">Setup<span class="sub" id="settings-persona">Not set up yet</span></span>
+                    <span class="set-ic set-ic-gray"
+                      ><svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="8" r="4"></circle>
+                        <path d="M5 21a7 7 0 0 1 14 0"></path></svg
+                    ></span>
+                    <span class="grow"
+                      >Setup<span class="sub" id="settings-persona">Not set up yet</span></span
+                    >
                     <button type="button" class="btn" id="settings-change-setup">Change</button>
                   </div>
                 </div>
@@ -631,12 +883,20 @@
                 <h2>Mail</h2>
                 <div class="set-rows">
                   <label class="set-row">
-                    <span class="set-ic set-ic-red"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg></span>
+                    <span class="set-ic set-ic-red"
+                      ><svg viewBox="0 0 24 24" aria-hidden="true">
+                        <rect width="18" height="18" x="3" y="4" rx="2"></rect>
+                        <path d="M16 2v4M8 2v4M3 10h18"></path></svg
+                    ></span>
                     <span class="grow">Days to look back</span>
                     <input type="number" id="scan-window-input" min="1" max="3650" />
                   </label>
                   <div class="set-row">
-                    <span class="set-ic set-ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg></span>
+                    <span class="set-ic set-ic-blue"
+                      ><svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path>
+                        <path d="M21 3v5h-5"></path></svg
+                    ></span>
                     <span class="grow">Read my mail again</span>
                     <button type="button" class="btn" id="settings-rescan">Rescan</button>
                   </div>
@@ -646,12 +906,18 @@
                 <h2>Appearance</h2>
                 <div class="set-rows">
                   <label class="set-row">
-                    <span class="set-ic set-ic-green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V5h16v2M9 19h6M12 5v14"></path></svg></span>
+                    <span class="set-ic set-ic-green"
+                      ><svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 7V5h16v2M9 19h6M12 5v14"></path></svg
+                    ></span>
                     <span class="grow">Simple mode<span class="sub">Bigger text, fewer screens.</span></span>
                     <input type="checkbox" class="switch" role="switch" id="simple-mode-toggle" />
                   </label>
                   <label class="set-row">
-                    <span class="set-ic set-ic-indigo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg></span>
+                    <span class="set-ic set-ic-indigo"
+                      ><svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg
+                    ></span>
                     <span class="grow">Theme</span>
                     <select id="theme-select">
                       <option value="system">System</option>
@@ -669,8 +935,17 @@
                   <h2>Deleting</h2>
                   <div class="set-rows">
                     <label class="set-row" id="fast-delete-toggle-label">
-                      <span class="set-ic set-ic-red"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg></span>
-                      <span class="grow">Delete forever instead of Trash<span class="sub">Can't be undone. Needs an extra Gmail permission.</span></span>
+                      <span class="set-ic set-ic-red"
+                        ><svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path
+                            d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+                          ></path></svg
+                      ></span>
+                      <span class="grow"
+                        >Delete forever instead of Trash<span class="sub"
+                          >Can't be undone. Needs an extra Gmail permission.</span
+                        ></span
+                      >
                       <input type="checkbox" class="switch" role="switch" id="fast-delete-toggle" />
                     </label>
                   </div>
@@ -700,7 +975,9 @@
               <b>Before you pay anyone or share a code</b>
               <span>Call them on a number you already have, not one in the email.</span>
             </div>
-            <div><button type="button" class="btn btn-ghost" id="simple-off">Turn off Simple mode</button></div>
+            <div>
+              <button type="button" class="btn btn-ghost" id="simple-off">Turn off Simple mode</button>
+            </div>
           </section>
 
           <!-- ══ First-run setup ═══════════════════════════════════════ -->
@@ -712,15 +989,25 @@
               </div>
             </div>
             <div class="personas" role="group" aria-label="What describes you">
-              <button type="button" class="persona" data-persona="calm" aria-pressed="false"><b>I get too many promotions</b><span>Signed up for everything. Want a calm inbox.</span></button>
-              <button type="button" class="persona" data-persona="business" aria-pressed="false"><b>I run a business</b><span>Bills, suppliers, customers.</span></button>
-              <button type="button" class="persona" data-persona="safe" aria-pressed="false"><b>Keep me safe</b><span>For yourself or someone you care for.</span></button>
-              <button type="button" class="persona" data-persona="busy" aria-pressed="false"><b>Lots of people email me</b><span>Pitches, partners, fans.</span></button>
+              <button type="button" class="persona" data-persona="calm" aria-pressed="false">
+                <b>I get too many promotions</b><span>Signed up for everything. Want a calm inbox.</span>
+              </button>
+              <button type="button" class="persona" data-persona="business" aria-pressed="false">
+                <b>I run a business</b><span>Bills, suppliers, customers.</span>
+              </button>
+              <button type="button" class="persona" data-persona="safe" aria-pressed="false">
+                <b>Keep me safe</b><span>For yourself or someone you care for.</span>
+              </button>
+              <button type="button" class="persona" data-persona="busy" aria-pressed="false">
+                <b>Lots of people email me</b><span>Pitches, partners, fans.</span>
+              </button>
             </div>
             <div class="glass-card" id="setup-preview" hidden>
               <b>Here's what would change</b>
               <ul class="reasons trust-list" id="setup-list"></ul>
-              <p class="trust-line"><span>Runs on your computer</span><span>Nothing is deleted</span><span>Undo anything</span></p>
+              <p class="trust-line">
+                <span>Runs on your computer</span><span>Nothing is deleted</span><span>Undo anything</span>
+              </p>
               <div class="scam-actions">
                 <button type="button" class="btn btn-accent-solid" id="setup-go">Turn it on</button>
                 <button type="button" class="btn btn-ghost" id="setup-not-now">I'll set it up myself</button>

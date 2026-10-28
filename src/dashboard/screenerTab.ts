@@ -183,7 +183,7 @@ export function renderScreenerTab(senders: SenderSummary[]) {
   if (ctx.settings.screenerAllowlist.length === 0) {
     const p = document.createElement("p");
     p.className = "empty-state";
-    p.textContent = "No one yet. People you've emailed are let in without being listed here.";
+    p.textContent = "No one yet, and people you've emailed skip this list.";
     screenerAllowlistEl.appendChild(p);
   } else {
     const list = document.createElement("div");

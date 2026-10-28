@@ -319,7 +319,7 @@ function renderSubsFloatingBar(oneClickCount: number) {
       : `${oneClickCount} verified one-click`;
   const sub = document.createElement("span");
   sub.className = "fb-sub";
-  sub.textContent = "Only future mail stops. What you have stays.";
+  sub.textContent = "Only future mail stops.";
   const allBtn = document.createElement("button");
   allBtn.className = "btn-accent-solid";
   allBtn.textContent = selected > 0 ? "Unsubscribe selected" : "Unsubscribe all";

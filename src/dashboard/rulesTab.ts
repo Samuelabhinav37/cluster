@@ -57,7 +57,7 @@ export function renderRulesTab() {
   if (ctx.settings.rules.length === 0) {
     const p = document.createElement("p");
     p.className = "empty-state";
-    p.textContent = "No rules yet. Add one below.";
+    p.textContent = "No rules yet.";
     rulesListEl.appendChild(p);
     return;
   }
