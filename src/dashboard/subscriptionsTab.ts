@@ -136,6 +136,55 @@ function requestActions(key: string, provider: string, state: string): HTMLEleme
   return out;
 }
 
+/** The sender just unsubscribed from, so the screen can offer the same
+ * company's other list addresses. */
+let justStopped: SenderSummary | null = null;
+
+/** "Shop also mails you from 2 other addresses. Stop those too?" */
+function siblingOffer(available: SenderSummary[]): HTMLElement | null {
+  const company = justStopped && ctx.profiles.get(justStopped.key)?.companyKey;
+  if (!justStopped || !company) return null;
+  const others = available.filter(
+    (s) =>
+      s.key !== justStopped!.key &&
+      s.unsubscribe.postUrl &&
+      !ctx.settings.unsubscribeRequests[s.key] &&
+      ctx.profiles.get(s.key)?.companyKey === company,
+  );
+  if (others.length === 0) return null;
+  const name = justStopped.displayName || company;
+  const banner = document.createElement("div");
+  banner.className = "banner";
+  const text = document.createElement("span");
+  text.textContent = `${name} also mails you from ${others.length} other address${others.length === 1 ? "" : "es"}.`;
+  const stop = document.createElement("button");
+  stop.className = "btn btn-accent-solid btn-sm";
+  stop.textContent = "Stop those too";
+  stop.onclick = async () => {
+    stop.disabled = true;
+    const granted = await ensureOriginsPermission(others.map((s) => s.unsubscribe.postUrl!));
+    if (!granted) {
+      text.textContent = "Permission denied, so nothing was sent.";
+      stop.disabled = false;
+      return;
+    }
+    const { succeeded } = await executeBulkUnsubscribe(others, fireOneClickUnsubscribe);
+    await recordUnsubscribeRequests(succeeded);
+    if (succeeded.length > 0) await logAction("unsubscribe", `Unsubscribed from ${succeeded.length} more ${name} addresses`);
+    justStopped = null;
+    renderSubscriptionsTab(ctx.senders);
+  };
+  const later = document.createElement("button");
+  later.className = "btn btn-sm";
+  later.textContent = "Not now";
+  later.onclick = () => {
+    justStopped = null;
+    banner.remove();
+  };
+  banner.append(text, stop, later);
+  return banner;
+}
+
 /** Moves a sender's old list mail to Trash, re-checking protection live. */
 async function trashOldMail(sender: SenderSummary, ids: string[], kept: number): Promise<string> {
   const provider = providerById.get(sender.provider);
@@ -198,6 +247,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
       if (ok) {
         await recordUnsubscribeRequests([sender]);
         await logAction("unsubscribe", `Unsubscribed from ${sender.address}`);
+        justStopped = sender;
         renderSubscriptionsTab(ctx.senders);
       } else {
         btn.disabled = false;
@@ -410,6 +460,9 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
     return;
   }
 
+  const offer = siblingOffer(available);
+  if (offer) subscriptionsListEl.appendChild(offer);
+
   if (visibleCurrentRows.length > 0) {
     // Select-all header — not itself a list item (no title/media), so it
     // reuses the check-media-actions grid class directly rather than going
@@ -581,7 +634,7 @@ export function wireSubscriptionsTab() {
     renderConfirmStep(
       subsUnsubAllSlot,
       resetSubsUnsubAllSlot,
-      `Send a verified one-click unsubscribe to ${scope} (${oneClick.length} sender${oneClick.length === 1 ? "" : "s"})?`,
+      `Unsubscribe from ${scope} (${oneClick.length} sender${oneClick.length === 1 ? "" : "s"})? Only future mail stops.`,
       false,
       async (summary) => {
         summary.textContent = "Requesting permission…";

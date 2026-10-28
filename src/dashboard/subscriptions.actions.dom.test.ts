@@ -94,6 +94,39 @@ describe("Subscriptions screen — one-click unsubscribe", () => {
   });
 });
 
+describe("Subscriptions screen — the same company's other addresses", () => {
+  it("offers to stop them after one unsubscribe", async () => {
+    const now = Date.now();
+    const auth = "mx.google.com; dkim=pass header.d=shop.example; spf=pass; dmarc=pass";
+    const mailbox = fixtureMailbox(now).map((m) =>
+      m.fromAddress === "deals@shop.example" ? { ...m, authenticationResults: auth } : m,
+    );
+    const shop = mailbox.find((m) => m.id === "s1")!;
+    const news = [1, 2].map((i) => ({
+      ...shop,
+      id: `n${i}`,
+      fromAddress: "news@shop.example",
+      fromDisplayName: "Shop News",
+      receivedAt: now - i * 24 * 60 * 60 * 1000,
+      unsubscribe: { postUrl: "https://shop.example/n" },
+    }));
+    const fetchImpl = makeFetchImpl(async () => new Response("", { status: 202 }));
+    const dash = await bootDashboard({ grantOrigins: true, fetchImpl, mailbox: [...mailbox, ...news] });
+    dash.showScreen("subscriptions");
+    const list = dash.el("subscriptions-list");
+    Array.from(findSubRow(list, "Shop").querySelectorAll("button"))
+      .find((b) => b.textContent === "Unsubscribe")!
+      .click();
+    await vi.waitFor(() => expect(list.querySelector(".banner")?.textContent).toContain("1 other address"));
+    Array.from(list.querySelectorAll<HTMLButtonElement>(".banner button"))
+      .find((b) => b.textContent === "Stop those too")!
+      .click();
+    await vi.waitFor(() =>
+      expect(unsubscribeCalls(fetchImpl).map((c) => c[0])).toContain("https://shop.example/n"),
+    );
+  });
+});
+
 describe("Subscriptions screen — senders that already stopped", () => {
   it("offers Clear out old mail first, not Unsubscribe", async () => {
     const now = Date.now();
