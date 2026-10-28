@@ -120,4 +120,15 @@ This is the master list. It covers today's chat plus research docs `2026-10-10-a
 
 - 3.6 + 3.7 + 3.8 + 3.11 + 3.12: "via myworkday.com" on platform senders, a signed List-Id folds one newsletter across addresses, "Group companies" switch on Senders, "You write to" filter, "This is a person" / "Not a person" on the sender card, remembered (see git log).
 
-Step c is done. Next: d (1.1–1.2 permissions, needs a live Google test).
+Step c is done.
+
+Later on 2026-10-28 (see git log):
+- 1.1 + 1.2: install asks for gmail.modify only; filters ask for settings.basic when first used; grantedScopes checked. Needs a live Google test.
+- 1.3: Settings Sign out revokes Google access, asks Keep or Remove Cluster's filters; labels stay.
+- 1.5: Connect page is two short lines.
+- 4.5: rules touch only new mail unless "the N you have now" is ticked; live count in the sheet.
+- 4.8: Sort and sweeps never move a person's own mail. 4.9: Screener "Hold people too" switch. 4.11: Screener lets codes, sign-in alerts, same-day deliveries through.
+- 4.12: Screener Block also unsubscribes, signed companies only. 4.13 was already built (Details Senders tab). 4.15: Pin in Details stars mail (Gmail only).
+- 5.5–5.11: Clean up rows lead with Trash; company cards Mute all; Keep sorted is File away; Organize words; setup on Home; no tidy-up on fresh install; "Pretends to be X" first; Checkup removed; Details' sender list hidden on Senders.
+- 5.7: real send rates, plain method names. 6.1 was already built (backstop filter). 6.2: offer the company's other list addresses. 6.3: waiting label says how it was sent. 6.4: quiet senders get Clear out old mail.
+- Dashboard JS budget 585 → 595 KB.
