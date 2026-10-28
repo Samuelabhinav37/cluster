@@ -108,6 +108,7 @@ import { spamListSize } from "../lib/spamList";
 import { keepNewestExcess } from "../lib/keepNewest";
 import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
 import { renderRulesTab, wireRulesTab } from "./rulesTab";
+import { wireSettingsMore } from "./settingsMore";
 import { initBodyChecks, renderSecurityChecks, renderSecuritySection } from "./securityTab";
 import { renderScamReport } from "./reportTab";
 import { heldByWeek } from "../lib/scamHistory";
@@ -550,6 +551,7 @@ async function main() {
   wireSetup(selectScreen);
   renderSettingsSetup();
   wireThemeSelect();
+  wireSettingsMore(showScreen);
   wireNav();
   // Each page title wears its place's app icon, like iCloud Drive's headers.
   for (const icon of Array.from(

@@ -104,6 +104,10 @@ path (a failed or slow fetch there is never user-visible; every dataset has
 a bundled fallback that works exactly as before if the fetch never
 succeeds).
 
+`optional_permissions` lists `notifications`. It is requested only when the user
+turns on a notification in Settings (scam held, weekly summary), and the
+notifications carry counts, never a subject or sender.
+
 `optional_host_permissions` lists `https://*/*`. This is **not** granted at
 install and is never requested wholesale. When the user fires a verified
 one-click unsubscribe, the extension requests access to that **one** sender's

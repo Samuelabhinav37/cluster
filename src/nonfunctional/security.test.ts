@@ -34,6 +34,10 @@ describe("manifest: permission surface", () => {
     ]);
   });
 
+  it("asks for notifications only when a Settings switch is turned on", () => {
+    expect(manifest.optional_permissions).toEqual(["notifications"]);
+  });
+
   it("keeps broad https access optional (granted per origin for one-click unsubscribe), never install-time", () => {
     expect(manifest.optional_host_permissions).toEqual(["https://*/*"]);
     const all = JSON.stringify([manifest.permissions, manifest.host_permissions]);

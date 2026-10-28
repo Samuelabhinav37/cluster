@@ -79,6 +79,13 @@ export interface ClusterSettings {
   setupDone: boolean;
   /** Bigger text and a three-item nav (setupTab.ts). */
   simpleMode: boolean;
+  /** Kai's corner button and tips. */
+  showKai: boolean;
+  /** Chrome notifications (optional "notifications" permission). */
+  notifyScamHeld: boolean;
+  notifyWeekly: boolean;
+  /** When the last weekly summary went out, so it goes once a week. */
+  lastWeeklyNotice: number;
   /** Weekly counts of what auto-quarantine held, for the Scam report (scamHistory.ts). */
   scamHistory: ScamWeek[];
 
@@ -207,6 +214,10 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   persona: "",
   setupDone: false,
   simpleMode: false,
+  showKai: true,
+  notifyScamHeld: false,
+  notifyWeekly: false,
+  lastWeeklyNotice: 0,
   scamHistory: [],
   knownSenders: {},
   knownSendersInitialized: false,

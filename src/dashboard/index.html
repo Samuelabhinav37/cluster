@@ -904,6 +904,41 @@
                 </div>
               </div>
               <div class="set-sec">
+                <h2>Accounts</h2>
+                <div class="set-rows">
+                  <div class="set-row">
+                    <span class="set-ic set-ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6"></path></svg></span>
+                    <span class="grow" id="settings-account">Gmail</span>
+                    <button type="button" class="btn" id="settings-add-outlook">Add Outlook</button>
+                  </div>
+                </div>
+              </div>
+              <div class="set-sec">
+                <h2>Notifications</h2>
+                <div class="set-rows">
+                  <label class="set-row">
+                    <span class="set-ic set-ic-red"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20h4"></path></svg></span>
+                    <span class="grow">Tell me when a scam is held</span>
+                    <input type="checkbox" class="switch" role="switch" id="notify-scam-toggle" />
+                  </label>
+                  <label class="set-row">
+                    <span class="set-ic set-ic-indigo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v15H4zM4 10h16M9 3v4M15 3v4"></path></svg></span>
+                    <span class="grow">Weekly summary<span class="sub">Monday morning, in Chrome</span></span>
+                    <input type="checkbox" class="switch" role="switch" id="notify-weekly-toggle" />
+                  </label>
+                </div>
+              </div>
+              <div class="set-sec">
+                <h2>Safety net</h2>
+                <div class="set-rows">
+                  <div class="set-row">
+                    <span class="set-ic set-ic-green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 3-6.2M4 4v4h4"></path></svg></span>
+                    <span class="grow">Activity<span class="sub">Everything Cluster did, with Undo</span></span>
+                    <button type="button" class="btn" id="settings-open-activity">Open</button>
+                  </div>
+                </div>
+              </div>
+              <div class="set-sec">
                 <h2>Appearance</h2>
                 <div class="set-rows">
                   <label class="set-row">
@@ -926,6 +961,41 @@
                       <option value="dark">Dark</option>
                     </select>
                   </label>
+                  <label class="set-row">
+                    <span class="set-ic set-ic-gray"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM9 10h.01M15 10h.01M9 15c1.5 1.3 4.5 1.3 6 0"></path></svg></span>
+                    <span class="grow">Show Kai</span>
+                    <input type="checkbox" class="switch" role="switch" id="show-kai-toggle" />
+                  </label>
+                </div>
+              </div>
+              <div class="set-sec">
+                <h2>Privacy</h2>
+                <div class="set-rows">
+                  <details class="set-row-details">
+                    <summary class="set-row">
+                      <span class="set-ic set-ic-gray"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path></svg></span>
+                      <span class="grow">What Cluster keeps on this computer</span>
+                      <span class="tile-chev" aria-hidden="true">›</span>
+                    </summary>
+                    <p class="hint">Your settings, rules and activity, an index of senders, subjects and dates, and what it learned from your choices. Mail stays in Gmail.</p>
+                  </details>
+                  <div class="set-row">
+                    <span class="set-ic set-ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg></span>
+                    <span class="grow">Export my settings and rules</span>
+                    <button type="button" class="btn" id="settings-export">Export</button>
+                  </div>
+                  <div class="set-row" id="settings-erase-row">
+                    <span class="set-ic set-ic-red"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M19 6v14H5V6M8 6V4h8v2"></path></svg></span>
+                    <span class="grow">Erase everything Cluster stored</span>
+                    <span id="settings-erase-slot"><button type="button" class="btn danger" id="settings-erase">Erase</button></span>
+                  </div>
+                </div>
+              </div>
+              <div class="set-sec">
+                <h2>Keyboard</h2>
+                <div class="set-rows">
+                  <div class="set-row plain"><span class="grow">Ask Kai</span><span><kbd>/</kbd></span></div>
+                  <div class="set-row plain"><span class="grow">Go to Home, Senders, Clean up, Organize, Protect</span><span><kbd>G</kbd> then <kbd>H S C O P</kbd></span></div>
                 </div>
               </div>
             </div>

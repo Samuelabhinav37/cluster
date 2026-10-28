@@ -33,6 +33,7 @@ import { runUnsubscribedSweep } from "./lib/unsubscribedSweep";
 import { getRuleCompletionKeys, recordRuleCompletions } from "./lib/ruleCompletionLedger";
 import { loadPublicSuffixList } from "./lib/publicSuffix";
 import { applySenderLedger } from "./lib/senderLedgerStore";
+import { notify, weeklySummary } from "./lib/notices";
 
 async function openDashboard() {
   const url = chrome.runtime.getURL("src/dashboard/index.html");
@@ -103,6 +104,7 @@ function handleAlarm(alarm: chrome.alarms.Alarm): void {
       .then((token) => runReplyReminders(token))
       .catch((err) => log.error("Reply reminders failed", err));
     runBackgroundTriage();
+    void sendWeeklySummary().catch((err) => log.error("Weekly summary failed", err));
   }
   if (alarm.name === ATHENA_ALARM) void flushAthenaSecurityEvents();
   if (alarm.name === JOBS_ALARM) {
@@ -318,7 +320,17 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
       throw err;
     }
   }
+  if (totalQuarantined > 0 && settings.notifyScamHeld)
+    void notify("cluster-held", `Cluster held ${totalQuarantined} likely scam${totalQuarantined === 1 ? "" : "s"}.`);
   return totalQuarantined;
+}
+
+async function sendWeeklySummary() {
+  const settings = await getSettings();
+  const text = weeklySummary(settings);
+  if (!text) return;
+  await updateSettings({ lastWeeklyNotice: Date.now() });
+  await notify("cluster-weekly", text);
 }
 
 async function runBackgroundTriage() {

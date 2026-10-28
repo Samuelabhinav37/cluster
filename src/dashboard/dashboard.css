@@ -744,51 +744,6 @@ a:hover {
   cursor: default;
 }
 
-/* ── Metrics ──────────────────────────────────────────────────────────── */
-
-.metric-hero {
-  font: 600 44px/1 var(--font-display);
-  letter-spacing: -0.032em;
-  color: var(--label);
-}
-
-.metric-band {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 26px;
-  padding: 22px 24px;
-  border-radius: var(--r-lg);
-  background: var(--glass);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
-  border: 0.5px solid var(--hairline);
-  box-shadow: var(--shadow-card-lg);
-}
-
-.metric-band .divider {
-  width: 0.5px;
-  height: 52px;
-  background: var(--hairline);
-  flex: none;
-}
-
-.metric-secondary .n {
-  font: 600 22px/1.2 var(--font-display);
-  letter-spacing: -0.021em;
-}
-
-.metric-secondary .cap {
-  font: 400 13px/1.4 var(--font);
-  color: var(--label-3);
-  margin-top: 4px;
-  white-space: nowrap;
-}
-
-.metric-secondary.danger .n {
-  color: var(--danger-text);
-}
-
 /* ── Logo tile / favicon stack ───────────────────────────────────────── */
 
 .logo-tile {
@@ -1509,15 +1464,6 @@ details.disclosure > summary {
   .page-title {
     font-size: 28px;
   }
-
-  .metric-hero {
-    font-size: 36px;
-  }
-
-  .metric-band {
-    gap: 16px;
-    padding: 18px;
-  }
 }
 
 /* Wide scrollables never push the page body sideways. */
@@ -2218,12 +2164,6 @@ body.simple .btn {
   font: 600 15px/1.35 var(--font);
 }
 
-.report-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-  gap: 16px;
-}
-
 .vbars {
   display: grid;
   grid-auto-flow: column;
@@ -2386,7 +2326,6 @@ body {
 .glass-card,
 .grouped-list,
 .toggle-card,
-.metric-band,
 .setup-banner,
 .scam-card,
 .banner {
@@ -2462,7 +2401,8 @@ body {
   outline: none;
 }
 
-.header-search kbd {
+.header-search kbd,
+.set-row kbd {
   padding: 1px 7px;
   border-radius: 6px;
   box-shadow: inset 0 0 0 1px var(--neutral-border);
@@ -3485,7 +3425,7 @@ table.sheet { font-size: 12px; }
 /* App colors apply wherever a place's icon appears (sidebar and page titles). */
 :is(.nav-item, .page-title) svg.nav-icon.ni-home { background: linear-gradient(#3d9bff, #0a6cff); }
 :is(.nav-item, .page-title) svg.nav-icon:is(.ni-bin, .ni-stop) { background: linear-gradient(#ffa63d, #f47a0a); }
-:is(.nav-item, .page-title) svg.nav-icon:is(.ni-layers, .ni-sliders) { background: linear-gradient(#a879ff, #7a4cf0); }
+:is(.nav-item, .page-title) svg.nav-icon.ni-layers { background: linear-gradient(#a879ff, #7a4cf0); }
 :is(.nav-item, .page-title) svg.nav-icon:is(.ni-shield, .ni-new, .ni-chart) { background: linear-gradient(#5a6cff, #3346d9); }
 :is(.nav-item, .page-title) svg.nav-icon.ni-people { background: linear-gradient(#9aa0a8, #6e747c); }
 .page-title { display: flex; align-items: center; gap: 12px; }
@@ -3666,3 +3606,8 @@ select:not([multiple]):hover { background-color: var(--neutral-fill-hover); }
 .sort-done { color: var(--label); font-weight: 600; }
 .protect-bento .tile-wide { grid-column: span 2; }
 @media (max-width: 900px) { .protect-bento .tile-wide { grid-column: auto; } }
+.set-row.plain { grid-template-columns: minmax(0, 1fr) auto; color: var(--label-2); }
+.set-row-details + .set-row, .set-row + .set-row-details { border-top: 1px solid var(--separator); }
+.set-row-details > summary { list-style: none; cursor: pointer; }
+.set-row-details > summary::-webkit-details-marker { display: none; }
+.set-row-details > .hint { margin: 0; padding: 0 16px 14px 60px; }

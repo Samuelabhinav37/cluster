@@ -18,7 +18,7 @@ const BUDGET: Record<string, { words: number; controls: number }> = {
   screener: { words: 70, controls: 6 },
   report: { words: 50, controls: 6 },
   senders: { words: 85, controls: 18 },
-  settings: { words: 80, controls: 12 },
+  settings: { words: 135, controls: 18 }, // six groups added 2026-10-28
   recent: { words: 20, controls: 2 },
 };
 

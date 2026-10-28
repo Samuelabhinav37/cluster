@@ -35,6 +35,7 @@
     "https://login.microsoftonline.com/*",
     "https://samuelabhinav37.github.io/*"
   ],
+  "optional_permissions": ["notifications"],
   "optional_host_permissions": ["https://*/*"],
   "oauth2": {
     "client_id": "995931931748-0hjufbdg626m372dm5pi1f9toe7ausuc.apps.googleusercontent.com",
