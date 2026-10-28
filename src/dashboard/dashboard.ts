@@ -236,6 +236,9 @@ const keepNewestBtn = document.getElementById("keep-newest-btn") as HTMLButtonEl
 
 
 // ── Sidebar navigation (WAI-ARIA tabs pattern, vertical) ────────────────
+const DETAILS_BESIDE_MIN = 1200;
+let detailsOpenedForCleanup = false;
+
 function showScreen(name: string) {
   const target = resolveScreen(name);
   for (const panel of screenPanels) {
@@ -255,6 +258,15 @@ function showScreen(name: string) {
   if (!navButtons.some((b) => b.dataset.screen === target)) {
     const first = navButtons.find(navItemShown);
     if (first) first.tabIndex = 0;
+  }
+  // Clean up works beside Details, so it opens there when the window has
+  // room for both, and closes again on leaving if it opened itself.
+  if (target === "delete" && window.innerWidth >= DETAILS_BESIDE_MIN && details && !details.isOpen()) {
+    details.open({ view: "senders" });
+    detailsOpenedForCleanup = true;
+  } else if (target !== "delete" && detailsOpenedForCleanup) {
+    details?.close();
+    detailsOpenedForCleanup = false;
   }
   // A place's sub-pages show only while one of its screens is open.
   for (const area of Array.from(document.querySelectorAll<HTMLElement>("#sidebar .nav-area"))) {
@@ -1346,10 +1358,11 @@ function clearOutPlan(senders: SenderSummary[]) {
 // ── Suggested cleanup: "Senders worth a decision" ──────────────────────
 type PrimaryAct = "unsubscribe" | "mute" | "keepSorted";
 
+/** How much of their mail gets opened; the count itself sits on the right. */
 function decisionReason(sender: SenderSummary): string {
   const total = senderVolume(sender);
   const opened = total - senderUnread(sender);
-  return `${total.toLocaleString()} ${total === 1 ? "email" : "emails"}, ${opened === 0 ? "none" : opened.toLocaleString()} opened`;
+  return opened === 0 ? "Never opened" : `${Math.round((opened / Math.max(1, total)) * 100)}% opened`;
 }
 
 function primaryActionFor(sender: SenderSummary): { act: PrimaryAct; label: string } {
@@ -1402,8 +1415,7 @@ function renderDeleteScreen(senders: SenderSummary[]) {
   const emails = (n: number) => `${n.toLocaleString()} ${n === 1 ? "email" : "emails"}`;
   document.getElementById("cleanup-lead")!.textContent = `${emails(plan.total)} you can clear.`;
   document.getElementById("never-opened-card")!.hidden = unopened === 0;
-  document.getElementById("never-opened-name")!.textContent =
-    `${unopened} ${unopened === 1 ? "sender" : "senders"} you never open`;
+  document.getElementById("never-opened-name")!.textContent = `${unopened} ${unopened === 1 ? "sender" : "senders"}`;
   document.getElementById("never-opened-fact")!.textContent = emails(plan.neverReadMsgs);
   document.getElementById("past-date-card")!.hidden = plan.expiryTotal === 0;
   document.getElementById("past-date-fact")!.textContent = emails(plan.expiryTotal);
@@ -1423,13 +1435,12 @@ function renderDecisionSenders(senders: SenderSummary[]) {
   const list = document.createElement("div");
   list.className = "grouped-list";
 
-  const most = Math.max(1, ...decide.map(senderVolume));
   for (const sender of decide) {
     const sep = document.createElement("div");
     sep.className = "row-sep";
     sep.style.marginLeft = "16px";
     list.appendChild(sep);
-    list.appendChild(buildDecisionRow(sender, senders, most));
+    list.appendChild(buildDecisionRow(sender, senders));
   }
 
   if (protectedOne) {
@@ -1455,7 +1466,7 @@ function renderDecisionSenders(senders: SenderSummary[]) {
   senderGroupsEl.appendChild(list);
 }
 
-function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[], most: number): HTMLElement {
+function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): HTMLElement {
   const { act, label } = primaryActionFor(sender);
   const primary = document.createElement("button");
   primary.className = "btn";
@@ -1516,21 +1527,14 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[], mo
     lead: makeLogoTile(sender, "sz-34"),
     title: sender.displayName || sender.address,
     sub: decisionReason(sender),
-    meta: volumeBar(senderVolume(sender) / most),
+    meta: Object.assign(document.createElement("span"), {
+      className: "ios-value",
+      textContent: `${senderVolume(sender).toLocaleString()} ${senderVolume(sender) === 1 ? "email" : "emails"}`,
+    }),
     actions: [primary, ellipsis],
     disclosure,
-    href: () => details?.open({ senderKey: sender.key }),
+    href: () => details?.open({ view: "emails", senderKey: sender.key }),
   });
-}
-
-function volumeBar(share: number): HTMLElement {
-  const bar = document.createElement("span");
-  bar.className = "cellbar";
-  bar.setAttribute("aria-hidden", "true");
-  const fill = document.createElement("i");
-  fill.style.width = `${Math.round(share * 100)}%`;
-  bar.append(fill);
-  return bar;
 }
 
 // ── Mute (local BlackHole) ───────────────────────────────────────────────

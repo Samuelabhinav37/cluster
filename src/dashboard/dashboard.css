@@ -637,7 +637,6 @@ a:hover {
   grid-template-columns: 22px minmax(0, 1fr) 92px 150px;
 }
 .list-row--check-media-meta-actions .row-actions { justify-content: flex-end; }
-.list-row .cellbar { width: 100%; height: 6px; border-radius: 3px; }
 
 .list-row--media-actions {
   grid-template-columns: minmax(0, 1fr) max-content;
@@ -1670,46 +1669,6 @@ details.disclosure > summary {
 /* Below the sidebar breakpoint the nav becomes a horizontal scrolling strip
    under the header — always visible, no off-canvas drawer, no JS. */
 @media (max-width: 900px) {
-  .app-body {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .sidebar {
-    width: 100%;
-    position: sticky;
-    top: 56px;
-    z-index: 15;
-    flex-direction: row;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    border-right: none;
-    border-bottom: 0.5px solid var(--separator);
-    background: var(--glass-toolbar);
-    backdrop-filter: var(--blur);
-    -webkit-backdrop-filter: var(--blur);
-  }
-
-  .sidebar-spacer,
-  .sidebar-note {
-    display: none;
-  }
-
-  .nav-item {
-    width: auto;
-    flex: none;
-    min-height: 36px;
-    padding: 8px 12px;
-    white-space: nowrap;
-  }
-
-  .nav-count {
-    margin-left: 6px;
-  }
-
   .screen {
     padding: 24px 16px 48px;
   }
@@ -2870,29 +2829,6 @@ body {
   overflow-y: auto;
 }
 
-@media (max-width: 900px) {
-  .sidebar {
-    width: 100%;
-    height: auto;
-    overflow-y: visible;
-    top: 60px;
-    padding: 8px 16px;
-    border-right: 0;
-  }
-
-  .nav-area {
-    display: contents;
-  }
-
-  .nav-area.open .nav-children {
-    display: contents;
-  }
-
-  .nav-item.nav-child {
-    padding-left: 12px;
-  }
-}
-
 /* Settings (stage 5): rarely changed options tucked under Advanced */
 .settings-advanced > summary {
   padding: 14px 4px;
@@ -2988,11 +2924,6 @@ body {
   }
 }
 
-@media (max-width: 900px) {
-  .nav-item.nav-child {
-    padding-left: 12px;
-  }
-}
 
 
 /* ---------- Kai, the guide in the corner (kaiGuide.ts, the same chat as in Moat) ----------
@@ -3412,40 +3343,6 @@ body {
   color: var(--label-4);
 }
 
-/* Narrow: the panel becomes a scrolling strip across the top */
-@media (max-width: 900px) {
-  .app-body {
-    flex-direction: column;
-  }
-
-  .side-panel .account-wrap {
-    border-top: 0;
-  }
-
-  .side-panel .account-menu {
-    top: calc(100% + 6px);
-    bottom: auto;
-  }
-
-  .side-panel {
-    position: static;
-    height: auto;
-    width: 100%;
-    border-right: 0;
-  }
-
-  /* An older rule shrink-wraps the sidebar; stretch it so the strip scrolls
-     inside the window instead of widening the page. */
-  .side-panel .sidebar {
-    align-self: stretch;
-    min-width: 0;
-  }
-
-  .sidebar-note {
-    display: none;
-  }
-}
-
 body[data-state="connect"] .side-panel,
 body[data-state="connect"] .crumbs {
   display: none;
@@ -3738,7 +3635,8 @@ table.sheet { font-size: 12px; }
 .details-chart .track { width: 80%; }
 .details .sheet input.tick { width: 14px; height: 14px; min-width: 0; min-height: 0; margin: 0; }
 /* Clean up's list: name, a wide volume bar, then actions (mockup). */
-#sender-groups .list-row--media-meta-actions { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 150px; padding: 10px 16px; }
+#sender-groups .list-row--media-meta-actions { grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; padding: 6px 14px; }
+#sender-groups .logo-tile { width: 28px; height: 28px; border-radius: 7px; }
 #sender-groups .row-actions { justify-content: flex-end; }
 #sender-groups .row-actions .btn:not(.btn-icon) { background: var(--neutral-fill); }
 #sender-groups .row-actions .btn { min-height: 0; }
@@ -3903,3 +3801,25 @@ table.sheet { font-size: 12px; }
 .set-sec { display: block; padding: 0; border: 0; }
 .settings-list { display: flex; flex-direction: column; gap: 24px; }
 #auto-quarantine-row { padding: 10px 16px; border-radius: 0; }
+
+/* Clean up: quick fixes as one list; the button sits on the row, its confirm takes the row. */
+.cleanup-quick { margin-bottom: 18px; }
+.cleanup-quick .ios-row { grid-template-columns: 30px minmax(0, 1fr) auto auto; }
+.cleanup-quick .ios-row > :last-child { grid-column: 4; }
+.cleanup-quick .ios-row > .ios-value { grid-column: 3; grid-row: 1 / span 2; }
+.cleanup-quick .ios-row > .confirm-slot:has(.confirm-summary) { grid-column: 1 / -1; }
+.cleanup-quick .btn { min-height: 0; }
+
+/* Split window: the panel shrinks to an icon rail, Apple-sidebar style. */
+@media (max-width: 1000px) {
+  .side-panel { width: 60px; }
+  .panel-brand, .side-panel .account-pill { font-size: 0; justify-content: center; gap: 0; }
+  .panel-brand { padding-inline: 0; }
+  .panel-search { justify-content: center; margin-inline: 8px; padding: 0; }
+  .panel-search span, .panel-search kbd, .side-panel .email, .nav-count { display: none; }
+  .side-panel .sidebar { padding-inline: 8px; }
+  .sidebar :is(.nav-item, .nav-item.nav-child) { justify-content: center; gap: 0; padding: 8px 0; font-size: 0; }
+  .side-panel .account-wrap { padding-inline: 8px; }
+  .side-panel .account-menu { right: auto; width: 180px; }
+  .screen { padding-inline: 20px; }
+}

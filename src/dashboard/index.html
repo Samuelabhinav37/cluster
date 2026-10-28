@@ -147,17 +147,17 @@
               <button type="button" class="tool" data-details aria-controls="details"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18M3 15h18M9 9v12M15 9v12"></path></svg>Details</button>
             </div>
 
-            <div class="rec-grid">
-              <div class="rec-card" id="never-opened-card" hidden>
+            <div class="ios-group cleanup-quick">
+              <div class="ios-row" id="never-opened-card" hidden>
                 <span class="app-ic app-clean"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h9"></path><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path><path d="m17 17 4 4"></path><path d="m21 17-4 4"></path></svg></span>
-                <div class="rec-name" id="never-opened-name"></div>
-                <div class="rec-fact" id="never-opened-fact"></div>
+                <span class="grow">Never opened<span class="sub" id="never-opened-name"></span></span>
+                <span class="ios-value" id="never-opened-fact"></span>
                 <span id="never-read-mute-slot"><button id="never-read-mute-btn" class="btn btn-sm">Mute…</button></span>
               </div>
-              <div class="rec-card" id="past-date-card" hidden>
+              <div class="ios-row" id="past-date-card" hidden>
                 <span class="app-ic app-clean"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></span>
-                <div class="rec-name">Old codes and mail past its date</div>
-                <div class="rec-fact" id="past-date-fact"></div>
+                <span class="grow">Past its date<span class="sub">Old codes and expired offers</span></span>
+                <span class="ios-value" id="past-date-fact"></span>
                 <span id="expiry-cleanup-slot"><button id="expiry-cleanup-btn" class="btn btn-sm">Trash…</button></span>
               </div>
             </div>
