@@ -34,6 +34,7 @@ export interface UnsubscribeOutcome {
 
 interface RequestRecord {
   requestedAt: number;
+  method?: "one-click" | "mailto";
 }
 
 export const STOP_COPY = "Most senders stop within 2 days. The law allows up to 10 business days.";
@@ -97,11 +98,12 @@ export function evaluateUnsubscribeOutcome(
     };
   }
   if (now <= graceAt) {
+    const confirmed = replies.includes("confirmed");
     return {
       ...common,
       state: "pending",
-      label: "Waiting",
-      detail: replies.includes("confirmed") ? `They confirmed. ${STOP_COPY}` : STOP_COPY,
+      label: confirmed ? "They've confirmed" : request.method === "mailto" ? "Sent by email" : "Asked in one click",
+      detail: confirmed ? `They confirmed. ${STOP_COPY}` : STOP_COPY,
     };
   }
   return {

@@ -45,8 +45,14 @@ describe("evaluateUnsubscribeOutcome", () => {
 
   it("waits through the first 3 days, even if mail still arrives", () => {
     const outcome = evaluateUnsubscribeOutcome(sender([500, requestedAt + 10]), { requestedAt }, grace - 1);
-    expect(outcome).toMatchObject({ state: "pending", label: "Waiting", newerMessageCount: 1 });
+    expect(outcome).toMatchObject({ state: "pending", label: "Asked in one click", newerMessageCount: 1 });
     expect(outcome.detail).toContain("within 2 days");
+  });
+
+  it("says which kind of request is waiting", () => {
+    const at = grace - 1;
+    expect(evaluateUnsubscribeOutcome(sender([]), { requestedAt, method: "mailto" }, at).label).toBe("Sent by email");
+    expect(evaluateUnsubscribeOutcome(sender([]), { requestedAt }, at, ["confirmed"]).label).toBe("They've confirmed");
   });
 
   it("calls it stopped after 3 quiet days and keeps watching to 2 weeks", () => {
