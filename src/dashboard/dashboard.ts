@@ -1195,6 +1195,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
       emails: plan.neverReadMsgs,
     },
     pastDate: plan.expiryTotal,
+    clearable: plan.total,
     limitsOn: ctx.settings.autoSort.timeLimitsEnabled
       ? Object.values(ctx.settings.autoSort.inboxHoursByBucket).filter((h) => h != null).length
       : 0,
@@ -1378,16 +1379,22 @@ function currentSuggestions(senders: SenderSummary[]): Suggestion[] {
  * badge all show this one total, so they never disagree. */
 function clearOutPlan(senders: SenderSummary[]) {
   const protectionCtx = buildProtectionContext(ctx.settings);
-  const expiryTotal = totalExpiryCount(buildExpiryBuckets(senders, protectionCtx));
-  const spamMsgs = suggestSpamSenders(senders, undefined, protectionCtx).reduce(
-    (n, s) => n + s.messageCount,
-    0,
-  );
-  const neverReadMsgs = unopenedSuggestions(currentSuggestions(senders)).reduce(
-    (n, s) => n + s.safeMessageIds.length,
-    0,
-  );
-  return { expiryTotal, spamMsgs, neverReadMsgs, total: expiryTotal + spamMsgs + neverReadMsgs };
+  const expiry = buildExpiryBuckets(senders, protectionCtx);
+  const spam = suggestSpamSenders(senders, undefined, protectionCtx);
+  const neverRead = unopenedSuggestions(currentSuggestions(senders));
+  // One email can sit in more than one part (an unopened newsletter past its
+  // date), so the total counts each message id once.
+  const ids = new Set<string>();
+  for (const bucket of expiry)
+    for (const [provider, list] of bucket.messageIdsByProvider) for (const id of list) ids.add(`${provider}:${id}`);
+  for (const s of spam) for (const id of s.sender.messageIds) ids.add(`${s.sender.provider}:${id}`);
+  for (const s of neverRead) for (const id of s.safeMessageIds) ids.add(`${s.sender.provider}:${id}`);
+  return {
+    expiryTotal: totalExpiryCount(expiry),
+    spamMsgs: spam.reduce((n, s) => n + s.messageCount, 0),
+    neverReadMsgs: neverRead.reduce((n, s) => n + s.safeMessageIds.length, 0),
+    total: ids.size,
+  };
 }
 
 // ── Suggested cleanup: "Senders worth a decision" ──────────────────────

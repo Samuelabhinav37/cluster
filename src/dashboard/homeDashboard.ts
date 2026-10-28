@@ -60,6 +60,8 @@ export interface HomeFacts {
   neverOpened: { senders: number; emails: number };
   /** Mail past its date (old codes, delivered parcels, expired offers). */
   pastDate: number;
+  /** Clean up's total: the parts above plus spam, each email counted once. */
+  clearable: number;
   /** Kinds of mail with a time limit on. */
   limitsOn: number;
   /** Brands the flagged senders pretend to be (keys, e.g. "paypal"), most first. */
@@ -335,7 +337,7 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
   else protect.body.append(quiet("shield-check", "Nothing looks off", "ok"));
 
   // Clean up: the total once, then what it's made of, without repeating counts.
-  const clearable = f.neverOpened.emails + f.pastDate;
+  const clearable = f.clearable;
   const clean = tile({ app: "clean", ic: "trash", name: "Clean up", wide: true, open: () => go("delete") });
   if (clearable === 0) clean.body.append(quiet("check", "Nothing to clear", "ok"));
   else {

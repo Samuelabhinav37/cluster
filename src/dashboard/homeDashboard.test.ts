@@ -90,6 +90,7 @@ const calm: HomeFacts = {
   waiting: 0,
   neverOpened: { senders: 0, emails: 0 },
   pastDate: 0,
+  clearable: 0,
   limitsOn: 0,
 };
 const tiles = (el: HTMLElement) => Array.from(el.querySelectorAll(".tile-name")).map((t) => t.textContent);
@@ -128,6 +129,8 @@ describe("renderHomeDashboard", () => {
         waiting: 4,
         neverOpened: { senders: 1, emails: 3 },
         pastDate: 2,
+        // One email is both never opened and past its date.
+        clearable: 4,
         fakedBrands: ["paypal", "netflix"],
       },
       go,
@@ -137,7 +140,7 @@ describe("renderHomeDashboard", () => {
     expect(tileOf(el, "Protect").querySelector(".tile-note")!.textContent).toBe(
       "Pretending to be PayPal, Netflix",
     );
-    expect(tileOf(el, "Clean up").querySelector(".tile-stat")!.textContent).toBe("5emails ready to go");
+    expect(tileOf(el, "Clean up").querySelector(".tile-stat")!.textContent).toBe("4emails ready to go");
     expect(tileOf(el, "Clean up").textContent).not.toMatch(/\b3\b/);
     expect(el.querySelectorAll(".tile-body button")).toHaveLength(0);
     for (const name of ["Protect", "Clean up", "Organize"])
@@ -157,7 +160,7 @@ describe("renderHomeDashboard", () => {
 
   it("keeps Home under its word budget with every tile busy", () => {
     const el = renderHomeDashboard(
-      { ...calm, suspicious: 1, neverOpened: { senders: 12, emails: 150 }, pastDate: 29 },
+      { ...calm, suspicious: 1, neverOpened: { senders: 12, emails: 150 }, pastDate: 29, clearable: 179 },
       vi.fn(),
     );
     const words = (el.textContent ?? "")
