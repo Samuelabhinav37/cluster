@@ -100,6 +100,8 @@ export interface KaiGuide {
   watch: KaiWatch | undefined;
   /** A one-line tip in the bubble, folded away after a few seconds. */
   tip: (text: string) => void;
+  /** Kai's element, so a page can seat him in its header. */
+  root: HTMLElement;
 }
 
 export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
@@ -452,7 +454,7 @@ export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
       if (hint) { hint = false; tagFold(); }
     }, 9000);
   };
-  return { open: show, close: hide, isOpen, watch, tip };
+  return { open: show, close: hide, isOpen, watch, tip, root };
 }
 
 /** Cluster's questions. Short, plain answers; each names the screen it opens. */

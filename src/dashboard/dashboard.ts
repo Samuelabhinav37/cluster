@@ -243,6 +243,9 @@ function showScreen(name: string) {
     const active = panel.dataset.screen === target;
     panel.hidden = !active;
     panel.tabIndex = active ? 0 : -1;
+    // Kai sits in the open page's header, beside Details, like Gemini in Gmail's toolbar.
+    const head = active && panel.querySelector(".page-head");
+    if (head && kaiGuide) head.append(kaiGuide.root);
   }
   for (const btn of navButtons) {
     const active = btn.dataset.screen === target;
@@ -511,7 +514,7 @@ let kaiGuide: KaiGuide | null = null;
 let kaiTipped = false;
 
 async function main() {
-  // Kai in the corner, from the first screen (even before Gmail is connected).
+  // Kai in the corner until a page seats him in its header (showScreen).
   kaiGuide = initKaiGuide(document, {
     questions: CLUSTER_QUESTIONS,
     firstOn: CLUSTER_FIRST_ON,

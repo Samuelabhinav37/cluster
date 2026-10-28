@@ -3798,10 +3798,9 @@ table.sheet { font-size: 12px; }
   writing-mode: vertical-rl; cursor: pointer; }
 .details-tab:hover { background: var(--neutral-fill); color: var(--label); }
 
-/* Kai in the bottom-right corner, where people expect an assistant. Details
-   keeps its last rows and action bar clear of him; minimized, he sits beside its strip. */
-.kg-launch { --kg-kai: 56px; }
-.kg-panel { bottom: 100px; }
-body:has(.details.min) .kai-guide { right: 56px; }
-.details .sheet-wrap { padding-bottom: 72px; }
-.details .selbar { padding-right: 96px; }
+/* Kai in the page header beside Details; his tip and chat drop down below him. */
+.page-head > .kai-guide { position: relative; right: auto; bottom: auto; align-self: center; }
+.page-head .kg-launch { --kg-kai: 40px; }
+.page-head .kai-guide .kg-tag { top: calc(100% + 8px); bottom: auto; transform-origin: calc(100% - 20px) -6px; }
+.page-head .kg-tag::after { top: -5px; bottom: auto; transform: rotate(225deg); }
+.page-head .kg-panel { top: calc(100% + 10px); bottom: auto; max-height: min(540px, calc(100vh - 150px)); transform-origin: calc(100% - 20px) 0; }
