@@ -93,9 +93,8 @@ describe("Details — smart views", () => {
     root.querySelector<HTMLInputElement>("tbody .tick:not(:disabled)")!.click();
     const bar = root.querySelector<HTMLElement>(".selbar")!;
     Array.from(bar.querySelectorAll("button")).find((b) => b.textContent === "Archive")!.click();
-    await confirmStep(bar);
 
-    expect(dash.gmail.archiveMessages).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(dash.gmail.archiveMessages).toHaveBeenCalledTimes(1));
     const [, ids] = (dash.gmail.archiveMessages as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(ids).toEqual(["b1"]);
   });

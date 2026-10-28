@@ -15,7 +15,7 @@ import { buildProtectionContext, buildSenderCleanupPlan } from "../lib/protectio
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import type { SenderSummary } from "../lib/senderModel";
 import { buildSubscriptionCandidates, SUBSCRIPTION_SIGNAL_LABELS } from "../lib/subscriptionSignals";
-import { formatRelativeTime, headerRow, pruneSelection, renderConfirmStep } from "./ui";
+import { formatRelativeTime, headerRow, pruneSelection, renderConfirmStep, runNow } from "./ui";
 import { listGroup, listRow } from "./listRow";
 import { menuForControls } from "./rowMenu";
 import { senderTile } from "./senderTile";
@@ -351,12 +351,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
     const reset = () => slot.replaceChildren(button);
     button.onclick = () => {
       const kept = readLaterPlan.protectedIds.length + readLaterPlan.retainedOtherIds.length;
-      renderConfirmStep(
-        slot,
-        reset,
-        `Move ${readLaterPlan.safeNewsletterIds.length} newsletter message${readLaterPlan.safeNewsletterIds.length === 1 ? "" : "s"} from ${sender.address} to the "${READ_LATER_LABEL}" label? ${kept} protected or ambiguous message${kept === 1 ? " stays" : "s stay"}.`,
-        false,
-        async () => {
+      runNow(slot, async () => {
           const { safe, skipped } = await filterOutProtected(
             new Map([[sender.provider, readLaterPlan.safeNewsletterIds]]),
             providerById,

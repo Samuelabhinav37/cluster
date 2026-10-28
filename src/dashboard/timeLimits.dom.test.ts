@@ -127,7 +127,6 @@ describe("Organize action cards", () => {
     const card = document.querySelector<HTMLElement>('#presets [data-preset="keep-newest"]')!;
     expect(card.textContent).toContain("1 older email moves out");
     card.querySelector("button")!.click();
-    Array.from(card.querySelectorAll("button")).find((b) => b.textContent === "Confirm")!.click();
     const archive = dash.gmail.archiveMessages as ReturnType<typeof vi.fn>;
     await vi.waitFor(() => expect(archive).toHaveBeenCalledTimes(1));
     expect(archive.mock.calls[0][1]).toEqual(["s4"]);
@@ -148,7 +147,6 @@ describe("Never opened skips the inbox", () => {
     const card = document.querySelector<HTMLElement>('#presets [data-preset="never-opened"]');
     expect(card, "no never-opened card for the fixture").toBeTruthy();
     card!.querySelector("button")!.click();
-    Array.from(card!.querySelectorAll("button")).find((b) => b.textContent === "Confirm")!.click();
     const keepSorted = dash.gmail.keepSorted as ReturnType<typeof vi.fn>;
     await vi.waitFor(() => expect(keepSorted).toHaveBeenCalled());
     const [, address, label] = keepSorted.mock.calls[0];

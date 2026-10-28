@@ -54,6 +54,22 @@ export function renderConfirmStep(
   container.append(confirmBtn, cancelBtn);
 }
 
+/** For reversible actions (archive, label): runs at once in `container`
+ * and shows the returned "Done" text, with Undo in Activity instead of a
+ * confirm first. */
+export function runNow(container: HTMLElement, onRun: (summary: HTMLElement) => Promise<string>): void {
+  const summary = Object.assign(document.createElement("span"), { className: "confirm-summary", textContent: "…" });
+  container.replaceChildren(summary);
+  container.classList.add("confirm-slot");
+  onRun(summary).then(
+    (text) => (summary.textContent = text),
+    (err) => {
+      summary.textContent = "Action failed, try again";
+      log.error(err);
+    },
+  );
+}
+
 export interface CategoryGroup<T> {
   category: DomainCategory;
   items: T[];

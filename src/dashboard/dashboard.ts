@@ -102,6 +102,7 @@ import {
   headerRow,
   pruneSelection,
   renderConfirmStep,
+  runNow,
   type CategoryGroup,
 } from "./ui";
 import { reasonLabel, suggestSpamSenders, type SpamSuggestion } from "../lib/spamSuggestions";
@@ -1805,8 +1806,7 @@ function wireDetails() {
     archive: [...providerById.values()].some((p) => p.archiveMessages)
       ? (messages, slot, reset, settle) => {
           const merged = idsByProvider(messages);
-          const total = [...merged.values()].reduce((n, ids) => n + ids.length, 0);
-          renderConfirmStep(slot, reset, `Archive ${total} email${total === 1 ? "" : "s"}?`, false, async () => {
+          runNow(slot, async () => {
             let done = 0;
             for (const [pid, ids] of merged) {
               const provider = providerById.get(pid);
@@ -2921,7 +2921,6 @@ function presetActionCard(
   name: string,
   fact: string,
   verb: string,
-  summary: string,
   run: () => Promise<string>,
 ): HTMLElement {
   const card = document.createElement("div");
@@ -2940,7 +2939,7 @@ function presetActionCard(
   btn.textContent = verb;
   const reset = () => slot.replaceChildren(btn);
   btn.onclick = () =>
-    renderConfirmStep(slot, reset, summary, false, async () => {
+    runNow(slot, async () => {
       const done = await run();
       presetNotes.set(id, done);
       return done;
@@ -2962,7 +2961,6 @@ function keepNewestInInboxCard(): HTMLElement | null {
     `Newest ${KEEP_IN_INBOX} per sender`,
     `${total.toLocaleString()} older ${total === 1 ? "email moves" : "emails move"} out`,
     "Move out",
-    `Move ${total.toLocaleString()} older ${total === 1 ? "email" : "emails"} out of your inbox? They stay in All Mail.`,
     async () => {
       let moved = 0;
       for (const [pid, ids] of merged) {
@@ -2997,7 +2995,6 @@ function neverOpenedSkipsInboxCard(): HTMLElement | null {
     "Never opened",
     `Skip the inbox · ${senders.length} ${senders.length === 1 ? "sender" : "senders"}`,
     "Move out",
-    `Send mail from ${senders.length} ${senders.length === 1 ? "sender" : "senders"} you never open to "${label}", now and from now on?`,
     async () => {
       let done = 0;
       for (const sender of senders) {
