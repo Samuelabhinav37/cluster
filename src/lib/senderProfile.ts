@@ -119,6 +119,10 @@ function hasUnsubscribe(m: NormalizedMessageMetadata): boolean {
   return Boolean(m.unsubscribe.postUrl || m.unsubscribe.httpUrl || m.unsubscribe.mailto);
 }
 
+// Addresses that stand for a team or a system, not a person (grouping doc 2.1).
+const ROLE_LOCAL_PART =
+  /^(no-?reply|do-?not-?reply|notifications?|alerts?|service|support|billing|info|hello|team|mailer-daemon|postmaster)([._+-]|$)/i;
+
 function isBulk(m: NormalizedMessageMetadata): boolean {
   const labels = m.labelIds ?? [];
   return (
@@ -326,7 +330,7 @@ export function buildSenderProfiles(inputs: ProfileInputs): Map<string, SenderPr
       youWrote: correspondent?.sentCount ?? 0,
       lastWroteAt: correspondent?.lastSentAt,
       replied,
-      machine: bulkCount * 2 > rows.length,
+      machine: bulkCount * 2 > rows.length || ROLE_LOCAL_PART.test(address.split("@")[0] ?? ""),
       kind: majority(votes, voted),
       listId: mostCommon(rows.map((m) => m.listId)),
       companyKey: companyKeyFor(address, rows, platforms),

@@ -18,14 +18,13 @@ export const SENDER_SORT_LABELS: Record<SenderSortId, string> = {
 
 const TIER_ORDER: SenderTier[] = ["close", "known", "regular", "other", "new", "ignored"];
 
+/** You interact with them (tier), and they are a person: not a machine and
+ * their mail reads person to person. Starring or answering a receipt makes
+ * service@paypal.com important, not a person. */
 export function isPerson(profile: SenderProfile | undefined): boolean {
-  return profile?.tier === "close" || profile?.tier === "known";
-}
-
-// A starred or answered receipt is still the company's mail; only mail that
-// reads like a person's stays out of the company row.
-function staysOutOfCompany(profile: SenderProfile | undefined): boolean {
-  return isPerson(profile) && profile?.kind === "person";
+  return (
+    (profile?.tier === "close" || profile?.tier === "known") && !profile.machine && profile.kind === "person"
+  );
 }
 
 export function sortSenders(
@@ -86,7 +85,7 @@ export function groupByCompany(
   const groups = new Map<string, CompanyGroup & { judged: number; opened: number }>();
   for (const sender of senders) {
     const profile = profiles.get(sender.key);
-    if (!profile?.companyKey || staysOutOfCompany(profile)) continue;
+    if (!profile?.companyKey || isPerson(profile)) continue;
     const group = groups.get(profile.companyKey) ?? {
       key: profile.companyKey,
       senders: [],
@@ -141,7 +140,7 @@ export function foldByCompany(
   const placed = new Set<string>();
   for (const sender of sorted) {
     const key = profiles.get(sender.key)?.companyKey;
-    const group = key && !staysOutOfCompany(profiles.get(sender.key)) ? groups.get(key) : undefined;
+    const group = key && !isPerson(profiles.get(sender.key)) ? groups.get(key) : undefined;
     if (!group) {
       out.push({ kind: "sender", sender });
       continue;
