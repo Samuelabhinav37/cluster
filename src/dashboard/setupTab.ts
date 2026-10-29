@@ -123,6 +123,13 @@ function iconTile(name: string, tone: string): HTMLElement {
   return tile;
 }
 
+/** A plain gray icon in a soft circle for plan rows, like the lists elsewhere. */
+function glyph(name: string): HTMLElement {
+  const g = el("span", "onb-glyph");
+  g.append(icon(name));
+  return g;
+}
+
 type Step = "who" | "try" | "keep" | "hands" | "plan";
 const STEPS: Step[] = ["who", "try", "keep", "hands", "plan"];
 
@@ -282,6 +289,13 @@ const WHO_LABEL: Record<Who, string> = {
   business: "I run a business",
   safe: "Keep me safe",
   busy: "Lots of people email me",
+};
+
+const WHO_ICON: Record<Who, string> = {
+  me: "user",
+  business: "briefcase",
+  safe: "shield-check",
+  busy: "users",
 };
 
 export function wireSetup(select: (screen: string) => Promise<void>): void {
@@ -530,7 +544,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       li.style.setProperty("--i", String(i));
       const words = el("span", "", line.text);
       if (line.sub) words.append(el("small", "", line.sub));
-      li.append(iconTile("check", "green"), words);
+      li.append(glyph(line.icon), words);
       list.append(li);
     });
     const start = async () => {
@@ -566,14 +580,14 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   /** The preview card: who you are, then the plan so far. New rows rise in. */
   function renderCard() {
     const plan = buildOnboardingPlan(answers);
-    const rows: Array<{ text: string; ic: string; tone: string }> = [];
-    if (answers.who) rows.push({ text: WHO_LABEL[answers.who], ic: "user", tone: "blue" });
-    for (const line of plan.lines) rows.push({ text: line.text, ic: "check", tone: "green" });
+    const rows: Array<{ text: string; icon: string }> = [];
+    if (answers.who) rows.push({ text: WHO_LABEL[answers.who], icon: WHO_ICON[answers.who] });
+    rows.push(...plan.lines);
     const now = new Set(rows.map((r) => r.text));
     cardList.replaceChildren(
       ...rows.map((r) => {
         const li = el("li", shown.has(r.text) ? "" : "new");
-        li.append(iconTile(r.ic, r.tone), el("span", "", r.text));
+        li.append(glyph(r.icon), el("span", "", r.text));
         return li;
       }),
     );

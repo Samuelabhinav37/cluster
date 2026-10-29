@@ -2251,8 +2251,8 @@ body[data-screen="setup"] .index-status {
 
 .onb-plan { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .onb-plan li { display: flex; align-items: flex-start; gap: 12px; animation: onb-rise 0.45s calc(var(--i, 0) * 90ms + 150ms) both; }
-.onb-plan .onb-ic { width: 24px; height: 24px; border-radius: 50%; }
-.onb-plan .onb-ic .i { width: 13px; height: 13px; stroke-width: 3; }
+.onb-glyph { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--neutral-fill); color: var(--label-2); }
+.onb-glyph .i { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 .onb-plan span { display: flex; flex-direction: column; font: 500 15px/1.4 var(--font); color: var(--label); }
 .onb-plan small { font: 400 13px/1.4 var(--font); color: var(--label-4); }
 
@@ -2334,8 +2334,7 @@ body[data-screen="setup"] .index-status {
 .onb-card-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; font: 500 13.5px/1.35 var(--font); }
 .onb-card-list li + li { border-top: 1px solid rgba(255, 255, 255, 0.14); }
 .onb-card-list li.new { animation: onb-rise 0.45s var(--spring) both; }
-.onb-card-list .onb-ic { width: 24px; height: 24px; border-radius: 7px; }
-.onb-card-list .onb-ic .i { width: 14px; height: 14px; stroke-width: 2.5; }
+.onb-card-list .onb-glyph { width: 26px; height: 26px; background: rgba(255, 255, 255, 0.14); color: rgba(255, 255, 255, 0.9); }
 .onb-card-empty { opacity: 0.7; font-weight: 400; }
 
 @keyframes onb-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }

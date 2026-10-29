@@ -16,7 +16,8 @@ export interface OnboardingAnswers {
 }
 
 export interface OnboardingPlan {
-  lines: { text: string; sub?: string }[];
+  /** `icon` names a Lucide icon in homeDashboard's set. */
+  lines: { text: string; sub?: string; icon: string }[];
   /** Organize's "where it goes and when" menus, in hours; null stays in the inbox. */
   hours: Partial<Record<SortBucket, number | null>>;
   holdScams: boolean;
@@ -69,27 +70,43 @@ export function buildOnboardingPlan(a: OnboardingAnswers): OnboardingPlan {
   set("promotions", hoursFor(a.sorted.promo, DAY));
   if (a.sorted.promo === "trash") {
     set("otp", DAY);
-    lines.push({ text: "Promotions leave your inbox after a day", sub: "They stay in Gmail's Promotions" });
-  } else if (a.sorted.promo === "later") lines.push({ text: "Promotions leave your inbox after a week" });
+    lines.push({
+      icon: "tag",
+      text: "Promotions leave your inbox after a day",
+      sub: "They stay in Gmail's Promotions",
+    });
+  } else if (a.sorted.promo === "later")
+    lines.push({ icon: "tag", text: "Promotions leave your inbox after a week" });
 
   set("newsletter", hoursFor(a.sorted.news, 3 * DAY));
   if (a.sorted.news === "trash")
-    lines.push({ text: "Newsletters leave after 3 days", sub: "Stop the ones you skip in Stop mail" });
-  else if (a.sorted.news === "later") lines.push({ text: "Newsletters leave after a week" });
+    lines.push({
+      icon: "news",
+      text: "Newsletters leave after 3 days",
+      sub: "Stop the ones you skip in Stop mail",
+    });
+  else if (a.sorted.news === "later") lines.push({ icon: "news", text: "Newsletters leave after a week" });
 
   set("social", hoursFor(a.sorted.social, DAY));
-  if (a.sorted.social === "trash") lines.push({ text: "App and social alerts leave after a day" });
-  else if (a.sorted.social === "later") lines.push({ text: "App and social alerts leave after a week" });
+  if (a.sorted.social === "trash")
+    lines.push({ icon: "bell", text: "App and social alerts leave after a day" });
+  else if (a.sorted.social === "later")
+    lines.push({ icon: "bell", text: "App and social alerts leave after a week" });
 
   // Sorting the fake at all means scams matter; keeping it means they matter most.
   const holdScams = a.who === "safe" || a.who === "business" || a.sorted.scam !== undefined;
   if (a.sorted.scam === "keep")
     lines.push({
+      icon: "shield-alert",
       text: "That Account Team email was fake",
       sub: "Cluster will hold mail like it and say why",
     });
   else if (holdScams)
-    lines.push({ text: "Likely scams are held out of your inbox", sub: "Each one says why" });
+    lines.push({
+      icon: "shield-check",
+      text: "Likely scams are held out of your inbox",
+      sub: "Each one says why",
+    });
 
   // What always stays wins over anything above. Bank mail never leaves on a practice click.
   const keep = new Set<KeepKind>(["people", ...a.keep]);
@@ -100,18 +117,22 @@ export function buildOnboardingPlan(a: OnboardingAnswers): OnboardingPlan {
     set("receipt", null);
     set("shipping", null);
   }
-  lines.push({ text: `Always stays: ${[...keep].map((k) => KEEP_NAMES[k]).join(", ")}` });
+  lines.push({ icon: "inbox", text: `Always stays: ${[...keep].map((k) => KEEP_NAMES[k]).join(", ")}` });
 
   const tidy = a.hands === "tidy";
   lines.push(
     tidy
-      ? { text: "New mail sorts itself", sub: "Undo anything in Activity" }
-      : { text: "Nothing moves until you press Sort my inbox" },
+      ? { icon: "sparkles", text: "New mail sorts itself", sub: "Undo anything in Activity" }
+      : { icon: "eye", text: "Nothing moves until you press Sort my inbox" },
   );
 
   const simpleMode = a.who === "safe";
   if (simpleMode)
-    lines.push({ text: "Simple mode: bigger text, fewer screens", sub: "Turn it off in Settings" });
+    lines.push({
+      icon: "user",
+      text: "Simple mode: bigger text, fewer screens",
+      sub: "Turn it off in Settings",
+    });
 
   return { lines, hours, holdScams, simpleMode, tidy, persona: PERSONA_OF[a.who ?? "me"] };
 }
