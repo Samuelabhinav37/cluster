@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cluster sign in and setup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fafafa;--ink:#18181b;--l2:#3f3f46;--l3:#71717a;--l4:#a1a1aa;--line:#e4e4e7;--card:#fff;--soft:#f4f4f5;
+  --accent:#2f6fe4;--accent-f:#eaf1fd;--green:#1f9d63;--red:#d93f3f;--amber:#d88a1c;
+  --font:"Inter Tight",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:var(--accent);text-decoration:none}
+/* mockup switcher */
+.switch{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:2px;padding:3px;border-radius:10px;background:rgba(24,24,27,.08);backdrop-filter:blur(10px)}
+.switch button{border:0;background:none;padding:5px 12px;border-radius:8px;font-size:13px;color:var(--l2)}
+.switch button[aria-pressed=true]{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.view[hidden]{display:none!important}
+
+/* ── Sign in ─────────────────────────────── */
+.signin{display:grid;grid-template-columns:1fr 1fr;min-height:100vh;gap:20px;padding:20px}
+.signin .left{display:flex;flex-direction:column;padding:20px 40px}
+.logo{display:flex;align-items:center;gap:9px;font-weight:650;font-size:18px;letter-spacing:-.01em}
+.logo svg{width:28px;height:28px}
+.form{margin:auto;width:min(450px,100%);padding:40px 0}
+.form h1{font-weight:400;font-size:clamp(40px,5vw,60px);line-height:1.05;letter-spacing:-.035em;margin:0 0 14px}
+.form .sub{color:var(--l2);margin:0 0 34px}
+.big{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:52px;border-radius:10px;border:0;font-weight:500;font-size:16px;transition:transform .12s,background .15s}
+.big:active{transform:scale(.985)}
+.big.dark{background:var(--ink);color:#fff}
+.big.dark:hover{background:#2a2a2e}
+.big.light{background:#fff;border:1px solid var(--line);margin-top:12px}
+.big.light:hover{background:var(--soft)}
+.big svg{width:20px;height:20px}
+.trust{display:flex;gap:10px;align-items:flex-start;margin:26px 0 0;color:var(--l3);font-size:13px}
+.trust svg{flex:none;width:18px;height:18px;stroke:var(--green);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;margin-top:1px}
+.legal{display:flex;gap:22px;margin-top:34px;font-size:12px}
+.legal a{color:var(--l4)}
+.photo{position:relative;border-radius:14px;overflow:hidden;background:#0b1220 url("https://images-assets.nasa.gov/image/iss072e340644/iss072e340644~large.jpg") center/cover;min-height:540px}
+.photo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(0,0,0,.55))}
+.photo .credit{position:absolute;left:22px;bottom:18px;z-index:1;color:rgba(255,255,255,.7);font-size:12px}
+.float{position:absolute;z-index:1;right:28px;bottom:64px;width:270px;padding:16px;border-radius:16px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(18px);color:#fff;animation:rise .8s .3s both}
+.float b{font-size:30px;font-weight:600;letter-spacing:-.02em;display:block;font-variant-numeric:tabular-nums}
+.float span{font-size:13px;opacity:.85}
+.float .mini{display:flex;gap:6px;margin-top:12px}
+.float .mini i{height:6px;border-radius:3px;background:#fff;opacity:.9}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.toggle-back{margin-top:18px;font-size:13px;color:var(--l3)}
+
+/* ── Setup ──────────────────────────────── */
+.setup{min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;padding:20px}
+.setup .left{display:flex;flex-direction:column;padding:20px 40px 90px}
+.pane{margin:auto 0;width:min(520px,100%);padding-top:30px}
+.dots{display:flex;gap:6px;margin-bottom:30px}
+.dots i{width:30px;height:4px;border-radius:2px;background:var(--line);transition:background .3s}
+.dots i.on{background:var(--ink)}
+.kicker{font-size:13px;color:var(--l3);margin:0 0 8px}
+.pane h1{font-weight:400;font-size:42px;line-height:1.08;letter-spacing:-.03em;margin:0 0 10px}
+.pane .sub{color:var(--l2);margin:0 0 26px}
+.opts{display:grid;gap:10px}
+.opt{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:var(--card);text-align:left;transition:border-color .15s,box-shadow .15s,transform .12s}
+.opt:hover{box-shadow:0 4px 18px rgba(0,0,0,.06)}
+.opt:active{transform:scale(.99)}
+.opt[aria-pressed=true]{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.opt .ill{width:46px;height:46px;flex:none}
+.opt b{font-weight:600;display:block}
+.opt small{color:var(--l3);font-size:13px}
+.opt .chk{margin-left:auto;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;flex:none;transition:all .15s}
+.opt[aria-pressed=true] .chk{background:var(--ink);border-color:var(--ink)}
+.opt .chk svg{width:12px;height:12px;stroke:#fff;fill:none;stroke-width:3;opacity:0}
+.opt[aria-pressed=true] .chk svg{opacity:1}
+.opt[aria-disabled=true]{opacity:.7;cursor:default}
+.nav{display:flex;gap:10px;align-items:center;margin-top:28px}
+.nav .grow{flex:1}
+.btn{border:0;border-radius:10px;height:44px;padding:0 20px;background:var(--soft)}
+.btn.dark{background:var(--ink);color:#fff;font-weight:500}
+.btn.dark:disabled{opacity:.35;cursor:default}
+.btn.ghost{background:none;color:var(--l3)}
+/* right stage: the illustration for each step */
+.art{position:relative;border-radius:14px;overflow:hidden;background:linear-gradient(160deg,#eef3ff,#f7f0ff 60%,#fff4ea);display:grid;place-items:center;min-height:540px}
+.art svg.scene{width:min(440px,86%);height:auto}
+.art .cap{position:absolute;left:22px;bottom:18px;font-size:12px;color:var(--l3)}
+.float-y{animation:fy 5s ease-in-out infinite}
+.float-y2{animation:fy 6s .8s ease-in-out infinite}
+@keyframes fy{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+/* sample inbox (Superhuman-style practice) */
+.inbox{display:grid;gap:10px}
+.mail{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;padding:12px 14px;border-radius:14px;background:#fff;border:1px solid var(--line);transition:transform .45s cubic-bezier(.5,0,.3,1),opacity .45s}
+.mail .av{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;color:#fff;font-weight:600}
+.mail b{font-weight:600;font-size:14px}
+.mail .s{color:var(--l3);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mail .acts{display:flex;gap:6px}
+.mail .acts button{border:1px solid var(--line);background:#fff;border-radius:8px;height:30px;padding:0 10px;font-size:12.5px}
+.mail .acts button:hover{background:var(--soft)}
+.mail .flag{display:inline-block;margin-left:6px;font-size:11px;font-weight:600;color:var(--red);background:#fdecec;border-radius:6px;padding:1px 6px}
+.mail.gone-keep{transform:translateX(-120%) rotate(-3deg);opacity:0}
+.mail.gone-later{transform:translateY(-20px) scale(.9);opacity:0}
+.mail.gone-trash{transform:translateX(120%) rotate(4deg);opacity:0}
+.tally{display:flex;gap:16px;margin-top:16px;font-size:13px;color:var(--l3)}
+.tally b{color:var(--ink);font-variant-numeric:tabular-nums}
+.plan{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.plan li{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:12px;background:#fff;border:1px solid var(--line);opacity:0;transform:translateY(8px);animation:rise .45s forwards}
+.plan li svg{width:22px;height:22px;flex:none}
+.plan small{display:block;color:var(--l3);font-size:12.5px}
+/* bottom bar = the real reading progress */
+.bar{position:fixed;left:0;right:0;bottom:0;padding:10px 40px 12px;background:rgba(250,250,250,.85);backdrop-filter:blur(16px);border-top:1px solid var(--line);font-size:13px;color:var(--l2);z-index:10}
+.track{height:4px;margin-top:8px;border-radius:2px;background:var(--line)}
+.track>div{height:100%;border-radius:inherit;background:var(--ink);transition:width .4s}
+.bar .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:8px}
+.fade{animation:rise .35s both}
+@media (max-width:900px){.signin,.setup{grid-template-columns:1fr}.photo,.art{min-height:260px;order:-1}.signin .left,.setup .left{padding:10px 6px 90px}}
+</style>
+</head>
+<body>
+<div class="switch" role="group" aria-label="Mockup screens">
+  <button aria-pressed="true" data-v="signin">Sign in</button>
+  <button aria-pressed="false" data-v="back">Welcome back</button>
+  <button aria-pressed="false" data-v="setup">Setup</button>
+</div>
+
+<!-- ══ Sign in ══ -->
+<section class="view signin" id="v-signin">
+  <div class="left">
+    <div class="logo"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#030307"/><polygon points="17.5,8.8 22.87,11.9 22.87,18.1 17.5,21.2 12.13,18.1 12.13,11.9" fill="#fff"/><rect x="14.3" y="13.02" width="6.4" height="4.35" rx=".64" fill="#030307"/><circle cx="8" cy="8.5" r="2.2" fill="#cdcdcd"/><circle cx="8.5" cy="23.5" r="2" fill="#a9a9ab"/><circle cx="25" cy="25" r="2.1" fill="#b8b8ba"/></svg>cluster</div>
+    <div class="form">
+      <h1 id="si-title">Calm your inbox</h1>
+      <p class="sub" id="si-sub">Clean up, sort and protect your mail. Connect an account to start.</p>
+      <button class="big dark" id="si-gmail"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M2 6.5 12 13l10-6.5V18a2 2 0 0 1-2 2h-2V9.8l-6 3.9-6-3.9V20H4a2 2 0 0 1-2-2z"/><path fill="#fff" opacity=".7" d="M2 6.5A2.5 2.5 0 0 1 6 4.5L12 9l6-4.5a2.5 2.5 0 0 1 4 2L12 13z"/></svg><span>Continue with Gmail</span></button>
+      <button class="big light"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="12" height="14" rx="2" fill="#1a73c8"/><path d="M14 8h7a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-7z" fill="#5ea0ef"/><circle cx="8" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.8"/></svg>Continue with Outlook</button>
+      <p class="trust"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>Cluster reads senders, subjects and dates on this computer and moves nothing until you say so.</p>
+      <p class="toggle-back" id="si-alt">Used Cluster before? <a href="#" data-goto="back">Welcome back</a></p>
+      <div class="legal"><a href="#">Privacy</a><a href="#">How Cluster uses Gmail</a></div>
+    </div>
+  </div>
+  <div class="photo" role="img" aria-label="An orbital sunrise over Earth's horizon, photographed from the International Space Station">
+    <div class="float"><span>Sorted this week</span><b id="ticker">0</b><span>emails left the inbox on their own</span>
+      <div class="mini"><i style="flex:5"></i><i style="flex:3;opacity:.6"></i><i style="flex:2;opacity:.35"></i></div></div>
+    <span class="credit">Orbital sunrise · NASA, ISS Expedition 72</span>
+  </div>
+</section>
+
+<!-- ══ Setup ══ -->
+<section class="view setup" id="v-setup" hidden>
+  <div class="left">
+    <div class="logo"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#030307"/><polygon points="17.5,8.8 22.87,11.9 22.87,18.1 17.5,21.2 12.13,18.1 12.13,11.9" fill="#fff"/><rect x="14.3" y="13.02" width="6.4" height="4.35" rx=".64" fill="#030307"/></svg>cluster</div>
+    <div class="pane" id="pane"></div>
+  </div>
+  <div class="art" id="art"></div>
+</section>
+
+<div class="bar" id="bar" hidden></div>
+
+<script>
+// ── Vector scenes, one per step (drawn here, no image files) ──
+const SCENES = {
+  who: `<svg class="scene" viewBox="0 0 440 340" aria-hidden="true">
+    <circle cx="220" cy="170" r="130" fill="#fff" opacity=".7"/>
+    <g class="float-y"><rect x="120" y="90" width="200" height="140" rx="18" fill="#fff" stroke="#e4e4e7"/>
+      <path d="M120 108l100 66 100-66" fill="none" stroke="#2f6fe4" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <g class="float-y2"><circle cx="95" cy="95" r="26" fill="#f6c453"/><circle cx="95" cy="88" r="9" fill="#fff"/><path d="M78 110a17 13 0 0 1 34 0" fill="#fff"/></g>
+    <g class="float-y"><circle cx="350" cy="110" r="22" fill="#8b5cf6"/><path d="M342 110l6 6 11-12" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round"/></g>
+    <g class="float-y2"><rect x="300" y="230" width="70" height="46" rx="12" fill="#1f9d63"/><path d="M318 253h34M318 263h20" stroke="#fff" stroke-width="4" stroke-linecap="round"/></g>
+    <g class="float-y"><rect x="70" y="220" width="80" height="50" rx="12" fill="#f08a24"/><path d="M88 236h44M88 250h28" stroke="#fff" stroke-width="4" stroke-linecap="round"/></g>
+  </svg>`,
+  try: `<svg class="scene" viewBox="0 0 440 340" aria-hidden="true">
+    <g class="float-y"><rect x="40" y="200" width="110" height="90" rx="16" fill="#fff" stroke="#e4e4e7"/><path d="M60 230h70M60 248h50" stroke="#1f9d63" stroke-width="6" stroke-linecap="round"/><text x="95" y="312" text-anchor="middle" font-size="14" fill="#71717a">Keep</text></g>
+    <g class="float-y2"><rect x="165" y="190" width="110" height="100" rx="16" fill="#fff" stroke="#e4e4e7"/><circle cx="220" cy="240" r="24" fill="none" stroke="#d88a1c" stroke-width="6"/><path d="M220 226v14l10 8" stroke="#d88a1c" stroke-width="6" stroke-linecap="round" fill="none"/><text x="220" y="312" text-anchor="middle" font-size="14" fill="#71717a">Later</text></g>
+    <g class="float-y"><path d="M310 210h100l-10 80h-80z" fill="#fff" stroke="#e4e4e7" stroke-width="2"/><path d="M300 205h120" stroke="#d93f3f" stroke-width="7" stroke-linecap="round"/><path d="M345 230v40M375 230v40" stroke="#d93f3f" stroke-width="5" stroke-linecap="round"/><text x="360" y="312" text-anchor="middle" font-size="14" fill="#71717a">Let go</text></g>
+    <g class="float-y2"><rect x="150" y="40" width="140" height="96" rx="14" fill="#2f6fe4"/><path d="M150 56l70 46 70-46" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <path d="M190 140c-50 20-80 40-95 55M220 140v45M250 140c50 20 80 40 105 60" stroke="#a1a1aa" stroke-width="3" stroke-dasharray="6 8" fill="none"/>
+  </svg>`,
+  keep: `<svg class="scene" viewBox="0 0 440 340" aria-hidden="true">
+    <g class="float-y"><path d="M220 40l120 44v80c0 74-52 118-120 136-68-18-120-62-120-136V84z" fill="#fff" stroke="#e4e4e7" stroke-width="2"/>
+      <path d="M220 72l88 32v58c0 54-38 86-88 100-50-14-88-46-88-100v-58z" fill="#eaf1fd"/>
+      <path d="M180 170l28 28 52-60" stroke="#2f6fe4" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <g class="float-y2"><circle cx="70" cy="90" r="24" fill="#1f9d63"/><text x="70" y="97" text-anchor="middle" font-size="20" fill="#fff">$</text></g>
+    <g class="float-y"><circle cx="372" cy="250" r="24" fill="#2f6fe4"/><path d="M360 254l24-10-6 18-6-4-4 4z" fill="#fff"/></g>
+    <g class="float-y2"><circle cx="372" cy="80" r="22" fill="#f08a24"/><rect x="362" y="73" width="20" height="15" rx="3" fill="#fff"/></g>
+  </svg>`,
+  hands: `<svg class="scene" viewBox="0 0 440 340" aria-hidden="true">
+    <g class="float-y"><rect x="40" y="70" width="170" height="200" rx="22" fill="#fff" stroke="#e4e4e7"/>
+      <circle cx="125" cy="140" r="38" fill="#f4f4f5"/><path d="M110 150v-30a6 6 0 0 1 12 0v22M122 140v-26a6 6 0 0 1 12 0v26M134 142v-14a6 6 0 0 1 12 0v20a24 24 0 0 1-24 24h-4a20 20 0 0 1-17-10l-8-14a6 6 0 0 1 10-6l5 8" fill="none" stroke="#18181b" stroke-width="4" stroke-linecap="round"/>
+      <text x="125" y="218" text-anchor="middle" font-size="15" font-weight="600" fill="#18181b">Ask me first</text></g>
+    <g class="float-y2"><rect x="230" y="70" width="170" height="200" rx="22" fill="#18181b"/>
+      <path d="M315 108v20M315 168v20M275 148h20M335 148h20M287 120l14 14M329 162l14 14M287 176l14-14M329 134l14-14" stroke="#c4b5fd" stroke-width="5" stroke-linecap="round"/>
+      <text x="315" y="218" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">Tidy for me</text></g>
+  </svg>`,
+  plan: `<svg class="scene" viewBox="0 0 440 340" aria-hidden="true">
+    <g class="float-y"><rect x="110" y="60" width="220" height="230" rx="22" fill="#fff" stroke="#e4e4e7"/>
+      <rect x="136" y="92" width="168" height="16" rx="8" fill="#eaf1fd"/><rect x="136" y="122" width="120" height="12" rx="6" fill="#f4f4f5"/>
+      <circle cx="148" cy="170" r="12" fill="#1f9d63"/><rect x="170" y="164" width="120" height="12" rx="6" fill="#f4f4f5"/>
+      <circle cx="148" cy="206" r="12" fill="#1f9d63"/><rect x="170" y="200" width="100" height="12" rx="6" fill="#f4f4f5"/>
+      <circle cx="148" cy="242" r="12" fill="#1f9d63"/><rect x="170" y="236" width="110" height="12" rx="6" fill="#f4f4f5"/></g>
+    <g class="float-y2"><circle cx="350" cy="80" r="30" fill="#f6c453"/><path d="M336 80l10 10 18-20" stroke="#fff" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+  </svg>`,
+};
+const CAPS = {who:'Answers set the starting choices. Change them any time.',try:'A practice inbox. Nothing here touches your real mail.',keep:'These never leave on a timer.',hands:'Undo anything in Activity.',plan:'Nothing in Gmail changes until you press Start.'};
+
+// ── Tiny vector badges for options ──
+const ILL = (bg, path) => `<svg class="ill" viewBox="0 0 46 46" aria-hidden="true"><rect width="46" height="46" rx="13" fill="${bg}"/><g fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" transform="translate(11 11)">${path}</g></svg>`;
+const P = {
+  user:'<circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/>',
+  brief:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 20a6 6 0 0 0-3-5.2"/>',
+  bank:'<path d="M3 10 12 4l9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18"/>',
+  plane:'<path d="M2 16l20-8-4 12-6-4-4 4v-6z"/>',
+  receipt:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+  chat:'<path d="M21 12a8 8 0 0 1-11.8 7L3 21l2-5.5A8 8 0 1 1 21 12z"/>',
+  eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  spark:'<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
+};
+const CHK = '<span class="chk"><svg viewBox="0 0 12 12"><path d="M2 6l3 3 5-6"/></svg></span>';
+
+// Sample inbox for the practice step. Made-up senders.
+const SAMPLE = [
+  {k:'promo',name:'Daily Deals',s:'48 hours only: 60% off everything',c:'#d6409f',l:'D'},
+  {k:'news',name:'The Morning Brief',s:'Your weekly digest is here',c:'#12a594',l:'M'},
+  {k:'scam',name:'Account Team',s:'Your account is locked. Verify now',c:'#71717a',l:'A',flag:'Looks fake'},
+  {k:'bank',name:'Northside Bank',s:'Your October statement is ready',c:'#1f9d63',l:'N'},
+  {k:'social',name:'Connect',s:'You appeared in 9 searches this week',c:'#8b5cf6',l:'C'},
+];
+
+const state = { at:0, who:null, sorted:{}, keep:['people'], hands:null };
+const STEPS = ['who','try','keep','hands','plan'];
+
+function render(){
+  const step = STEPS[state.at];
+  const pane = document.getElementById('pane');
+  const art = document.getElementById('art');
+  art.innerHTML = SCENES[step] + `<span class="cap">${CAPS[step]}</span>`;
+  art.firstElementChild.classList.add('fade');
+  const dots = `<div class="dots">${STEPS.map((_,i)=>`<i class="${i<=state.at?'on':''}"></i>`).join('')}</div>`;
+  const nav = (ok, label='Continue') => `<div class="nav">${state.at>0?'<button class="btn ghost" id="back">Back</button>':''}<span class="grow"></span>${step!=='plan'?'<button class="btn ghost" id="skip">Skip</button>':''}<button class="btn dark" id="next" ${ok?'':'disabled'}>${label}</button></div>`;
+  let body = '';
+  if (step==='who') {
+    body = `<p class="kicker">Step 1 of 4</p><h1>What describes you?</h1><p class="sub">Pick the closest one.</p><div class="opts">${[
+      ['me','Just me','Personal mail','#2f6fe4',P.user],['business','I run a business','Invoices, suppliers, clients','#f08a24',P.brief],
+      ['safe','Keep me safe','Scams worry me most','#4f5bd5',P.shield],['busy','Lots of people email me','I need to find people fast','#8b5cf6',P.users]]
+      .map(([v,t,s,c,p])=>`<button class="opt" data-v="${v}" aria-pressed="${state.who===v}">${ILL(c,p)}<span><b>${t}</b><small>${s}</small></span>${CHK}</button>`).join('')}</div>${nav(state.who)}`;
+  } else if (step==='try') {
+    const left = SAMPLE.filter(m=>!state.sorted[m.k]);
+    const count = (a)=>Object.values(state.sorted).filter(x=>x===a).length;
+    body = `<p class="kicker">Step 2 of 4 · Try it</p><h1>Sort five emails</h1><p class="sub">Your choices teach Cluster what you want gone.</p>
+      <div class="inbox">${left.map(m=>`<div class="mail" data-k="${m.k}"><span class="av" style="background:${m.c}">${m.l}</span>
+        <span style="min-width:0"><b>${m.name}</b>${m.flag?`<span class="flag">${m.flag}</span>`:''}<div class="s">${m.s}</div></span>
+        <span class="acts"><button data-a="keep">Keep</button><button data-a="later">Later</button><button data-a="trash">Let go</button></span></div>`).join('') ||
+        '<p class="sub" style="margin:8px 0">All sorted. Cluster will treat mail like these the same way.</p>'}</div>
+      <div class="tally"><span>Keep <b>${count('keep')}</b></span><span>Later <b>${count('later')}</b></span><span>Let go <b>${count('trash')}</b></span></div>${nav(left.length===0)}`;
+  } else if (step==='keep') {
+    body = `<p class="kicker">Step 3 of 4</p><h1>What should always stay?</h1><p class="sub">These never leave your inbox on their own.</p><div class="opts">${[
+      ['bank','Bank and bills','','#1f9d63',P.bank],['work','Work','','#f08a24',P.brief],['travel','Travel','','#2f6fe4',P.plane],
+      ['receipts','Receipts and orders','','#12a594',P.receipt],['people','People you write to','Always on','#4f5bd5',P.chat,true]]
+      .map(([v,t,s,c,p,lock])=>`<button class="opt" data-v="${v}" aria-pressed="${state.keep.includes(v)}" ${lock?'aria-disabled="true"':''}>${ILL(c,p)}<span><b>${t}</b>${s?`<small>${s}</small>`:''}</span>${CHK}</button>`).join('')}</div>${nav(true)}`;
+  } else if (step==='hands') {
+    body = `<p class="kicker">Step 4 of 4</p><h1>How hands-on?</h1><p class="sub">You can change this in Settings.</p><div class="opts">${[
+      ['ask','Ask me first','Nothing moves until you say so','#71717a',P.eye],['tidy','Tidy for me','New mail sorts itself, and you can undo','#18181b',P.spark]]
+      .map(([v,t,s,c,p])=>`<button class="opt" data-v="${v}" aria-pressed="${state.hands===v}">${ILL(c,p)}<span><b>${t}</b><small>${s}</small></span>${CHK}</button>`).join('')}</div>${nav(state.hands)}`;
+  } else {
+    const items = [];
+    const ok = (c)=>`<svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="11" fill="${c}"/><path d="M6.5 11.5l3 3 6-7" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    if (state.sorted.promo==='trash') items.push(['Promotions leave your inbox after a day','Still in Promotions if you need one','#d6409f']);
+    if (state.sorted.promo==='later') items.push(['Promotions wait in Read later','','#d6409f']);
+    if (state.sorted.news && state.sorted.news!=='keep') items.push(['Newsletters you skip show up in Stop mail','Unsubscribe in one tap','#12a594']);
+    if (state.sorted.social && state.sorted.social!=='keep') items.push(['App and social alerts leave after a day','','#8b5cf6']);
+    if (state.sorted.scam!=='keep' || state.who==='safe' || state.who==='business') items.push(['Likely scams are held out of your inbox','Each one says why','#4f5bd5']);
+    if (state.sorted.scam==='keep') items.push(['That "Account Team" email was fake','Cluster will warn you about mail like it','#d93f3f']);
+    const names = {bank:'bank and bills',work:'work',travel:'travel',receipts:'receipts',people:'people you write to'};
+    items.push([`Always stays: ${state.keep.map(k=>names[k]).join(', ')}`,'','#1f9d63']);
+    items.push(state.hands==='tidy'?['New mail sorts itself','Undo anything in Activity','#18181b']:['Nothing moves until you press Sort my inbox','','#71717a']);
+    if (state.who==='safe') items.push(['Simple mode: bigger text, fewer screens','Turn it off in Settings','#2f6fe4']);
+    body = `<p class="kicker">Your plan</p><h1>Here's what Cluster will do</h1><p class="sub">Change any of it later in Settings.</p>
+      <ul class="plan">${items.map(([t,s,c],i)=>`<li style="animation-delay:${i*90}ms">${ok(c)}<span>${t}${s?`<small>${s}</small>`:''}</span></li>`).join('')}</ul>${nav(true,'Start')}`;
+  }
+  pane.innerHTML = dots + `<div class="fade">${body}</div>`;
+  wire(step);
+}
+
+function wire(step){
+  const pane = document.getElementById('pane');
+  pane.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{
+    if (b.getAttribute('aria-disabled')) return;
+    const v = b.dataset.v;
+    if (step==='who') state.who = v;
+    if (step==='hands') state.hands = v;
+    if (step==='keep') state.keep = state.keep.includes(v) ? state.keep.filter(x=>x!==v) : [...state.keep, v];
+    render();
+  });
+  pane.querySelectorAll('.mail .acts button').forEach(b=>b.onclick=()=>{
+    const row = b.closest('.mail'); const a = b.dataset.a;
+    row.classList.add('gone-'+a);
+    setTimeout(()=>{ state.sorted[row.dataset.k] = a; render(); }, 420);
+  });
+  pane.querySelector('#next')?.addEventListener('click',()=>{
+    if (step==='plan') { pane.innerHTML = `<div class="fade"><p class="kicker">All set</p><h1>Welcome to Cluster</h1><p class="sub">Home fills in as your mail is read. Watch the bar at the bottom.</p></div>`; document.getElementById('art').innerHTML = SCENES.plan; return; }
+    state.at++; render();
+  });
+  pane.querySelector('#skip')?.addEventListener('click',()=>{ state.at++; render(); });
+  pane.querySelector('#back')?.addEventListener('click',()=>{ state.at--; render(); });
+}
+
+// ── Mockup switcher ──
+function show(v){
+  document.querySelectorAll('.switch button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v===v)));
+  document.getElementById('v-signin').hidden = v==='setup';
+  document.getElementById('v-setup').hidden = v!=='setup';
+  document.getElementById('bar').hidden = v!=='setup';
+  const back = v==='back';
+  document.getElementById('si-title').textContent = back ? 'Welcome back' : 'Calm your inbox';
+  document.getElementById('si-sub').textContent = back ? 'Sign in to the account you used before.' : 'Clean up, sort and protect your mail. Connect an account to start.';
+  document.querySelector('#si-gmail span').textContent = back ? 'Sign in with Gmail' : 'Continue with Gmail';
+  document.getElementById('si-alt').innerHTML = back ? 'New to Cluster? <a href="#" data-goto="signin">Get started</a>' : 'Used Cluster before? <a href="#" data-goto="back">Welcome back</a>';
+  if (v==='setup') render();
+}
+document.querySelectorAll('.switch button').forEach(b=>b.onclick=()=>show(b.dataset.v));
+document.addEventListener('click',e=>{const g=e.target.closest('[data-goto]'); if(g){e.preventDefault(); show(g.dataset.goto);}});
+document.getElementById('si-gmail').onclick=()=>show('setup');
+
+// Count-up on the photo card.
+let n=0; const tick=setInterval(()=>{n+=37; if(n>=1284){n=1284;clearInterval(tick);} document.getElementById('ticker').textContent=n.toLocaleString();},20);
+
+// Bottom bar: reading keeps going while you answer.
+const bar = document.getElementById('bar'); let done=0; const total=4200; const title=document.title;
+const read = setInterval(()=>{
+  if (bar.hidden) return;
+  done = Math.min(total, done + 40 + Math.round(Math.random()*20));
+  if (done>=total){ clearInterval(read); bar.innerHTML='<span class="dot"></span>All your mail is read'; if(document.hidden){document.title='● '+title; addEventListener('focus',()=>document.title=title,{once:true});} return; }
+  const mins = Math.max(1, Math.round((total-done)/200));
+  bar.innerHTML = `Reading your mail · ${done.toLocaleString()} of ${total.toLocaleString()} · about ${mins} min left<div class="track"><div style="width:${done/total*100}%"></div></div>`;
+}, 400);
+</script>
+</body>
+</html>

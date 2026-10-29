@@ -55,3 +55,28 @@ today's defaults for that question.
 - An account-level sync of answers (Cluster has no accounts; Moat stays accountless too).
 - Learning answers from mail before asking (it could pre-tick question 2 from what reading finds;
   worth a later round once the read is fast enough to have data during setup).
+
+## Round 2: pictures, motion and a sign-in page (mockup v2)
+
+Mockup: `research/2026-10-29-onboarding-mockup-v2.html` (Sign in · Welcome back · Setup).
+
+- **Sign-in as a split screen** (form left, photo right, as in the Superpower reference the user
+  shared). Split screens suit minimal forms: the divide and white space hold attention on one
+  action ([SitePoint](https://www.sitepoint.com/how-to-design-a-daring-but-effective-split-screen-layout/),
+  [Mockplus](https://www.mockplus.com/blog/post/split-screen-web-design)). Cluster has no
+  passwords, so the form is two buttons (Gmail, Outlook) and one trust line. The photo is a NASA
+  orbital sunrise (public domain), matching the site's space-and-nature imagery.
+- **Practice inbox** (Superhuman). Superhuman's self-serve onboarding centres on a synthetic inbox
+  you can practise in without touching real mail ([analysis](https://merge.rocks/blog/we-analysed-the-onboarding-experience-of-dia-superhuman-more-heres-what-makes-users-stay),
+  [Gainsight](https://www.gainsight.com/blog/5-lessons-i-learned-from-superhumans-onboarding/)).
+  Cluster's "what gets in your way" question becomes "Sort five emails": Keep, Later or Let go on
+  made-up mail, including one fake. The answers come from what you do, not from a checklist.
+- **Vector scenes per step**, drawn inline as SVG with a slow float, so they cost no image files
+  and follow the theme. Each step's picture shows what the step does (bins for sorting, a shield
+  for what stays).
+- **The plan animates in** item by item, so the result of your answers reads like a payoff
+  (Duolingo's plan screen).
+
+For the real build: the extension's CSP blocks remote images and fonts, so the photo ships in the
+package (about 150 KB as WebP) and the font is the bundled Inter Tight. Google's sign-in branding
+rules may apply to the Gmail button; check them before the store review.
