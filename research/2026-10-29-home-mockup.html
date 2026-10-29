@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home v2 mockup</title>
+<style>
+  :root {
+    --canvas: #fff; --panel: #f5f5f7; --card: #fff; --label: #18181b; --label-2: #3f3f46; --label-4: #71717a;
+    --sep: #e4e4e7; --fill: #f4f4f5; --danger: #d93f3f; --ok: #1f9d63; --accent: #0a6cff;
+    --font: "Inter Tight", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --canvas: #0b0b0d; --panel: #111114; --card: #17171a; --label: #f4f4f5; --label-2: #d4d4d8; --label-4: #8e8e96;
+      --sep: #26262b; --fill: #1f1f23; --danger: #ff6b6b; --ok: #3fd38b; --accent: #4c9bff;
+    }
+  }
+  :root[data-theme="dark"] {
+    --canvas: #0b0b0d; --panel: #111114; --card: #17171a; --label: #f4f4f5; --label-2: #d4d4d8; --label-4: #8e8e96;
+    --sep: #26262b; --fill: #1f1f23; --danger: #ff6b6b; --ok: #3fd38b; --accent: #4c9bff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--canvas); color: var(--label); font: 400 14px/1.45 var(--font); }
+  .bar { position: sticky; top: 0; z-index: 5; display: flex; gap: 8px; align-items: center; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--sep); font-size: 13px; }
+  .bar b { margin-right: 8px; }
+  .bar button { padding: 6px 10px; border: 1px solid var(--sep); border-radius: 8px; background: var(--card); color: var(--label); font: 500 13px/1 var(--font); cursor: pointer; }
+  .bar button[aria-pressed="true"] { background: var(--label); color: var(--canvas); border-color: var(--label); }
+  .app { display: grid; grid-template-columns: 220px 1fr; min-height: calc(100vh - 45px); }
+  nav { padding: 18px 12px; background: var(--panel); border-right: 1px solid var(--sep); }
+  nav .brand { display: flex; gap: 9px; align-items: center; padding: 0 8px 18px; font: 700 18px/1 var(--font); }
+  nav .brand i { width: 28px; height: 28px; border-radius: 7px; background: #030307; box-shadow: 0 0 0 1px var(--sep); }
+  nav a { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; color: var(--label-2); text-decoration: none; font-weight: 500; }
+  nav a.on { background: var(--fill); color: var(--label); }
+  nav a span.sq { width: 22px; height: 22px; border-radius: 6px; }
+  nav a em { margin-left: auto; font-style: normal; color: var(--danger); font-weight: 600; }
+  main { padding: 36px clamp(16px, 4vw, 56px) 80px; max-width: 980px; margin: 0 auto; width: 100%; }
+  .sq.blue { background: linear-gradient(#3d9bff, #0a6cff); } .sq.orange { background: linear-gradient(#ffa63d, #f47a0a); }
+  .sq.purple { background: linear-gradient(#a879ff, #7a4cf0); } .sq.indigo { background: linear-gradient(#5a6cff, #3346d9); }
+  .sq.gray { background: linear-gradient(#8e8e93, #636366); }
+
+  /* 1. The verdict: one sentence, said by Kai */
+  .hero { display: flex; gap: 18px; align-items: flex-start; }
+  .kai { flex: none; width: 56px; height: 56px; border-radius: 18px; background: #1b1b20; display: grid; place-items: center; box-shadow: 0 0 0 1px var(--sep); }
+  .kai::before { content: ""; width: 26px; height: 12px; background: radial-gradient(circle at 25% 50%, #fff 4px, transparent 5px), radial-gradient(circle at 75% 50%, #fff 4px, transparent 5px); }
+  .hero h1 { margin: 0; font: 500 clamp(28px, 3.4vw, 40px)/1.12 var(--font); letter-spacing: -0.02em; }
+  .hero h1 .warn { color: var(--danger); }
+  .hero p { margin: 8px 0 0; color: var(--label-4); font-size: 15px; }
+  .hero .acts { display: flex; gap: 8px; margin-top: 16px; }
+  .btn { padding: 10px 16px; border-radius: 10px; border: 1px solid var(--sep); background: var(--card); color: var(--label); font: 600 14px/1 var(--font); cursor: pointer; }
+  .btn.dark { background: var(--label); color: var(--canvas); border-color: var(--label); }
+  .note { margin-top: 4px; font-size: 12px; color: var(--label-4); }
+
+  /* 2. This week: progress you can feel */
+  h2 { margin: 40px 0 12px; font: 600 13px/1 var(--font); letter-spacing: 0.04em; text-transform: uppercase; color: var(--label-4); }
+  .week { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .stat { padding: 16px; border: 1px solid var(--sep); border-radius: 16px; background: var(--card); }
+  .stat b { display: block; font: 600 30px/1 var(--font); letter-spacing: -0.02em; }
+  .stat span { display: block; margin-top: 6px; color: var(--label-2); }
+  .stat small { display: inline-flex; align-items: center; gap: 4px; margin-top: 10px; padding: 3px 8px; border-radius: 999px; background: var(--fill); color: var(--label-2); font-size: 12px; font-weight: 500; }
+  .stat small.good { color: var(--ok); }
+  .spark { display: flex; gap: 4px; align-items: flex-end; height: 34px; margin-top: 12px; }
+  .spark i { flex: 1; border-radius: 3px; background: var(--label-4); opacity: 0.35; }
+  .spark i.now { background: var(--label); opacity: 1; }
+
+  /* 3. Next up: at most three, each says why and has one button */
+  .list { border: 1px solid var(--sep); border-radius: 16px; background: var(--card); overflow: hidden; }
+  .row { display: flex; align-items: center; gap: 14px; padding: 14px 16px; }
+  .row + .row { border-top: 1px solid var(--sep); }
+  .row .ic { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--fill); color: var(--label-2); }
+  .row .ic.danger { background: rgba(217, 63, 63, 0.12); color: var(--danger); }
+  .row svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  .row .words { flex: 1; min-width: 0; }
+  .row .words b { display: block; font-weight: 600; }
+  .row .words span { color: var(--label-4); font-size: 13px; }
+  .row .btn { padding: 8px 12px; font-size: 13px; }
+
+  /* 4. Your inbox: the bar with a sentence that says what it means */
+  .inbox { padding: 18px; border: 1px solid var(--sep); border-radius: 16px; background: var(--card); }
+  .inbox p { margin: 0 0 12px; font-size: 15px; }
+  .inbox p b { font-weight: 600; }
+  .kinds { display: flex; gap: 3px; height: 12px; border-radius: 6px; overflow: hidden; }
+  .kinds i { display: block; }
+  .k1 { background: #0a6cff; } .k2 { background: #12a594; } .k3 { background: #8e8e93; } .k4 { background: #f47a0a; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 12px 0 0; padding: 0; list-style: none; color: var(--label-2); font-size: 13px; }
+  .legend li { display: flex; align-items: center; gap: 6px; }
+  .legend i { width: 8px; height: 8px; border-radius: 50%; }
+  .legend em { font-style: normal; color: var(--label-4); }
+
+  /* States */
+  [data-state] { display: none; }
+  body.s-needs [data-state~="needs"], body.s-clear [data-state~="clear"], body.s-reading [data-state~="reading"] { display: revert; }
+  .reading { margin-top: 18px; height: 6px; border-radius: 3px; background: var(--fill); overflow: hidden; }
+  .reading i { display: block; width: 46%; height: 100%; background: var(--label); animation: grow 3s ease-in-out infinite alternate; }
+  @keyframes grow { to { width: 72%; } }
+  .ring { width: 40px; height: 40px; }
+
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; } nav { display: none; }
+    .week { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body class="s-needs">
+<div class="bar">
+  <b>Home v2 mockup</b> State:
+  <button type="button" data-s="needs" aria-pressed="true">Something needs you</button>
+  <button type="button" data-s="clear" aria-pressed="false">All clear</button>
+  <button type="button" data-s="reading" aria-pressed="false">First read</button>
+  <span style="flex:1"></span>
+  <button type="button" id="theme">Light / dark</button>
+</div>
+<div class="app">
+  <nav>
+    <div class="brand"><i></i>Cluster</div>
+    <a class="on" href="#"><span class="sq blue"></span>Home</a>
+    <a href="#"><span class="sq gray"></span>Senders</a>
+    <a href="#"><span class="sq orange"></span>Clean up</a>
+    <a href="#"><span class="sq purple"></span>Organize</a>
+    <a href="#"><span class="sq indigo"></span>Protect<em data-state="needs">3</em></a>
+  </nav>
+  <main>
+    <!-- 1. Verdict -->
+    <section class="hero">
+      <div class="kai" aria-hidden="true"></div>
+      <div>
+        <div data-state="needs">
+          <h1><span class="warn">3 emails need you.</span><br>The rest is handled.</h1>
+          <p>They pretend to be PayPal, Netflix and Apple. Don't click anything in them.</p>
+          <div class="acts"><button class="btn dark">Review 3</button><button class="btn">Later</button></div>
+        </div>
+        <div data-state="clear">
+          <h1>All clear.<br>Nothing needs you today.</h1>
+          <p>Cluster checks new mail as it arrives. Your inbox has been calm for 5 days.</p>
+        </div>
+        <div data-state="reading">
+          <h1>Reading your mail.<br>You can look around.</h1>
+          <p>84 of 184 so far. About a minute left. Kai will tell you what turns up.</p>
+          <div class="reading"><i></i></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. This week -->
+    <div data-state="needs clear">
+      <h2>This week</h2>
+      <div class="week">
+        <div class="stat">
+          <b>214</b><span>emails cleared for you</span>
+          <div class="spark" aria-hidden="true"><i style="height:30%"></i><i style="height:45%"></i><i style="height:25%"></i><i style="height:60%"></i><i style="height:40%"></i><i style="height:70%"></i><i class="now" style="height:90%"></i></div>
+        </div>
+        <div class="stat">
+          <b>18%</b><span>lighter inbox than last week</span>
+          <small class="good">↓ from 182 to 150 emails</small>
+        </div>
+        <div class="stat">
+          <b>3</b><span>scams stopped before you opened them</span>
+          <small>Held in Protect</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Next up -->
+    <div data-state="needs">
+      <h2>Next up</h2>
+      <div class="list">
+        <div class="row">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h9"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m17 17 4 4M21 17l-4 4"/></svg></span>
+          <span class="words"><b>30 emails you never open</b><span>From LinkedIn, Groupon and 2 more. They go to Trash, and you can undo.</span></span>
+          <button class="btn">Clear 30</button>
+        </div>
+        <div class="row">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1"/></svg></span>
+          <span class="words"><b>Let promotions leave after a day</b><span>About 50 a week would leave on their own. They stay in Gmail's Promotions.</span></span>
+          <button class="btn">Turn on</button>
+        </div>
+        <div class="row">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg></span>
+          <span class="words"><b>2 new senders</b><span>People you haven't heard from before. Let them in or hold them.</span></span>
+          <button class="btn">Look</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Your inbox -->
+    <div data-state="needs clear">
+      <h2>Your inbox</h2>
+      <div class="inbox">
+        <p><b>Most of your mail is updates:</b> codes, newsletters and alerts. Only 12 of 150 are from people.</p>
+        <div class="kinds" aria-label="Primary 12, Transactions 14, Updates 86, Promotions 38" role="img">
+          <i class="k1" style="flex:12"></i><i class="k2" style="flex:14"></i><i class="k3" style="flex:86"></i><i class="k4" style="flex:38"></i>
+        </div>
+        <ul class="legend">
+          <li><i class="k1"></i>People <em>12</em></li>
+          <li><i class="k2"></i>Receipts and orders <em>14</em></li>
+          <li><i class="k3"></i>Updates <em>86</em></li>
+          <li><i class="k4"></i>Promotions <em>38</em></li>
+        </ul>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+  for (const b of document.querySelectorAll("[data-s]"))
+    b.onclick = () => {
+      document.body.className = "s-" + b.dataset.s;
+      for (const o of document.querySelectorAll("[data-s]")) o.setAttribute("aria-pressed", String(o === b));
+    };
+  document.getElementById("theme").onclick = () => {
+    const r = document.documentElement;
+    const dark = r.dataset.theme ? r.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    r.dataset.theme = dark ? "light" : "dark";
+  };
+</script>
+</body>
+</html>
