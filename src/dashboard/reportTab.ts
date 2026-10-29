@@ -148,12 +148,10 @@ export function renderScamReport(securitySenders: SenderSummary[]): void {
       }),
     );
     labels.replaceChildren(...weeks.map((w, i) => el("span", undefined, i % 2 === 1 || i === weeks.length - 1 ? weekLabel(w.weekStart, i === weeks.length - 1) : "")));
-    sub.textContent =
-      heldTotal > 0
-        ? `Last ${WEEKS} weeks`
-        : ctx.settings.autoQuarantineHighRisk
-          ? "Nothing held yet. This fills in as Cluster holds scams."
-          : "Turn on Hold likely scams under Holding to start.";
+    sub.textContent = `Last ${WEEKS} weeks`;
+    // An empty chart says nothing; it shows once something has been held.
+    const card = $("report-held-card");
+    if (card) card.hidden = heldTotal === 0;
   }
 
   // This scan's senders with warning signs, after verdict.ts rule 1.
@@ -176,13 +174,11 @@ export function renderScamReport(securitySenders: SenderSummary[]): void {
   const pct = $("report-checks-pct");
   const pctSub = $("report-checks-sub");
   if (pct && pctSub) {
-    pct.textContent = scanned > 0 ? `${Math.floor(((scanned - failed) / scanned) * 100)}%` : "–";
-    pctSub.textContent = scanned > 0 ? `${scanned} senders checked` : "";
+    pct.textContent = scanned > 0 ? String(failed) : "–";
+    pctSub.textContent = scanned > 0 ? `of ${scanned} failed` : "";
   }
   const kindRows: [string, number][] = [...kindCounts].sort((a, b) => b[1] - a[1]).map(([k, n]) => [KIND_NAME[k], n]);
-  const brandsEl = $("report-brands");
   const kindsEl = $("report-kinds");
-  if (brandsEl) hbars(brandsEl, brandRows, "senders", "No sender in this scan pretended to be a brand.");
   if (kindsEl) hbars(kindsEl, kindRows, "senders", "No warning signs in this scan.");
 
   const tableEl = $("report-table");

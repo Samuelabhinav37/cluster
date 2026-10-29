@@ -676,30 +676,6 @@
             </section>
             <p id="security-empty" class="empty-state">Nothing looks like a scam right now.</p>
             <section class="ios-section">
-              <h2 class="ios-head">This scan</h2>
-              <div class="bento protect-bento">
-                <div class="glass-card chart-card tile-wide">
-                  <h2>Scams per week</h2>
-                  <p class="lead-sm" id="report-held-sub">Last 8 weeks</p>
-                  <div class="vbars" id="report-held-bars" role="img"></div>
-                  <div class="vlabels" id="report-held-labels" aria-hidden="true"></div>
-                </div>
-                <div class="glass-card chart-card">
-                  <h2>Sender checks</h2>
-                  <p class="tile-stat"><b id="report-checks-pct">–</b>passed</p>
-                  <p class="lead-sm" id="report-checks-sub"></p>
-                </div>
-                <div class="glass-card chart-card">
-                  <h2>Brands faked</h2>
-                  <div class="hbars" id="report-brands"></div>
-                </div>
-                <div class="glass-card chart-card tile-wide">
-                  <h2>Warning signs</h2>
-                  <div class="hbars" id="report-kinds"></div>
-                </div>
-              </div>
-            </section>
-            <section class="ios-section">
               <h2 class="ios-head">Holding</h2>
               <div class="ios-group">
                 <label class="ios-row" id="auto-quarantine-row">
@@ -737,6 +713,25 @@
                   >
                   <input type="checkbox" class="switch" role="switch" id="rule-to-spam" />
                 </label>
+              </div>
+            </section>
+            <section class="ios-section">
+              <h2 class="ios-head">This scan</h2>
+              <div class="bento protect-bento">
+                <div class="glass-card chart-card tile-wide" id="report-held-card" hidden>
+                  <h2>Scams per week</h2>
+                  <p class="lead-sm" id="report-held-sub">Last 8 weeks</p>
+                  <div class="vbars" id="report-held-bars" role="img"></div>
+                  <div class="vlabels" id="report-held-labels" aria-hidden="true"></div>
+                </div>
+                <div class="glass-card chart-card">
+                  <h2>Sender checks</h2>
+                  <p class="tile-stat"><b id="report-checks-pct">–</b><span id="report-checks-sub"></span></p>
+                </div>
+                <div class="glass-card chart-card tile-wide">
+                  <h2>Warning signs</h2>
+                  <div class="hbars" id="report-kinds"></div>
+                </div>
               </div>
             </section>
           </section>

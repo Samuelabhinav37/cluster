@@ -123,7 +123,6 @@ import { wireAccountMenu } from "./accountMenu";
 import { initAskKai, type AskFacts } from "./askKai";
 import {
   HOME_KINDS,
-  icon as homeIcon,
   mailByKind,
   renderHomeDashboard,
   type HomeAct,
@@ -1116,7 +1115,7 @@ function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummar
   renderProtectTiles(byId.get("flagged-senders") ?? 0, byId.get("screener-queue") ?? 0, held);
 }
 
-// Protect's three views share one head: a line and three tiles that switch
+// Protect's three views share one head: a line and a segmented control that switches
 // between Scams, New senders and the report. Each screen has its own copy.
 let protectTileArgs: [scams: number, waiting: number, held: number] = [0, 0, 0];
 function renderProtectTiles(scams: number, waiting: number, held: number) {
@@ -1129,30 +1128,28 @@ function renderProtectTiles(scams: number, waiting: number, held: number) {
         : "All clear.";
   for (const el of Array.from(document.querySelectorAll<HTMLElement>("[data-protect-sub]")))
     el.textContent = sub;
-  const tiles: Array<[screen: string, count: number, label: string, ic: string]> = [
-    ["impersonation", scams, "Likely scams", "shield-alert"],
-    ["screener", waiting, "New senders", "user-plus"],
-    ["report", held, "Held so far", "shield-check"],
+  const tiles: Array<[screen: string, count: number, label: string]> = [
+    ["impersonation", scams, "Scams"],
+    ["screener", waiting, "New senders"],
+    ["report", held, "Held"],
   ];
   for (const host of Array.from(document.querySelectorAll<HTMLElement>("[data-protect-tiles]"))) {
     const here = (host.closest("section.screen") as HTMLElement | null)?.dataset.screen;
     host.replaceChildren(
-      ...tiles.map(([screen, count, label, ic]) => {
+      ...tiles.map(([screen, count, label]) => {
         const tile = document.createElement("button");
         tile.type = "button";
         tile.className = `protect-tile${screen === "impersonation" && count > 0 ? " alert" : ""}`;
         tile.setAttribute("role", "tab");
         tile.setAttribute("aria-selected", String(screen === here));
-        const mark = document.createElement("span");
-        mark.className = `rec-ic${screen === "impersonation" ? " danger" : ""}`;
-        mark.append(homeIcon(ic));
-        const n = document.createElement("b");
-        // Nothing can be held while holding is off, so a 0 there would read as "all clear".
+        tile.append(label);
+        // Nothing can be held while holding is off, so no count there.
         const off = screen === "report" && count === 0 && !ctx.settings.autoQuarantineHighRisk;
-        n.textContent = off ? "Off" : count.toLocaleString();
-        const text = document.createElement("span");
-        text.append(n, label);
-        tile.append(mark, text);
+        if (!off) {
+          const n = document.createElement("b");
+          n.textContent = count.toLocaleString();
+          tile.append(" ", n);
+        }
         tile.onclick = () => void selectScreen(screen);
         return tile;
       }),
