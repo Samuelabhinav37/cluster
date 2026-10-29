@@ -180,8 +180,6 @@ const selectSafeDomainsBtn = document.getElementById("select-safe-domains") as H
 const deleteDomainsBulkSlot = document.getElementById("delete-domains-bulk-slot") as HTMLSpanElement;
 const bulkDeleteDomainsBtn = document.getElementById("bulk-delete-domains-btn") as HTMLButtonElement;
 
-const expirySectionEl = document.getElementById("expiry-section") as HTMLElement;
-const expiryBreakdownEl = document.getElementById("expiry-breakdown") as HTMLSpanElement;
 const expiryCleanupSlot = document.getElementById("expiry-cleanup-slot") as HTMLSpanElement;
 const expiryCleanupBtn = document.getElementById("expiry-cleanup-btn") as HTMLButtonElement;
 
@@ -227,8 +225,6 @@ function resolveScreen(name: string): string {
 
 const neverReadSectionEl = document.getElementById("never-read-section") as HTMLElement;
 const neverReadCountEl = document.getElementById("never-read-count") as HTMLSpanElement;
-const neverReadMuteSlot = document.getElementById("never-read-mute-slot") as HTMLSpanElement;
-const neverReadMuteBtn = document.getElementById("never-read-mute-btn") as HTMLButtonElement;
 const neverReadTrashSlot = document.getElementById("never-read-trash-slot") as HTMLSpanElement;
 const neverReadTrashBtn = document.getElementById("never-read-trash-btn") as HTMLButtonElement;
 const neverReadListEl = document.getElementById("never-read-list") as HTMLDivElement;
@@ -861,12 +857,12 @@ async function refreshView() {
     return;
   }
   refreshing = true;
-  const reviews = [neverReadSectionEl, spamSectionEl, expirySectionEl].map((el) => el.hidden);
+  const reviews = [neverReadSectionEl, spamSectionEl].map((el) => el.hidden);
   const scroll = window.scrollY;
   try {
     viewDone = [...indexRuns.values()].reduce((sum, run) => sum + (run.progress?.done ?? 0), 0);
     await scanAndRender({ quiet: true });
-    [neverReadSectionEl, spamSectionEl, expirySectionEl].forEach((el, i) => (el.hidden = reviews[i]));
+    [neverReadSectionEl, spamSectionEl].forEach((el, i) => (el.hidden = reviews[i]));
     window.scrollTo(0, scroll);
   } finally {
     refreshing = false;
@@ -901,7 +897,6 @@ async function scanAndRender({
     indexStatusEl.hidden = true;
     senderGroupsEl.hidden = true;
     domainSectionEl.hidden = true;
-    expirySectionEl.hidden = true;
     statusEl.textContent = "Getting your mailbox ready…";
   }
 
@@ -1062,7 +1057,6 @@ async function scanAndRender({
   // sections stay collapsed in "More ways to clean up".
   neverReadSectionEl.hidden = true;
   spamSectionEl.hidden = true;
-  expirySectionEl.hidden = true;
   safeRender("organize", () => renderSortInbox(senders));
   safeRender("organize", () => renderTimeLimits());
   safeRender("organize", () => renderPresets(securitySenders));
@@ -2505,13 +2499,7 @@ function buildDeleteDomainCell(group: DomainGroup): HTMLTableCellElement {
 function renderExpirySection(senders: SenderSummary[]) {
   currentExpiryBuckets = buildExpiryBuckets(senders, buildProtectionContext(ctx.settings));
   const total = totalExpiryCount(currentExpiryBuckets);
-  expirySectionEl.hidden = total === 0;
   if (total === 0) return;
-
-  expiryBreakdownEl.textContent = currentExpiryBuckets
-    .map((b) => `${b.count} ${b.label.toLowerCase()} (${b.retentionDays}+ days old)`)
-    .join(", ");
-
   resetExpiryCleanupSlot();
 }
 
@@ -2728,8 +2716,6 @@ setBridge({ rescan: scanAndRender, logAction });
 
 // ── Local engagement suggestions (Clean up tab) ──────────────────────────
 function resetNeverReadSlots() {
-  neverReadMuteSlot.innerHTML = "";
-  neverReadMuteSlot.appendChild(neverReadMuteBtn);
   neverReadTrashSlot.innerHTML = "";
   neverReadTrashSlot.appendChild(neverReadTrashBtn);
 }
@@ -2800,9 +2786,6 @@ function renderNeverReadSection(senders: SenderSummary[]) {
   neverReadListEl.appendChild(table);
 
   resetNeverReadSlots();
-  neverReadMuteBtn.disabled = !engagementSuggestions.some(
-    ({ sender }) => sender.provider === "gmail" && !ctx.settings.mutedSenders.includes(sender.address),
-  );
   neverReadTrashBtn.disabled = !engagementSuggestions.some(
     ({ sender, safeMessageIds }) => sender.provider === "gmail" && safeMessageIds.length > 0,
   );
@@ -3245,53 +3228,7 @@ function wireBulkHandlers() {
     });
   };
 
-  // ── Local engagement suggestions: mute all / trash all ──
-  neverReadMuteBtn.onclick = () => {
-    const targets = engagementSuggestions.filter(
-      ({ sender }) => sender.provider === "gmail" && !ctx.settings.mutedSenders.includes(sender.address),
-    );
-    if (targets.length === 0) return;
-    renderConfirmStep(
-      neverReadMuteSlot,
-      resetNeverReadSlots,
-      `Mute ${targets.length} locally suggested sender${targets.length === 1 ? "" : "s"}, now and in future?`,
-      false,
-      async () => {
-        const token = await gmailProvider.getAuthToken(false);
-        const succeeded: Suggestion[] = [];
-        for (const target of targets) {
-          try {
-            await gmailProvider.muteSender!(token, target.sender.address, target.safeMessageIds);
-            succeeded.push(target);
-          } catch (err) {
-            log.error(err);
-          }
-        }
-        ctx.settings = await mutateSettings((current) => ({
-          ...current,
-          mutedSenders: [
-            ...new Set([...current.mutedSenders, ...succeeded.map(({ sender }) => sender.address)]),
-          ],
-          senderEngagement: recordEngagementFeedback(
-            current.senderEngagement,
-            succeeded.map(({ sender }) => sender.key),
-            "accept",
-          ),
-        }));
-        void learnFromFeedback(
-          succeeded.map(({ sender }) => sender.key),
-          "accept",
-        );
-        await logAction(
-          "mute",
-          `Muted ${succeeded.length} personalized suggestion${succeeded.length === 1 ? "" : "s"}`,
-        );
-        await scanAndRender();
-        return `Muted ${succeeded.length}`;
-      },
-    );
-  };
-
+  // ── Local engagement suggestions: trash all ──
   neverReadTrashBtn.onclick = () => {
     const targets = engagementSuggestions.filter(({ sender }) => sender.provider === "gmail");
     const ids = targets.flatMap(({ safeMessageIds }) => safeMessageIds);
