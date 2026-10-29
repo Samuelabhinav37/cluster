@@ -157,6 +157,7 @@
             <div class="account-menu" id="account-menu" role="menu" aria-label="Account" hidden>
               <button type="button" class="menu-item" role="menuitem" data-open="recent">Activity</button>
               <button type="button" class="menu-item" role="menuitem" data-open="settings">Settings</button>
+              <button type="button" class="menu-item" role="menuitem" id="menu-signout">Sign out</button>
             </div>
           </div>
         </div>
@@ -184,7 +185,6 @@
             </div>
           </section>
 
-          <p id="status" class="status-line" role="status">Loading your senders…</p>
 
           <!-- ══ Overview ═══════════════════════════════════════════════ -->
           <section class="screen" data-screen="overview" role="tabpanel" hidden>
@@ -1041,6 +1041,8 @@
             </div>
             <div id="recent-list"></div>
           </section>
+          <!-- Loading, reading progress and "done" all show in this one place at the bottom. -->
+          <p id="status" class="status-line index-status" role="status">Loading your senders…</p>
           <div id="index-status" class="index-status" role="status" hidden></div>
         </main>
         <!-- Details: the sheet where you work on the mail behind any number (detailsPanel.ts) -->

@@ -9,6 +9,7 @@
 import type { ProviderId } from "../lib/providers/emailProvider";
 import type { SenderSummary } from "../lib/senderModel";
 import { SMART_VIEWS } from "../lib/smartViews";
+import { companyName, senderName } from "../lib/senderListView";
 import { HOME_KINDS, kindOf, type HomeKind } from "./homeDashboard";
 import { senderTile } from "./senderTile";
 
@@ -111,7 +112,7 @@ export function detailMessages(senders: readonly SenderSummary[], rowKeyOf: RowK
         id: m.id,
         provider: s.provider,
         senderKey: rowKeyOf(s),
-        name: s.displayName || s.address,
+        name: senderName(s),
         address: s.address,
         subject: m.subject ?? "",
         at: m.receivedAt,
@@ -141,7 +142,7 @@ export function detailSenders(senders: readonly SenderSummary[], rowKeyOf: RowKe
       return {
         key,
         provider: top.provider,
-        name: top.displayName || top.address,
+        name: companyName({ key, senders: members }),
         address: top.address,
         addresses: members.length,
         kind,

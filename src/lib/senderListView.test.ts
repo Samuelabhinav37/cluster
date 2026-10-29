@@ -3,6 +3,7 @@ import { DAY, NOW, many, senders } from "../test/mailFixtures";
 import type { NormalizedMessageMetadata, SentRecord } from "./providers/emailProvider";
 import {
   companyName,
+  senderName,
   foldByCompany,
   groupByCompany,
   isPerson,
@@ -136,5 +137,28 @@ describe("List-Id groups, person override, companies you talk to", () => {
     const { list, profiles } = await setup(rows, sent);
     const talked = groupByCompany(list, profiles).filter((g) => talksTo(g, profiles));
     expect(talked.map((g) => g.key)).toEqual(["bank.example"]);
+  });
+});
+
+describe("senderName", () => {
+  it("shows the platform for a person writing through it", () => {
+    expect(senderName({ displayName: "Suhas Nayak via LinkedIn", address: "invitations@linkedin.com" })).toBe("LinkedIn");
+    expect(senderName({ displayName: "Ann (via Google Docs)", address: "comments-noreply@docs.google.com" })).toBe("Google Docs");
+  });
+
+  it("keeps the full name when the address isn't that platform's", () => {
+    expect(senderName({ displayName: "Billing via PayPal", address: "alerts@evil.example" })).toBe("Billing via PayPal");
+    expect(senderName({ displayName: "", address: "a@b.com" })).toBe("a@b.com");
+  });
+
+  it("names a company by its brand over a person carrying more mail", () => {
+    const s = (displayName: string, address: string, count: number) =>
+      ({ displayName, address, count, messages: [], messageIds: [] }) as unknown as Parameters<typeof companyName>[0]["senders"][number];
+    expect(
+      companyName({
+        key: "linkedin.com",
+        senders: [s("Suhas Nayak", "messages-noreply@linkedin.com", 9), s("LinkedIn Job Alerts", "jobs@linkedin.com", 3)],
+      }),
+    ).toBe("LinkedIn Job Alerts");
   });
 });

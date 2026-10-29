@@ -175,6 +175,15 @@ function wireSignOut() {
 }
 
 export function wireSettingsMore(showScreen: (name: string) => void): void {
+  // The account menu's Sign out opens the same choice in Settings.
+  const menuSignOut = $<HTMLButtonElement>("menu-signout");
+  if (menuSignOut)
+    menuSignOut.onclick = () => {
+      showScreen("settings");
+      const btn = $<HTMLButtonElement>("settings-signout");
+      btn?.click();
+      $("settings-signout-slot")?.scrollIntoView({ block: "center" });
+    };
   // Mirror the header's email, which fills in after sign-in.
   const account = $("settings-account");
   const email = $("account-email");

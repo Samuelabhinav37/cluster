@@ -1183,6 +1183,10 @@ a:hover {
   background: var(--accent);
 }
 
+.index-status.done {
+  color: var(--label);
+}
+
 .index-status[hidden] {
   display: none;
 }

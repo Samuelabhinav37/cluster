@@ -62,6 +62,7 @@ import {
   isPerson,
   type ListEntry,
   profileLine,
+  senderName,
   sortSenders,
   talksTo,
   type SenderSortId,
@@ -726,6 +727,8 @@ interface IndexRun {
   /** When progress last moved, to tell a quota pause from a stall. */
   progressAt?: number;
   settled?: boolean;
+  /** Read mail this run, not just checked for changes. */
+  didRead?: boolean;
 }
 const indexRuns = new Map<ProviderId, IndexRun>();
 const indexStatusEl = document.getElementById("index-status") as HTMLParagraphElement;
@@ -780,6 +783,7 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
           onProgress: (progress) => {
             run.progress = progress;
             run.progressAt = Date.now();
+            if (progress.phase === "reading" || progress.phase === "sent") run.didRead = true;
             updateIndexStatus();
           },
           waitForHeadroom: provider.id === "gmail" ? waitForGmailHeadroom : undefined,
@@ -802,11 +806,33 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
       resolveQuick();
       indexRuns.delete(provider.id);
       updateIndexStatus();
+      // Only a real read (not a quick check for changes) earns "done".
+      if (!run.error && run.didRead && indexRuns.size === 0) showReadDone();
     }
   })();
   indexRuns.set(provider.id, run);
   updateIndexStatus();
   return run;
+}
+
+/** Says reading finished, and marks the tab with a dot until you look at it. */
+function showReadDone() {
+  indexStatusEl.replaceChildren("✓ All your mail is read");
+  indexStatusEl.classList.add("done");
+  indexStatusEl.hidden = false;
+  setTimeout(() => {
+    if (indexRuns.size > 0) return;
+    indexStatusEl.hidden = true;
+    indexStatusEl.classList.remove("done");
+  }, 8_000);
+  if (document.visibilityState === "visible" && document.hasFocus()) return;
+  const title = document.title.replace(/^● /, "");
+  document.title = `● ${title}`;
+  const clear = () => {
+    document.title = title;
+    window.removeEventListener("focus", clear);
+  };
+  window.addEventListener("focus", clear);
 }
 
 // Rate sample for the time estimate, reset when the phase changes.
@@ -833,7 +859,9 @@ function updateIndexStatus() {
   if (paceSample?.phase !== phase || done < paceSample.done) paceSample = { phase, at: Date.now(), done };
   const elapsed = Date.now() - paceSample.at;
   const rate = (done - paceSample.done) / elapsed;
-  const minutes = rate > 0 && elapsed > 20_000 ? Math.ceil((total - done) / rate / 60_000) : 0;
+  // Until 20 s of real pace exists, estimate from the build's quota share (20 units a read).
+  const perMs = rate > 0 && elapsed > 20_000 ? rate : BUILD_PACE.share / 20 / 60_000;
+  const minutes = Math.ceil((total - done) / perMs / 60_000);
   // Waits past the usual gap are Gmail's per-minute limit; say when reading resumes.
   const resumeIn = Math.ceil((buildResumesAt - Date.now()) / 1000);
   const parts = [
@@ -842,8 +870,10 @@ function updateIndexStatus() {
     done < total ? `${done.toLocaleString()} of ${total.toLocaleString()}` : "",
     resumeIn * 1000 > BUILD_PACE.minGapMs + 2_000
       ? `paused for Gmail's speed limit, back in ${resumeIn} s`
-      : minutes > 0
-        ? `about ${minutes} min left`
+      : done < total && minutes > 0
+        ? minutes >= 60
+          ? `about ${Math.round(minutes / 60)} h left`
+          : `about ${minutes} min left`
         : "",
   ].filter(Boolean);
   const fill = document.createElement("div");
@@ -851,6 +881,7 @@ function updateIndexStatus() {
   const track = document.createElement("div");
   track.className = "scan-track";
   track.appendChild(fill);
+  indexStatusEl.classList.remove("done");
   indexStatusEl.replaceChildren(parts.join(" · "), ...(done < total ? [track] : []));
   indexStatusEl.hidden = false;
   // A new phase counts from zero again.
@@ -946,7 +977,12 @@ async function scanAndRender({
     if (reading.length === 0) return;
     const done = reading.reduce((sum, p) => sum + Math.min(p!.done, QUICK_READY_COUNT), 0);
     const total = reading.reduce((sum, p) => sum + Math.min(p!.total, QUICK_READY_COUNT), 0);
-    statusEl.textContent = `Reading your mail… ${done}/${total} messages`;
+    const fill = document.createElement("div");
+    fill.style.width = `${total > 0 ? Math.round((done / total) * 100) : 0}%`;
+    const track = document.createElement("div");
+    track.className = "scan-track";
+    track.appendChild(fill);
+    statusEl.replaceChildren(`Reading your mail · ${done.toLocaleString()} of ${total.toLocaleString()}`, track);
   };
   const progressTimer = setInterval(showProgress, 250);
   try {
@@ -1505,7 +1541,7 @@ function renderDecisionSenders(senders: SenderSummary[]) {
     chip.textContent = "Protected";
     const row = listRow({
       lead: tile,
-      title: protectedOne.displayName || protectedOne.address,
+      title: senderName(protectedOne),
       sub: `${protectedOne.protectedMessageIds.length} starred of ${protectedOne.count} · excluded entirely`,
       actions: [chip],
     });
@@ -1563,7 +1599,7 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): H
 
   return listRow({
     lead: makeLogoTile(sender, "sz-34"),
-    title: sender.displayName || sender.address,
+    title: senderName(sender),
     sub: decisionReason(sender),
     meta: Object.assign(document.createElement("span"), {
       className: "ios-value",
@@ -1581,7 +1617,7 @@ function buildCompanyDecisionRow(members: SenderSummary[]): HTMLElement {
   const total = members.reduce((n, s) => n + senderVolume(s), 0);
   const opened = total - members.reduce((n, s) => n + senderUnread(s), 0);
   const reason = opened === 0 ? "Never opened" : `${Math.round((opened / Math.max(1, total)) * 100)}% opened`;
-  const name = top.displayName || top.address;
+  const name = companyName({ key: detailRowKey(top), senders: members });
 
   const cell = document.createElement("div");
   const btn = Object.assign(document.createElement("button"), { className: "btn", textContent: "Trash" });
@@ -2200,7 +2236,7 @@ function buildAllSendersRow(sender: SenderSummary): HTMLElement {
     .join(" · ");
   const row = listRow({
     lead: makeLogoTile(sender, "sz-34"),
-    title: sender.displayName || sender.address,
+    title: senderName(sender),
     sub,
     meta: rowCount(senderVolume(sender)),
     href: () => pickSenderCard({ sender }),

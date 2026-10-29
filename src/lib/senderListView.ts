@@ -4,6 +4,7 @@
 import { senderUnread, senderVolume } from "./census";
 import type { SenderSummary } from "./senderModel";
 import type { SenderProfile, SenderTier, TemplateGroup } from "./senderProfile";
+import { registrableDomain } from "./registrableDomain";
 
 export type SenderSortId = "volume" | "unread" | "newest" | "leastOpened" | "lastOpened" | "people";
 
@@ -117,16 +118,48 @@ export function groupByCompany(
     .sort((a, b) => b.total - a.total);
 }
 
-/** The name a company goes by: the display name carrying the most mail. */
-export function companyName(group: CompanyGroup): string {
-  const byName = new Map<string, number>();
+const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** The first label of the address's registrable domain: "linkedin" for news.linkedin.com. */
+function domainLabel(address: string): string {
+  const domain = address.slice(address.lastIndexOf("@") + 1);
+  return squash(registrableDomain(domain).split(".")[0] ?? "");
+}
+
+/** Whether a name is the domain's own brand ("LinkedIn" for linkedin.com). */
+function namesDomain(name: string, address: string): boolean {
+  const label = domainLabel(address);
+  return label.length >= 3 && squash(name).includes(label);
+}
+
+/**
+ * The name a sender's row shows. Platforms put the person who acted in the
+ * name ("Suhas Nayak via LinkedIn"); the row shows the platform, but only
+ * when the address really is that platform's, so a fake "via PayPal" from
+ * another domain keeps its full name.
+ */
+export function senderName(s: Pick<SenderSummary, "displayName" | "address">): string {
+  const name = s.displayName?.trim() ?? "";
+  const via = /\s\(?via\s+([^)]+)\)?$/i.exec(name)?.[1]?.trim();
+  if (via && namesDomain(via, s.address)) return via;
+  return name || s.address;
+}
+
+/** The name a company goes by: the one carrying the most mail, preferring
+ * names that are the domain's own brand over people writing through it. */
+export function companyName(group: Pick<CompanyGroup, "key" | "senders">): string {
+  const byName = new Map<string, { n: number; brand: boolean }>();
   for (const s of group.senders) {
-    const name = s.displayName?.trim();
-    if (name) byName.set(name, (byName.get(name) ?? 0) + senderVolume(s));
+    if (!s.displayName?.trim()) continue;
+    const name = senderName(s);
+    const entry = byName.get(name) ?? { n: 0, brand: namesDomain(name, s.address) };
+    entry.n += senderVolume(s);
+    byName.set(name, entry);
   }
   let best = group.key.replace(/^list:/, "");
-  let most = 0;
-  for (const [name, n] of byName) if (n > most) [best, most] = [name, n];
+  let top: { n: number; brand: boolean } = { n: 0, brand: false };
+  for (const [name, e] of byName)
+    if ((e.brand && !top.brand) || (e.brand === top.brand && e.n > top.n)) [best, top] = [name, e];
   return best;
 }
 
