@@ -27,7 +27,7 @@ describe("askIntents", () => {
     askIntents("delete old codes", facts, a)[0].run();
     expect(a.go).toHaveBeenCalledWith("delete", "trash-past-date");
     askIntents("mail i never open", facts, a)[0].run();
-    expect(a.go).toHaveBeenLastCalledWith("delete", "mute-never-opened");
+    expect(a.go).toHaveBeenLastCalledWith("delete", "trash-never-opened");
   });
 
   it("names places and says nothing for gibberish", () => {

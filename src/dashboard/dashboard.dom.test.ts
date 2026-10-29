@@ -230,14 +230,14 @@ describe("dashboard boot smoke", () => {
 
   it("opens a confirm step from a sender-row action", () => {
     document.querySelector<HTMLButtonElement>('#sidebar button[data-screen="subscriptions"]')!.click();
-    const muteBtn = Array.from(
+    const trashBtn = Array.from(
       document.querySelectorAll<HTMLButtonElement>("#sender-groups .list-row button"),
-    ).find((b) => b.textContent === "Mute");
-    expect(muteBtn, "no Mute button rendered in the decision list").toBeTruthy();
-    muteBtn!.click();
-    // The primary action swaps in the mute group and fires its confirm.
+    ).find((b) => b.textContent === "Trash");
+    expect(trashBtn, "no Trash button rendered in the decision list").toBeTruthy();
+    trashBtn!.click();
+    // The row's one button opens its Trash confirm.
     const groups = document.getElementById("sender-groups") as HTMLElement;
-    expect(groups.textContent).toContain("Hide all mail from");
+    expect(groups.textContent).toMatch(/Move \d+ emails? from .* to Trash\?/);
     expect(
       Array.from(groups.querySelectorAll("button")).map((b) => b.textContent),
     ).toEqual(expect.arrayContaining(["Confirm", "Cancel"]));

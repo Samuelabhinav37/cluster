@@ -88,7 +88,7 @@ export function askIntents(raw: string, f: AskFacts, act: AskActions): AskHit[] 
     });
   }
   if (has(/never open|don'?t open|unread|ignore/)) {
-    add(96, { title: "Mute senders you never open", sub: "Clean up", verb: "Mute", run: () => act.go("delete", "mute-never-opened") });
+    add(96, { title: "Trash mail from senders you never open", sub: "Clean up", verb: "Trash", run: () => act.go("delete", "trash-never-opened") });
     add(80, { title: "Senders you never open", sub: "Open them in Details", verb: "Show", run: () => act.details({ view: "senders", never: true }) });
   }
   if (has(/code|otp|verif|expired|old mail|past its date/))

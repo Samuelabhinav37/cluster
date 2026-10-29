@@ -1,4 +1,4 @@
-// Settings groups added 2026-10-28: Accounts, Notifications, Safety net,
+// Settings groups added 2026-10-28: Accounts, Notifications,
 // Show Kai, Privacy (export, erase) and Keyboard. The background worker sends
 // the notifications (background.ts); this file only stores the choices.
 import { deleteFiltersInto, getAuthToken, listLabels, revokeGoogleAccess } from "../lib/gmailApi";
@@ -175,28 +175,20 @@ function wireSignOut() {
 }
 
 export function wireSettingsMore(showScreen: (name: string) => void): void {
-  // Mirror the header: its email and its Connect Outlook item fill in after sign-in.
+  // Mirror the header's email, which fills in after sign-in.
   const account = $("settings-account");
   const email = $("account-email");
-  const outlook = $<HTMLButtonElement>("connect-outlook");
-  const addOutlook = $<HTMLButtonElement>("settings-add-outlook");
   const sync = () => {
     const text = email?.textContent?.trim();
     if (account && text && text !== "Account") account.textContent = text;
-    if (addOutlook) addOutlook.hidden = !outlook || outlook.hidden;
   };
   sync();
   const watch = new MutationObserver(sync);
   if (email) watch.observe(email, { childList: true, characterData: true, subtree: true });
-  if (outlook) watch.observe(outlook, { attributes: true, attributeFilter: ["hidden"] });
-  if (addOutlook) addOutlook.onclick = () => outlook?.click();
 
   wireSignOut();
   wireNotifySwitch("notify-scam-toggle", "notifyScamHeld");
   wireNotifySwitch("notify-weekly-toggle", "notifyWeekly");
-
-  const activity = $<HTMLButtonElement>("settings-open-activity");
-  if (activity) activity.onclick = () => showScreen("recent");
 
   const kai = $<HTMLInputElement>("show-kai-toggle");
   applyShowKai(ctx.settings.showKai);

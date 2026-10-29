@@ -71,7 +71,7 @@ export interface HomeFacts {
 }
 
 /** Open a place; `act` also starts that place's own confirm step. */
-export type HomeAct = "mute-never-opened" | "trash-past-date";
+export type HomeAct = "trash-never-opened" | "trash-past-date";
 export type Go = (screen: string, act?: HomeAct) => void;
 
 // Lucide 0.460 (ISC), drawn at 24 with a 1.75 stroke. Built with DOM calls,

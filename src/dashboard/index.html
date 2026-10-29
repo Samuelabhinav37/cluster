@@ -157,12 +157,6 @@
             <div class="account-menu" id="account-menu" role="menu" aria-label="Account" hidden>
               <button type="button" class="menu-item" role="menuitem" data-open="recent">Activity</button>
               <button type="button" class="menu-item" role="menuitem" data-open="settings">Settings</button>
-              <button type="button" id="apply-scan-settings-btn" class="menu-item" role="menuitem">
-                Rescan mail
-              </button>
-              <button type="button" id="connect-outlook" class="menu-item" role="menuitem">
-                Connect Outlook
-              </button>
             </div>
           </div>
         </div>
@@ -245,8 +239,8 @@
                 ></span>
                 <span class="grow">Never opened<span class="sub" id="never-opened-name"></span></span>
                 <span class="ios-value" id="never-opened-fact"></span>
-                <span id="never-read-mute-slot"
-                  ><button id="never-read-mute-btn" class="btn btn-sm">Mute</button></span
+                <span id="never-read-trash-slot"
+                  ><button id="never-read-trash-btn" class="btn btn-sm">Trash</button></span
                 >
               </div>
               <div class="ios-row" id="past-date-card" hidden>
@@ -306,8 +300,8 @@
                 <p class="hint">Senders you never open. Starred senders are left out.</p>
                 <div id="never-read-bulk-bar" class="toolbar">
                   <span id="never-read-count"></span>
-                  <span id="never-read-trash-slot"
-                    ><button id="never-read-trash-btn" class="btn btn-danger">Trash suggested</button></span
+                  <span id="never-read-mute-slot"
+                    ><button id="never-read-mute-btn" class="btn">Mute suggested</button></span
                   >
                 </div>
                 <div id="never-read-list" class="scroll-x"></div>
@@ -891,7 +885,7 @@
                         <path d="M21 3v5h-5"></path></svg
                     ></span>
                     <span class="grow">Read my mail again</span>
-                    <button type="button" class="btn" id="settings-rescan">Rescan</button>
+                    <button type="button" class="btn" id="apply-scan-settings-btn">Rescan</button>
                   </div>
                 </div>
               </div>
@@ -902,7 +896,7 @@
                     <span class="set-ic set-ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6"></path></svg></span>
                     <span class="grow" id="settings-account">Gmail</span>
                     <span class="row-actions">
-                      <button type="button" class="btn" id="settings-add-outlook">Add Outlook</button>
+                      <button type="button" class="btn" id="connect-outlook">Add Outlook</button>
                       <span id="settings-signout-slot"><button type="button" class="btn" id="settings-signout">Sign out</button></span>
                     </span>
                   </div>
@@ -921,16 +915,6 @@
                     <span class="grow">Weekly summary<span class="sub">Monday morning, in Chrome</span></span>
                     <input type="checkbox" class="switch" role="switch" id="notify-weekly-toggle" />
                   </label>
-                </div>
-              </div>
-              <div class="set-sec">
-                <h2>Safety net</h2>
-                <div class="set-rows">
-                  <div class="set-row">
-                    <span class="set-ic set-ic-green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 3-6.2M4 4v4h4"></path></svg></span>
-                    <span class="grow">Activity<span class="sub">Everything Cluster did, with Undo</span></span>
-                    <button type="button" class="btn" id="settings-open-activity">Open</button>
-                  </div>
                 </div>
               </div>
               <div class="set-sec">

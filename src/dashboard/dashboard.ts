@@ -640,7 +640,7 @@ async function main() {
       await scanAndRender();
     } catch (err) {
       connectOutlookBtn.disabled = false;
-      connectOutlookBtn.textContent = "Connect Outlook";
+      connectOutlookBtn.textContent = "Add Outlook";
       log.error(err);
     }
   };
@@ -1101,7 +1101,7 @@ let askFacts: AskFacts = {
 /** Open a place and, for a card or Ask Kai hit, start that place's own confirm. */
 function goAndAct(screen: string, act?: HomeAct) {
   void selectScreen(screen).then(() => {
-    if (act === "mute-never-opened") neverReadMuteBtn.click();
+    if (act === "trash-never-opened") neverReadTrashBtn.click();
     if (act === "trash-past-date") expiryCleanupBtn.click();
   });
 }
@@ -1477,8 +1477,6 @@ function clearOutPlan(senders: SenderSummary[]) {
 }
 
 // ── Suggested cleanup: "Senders worth a decision" ──────────────────────
-type PrimaryAct = "unsubscribe" | "mute" | "keepSorted";
-
 /** How much of their mail gets opened; the count itself sits on the right. */
 function decisionReason(sender: SenderSummary): string {
   const total = senderVolume(sender);
@@ -1486,15 +1484,6 @@ function decisionReason(sender: SenderSummary): string {
   return opened === 0 ? "Never opened" : `${Math.round((opened / Math.max(1, total)) * 100)}% opened`;
 }
 
-function primaryActionFor(sender: SenderSummary): { act: PrimaryAct; label: string } {
-  if (sender.unsubscribe.postUrl) return { act: "unsubscribe", label: "Unsubscribe" };
-  const provider = providerById.get(sender.provider);
-  if (provider?.muteSender && !ctx.settings.mutedSenders.includes(sender.address)) {
-    return { act: "mute", label: "Mute" };
-  }
-  if (provider?.keepSorted) return { act: "keepSorted", label: "File away" };
-  return { act: "mute", label: "Mute" };
-}
 
 /** The four working per-sender action groups, each a live element whose inner
  * button opens its own confirm (reused from the pre-redesign row). */
@@ -1628,31 +1617,24 @@ function actionArea(sender: SenderSummary) {
 }
 
 function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): HTMLElement {
-  // Clean up is for clearing mail; stopping it is Stop mail's job, so it sits in ⋯.
-  const act = "trash";
-  const label = "Trash";
   const primary = document.createElement("button");
   primary.className = "btn";
-  primary.textContent = label;
+  primary.textContent = "Trash";
 
-  const { area: disclosure, groups, run } = actionArea(sender);
-  primary.onclick = () => run(act);
+  const { area: disclosure, run } = actionArea(sender);
+  primary.onclick = () => run("trash");
 
   const notUseful = async () => {
     await saveEngagementFeedback([sender.key], "dismiss");
     renderDecisionSenders(allSenders);
   };
+  // Clean up only deletes; stopping or sorting this sender is a link to its own place.
   const menu = rowMenu([
-    ...groups
-      .filter((g) => g.act !== act && g.act !== "snooze")
-      .map((g) => ({ label: g.label, run: () => run(g.act) })),
-    "sep",
-    { label: "Snooze 1 day", run: () => run("snooze", 1) },
-    { label: "Snooze 1 week", run: () => run("snooze", 7) },
-    { label: "Snooze 1 month", run: () => run("snooze", 30) },
-    "sep",
     { label: "Show emails", run: () => details?.open({ view: "emails", senderKey: sender.key }) },
-    { label: "New rule…", run: () => openRuleSheetFor(sender) },
+    ...(hasAnyUnsubscribe(sender.unsubscribe)
+      ? [{ label: "Stop this mail in Stop mail", run: () => void selectScreen("subscriptions") }]
+      : []),
+    "sep",
     { label: "Not useful", run: () => void notUseful() },
   ]);
 
@@ -2098,17 +2080,17 @@ function renderSenderCard() {
   fact(profileLine(profile) || "Now and then", "how often");
   if (profile?.via) who.append(textEl("span", `via ${profile.via}`));
 
-  const { area, groups, run } = actionArea(sender);
+  // The card decides where a sender goes; stopping and sorting live in their own places.
+  const { area, run } = actionArea(sender);
   if (sender.protectedMessageIds.length > 0)
     acts.append(textEl("p", "Starred mail keeps this sender out of cleanup.", "hint"));
   else if (ctx.settings.mutedSenders.includes(sender.address))
     acts.append(textEl("p", "Muted. New mail skips your inbox.", "hint"));
-  else {
-    const { act, label } = primaryActionFor(sender);
-    btn(label, "btn btn-accent-solid", () => run(act));
-    for (const g of groups)
-      if (g.act !== act && g.act !== "snooze" && g.act !== "trash") btn(g.label, "btn", () => run(g.act));
-  }
+  else if (hasAnyUnsubscribe(sender.unsubscribe))
+    btn("Stop this mail", "btn btn-accent-solid", () => void selectScreen("subscriptions"));
+  // No unsubscribe, so Stop mail can't list it: Mute stays here.
+  else if (providerById.get(sender.provider)?.muteSender) btn("Mute", "btn btn-accent-solid", () => run("mute"));
+  btn("New rule…", "btn", () => openRuleSheetFor(sender));
   btn("Show emails", "btn", () => details?.open({ view: "emails", senderKey: sender.key }));
   if (profile) {
     const person = isPerson(profile);
@@ -2638,7 +2620,6 @@ function wireFastDeleteToggle() {
 
 function wireScanSettings() {
   // Settings' Rescan row runs the account menu's Rescan.
-  document.getElementById("settings-rescan")!.onclick = () => applyScanSettingsBtn.click();
   applyScanSettingsBtn.onclick = async () => {
     const scanWindowDays = Math.min(
       3650,
@@ -2654,7 +2635,7 @@ function wireScanSettings() {
       await scanAndRender({ refresh: true });
     } finally {
       applyScanSettingsBtn.disabled = false;
-      applyScanSettingsBtn.textContent = "Rescan mail";
+      applyScanSettingsBtn.textContent = "Rescan";
     }
   };
 }
@@ -2829,7 +2810,7 @@ function resetNeverReadSlots() {
 function renderNeverReadSection(senders: SenderSummary[]) {
   engagementSuggestions = unopenedSuggestions(currentSuggestions(senders));
   neverReadSectionEl.hidden = engagementSuggestions.length === 0;
-  neverReadMuteSlot.hidden = engagementSuggestions.length === 0;
+  neverReadTrashSlot.hidden = engagementSuggestions.length === 0;
   if (engagementSuggestions.length === 0) return;
 
   const totalMsgs = engagementSuggestions.reduce((count, item) => count + item.safeMessageIds.length, 0);

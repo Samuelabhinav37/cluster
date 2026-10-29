@@ -1,4 +1,4 @@
-// Header chrome: the account menu (Rescan, Connect Outlook) and the sender
+// Header chrome: the account menu (Activity, Settings) and the sender
 // search. Both used to be loose header buttons; the menu keeps rarely used,
 // expensive actions one click away instead of on every screen.
 
