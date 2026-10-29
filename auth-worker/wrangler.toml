@@ -7,6 +7,8 @@ name = "cluster-auth"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
 workers_dev = true
+# No per-version preview addresses: Cluster only ever calls the one above.
+preview_urls = false
 
 # Nothing about requests is kept: no Workers logs or traces.
 [observability]
