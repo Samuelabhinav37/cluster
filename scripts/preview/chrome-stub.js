@@ -53,7 +53,6 @@
     return { get, set, remove, clear, getBytesInUse: () => Promise.resolve(0), onChanged: { addListener: (f) => listeners.push(f), removeListener() {} } };
   }
 
-  let authGranted = localStorage.getItem("__preview_auth") === "1";
   const runtime = {
     lastError: undefined,
     id: "previewpreviewpreviewpreviewprev",
@@ -80,33 +79,38 @@
     });
   }
 
-  function getAuthToken(opts, cb) {
-    const done = (tok, err) => {
-      if (cb) { runtime.lastError = err; cb(tok); runtime.lastError = undefined; return; }
-    };
-    (async () => {
-      if (qs.has("deny") && opts && opts.interactive) return done(undefined, { message: "The user did not approve access." });
-      if (!authGranted) {
-        if (!opts || !opts.interactive) return done(undefined, { message: "OAuth2 not granted or revoked." });
-        if (qs.has("consent")) {
-          await new Promise((r) => setTimeout(r, 600));
-          const ok = await consentOverlay();
-          if (!ok) return done(undefined, { message: "The user did not approve access." });
-        }
-        authGranted = true; localStorage.setItem("__preview_auth", "1");
+  // Gmail signs in through Google's window (gmailWebAuth.ts): answer with a
+  // fake code for the request's own state; the helper swap is faked in fetch.
+  // Kept across reloads: a refresh answers with every permission granted so far.
+  let lastScope = localStorage.getItem("__preview_scope") || "";
+  async function launchWebAuthFlow(opts) {
+    const url = new URL(opts.url);
+    if (url.host !== "accounts.google.com") throw new Error("Outlook not available in preview");
+    const back = new URL(chrome.identity.getRedirectURL());
+    back.searchParams.set("state", url.searchParams.get("state") || "");
+    if (qs.has("deny")) {
+      back.searchParams.set("error", "access_denied");
+      return back.toString();
+    }
+    if (qs.has("consent")) {
+      await new Promise((r) => setTimeout(r, 600));
+      if (!(await consentOverlay())) {
+        back.searchParams.set("error", "access_denied");
+        return back.toString();
       }
-      done("fake-token", undefined);
-    })();
+    }
+    lastScope = url.searchParams.get("scope") || "";
+    localStorage.setItem("__preview_scope", lastScope);
+    back.searchParams.set("code", "preview-code");
+    return back.toString();
   }
 
   window.chrome = {
     runtime,
     storage: { local: area("local", true), session: area("session", false), sync: area("sync", true), managed: area("managed", false), onChanged: { addListener() {}, removeListener() {} } },
     identity: {
-      getAuthToken,
-      removeCachedAuthToken: (_o, cb) => { if (cb) cb(); return Promise.resolve(); },
       getRedirectURL: () => "https://preview.chromiumapp.org/",
-      launchWebAuthFlow: (_o, cb) => { runtime.lastError = { message: "Outlook not available in preview" }; if (cb) cb(undefined); runtime.lastError = undefined; },
+      launchWebAuthFlow,
     },
     permissions: { contains: () => Promise.resolve(false), request: () => Promise.resolve(false) },
     action: {
@@ -280,6 +284,10 @@
   window.fetch = async function (input, init = {}) {
     const url = new URL(typeof input === "string" ? input : input.url, location.href);
     const method = (init.method || "GET").toUpperCase();
+    if (url.host === "cluster-auth.samuelabhinav37.workers.dev") {
+      const body = JSON.parse(init.body || "{}");
+      return json({ access_token: "fake-token", expires_in: 3600, scope: lastScope || "https://www.googleapis.com/auth/gmail.modify", ...(body.code ? { refresh_token: "fake-refresh" } : {}) });
+    }
     if (url.host === "gmail.googleapis.com") {
       if (qs.has("offline")) throw new TypeError("Failed to fetch");
       await new Promise((r) => setTimeout(r, 8 + rnd() * 20));

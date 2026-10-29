@@ -2825,7 +2825,6 @@ body {
    as the chrome's font slot: nav, labels, crumbs, leads). */
 :root {
   --mono: var(--font);
-  --brand-tile: #ff5a1f;
   --panel: var(--glass);
 }
 
@@ -2848,14 +2847,12 @@ body {
   place-items: center;
   width: 30px;
   height: 30px;
-  border-radius: 9px;
-  background: var(--brand-tile);
 }
 
+/* The logo carries its own tile (scripts/gen-logo.mjs). */
 .brand-tile .brand-mark {
-  width: 19px;
-  height: 19px;
-  color: #fff;
+  width: 30px;
+  height: 30px;
 }
 
 /* Account sits at the foot of the panel; its menu opens upward. */
@@ -3403,10 +3400,10 @@ table.sheet { font-size: 12px; }
 
 /* Sign-in, the Apple Account way: big mark, title, one line, one button. */
 .connect-gate { align-items: center; padding-top: 48px; }
-.connect-mark svg { width: 52px; height: 52px; }
+.connect-mark svg { width: 88px; height: 88px; }
 .connect-card { max-width: 520px; align-items: center; text-align: center; border: 0; background: none; box-shadow: none; }
-.connect-mark { display: grid; place-items: center; width: 88px; height: 88px; margin-bottom: 6px; border-radius: 22.5%; color: #fff;
-  background: linear-gradient(#ff8a3d, #f2551d); box-shadow: 0 12px 30px rgba(242, 85, 29, 0.35); }
+.connect-mark { display: grid; place-items: center; width: 88px; height: 88px; margin-bottom: 6px; border-radius: 22%;
+  box-shadow: 0 12px 30px rgba(3, 3, 7, 0.3); }
 .connect-card .page-title { font-size: 32px; }
 .connect-points { gap: 6px; font-size: 13px; color: var(--label-4); }
 .connect-points strong { color: var(--label-3); }
