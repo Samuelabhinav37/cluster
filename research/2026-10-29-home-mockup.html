@@ -93,7 +93,14 @@
   .reading { margin-top: 18px; height: 6px; border-radius: 3px; background: var(--fill); overflow: hidden; }
   .reading i { display: block; width: 46%; height: 100%; background: var(--label); animation: grow 3s ease-in-out infinite alternate; }
   @keyframes grow { to { width: 72%; } }
-  .ring { width: 40px; height: 40px; }
+  .row.gone { animation: out 0.4s ease forwards; }
+  @keyframes out { to { opacity: 0; transform: translateX(24px); height: 0; padding-top: 0; padding-bottom: 0; } }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 10px 10px 10px 16px; border-radius: 14px; background: var(--label); color: var(--canvas); box-shadow: 0 10px 30px rgba(0,0,0,.25); animation: up 0.35s cubic-bezier(.34,1.56,.64,1); }
+  .toast .btn { padding: 7px 12px; background: transparent; color: var(--canvas); border-color: rgba(127,127,127,.5); }
+  @keyframes up { from { opacity: 0; transform: translate(-50%, 12px); } }
+  .stat b.bump { animation: bump 0.5s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes bump { 40% { transform: scale(1.12); } }
+  .found .count { font-variant-numeric: tabular-nums; }
 
   @media (max-width: 760px) {
     .app { grid-template-columns: 1fr; } nav { display: none; }
@@ -131,7 +138,7 @@
         </div>
         <div data-state="clear">
           <h1>All clear.<br>Nothing needs you today.</h1>
-          <p>Cluster checks new mail as it arrives. Your inbox has been calm for 5 days.</p>
+          <p>Cluster checks new mail as it arrives. 1,240 emails cleared since you started.</p>
         </div>
         <div data-state="reading">
           <h1>Reading your mail.<br>You can look around.</h1>
@@ -141,13 +148,27 @@
       </div>
     </section>
 
+    <div data-state="reading">
+      <h2>Found so far</h2>
+      <div class="list found">
+        <div class="row"><span class="ic danger"><svg viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4M12 16h.01"/></svg></span>
+          <span class="words"><b><span class="count" data-to="3">0</span> emails that look like scams</b><span>Cluster checks who really sent each one.</span></span></div>
+        <div class="row"><span class="ic"><svg viewBox="0 0 24 24"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h9"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m17 17 4 4M21 17l-4 4"/></svg></span>
+          <span class="words"><b><span class="count" data-to="30">0</span> emails you never open</b><span>Newsletters and offers you skip.</span></span></div>
+        <div class="row"><span class="ic"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+          <span class="words"><b><span class="count" data-to="12">0</span> people you write to</b><span>Their mail always stays in your inbox.</span></span></div>
+      </div>
+      <p class="note">Nothing changes in Gmail until you choose.</p>
+    </div>
+
     <!-- 2. This week -->
     <div data-state="needs clear">
       <h2>This week</h2>
       <div class="week">
         <div class="stat">
-          <b>214</b><span>emails cleared for you</span>
+          <b id="cleared">214</b><span>emails cleared for you</span>
           <div class="spark" aria-hidden="true"><i style="height:30%"></i><i style="height:45%"></i><i style="height:25%"></i><i style="height:60%"></i><i style="height:40%"></i><i style="height:70%"></i><i class="now" style="height:90%"></i></div>
+          <small>1,240 since you started</small>
         </div>
         <div class="stat">
           <b>18%</b><span>lighter inbox than last week</span>
@@ -164,10 +185,10 @@
     <div data-state="needs">
       <h2>Next up</h2>
       <div class="list">
-        <div class="row">
+        <div class="row" id="never-row">
           <span class="ic"><svg viewBox="0 0 24 24"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h9"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m17 17 4 4M21 17l-4 4"/></svg></span>
           <span class="words"><b>30 emails you never open</b><span>From LinkedIn, Groupon and 2 more. They go to Trash, and you can undo.</span></span>
-          <button class="btn">Clear 30</button>
+          <button class="btn" id="clear30">Clear 30</button>
         </div>
         <div class="row">
           <span class="ic"><svg viewBox="0 0 24 24"><path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1"/></svg></span>
@@ -199,6 +220,7 @@
       </div>
     </div>
   </main>
+  <div class="toast" id="toast" role="status" hidden><span>30 emails moved to Trash.</span><button class="btn">Undo</button></div>
 </div>
 <script>
   for (const b of document.querySelectorAll("[data-s]"))
@@ -206,6 +228,28 @@
       document.body.className = "s-" + b.dataset.s;
       for (const o of document.querySelectorAll("[data-s]")) o.setAttribute("aria-pressed", String(o === b));
     };
+  const countUp = (node, to, ms = 900) => {
+    const from = Number(node.textContent.replace(/,/g, "")) || 0;
+    const t0 = performance.now();
+    const tick = (t) => {
+      const k = Math.min(1, (t - t0) / ms);
+      node.textContent = Math.round(from + (to - from) * k).toLocaleString();
+      if (k < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+  document.querySelector('[data-s="reading"]').addEventListener("click", () => {
+    document.querySelectorAll(".found .count").forEach((c, i) => { c.textContent = "0"; setTimeout(() => countUp(c, Number(c.dataset.to), 2500), i * 400); });
+  });
+  document.getElementById("clear30").onclick = () => {
+    document.getElementById("never-row").classList.add("gone");
+    const n = document.getElementById("cleared");
+    countUp(n, 244);
+    n.classList.add("bump");
+    const toast = document.getElementById("toast");
+    toast.hidden = false;
+    setTimeout(() => { toast.hidden = true; }, 5000);
+  };
   document.getElementById("theme").onclick = () => {
     const r = document.documentElement;
     const dark = r.dataset.theme ? r.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;

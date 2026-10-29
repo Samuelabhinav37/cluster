@@ -42,3 +42,21 @@ leave" number (it becomes a Next up row when it's worth doing).
 
 - Keep the bento tiles' app-icon headers in some form, or go fully to this list layout?
 - Is "This week" the right window, or since you started using Cluster?
+
+## Round 2 research (same day)
+
+| Source | Finding | Change to the proposal |
+|---|---|---|
+| Apple Fitness (iOS 14) | Four tabs folded into one Summary of short cards, daily progress on top, then recent activity; iOS 18 lets you reorder cards ([MacStories](https://www.macstories.net/stories/the-new-fitness-app-in-ios-14/), [Digital Trends](https://qa2.www.digitaltrends.com/mobile/how-to-customize-the-apple-fitness-app-in-ios-18)) | Keep Home as one scrolling page of short sections; no card editing for now |
+| Monzo home | Users were attached to one number, "left to spend", and objected when it moved ([Monzo community](https://community.monzo.com/t/were-working-on-a-new-look-for-the-monzo-app/65333?page=14), [Monzo](https://monzo.com/blog/the-new-and-improved-home-screen)) | The verdict always sits in the same place with the same wording pattern |
+| Google Home (2022 to 2023) | Network status and device counts at a glance on top, then pinned favourites ([9to5Google](https://9to5google.com/2022/10/04/google-home-app-redesign/)) | Status first, then things you act on |
+| HEY | Imbox, Feed, Paper Trail and Screener. Reviewers say Feed and Paper Trail get forgotten, with no alert when mail lands there ([HEY](https://hey.com/features/the-imbox/), [Fast Company](https://www.fastcompany.com/90522517/hey-is-a-visionary-alternative-to-gmail-but-its-missing-the-basics)) | Home surfaces what's waiting in places you rarely open: held scams, new senders |
+| Streak research | Broken streaks are reported to lower engagement below where it started, and users describe streak anxiety. Mostly practitioner sources; the cited 2023 study (Silverman and Barasch) wasn't checked directly ([Yu-kai Chou](https://yukaichou.com/gamification-analysis/streak-design-gamification-motivation-burnout/), [Habit Doom](https://habitdoom.com/blog/streak-anxiety-habit-trackers)) | No streaks. "Calm for 5 days" became "1,240 emails cleared since you started", which never resets |
+| The Progress Principle (Amabile and Kramer) | Small wins are the strongest everyday motivator, and managers underrate them ([HBS Working Knowledge](https://www.library.hbs.edu/working-knowledge/how-small-wins-unleash-creativity)) | After an action, the row leaves, the cleared number counts up and a short toast confirms it with Undo |
+| NN/g empty states | Empty states should show system status, teach, and offer a direct path. Never show "nothing" while still loading ([NN/g](https://nngroup.com/articles/empty-state-interface-design)) | First read shows the progress bar and "Found so far" counts that rise as mail is read, plus "Nothing changes in Gmail until you choose" |
+| GOV.UK content design | Plain English is required, aiming at a reading age of 9 ([Surrey CC](https://www.surreycc.gov.uk/website/writing-guide/reading-levels-for-web-pages)) | Short sentences, numerals, everyday words such as "People" instead of "Primary" |
+| Dashboard design patterns (IEEE VIS 2022) | A review of 144 dashboards, 42 design patterns, and guidance on reducing information load ([paper](https://arxiv.org/pdf/2205.00757v2)) | Supports few sections with one job each |
+
+Answer to the earlier question about the time window: show both. "This week" stays the big
+number because it changes and feels current; "since you started" sits under it as a total that
+only grows.
