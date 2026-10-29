@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cluster setup</title>
+<style>
+:root{
+  --canvas:#0a0a0c;--panel:#161618;--panel-2:#1f1f22;--hair:#2a2a2e;--hover:#232327;
+  --l1:#f5f5f7;--l2:#dcdce0;--l3:#a1a1a8;--l4:#7d7d85;
+  --accent:#3f6fd1;--accent-t:#8fb3ef;--accent-f:rgba(111,155,224,.16);
+  --green:#4cc38a;
+  --font:"Inter Tight",-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--canvas);color:var(--l1);font:15px/1.45 var(--font);-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column}
+button{font:inherit;color:inherit;cursor:pointer}
+.note{max-width:720px;margin:18px auto 0;border:1px dashed #3a3a40;color:var(--l3);border-radius:10px;padding:10px 12px;font-size:12.5px}
+.note b{color:var(--l2)}
+.stage{flex:1;display:flex;justify-content:center;align-items:flex-start;padding:48px 16px 120px}
+.card{width:min(720px,100%)}
+.dots{display:flex;gap:6px;margin-bottom:28px}
+.dots i{width:28px;height:4px;border-radius:2px;background:var(--hair)}
+.dots i.on{background:var(--accent-t)}
+.mark{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;margin-bottom:18px}
+.mark svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+h1{font-size:30px;font-weight:700;letter-spacing:-.02em;margin:0 0 6px}
+.lead{color:var(--l3);margin:0 0 26px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.chip{display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:16px;border-radius:16px;border:1px solid var(--hair);background:var(--panel);text-align:left;transition:border-color .15s,background .15s,transform .15s}
+.chip:hover{background:var(--hover)}
+.chip:active{transform:scale(.98)}
+.chip[aria-pressed=true]{border-color:var(--accent-t);background:var(--accent-f)}
+.chip[aria-disabled=true]{opacity:.75;cursor:default}
+.chip .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:#fff}
+.chip .ic svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.chip b{font-weight:600}
+.chip span.sub{color:var(--l3);font-size:13px;margin-top:-8px}
+.chip .tick{margin-left:auto}
+.row{display:flex;gap:10px;align-items:center;margin-top:28px}
+.spacer{flex:1}
+.btn{border:0;border-radius:10px;padding:10px 18px;background:var(--panel-2);color:var(--l1)}
+.btn:hover{background:var(--hover)}
+.primary{background:var(--accent);color:#fff;font-weight:600}
+.primary:hover{background:#4a7be0}
+.primary:disabled{opacity:.45;cursor:default}
+.ghost{background:none;color:var(--l3)}
+.plan{list-style:none;padding:0;margin:0;border-radius:16px;background:var(--panel);border:1px solid var(--hair)}
+.plan li{display:flex;gap:12px;align-items:center;padding:13px 16px}
+.plan li+li{border-top:1px solid var(--hair)}
+.plan .ic{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:#fff;flex:none}
+.plan .ic svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.plan small{display:block;color:var(--l3);font-size:12.5px}
+.c-blue{background:#2f7cf6}.c-orange{background:#f08a24}.c-purple{background:#8b5cf6}.c-indigo{background:#4f5bd5}
+.c-green{background:#30a46c}.c-red{background:#e5484d}.c-gray{background:#636366}.c-teal{background:#12a594}.c-pink{background:#d6409f}
+.bar{position:fixed;left:0;right:0;bottom:0;padding:10px 40px 12px;background:rgba(22,22,24,.85);backdrop-filter:blur(20px);border-top:1px solid var(--hair);font-size:13px;color:var(--l2)}
+.track{height:4px;margin-top:8px;border-radius:2px;background:var(--hair)}
+.track>div{height:100%;border-radius:inherit;background:var(--accent-t);transition:width .4s}
+.bar.done{color:var(--l1)}
+.bar.done .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:8px}
+.fade{animation:in .25s ease}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<p class="note"><b>Mockup.</b> Four questions and a plan, one per screen. Click through it. The bar at the bottom is the real reading progress: it keeps going while you answer, then says it's done (the tab title gets a dot if you're on another tab).</p>
+<div class="stage"><div class="card" id="card"></div></div>
+<div class="bar" id="bar"></div>
+
+<script>
+const I = {
+  user:'<circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/>',
+  brief:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 20a6 6 0 0 0-3-5.2"/>',
+  tag:'<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+  news:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/>',
+  alert:'<path d="M12 3 2 20h20z"/><path d="M12 9v5M12 17h.01"/>',
+  archive:'<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10h14V9M10 13h4"/>',
+  star:'<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/>',
+  bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20h4"/>',
+  bank:'<path d="M3 10 12 4l9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18"/>',
+  plane:'<path d="M2 16l20-8-4 12-6-4-4 4v-6z"/>',
+  receipt:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+  chat:'<path d="M21 12a8 8 0 0 1-11.8 7L3 21l2-5.5A8 8 0 1 1 21 12z"/>',
+  hand:'<path d="M8 13V5a2 2 0 0 1 4 0v6M12 11V4a2 2 0 0 1 4 0v7M16 11V7a2 2 0 0 1 4 0v7a8 8 0 0 1-8 8h-1a7 7 0 0 1-6-3.5L3 15a2 2 0 0 1 3.4-2L8 15"/>',
+  sparkle:'<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
+  check:'<path d="M5 12l5 5 9-10"/>',
+  layers:'<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
+  eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+};
+const svg = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${I[k]}</svg>`;
+
+const STEPS = [
+  { id:'who', single:true, ic:'user', color:'c-blue', q:'What describes you?', lead:'Pick the closest one. It sets the starting choices on the next screens.',
+    opts:[['me','Just me','Personal mail','user','c-blue'],['business','I run a business','Invoices, suppliers, clients','brief','c-orange'],['safe','Keep me safe','Scams worry me most','shield','c-indigo'],['busy','Lots of people email me','I need to find people fast','users','c-purple']] },
+  { id:'pain', ic:'sparkle', color:'c-orange', q:'What gets in your way most?', lead:'Pick any. Cluster starts with these.',
+    opts:[['promos','Promotions','Deals and sales','tag','c-pink'],['news','Newsletters I never read','','news','c-teal'],['scams','Scams and fake brands','','alert','c-red'],['old','Old mail piling up','','archive','c-gray'],['buried','Important mail gets buried','','star','c-orange'],['alerts','App and social alerts','','bell','c-purple']] },
+  { id:'keep', ic:'star', color:'c-green', q:'What should always stay in your inbox?', lead:'These never leave on a timer.',
+    opts:[['bank','Bank and bills','','bank','c-green'],['work','Work','','brief','c-orange'],['travel','Travel','','plane','c-blue'],['receipts','Receipts and orders','','receipt','c-teal'],['people','People you write to','Always','chat','c-indigo',true]] },
+  { id:'hands', single:true, ic:'hand', color:'c-purple', q:'How hands-on do you want to be?', lead:'You can undo anything in Activity.',
+    opts:[['ask','Ask me first','Nothing moves until you say so','eye','c-gray'],['tidy','Tidy for me','New mail sorts itself, I can undo','layers','c-purple']] },
+];
+// Question 1 pre-ticks the next screens, like Apple Music's artists built from your genres.
+const SEEDS = {
+  me:{pain:['promos','news'],keep:['bank','receipts']},
+  business:{pain:['scams','buried'],keep:['bank','work','receipts']},
+  safe:{pain:['scams'],keep:['bank'],hands:['ask']},
+  busy:{pain:['alerts','promos'],keep:['work'],hands:['tidy']},
+};
+const answers = {who:[],pain:[],keep:['people'],hands:[]};
+let at = 0;
+
+function render(){
+  const card = document.getElementById('card');
+  card.className = 'card fade';
+  void card.offsetWidth;
+  const dots = `<div class="dots">${[0,1,2,3,4].map(i=>`<i class="${i<=at?'on':''}"></i>`).join('')}</div>`;
+  if (at === STEPS.length) return renderPlan(card, dots);
+  const s = STEPS[at];
+  card.innerHTML = `${dots}<div class="mark ${s.color}">${svg(s.ic)}</div><h1>${s.q}</h1><p class="lead">${s.lead}</p>
+    <div class="grid" role="group" aria-label="${s.q}">${s.opts.map(([v,t,sub,ic,c,locked])=>{
+      const on = answers[s.id].includes(v);
+      return `<button class="chip" data-v="${v}" aria-pressed="${on}" ${locked?'aria-disabled="true"':''}>
+        <span style="display:flex;width:100%"><span class="ic ${c}">${svg(ic)}</span>${on?`<span class="tick" style="color:var(--accent-t)">${svg('check')}</span>`:''}</span>
+        <b>${t}</b>${sub?`<span class="sub">${sub}</span>`:''}</button>`;}).join('')}</div>
+    <div class="row">${at>0?'<button class="btn ghost" id="back">Back</button>':''}<span class="spacer"></span>
+      <button class="btn ghost" id="skip">Skip</button><button class="btn primary" id="next" ${answers[s.id].length?'':'disabled'}>Continue</button></div>`;
+  card.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
+    if (b.getAttribute('aria-disabled')) return;
+    const v = b.dataset.v, list = answers[s.id];
+    if (s.single) { answers[s.id] = [v]; if (s.id==='who') seed(v); }
+    else answers[s.id] = list.includes(v) ? list.filter(x=>x!==v) : [...list, v];
+    render();
+  });
+  card.querySelector('#next').onclick=()=>{at++;render();};
+  card.querySelector('#skip').onclick=()=>{at++;render();};
+  card.querySelector('#back')?.addEventListener('click',()=>{at--;render();});
+}
+function seed(who){
+  const s = SEEDS[who];
+  answers.pain = [...s.pain]; answers.keep = ['people',...s.keep]; answers.hands = s.hands ? [...s.hands] : [];
+}
+function renderPlan(card, dots){
+  const items = [];
+  const has = (k,v)=>answers[k].includes(v);
+  if (has('pain','promos')) items.push(['tag','c-pink','Promotions leave your inbox after a day','You can still find them under Promotions']);
+  if (has('pain','news')) items.push(['news','c-teal','Newsletters you never open go to Stop mail first','Unsubscribe in one tap there']);
+  if (has('pain','alerts')) items.push(['bell','c-purple','App and social alerts leave after a day','']);
+  if (has('pain','old')) items.push(['archive','c-gray','Clean up starts with mail older than a year','']);
+  if (has('pain','scams') || has('who','safe') || has('who','business')) items.push(['shield','c-indigo','Likely scams are held out of your inbox','Each one says why']);
+  if (has('pain','buried')) items.push(['star','c-orange','Home shows mail from people first','']);
+  const kept = answers.keep.map(k=>({bank:'bank and bills',work:'work',travel:'travel',receipts:'receipts',people:'people you write to'})[k]);
+  items.push(['check','c-green',`Always stays: ${kept.join(', ')}`,'']);
+  items.push(has('hands','tidy') ? ['layers','c-purple','New mail sorts itself','Undo anything in Activity'] : ['eye','c-gray','Nothing moves until you press Sort my inbox','']);
+  if (has('who','safe')) items.push(['eye','c-blue','Simple mode: bigger text, fewer screens','Turn it off in Settings']);
+  card.innerHTML = `${dots}<div class="mark c-green">${svg('sparkle')}</div><h1>Here's your plan</h1>
+    <p class="lead">Change any of it later in Settings &gt; Setup.</p>
+    <ul class="plan">${items.map(([ic,c,t,sub])=>`<li><span class="ic ${c}">${svg(ic)}</span><span>${t}${sub?`<small>${sub}</small>`:''}</span></li>`).join('')}</ul>
+    <div class="row"><button class="btn ghost" id="back">Back</button><span class="spacer"></span><button class="btn primary" id="start">Start</button></div>`;
+  card.querySelector('#back').onclick=()=>{at--;render();};
+  card.querySelector('#start').onclick=()=>{card.innerHTML=`<div class="mark c-green">${svg('check')}</div><h1>You're set</h1><p class="lead">Home fills in as Cluster reads your mail. Watch the bar below.</p>`;};
+}
+render();
+
+// The bottom bar: reading progress during setup, then done.
+const bar = document.getElementById('bar');
+let done = 0; const total = 4200; const start = Date.now();
+const title = document.title;
+const tick = setInterval(()=>{
+  done = Math.min(total, done + 35 + Math.round(Math.random()*20));
+  if (done >= total) {
+    clearInterval(tick);
+    bar.className = 'bar done';
+    bar.innerHTML = '<span class="dot"></span>All your mail is read';
+    if (document.hidden) { document.title = '● ' + title; addEventListener('focus', ()=>document.title = title, {once:true}); }
+    return;
+  }
+  const left = Math.max(1, Math.ceil((total-done)/45/60*0.4*60));
+  bar.innerHTML = `Reading your mail · ${done.toLocaleString()} of ${total.toLocaleString()} · about ${left} min left<div class="track"><div style="width:${done/total*100}%"></div></div>`;
+}, 400);
+</script>
+</body>
+</html>
