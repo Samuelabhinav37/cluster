@@ -178,6 +178,14 @@ export function proposeTimeLimits(hours: Partial<Record<SortBucket, number | nul
   statusEl.textContent = message;
 }
 
+/** Setup's "Tidy for me": the menus as they are, switch on, saved to Gmail. */
+export async function turnOnTimeLimits(): Promise<boolean> {
+  renderTimeLimits();
+  if (!toggleEl) return false;
+  toggleEl.checked = true;
+  return save();
+}
+
 function limitsFromMenus(): Record<string, number | null> {
   const inboxHoursByBucket: Record<string, number | null> = { ...ctx.settings.autoSort.inboxHoursByBucket };
   for (const bucket of ALL_SORT_BUCKETS) {

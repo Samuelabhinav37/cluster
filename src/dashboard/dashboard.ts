@@ -436,7 +436,8 @@ function showConnectGate(): Promise<string> {
   // Anyone with a recorded health score has completed a scan before, so a
   // missing token means the sign-in expired rather than a first run.
   if (ctx.settings.healthHistory.length > 0) {
-    titleEl.textContent = "Reconnect Gmail";
+    titleEl.textContent = "Welcome back";
+    btn.textContent = "Sign in with Gmail";
     const lead = document.getElementById("connect-lead") as HTMLElement;
     let signedOut = false;
     try {
@@ -454,6 +455,7 @@ function showConnectGate(): Promise<string> {
   gate.hidden = false;
   btn.focus();
 
+  const label = btn.textContent;
   return new Promise((resolve) => {
     btn.onclick = async () => {
       btn.disabled = true;
@@ -473,7 +475,7 @@ function showConnectGate(): Promise<string> {
       } catch (err) {
         log.error("Gmail connect failed", err);
         btn.disabled = false;
-        btn.textContent = "Connect Gmail";
+        btn.textContent = label;
         if (!navigator.onLine) {
           errorEl.textContent = "You're offline. Reconnect to the internet and try again.";
         } else if (isAuthCancelled(err)) {

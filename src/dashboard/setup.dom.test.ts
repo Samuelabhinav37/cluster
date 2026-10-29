@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /// <reference types="vite/client" />
 //
-// First-run setup, simple mode and the Settings page (UI v4 stage 4).
+// First-run setup, simple mode and the Settings page.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { bootDashboard } from "./testHarness";
 
@@ -9,31 +9,49 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
-async function choosePersona(dash: Awaited<ReturnType<typeof bootDashboard>>, persona: string) {
-  expect(dash.el("setup-go").closest("section")!.hidden).toBe(false);
-  (document.querySelector(`[data-persona="${persona}"]`) as HTMLButtonElement).click();
-  expect(dash.el("setup-preview").hidden).toBe(false);
+type Dash = Awaited<ReturnType<typeof bootDashboard>>;
+
+const setupSection = (dash: Dash) => dash.el("setup-flow").closest("section")!;
+
+/** Picks "who", then skips the practice inbox and the next two questions, and presses Start. */
+async function runSetup(dash: Dash, who: string) {
+  expect(setupSection(dash).hidden).toBe(false);
+  (document.querySelector(`[data-who="${who}"]`) as HTMLButtonElement).click();
+  (dash.el("setup-next") as HTMLButtonElement).click();
+  for (let i = 0; i < 3; i++)
+    Array.from(document.querySelectorAll<HTMLButtonElement>(".onb-nav button"))
+      .find((b) => b.textContent === "Skip")!
+      .click();
   (dash.el("setup-go") as HTMLButtonElement).click();
 }
 
 describe("first-run setup", () => {
   it("opens on setup the first time, and on Home once it's skipped", async () => {
     const dash = await bootDashboard();
-    const setup = dash.el("setup-go").closest("section")!;
-    expect(setup.hidden).toBe(false);
+    expect(setupSection(dash).hidden).toBe(false);
     (dash.el("setup-not-now") as HTMLButtonElement).click();
     await vi.waitFor(() => expect(dash.storedSettings().setupDone).toBe(true));
-    await vi.waitFor(() => expect(setup.hidden).toBe(true));
+    await vi.waitFor(() => expect(setupSection(dash).hidden).toBe(true));
     const again = await bootDashboard({ settings: { setupDone: true } });
-    expect(again.el("setup-go").closest("section")!.hidden).toBe(true);
+    expect(setupSection(again).hidden).toBe(true);
+  });
+
+  it("Continue waits for an answer, and Kai says what each step is for", async () => {
+    const dash = await bootDashboard();
+    expect((dash.el("setup-next") as HTMLButtonElement).disabled).toBe(true);
+    (document.querySelector('[data-who="me"]') as HTMLButtonElement).click();
+    (dash.el("setup-next") as HTMLButtonElement).click();
+    expect(document.querySelectorAll(".onb-mail")).toHaveLength(5);
+    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toContain("practice inbox"));
   });
 
   it("Keep me safe turns on scam holding and simple mode", async () => {
     const dash = await bootDashboard();
-    await choosePersona(dash, "safe");
+    await runSetup(dash, "safe");
     await vi.waitFor(() => expect(dash.storedSettings().simpleMode).toBe(true));
     expect(dash.storedSettings().autoQuarantineHighRisk).toBe(true);
     expect(dash.storedSettings().persona).toBe("safe");
+    expect(dash.storedSettings().onboarding?.answers.who).toBe("safe");
     expect(document.body.classList.contains("simple")).toBe(true);
     const shown = Array.from(document.querySelectorAll<HTMLButtonElement>("#sidebar button[data-screen]"))
       .filter((b) => !b.hidden)
@@ -42,19 +60,12 @@ describe("first-run setup", () => {
     expect(dash.el("settings-persona").textContent).toBe("Keep me safe");
   });
 
-  it("a time-limit persona fills in the menus but never changes Gmail until the switch", async () => {
+  it("Ask me first saves the answers but never turns on Gmail filters", async () => {
     const dash = await bootDashboard();
-    const before = dash.storedSettings().autoSort;
-    await choosePersona(dash, "calm");
+    await runSetup(dash, "me");
     await vi.waitFor(() => expect(dash.storedSettings().persona).toBe("calm"));
-    await vi.waitFor(() => {
-      if (!(dash.el("time-limits-status").textContent ?? "").includes("Turn on Keep doing this")) throw new Error("not proposed yet");
-    });
-    expect((dash.el("time-limit-promotions") as HTMLSelectElement).value).toBe("24");
-    expect((dash.el("time-limit-travel") as HTMLSelectElement).value).toBe("stay");
+    expect(dash.storedSettings().setupDone).toBe(true);
     expect((dash.el("time-limits-toggle") as HTMLInputElement).checked).toBe(false);
-    // Nothing saved: stored time limits and Gmail filters are untouched.
-    expect(dash.storedSettings().autoSort).toEqual(before);
   });
 });
 

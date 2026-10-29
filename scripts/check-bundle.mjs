@@ -33,14 +33,16 @@ const BUDGETS = {
   // 2026-10-28: 580 → 585 KB for the Settings groups and Archive in Details.
   // 2026-10-28: 585 → 595 KB for the backlog round (Pin, Screener choice, Stop mail offers).
   // 2026-10-28: 595 → 600 KB for Moved today, Delivered orders, newsletter schedule.
-  "dashboard JS": 600 * KB,
+  // 2026-10-29: 600 -> 615 KB for the five-step setup with Kai and its drawings.
+  "dashboard JS": 615 * KB,
   // 2026-10-16: +10 KB for Kai's corner guide and chat (dashboard.css Kai
   // section, ~8 KB raw / 1.5 KB gzip), on top of 47 KB before Kai.
   // 2026-10-26: 60 → 64 KB for the rail shell (rail, panel, crumbs; ~3 KB raw).
   // 2026-10-26: 64 → 66 KB for the Inter Tight @font-face rules (7 subsets, ~2 KB).
   // 2026-10-27: 66 → 72 KB to match the approved mockup (skin block, Details).
   // 2026-10-27: 72 → 76 KB for the iCloud look (bento Home, app icons, banners, sign-in).
-  "dashboard CSS": 76 * KB,
+  // 2026-10-29: 76 -> 84 KB for the split sign-in page and the setup screens.
+  "dashboard CSS": 84 * KB,
 };
 
 function file(name) {

@@ -7,6 +7,7 @@ import { DEFAULT_INBOX_HOURS, type SortOverride } from "./sortTaxonomy";
 import type { QuarantineReviewMap } from "./quarantineReview";
 import { withStorageLock } from "./storageLock";
 import { migrateStoredLabelNames } from "./clusterLabels";
+import type { OnboardingAnswers } from "./onboardingPlan";
 
 export type UnsubscribeMethod = "one-click" | "mailto";
 
@@ -82,6 +83,8 @@ export interface ClusterSettings {
   persona: "" | "calm" | "business" | "safe" | "busy";
   /** Set once the user answered or dismissed the setup question. */
   setupDone: boolean;
+  /** The first-run setup's answers, kept so Setup can reopen with them (onboardingPlan.ts). */
+  onboarding?: { version: 1; answers: OnboardingAnswers; answeredAt: number };
   /** Bigger text and a three-item nav (setupTab.ts). */
   simpleMode: boolean;
   /** Kai's corner button and tips. */

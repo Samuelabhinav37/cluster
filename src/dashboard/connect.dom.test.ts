@@ -43,7 +43,7 @@ describe("connect gate", () => {
 
     expect(gateVisible()).toBe(true);
     expect(document.body.dataset.state).toBe("connect");
-    expect(dash.el("connect-title").textContent).toBe("Connect Gmail to get started");
+    expect(dash.el("connect-title").textContent).toBe("Calm your inbox");
     expect(gmail.getAuthToken).not.toHaveBeenCalledWith(true);
     expect(gmail.listCandidateMessages).not.toHaveBeenCalled();
 
@@ -72,7 +72,7 @@ describe("connect gate", () => {
     await vi.waitFor(() => expect(dash.el("connect-error").textContent).toMatch(/cancelled/));
     expect(gateVisible()).toBe(true);
     expect(btn.disabled).toBe(false);
-    expect(btn.textContent).toBe("Connect Gmail");
+    expect(btn.textContent).toBe("Continue with Gmail");
     expect(dash.status()).not.toMatch(/Something went wrong/);
     expect(gmail.listCandidateMessages).not.toHaveBeenCalled();
 
@@ -102,7 +102,7 @@ describe("connect gate", () => {
       settings: { healthHistory: [{ week: "2026-W39", score: 60 }] },
     });
     expect(gateVisible()).toBe(true);
-    expect(dash.el("connect-title").textContent).toBe("Reconnect Gmail");
+    expect(dash.el("connect-title").textContent).toBe("Welcome back");
     expect(dash.el("connect-lead").textContent).toMatch(/expired/);
   });
 });
