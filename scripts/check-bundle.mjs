@@ -41,8 +41,8 @@ const BUDGETS = {
   // 2026-10-26: 64 → 66 KB for the Inter Tight @font-face rules (7 subsets, ~2 KB).
   // 2026-10-27: 66 → 72 KB to match the approved mockup (skin block, Details).
   // 2026-10-27: 72 → 76 KB for the iCloud look (bento Home, app icons, banners, sign-in).
-  // 2026-10-29: 76 -> 84 KB for the split sign-in page and the setup screens.
-  "dashboard CSS": 84 * KB,
+  // 2026-10-29: 76 -> 88 KB for the split sign-in page and the animated setup screens.
+  "dashboard CSS": 88 * KB,
 };
 
 function file(name) {

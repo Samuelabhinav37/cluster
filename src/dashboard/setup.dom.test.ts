@@ -42,7 +42,7 @@ describe("first-run setup", () => {
     (document.querySelector('[data-who="me"]') as HTMLButtonElement).click();
     (dash.el("setup-next") as HTMLButtonElement).click();
     expect(document.querySelectorAll(".onb-mail")).toHaveLength(5);
-    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toContain("practice inbox"));
+    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toContain("Practice mail"));
   });
 
   it("Keep me safe turns on scam holding and simple mode", async () => {

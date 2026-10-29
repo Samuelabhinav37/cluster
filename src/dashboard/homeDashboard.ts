@@ -177,7 +177,14 @@ const ICONS: Record<string, Shape[]> = {
     ["rect", { x: "2", y: "7", width: "20", height: "14", rx: "2" }],
     ["path", { d: "M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" }],
   ],
-  plane: [["path", { d: "M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" }]],
+  plane: [
+    [
+      "path",
+      {
+        d: "M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z",
+      },
+    ],
+  ],
   cap: [
     ["path", { d: "M22 10 12 5 2 10l10 5z" }],
     ["path", { d: "M6 12v5c3 3 9 3 12 0v-5" }],
@@ -202,6 +209,37 @@ const ICONS: Record<string, Shape[]> = {
   link: [
     ["path", { d: "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" }],
     ["path", { d: "M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" }],
+  ],
+  user: [
+    ["path", { d: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" }],
+    ["circle", { cx: "12", cy: "7", r: "4" }],
+  ],
+  eye: [
+    [
+      "path",
+      { d: "M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0" },
+    ],
+    ["circle", { cx: "12", cy: "12", r: "3" }],
+  ],
+  sparkles: [
+    [
+      "path",
+      {
+        d: "M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14a2 2 0 0 0 1.44 1.44l6.14 1.58a.5.5 0 0 1 0 .96l-6.14 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z",
+      },
+    ],
+    ["path", { d: "M20 3v4M22 5h-4" }],
+  ],
+  landmark: [["path", { d: "M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7M12 2l8 5H4z" }]],
+  message: [["path", { d: "M7.9 20A9 9 0 1 0 4 16.1L2 22Z" }]],
+  volume: [
+    [
+      "path",
+      {
+        d: "M11 4.7a.7.7 0 0 0-1.2-.5L6.41 7.59A1.4 1.4 0 0 1 5.42 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.42a1.4 1.4 0 0 1 1 .41l3.38 3.39a.7.7 0 0 0 1.2-.5z",
+      },
+    ],
+    ["path", { d: "M16 9a5 5 0 0 1 0 6M19.36 18.36a9 9 0 0 0 0-12.72" }],
   ],
   "shield-check": [
     [
@@ -306,7 +344,9 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
   const big = el("p", "home-big");
   big.append(el("b", "", f.total.toLocaleString()), ` ${f.total === 1 ? "email" : "emails"}`);
   if (f.since)
-    big.append(` since ${new Date(f.since).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`);
+    big.append(
+      ` since ${new Date(f.since).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`,
+    );
   const bar = el("div", "kind-bar");
   bar.setAttribute("role", "img");
   bar.setAttribute("aria-label", HOME_KINDS.map((k) => `${k.label} ${f.kinds[k.key]}`).join(", "));
