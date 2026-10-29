@@ -2,7 +2,6 @@
 // Everything here is pure UI — no settings, no providers, no scan state — so it
 // can be pulled out of dashboard.ts and reused by the per-tab modules.
 import { log } from "../lib/log";
-import type { DomainCategory } from "../lib/domainCategories";
 
 /** Drop any key from `selection` that isn't in `validKeys` — call after a
  * rescan so a stale checkbox selection doesn't act on a vanished row. */
@@ -68,32 +67,6 @@ export function runNow(container: HTMLElement, onRun: (summary: HTMLElement) => 
       log.error(err);
     },
   );
-}
-
-export interface CategoryGroup<T> {
-  category: DomainCategory;
-  items: T[];
-  total: number;
-}
-
-/** Bucket `items` by `categoryOf`, summing `countOf`, sorted by total desc. */
-export function groupByCategory<T>(
-  items: T[],
-  categoryOf: (item: T) => DomainCategory,
-  countOf: (item: T) => number,
-): CategoryGroup<T>[] {
-  const map = new Map<DomainCategory, CategoryGroup<T>>();
-  for (const item of items) {
-    const category = categoryOf(item);
-    let group = map.get(category);
-    if (!group) {
-      group = { category, items: [], total: 0 };
-      map.set(category, group);
-    }
-    group.items.push(item);
-    group.total += countOf(item);
-  }
-  return [...map.values()].sort((a, b) => b.total - a.total);
 }
 
 export function headerRow(labels: string[]): HTMLTableRowElement {

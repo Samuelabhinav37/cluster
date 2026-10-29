@@ -330,9 +330,8 @@
                   <span id="expiry-breakdown"></span>
                 </div>
               </section>
-              <details class="disclosure" id="keep-newest-section">
-                <summary>Keep only each sender's newest mail</summary>
-                <p class="hint">Keep each sender's newest few messages and trash the rest.</p>
+              <section id="keep-newest-section">
+                <h3 class="section-label">Keep newest</h3>
                 <div id="keep-newest-bar" class="confirm-slot">
                   <label>
                     Trim each sender to its newest
@@ -343,7 +342,7 @@
                     ><button id="keep-newest-btn" class="btn btn-danger">Trim</button></span
                   >
                 </div>
-              </details>
+              </section>
 
               <section id="domain-groups" hidden>
                 <h3 class="section-label">By domain</h3>
@@ -628,11 +627,10 @@
               </div>
             </div>
 
-            <section id="paid-subscriptions-section">
+            <section id="paid-subscriptions-section" hidden>
               <div class="section-head">
                 <h2 class="section-label">Paid subscriptions &amp; trials</h2>
               </div>
-              <p class="hint">Cancel these trials and renewals with the company.</p>
               <div id="paid-subscriptions-list" class="scroll-x"></div>
             </section>
 
@@ -643,27 +641,19 @@
               <div id="subscriptions-bulk-bar" class="toolbar" hidden>
                 <span id="subs-count">0 senders</span>
                 <span id="subs-unsub-all-slot"
-                  ><button id="subs-unsub-all-btn" class="btn btn-accent">
-                    Unsubscribe all verified one-click
-                  </button></span
+                  ><button id="subs-unsub-all-btn" class="btn-accent-solid">Unsubscribe all</button></span
                 >
                 <label>
-                  Outcome
+                  Show
                   <select id="subs-outcome-filter">
-                    <option value="all">all</option>
-                    <option value="still-sending">still sending</option>
-                    <option value="failed">didn't reach them</option>
-                    <option value="needs-you">needs your click</option>
-                    <option value="pending">waiting</option>
-                    <option value="quiet">stopped</option>
-                    <option value="untracked">not requested</option>
+                    <option value="all">All</option>
+                    <option value="still-sending">Still sending</option>
+                    <option value="quiet">Stopped</option>
                   </select>
                 </label>
               </div>
               <div id="subscriptions-list" class="scroll-x"></div>
             </section>
-
-            <div id="subs-floating-bar"></div>
           </section>
 
           <!-- ══ Impersonation ═════════════════════════════════════════ -->

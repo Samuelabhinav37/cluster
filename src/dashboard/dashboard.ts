@@ -18,7 +18,6 @@ import {
   checkMessageKindAiAvailability,
   classifyOtherSubjects,
 } from "../lib/aiMessageKind";
-import { DOMAIN_CATEGORY_LABELS, type DomainCategory } from "../lib/domainCategories";
 import { loadPublicSuffixList } from "../lib/publicSuffix";
 import { applySenderLedger } from "../lib/senderLedgerStore";
 import { buildDomainGroups, type DomainGroup } from "../lib/domainGrouping";
@@ -99,12 +98,10 @@ import { markLearnedTransactional, sendersToAsk } from "../lib/kindModel";
 import { isAuthCancelled } from "../lib/chromeError";
 import {
   formatRelativeTime,
-  groupByCategory,
   headerRow,
   pruneSelection,
   renderConfirmStep,
   runNow,
-  type CategoryGroup,
 } from "./ui";
 import { reasonLabel, suggestSpamSenders, type SpamSuggestion } from "../lib/spamSuggestions";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
@@ -1352,94 +1349,8 @@ function showScanError(err: unknown) {
   statusEl.append(text, retryBtn);
 }
 
-type CollapseSettingsKey = "collapsedSenderCategories" | "collapsedDomainCategories";
-
-async function toggleCollapsedCategory(
-  settingsKey: CollapseSettingsKey,
-  category: DomainCategory,
-  collapsed: boolean,
-) {
-  const current = new Set(ctx.settings[settingsKey]);
-  if (collapsed) current.add(category);
-  else current.delete(category);
-  ctx.settings = await updateSettings({ [settingsKey]: [...current] });
-}
-
 /** Rows a long list shows before "Show all". */
 const LIST_PREVIEW = 10;
-/** Groups after the first start closed; these are the ones opened this session. */
-const openedGroups = new Set<string>();
-
-function renderCategoryGroups<T>(
-  container: HTMLElement,
-  groups: CategoryGroup<T>[],
-  headers: string[],
-  buildRow: (item: T) => HTMLTableRowElement,
-  itemNoun: string,
-  collapseSettingsKey: CollapseSettingsKey,
-) {
-  container.innerHTML = "";
-  groups.forEach((group, index) => {
-    const details = document.createElement("details");
-    details.className = "category-group";
-    const openKey = `${collapseSettingsKey}:${group.category}`;
-    details.open =
-      index === 0 ? !ctx.settings[collapseSettingsKey].includes(group.category) : openedGroups.has(openKey);
-
-    const summary = document.createElement("summary");
-    summary.textContent = `${DOMAIN_CATEGORY_LABELS[group.category]} `;
-    const countSpan = document.createElement("span");
-    countSpan.className = "category-count";
-    countSpan.textContent = `${group.items.length} ${itemNoun}, ${group.total} messages`;
-    summary.appendChild(countSpan);
-    details.appendChild(summary);
-
-    const table = document.createElement("table");
-    const caption = document.createElement("caption");
-    caption.className = "sr-only";
-    caption.textContent = `${DOMAIN_CATEGORY_LABELS[group.category]}: ${group.items.length} ${itemNoun}, ${group.total} messages`;
-    table.appendChild(caption);
-    const thead = document.createElement("thead");
-    thead.appendChild(headerRow(headers));
-    table.appendChild(thead);
-    const tbody = document.createElement("tbody");
-    table.appendChild(tbody);
-    details.appendChild(table);
-
-    // Build the rows only when the group is actually open — a collapsed
-    // category costs nothing until the user expands it.
-    let rowsBuilt = false;
-    const buildRows = () => {
-      if (rowsBuilt) return;
-      for (const item of group.items.slice(0, LIST_PREVIEW)) tbody.appendChild(buildRow(item));
-      if (group.items.length > LIST_PREVIEW) {
-        const moreRow = document.createElement("tr");
-        const cell = document.createElement("td");
-        cell.colSpan = headers.length;
-        const more = document.createElement("button");
-        more.className = "btn-link";
-        more.textContent = `Show all ${group.items.length}`;
-        more.onclick = () => {
-          moreRow.remove();
-          for (const item of group.items.slice(LIST_PREVIEW)) tbody.appendChild(buildRow(item));
-        };
-        cell.appendChild(more);
-        moreRow.appendChild(cell);
-        tbody.appendChild(moreRow);
-      }
-      rowsBuilt = true;
-    };
-    if (details.open) buildRows();
-    details.addEventListener("toggle", () => {
-      toggleCollapsedCategory(collapseSettingsKey, group.category, !details.open);
-      if (details.open) openedGroups.add(openKey);
-      else openedGroups.delete(openKey);
-      if (details.open) buildRows();
-    });
-
-    container.appendChild(details);
-  });
-}
 
 // ── Sender table ─────────────────────────────────────────────────────────
 /** Clean-up suggestions for these senders, from their profiles. */
@@ -2469,19 +2380,35 @@ function renderDomainGroups(senders: SenderSummary[]) {
     groups.map((g) => g.key),
   );
 
-  const categoryGroups = groupByCategory(
-    groups,
-    (g) => g.category,
-    (g) => g.totalCount,
-  );
-  renderCategoryGroups(
-    domainGroupListEl,
-    categoryGroups,
-    ["", "Domain", `Count (${ctx.settings.scanWindowDays}d)`, "Protected", "Action"],
-    buildDomainRow,
-    "domains",
-    "collapsedDomainCategories",
-  );
+  // One flat table, most mail first: no category folds inside "More".
+  const headers = ["", "Domain", `Count (${ctx.settings.scanWindowDays}d)`, "Protected", "Action"];
+  domainGroupListEl.innerHTML = "";
+  const table = document.createElement("table");
+  const caption = document.createElement("caption");
+  caption.className = "sr-only";
+  caption.textContent = `${groups.length} domains, ${groups.reduce((n, g) => n + g.totalCount, 0)} messages`;
+  const thead = document.createElement("thead");
+  thead.appendChild(headerRow(headers));
+  const tbody = document.createElement("tbody");
+  table.append(caption, thead, tbody);
+  const sorted = [...groups].sort((x, y) => y.totalCount - x.totalCount);
+  for (const group of sorted.slice(0, LIST_PREVIEW)) tbody.appendChild(buildDomainRow(group));
+  if (sorted.length > LIST_PREVIEW) {
+    const moreRow = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = headers.length;
+    const more = document.createElement("button");
+    more.className = "btn-link";
+    more.textContent = `Show all ${sorted.length}`;
+    more.onclick = () => {
+      moreRow.remove();
+      for (const group of sorted.slice(LIST_PREVIEW)) tbody.appendChild(buildDomainRow(group));
+    };
+    cell.appendChild(more);
+    moreRow.appendChild(cell);
+    tbody.appendChild(moreRow);
+  }
+  domainGroupListEl.appendChild(table);
 
   updateDomainBulkBar();
 }

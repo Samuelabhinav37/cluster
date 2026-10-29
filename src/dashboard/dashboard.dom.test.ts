@@ -221,7 +221,7 @@ describe("dashboard boot smoke", () => {
     expect(document.documentElement.dataset.theme).toBeUndefined();
   });
 
-  it("gives the by-domain category tables a screen-reader caption", () => {
+  it("gives the by-domain table a screen-reader caption", () => {
     document.querySelector<HTMLButtonElement>('#sidebar button[data-screen="delete"]')!.click();
     const caption = document.querySelector("#domain-group-list table caption");
     expect(caption?.classList.contains("sr-only")).toBe(true);

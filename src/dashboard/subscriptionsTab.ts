@@ -14,6 +14,7 @@ import {
 import { buildProtectionContext, buildSenderCleanupPlan } from "../lib/protectionPolicy";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import type { SenderSummary } from "../lib/senderModel";
+import { domainOf } from "../lib/domainGrouping";
 import { buildSubscriptionCandidates, SUBSCRIPTION_SIGNAL_LABELS } from "../lib/subscriptionSignals";
 import { formatRelativeTime, headerRow, pruneSelection, renderConfirmStep, runNow } from "./ui";
 import { listGroup, listRow } from "./listRow";
@@ -48,16 +49,12 @@ const subscriptionsListEl = document.getElementById("subscriptions-list") as HTM
 const paidSubscriptionsListEl = document.getElementById("paid-subscriptions-list") as HTMLDivElement;
 
 function renderPaidSubscriptions(senders: SenderSummary[]) {
-  const candidates = buildSubscriptionCandidates(senders);
+  // A known domain alone ("Seen") gives nothing to do, so only trials and
+  // renewals are listed, each saying where to cancel.
+  const candidates = buildSubscriptionCandidates(senders).filter(({ signal }) => signal !== "domain-match");
   paidSubscriptionsListEl.innerHTML = "";
-
-  if (candidates.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "empty-state";
-    empty.textContent = "No paid subscriptions or trials detected in the current scan.";
-    paidSubscriptionsListEl.appendChild(empty);
-    return;
-  }
+  paidSubscriptionsListEl.parentElement!.hidden = candidates.length === 0;
+  if (candidates.length === 0) return;
 
   const rows = candidates.map(({ sender, signal, lastSeenAt }) => {
     const seen = document.createElement("span");
@@ -66,7 +63,7 @@ function renderPaidSubscriptions(senders: SenderSummary[]) {
     return listRow({
       lead: subTile(sender),
       title: sender.displayName || sender.address,
-      sub: SUBSCRIPTION_SIGNAL_LABELS[signal],
+      sub: `${SUBSCRIPTION_SIGNAL_LABELS[signal]} · cancel with ${sender.displayName || domainOf(sender.address)}`,
       meta: seen,
     });
   });
@@ -393,42 +390,9 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
   return cell;
 }
 
-function renderSubsFloatingBar(oneClickCount: number) {
-  const host = document.getElementById("subs-floating-bar");
-  if (!host) return;
-  const selected = selectedSubKeys.size;
-  if (oneClickCount === 0) {
-    host.className = "";
-    host.innerHTML = "";
-    return;
-  }
-  host.className = "floating-bar";
-  host.innerHTML = "";
-  const bar = document.createElement("div");
-  const title = document.createElement("span");
-  title.className = "fb-title";
-  title.textContent = selected > 0 ? `${selected} selected` : `${oneClickCount} stop in one click`;
-  const sub = document.createElement("span");
-  sub.className = "fb-sub";
-  sub.textContent = "Only future mail stops.";
-  const allBtn = document.createElement("button");
-  allBtn.className = "btn-accent-solid";
-  allBtn.textContent = selected > 0 ? "Unsubscribe selected" : "Unsubscribe all";
-  allBtn.onclick = () => (document.getElementById("subs-unsub-all-btn") as HTMLButtonElement | null)?.click();
-  bar.append(title, sub, allBtn);
-  host.appendChild(bar);
-}
-
 function selectedUnsubscribeOutcome(): "all" | UnsubscribeOutcomeState {
   const value = subsOutcomeFilter.value;
-  return value === "pending" ||
-    value === "quiet" ||
-    value === "still-sending" ||
-    value === "untracked" ||
-    value === "failed" ||
-    value === "needs-you"
-    ? value
-    : "all";
+  return value === "quiet" || value === "still-sending" ? value : "all";
 }
 
 function senderAddressFromKey(key: string): string {
@@ -488,11 +452,10 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
   subscriptionsListEl.innerHTML = "";
   subsBulkBar.hidden = available.length === 0 && trackedCount === 0;
   const tally = unsubscribeTally(allOutcomes);
-  // Say what the numbers below count, so 29 and 22 don't look like a mismatch.
-  const counts = `${available.length} newsletters · ${oneClick.length} stop in one click`;
+  const counts = `${oneClick.length} can stop in one click`;
   subsCountEl.textContent = tally ? `${counts} · ${tally}` : counts;
   subsUnsubAllBtn.disabled = oneClick.length === 0;
-  renderSubsFloatingBar(oneClick.length);
+  subsUnsubAllBtn.textContent = selectedSubKeys.size > 0 ? `Unsubscribe ${selectedSubKeys.size} selected` : "Unsubscribe all";
 
   if (available.length === 0 && trackedCount === 0) {
     const empty = document.createElement("p");
@@ -676,11 +639,11 @@ export function wireSubscriptionsTab() {
       (s) => s.unsubscribe.postUrl && (selectedSubKeys.size === 0 || selectedSubKeys.has(s.key)),
     );
     if (oneClick.length === 0) return;
-    const scope = selectedSubKeys.size === 0 ? "all" : `${oneClick.length} selected`;
+    const names = oneClick.map((s) => s.displayName || s.address).join(", ");
     renderConfirmStep(
       subsUnsubAllSlot,
       resetSubsUnsubAllSlot,
-      `Unsubscribe from ${scope} (${oneClick.length} sender${oneClick.length === 1 ? "" : "s"})? Only future mail stops.`,
+      `Unsubscribe from ${oneClick.length} sender${oneClick.length === 1 ? "" : "s"}? ${names}. Only future mail stops.`,
       false,
       async (summary) => {
         summary.textContent = "Requesting permission…";
