@@ -60,8 +60,6 @@ export interface ClusterSettings {
   mutedSenders: string[];
   /** "This is a person" (true) / "Not a person" (false), by sender key. */
   personOverrides: Record<string, boolean>;
-  /** Senders list folds a company's addresses into one row. */
-  groupSendersByCompany: boolean;
   /** Screener master switch (Phase 6). */
   screenerEnabled: boolean;
   /** Off: the Screener holds only lists and automated mail. */
@@ -212,7 +210,6 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   actionLog: [],
   mutedSenders: [],
   personOverrides: {},
-  groupSendersByCompany: true,
   screenerEnabled: false,
   screenerHoldPeople: true,
   screenerAllowlist: [],

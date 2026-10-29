@@ -19,6 +19,7 @@ const PAGE = 60;
 export interface DetailMessage {
   id: string;
   provider: ProviderId;
+  /** The row this message files under: its company's key, or its sender's own key. */
   senderKey: string;
   name: string;
   address: string;
@@ -32,16 +33,24 @@ export interface DetailMessage {
 }
 
 export interface DetailSender {
+  /** Company key when the addresses fold into one, else the sender key. */
   key: string;
   provider: ProviderId;
   name: string;
+  /** The address carrying the most mail (its logo stands for the row). */
   address: string;
+  /** How many addresses fold into this row. */
+  addresses: number;
   kind: HomeKind;
   emails: number;
   opened: number;
   last: number;
-  summary: SenderSummary;
+  members: SenderSummary[];
 }
+
+/** Which row a sender files under. Default: its own row. */
+export type RowKeyOf = (sender: SenderSummary) => string;
+const ownRow: RowKeyOf = (s) => s.key;
 
 export interface DetailsFilter {
   view?: "emails" | "senders";
@@ -94,14 +103,14 @@ const BLANK: State = {
 };
 
 /** Messages, newest first, from the whole inbox. */
-export function detailMessages(senders: readonly SenderSummary[]): DetailMessage[] {
+export function detailMessages(senders: readonly SenderSummary[], rowKeyOf: RowKeyOf = ownRow): DetailMessage[] {
   const out: DetailMessage[] = [];
   for (const s of senders)
     for (const m of s.messages)
       out.push({
         id: m.id,
         provider: s.provider,
-        senderKey: s.key,
+        senderKey: rowKeyOf(s),
         name: s.displayName || s.address,
         address: s.address,
         subject: m.subject ?? "",
@@ -114,24 +123,32 @@ export function detailMessages(senders: readonly SenderSummary[]): DetailMessage
   return out.sort((a, b) => b.at - a.at);
 }
 
-/** One row per sender: volume, how much was opened, its main kind. */
-export function detailSenders(senders: readonly SenderSummary[]): DetailSender[] {
-  return senders
-    .filter((s) => s.messages.length > 0)
-    .map((s) => {
+/** One row per company (or per sender outside one): volume, how much was opened, its main kind. */
+export function detailSenders(senders: readonly SenderSummary[], rowKeyOf: RowKeyOf = ownRow): DetailSender[] {
+  const rows = new Map<string, SenderSummary[]>();
+  for (const s of senders) {
+    if (s.messages.length === 0) continue;
+    const key = rowKeyOf(s);
+    rows.set(key, [...(rows.get(key) ?? []), s]);
+  }
+  return [...rows]
+    .map(([key, members]) => {
+      const all = members.flatMap((s) => s.messages);
       const tally = new Map<HomeKind, number>();
-      for (const m of s.messages) tally.set(kindOf(m), (tally.get(kindOf(m)) ?? 0) + 1);
+      for (const m of all) tally.set(kindOf(m), (tally.get(kindOf(m)) ?? 0) + 1);
       const kind = [...tally].sort((a, b) => b[1] - a[1])[0][0];
+      const top = [...members].sort((a, b) => b.messages.length - a.messages.length)[0];
       return {
-        key: s.key,
-        provider: s.provider,
-        name: s.displayName || s.address,
-        address: s.address,
+        key,
+        provider: top.provider,
+        name: top.displayName || top.address,
+        address: top.address,
+        addresses: members.length,
         kind,
-        emails: s.messages.length,
-        opened: s.messages.filter((m) => !m.unread).length,
-        last: Math.max(...s.messages.map((m) => m.receivedAt)),
-        summary: s,
+        emails: all.length,
+        opened: all.filter((m) => !m.unread).length,
+        last: Math.max(...all.map((m) => m.receivedAt)),
+        members,
       };
     })
     .sort((a, b) => b.emails - a.emails);
@@ -190,6 +207,7 @@ export function initDetailsPanel(
   root: HTMLElement,
   actions: DetailsActions,
   now = () => Date.now(),
+  rowKeyOf: RowKeyOf = ownRow,
 ): DetailsPanel {
   let raw: readonly SenderSummary[] = [];
   let messages: DetailMessage[] = [];
@@ -198,8 +216,8 @@ export function initDetailsPanel(
   const gone = new Set<string>();
   const rebuild = () => {
     const live = raw.map((s) => ({ ...s, messages: s.messages.filter((m) => !gone.has(m.id)) }));
-    messages = detailMessages(live);
-    senders = detailSenders(live);
+    messages = detailMessages(live, rowKeyOf);
+    senders = detailSenders(live, rowKeyOf);
   };
   const settle: Settle = {
     gone(ids) {
@@ -580,7 +598,7 @@ export function initDetailsPanel(
         senderTile(s.address, s.name, "sz-26"),
         h("span", "who", s.name),
       );
-      from.title = s.address;
+      from.title = s.members.map((m) => m.address).join(", ");
       const n = h("td", "num");
       const cell = h("span", "cellbar");
       const fill = h("i");
@@ -656,7 +674,7 @@ export function initDetailsPanel(
         acts.push(
           button("btn btn-sm", "Mute", () =>
             mute(
-              picked.map((s) => s.summary),
+              picked.flatMap((s) => s.members),
               bar,
               reset,
               settle,
@@ -692,6 +710,9 @@ export function initDetailsPanel(
   const panel: DetailsPanel = {
     open(filter = {}) {
       st = { ...BLANK, ...filter } as State;
+      // Callers pass one address's key; the panel lists that address's whole company.
+      const member = st.senderKey ? raw.find((s) => s.key === st.senderKey) : undefined;
+      if (member) st.senderKey = rowKeyOf(member);
       selected = new Set();
       expanded = null;
       limit = PAGE;

@@ -59,6 +59,7 @@ import {
   foldByCompany,
   type CompanyGroup,
   groupByCompany,
+  groupKeyFor,
   isPerson,
   type ListEntry,
   profileLine,
@@ -1114,7 +1115,7 @@ function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummar
   setNavCount("impersonation", byId.get("flagged-senders") ?? 0);
   setPhishingNavSeverity(securitySenders);
   askFacts = {
-    senders: detailSenders(allSenders),
+    senders: detailSenders(allSenders, detailRowKey),
     kinds: mailByKind(allSenders, Date.now()).kinds,
     scams: byId.get("flagged-senders") ?? 0,
     waiting: byId.get("screener-queue") ?? 0,
@@ -1507,20 +1508,32 @@ function buildActionGroups(sender: SenderSummary): Array<{ act: string; label: s
   ];
 }
 
-/** Clean up's list: the ten unprotected senders with the most mail, plus the
- * biggest protected one shown dimmed. */
+/** Unprotected senders folded into one entry per company (detailRowKey),
+ * biggest first. */
+function decisionRows(senders: SenderSummary[]): SenderSummary[][] {
+  const rows = new Map<string, SenderSummary[]>();
+  for (const s of senders) {
+    if (s.protectedMessageIds.length > 0) continue;
+    const key = detailRowKey(s);
+    rows.set(key, [...(rows.get(key) ?? []), s]);
+  }
+  const volume = (row: SenderSummary[]) => row.reduce((n, s) => n + senderVolume(s), 0);
+  return [...rows.values()].sort((a, b) => volume(b) - volume(a));
+}
+
+/** Clean up's list: the ten unprotected companies or senders with the most
+ * mail, plus the biggest protected sender shown dimmed. */
 function pickDecisionSenders(senders: SenderSummary[]): {
-  decide: SenderSummary[];
+  decide: SenderSummary[][];
+  total: number;
   protectedOne?: SenderSummary;
 } {
-  const decide = senders
-    .filter((s) => s.protectedMessageIds.length === 0)
-    .sort((a, b) => senderVolume(b) - senderVolume(a))
-    .slice(0, 10);
+  const rows = decisionRows(senders);
+  const decide = rows.slice(0, 10);
   const protectedOne = senders
     .filter((s) => s.protectedMessageIds.length > 0)
     .sort((a, b) => b.count - a.count)[0];
-  return { decide, protectedOne };
+  return { decide, total: rows.length, protectedOne };
 }
 
 function updateSenderState(senders: SenderSummary[]) {
@@ -1552,20 +1565,20 @@ function renderOrganizeScreen(senders: SenderSummary[]) {
 }
 
 function renderDecisionSenders(senders: SenderSummary[]) {
-  const { decide, protectedOne } = pickDecisionSenders(senders);
+  const { decide, total, protectedOne } = pickDecisionSenders(senders);
   const countEl = document.getElementById("worth-decision-count");
-  if (countEl) countEl.textContent = `${decide.length} of ${senders.length}`;
+  if (countEl) countEl.textContent = `${decide.length} of ${total}`;
 
   senderGroupsEl.innerHTML = "";
   const list = document.createElement("div");
   list.className = "grouped-list";
 
-  for (const sender of decide) {
+  for (const row of decide) {
     const sep = document.createElement("div");
     sep.className = "row-sep";
     sep.style.marginLeft = "16px";
     list.appendChild(sep);
-    list.appendChild(buildDecisionRow(sender, senders));
+    list.appendChild(row.length === 1 ? buildDecisionRow(row[0], senders) : buildCompanyDecisionRow(row));
   }
 
   if (protectedOne) {
@@ -1654,6 +1667,57 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): H
     actions: [primary, menu],
     disclosure,
     href: () => details?.open({ view: "emails", senderKey: sender.key }),
+  });
+}
+
+/** One company's addresses as one Clean up row: Trash takes all of them. */
+function buildCompanyDecisionRow(members: SenderSummary[]): HTMLElement {
+  const top = [...members].sort((a, b) => senderVolume(b) - senderVolume(a))[0];
+  const total = members.reduce((n, s) => n + senderVolume(s), 0);
+  const opened = total - members.reduce((n, s) => n + senderUnread(s), 0);
+  const reason = opened === 0 ? "Never opened" : `${Math.round((opened / Math.max(1, total)) * 100)}% opened`;
+  const name = top.displayName || top.address;
+
+  const cell = document.createElement("div");
+  const btn = Object.assign(document.createElement("button"), { className: "btn", textContent: "Trash" });
+  const byProvider = new Map<ProviderId, string[]>();
+  for (const s of members) byProvider.set(s.provider, [...(byProvider.get(s.provider) ?? []), ...idsSafeToMoveOut(s)]);
+  const ids = [...byProvider.values()].flat();
+  btn.disabled = ids.length === 0;
+  const reset = () => cell.replaceChildren(btn);
+  btn.onclick = () => {
+    const kept = total - ids.length;
+    renderConfirmStep(
+      cell,
+      reset,
+      `Move ${ids.length} email${ids.length === 1 ? "" : "s"} from ${name} (${members.length} addresses) to Trash?${kept > 0 ? ` ${kept} protected stay.` : ""}`,
+      true,
+      async () => {
+        const { message, undoableGmailIds } = await executeSmartDelete(byProvider);
+        appendUndoButton(cell, undoableGmailIds);
+        await logAction(
+          "trash",
+          `Moved ${ids.length} from ${name} to Trash`,
+          undoableGmailIds.length > 0 ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" } : undefined,
+        );
+        void refreshView();
+        return message;
+      },
+    );
+  };
+  reset();
+
+  const menu = rowMenu([{ label: "Show emails", run: () => details?.open({ view: "emails", senderKey: top.key }) }]);
+  return listRow({
+    lead: makeLogoTile(top, "sz-34"),
+    title: name,
+    sub: `${members.length} addresses · ${reason}`,
+    meta: Object.assign(document.createElement("span"), {
+      className: "ios-value",
+      textContent: `${total.toLocaleString()} ${total === 1 ? "email" : "emails"}`,
+    }),
+    actions: [cell, menu],
+    href: () => details?.open({ view: "emails", senderKey: top.key }),
   });
 }
 
@@ -1779,6 +1843,9 @@ async function muteOneSender(sender: SenderSummary) {
 // protection re-check, Undo and activity log as Clear out.
 let details: DetailsPanel | null = null;
 
+/** One row per company in Details and Clean up, the same fold Senders uses. */
+const detailRowKey = (s: SenderSummary) => groupKeyFor(ctx.profiles.get(s.key)) ?? s.key;
+
 function wireDetails() {
   const root = document.getElementById("details");
   if (!root) return;
@@ -1868,7 +1935,7 @@ function wireDetails() {
           );
         }
       : undefined,
-  });
+  }, undefined, detailRowKey);
   // Always there: open beside the page on wide windows unless minimized last time.
   let pref: string | null = null;
   try {
@@ -2085,14 +2152,6 @@ function wireAllSendersControls() {
       renderAllSenders(ctx.senders);
     };
   });
-  const groupToggle = document.getElementById("sender-group-company") as HTMLInputElement | null;
-  if (groupToggle) {
-    groupToggle.checked = ctx.settings.groupSendersByCompany;
-    groupToggle.addEventListener("change", async () => {
-      ctx.settings = await updateSettings({ groupSendersByCompany: groupToggle.checked });
-      renderAllSenders(ctx.senders);
-    });
-  }
 }
 
 function filteredSenders(senders: SenderSummary[]): SenderSummary[] {
@@ -2163,11 +2222,8 @@ function renderAllSenders(senders: SenderSummary[]) {
     return;
   }
   const sorted = sortSenders(filteredSenders(senders), ctx.profiles, allSendersSort);
-  // A company's addresses fold into one row (LinkedIn, not five LinkedIns).
-  let rows: ListEntry[] =
-    ctx.settings.groupSendersByCompany || allSendersFilter === "talk"
-      ? foldByCompany(sorted, ctx.profiles)
-      : sorted.map((sender) => ({ kind: "sender", sender }));
+  // A company's addresses fold into one row (LinkedIn, not five LinkedIns), as in Clean up and Details.
+  let rows: ListEntry[] = foldByCompany(sorted, ctx.profiles);
   if (allSendersFilter === "talk")
     rows = rows.filter((e) => e.kind === "company" && talksTo(e.group, ctx.profiles));
   // A folded company counts all its addresses, so re-rank by the total.
