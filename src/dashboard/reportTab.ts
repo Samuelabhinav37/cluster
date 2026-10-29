@@ -177,7 +177,7 @@ export function renderScamReport(securitySenders: SenderSummary[]): void {
   const pctSub = $("report-checks-sub");
   if (pct && pctSub) {
     pct.textContent = scanned > 0 ? `${Math.floor(((scanned - failed) / scanned) * 100)}%` : "–";
-    pctSub.textContent = scanned > 0 ? `${failed} of ${scanned} senders failed` : "";
+    pctSub.textContent = scanned > 0 ? `${scanned} senders checked` : "";
   }
   const kindRows: [string, number][] = [...kindCounts].sort((a, b) => b[1] - a[1]).map(([k, n]) => [KIND_NAME[k], n]);
   const brandsEl = $("report-brands");

@@ -50,7 +50,7 @@ describe("Settings — What Cluster learned", () => {
     )!;
     expect(row.querySelector(".ios-value")!.textContent).toBe("1");
     row.querySelector("button")!.click();
-    await confirmStep(row.querySelector("span:last-child") as HTMLElement);
+    await confirmStep(row.querySelector(".row-actions > span:last-child") as HTMLElement);
     await vi.waitFor(() => expect(dash.storedSettings().sortOverrides).toEqual({}));
   });
 });

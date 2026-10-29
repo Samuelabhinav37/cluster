@@ -488,7 +488,9 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
   subscriptionsListEl.innerHTML = "";
   subsBulkBar.hidden = available.length === 0 && trackedCount === 0;
   const tally = unsubscribeTally(allOutcomes);
-  subsCountEl.textContent = tally ? `${available.length} lists · ${tally}` : `${available.length} lists`;
+  // Say what the numbers below count, so 29 and 22 don't look like a mismatch.
+  const counts = `${available.length} newsletters · ${oneClick.length} stop in one click`;
+  subsCountEl.textContent = tally ? `${counts} · ${tally}` : counts;
   subsUnsubAllBtn.disabled = oneClick.length === 0;
   renderSubsFloatingBar(oneClick.length);
 

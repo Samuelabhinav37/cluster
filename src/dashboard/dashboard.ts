@@ -591,6 +591,7 @@ async function main() {
   autoQuarantineToggle.checked = ctx.settings.autoQuarantineHighRisk;
   autoQuarantineToggle.onchange = async () => {
     ctx.settings = await updateSettings({ autoQuarantineHighRisk: autoQuarantineToggle.checked });
+    renderProtectTiles(...protectTileArgs);
   };
   // Protect's rules: they run with the background hold (background.ts runQuarantine).
   for (const [id, key] of [
@@ -1125,7 +1126,9 @@ function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummar
 
 // Protect's three views share one head: a line and three tiles that switch
 // between Scams, New senders and the report. Each screen has its own copy.
+let protectTileArgs: [scams: number, waiting: number, held: number] = [0, 0, 0];
 function renderProtectTiles(scams: number, waiting: number, held: number) {
+  protectTileArgs = [scams, waiting, held];
   const sub =
     scams > 0
       ? `${scams} ${scams === 1 ? "sender needs" : "senders need"} a look.`
@@ -1152,7 +1155,9 @@ function renderProtectTiles(scams: number, waiting: number, held: number) {
         mark.className = `rec-ic${screen === "impersonation" ? " danger" : ""}`;
         mark.append(homeIcon(ic));
         const n = document.createElement("b");
-        n.textContent = count.toLocaleString();
+        // Nothing can be held while holding is off, so a 0 there would read as "all clear".
+        const off = screen === "report" && count === 0 && !ctx.settings.autoQuarantineHighRisk;
+        n.textContent = off ? "Off" : count.toLocaleString();
         const text = document.createElement("span");
         text.append(n, label);
         tile.append(mark, text);

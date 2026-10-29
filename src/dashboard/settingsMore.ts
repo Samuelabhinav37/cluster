@@ -85,13 +85,15 @@ export function renderLearned(): void {
   ];
   host.replaceChildren(
     ...rows.map(([label, count, reset]) => {
-      const row = Object.assign(document.createElement("div"), { className: "set-row" });
+      const row = Object.assign(document.createElement("div"), { className: "set-row plain" });
       const name = Object.assign(document.createElement("span"), { className: "grow", textContent: label });
       const value = Object.assign(document.createElement("span"), {
         className: "ios-value",
         textContent: count > 0 ? String(count) : "None",
       });
       const slot = document.createElement("span");
+      const trail = Object.assign(document.createElement("span"), { className: "row-actions" });
+      trail.append(value, slot);
       const btn = Object.assign(document.createElement("button"), {
         type: "button",
         className: "btn",
@@ -112,7 +114,7 @@ export function renderLearned(): void {
           },
         );
       if (count > 0) back();
-      row.append(name, value, slot);
+      row.append(name, trail);
       return row;
     }),
   );
