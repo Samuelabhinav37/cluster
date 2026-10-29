@@ -10,22 +10,22 @@ beforeEach(() => {
 });
 
 async function choosePersona(dash: Awaited<ReturnType<typeof bootDashboard>>, persona: string) {
-  (dash.el("setup-banner-start") as HTMLButtonElement).click();
-  await vi.waitFor(() => {
-    if (dash.el("setup-banner").closest("section")!.hidden === false) throw new Error("still on overview");
-  });
+  expect(dash.el("setup-go").closest("section")!.hidden).toBe(false);
   (document.querySelector(`[data-persona="${persona}"]`) as HTMLButtonElement).click();
   expect(dash.el("setup-preview").hidden).toBe(false);
   (dash.el("setup-go") as HTMLButtonElement).click();
 }
 
 describe("first-run setup", () => {
-  it("offers setup on Overview until it's answered or dismissed", async () => {
+  it("opens on setup the first time, and on Home once it's skipped", async () => {
     const dash = await bootDashboard();
-    expect(dash.el("setup-banner").hidden).toBe(false);
-    (dash.el("setup-banner-dismiss") as HTMLButtonElement).click();
+    const setup = dash.el("setup-go").closest("section")!;
+    expect(setup.hidden).toBe(false);
+    (dash.el("setup-not-now") as HTMLButtonElement).click();
     await vi.waitFor(() => expect(dash.storedSettings().setupDone).toBe(true));
-    expect(dash.el("setup-banner").hidden).toBe(true);
+    await vi.waitFor(() => expect(setup.hidden).toBe(true));
+    const again = await bootDashboard({ settings: { setupDone: true } });
+    expect(again.el("setup-go").closest("section")!.hidden).toBe(true);
   });
 
   it("Keep me safe turns on scam holding and simple mode", async () => {

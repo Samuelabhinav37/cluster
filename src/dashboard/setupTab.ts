@@ -105,8 +105,6 @@ function personaLabel(persona: ClusterSettings["persona"]): string {
 export function renderSettingsSetup(): void {
   const label = $("settings-persona");
   if (label) label.textContent = personaLabel(ctx.settings.persona);
-  const banner = $("setup-banner");
-  if (banner) banner.hidden = ctx.settings.setupDone;
 }
 
 /** Simple-mode home: protection status, what was held, one safety tip. */
@@ -209,10 +207,6 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     await skip();
     await select("overview");
   };
-  const bannerStart = $<HTMLButtonElement>("setup-banner-start");
-  if (bannerStart) bannerStart.onclick = () => void select("setup");
-  const bannerDismiss = $<HTMLButtonElement>("setup-banner-dismiss");
-  if (bannerDismiss) bannerDismiss.onclick = () => void skip();
   const change = $<HTMLButtonElement>("settings-change-setup");
   if (change) change.onclick = () => void select("setup");
 

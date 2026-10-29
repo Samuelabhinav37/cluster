@@ -311,7 +311,7 @@ function navItemShown(btn: HTMLButtonElement): boolean {
 }
 
 // Screens that don't list mail start with Details minimized.
-const DETAILS_RESTS_ON = new Set(["settings", "impersonation", "screener", "report"]);
+const DETAILS_RESTS_ON = new Set(["settings", "impersonation", "screener", "report", "setup"]);
 
 /** Minimizes Details on those screens and brings it back elsewhere, unless you minimized it. */
 function fitDetailsTo(screen: string) {
@@ -387,7 +387,8 @@ function wireNav() {
     details?.open({ view: "senders" });
   });
 
-  showScreen(ctx.settings.activeTab);
+  // First run opens on setup; skipping or answering it sets setupDone.
+  showScreen(ctx.settings.setupDone ? ctx.settings.activeTab : "setup");
 }
 
 // `accentWhenPositive` keeps the "Clean up" group's badges on one shared
@@ -1848,7 +1849,7 @@ function wireDetails() {
     // Storage blocked: fall back to the width.
   }
   if (window.innerWidth >= 1200 && pref !== "min") details.open({ view: "senders" });
-  fitDetailsTo(resolveScreen(ctx.settings.activeTab));
+  fitDetailsTo(ctx.settings.setupDone ? resolveScreen(ctx.settings.activeTab) : "setup");
   for (const btn of Array.from(document.querySelectorAll<HTMLButtonElement>("[data-details]"))) {
     btn.onclick = () => (details!.isOpen() ? details!.close() : details!.open());
   }
