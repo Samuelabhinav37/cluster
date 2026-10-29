@@ -78,9 +78,13 @@ skipped.
 4. Go to `chrome://extensions`, enable Developer Mode, "Load unpacked", select
    the `dist/` folder. Copy the extension ID Chrome assigns it.
 5. Back in Cloud Console: **Credentials → Create Credentials → OAuth client ID**,
-   application type **Chrome Extension**, paste the extension ID.
-6. Copy the generated client ID into `manifest.json`'s `oauth2.client_id`,
-   replacing the placeholder. Re-run `npm run build` and reload the extension.
+   application type **Web application**, with the redirect URI
+   `https://<extension-id>.chromiumapp.org/`.
+6. Put the client ID in `src/lib/gmailWebAuth.ts` and `auth-worker/wrangler.toml`,
+   then deploy the sign-in helper with its secret
+   (`npx wrangler secret put GOOGLE_CLIENT_SECRET --config auth-worker/wrangler.toml`,
+   then `npx wrangler deploy --config auth-worker/wrangler.toml`). Re-run
+   `npm run build` and reload the extension.
 
 ## Dev
 

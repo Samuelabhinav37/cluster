@@ -7,7 +7,7 @@ import { penalizeGmailQuota, reserveGmailQuota } from "./gmailQuotaLedger";
 import { extractLinksFromHtml, type ExtractedLink } from "./linkMismatch";
 import { riskyAttachmentGmailQuery } from "./riskyAttachments";
 import { TIME_SENSITIVE_QUERY } from "./categoryQueries";
-import { lastErrorAsError } from "./chromeError";
+import { dropGmailToken, getGmailToken, grantedGmailScopes } from "./gmailWebAuth";
 import { canonicalLabelName, clusterLabelName, labelLookupNames } from "./clusterLabels";
 
 const API_BASE = "https://gmail.googleapis.com/gmail/v1";
@@ -68,29 +68,22 @@ export class FilterPermissionError extends Error {
 }
 
 export async function getAuthToken(interactive = true): Promise<string> {
-  return new Promise((resolve, reject) => {
-    chrome.identity.getAuthToken({ interactive }, (token, grantedScopes) => {
-      if (chrome.runtime.lastError || !token) {
-        reject(lastErrorAsError("No auth token returned"));
-        return;
-      }
-      // Google's consent screen lets the user untick a scope; the token still comes back.
-      if (grantedScopes && !grantedScopes.includes(MODIFY_SCOPE)) {
-        reject(new Error("Cluster needs permission to read and organize your mail."));
-        return;
-      }
-      resolve(token);
-    });
-  });
+  const token = await getGmailToken([MODIFY_SCOPE], interactive);
+  // Google's consent screen lets the user untick a scope; a token still comes back.
+  const granted = await grantedGmailScopes();
+  if (granted.length > 0 && !granted.includes(MODIFY_SCOPE)) {
+    throw new Error("Cluster needs permission to read and organize your mail.");
+  }
+  return token;
 }
 
-function filterTokenOnce(interactive: boolean): Promise<string | null> {
-  return new Promise((resolve) => {
-    chrome.identity.getAuthToken({ interactive, scopes: [MODIFY_SCOPE, FILTER_SCOPE] }, (token, grantedScopes) => {
-      const ok = !chrome.runtime.lastError && token && (!grantedScopes || grantedScopes.includes(FILTER_SCOPE));
-      resolve(ok ? token : null);
-    });
-  });
+async function filterTokenOnce(interactive: boolean): Promise<string | null> {
+  try {
+    const token = await getGmailToken([MODIFY_SCOPE, FILTER_SCOPE], interactive);
+    return (await grantedGmailScopes()).includes(FILTER_SCOPE) ? token : null;
+  } catch {
+    return null;
+  }
 }
 
 /** A token that can manage filters. Asked for the first time a filter is
@@ -103,18 +96,11 @@ export async function getFilterAuthToken(mayPrompt = true): Promise<string> {
   return token;
 }
 
-// Drop a token from Chrome's in-memory cache so the next getAuthToken()
-// re-fetches from Google instead of handing back the same dead string.
-// Never rejects — a failure here just means the retry uses whatever
-// getAuthToken returns next.
-function removeCachedAuthToken(token: string): Promise<void> {
-  return new Promise((resolve) => {
-    try {
-      chrome.identity.removeCachedAuthToken({ token }, () => resolve());
-    } catch {
-      resolve();
-    }
-  });
+// Forget a token Gmail rejected so the next getAuthToken() refreshes instead
+// of handing back the same dead string. Never rejects — a failure here just
+// means the retry uses whatever getAuthToken returns next.
+async function removeCachedAuthToken(token: string): Promise<void> {
+  await dropGmailToken(token).catch(() => {});
 }
 
 // Thin JSON wrapper. Callers pass the response shape they read as `T`; the
@@ -687,15 +673,7 @@ export async function deleteFilter(token: string, id: string): Promise<void> {
 const ELEVATED_SCOPES = [MODIFY_SCOPE, FILTER_SCOPE, "https://mail.google.com/"];
 
 export async function getElevatedAuthToken(interactive: boolean): Promise<string> {
-  return new Promise((resolve, reject) => {
-    chrome.identity.getAuthToken({ interactive, scopes: ELEVATED_SCOPES }, (token) => {
-      if (chrome.runtime.lastError || !token) {
-        reject(lastErrorAsError("No auth token returned"));
-        return;
-      }
-      resolve(token);
-    });
-  });
+  return getGmailToken(ELEVATED_SCOPES, interactive);
 }
 
 const BATCH_DELETE_CHUNK_SIZE = 1000;

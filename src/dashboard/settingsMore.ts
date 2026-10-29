@@ -2,6 +2,7 @@
 // Show Kai, Privacy (export, erase) and Keyboard. The background worker sends
 // the notifications (background.ts); this file only stores the choices.
 import { deleteFiltersInto, getAuthToken, listLabels, revokeGoogleAccess } from "../lib/gmailApi";
+import { forgetGmailSignIn, gmailRefreshToken } from "../lib/gmailWebAuth";
 import { log } from "../lib/log";
 import { clusterLabelIdSet } from "../lib/seedFromExisting";
 import { getSettings, updateSettings } from "../lib/settingsStore";
@@ -126,8 +127,11 @@ async function signOut(removeFilters: boolean): Promise<void> {
     const labels = await listLabels(token);
     await deleteFiltersInto(token, clusterLabelIdSet(labels, ctx.settings.clusterOwnedLabels));
   }
-  if (!(await revokeGoogleAccess(token))) log.error("Sign out: Google didn't confirm the revoke");
-  await chrome.identity.clearAllCachedAuthTokens();
+  // Revoking the refresh token revokes every access token it issued.
+  if (!(await revokeGoogleAccess((await gmailRefreshToken()) ?? token))) {
+    log.error("Sign out: Google didn't confirm the revoke");
+  }
+  await forgetGmailSignIn();
   try {
     sessionStorage.setItem(SIGNED_OUT_KEY, "1");
   } catch {

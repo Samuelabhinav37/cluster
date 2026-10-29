@@ -8,7 +8,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         dashboard: "src/dashboard/index.html",
-        spike: "src/spike/gmailAuth.html",
       },
     },
   },

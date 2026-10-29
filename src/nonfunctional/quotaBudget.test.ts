@@ -13,6 +13,12 @@ import { gmailProvider } from "../lib/providers/gmailProvider";
 import { gmailQuotaCost } from "../lib/gmailApi";
 import { clearGmailQuotaLedger, _internals } from "../lib/gmailQuotaLedger";
 
+vi.mock("../lib/gmailWebAuth", () => ({
+  getGmailToken: async () => "token",
+  grantedGmailScopes: async () => ["https://www.googleapis.com/auth/gmail.modify"],
+  dropGmailToken: async () => {},
+}));
+
 const DEFAULT_MAX_MESSAGES = 150; // settingsStore DEFAULT_SETTINGS.maxMessagesPerProvider
 const DEFAULT_WINDOW_DAYS = 180; // settingsStore DEFAULT_SETTINGS.scanWindowDays
 const SECURITY_SCAN_MAX_MESSAGES = 100; // dashboard.ts

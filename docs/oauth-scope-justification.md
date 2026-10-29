@@ -3,11 +3,12 @@
 For Google's OAuth verification review. One row per scope Cluster requests,
 the user-facing features that require it, and why nothing narrower works.
 
-Cluster is a Manifest V3 Chrome extension. **There is no Cluster server.** All
-processing happens in the extension, in the user's browser, under their own
-Google sign-in via `chrome.identity`. No Gmail data — restricted or otherwise —
-is transmitted to or stored on any Cluster-operated system. See `SECURITY.md`
-for the full data-flow.
+Cluster is a Manifest V3 Chrome extension. All processing happens in the
+extension, in the user's browser. Google sign-in uses `launchWebAuthFlow` with
+PKCE; a small Cluster sign-in helper (`auth-worker/`) adds the client secret to
+the code and refresh-token swaps and stores nothing. No Gmail data — restricted
+or otherwise — is transmitted to or stored on any Cluster-operated system. See
+`SECURITY.md` for the full data-flow.
 
 ---
 
@@ -117,8 +118,9 @@ sign-in, Drive, Calendar, Contacts, or any other Google API scope.
 ## Third-party security assessment (CASA)
 
 A CASA assessment is additionally required when restricted Gmail data is stored
-on or transmitted through a server. Cluster's no-server architecture avoids that
-data path entirely — restricted data never leaves the user's browser — but the
+on or transmitted through a server. Cluster's architecture keeps Gmail data off
+its servers entirely — restricted data never leaves the user's browser; only
+sign-in tokens pass through the sign-in helper — but the
 extension is still subject to OAuth verification for the restricted scopes above.
 The `src/lib/networkEgress.test.ts` invariant fails the build if any new network
 call site or off-origin asset reference is introduced under `src/`.

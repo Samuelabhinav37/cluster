@@ -2,7 +2,8 @@
 import { describe, expect, it } from "vitest";
 
 // Locks the project's core promise: the extension talks to a fixed, tiny set
-// of hosts and nothing else. No server of our own, no analytics, no "phone
+// of hosts and nothing else. The one server of our own is the Gmail sign-in
+// helper, which sees sign-in tokens and never mail; no analytics, no "phone
 // home". These tests fail the moment a new `fetch` call site or a new remote
 // host literal appears anywhere under src/ — which forces a deliberate review
 // of whether it belongs, rather than letting egress creep in unnoticed.
@@ -54,6 +55,7 @@ const FORBIDDEN_EGRESS_APIS = [
 // appearing in either would (correctly) fail this test.
 const ALLOWED_FETCH_CALLERS = [
   "lib/athenaIntegration.ts", // managed-policy Athena URL, opt-in only
+  "lib/gmailWebAuth.ts", // Gmail sign-in: Cluster's sign-in helper (tokens only) and the Gmail profile
   "lib/httpRetry.ts", // the shared wrapper every fixed-endpoint API call flows through
   "lib/providers/msalAuth.ts", // login.microsoftonline.com token endpoint
   "lib/publicSuffix.ts", // the extension's own bundled data file (chrome.runtime.getURL), never the network
@@ -75,6 +77,10 @@ const ALLOWED_DYNAMIC_IMPORT_CALLERS = ["dashboard/testHarness.ts"];
 const ALLOWED_HOSTS = [
   "gmail.googleapis.com",
   "oauth2.googleapis.com", // sign out: revokes Cluster's grant
+  "accounts.google.com", // Google's sign-in window (launchWebAuthFlow), never fetched
+  // Cluster's sign-in helper (auth-worker/): adds the client secret to a code
+  // or refresh swap. Sign-in tokens only, never mail; stores nothing.
+  "cluster-auth.samuelabhinav37.workers.dev",
   "graph.microsoft.com",
   "login.microsoftonline.com",
   "samuelabhinav37.github.io",
@@ -96,6 +102,7 @@ describe("network egress invariant", () => {
   it("fixed-endpoint files reference no host other than the allowed set", () => {
     const fixedEndpointFiles = [
       "lib/gmailApi.ts",
+      "lib/gmailWebAuth.ts",
       "lib/providers/outlookProvider.ts",
       "lib/providers/msalAuth.ts",
       "lib/remoteDataset.ts",

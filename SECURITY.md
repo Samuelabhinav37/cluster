@@ -17,7 +17,8 @@ to send it to.
 | Incremental sync checkpoints, durable job receipts, and background-rule completion receipts | Gmail / Microsoft Graph operations | `chrome.storage.local` (opaque cursors, bounded message IDs, status/timestamps only) | nowhere |
 | Outlook access token | Microsoft sign-in | `chrome.storage.session` (memory-backed; trusted extension contexts only) | Microsoft Graph |
 | Outlook refresh token | Microsoft sign-in | `chrome.storage.local` (trusted extension contexts only) | only to `login.microsoftonline.com` to refresh |
-| Gmail OAuth token | Chrome | custodied by Chrome's `chrome.identity`, not by us | only to `gmail.googleapis.com` |
+| Gmail access token | Google sign-in | `chrome.storage.session` (memory-backed; trusted extension contexts only) | `gmail.googleapis.com` |
+| Gmail refresh token | Google sign-in | `chrome.storage.local` (trusted extension contexts only) | only to Cluster's sign-in helper to refresh (see Sub-processors) |
 
 ### Headers the scan reads
 
@@ -152,13 +153,18 @@ The Outlook refresh token sits unencrypted in `chrome.storage.local`, restricted
 to trusted extension contexts (`setAccessLevel("TRUSTED_CONTEXTS")`). This is
 the standard MV3 pattern — there is no extension-local key store to encrypt it
 with that wouldn't itself live in the same place — and it is the same trust
-boundary Chrome applies to the Gmail token it custodies via `chrome.identity`.
-The access token stays in memory-backed `chrome.storage.session`.
+boundary the Gmail refresh token sits in, the same way. Access tokens stay in
+memory-backed `chrome.storage.session`.
 
 ## Sub-processors
 
-None. Cluster operates no servers and uses no analytics, error-reporting, or
-third-party SDKs. The only network destinations are the Gmail API, the Microsoft
+Cluster runs one small server: the Gmail sign-in helper (`auth-worker/`, a
+Cloudflare Worker). Google issues tokens to Cluster's web client only with a
+client secret, which can't be kept inside an extension, so the helper adds it
+to the two token swaps: a sign-in code for tokens, and a refresh token for a new
+access token. It sees those tokens in transit and nothing else. It never sees
+mail, keeps no logs or traces, and stores nothing. Cluster uses no analytics,
+error-reporting, or third-party SDKs. The other network destinations are the Gmail API, the Microsoft
 Graph / sign-in endpoints, a per-click user-approved unsubscribe origin,
 Cluster's own published-dataset host (GitHub Pages, publishing only static,
 non-personal reference data — see "Host permissions" above), and — only under

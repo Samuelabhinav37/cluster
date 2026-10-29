@@ -233,19 +233,7 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
 
   const chromeStub = {
     storage: { local, session: fakeArea(), managed: fakeArea() },
-    identity: {
-      getAuthToken: (o: { scopes?: string[] }, cb: (t?: string) => void) => {
-        if (opts.denyFilterScope && o?.scopes?.some((s) => s.includes("settings.basic"))) {
-          (chromeStub.runtime as { lastError?: unknown }).lastError = { message: "denied" };
-          cb(undefined);
-          (chromeStub.runtime as { lastError?: unknown }).lastError = undefined;
-          return;
-        }
-        cb("token");
-      },
-      removeCachedAuthToken: (_d: unknown, cb: () => void) => cb(),
-      clearAllCachedAuthTokens: vi.fn(async () => {}),
-    },
+    identity: { getRedirectURL: () => "https://test.chromiumapp.org/" },
     runtime: { lastError: undefined as unknown, getURL: (p: string) => p, id: "test" },
     action: { setBadgeText: vi.fn(async () => {}), setBadgeBackgroundColor: vi.fn(async () => {}) },
     permissions: {
@@ -312,6 +300,20 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
       return ids;
     }),
   };
+  // Gmail sign-in (gmailWebAuth.ts has its own tests): always signed in; the
+  // filter permission is refused with denyFilterScope.
+  const MODIFY = "https://www.googleapis.com/auth/gmail.modify";
+  const FILTER = "https://www.googleapis.com/auth/gmail.settings.basic";
+  vi.doMock("../lib/gmailWebAuth", () => ({
+    getGmailToken: vi.fn(async (scopes: string[]) => {
+      if (opts.denyFilterScope && scopes.includes(FILTER)) throw new Error("The user did not approve access.");
+      return "token";
+    }),
+    grantedGmailScopes: vi.fn(async () => (opts.denyFilterScope ? [MODIFY] : [MODIFY, FILTER])),
+    dropGmailToken: vi.fn(async () => {}),
+    gmailRefreshToken: vi.fn(async () => "refresh-token"),
+    forgetGmailSignIn: vi.fn(async () => {}),
+  }));
   vi.doMock("../lib/gmailApi", async () => ({
     ...((await vi.importActual("../lib/gmailApi")) as Record<string, unknown>),
     ...gmailApiMock,

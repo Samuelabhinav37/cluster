@@ -20,6 +20,19 @@ import {
   screenSender,
   unmuteSender,
 } from "./gmailApi";
+import { dropGmailToken, getGmailToken } from "./gmailWebAuth";
+
+// Gmail sign-in itself is gmailWebAuth.ts (its own tests); here it hands back
+// `auth.token` with `auth.granted` permissions, or fails when `auth.fail`.
+const auth = vi.hoisted(() => ({ token: "filter-token", granted: [] as string[], fail: null as Error | null }));
+vi.mock("./gmailWebAuth", () => ({
+  getGmailToken: vi.fn(async () => {
+    if (auth.fail) throw auth.fail;
+    return auth.token;
+  }),
+  grantedGmailScopes: vi.fn(async () => auth.granted),
+  dropGmailToken: vi.fn(async () => {}),
+}));
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -75,13 +88,13 @@ describe("gmailQuotaCost", () => {
 const FILTER = "https://www.googleapis.com/auth/gmail.settings.basic";
 const MODIFY = "https://www.googleapis.com/auth/gmail.modify";
 
-/** chrome.identity that hands back `granted` for every token request. */
+/** Sign-in that hands back `granted` for every token request, or fails on null. */
 function stubIdentity(granted: string[] | null) {
-  const getAuthToken = vi.fn((_o: unknown, cb: (t?: string, g?: string[]) => void) =>
-    granted ? cb("filter-token", granted) : cb(undefined),
-  );
-  vi.stubGlobal("chrome", { identity: { getAuthToken }, runtime: {} });
-  return getAuthToken;
+  auth.token = "filter-token";
+  auth.granted = granted ?? [];
+  auth.fail = granted ? null : new Error("No auth token returned");
+  vi.mocked(getGmailToken).mockClear();
+  return vi.mocked(getGmailToken);
 }
 
 describe("filter permission", () => {
@@ -104,14 +117,11 @@ describe("filter permission", () => {
     vi.stubGlobal("document", undefined);
     await expect(getFilterAuthToken()).rejects.toBeInstanceOf(FilterPermissionError);
     expect(get).toHaveBeenCalledTimes(1);
-    expect(get.mock.calls[0][0]).toMatchObject({ interactive: false });
+    expect(get.mock.calls[0][1]).toBe(false);
   });
 
   it("refuses a main token without gmail.modify", async () => {
-    vi.stubGlobal("chrome", {
-      identity: { getAuthToken: (_o: unknown, cb: (t: string, g: string[]) => void) => cb("t", [FILTER]) },
-      runtime: {},
-    });
+    stubIdentity([FILTER]);
     await expect(getAuthToken_(false)).rejects.toThrow(/read and organize/);
   });
 });
@@ -296,10 +306,12 @@ describe("Gmail filter API request shape", () => {
 
 describe("Gmail stale-token recovery", () => {
   function stubIdentity(freshToken: string) {
-    const removeCachedAuthToken = vi.fn((_d: { token: string }, cb: () => void) => cb());
-    const getAuthToken = vi.fn((_o: unknown, cb: (t: string) => void) => cb(freshToken));
-    vi.stubGlobal("chrome", { runtime: {}, identity: { getAuthToken, removeCachedAuthToken } });
-    return { removeCachedAuthToken, getAuthToken };
+    auth.token = freshToken;
+    auth.granted = [MODIFY];
+    auth.fail = null;
+    vi.mocked(getGmailToken).mockClear();
+    vi.mocked(dropGmailToken).mockClear();
+    return { removeCachedAuthToken: vi.mocked(dropGmailToken), getAuthToken: vi.mocked(getGmailToken) };
   }
 
   it("evicts a 401 token, refreshes once, and retries the request", async () => {
@@ -312,7 +324,7 @@ describe("Gmail stale-token recovery", () => {
 
     await expect(getCurrentHistoryId("stale-token")).resolves.toBe("42");
 
-    expect(removeCachedAuthToken).toHaveBeenCalledWith({ token: "stale-token" }, expect.any(Function));
+    expect(removeCachedAuthToken).toHaveBeenCalledWith("stale-token");
     expect(getAuthToken).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect((fetchMock.mock.calls[1][1] as RequestInit).headers).toMatchObject({
@@ -432,14 +444,9 @@ describe("listMailboxChangesSince", () => {
 });
 
 describe("getAuthToken errors", () => {
-  it("rejects with a real Error carrying chrome.runtime.lastError's message", async () => {
-    const runtime: { lastError?: { message: string } } = {};
-    const getAuthToken = vi.fn((_o: unknown, cb: (t?: string) => void) => {
-      runtime.lastError = { message: "The user did not approve access." };
-      cb(undefined);
-      runtime.lastError = undefined;
-    });
-    vi.stubGlobal("chrome", { runtime, identity: { getAuthToken } });
+  it("passes the sign-in's own error through", async () => {
+    stubIdentity([MODIFY]);
+    auth.fail = new Error("The user did not approve access.");
 
     const err = await getAuthToken_(true).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(Error);

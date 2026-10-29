@@ -1,7 +1,7 @@
 # Store listing copy
 
 Canonical text for the Chrome Web Store listing. Keep the **first sentence the privacy
-position**, not the feature list — Cluster's "there is no server at all" claim is stronger than
+position**, not the feature list — Cluster's "your mail never touches our servers" claim is stronger than
 any competitor's "we don't read your mail with AI" positioning, and it's the reason to choose
 Cluster over the incumbents. Update this file in the same PR as any change to what Cluster reads
 or transmits, and keep it in sync with [`docs/privacy.md`](privacy.md) and `SECURITY.md`.
@@ -10,16 +10,16 @@ or transmits, and keep it in sync with [`docs/privacy.md`](privacy.md) and `SECU
 
 ## Short description (≤132 chars — CWS "summary")
 
-> Sort, declutter, and secure your Gmail/Outlook inbox. No server, headers first, on-device AI, open source.
+> Sort, declutter, and secure your Gmail/Outlook inbox. Mail stays in your browser, on-device AI, open source.
 
-(106 chars.)
+(108 chars.)
 
 ## Full description
 
 Cluster cleans up, sorts, and screens your Gmail or Outlook inbox with no server standing
-between you and your mail. Everything runs in your browser, under your own sign-in — there's
-no Cluster-operated backend to send anything to, and by default it only ever reads message
-headers, never the body of your mail.
+between you and your mail. Reading and sorting run in your browser, under your own sign-in.
+Your mail never goes to a Cluster server, and by default Cluster only reads message headers,
+never the body of your mail.
 
 **What it does**
 
@@ -49,7 +49,8 @@ Cluster. When a sender only accepts an unsubscribe email, Cluster shows you each
 to, subject, body) and sends it from your account only after you press Send. It shows in your
 Sent folder. Deep scan makes one outbound check of a link you're actively reviewing. Sorting/rules
 features create a filter or rule inside your own Gmail or Outlook account, the same as if you'd
-made it yourself. Signing in talks only to Google's or Microsoft's own servers. That's the
+made it yourself. Signing in to Gmail goes through Cluster's small sign-in helper, which adds
+Cluster's Google client secret and sees only sign-in tokens, never mail. That's the
 complete list — full disclosure at
 [`docs/privacy.md`](https://github.com/Samuelabhinav37/cluster/blob/master/docs/privacy.md).
 

@@ -55,8 +55,11 @@ Being honest about the narrow list of places data does go:
 - **Sorting and filtering.** Creating a Gmail filter or Outlook rule (for "keep sorted," "mute,"
   or the Screener) happens through Gmail's or Outlook's own API — it's your mailbox's own
   settings being changed, the same as if you'd clicked "create filter" yourself in Gmail.
-- **Signing in.** Your Gmail token is held by Chrome itself, not by Cluster. Your Outlook token
-  is used only to talk to Microsoft's own servers to keep you signed in.
+- **Signing in.** Gmail sign-in uses Google's own window. Google only completes it with
+  Cluster's client secret, which can't be kept safe inside an extension, so a small Cluster
+  sign-in helper adds it. The helper sees your sign-in tokens on their way through, never your
+  mail, and keeps nothing. Your Outlook token is used only to talk to Microsoft's own servers to
+  keep you signed in.
 - **Sender site icons.** The dashboard shows each sender's favicon, fetched from Google's public
   favicon service (`google.com/s2/favicons`) by domain only — an uncredentialed image request,
   no cookies, no other data, one per unique sender domain. This does tell Google which sender

@@ -27,9 +27,11 @@ describe("manifest: permission surface", () => {
 
   it("requests exactly the expected install-time host permissions", () => {
     expect([...manifest.host_permissions].sort()).toEqual([
+      "https://cluster-auth.samuelabhinav37.workers.dev/*",
       "https://gmail.googleapis.com/*",
       "https://graph.microsoft.com/*",
       "https://login.microsoftonline.com/*",
+      "https://oauth2.googleapis.com/*",
       "https://samuelabhinav37.github.io/*",
     ]);
   });
@@ -51,9 +53,8 @@ describe("manifest: permission surface", () => {
     expect(m.externally_connectable).toBeUndefined();
   });
 
-  it("asks Google only for gmail.modify at install (filters and full mail scope are asked for when used)", () => {
-    expect([...manifest.oauth2.scopes]).toEqual(["https://www.googleapis.com/auth/gmail.modify"]);
-    expect(manifest.oauth2.scopes).not.toContain("https://mail.google.com/");
+  it("declares no Google scopes: Gmail signs in through its own window (gmailWebAuth.ts) and asks per use", () => {
+    expect((manifest as Record<string, unknown>).oauth2).toBeUndefined();
   });
 
   it("is MV3 with a module service worker", () => {
