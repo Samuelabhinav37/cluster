@@ -1945,47 +1945,12 @@ input.switch:disabled {
 
 /* ══ v4 Organize pages (stage 3) ══════════════════════════════════════════ */
 
-.limit-rows {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  column-gap: 28px;
-  margin: 4px 0 10px;
-  padding: 4px 16px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-list);
-  background: var(--glass);
-}
-
-.limit-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 48px;
-  border-bottom: 1px solid var(--separator);
-  font: 500 15px/1.3 var(--font);
-  color: var(--label);
-  cursor: default;
-}
-
-.limit-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.limit-row select {
-  flex: none;
-  width: 9.5em;
-  min-height: 0;
-  height: 32px;
-  padding: 0 10px;
-}
-
-#time-limits-section:has(#time-limits-toggle:not(:checked)) .limit-row {
-  color: var(--label-4);
-}
+/* The kind list's menus line up in one column. */
+.ios-row .kind-pick { width: 10.5em; min-height: 0; height: 32px; padding: 0 10px; }
+#sort-inbox-section .presets-guard { margin: 8px 16px 14px; }
+#sort-inbox-bar { margin-top: 14px; }
+/* Its tools need on-device AI; with neither shown, the disclosure goes too. */
+#more-tools:not(:has(> section:not([hidden]))) { display: none; }
 
 /* ══ v4 Settings, simple mode, setup (stage 4) ════════════════════════════ */
 

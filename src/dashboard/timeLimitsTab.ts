@@ -1,10 +1,10 @@
-// "Inbox time limits" on the Organize screen: how long each category's new
-// mail stays in the inbox before it moves into its label. Saving syncs the
-// per-category Gmail filters and runs one sweep straight away; the background
-// alarm keeps it going every 5 minutes (see lib/inboxTimeLimits.ts).
-import { categoryQuery } from "../lib/categoryQueries";
+// Organize's one list: where each kind of mail goes. A kind stays in the
+// inbox, goes straight to its label, or leaves after a set time. The switch
+// keeps it going for new mail: saving syncs the per-category Gmail filters and
+// runs one sweep straight away; the background alarm repeats it every 5
+// minutes (see lib/inboxTimeLimits.ts). Sort my inbox (sortInbox.ts) reads
+// the same menus for mail already here.
 import { categoryLabelName, syncGmailCategoryFilters } from "../lib/categoryFilters";
-import { batchModify, getOrCreateLabel, listMessageIds } from "../lib/gmailApi";
 import { runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
 import { log } from "../lib/log";
 import { gmailProvider } from "../lib/providers/gmailProvider";
@@ -14,29 +14,25 @@ import { deliverNewsletters, HOLD_HOURS, newsletterDayOn } from "../lib/newslett
 import type { SenderSummary } from "../lib/senderModel";
 import { ALL_SORT_BUCKETS, effectiveBucket, type SortBucket } from "../lib/sortTaxonomy";
 import { icon } from "./homeDashboard";
-import { logAction } from "./recentTab";
 import { ctx } from "./state";
 
 const toggleEl = document.getElementById("time-limits-toggle") as HTMLInputElement | null;
 const rowsEl = document.getElementById("time-limits-rows") as HTMLDivElement | null;
-const saveBtn = document.getElementById("time-limits-save") as HTMLButtonElement | null;
-const statusEl = document.getElementById("time-limits-status") as HTMLSpanElement | null;
+const statusEl = document.getElementById("time-limits-status") as HTMLParagraphElement | null;
 const lastRunEl = document.getElementById("time-limits-last") as HTMLParagraphElement | null;
-const backlogBtn = document.getElementById("time-limits-backlog-btn") as HTMLButtonElement | null;
-const backlogEl = document.getElementById("time-limits-backlog") as HTMLDivElement | null;
 
 /** Select options: hours, or null for "stays in inbox". */
 export const LIMIT_CHOICES: { label: string; hours: number | null }[] = [
-  { label: "Straight to label", hours: 0 },
-  { label: "10 minutes", hours: 1 / 6 },
-  { label: "1 hour", hours: 1 },
-  { label: "1 day", hours: 24 },
-  { label: "2 days", hours: 48 },
-  { label: "3 days", hours: 72 },
-  { label: "7 days", hours: 168 },
-  { label: "14 days", hours: 336 },
-  { label: "30 days", hours: 720 },
   { label: "Stays in inbox", hours: null },
+  { label: "Straight to label", hours: 0 },
+  { label: "After 10 minutes", hours: 1 / 6 },
+  { label: "After 1 hour", hours: 1 },
+  { label: "After 1 day", hours: 24 },
+  { label: "After 2 days", hours: 48 },
+  { label: "After 3 days", hours: 72 },
+  { label: "After 1 week", hours: 168 },
+  { label: "After 2 weeks", hours: 336 },
+  { label: "After 30 days", hours: 720 },
 ];
 
 /** "Straight to label" skips the inbox entirely, so it's offered only for
@@ -58,6 +54,20 @@ const BUCKET_HINT: Record<SortBucket, string> = {
   finance: "Banks, cards, statements",
   productivity: "Slack, GitHub, Notion and similar",
   education: "Courses and school",
+};
+
+const BUCKET_ICON: Record<SortBucket, string> = {
+  otp: "key",
+  receipt: "receipt",
+  shipping: "package",
+  newsletter: "news",
+  social: "users",
+  promotions: "tag",
+  shopping: "bag",
+  travel: "plane",
+  finance: "card",
+  productivity: "briefcase",
+  education: "cap",
 };
 
 function choiceValue(hours: number | null): string {
@@ -84,63 +94,109 @@ function selectFor(bucket: SortBucket): HTMLSelectElement | null {
   return document.getElementById(`time-limit-${bucket}`) as HTMLSelectElement | null;
 }
 
+// "N now" comes from Sort my inbox's plan (sortInbox.ts), "a week" from the scan.
+let nowByBucket = new Map<SortBucket, number>();
+
+export function setNowCounts(counts: ReadonlyMap<SortBucket, number>): void {
+  nowByBucket = new Map(counts);
+  renderKindSubs();
+}
+
+function kindSub(bucket: SortBucket, weekly: ReadonlyMap<SortBucket, number>): string {
+  const now = nowByBucket.get(bucket) ?? 0;
+  const week = weekly.get(bucket) ?? 0;
+  if (now === 0 && week === 0) return "None right now";
+  return week > 0 ? `${now.toLocaleString()} now · about ${week.toLocaleString()} a week` : `${now.toLocaleString()} now`;
+}
+
+function renderKindSubs(): void {
+  const weekly = weeklyByBucket(presetSenders, Date.now());
+  for (const bucket of ALL_SORT_BUCKETS) {
+    const sub = document.getElementById(`time-limit-sub-${bucket}`);
+    if (sub) sub.textContent = kindSub(bucket, weekly);
+  }
+}
+
+/** Keeps a menu choice. With the switch on it also goes to Gmail. */
+async function chooseLimit(): Promise<void> {
+  if (toggleEl?.checked) {
+    await save();
+    return;
+  }
+  ctx.settings = await updateSettings({
+    autoSort: { ...ctx.settings.autoSort, inboxHoursByBucket: limitsFromMenus() },
+  });
+}
+
 export function renderTimeLimits(): void {
-  if (!toggleEl || !rowsEl || !lastRunEl || !backlogBtn) return;
+  if (!toggleEl || !rowsEl || !lastRunEl) return;
   const cfg = ctx.settings.autoSort;
   toggleEl.checked = cfg.timeLimitsEnabled;
-  rowsEl.innerHTML = "";
-  // One compact row per kind: its label and how long it stays in the inbox.
-  for (const bucket of ALL_SORT_BUCKETS) {
-    const labelName = categoryLabelName(bucket, ctx.settings.labelChoices);
-    const plainName = labelName.replace(/^\S+\s/, "");
-    const row = document.createElement("label");
-    row.className = "limit-row";
-    row.title = BUCKET_HINT[bucket];
-    const name = document.createElement("span");
-    name.className = "limit-name";
-    name.textContent = labelName;
-    const select = document.createElement("select");
-    select.id = `time-limit-${bucket}`;
-    select.setAttribute("aria-label", `${plainName}: time in your inbox`);
-    for (const choice of limitChoicesFor(bucket)) select.add(new Option(choice.label, choiceValue(choice.hours)));
-    select.value = choiceValue(cfg.inboxHoursByBucket[bucket] ?? null);
-    row.append(name, select);
-    rowsEl.appendChild(row);
-  }
+  // One row per kind: icon, name, how much there is, and where it goes.
+  rowsEl.replaceChildren(
+    ...ALL_SORT_BUCKETS.map((bucket) => {
+      const plainName = categoryLabelName(bucket, ctx.settings.labelChoices).replace(/^\S+\s/, "");
+      const row = document.createElement("div");
+      row.className = "ios-row";
+      row.title = BUCKET_HINT[bucket];
+      const mark = document.createElement("span");
+      mark.className = "app-ic";
+      mark.append(icon(BUCKET_ICON[bucket]));
+      const words = document.createElement("span");
+      words.className = "grow";
+      const sub = Object.assign(document.createElement("span"), { className: "sub", id: `time-limit-sub-${bucket}` });
+      words.append(plainName, sub);
+      const select = document.createElement("select");
+      select.id = `time-limit-${bucket}`;
+      select.className = "kind-pick";
+      select.setAttribute("aria-label", `${plainName}: where it goes`);
+      for (const choice of limitChoicesFor(bucket)) select.add(new Option(choice.label, choiceValue(choice.hours)));
+      select.value = choiceValue(cfg.inboxHoursByBucket[bucket] ?? null);
+      select.onchange = () => void chooseLimit();
+      row.append(mark, words, select);
+      return row;
+    }),
+  );
+  renderKindSubs();
   lastRunEl.textContent =
     cfg.timeLimitsEnabled && cfg.lastSweep.at > 0
       ? `Last checked ${ago(cfg.lastSweep.at)}: moved ${plural(cfg.lastSweep.moved, "message")} into their labels.`
       : "";
-  backlogBtn.hidden = !cfg.timeLimitsEnabled;
   renderPresets();
 }
 
-/** Fills the rows with suggested values (from first-run setup) and turns the
- * switch on, without saving: Gmail only changes when the user presses Save. */
+/** Fills the menus with suggested values (from first-run setup) without
+ * saving: Gmail only changes when the user turns the switch on. */
 export function proposeTimeLimits(hours: Partial<Record<SortBucket, number | null>>, message: string): void {
-  if (!toggleEl || !statusEl) return;
+  if (!statusEl) return;
   for (const [bucket, value] of Object.entries(hours)) {
     const select = selectFor(bucket as SortBucket);
-    if (!select) continue;
-    select.value = choiceValue(value ?? null);
-    select.dispatchEvent(new Event("change"));
+    if (select) select.value = choiceValue(value ?? null);
   }
-  toggleEl.checked = true;
+  // Sort my inbox recounts from the menus.
+  rowsEl?.dispatchEvent(new Event("change"));
   statusEl.textContent = message;
 }
 
-async function save(): Promise<boolean> {
-  if (!toggleEl || !saveBtn || !statusEl) return false;
+function limitsFromMenus(): Record<string, number | null> {
   const inboxHoursByBucket: Record<string, number | null> = { ...ctx.settings.autoSort.inboxHoursByBucket };
   for (const bucket of ALL_SORT_BUCKETS) {
     const select = selectFor(bucket);
     if (select) inboxHoursByBucket[bucket] = parseChoice(select.value);
   }
-  saveBtn.disabled = true;
+  return inboxHoursByBucket;
+}
+
+async function save(): Promise<boolean> {
+  if (!toggleEl || !statusEl) return false;
+  const inboxHoursByBucket = limitsFromMenus();
+  toggleEl.disabled = true;
   statusEl.textContent = "Saving…";
   try {
+    // One switch: the time limits and the filters for new mail go together.
+    const on = toggleEl.checked;
     ctx.settings = await updateSettings({
-      autoSort: { ...ctx.settings.autoSort, timeLimitsEnabled: toggleEl.checked, inboxHoursByBucket },
+      autoSort: { ...ctx.settings.autoSort, timeLimitsEnabled: on, keepSorting: on, inboxHoursByBucket },
     });
     const token = await gmailProvider.getAuthToken(false);
     const synced = await syncGmailCategoryFilters(ctx.settings, token);
@@ -152,8 +208,8 @@ async function save(): Promise<boolean> {
       },
     });
     const filters = Object.keys(synced.filterIdsByBucket).length;
-    if (!toggleEl.checked) {
-      statusEl.textContent = filters > 0 ? `Time limits off. ${plural(filters, "Gmail filter")} kept for Sort my inbox.` : "Time limits off.";
+    if (!on) {
+      statusEl.textContent = "Off. New mail stays where it lands.";
     } else {
       statusEl.textContent = `Saved. ${plural(filters, "Gmail filter")} label new mail as it arrives. Checking your inbox…`;
       const run = await runInboxTimeLimits();
@@ -169,137 +225,12 @@ async function save(): Promise<boolean> {
     statusEl.textContent = "Couldn't save to Gmail. Try again.";
     return false;
   } finally {
-    saveBtn.disabled = false;
+    toggleEl.disabled = false;
     renderTimeLimits();
   }
 }
 
-interface BacklogRow {
-  bucket: SortBucket;
-  labelName: string;
-  ids: string[];
-}
-
-/** Mail already in the inbox that matches each category's Gmail query: a
- * server-side search, so no message is read. */
-async function previewBacklog(): Promise<void> {
-  if (!backlogEl || !backlogBtn) return;
-  backlogBtn.disabled = true;
-  backlogEl.hidden = false;
-  backlogEl.textContent = "Looking through your inbox…";
-  try {
-    const token = await gmailProvider.getAuthToken(false);
-    const rows: BacklogRow[] = [];
-    for (const bucket of ALL_SORT_BUCKETS) {
-      const query = categoryQuery(bucket, ctx.settings.sortOverrides);
-      if (!query) continue;
-      const stubs = await listMessageIds(token, `in:inbox -is:starred ${query}`, 5000);
-      if (stubs.length === 0) continue;
-      rows.push({ bucket, labelName: categoryLabelName(bucket, ctx.settings.labelChoices), ids: stubs.map((s) => s.id) });
-    }
-    renderBacklogPreview(token, rows);
-  } catch (err) {
-    log.error("time limits: backlog preview failed", err);
-    backlogEl.textContent = "Couldn't search your inbox. Try again.";
-    backlogBtn.disabled = false;
-  }
-}
-
-function renderBacklogPreview(token: string, rows: BacklogRow[]): void {
-  if (!backlogEl || !backlogBtn) return;
-  backlogEl.innerHTML = "";
-  if (rows.length === 0) {
-    backlogEl.textContent = "Nothing in your inbox matches a category yet.";
-    backlogBtn.disabled = false;
-    return;
-  }
-  const intro = document.createElement("p");
-  intro.className = "hint";
-  intro.textContent =
-    "This labels mail already in your inbox. Mail past its time moves out over the next few checks.";
-  backlogEl.appendChild(intro);
-
-  const boxes = new Map<SortBucket, HTMLInputElement>();
-  for (const row of rows) {
-    const line = document.createElement("label");
-    line.className = "tidy-row";
-    const box = document.createElement("input");
-    box.type = "checkbox";
-    box.checked = true;
-    boxes.set(row.bucket, box);
-    const text = document.createElement("span");
-    text.textContent = `${row.labelName} · ${plural(row.ids.length, "message")}`;
-    line.append(box, text);
-    backlogEl.appendChild(line);
-  }
-
-  const apply = document.createElement("button");
-  apply.type = "button";
-  apply.className = "btn btn-accent";
-  apply.textContent = "Label them";
-  const cancel = document.createElement("button");
-  cancel.type = "button";
-  cancel.className = "btn";
-  cancel.textContent = "Cancel";
-  const status = document.createElement("span");
-  status.className = "hint";
-  status.setAttribute("role", "status");
-  const actions = document.createElement("div");
-  actions.className = "tidy-actions";
-  actions.append(apply, cancel, status);
-  backlogEl.appendChild(actions);
-
-  cancel.onclick = () => {
-    backlogEl.hidden = true;
-    backlogBtn.disabled = false;
-  };
-  apply.onclick = async () => {
-    apply.disabled = true;
-    cancel.disabled = true;
-    status.textContent = "Labelling…";
-    let total = 0;
-    try {
-      for (const row of rows) {
-        if (!boxes.get(row.bucket)?.checked) continue;
-        const labelId = await getOrCreateLabel(token, row.labelName);
-        await batchModify(token, row.ids, [labelId], []);
-        total += row.ids.length;
-        await logAction("sort", `Labelled ${plural(row.ids.length, "inbox message")} "${row.labelName}"`, {
-          provider: "gmail",
-          ids: row.ids,
-          via: "unsort",
-          labelName: row.labelName,
-          wasFiledOut: false,
-        });
-      }
-      status.textContent = `Labelled ${plural(total, "message")}. Ones past their time move out on the next checks.`;
-      cancel.disabled = false;
-      cancel.textContent = "Close";
-      backlogBtn.disabled = false;
-    } catch (err) {
-      log.error("time limits: backlog apply failed", err);
-      status.textContent = `Stopped after ${plural(total, "message")}. Try again to continue.`;
-      apply.disabled = false;
-      cancel.disabled = false;
-    }
-  };
-}
-
-// ── Presets (Track 4): one tap turns on one kind's time limit ──────────
-// Each is a ready-made value for one row of the editor below, saved through
-// the same path, so "Make your own" and a preset never disagree.
-
-export const PRESETS: ReadonlyArray<{ id: string; hours: Partial<Record<SortBucket, number>>; name: string; rule: string }> = [
-  { id: "codes", hours: { otp: 24 }, name: "Codes", rule: "Leave after a day" },
-  { id: "promotions", hours: { promotions: 0 }, name: "Promotions", rule: "Skip the inbox" },
-  { id: "newsletters", hours: { newsletter: 168 }, name: "Newsletters", rule: "Leave after a week" },
-  // One place for your paper trail, like HEY's Paper Trail and Apple's Transactions.
-  { id: "receipts", hours: { receipt: 168, shipping: 168 }, name: "Receipts and tracking", rule: "Leave after a week" },
-  { id: "social", hours: { social: 24 }, name: "Social", rule: "Leave after a day" },
-  { id: "shopping", hours: { shopping: 72 }, name: "Shopping", rule: "Leave after 3 days" },
-  // Slack, GitHub, Notion and other app notices.
-  { id: "updates", hours: { productivity: 168 }, name: "App updates", rule: "Leave after a week" },
-];
+// ── Presets: what arrives on a schedule, and one-time moves ────────────
 
 const presetsEl = document.getElementById("presets") as HTMLDivElement | null;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -319,7 +250,7 @@ export function weeklyByBucket(senders: readonly SenderSummary[], now: number): 
 
 type Limits = Record<string, number | null>;
 
-/** Sets every row and the switch, then saves. Time limits stay on while any
+/** Sets every menu and the switch, then saves. Time limits stay on while any
  * kind has one. */
 async function saveLimits(hours: Limits): Promise<void> {
   if (!toggleEl) return;
@@ -328,10 +259,7 @@ async function saveLimits(hours: Limits): Promise<void> {
     if (select) select.value = choiceValue(hours[bucket] ?? null);
   }
   toggleEl.checked = Object.values(hours).some((h) => h != null);
-  if (await save()) return;
-  // The editor's status line says why; show it.
-  document.getElementById("time-limits-section")?.setAttribute("open", "");
-  renderPresets();
+  if (!(await save())) renderPresets();
 }
 
 /** The current limits, or all off when time limits are off, so switching one
@@ -405,34 +333,13 @@ export function setPresetActions(cards: () => HTMLElement[]): void {
 export function renderPresets(senders: readonly SenderSummary[] = presetSenders): void {
   presetSenders = senders;
   if (!presetsEl) return;
-  const cfg = ctx.settings.autoSort;
-  const weekly = weeklyByBucket(senders, Date.now());
+  renderKindSubs();
   const cards = [
-    ...PRESETS.map((p) => {
-      const kinds = Object.entries(p.hours) as Array<[SortBucket, number]>;
-      const on = cfg.timeLimitsEnabled && kinds.every(([b, h]) => cfg.inboxHoursByBucket[b] === h);
-      const card = document.createElement("div");
-      card.className = "rec-card";
-      card.dataset.preset = p.id;
-      const name = document.createElement("div");
-      name.className = "rec-name";
-      name.textContent = p.name;
-      const fact = document.createElement("div");
-      fact.className = "rec-fact";
-      const n = kinds.reduce((sum, [b]) => sum + (weekly.get(b) ?? 0), 0);
-      fact.textContent = on ? "On" : `${p.rule} · ${n > 0 ? `about ${n.toLocaleString()} a week` : "none this week"}`;
-      const sw = presetSwitch(p.name, on, () => {
-        const next = Object.fromEntries(kinds.map(([b, h]) => [b, on ? null : h]));
-        return saveLimits({ ...currentLimits(), ...next });
-      });
-      card.append(name, fact, sw);
-      return card;
-    }),
     newsletterDayCard(),
     ...extraCards(),
   ];
-  // Grouped lists, like iOS Settings: what leaves on a timer, what arrives
-  // on a schedule, and one-time tidy-ups.
+  // Grouped lists, like iOS Settings: what arrives on a schedule, and
+  // one-time moves out of the inbox.
   presetsEl.replaceChildren(
     ...PRESET_GROUPS.map(([head, ids]) => {
       const rows = cards.filter((c) => ids.includes(c.dataset.preset ?? ""));
@@ -461,19 +368,11 @@ export function renderPresets(senders: readonly SenderSummary[] = presetSenders)
 }
 
 const PRESET_GROUPS: ReadonlyArray<[head: string, ids: string[]]> = [
-  ["Archive after a while", PRESETS.map((p) => p.id)],
   ["Arrive on time", ["saturday", "no-reply"]],
-  ["Tidy once", ["never-opened", "keep-newest", "delivered"]],
+  ["Move out once", ["never-opened", "keep-newest", "delivered"]],
 ];
 
 const PRESET_ICONS: Record<string, string> = {
-  codes: "key",
-  promotions: "tag",
-  newsletters: "news",
-  receipts: "receipt",
-  social: "users",
-  shopping: "bag",
-  updates: "bell",
   saturday: "calendar",
   "no-reply": "reply",
   "never-opened": "mail-x",
@@ -482,7 +381,6 @@ const PRESET_ICONS: Record<string, string> = {
 };
 
 export function wireTimeLimits(): void {
-  if (saveBtn) saveBtn.onclick = () => void save();
-  if (backlogBtn) backlogBtn.onclick = () => void previewBacklog();
+  if (toggleEl) toggleEl.onchange = () => void save();
   renderTimeLimits();
 }

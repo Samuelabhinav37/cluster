@@ -51,14 +51,12 @@ import type { ProviderId } from "../lib/providers/emailProvider";
 import type { SenderSummary } from "../lib/senderModel";
 import { updateSettings } from "../lib/settingsStore";
 import { activeProviders, ctx, logAction, providerById, rescan } from "./state";
+import { setNowCounts } from "./timeLimitsTab";
 import { formatRelativeTime, pruneSelection } from "./ui";
 
 const sortInboxBtn = document.getElementById("sort-inbox-btn") as HTMLButtonElement;
 const sortInboxSlot = document.getElementById("sort-inbox-slot") as HTMLSpanElement;
 const sortInboxCountEl = document.getElementById("sort-inbox-count") as HTMLSpanElement;
-const sortInboxBucketsEl = document.getElementById("sort-inbox-buckets") as HTMLDivElement;
-const sortKeepSortingEl = document.getElementById("sort-keep-sorting") as HTMLInputElement;
-const sortExpireOtpEl = document.getElementById("sort-expire-otp") as HTMLInputElement;
 const sortInboxPreviewEl = document.getElementById("sort-inbox-preview") as HTMLDivElement;
 const sortSeedCardEl = document.getElementById("sort-seed-card") as HTMLElement;
 
@@ -78,87 +76,51 @@ function resetSortInboxSlot() {
   sortInboxSlot.appendChild(sortInboxBtn);
 }
 
-/** Per-category "take it out of the inbox now". With inbox time limits on,
- * only a 0-hour limit does; the sweep moves the rest once their time is up. */
-function fileOutChoices(): Record<string, boolean> {
-  const cfg = ctx.settings.autoSort;
-  if (!cfg.timeLimitsEnabled) return cfg.fileOutByBucket;
-  return Object.fromEntries(ALL_SORT_BUCKETS.map((b) => [b, cfg.inboxHoursByBucket[b] === 0]));
-}
-
 function clearSortPreview() {
   sortInboxPreviewEl.innerHTML = "";
 }
 
-function sortBucketChoices(): { bucket: SortBucket; include: boolean; keepInInbox: boolean }[] {
-  return ALL_SORT_BUCKETS.filter((b) => sortPlan.some((e) => e.bucket === b)).map((bucket) => {
-    const include =
-      (document.getElementById(`sort-inc-${bucket}`) as HTMLInputElement | null)?.checked ?? false;
-    const keepInInbox =
-      (document.getElementById(`sort-keep-${bucket}`) as HTMLInputElement | null)?.checked ?? false;
-    return { bucket, include, keepInInbox };
+const HOUR_MS = 60 * 60 * 1000;
+
+/** A kind's menu on the Organize list: hours in the inbox, or null when it stays. */
+function limitFor(bucket: SortBucket): number | null {
+  const value = (document.getElementById(`time-limit-${bucket}`) as HTMLSelectElement | null)?.value;
+  if (value === undefined) return ctx.settings.autoSort.inboxHoursByBucket[bucket] ?? null;
+  return value === "stay" ? null : Number(value);
+}
+
+function planPart(entry: SortPlanEntry, messages: SortPlanMessage[], fileOut: boolean): SortPlanEntry {
+  const idsByProvider = new Map<ProviderId, string[]>();
+  for (const m of messages) idsByProvider.set(m.provider, [...(idsByProvider.get(m.provider) ?? []), m.id]);
+  return { ...entry, fileOut, messages, count: messages.length, idsByProvider };
+}
+
+/** The plan as Sort my inbox runs it: kinds that stay drop out, and each other
+ * kind splits into mail past its time (moves out now) and mail that isn't yet
+ * (labelled, left in the inbox for the timer). */
+function chosenEntries(now = Date.now()): SortPlanEntry[] {
+  return sortPlan.flatMap((entry) => {
+    const hours = limitFor(entry.bucket);
+    if (hours === null) return [];
+    const due = entry.messages.filter((m) => now - m.receivedAt >= hours * HOUR_MS);
+    const notYet = entry.messages.filter((m) => now - m.receivedAt < hours * HOUR_MS);
+    return [planPart(entry, due, true), planPart(entry, notYet, false)].filter((e) => e.count > 0);
   });
 }
 
 function updateSortInboxCount() {
-  const chosen = new Set(
-    sortBucketChoices()
-      .filter((c) => c.include)
-      .map((c) => c.bucket),
-  );
-  const entries = sortPlan.filter((e) => chosen.has(e.bucket));
-  const msgs = totalPlanCount(entries);
-  sortInboxCountEl.textContent = entries.length
-    ? `${msgs} message${msgs === 1 ? "" : "s"} → ${entries.length} label${entries.length === 1 ? "" : "s"}`
-    : "nothing to sort";
-  sortInboxBtn.disabled = entries.length === 0;
+  const chosen = chosenEntries();
+  const moving = totalPlanCount(chosen.filter((e) => e.fileOut));
+  const labelled = totalPlanCount(chosen) - moving;
+  const emails = (n: number) => `${n.toLocaleString()} email${n === 1 ? "" : "s"}`;
+  sortInboxCountEl.textContent =
+    moving > 0 ? `${emails(moving)} move now` : labelled > 0 ? `${emails(labelled)} get labels` : "Nothing to sort";
+  sortInboxBtn.disabled = chosen.length === 0;
 }
 
-// The config <details> checkbox rows — one per bucket in the current plan.
-// Rebuilt whenever the plan changes (a fresh scan, or a "wrong bucket?"
-// override that adds/removes a bucket).
-function renderSortBucketToggles() {
-  const cfg = ctx.settings.autoSort;
-  const neverConfigured = cfg.enabledBuckets.length === 0;
-  sortInboxBucketsEl.innerHTML = "";
-  for (const entry of sortPlan) {
-    const row = document.createElement("label");
-    row.className = "setting-toggle";
-    const inc = document.createElement("input");
-    inc.type = "checkbox";
-    inc.id = `sort-inc-${entry.bucket}`;
-    inc.checked = neverConfigured || cfg.enabledBuckets.includes(entry.bucket);
-    inc.onchange = updateSortInboxCount;
-
-    const text = document.createElement("span");
-    text.textContent = ` ${SORT_BUCKET_LABELS[entry.bucket]}: ${entry.count} `;
-
-    const keep = document.createElement("label");
-    keep.className = "hint";
-    const keepBox = document.createElement("input");
-    keepBox.type = "checkbox";
-    keepBox.id = `sort-keep-${entry.bucket}`;
-    keepBox.checked = !entry.fileOut;
-    keep.append(keepBox, document.createTextNode(" keep in inbox"));
-    // With inbox time limits on, the limit decides when mail leaves the inbox.
-    keep.hidden = cfg.timeLimitsEnabled;
-
-    row.append(inc, text, keep);
-    sortInboxBucketsEl.appendChild(row);
-  }
-
-  const filterCount = Object.values(cfg.filterIdsByBucket).reduce((n, ids) => n + ids.length, 0);
-  const ruleCount = Object.values(cfg.ruleIdsByBucket).reduce((n, ids) => n + ids.length, 0);
-  if (filterCount + ruleCount > 0) {
-    const parts: string[] = [];
-    if (filterCount > 0) parts.push(`${filterCount} Gmail filter${filterCount === 1 ? "" : "s"}`);
-    if (ruleCount > 0) parts.push(`${ruleCount} Outlook rule${ruleCount === 1 ? "" : "s"}`);
-    const note = document.createElement("p");
-    note.className = "hint";
-    note.textContent = `${parts.join(" and ")} label new mail as it arrives.`;
-    sortInboxBucketsEl.appendChild(note);
-  }
-
+/** The plan changed: refresh each kind's "N now" and the button's count. */
+function planChanged() {
+  setNowCounts(new Map(sortPlan.map((e) => [e.bucket, e.count])));
   updateSortInboxCount();
 }
 
@@ -168,17 +130,14 @@ function senderKinds() {
 }
 
 function renderSortInbox(senders: SenderSummary[]) {
-  const cfg = ctx.settings.autoSort;
-  sortPlan = buildSortPlan(senders, fileOutChoices(), ctx.settings.sortOverrides, senderKinds());
+  sortPlan = buildSortPlan(senders, {}, ctx.settings.sortOverrides, senderKinds());
   resetSortInboxSlot();
   clearSortPreview();
   pruneSelection(
     excludedSortIds,
     sortPlan.flatMap((e) => e.messages.map((m) => m.id)),
   );
-  sortKeepSortingEl.checked = cfg.keepSorting;
-  sortExpireOtpEl.checked = cfg.expireOtp;
-  renderSortBucketToggles();
+  planChanged();
 }
 
 // Cluster's sort-bucket labels are flat ("Shopping", …). Before applying, we
@@ -226,29 +185,18 @@ async function resolveSortLabelConflict(desired: string, choice: LabelChoice, re
 // "wrong bucket?" correction can re-resolve names without another fetch.
 let lastKnownLabelNames: string[] = [];
 
-// Re-derive the plan with the current per-sender overrides, refresh the config
-// toggles, resolve label names, and show either the collision prompt or the
+// Re-derive the plan with the current per-sender overrides, refresh the counts,
+// resolve label names, and show either the collision prompt or the
 // preview. Called by the button and after every override change.
 function rebuildSortPreview() {
-  sortPlan = buildSortPlan(
-    ctx.senders,
-    ctx.settings.autoSort.fileOutByBucket,
-    ctx.settings.sortOverrides,
-    senderKinds(),
-  );
-  renderSortBucketToggles();
+  sortPlan = buildSortPlan(ctx.senders, {}, ctx.settings.sortOverrides, senderKinds());
+  planChanged();
   pruneSelection(
     excludedSortIds,
     sortPlan.flatMap((e) => e.messages.map((m) => m.id)),
   );
 
-  const rawChosen = sortBucketChoices()
-    .filter((c) => c.include)
-    .map((c) => {
-      const entry = sortPlan.find((e) => e.bucket === c.bucket)!;
-      return { ...entry, fileOut: !c.keepInInbox };
-    })
-    .filter((e) => e.count > 0);
+  const rawChosen = chosenEntries();
   if (rawChosen.length === 0) {
     clearSortPreview();
     return;
@@ -413,7 +361,8 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
   if (effective.length === 0) return "Nothing selected";
 
   const total = effective.reduce((sum, e) => sum + e.count, 0);
-  const keepOn = sortKeepSortingEl.checked;
+  // The list's switch: keep doing this for new mail.
+  const keepOn = ctx.settings.autoSort.timeLimitsEnabled;
 
   // Apply the one-time backlog.
   for (const entry of effective) {
@@ -459,7 +408,7 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
 
   // ── Keep sorting ───────────────────────────────────────────────────────
   // Which categories stay sorted is a setting, not "whatever had mail in this
-  // scan": a ticked category with nothing to sort today keeps its filter, and
+  // scan": a chosen category with nothing to sort today keeps its filter, and
   // a category not shown this time keeps whatever it had.
   const shown = new Set<string>(sortPlan.map((e) => e.bucket));
   const enabledBuckets = [
@@ -472,16 +421,7 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
     autoSort: {
       ...ctx.settings.autoSort,
       enabledBuckets,
-      // Under time limits the per-category choice comes from the limit, so
-      // keep the user's own file-out choices for when limits are off again.
-      fileOutByBucket: ctx.settings.autoSort.timeLimitsEnabled
-        ? ctx.settings.autoSort.fileOutByBucket
-        : {
-            ...ctx.settings.autoSort.fileOutByBucket,
-            ...Object.fromEntries(effective.map((e) => [e.bucket, e.fileOut])),
-          },
       keepSorting: keepOn,
-      expireOtp: sortExpireOtpEl.checked,
     },
   });
 
@@ -532,7 +472,18 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
   if (keepOn) {
     const sortCompletions: Array<{ rule: ClusterRule; idsByProvider: Map<ProviderId, string[]> }> = [];
 
-    for (const entry of effective) {
+    // One standing rule per kind, however the one-time sort split it. A rule
+    // has no timer, so only "Straight to label" files new mail out.
+    const standing = new Map<SortBucket, (typeof effective)[number]>();
+    for (const e of effective) {
+      const prev = standing.get(e.bucket);
+      if (!prev) {
+        standing.set(e.bucket, { ...e, fileOut: limitFor(e.bucket) === 0, idsByProvider: new Map(e.idsByProvider) });
+        continue;
+      }
+      for (const [pid, ids] of e.idsByProvider) prev.idsByProvider.set(pid, [...(prev.idsByProvider.get(pid) ?? []), ...ids]);
+    }
+    for (const entry of standing.values()) {
       const server = isServerSortBucket(entry.bucket);
       const hasOutlook = (entry.idsByProvider.get("outlook") ?? []).length > 0;
       const terms = server ? bucketMatchTerms(entry.bucket, ctx.settings.sortOverrides) : null;
@@ -586,7 +537,7 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
         ),
       });
     }
-    if (sortExpireOtpEl.checked) {
+    if (ctx.settings.autoSort.expireOtp) {
       rules = upsertRuleByName(rules, {
         id: crypto.randomUUID(),
         name: `${SORT_RULE_PREFIX}expire one-time codes`,
@@ -704,6 +655,8 @@ async function maybeShowSeedCard() {
 
 function wireSortInbox() {
   sortInboxBtn.onclick = () => void startSortFlow();
+  // A kind's menu changed: recount what moves.
+  document.getElementById("time-limits-rows")?.addEventListener("change", updateSortInboxCount);
 }
 
 export { maybeShowSeedCard, renderSortInbox, wireSortInbox };

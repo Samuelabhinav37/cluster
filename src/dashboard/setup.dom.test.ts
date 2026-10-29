@@ -42,17 +42,17 @@ describe("first-run setup", () => {
     expect(dash.el("settings-persona").textContent).toBe("Keep me safe");
   });
 
-  it("a time-limit persona fills in Sorting but never changes Gmail until Save", async () => {
+  it("a time-limit persona fills in the menus but never changes Gmail until the switch", async () => {
     const dash = await bootDashboard();
     const before = dash.storedSettings().autoSort;
     await choosePersona(dash, "calm");
     await vi.waitFor(() => expect(dash.storedSettings().persona).toBe("calm"));
     await vi.waitFor(() => {
-      if (!(dash.el("time-limits-status").textContent ?? "").includes("Press Save")) throw new Error("not proposed yet");
+      if (!(dash.el("time-limits-status").textContent ?? "").includes("Turn on Keep doing this")) throw new Error("not proposed yet");
     });
     expect((dash.el("time-limit-promotions") as HTMLSelectElement).value).toBe("24");
     expect((dash.el("time-limit-travel") as HTMLSelectElement).value).toBe("stay");
-    expect((dash.el("time-limits-toggle") as HTMLInputElement).checked).toBe(true);
+    expect((dash.el("time-limits-toggle") as HTMLInputElement).checked).toBe(false);
     // Nothing saved: stored time limits and Gmail filters are untouched.
     expect(dash.storedSettings().autoSort).toEqual(before);
   });

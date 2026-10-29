@@ -170,10 +170,8 @@ async function applyPersona(persona: Persona, select: (screen: string) => Promis
   renderSettingsSetup();
   if (plan.hours) {
     await select("organize");
-    proposeTimeLimits(plan.hours, "Suggested by your setup. Press Save to apply it.");
-    const section = document.getElementById("time-limits-section");
-    section?.setAttribute("open", "");
-    section?.scrollIntoView({ block: "start" });
+    proposeTimeLimits(plan.hours, "Suggested by your setup. Turn on Keep doing this for new mail to use it.");
+    document.getElementById("sort-inbox-section")?.scrollIntoView({ block: "start" });
   } else {
     await select(plan.simpleMode ? "simple" : "overview");
   }

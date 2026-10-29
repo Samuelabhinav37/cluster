@@ -366,38 +366,38 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Organize</h1>
-                <p class="lead">Choose how long each kind of mail stays in your inbox.</p>
+                <p class="lead">Choose where each kind of mail goes.</p>
               </div>
             </div>
 
             <section id="sort-inbox-section">
-              <h3 class="section-label">Sort now</h3>
-              <div id="sort-inbox-buckets"></div>
+              <section class="ios-section">
+                <h2 class="ios-head">Where should each kind of mail go?</h2>
+                <div id="time-limits-rows" class="ios-group"></div>
+              </section>
+              <p class="hint presets-guard">
+                Starred mail and mail from people you write to always stay in your inbox.
+              </p>
+              <div class="ios-group">
+                <label class="set-row plain">
+                  <span class="grow"
+                    >Keep doing this for new mail<span class="sub">New mail follows these choices as it arrives</span></span
+                  >
+                  <input type="checkbox" class="switch" role="switch" id="time-limits-toggle" />
+                </label>
+              </div>
+              <p id="time-limits-status" class="hint" role="status"></p>
+              <p id="time-limits-last" class="hint"></p>
               <div id="sort-inbox-bar" class="confirm-slot">
                 <span id="sort-inbox-slot"
                   ><button id="sort-inbox-btn" class="btn btn-accent-solid">Sort my inbox</button></span
                 >
                 <span id="sort-inbox-count" class="hint"></span>
               </div>
-              <details id="sort-inbox-config">
-                <summary>More options</summary>
-                <label class="check-label"
-                  ><input type="checkbox" id="sort-keep-sorting" />
-                  <span>Keep doing this for new mail</span></label
-                >
-                <label class="check-label"
-                  ><input type="checkbox" id="sort-expire-otp" />
-                  <span>Also move one-time codes to Trash after 2 days</span></label
-                >
-                <p class="hint">Sender-based labels use Gmail filters, so they work with Chrome closed.</p>
-              </details>
               <section id="sort-seed-card" class="banner" hidden></section>
               <div id="sort-inbox-preview"></div>
             </section>
             <div class="rec-grid" id="presets"></div>
-            <p class="hint presets-guard">
-              Starred mail and mail from people you write to never leave on a timer.
-            </p>
 
             <section id="your-rules">
               <div class="section-head">
@@ -482,26 +482,6 @@
             >
             <div class="unsub-footer"><button type="button" id="rule-sheet-close" class="btn btn-ghost">Done</button></div>
             </dialog>
-            <details class="disclosure" id="time-limits-section">
-              <summary>Custom times for each kind</summary>
-              <label class="toggle-card">
-                <span class="tc-text">
-                  <b>Move mail out of my inbox when its time is up</b>
-                  <span class="tc-sub">Starred mail and people you write to stay. Gmail only.</span>
-                </span>
-                <input type="checkbox" class="switch" role="switch" id="time-limits-toggle" />
-              </label>
-              <div id="time-limits-rows" class="limit-rows"></div>
-              <div class="tidy-actions">
-                <button type="button" id="time-limits-save" class="btn btn-accent">Save time limits</button>
-                <button type="button" id="time-limits-backlog-btn" class="btn" hidden>
-                  Apply to mail already in my inbox…
-                </button>
-                <span id="time-limits-status" class="hint" role="status"></span>
-              </div>
-              <p id="time-limits-last" class="hint"></p>
-              <div id="time-limits-backlog" class="banner" hidden></div>
-            </details>
             <div id="rule-apply-slot">
               <button id="rule-apply-btn" class="btn">Run rules now</button>
             </div>

@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
 /// <reference types="vite/client" />
 //
-// Inbox time limits on the Organize screen: saving turns on per-category
-// Gmail filters that label without leaving the inbox, and the existing-inbox
-// preview labels what's already there.
+// Organize's one list: each kind's menu says where it goes, the switch turns
+// on per-category Gmail filters, and Sort my inbox counts from the menus.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { bootDashboard, fixtureMailbox } from "./testHarness";
 
@@ -18,27 +17,42 @@ async function openOrganize(dash: Awaited<ReturnType<typeof bootDashboard>>) {
   });
 }
 
-describe("Inbox time limits", () => {
-  it("shows every category with its default limit", async () => {
+const pick = (id: string, value: string) => {
+  const select = document.getElementById(id) as HTMLSelectElement;
+  select.value = value;
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+};
+
+describe("Where each kind of mail goes", () => {
+  it("shows every kind with its default choice and what it counts", async () => {
     const dash = await bootDashboard();
     await openOrganize(dash);
     expect((dash.el("time-limit-otp") as HTMLSelectElement).value).toBe("24");
     expect((dash.el("time-limit-shipping") as HTMLSelectElement).value).toBe("168");
     expect((dash.el("time-limit-travel") as HTMLSelectElement).value).toBe("stay");
-    expect(dash.el("time-limits-rows").textContent).toContain("🏷 Promotions");
+    expect(dash.el("time-limits-rows").textContent).toContain("Promotions");
+    expect(dash.el("time-limit-sub-travel").textContent).toMatch(/now|None right now/);
     // "Straight to label" skips the inbox, so only Promotions offers it.
     const values = (id: string) => Array.from((dash.el(id) as HTMLSelectElement).options).map((o) => o.value);
     expect(values("time-limit-otp")).not.toContain("0");
     expect(values("time-limit-promotions")).toContain("0");
   });
 
-  it("saving creates a filter per category that labels and keeps mail in the inbox", async () => {
+  it("keeps a menu choice with the switch off but never touches Gmail", async () => {
     const dash = await bootDashboard();
     await openOrganize(dash);
-    (dash.el("time-limits-toggle") as HTMLInputElement).checked = true;
-    const promos = dash.el("time-limit-promotions") as HTMLSelectElement;
-    promos.value = "0";
-    (dash.el("time-limits-save") as HTMLButtonElement).click();
+    pick("time-limit-promotions", "0");
+    await vi.waitFor(() => expect(dash.storedSettings().autoSort.inboxHoursByBucket.promotions).toBe(0));
+    expect(dash.storedSettings().autoSort.timeLimitsEnabled).toBe(false);
+    expect(dash.gmailApi.createFilter).not.toHaveBeenCalled();
+  });
+
+  it("Keep doing this creates a filter per category that labels and keeps mail in the inbox", async () => {
+    const dash = await bootDashboard();
+    await openOrganize(dash);
+    pick("time-limit-promotions", "0");
+    await vi.waitFor(() => expect(dash.storedSettings().autoSort.inboxHoursByBucket.promotions).toBe(0));
+    (dash.el("time-limits-toggle") as HTMLInputElement).click();
 
     await vi.waitFor(() => {
       if (!dash.el("time-limits-status").textContent?.startsWith("Saved.")) throw new Error("not saved yet");
@@ -52,68 +66,25 @@ describe("Inbox time limits", () => {
 
     const stored = dash.storedSettings().autoSort;
     expect(stored.timeLimitsEnabled).toBe(true);
-    expect(stored.inboxHoursByBucket.promotions).toBe(0);
+    expect(stored.keepSorting).toBe(true);
     expect(Object.keys(stored.filterIdsByBucket)).toHaveLength(11);
     expect(dash.el("time-limits-status").textContent).toContain("11 Gmail filters label new mail as it arrives");
   });
 
-  it("labels matching mail already in the inbox without moving it", async () => {
-    const dash = await bootDashboard({
-      settings: { autoSort: { timeLimitsEnabled: true } as never },
-      search: (q) => (q.startsWith("in:inbox -is:starred subject:(\"verification code\"") ? ["m1", "m2"] : []),
-    });
-    await openOrganize(dash);
-    (dash.el("time-limits-backlog-btn") as HTMLButtonElement).click();
-    await vi.waitFor(() => {
-      if (!dash.el("time-limits-backlog").textContent?.includes("2 messages")) throw new Error("no preview yet");
-    });
-    expect(dash.el("time-limits-backlog").textContent).toContain("🔑 One-time codes · 2 messages");
-
-    dash.button("time-limits-backlog", "Label them")!.click();
-    await vi.waitFor(() => {
-      if (!dash.el("time-limits-backlog").textContent?.includes("Labelled 2 messages")) throw new Error("not done");
-    });
-    expect(dash.gmailApi.batchModify).toHaveBeenCalledWith("gmail-token", ["m1", "m2"], ["label-id"], []);
-  });
-});
-
-describe("Organize presets", () => {
-  it("its switch sets that one kind's limit, saves to Gmail, and switching back off undoes it", async () => {
+  it("Sort my inbox counts what moves now from the menus", async () => {
     const dash = await bootDashboard();
     await openOrganize(dash);
-    const promoSwitch = () =>
-      document.querySelector<HTMLInputElement>('#presets .rec-card[data-preset="promotions"] input.switch')!;
-    expect(promoSwitch().checked).toBe(false);
-    promoSwitch().click();
-    await vi.waitFor(() => {
-      expect(dash.storedSettings().autoSort.inboxHoursByBucket.promotions).toBe(0);
-      expect(dash.storedSettings().autoSort.timeLimitsEnabled).toBe(true);
-    });
-    // Only Promotions went live, not every default limit.
-    expect(dash.storedSettings().autoSort.inboxHoursByBucket.otp).toBeNull();
-    await vi.waitFor(() => expect(promoSwitch().checked && !promoSwitch().disabled).toBe(true));
-    promoSwitch().click();
-    await vi.waitFor(() => {
-      expect(dash.storedSettings().autoSort.inboxHoursByBucket.promotions).toBeNull();
-      expect(dash.storedSettings().autoSort.timeLimitsEnabled).toBe(false);
-    });
-  });
-});
+    const kinds = Array.from(document.querySelectorAll<HTMLSelectElement>("#time-limits-rows select"));
+    for (const k of kinds) pick(k.id, "stay");
+    expect(dash.el("sort-inbox-count").textContent).toBe("Nothing to sort");
+    expect((dash.el("sort-inbox-btn") as HTMLButtonElement).disabled).toBe(true);
 
-describe("Organize presets, several kinds", () => {
-  it("Receipts and tracking turns on both kinds at once and shows On only when both match", async () => {
-    const dash = await bootDashboard();
-    await openOrganize(dash);
-    const card = () =>
-      Array.from(document.querySelectorAll<HTMLElement>("#presets .rec-card")).find((c) =>
-        c.dataset.preset === "receipts",
-      )!;
-    card().querySelector<HTMLInputElement>("input.switch")!.click();
-    await vi.waitFor(() => {
-      const hours = dash.storedSettings().autoSort.inboxHoursByBucket;
-      expect([hours.receipt, hours.shipping]).toEqual([168, 168]);
-    });
-    await vi.waitFor(() => expect(card().querySelector(".rec-fact")!.textContent).toBe("On"));
+    // The fixture's mail is all older than 10 minutes, so all of a kind moves.
+    const busy = kinds.find((k) => /^\d+ now/.test(dash.el(k.id.replace("time-limit-", "time-limit-sub-")).textContent ?? ""))!;
+    const n = Number.parseInt(dash.el(busy.id.replace("time-limit-", "time-limit-sub-")).textContent!, 10);
+    pick(busy.id, String(1 / 6));
+    expect(dash.el("sort-inbox-count").textContent).toBe(`${n} email${n === 1 ? "" : "s"} move now`);
+    expect((dash.el("sort-inbox-btn") as HTMLButtonElement).disabled).toBe(false);
   });
 });
 
