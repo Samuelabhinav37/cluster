@@ -64,6 +64,8 @@ export interface HomeFacts {
   clearable: number;
   /** Kinds of mail with a time limit on. */
   limitsOn: number;
+  /** Mail from the last week in kinds that could leave on their own. */
+  couldLeaveWeekly?: number;
   /** Brands the flagged senders pretend to be (keys, e.g. "paypal"), most first. */
   fakedBrands?: string[];
   /** While mail is still being read: the oldest message read so far. */
@@ -381,6 +383,8 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
   const organize = tile({ app: "organize", ic: "layers", name: "Organize", open: () => go("organize") });
   if (f.limitsOn > 0)
     organize.body.append(stat(f.limitsOn, f.limitsOn === 1 ? "kind tidies itself" : "kinds tidy themselves"));
+  else if (f.couldLeaveWeekly)
+    organize.body.append(stat(f.couldLeaveWeekly, "a week could leave on their own"));
   else organize.body.append(quiet("clock", "Let old mail leave on its own"));
 
   root.append(inbox.root, protect.root, clean.root, organize.root);

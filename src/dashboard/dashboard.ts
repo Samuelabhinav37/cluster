@@ -75,6 +75,7 @@ import {
   renderPresets,
   renderTimeLimits,
   setPresetActions,
+  weeklyByBucket,
   wireTimeLimits,
 } from "./timeLimitsTab";
 import { excludeSnoozedMessages } from "../lib/snoozeFilter";
@@ -309,9 +310,27 @@ function navItemShown(btn: HTMLButtonElement): boolean {
   return !btn.hidden && !btn.closest(".nav-area:not(.open) .nav-children");
 }
 
+// Screens that don't list mail start with Details minimized.
+const DETAILS_RESTS_ON = new Set(["settings", "impersonation", "screener", "report"]);
+
+/** Minimizes Details on those screens and brings it back elsewhere, unless you minimized it. */
+function fitDetailsTo(screen: string) {
+  if (!details) return;
+  let pref: string | null = null;
+  try {
+    pref = localStorage.getItem(DETAILS_PREF);
+  } catch {
+    // Storage blocked: treat as never minimized.
+  }
+  const resting = DETAILS_RESTS_ON.has(screen);
+  if (resting && details.isOpen()) details.rest(true);
+  else if (!resting && !details.isOpen() && pref === "open" && window.innerWidth >= 1200) details.rest(false);
+}
+
 async function selectScreen(name: string) {
   const target = resolveScreen(name);
   showScreen(target);
+  fitDetailsTo(target);
   ctx.settings = await updateSettings({ activeTab: target });
 }
 
@@ -1259,6 +1278,7 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
     limitsOn: ctx.settings.autoSort.timeLimitsEnabled
       ? Object.values(ctx.settings.autoSort.inboxHoursByBucket).filter((h) => h != null).length
       : 0,
+    couldLeaveWeekly: [...weeklyByBucket(senders, Date.now()).values()].reduce((n, c) => n + c, 0),
     fakedBrands: fakedBrands(securitySenders),
     // Until reading is done the total covers only recent mail, so say how far back.
     since: [...indexRuns.values()].some((r) => r.progress?.phase === "reading") ? oldestRead(allSenders) : undefined,
@@ -1393,7 +1413,7 @@ function buildActionGroups(sender: SenderSummary): Array<{ act: string; label: s
   return [
     { act: "trash", label: "Trash their mail", el: buildTrashCell(sender) },
     { act: "unsubscribe", label: "Unsubscribe", el: buildUnsubscribeCell(sender) },
-    { act: "keepSorted", label: "File away", el: buildKeepSortedCell(sender) },
+    { act: "keepSorted", label: "Move to a label", el: buildKeepSortedCell(sender) },
     { act: "mute", label: "Mute", el: buildMuteCell(sender) },
     { act: "snooze", label: "Snooze", el: buildSnoozeCell(sender) },
   ];
@@ -1828,6 +1848,7 @@ function wireDetails() {
     // Storage blocked: fall back to the width.
   }
   if (window.innerWidth >= 1200 && pref !== "min") details.open({ view: "senders" });
+  fitDetailsTo(resolveScreen(ctx.settings.activeTab));
   for (const btn of Array.from(document.querySelectorAll<HTMLButtonElement>("[data-details]"))) {
     btn.onclick = () => (details!.isOpen() ? details!.close() : details!.open());
   }
@@ -2222,7 +2243,7 @@ function buildUnsubscribeCell(sender: SenderSummary): HTMLDivElement {
       } else {
         statusEl.textContent = "";
         statusEl.title = "";
-        btn.textContent = "Unsubscribe (verified one-click)";
+        btn.textContent = "Unsubscribe";
       }
     };
 
@@ -2241,7 +2262,7 @@ function buildUnsubscribeCell(sender: SenderSummary): HTMLDivElement {
           ? unsubscribeOutcomeFor(sender.key, sender).state === "still-sending"
             ? "Retry unsubscribe"
             : "Request again"
-          : "Unsubscribe (verified one-click)";
+          : "Unsubscribe";
       }
       btn.disabled = false;
     };
@@ -2270,7 +2291,7 @@ function buildUnsubscribeCell(sender: SenderSummary): HTMLDivElement {
 function buildKeepSortedCell(sender: SenderSummary): HTMLDivElement {
   const cell = document.createElement("div");
   const btn = document.createElement("button");
-  btn.textContent = "File away";
+  btn.textContent = "Move to a label";
   const labelName = sender.displayName || sender.address;
   btn.title = `New mail from ${sender.address} skips your inbox and goes to "${labelName}".`;
   btn.onclick = async () => {

@@ -337,7 +337,7 @@
               <section id="domain-groups" hidden>
                 <h3 class="section-label">By domain</h3>
                 <div id="domain-bulk-bar" class="toolbar" hidden>
-                  <button id="select-safe-domains" class="btn">Select safe</button>
+                  <button id="select-safe-domains" class="btn">Select unprotected</button>
                   <span id="domain-selected-count">0 selected</span>
                   <span id="delete-domains-bulk-slot"
                     ><button id="bulk-delete-domains-btn" class="btn btn-danger" disabled>
@@ -410,9 +410,9 @@
                 <span class="hint">Try</span>
                 <span id="rule-example-chips" class="chip-row"></span>
                 <span style="flex: 1"></span>
-                <button type="button" id="rule-draft-btn" class="btn btn-accent">Draft rule locally</button>
+                <button type="button" id="rule-draft-btn" class="btn btn-accent">Draft a rule</button>
                 <button type="button" id="rule-save-draft-btn" class="btn" disabled>
-                  Save reviewed draft
+                  Save rule
                 </button>
               </div>
               <span id="rule-draft-status" class="hint"></span>
@@ -454,13 +454,13 @@
                 </select>
                 <input type="text" id="rule-label" placeholder="Label name" hidden />
                 <label
-                  >priority <input type="number" id="rule-priority" min="-100" max="100" value="0"
+                  >order <input type="number" id="rule-priority" min="-100" max="100" value="0"
                 /></label>
                 <label
-                  >max per run <input type="number" id="rule-limit" min="1" max="500" value="100"
+                  >at most, each run <input type="number" id="rule-limit" min="1" max="500" value="100"
                 /></label>
                 <label class="check-label"
-                  ><input type="checkbox" id="rule-stop-processing" /> <span>stop later rules</span></label
+                  ><input type="checkbox" id="rule-stop-processing" /> <span>skip rules after this one</span></label
                 >
                 <button type="submit" id="rule-add-btn" class="btn btn-accent">Add rule</button>
                 <span id="rule-form-error" class="field-error"></span>

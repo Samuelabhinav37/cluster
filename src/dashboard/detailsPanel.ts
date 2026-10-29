@@ -190,6 +190,8 @@ export interface DetailsPanel {
   open(filter?: DetailsFilter): void;
   close(): void;
   isOpen(): boolean;
+  /** Minimize or bring back for one screen, keeping the filters and the saved choice. */
+  rest(minimized: boolean): void;
   /** New scan results: redraw with the same filters. */
   update(senders: readonly SenderSummary[]): void;
 }
@@ -728,6 +730,11 @@ export function initDetailsPanel(
       remember("min");
     },
     isOpen: () => !root.classList.contains("min"),
+    rest(minimized) {
+      root.classList.toggle("min", minimized);
+      document.body.classList.toggle("details-open", !minimized);
+      if (!minimized) render();
+    },
     update(next) {
       raw = next;
       const present = new Set(next.flatMap((s) => s.messages.map((m) => m.id)));
