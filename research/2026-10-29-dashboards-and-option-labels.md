@@ -75,8 +75,9 @@ with the question it answers ("Which mail should Sort move?"). One button below 
 cards, each a sentence first ("30 emails you never opened") with one button that opens its
 place. Use bars, not area or color, for amounts. Cards that change week to week should be
 dismissible (GA4) and the dismissed list reachable elsewhere. Today's Home already follows most
-of this; the gaps are the setup card (belongs to first run), and Protect's three white squares,
-which show nothing without a hover.
+of this; the gaps are the setup card (belongs to first run), and Protect's three brand squares,
+which rendered as blank white squares in the preview (logos not loaded; unchecked whether real
+Chrome shows them).
 
 ## Sources
 
