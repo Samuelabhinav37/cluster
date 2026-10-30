@@ -23,7 +23,8 @@ const KB = 1024;
 // over the wire, so raw size is what parse time scales with. Budgets are
 // ~25% above the 2026-10-05 sizes.
 const BUDGETS = {
-  "service worker JS": 340 * KB,
+  // 2026-10-30: 340 -> 345 KB for the brand registry (shared with the dashboard).
+  "service worker JS": 345 * KB,
   // 2026-10-16: 500 → 540 KB for the mail index, sender profiles,
   // suggestions v2 and the unsubscribe work that follows (~174 KB gzip at
   // the raise). Lazy-loading the tabs is the next lever if it grows again.
@@ -34,7 +35,8 @@ const BUDGETS = {
   // 2026-10-28: 585 → 595 KB for the backlog round (Pin, Screener choice, Stop mail offers).
   // 2026-10-28: 595 → 600 KB for Moved today, Delivered orders, newsletter schedule.
   // 2026-10-29: 600 -> 615 KB for the five-step setup with Kai and its drawings.
-  "dashboard JS": 615 * KB,
+  // 2026-10-30: 615 -> 635 KB for round 2: brand registry, mark check, Protect brand check.
+  "dashboard JS": 635 * KB,
   // 2026-10-16: +10 KB for Kai's corner guide and chat (dashboard.css Kai
   // section, ~8 KB raw / 1.5 KB gzip), on top of 47 KB before Kai.
   // 2026-10-26: 60 → 64 KB for the rail shell (rail, panel, crumbs; ~3 KB raw).
@@ -43,7 +45,8 @@ const BUDGETS = {
   // 2026-10-27: 72 → 76 KB for the iCloud look (bento Home, app icons, banners, sign-in).
   // 2026-10-29: 76 -> 88 KB for the split sign-in page and the animated setup screens.
   // 2026-10-29: 88 -> 89 KB for Home v2, share bars and the Report gauge.
-  "dashboard CSS": 89 * KB,
+  // 2026-10-30: 89 -> 94 KB for the round 2 screens.
+  "dashboard CSS": 94 * KB,
 };
 
 function file(name) {
