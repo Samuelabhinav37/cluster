@@ -214,6 +214,43 @@
   .addrs { margin-top: 16px; border-top: 1px solid var(--sep); }
   .addrs div { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; font-size: 12px; color: var(--label-3); border-bottom: 1px solid var(--sep); }
   .addrs div span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── Details: the mail behind any number ──────────────────── */
+  body.dt-open .app { padding-right: 400px; }
+  .dt-sel[hidden] { display: none; }
+  .dt { position: fixed; top: 45px; right: 0; bottom: 0; width: 400px; display: flex; flex-direction: column; background: var(--panel); border-left: 1px solid var(--sep); z-index: 4; transform: translateX(100%); transition: transform .2s ease; }
+  body.dt-open .dt { transform: none; }
+  .dt-strip { position: fixed; top: 45%; right: 0; z-index: 3; padding: 14px 6px; border: 1px solid var(--sep); border-right: 0; border-radius: 10px 0 0 10px; background: var(--panel); color: var(--label-3); font-weight: 600; font-size: 12px; writing-mode: vertical-rl; cursor: pointer; }
+  body.dt-open .dt-strip { display: none; }
+  .dt-head { display: flex; align-items: center; gap: 8px; padding: 14px 16px 10px; }
+  .dt-head .grow { flex: 1; }
+  .icon-btn { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--label-3); cursor: pointer; }
+  .icon-btn:hover { background: var(--fill); color: var(--label); }
+  .dt .search { margin: 0 16px 10px; }
+  .dt-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 12px; }
+  .dt-chips button { border: 0; cursor: pointer; }
+  .dt-chips .chip.on { background: var(--label); color: var(--canvas); }
+  .dt-chart { padding: 0 16px 6px; }
+  .dt-bars { display: flex; align-items: flex-end; gap: 4px; height: 56px; }
+  .dt-bars button { flex: 1; min-height: 4px; padding: 0; border: 0; border-radius: 3px 3px 1px 1px; background: var(--a4); cursor: pointer; }
+  .dt-bars button:hover { background: var(--a2); }
+  .dt-bars button.on { background: var(--a1); }
+  .dt-axis { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: var(--label-4); }
+  .dt-list { flex: 1; overflow: auto; border-top: 1px solid var(--sep); margin-top: 8px; }
+  .em { display: grid; grid-template-columns: 16px 26px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px 16px; border-bottom: 1px solid var(--sep); cursor: pointer; }
+  .em:hover { background: var(--fill); }
+  .em .tick { width: 15px; height: 15px; }
+  .em .t { min-width: 0; }
+  .em .t b { display: block; font-weight: 500; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .em .t span { display: block; font-size: 12px; color: var(--label-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .em.unread .t b { font-weight: 700; }
+  .em .t b .chip { display: inline-flex; margin-left: 4px; vertical-align: 1px; }
+  .em .em-when { font-size: 11px; color: var(--label-4); text-align: right; }
+  .em .mark, .em .logo { width: 24px; height: 24px; }
+  .dt-sel { display: flex; align-items: center; gap: 8px; padding: 10px 12px 10px 16px; border-top: 1px solid var(--sep); background: var(--card); }
+  .dt-sel span { flex: 1; color: var(--label-2); }
+  .dt-foot { padding: 10px 16px; border-top: 1px solid var(--sep); font-size: 12px; color: var(--label-4); }
+  .tap { cursor: pointer; }
 </style>
 </head>
 <body>
@@ -238,6 +275,9 @@
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M12 2.5 14.6 5l3.5-.4.8 3.4 3 1.9-1.4 3.2 1.4 3.2-3 1.9-.8 3.4-3.5-.4L12 21.5 9.4 19l-3.5.4-.8-3.4-3-1.9 1.4-3.2L2.1 9.9l3-1.9.8-3.4 3.5.4z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
   <symbol id="i-userplus" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c.8-3.4 3.2-5 6-5s5.2 1.6 6 5M19 8v6M16 11h6"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></symbol>
+  <symbol id="i-table" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 9v12"/></symbol>
+  <symbol id="i-min" viewBox="0 0 24 24"><path d="m13 6 6 6-6 6M5 6l6 6-6 6"/></symbol>
+  <symbol id="i-wide" viewBox="0 0 24 24"><path d="m11 6-6 6 6 6M19 6l-6 6 6 6"/></symbol>
 </svg>
 <div class="bar">
   <b>Mockup</b>
@@ -249,6 +289,7 @@
   <button data-go="stop">Stop mail</button>
   <button data-go="organize">Organize</button>
   <button data-go="settings">Settings</button>
+  <button id="dt-toggle" style="margin-left:auto">Details</button>
 </div>
 <div class="app">
   <nav>
@@ -270,8 +311,8 @@
     <h2>This week</h2>
     <div class="weeks">
       <div class="card wk"><b>248</b><span>cleared</span><div class="spark" aria-label="Cleared per day"><i style="height:30%"></i><i style="height:55%"></i><i style="height:20%"></i><i style="height:80%"></i><i style="height:45%"></i><i style="height:35%"></i><i class="now" style="height:100%"></i></div></div>
-      <div class="card wk"><b>412</b><span>arrived</span><span class="chip">12% fewer</span></div>
-      <button class="card wk" style="text-align:left;cursor:pointer"><b>38</b><span>from people</span><span class="chip">9%</span></button>
+      <div class="card wk tap" data-dt="week"><b>412</b><span>arrived</span><span class="chip">12% fewer</span></div>
+      <button class="card wk" data-dt="people" style="text-align:left;cursor:pointer"><b>38</b><span>from people</span><span class="chip">9%</span></button>
     </div>
     <h2>Next up</h2>
     <div class="card">
@@ -284,10 +325,10 @@
     <div class="card inbox">
       <div class="meter-bar"><i style="flex:212;background:var(--a1)"></i><i style="flex:388;background:var(--a2)"></i><i style="flex:1240;background:var(--a3)"></i><i style="flex:2105;background:var(--a4)"></i></div>
       <div class="legend">
-        <div><span class="dot" style="--c:var(--a1)"></span>People<em class="num">212</em></div>
+        <div class="tap" data-dt="people"><span class="dot" style="--c:var(--a1)"></span>People<em class="num">212</em></div>
         <div><span class="dot" style="--c:var(--a2)"></span>Receipts<em class="num">388</em></div>
         <div><span class="dot" style="--c:var(--a3)"></span>Updates<em class="num">1,240</em></div>
-        <div><span class="dot" style="--c:var(--a4)"></span>Promotions<em class="num">2,105</em></div>
+        <div class="tap" data-dt="promo"><span class="dot" style="--c:var(--a4)"></span>Promotions<em class="num">2,105</em></div>
       </div>
     </div>
   </section>
@@ -484,6 +525,20 @@
   </section>
   </main>
 </div>
+<button class="dt-strip" id="dt-strip">Details</button>
+<aside class="dt" id="dt" aria-label="Details">
+  <div class="dt-head">
+    <div class="seg" id="dt-tabs"><button data-tab="emails" aria-pressed="true">Emails</button><button data-tab="senders">Senders</button></div>
+    <span class="grow"></span>
+    <button class="icon-btn" id="dt-min" aria-label="Minimize"><svg class="i"><use href="#i-min"/></svg></button>
+  </div>
+  <label class="search"><svg class="i"><use href="#i-search"/></svg><input type="search" placeholder="Search" id="dt-q"></label>
+  <div class="dt-chips" id="dt-chips"></div>
+  <div class="dt-chart"><div class="dt-bars" id="dt-bars"></div><div class="dt-axis" id="dt-axis"></div></div>
+  <div class="dt-list" id="dt-list"></div>
+  <div class="dt-sel" id="dt-sel" hidden></div>
+  <div class="dt-foot" id="dt-foot"></div>
+</aside>
 <script>
   const views = ["home", "senders", "protect", "cleanup", "more", "stop", "organize", "settings"];
   function show() {
@@ -580,7 +635,7 @@
   const VERIFIED = ["PayPal", "Chase", "Amazon", "Apple", "LinkedIn", "eBay", "UPS", "Adobe", "Bank of America", "American Express", "Wells Fargo", "DHL"];
   const paintVerified = () => { document.getElementById("verified").innerHTML = VERIFIED.map((n) => `<div class="card vcell">${mark(n, true)}<span>${n}</span></div>`).join(""); };
   paintProtect(); paintVerified();
-  fetch("/public/data/brand-logos.json").then((r) => r.json()).then((d) => { LOGOS = d.logos; paintProtect(); paintVerified(); paintSenders(); }).catch(() => {});
+  fetch("/public/data/brand-logos.json").then((r) => r.json()).then((d) => { LOGOS = d.logos; paintProtect(); paintVerified(); paintSenders(); paintDetails(); }).catch(() => {});
 
   document.querySelectorAll("[data-goto]").forEach((b) => (b.onclick = () => { location.hash = b.dataset.goto; }));
 
@@ -624,6 +679,84 @@
   }
   document.getElementById("who-q").oninput = (e) => { q = e.target.value.toLowerCase(); paintSenders(); };
   paintSenders();
+
+  // Details. Every number opens it already filtered; tick rows, act from the bar.
+  const DAY = 864e5, NOW = Date.UTC(2026, 9, 30, 9);
+  const MAIL = [
+    ["LinkedIn", "promo", "Sam, 12 new jobs for you", 0, 0], ["Amazon", "trans", "Your parcel was delivered", 0, 1], ["Sarah Chen", "people", "Dinner on Friday?", 0, 0],
+    ["PayPal", "trans", "You sent $24.00 to Dev Patel", 1, 1], ["Medium", "promo", "The 5 best essays this week", 1, 0], ["PayPal", "fake", "Your account is limited", 1, 0],
+    ["Chase", "trans", "Your statement is ready", 2, 1], ["Quora", "promo", "Why do cats knock things over?", 2, 0], ["Dev Patel", "people", "Re: the logo files", 3, 1],
+    ["Apple", "trans", "Your receipt from Apple", 4, 1], ["LinkedIn", "promo", "You appeared in 9 searches", 5, 0], ["Medium", "promo", "Stories picked for you", 6, 0],
+    ["Amazon", "promo", "Deals picked for you", 8, 0], ["Quora", "promo", "Top answers this week", 10, 0], ["LinkedIn", "promo", "Sam, add skills to stand out", 15, 0],
+    ["Chase", "trans", "Payment received", 22, 1], ["Medium", "promo", "Your daily read", 30, 0], ["Amazon", "trans", "Order confirmed #112-55", 41, 1],
+  ].map(([who, kind, subj, ago, read], i) => ({ id: i, who, kind, subj, at: NOW - ago * DAY - i * 37e5, read: !!read }));
+  const KIND_LABEL = { people: "People", trans: "Receipts", promo: "Promotions", fake: "Doesn't match" };
+  const WEEKS = 8;
+  const dt = { tab: "emails", kind: null, week: null, never: false, q: "", picked: new Set() };
+  const weekOf = (at) => WEEKS - 1 - Math.floor((NOW - at) / (7 * DAY));
+  const fmt = (at) => { const d = Math.round((NOW - at) / DAY); return d === 0 ? "Today" : d === 1 ? "Yesterday" : new Date(at).toLocaleDateString(undefined, { month: "short", day: "numeric" }); };
+  const neverOpened = new Set(["Medium", "Quora"]);
+  const dtTile = (m) => (m.kind === "fake" ? `<span class="logo">pa</span>` : LOGO_IDS[m.who] ? mark(m.who) : `<span class="logo">${m.who.split(" ").map((w) => w[0]).join("").slice(0, 2)}</span>`);
+  function dtShown() {
+    return MAIL.filter((m) => (!dt.kind || m.kind === dt.kind) && (dt.week === null || weekOf(m.at) === dt.week) && (!dt.never || neverOpened.has(m.who))
+      && (m.who + m.subj).toLowerCase().includes(dt.q));
+  }
+  function paintDetails() {
+    document.querySelectorAll("#dt-tabs button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tab === dt.tab)));
+    const on = [];
+    if (dt.kind) on.push([KIND_LABEL[dt.kind], { kind: null }]);
+    if (dt.week !== null) on.push([dt.week === WEEKS - 1 ? "This week" : `${WEEKS - 1 - dt.week} weeks ago`, { week: null }]);
+    if (dt.never) on.push(["Never opened", { never: false }]);
+    const more = [];
+    if (!dt.never) more.push(["Never opened", { never: true }]);
+    if (!dt.kind) more.push(["Promotions", { kind: "promo" }]);
+    if (dt.week === null) more.push(["This week", { week: WEEKS - 1 }]);
+    const chips = document.getElementById("dt-chips");
+    chips.innerHTML = on.map(([l], i) => `<button class="chip on" data-on="${i}">${l} ✕</button>`).join("") + more.map(([l], i) => `<button class="chip" data-more="${i}">+ ${l}</button>`).join("");
+    chips.querySelectorAll("[data-on]").forEach((b) => (b.onclick = () => dtSet(on[+b.dataset.on][1])));
+    chips.querySelectorAll("[data-more]").forEach((b) => (b.onclick = () => dtSet(more[+b.dataset.more][1])));
+
+    // The chart counts what the other filters leave, week by week.
+    const base = MAIL.filter((m) => (!dt.kind || m.kind === dt.kind) && (!dt.never || neverOpened.has(m.who)));
+    const per = Array.from({ length: WEEKS }, (_, w) => base.filter((m) => weekOf(m.at) === w).length);
+    const top = Math.max(1, ...per);
+    const bars = document.getElementById("dt-bars");
+    bars.innerHTML = per.map((v, w) => `<button class="${dt.week === w ? "on" : ""}" style="height:${Math.max(6, (v / top) * 100)}%" aria-label="${v} emails" data-w="${w}"></button>`).join("");
+    bars.querySelectorAll("button").forEach((b) => (b.onclick = () => dtSet({ week: dt.week === +b.dataset.w ? null : +b.dataset.w })));
+    document.getElementById("dt-axis").innerHTML = `<span>8 weeks ago</span><span>This week</span>`;
+
+    const shown = dtShown();
+    const list = document.getElementById("dt-list");
+    if (dt.tab === "emails") {
+      list.innerHTML = shown.map((m) => `<div class="em${m.read ? "" : " unread"}" data-id="${m.id}"><span class="tick${dt.picked.has(m.id) ? " on" : ""}"></span>${dtTile(m)}
+        <div class="t"><b>${m.kind === "fake" ? "PayPal" : m.who}${m.kind === "fake" ? ` <span class="chip bad" style="font-size:11px;padding:1px 7px">Doesn't match</span>` : ""}</b><span>${m.subj}</span></div><span class="em-when">${fmt(m.at)}</span></div>`).join("");
+      list.querySelectorAll(".em").forEach((r) => (r.onclick = () => { const id = +r.dataset.id; dt.picked.has(id) ? dt.picked.delete(id) : dt.picked.add(id); paintDetails(); }));
+    } else {
+      const by = new Map();
+      for (const m of shown) by.set(m.kind === "fake" ? "PayPal?" : m.who, [...(by.get(m.kind === "fake" ? "PayPal?" : m.who) ?? []), m]);
+      list.innerHTML = [...by].sort((a, b) => b[1].length - a[1].length).map(([who, ms]) => `<div class="em" style="grid-template-columns:26px minmax(0,1fr) auto">${dtTile(ms[0])}
+        <div class="t"><b>${who.replace("?", "")}</b><span>${neverOpened.has(who) ? "Never opened" : `${ms.filter((m) => m.read).length} of ${ms.length} opened`}</span></div><span class="num">${ms.length}</span></div>`).join("");
+    }
+    const sel = document.getElementById("dt-sel");
+    sel.hidden = dt.picked.size === 0;
+    sel.innerHTML = `<span>${dt.picked.size} ticked</span><button class="btn quiet" id="dt-clear">Clear</button><button class="btn">Archive</button><button class="btn solid" id="dt-trash">Trash</button>`;
+    if (dt.picked.size) {
+      document.getElementById("dt-clear").onclick = () => { dt.picked.clear(); paintDetails(); };
+      document.getElementById("dt-trash").onclick = () => { for (const id of dt.picked) MAIL.splice(MAIL.findIndex((m) => m.id === id), 1); dt.picked.clear(); paintDetails(); };
+    }
+    document.getElementById("dt-foot").textContent = `${shown.length} emails`;
+  }
+  function dtSet(patch) { Object.assign(dt, patch); dt.picked.clear(); paintDetails(); }
+  function dtOpen(patch) { document.body.classList.add("dt-open"); if (patch) dtSet({ kind: null, week: null, never: false, ...patch }); }
+  document.getElementById("dt-toggle").onclick = () => (document.body.classList.contains("dt-open") ? document.body.classList.remove("dt-open") : dtOpen());
+  document.getElementById("dt-min").onclick = () => document.body.classList.remove("dt-open");
+  document.getElementById("dt-strip").onclick = () => dtOpen();
+  document.querySelectorAll("#dt-tabs button").forEach((b) => (b.onclick = () => dtSet({ tab: b.dataset.tab })));
+  document.getElementById("dt-q").oninput = (e) => dtSet({ q: e.target.value.toLowerCase() });
+  const DT_FILTERS = { week: { week: WEEKS - 1 }, people: { kind: "people" }, promo: { kind: "promo" } };
+  document.querySelectorAll("[data-dt]").forEach((el) => (el.onclick = () => dtOpen(DT_FILTERS[el.dataset.dt])));
+  paintDetails();
+  if (new URLSearchParams(location.search).has("details")) dtOpen({ week: WEEKS - 1 });
 
   for (const b of document.querySelectorAll("#set-nav button")) b.onclick = () => {
     for (const x of document.querySelectorAll("#set-nav button")) x.setAttribute("aria-pressed", String(x === b));
