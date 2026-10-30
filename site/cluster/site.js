@@ -1,3 +1,4 @@
+/* global document, IntersectionObserver */
 // Fades each section in as it scrolls into view. Without JS, or with reduced
 // motion, everything simply shows.
 document.documentElement.classList.add("js");
