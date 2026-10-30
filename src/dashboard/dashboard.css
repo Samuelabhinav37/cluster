@@ -3898,10 +3898,10 @@ body[data-screen="overview"] .kai-guide:not(.open) .kg-launch { visibility: hidd
 .kai-guide.docked .kg-panel { position: static; transform-origin: 0 100%; }
 .kai-guide.docked .kg-head .kg-kai { --kg-kai: 44px; flex: none; }
 #ask-kai-open { position: relative; }
-.ask-kai-face { flex: none; display: flex; margin: -7px 0 -5px; }
-.ask-kai-face .kai { --kai-w: 18px; }
+#ask-kai-open .ask-kai-face { display: block; flex: none; align-self: center; margin: -7px 0 -5px; }
+.ask-kai-face.kai, .ask-kai-face .kai { --kai-w: 18px; }
 #ask-kai-open:has(.ask-kai-face:not([hidden])) > svg { display: none; }
-body[data-screen="overview"] .ask-kai-face { display: none; }
+body[data-screen="overview"] #ask-kai-open .ask-kai-face, #ask-kai-open .ask-kai-face[hidden] { display: none; }
 body[data-screen="overview"] #ask-kai-open > svg { display: block; }
 #ask-kai-open[data-nudge]::after {
   content: attr(data-nudge); position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
@@ -3960,3 +3960,14 @@ body[data-screen="overview"] #ask-kai-open > svg { display: block; }
 .settings-nav button { min-height: 0; padding: 8px 12px; border: 0; border-radius: 9px; background: none; color: var(--label-2); text-align: left; font-size: 14px; font-weight: 500; cursor: pointer; }
 .settings-nav button:hover { color: var(--label); }
 .settings-nav button[aria-current="true"] { background: var(--neutral-fill); color: var(--label); font-weight: 600; }
+
+/* Organize, after Apple Mail's categories: a codes switch, then groups that
+   open to their kinds (timeLimitsTab.ts). */
+.org-list { display: flex; flex-direction: column; gap: 22px; }
+.org-value { color: var(--label-4); font-size: 15px; }
+.org-group + .org-group, .ios-row + .org-group { border-top: 1px solid var(--separator); }
+.org-group > summary .org-value::after { content: "›"; display: inline-block; margin-left: 8px; transition: transform .15s ease; }
+.org-group[open] > summary .org-value::after { transform: rotate(90deg); }
+.org-kind { background: var(--neutral-fill); }
+.org-kind .app-ic { visibility: hidden; }
+.org-kind .step-pick { width: 260px; }

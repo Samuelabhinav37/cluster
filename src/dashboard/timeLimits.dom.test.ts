@@ -38,6 +38,20 @@ describe("Where each kind of mail goes", () => {
     expect(values("time-limit-promotions")).toContain("0");
   });
 
+  it("a group's picker sets every kind in it, and codes are one switch", async () => {
+    const dash = await bootDashboard();
+    await openOrganize(dash);
+    document.querySelector<HTMLButtonElement>('[aria-label="Updates: After 1 week"]')!.click();
+    await vi.waitFor(() => {
+      const h = dash.storedSettings().autoSort.inboxHoursByBucket;
+      expect([h.newsletter, h.social, h.promotions]).toEqual([168, 168, 168]);
+    });
+    expect(dash.el("time-limits-rows").textContent).toContain("1 week");
+
+    (document.querySelector('[aria-label="One-time codes leave the inbox"]') as HTMLInputElement).click();
+    await vi.waitFor(() => expect(dash.storedSettings().autoSort.inboxHoursByBucket.otp).toBeNull());
+  });
+
   it("keeps a menu choice with the switch off but never touches Gmail", async () => {
     const dash = await bootDashboard();
     await openOrganize(dash);

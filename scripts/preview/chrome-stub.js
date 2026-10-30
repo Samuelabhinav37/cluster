@@ -173,7 +173,7 @@
     ["Spotify", "no-reply@spotify.com", "U", 3, 0.33, true, ["Your free trial ends in 3 days", "Your Release Radar is ready"]],
     ["Adobe", "mail@mail.adobe.com", "P", 6, 0.1, true, ["Your Creative Cloud plan renews soon", "Try Firefly free"]],
     // personal / work (primary inbox, no category)
-    ["Mom", "mom@family.example", "I", 6, 1, false, ["Dinner on Sunday?", "Photos from the trip", "Call me when free"]],
+    ["Mom", "mom@gmail.com", "I", 6, 1, false, ["Dinner on Sunday?", "Photos from the trip", "Call me when free"]],
     ["Alex Chen", "alex.chen@acme-corp.example", "I", 7, 1, false, ["Re: Q4 roadmap review", "Notes from today's sync", "Can you review the doc?"]],
     ["Jordan Lee", "jordan@friends.example", "I", 3, 1, false, ["Hiking this weekend?", "Re: rent split"]],
     // first-contact unknowns (Screener)
@@ -222,7 +222,7 @@
     }
   }
   // Sent mail (implicit screener allowlist)
-  for (const to of ["mom@family.example", "alex.chen@acme-corp.example", "jordan@friends.example"]) {
+  for (const to of ["mom@gmail.com", "alex.chen@acme-corp.example", "jordan@friends.example"]) {
     for (let i = 0; i < 3; i++) {
       const id = "s" + (idc++).toString(16);
       MSGS[id] = { id, threadId: id, labelIds: ["SENT"], internalDate: String(NOW - rnd() * 60 * DAY), sizeEstimate: 4000, payload: { headers: [{ name: "To", value: to }] } };

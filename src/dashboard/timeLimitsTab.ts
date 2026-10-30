@@ -66,6 +66,7 @@ function stepPicker(select: HTMLSelectElement, name: string): HTMLElement {
     seg.append(b);
   }
   select.addEventListener("change", paint);
+  select.addEventListener("sync", paint);
   paint();
   return seg;
 }
@@ -90,6 +91,14 @@ const BUCKET_HINT: Record<SortBucket, string> = {
   productivity: "Slack, GitHub, Notion and similar",
   education: "Courses and school",
 };
+
+/** Organize's groups, after Apple Mail's categories. Codes and people sit
+ * apart; every other kind is in exactly one group. */
+export const ORGANIZE_GROUPS: { name: string; icon: string; kinds: SortBucket[] }[] = [
+  { name: "Transactions", icon: "receipt", kinds: ["receipt", "shipping"] },
+  { name: "Updates", icon: "news", kinds: ["newsletter", "social", "promotions"] },
+  { name: "Personal", icon: "card", kinds: ["finance", "shopping", "travel", "productivity", "education"] },
+];
 
 const BUCKET_ICON: Record<SortBucket, string> = {
   otp: "key",
@@ -167,35 +176,118 @@ export function renderTimeLimits(): void {
   if (!toggleEl || !rowsEl || !lastRunEl) return;
   const cfg = ctx.settings.autoSort;
   toggleEl.checked = cfg.timeLimitsEnabled;
-  // One row per kind: icon, name, how much there is, and where it goes.
-  rowsEl.replaceChildren(
-    ...ALL_SORT_BUCKETS.map((bucket) => {
-      const plainName = categoryLabelName(bucket, ctx.settings.labelChoices).replace(/^\S+\s/, "");
-      const row = document.createElement("div");
-      row.className = "glass-card kind-card";
-      row.title = BUCKET_HINT[bucket];
-      const mark = document.createElement("span");
-      mark.className = "app-ic";
-      mark.append(icon(BUCKET_ICON[bucket]));
-      const words = document.createElement("span");
-      words.className = "grow";
-      const sub = Object.assign(document.createElement("span"), { className: "sub", id: `time-limit-sub-${bucket}` });
-      words.append(plainName, sub);
-      const select = document.createElement("select");
-      select.id = `time-limit-${bucket}`;
-      select.className = "kind-pick";
-      select.setAttribute("aria-label", `${plainName}: where it goes`);
-      for (const choice of limitChoicesFor(bucket)) select.add(new Option(choice.label, choiceValue(choice.hours)));
-      select.value = choiceValue(cfg.inboxHoursByBucket[bucket] ?? null);
-      select.onchange = () => void chooseLimit();
-      select.hidden = true;
-      const head = document.createElement("div");
-      head.className = "kind-head";
-      head.append(mark, words);
-      row.append(head, stepPicker(select, plainName), select);
-      return row;
-    }),
-  );
+  // Like Apple Mail's categories: codes are one switch, people always stay,
+  // and three groups each take one keep time. A group opens to its kinds,
+  // which still keep their own Gmail labels and can differ.
+  const plainName = (b: SortBucket) => categoryLabelName(b, ctx.settings.labelChoices).replace(/^\S+\s/, "");
+  const kindRow = (bucket: SortBucket) => {
+    const name = plainName(bucket);
+    const row = document.createElement("div");
+    row.className = "ios-row org-kind";
+    row.title = BUCKET_HINT[bucket];
+    const words = document.createElement("span");
+    words.className = "grow";
+    const sub = Object.assign(document.createElement("span"), { className: "sub", id: `time-limit-sub-${bucket}` });
+    words.append(name, sub);
+    const select = document.createElement("select");
+    select.id = `time-limit-${bucket}`;
+    select.className = "kind-pick";
+    select.setAttribute("aria-label", `${name}: where it goes`);
+    for (const choice of limitChoicesFor(bucket)) select.add(new Option(choice.label, choiceValue(choice.hours)));
+    select.value = choiceValue(cfg.inboxHoursByBucket[bucket] ?? null);
+    select.onchange = () => void chooseLimit();
+    select.hidden = true;
+    const mark = document.createElement("span");
+    mark.className = "app-ic";
+    mark.append(icon(BUCKET_ICON[bucket]));
+    row.append(mark, words, stepPicker(select, name), select);
+    return { row, select };
+  };
+
+  const codes = kindRow("otp");
+  const codesOn = presetSwitch("One-time codes leave the inbox", codes.select.value !== "stay", () => {
+    codes.select.value = codesOn.checked ? choiceValue(cfg.inboxHoursByBucket.otp || 24) : "stay";
+    codes.select.dispatchEvent(new Event("change", { bubbles: true }));
+    codesOn.disabled = false;
+  });
+  const codesRow = document.createElement("label");
+  codesRow.className = "ios-row";
+  const codesWords = document.createElement("span");
+  codesWords.className = "grow";
+  codesWords.append("One-time codes", codes.row.querySelector(".sub")!);
+  const codesMark = document.createElement("span");
+  codesMark.className = "app-ic";
+  codesMark.append(icon("key"));
+  codesRow.append(codesMark, codesWords, codesOn, codes.select);
+
+  const people = document.createElement("div");
+  people.className = "ios-row";
+  const peopleMark = document.createElement("span");
+  peopleMark.className = "app-ic";
+  peopleMark.append(icon("users"));
+  const peopleWords = document.createElement("span");
+  peopleWords.className = "grow";
+  peopleWords.append("People", Object.assign(document.createElement("span"), { className: "sub", textContent: "Starred and people you write to" }));
+  people.append(peopleMark, peopleWords, Object.assign(document.createElement("span"), { className: "org-value", textContent: "Keep" }));
+
+  const groups = ORGANIZE_GROUPS.map((g) => {
+    const kinds = g.kinds.map(kindRow);
+    const box = document.createElement("details");
+    box.className = "set-row-details org-group";
+    const head = document.createElement("summary");
+    head.className = "ios-row";
+    const mark = document.createElement("span");
+    mark.className = "app-ic";
+    mark.append(icon(g.icon));
+    const words = document.createElement("span");
+    words.className = "grow";
+    words.append(g.name, Object.assign(document.createElement("span"), { className: "sub", textContent: g.kinds.map(plainName).join(", ") }));
+    const value = document.createElement("span");
+    value.className = "org-value";
+    head.append(mark, words, value);
+    // One picker for the group, pressed only while every kind agrees.
+    const all = document.createElement("select");
+    for (const step of STEPS) all.add(new Option(step.name, choiceValue(step.hours)));
+    const agreed = () => {
+      const v = kinds[0].select.value;
+      return kinds.every((k) => k.select.value === v) ? v : "";
+    };
+    const paint = () => {
+      const v = agreed();
+      all.value = v;
+      const label = LIMIT_CHOICES.find((c) => choiceValue(c.hours) === v)?.label ?? "Mixed";
+      value.textContent = label.replace(/^After /, "").replace("Stays in inbox", "Keep");
+    };
+    all.onchange = () => {
+      for (const k of kinds) {
+        k.select.value = all.value;
+        k.select.dispatchEvent(new Event("sync"));
+      }
+      paint();
+      rowsEl.dispatchEvent(new Event("change"));
+      void chooseLimit();
+    };
+    box.addEventListener("change", paint);
+    const allRow = document.createElement("div");
+    allRow.className = "ios-row org-kind";
+    const allWords = Object.assign(document.createElement("span"), { className: "grow", textContent: `All ${g.name.toLowerCase()}` });
+    allRow.append(document.createElement("span"), allWords, stepPicker(all, g.name));
+    box.append(head, allRow, ...kinds.map((k) => k.row));
+    paint();
+    return box;
+  });
+
+  const section = (head: string, ...rows: HTMLElement[]) => {
+    const wrap = document.createElement("section");
+    wrap.className = "ios-section";
+    const h = Object.assign(document.createElement("h2"), { className: "ios-head", textContent: head });
+    const group = document.createElement("div");
+    group.className = "ios-group";
+    group.append(...rows);
+    wrap.append(h, group);
+    return wrap;
+  };
+  rowsEl.replaceChildren(section("Cleanup", codesRow), section("Categories", people, ...groups));
   renderKindSubs();
   lastRunEl.textContent =
     cfg.timeLimitsEnabled && cfg.lastSweep.at > 0
