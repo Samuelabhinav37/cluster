@@ -241,7 +241,9 @@ const tranco = await trancoTop(TOP_N);
 const candidates = [...new Set([...Object.values(handList).flat(), ...tranco.domains])];
 console.log(`checking ${candidates.length} domains for mark certificates…`);
 
-const certified = new Map(); // legal name → company
+// One entry per certificate, not per legal owner: Microsoft holds LinkedIn's
+// certificate and its own, and each brand keeps its own logo.
+const certified = new Map(); // certificate's sorted domains → company
 const issuers = new Map(); // fingerprint → issuing CA that signed a certified leaf
 const failures = [];
 let done = 0;
@@ -249,10 +251,9 @@ await pool(candidates, async (domain) => {
   try {
     const hit = await certifiedFor(domain);
     if (hit) {
-      const company = certified.get(hit.name) ?? { ...hit, domains: new Set(), trust: "certified" };
-      for (const d of hit.domains) company.domains.add(d);
-      company.logo ??= hit.logo;
-      certified.set(hit.name, company);
+      const key = [...hit.domains].sort().join(" ");
+      if (!certified.has(key))
+        certified.set(key, { ...hit, domains: new Set(hit.domains), trust: "certified" });
     }
   } catch (err) {
     failures.push(`${domain}: ${err.message}`);
