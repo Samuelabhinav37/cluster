@@ -231,10 +231,8 @@
             </div>
 
             <!-- Round 2: one meter, then a card per kind of win. -->
-            <div class="glass-card cu-meter" id="cleanup-meter" hidden>
+            <div class="cu-meter" id="cleanup-meter" hidden>
               <b id="cleanup-total"></b>
-              <div class="cu-bar"><i id="cu-bar-never"></i><i id="cu-bar-past"></i></div>
-              <ul class="cu-legend"><li id="cu-leg-never">Never opened</li><li id="cu-leg-past">Past its date</li></ul>
             </div>
             <div class="cu-cards">
               <div class="glass-card cu-card" id="never-opened-card" hidden>
@@ -246,10 +244,11 @@
                     <path d="m21 17-4 4"></path></svg
                   >Never opened
                 </h3>
+                <p class="cu-say">Senders you never open.</p>
                 <p class="cu-num"><b id="never-opened-fact"></b> emails</p>
                 <ul class="cu-list" id="never-opened-top"></ul>
                 <div class="cu-acts">
-                  <span id="never-read-trash-slot"><button id="never-read-trash-btn" class="btn">Trash</button></span>
+                  <span id="never-read-trash-slot"><button id="never-read-trash-btn" class="btn btn-accent-solid">Trash</button></span>
                   <a href="#" id="never-opened-pick">Pick senders</a>
                 </div>
               </div>
@@ -260,10 +259,11 @@
                     <polyline points="12 6 12 12 16 14"></polyline></svg
                   >Past its date
                 </h3>
+                <p class="cu-say">Codes, deals and news that ran out.</p>
                 <p class="cu-num"><b id="past-date-fact"></b> emails</p>
                 <ul class="cu-list" id="past-date-top"></ul>
                 <div class="cu-acts">
-                  <span id="expiry-cleanup-slot"><button id="expiry-cleanup-btn" class="btn">Trash</button></span>
+                  <span id="expiry-cleanup-slot"><button id="expiry-cleanup-btn" class="btn btn-accent-solid">Trash</button></span>
                 </div>
               </div>
             </div>

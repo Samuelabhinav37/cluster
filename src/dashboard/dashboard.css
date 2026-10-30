@@ -3915,24 +3915,22 @@ body[data-screen="overview"] #ask-kai-open > svg { display: block; }
 .onb-opt[aria-pressed="true"] .onb-ic { color: var(--accent-text); }
 .onb-title { margin-bottom: 20px; }
 /* Clean up, round 2: a meter, then a card per kind of win. */
-.cu-meter { display: grid; gap: 12px; padding: 20px 22px; margin-bottom: 14px; }
-.cu-meter b { font-size: 20px; font-weight: 650; }
-.cu-bar { display: flex; gap: 2px; height: 10px; border-radius: 99px; overflow: hidden; background: var(--neutral-fill); }
-.cu-bar i { flex: 0 1 0; min-width: 0; background: var(--accent-solid); }
-.cu-bar i + i { opacity: .6; }
-.cu-legend, .cu-list { display: flex; gap: 16px; margin: 0; padding: 0; list-style: none; font-size: 12.5px; color: var(--label-2); }
+.cu-meter { margin: 0 0 14px; }
+.cu-meter b { font-size: 22px; font-weight: 650; }
 .cu-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 18px; }
-.cu-card { display: flex; flex-direction: column; gap: 12px; padding: 20px 22px; }
-.cu-head { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 14px; font-weight: 600; color: var(--label-2); }
-.cu-head .i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
-.cu-num { margin: 0; color: var(--label-2); }
-.cu-num b { font-size: 34px; font-weight: 650; color: var(--label); margin-right: 4px; }
-.cu-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; font-size: 13.5px; }
-.cu-list li { display: flex; justify-content: space-between; color: var(--label); }
-.cu-list em { font-style: normal; color: var(--label-3); font-variant-numeric: tabular-nums; }
+.cu-card { display: flex; flex-direction: column; gap: 4px; padding: 22px 24px; }
+.cu-head { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 17px; font-weight: 650; color: var(--label); }
+.cu-head .i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; color: var(--accent-solid); }
+.cu-say { margin: 0 0 0 30px; font-size: 13px; color: var(--label-2); }
+.cu-num { margin: 14px 0 10px; color: var(--label-2); }
+.cu-num b { font-size: 40px; font-weight: 650; letter-spacing: -0.02em; color: var(--label); margin-right: 4px; }
+.cu-list { display: grid; gap: 2px; margin: 0 0 16px; padding: 0; list-style: none; }
+.cu-list li { display: grid; grid-template-columns: minmax(0, 9em) 1fr 3em; align-items: center; gap: 12px; padding: 7px 0; font-size: 13.5px; color: var(--label); }
+.cu-list li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cu-list li i { height: 6px; border-radius: 99px; background: var(--accent-solid); opacity: .55; }
+.cu-list em { font-style: normal; text-align: right; color: var(--label-2); font-variant-numeric: tabular-nums; }
+.cu-list li.cu-more { display: block; color: var(--label-3); font-size: 12.5px; }
 .cu-acts { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
-.cu-legend li::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 2px; background: var(--accent-solid); }
-.cu-legend li + li::before { opacity: .6; }
 .cu-acts a { font-size: 14px; }
 /* Stop mail, round 2: paid subscriptions as cards, newsletters in two columns. */
 .paid-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }

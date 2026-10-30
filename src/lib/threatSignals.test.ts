@@ -161,6 +161,14 @@ describe("scoreMessageForThreats: lookalike-domain", () => {
     ).toEqual([]);
   });
 
+  it("checks the name apart from its ending: paypa1.xyz and paypal.top are caught, paypal.de is not", () => {
+    const kinds = (fromAddress: string) => scoreMessageForThreats(message({ fromDisplayName: "Account Update", fromAddress }));
+    expect(kinds("billing@paypa1.xyz")).toEqual([{ kind: "lookalike-domain", brand: "paypal", confidence: "high" }]);
+    expect(kinds("billing@paypal.top")).toEqual([{ kind: "lookalike-domain", brand: "paypal", confidence: "high" }]);
+    expect(kinds("billing@paypal-secure.xyz")).toEqual([{ kind: "lookalike-domain", brand: "paypal", confidence: "high" }]);
+    expect(kinds("billing@paypal.de").filter((s) => s.kind === "lookalike-domain")).toEqual([]);
+  });
+
   it("flags a single-character-substitution lookalike even without the brand name in the display name", () => {
     expect(scoreMessageForThreats(message({ fromDisplayName: "Account Update", fromAddress: "billing@paypa1.com" }))).toEqual([
       { kind: "lookalike-domain", brand: "paypal", confidence: "high" },

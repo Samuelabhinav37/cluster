@@ -1569,35 +1569,30 @@ function updateSenderState(senders: SenderSummary[]) {
   );
 }
 
-// Clean up: a meter of what can go, then a card per kind. Each card's button
+// Clean up: the total that can go, then a card per kind. Each card's button
 // is the existing confirm (mute never-opened, trash past-date), moved in.
 function renderDeleteScreen(senders: SenderSummary[]) {
   const plan = clearOutPlan(senders);
   const n = (v: number) => v.toLocaleString();
-  const both = plan.neverReadMsgs + plan.expiryTotal;
   document.getElementById("cleanup-meter")!.hidden = plan.total === 0;
   document.getElementById("cleanup-total")!.textContent = `${n(plan.total)} ${plan.total === 1 ? "email" : "emails"} can go`;
-  document.getElementById("cu-bar-never")!.style.flexGrow = String(plan.neverReadMsgs / Math.max(1, both));
-  document.getElementById("cu-bar-past")!.style.flexGrow = String(plan.expiryTotal / Math.max(1, both));
-  document.getElementById("cu-leg-never")!.hidden = plan.neverReadMsgs === 0;
-  document.getElementById("cu-leg-past")!.hidden = plan.expiryTotal === 0;
   document.getElementById("never-opened-card")!.hidden = plan.neverRead.length === 0;
   document.getElementById("never-opened-fact")!.textContent = n(plan.neverReadMsgs);
   document.getElementById("past-date-card")!.hidden = plan.expiryTotal === 0;
   document.getElementById("past-date-fact")!.textContent = n(plan.expiryTotal);
-  // Name and count, biggest first; the rest fold into "N more".
+  // Name, a bar against the biggest, and the count; the rest fold into "N more".
   const list = (id: string, rows: Array<[string, number]>) => {
     rows.sort((a, b) => b[1] - a[1]);
-    const shown = rows.slice(0, 4);
-    const rest = rows.slice(4).reduce((t, [, c]) => t + c, 0);
-    if (rest > 0) shown.push([`${rows.length - 4} more`, rest]);
-    document.getElementById(id)!.replaceChildren(
-      ...shown.map(([name, count]) => {
-        const li = document.createElement("li");
-        li.append(textEl("span", name), textEl("em", n(count)));
-        return li;
-      }),
-    );
+    const top = Math.max(1, rows[0]?.[1] ?? 1);
+    const shown: HTMLElement[] = rows.slice(0, 4).map(([name, count]) => {
+      const li = document.createElement("li");
+      const bar = document.createElement("i");
+      bar.style.width = `${Math.max(4, (count / top) * 100)}%`;
+      li.append(textEl("span", name), bar, textEl("em", n(count)));
+      return li;
+    });
+    if (rows.length > 4) shown.push(textEl("li", `${rows.length - 4} more senders`, "cu-more"));
+    document.getElementById(id)!.replaceChildren(...shown);
   };
   list("never-opened-top", plan.neverRead.map((s) => [senderName(s.sender), s.safeMessageIds.length]));
   list("past-date-top", plan.expiry.filter((b) => b.count > 0).map((b) => [b.label, b.count]));

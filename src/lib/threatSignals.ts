@@ -31,6 +31,7 @@ import { isBlockedDomain } from "./blocklist";
 import { domainToUnicode } from "./punycode";
 import { cleanText, skeleton } from "./normalize";
 import { isSameOrSubdomain, registrableDomain } from "./registrableDomain";
+import { publicSuffix } from "./publicSuffix";
 import { getDataset, refreshDataset } from "./remoteDataset";
 import brandDomainsFallback from "./data/brandDomains.json";
 
@@ -244,6 +245,14 @@ const COMBOSQUAT_LURE_WORDS = new Set([
   "confirm", "unlock", "recovery", "refund", "payment", "invoice", "customer", "care", "id",
 ]);
 
+// Endings that cost little and carry far more abuse than .com, from
+// Spamhaus's and Interisle's most-abused TLD reports. A brand's name on one
+// of these (paypal.xyz) is never the brand.
+const RISKY_ENDINGS = new Set([
+  "xyz", "top", "click", "icu", "buzz", "cfd", "sbs", "cyou", "rest", "monster", "bond", "quest",
+  "lol", "online", "site", "shop", "store", "live", "support", "win", "vip", "fun", "space", "link",
+]);
+
 type LookalikeMatch = { brand: string; confidence: "high" | "medium" };
 
 function findLookalikeBrand(senderDomain: string): LookalikeMatch | null {
@@ -258,24 +267,33 @@ function findLookalikeBrand(senderDomain: string): LookalikeMatch | null {
   if (registrable.length < LOOKALIKE_MIN_DOMAIN_LENGTH) return null;
   // Headers carry internationalised domains as punycode (xn--pypl-53dc.com),
   // so decode before the confusables map can see the Cyrillic letters.
-  const skel = skeleton(domainToUnicode(registrable));
+  // Compare the name and the ending separately, so a new ending can't hide
+  // a lookalike: paypa1.xyz is checked as paypa1 against paypal.
+  const ending = publicSuffix(registrable);
+  const label = registrable.slice(0, registrable.length - ending.length - 1);
+  const skel = skeleton(domainToUnicode(label));
   for (const [brand, domains] of Object.entries(BRAND_DOMAINS)) {
     for (const legitDomain of domains) {
-      if (legitDomain.split(".")[0].length < LOOKALIKE_MIN_BRAND_LABEL_LENGTH) continue;
-      const legitSkel = skeleton(legitDomain);
-      // Confusable-normalised exact match: the domain renders identically to
-      // the brand's real one but isn't it -- a Cyrillic 'а' in pаypаl.com, a
-      // digit 1 in paypa1.com, rn for m in arnazon.com. The strongest
-      // lookalike case, and one raw edit distance misses for homoglyphs.
-      if (skel === legitSkel && registrable !== legitDomain) return { brand, confidence: "high" };
-      if (editDistanceWithin(registrable, legitDomain, lookalikeMaxDistance(legitDomain))) return { brand, confidence: "high" };
-      // A homoglyph swap plus an ordinary typo can push the raw string past
-      // the threshold while the skeleton stays close -- check that too.
-      if (editDistanceWithin(skel, legitSkel, lookalikeMaxDistance(legitDomain))) return { brand, confidence: "high" };
+      const legitLabel = legitDomain.split(".")[0];
+      if (legitLabel.length < LOOKALIKE_MIN_BRAND_LABEL_LENGTH) continue;
+      const max = lookalikeMaxDistance(legitDomain);
+      const legitSkel = skeleton(legitLabel);
+      if (label === legitLabel) {
+        // The brand's exact name on another ending. Brands own many country
+        // endings (amazon.in), so only the endings scammers favour count.
+        if (RISKY_ENDINGS.has(ending)) return { brand, confidence: "high" };
+        continue;
+      }
+      // Homoglyphs render identically (pаypаl, paypa1, arnazon); a typo is a
+      // small edit on the raw name or on its skeleton.
+      if (skel === legitSkel || editDistanceWithin(label, legitLabel, max) || editDistanceWithin(skel, legitSkel, max)) {
+        return { brand, confidence: "high" };
+      }
     }
   }
   const combosquat = findCombosquatBrand(registrable);
-  return combosquat ? { brand: combosquat, confidence: "medium" } : null;
+  if (!combosquat) return null;
+  return { brand: combosquat, confidence: RISKY_ENDINGS.has(ending) ? "high" : "medium" };
 }
 
 /** paypal-secure-login.com -> "paypal": the brand's own label as one
