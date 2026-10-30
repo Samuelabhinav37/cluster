@@ -12,6 +12,7 @@
 // This module is pure: it returns the colour + text to paint. The dashboard
 // layer builds the actual DOM tile from it.
 import { normalizeDomain, registrableDomain, registrableDomainCandidates } from "./registrableDomain";
+import { isFreeMailDomain } from "./freeMail";
 
 export interface SenderLogo {
   /** Two-letter (or one-letter) monogram to render in the tile. */
@@ -149,7 +150,8 @@ const FAVICON_HOST = "https://www.google.com/s2/favicons";
  * registrable domain does. 128px so downscaled tiles stay crisp on HiDPI. */
 export function faviconUrl(address: string, size = 128): string | null {
   const domain = registrableDomain(domainFromAddress(address));
-  if (!domain) return null;
+  // A gmail.com sender is a person, not Google: they get their initials.
+  if (!domain || isFreeMailDomain(domain)) return null;
   return `${FAVICON_HOST}?domain=${encodeURIComponent(domain)}&sz=${size}`;
 }
 

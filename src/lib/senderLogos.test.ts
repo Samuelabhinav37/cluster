@@ -53,6 +53,7 @@ describe("logoFor", () => {
 describe("faviconUrl", () => {
   it("asks for the company domain, not the mail subdomain", () => {
     expect(faviconUrl("emails@emails.cinemark.com")).toContain("domain=cinemark.com&");
+    expect(faviconUrl("mom@gmail.com")).toBeNull();
     expect(faviconUrl("capitalone@notification.capitalone.com")).toContain("domain=capitalone.com&");
   });
 });

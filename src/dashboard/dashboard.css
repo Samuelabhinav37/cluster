@@ -3431,7 +3431,8 @@ table.sheet { width: 100%; border-collapse: collapse; table-layout: fixed; font-
 .sheet.senders th:nth-child(4) { width: 64px; }
 .sheet .from .logo-tile { display: inline-flex; margin-right: 6px; vertical-align: middle; }
 /* A long name shortens itself; inside the cell it would turn into a bare "…". */
-.sheet .who { display: inline-block; max-width: calc(100% - 30px); overflow: hidden; text-overflow: ellipsis; }
+.sheet .who { display: inline-block; max-width: calc(100% - 34px); overflow: hidden; text-overflow: ellipsis; }
+.sheet.senders .who { max-width: calc(100% - 64px); }
 .sheet .who, .sheet .sort, .details .link { padding: 0; border: 0; background: none; color: inherit; font: inherit; vertical-align: middle; }
 .sheet button.who:hover { text-decoration: underline; }
 .details .link { color: var(--accent-text); font-weight: 600; }
