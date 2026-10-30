@@ -117,6 +117,27 @@ describe("word budget (every screen, after a scan)", () => {
     expect(document.querySelectorAll("section.screen details details details").length).toBe(0);
   });
 
+  // NN/g UI copy: name the action, never "OK"; one verb per action everywhere
+  // (research/2026-10-29-fewer-words-icons-extension.md).
+  const buttonLabels = () =>
+    Object.keys(BUDGET).flatMap((screen) => {
+      dash.showScreen(screen);
+      const root = document.querySelector(`section.screen[data-screen="${screen}"]`)!;
+      return Array.from(root.querySelectorAll("button, [role=menuitem]"))
+        .filter(visible)
+        .map((b) => `${b.textContent!.replace(/\s+/g, " ").trim()} (${screen})`);
+    });
+
+  it("no button just says OK", () => {
+    expect(buttonLabels().filter((l) => /^ok\b/i.test(l))).toEqual([]);
+  });
+
+  it("Trash, Unsubscribe, Mute and Archive keep one word each", () => {
+    // Delete forever is its own action (skips Trash), so it keeps its name.
+    const synonyms = /^(delete(?! forever)|remove|clear out|bin|unsub(?!scribe)|silence|file away)\b/i;
+    expect(buttonLabels().filter((l) => synonyms.test(l))).toEqual([]);
+  });
+
   it("each action is a button only in its home place", () => {
     const strays = Object.keys(BUDGET).flatMap((screen) => {
       dash.showScreen(screen);
