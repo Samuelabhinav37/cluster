@@ -196,7 +196,7 @@ function kaiNarrator(host: HTMLElement) {
   return {
     say(text: string, mood?: KaiMood) {
       last = text;
-      window.clearInterval(typing);
+      clearInterval(typing);
       if (kai) {
         if (mood) kai.setMood(mood, 2400);
         kai.talk(Math.min(3000, text.length * 45));
@@ -212,17 +212,17 @@ function kaiNarrator(host: HTMLElement) {
       }
       let n = 0;
       bubble.textContent = "";
-      typing = window.setInterval(() => {
+      typing = setInterval(() => {
         n += 2;
         bubble.textContent = text.slice(0, n);
-        if (n >= text.length) window.clearInterval(typing);
+        if (n >= text.length) clearInterval(typing);
       }, 22);
     },
     wave() {
       kai?.do("wave");
     },
     stop() {
-      window.clearInterval(typing);
+      clearInterval(typing);
       if (canSpeak) speechSynthesis.cancel();
     },
   };
