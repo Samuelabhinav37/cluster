@@ -180,7 +180,6 @@ describe("Phishing screen — sender-controlled text", () => {
     expect(list.querySelector("[data-injected]")).toBeNull();
     expect(list.querySelector('img[src^="https://evil.example"]')).toBeNull();
   });
-
 });
 
 describe("Scam report — sender checks gauge", () => {
