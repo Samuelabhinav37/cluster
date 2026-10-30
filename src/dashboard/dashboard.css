@@ -3926,3 +3926,15 @@ body[data-screen="overview"] .kai-guide:not(.open) .kg-launch { visibility: hidd
 .cu-legend li::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 2px; background: var(--accent-solid); }
 .cu-legend li + li::before { opacity: .6; }
 .cu-acts a { font-size: 14px; }
+/* Stop mail, round 2: paid subscriptions as cards, newsletters in two columns. */
+.paid-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.paid-card { display: flex; flex-direction: row; text-align: left; align-items: center; gap: 10px; padding: 12px 14px; }
+.paid-card b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+#subscriptions-list { container-type: inline-size; }
+@container (min-width: 960px) {
+  #subscriptions-list .grouped-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #subscriptions-list .grouped-list > .row-sep { display: none; }
+  #subscriptions-list .grouped-list > * { border-top: 1px solid var(--separator); }
+  #subscriptions-list .grouped-list > :nth-child(odd of :not(.row-sep)) { border-right: 1px solid var(--separator); }
+  #subscriptions-list .list-row--check-media-meta-actions { grid-template-columns: 22px minmax(0, 1fr) 40px max-content; gap: 10px; padding: 10px 12px; }
+}

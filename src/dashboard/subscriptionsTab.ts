@@ -3,7 +3,7 @@
 // later and the one-click "Unsubscribe all" bulk action.
 // recordUnsubscribeRequests is exported because the Clean-up tab's sender
 // table also records a request when its inline Unsubscribe button fires.
-import { cadenceLabel, senderVolume } from "../lib/census";
+import { senderUnread, senderVolume } from "../lib/census";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
 import { executeBulkUnsubscribe, filterOutProtected } from "../lib/bulkActions";
 import {
@@ -56,41 +56,25 @@ function renderPaidSubscriptions(senders: SenderSummary[]) {
   paidSubscriptionsListEl.parentElement!.hidden = candidates.length === 0;
   if (candidates.length === 0) return;
 
-  const rows = candidates.map(({ sender, signal, lastSeenAt }) => {
-    const seen = document.createElement("span");
-    seen.className = "recent-detail";
-    seen.textContent = formatRelativeTime(lastSeenAt);
-    return listRow({
-      lead: subTile(sender),
-      title: sender.displayName || sender.address,
-      sub: `${SUBSCRIPTION_SIGNAL_LABELS[signal]} · cancel with ${sender.displayName || domainOf(sender.address)}`,
-      meta: seen,
-    });
-  });
-  paidSubscriptionsListEl.appendChild(listGroup(rows));
+  // Round 2: a card each, name and what it's doing; you cancel with the company.
+  const grid = document.createElement("div");
+  grid.className = "paid-grid";
+  for (const { sender, signal } of candidates) {
+    const card = document.createElement("div");
+    card.className = "glass-card paid-card";
+    card.title = `Cancel with ${sender.displayName || domainOf(sender.address)}`;
+    const name = document.createElement("b");
+    name.textContent = sender.displayName || domainOf(sender.address);
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.textContent = SUBSCRIPTION_SIGNAL_LABELS[signal];
+    card.append(subTile(sender, "sz-30"), name, chip);
+    grid.append(card);
+  }
+  paidSubscriptionsListEl.appendChild(grid);
 }
 
 export { recordUnsubscribeRequests };
-
-function unsubMethodLabel(u: SenderSummary["unsubscribe"]): string {
-  if (u.postUrl) return "Stops in one click";
-  if (u.httpUrl) return "Finish on their site";
-  return "Stops by email";
-}
-
-function dominantKind(s: SenderSummary): string {
-  const counts = new Map<string, number>();
-  for (const m of s.messages) counts.set(m.kind, (counts.get(m.kind) ?? 0) + 1);
-  let best = "other";
-  let bestN = -1;
-  for (const [k, n] of counts) {
-    if (n > bestN) {
-      best = k;
-      bestN = n;
-    }
-  }
-  return best;
-}
 
 /** Undo, and for a sender still mailing on Gmail, a way to send what keeps
  * coming to Trash. Both act on Cluster's own filters only. */
@@ -499,20 +483,17 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
     selCount.textContent = `${oneClickKeys.filter((k) => selectedSubKeys.has(k)).length} of ${oneClickKeys.length} selected`;
     const sortedNote = document.createElement("span");
     sortedNote.className = "recent-detail";
-    sortedNote.textContent = "Problems first, then by volume";
+    sortedNote.textContent = "Opened";
     hdr.append(selAllLabel, selCount, sortedNote);
 
     const rows = visibleCurrentRows.map(({ sender, outcome }) => {
-      const outcomeText = outcome.requestAt
-        ? `${outcome.label} · requested ${formatRelativeTime(outcome.requestAt)}`
-        : `${unsubMethodLabel(sender.unsubscribe)} · mostly ${dominantKind(sender)}`;
-      const subLine = [
-        cadenceLabel(senderVolume(sender), ctx.settings.scanWindowDays),
-        outcomeText,
-        sender.displayName ? sender.address : "",
-      ]
-        .filter(Boolean)
-        .join(" · ");
+      // Round 2: name and how much gets opened; only a sent request earns a line.
+      const subLine = outcome.requestAt ? outcome.label : "";
+      const total = senderVolume(sender);
+      const opened = document.createElement("span");
+      opened.className = "ios-value";
+      opened.textContent = `${Math.round(((total - senderUnread(sender)) / Math.max(1, total)) * 100)}%`;
+      opened.title = "Opened";
 
       // One visible button (the way to stop the mail); the rest sit in ⋯.
       // A sender that already stopped gets "Clear out old mail" first.
@@ -555,7 +536,8 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
             },
         lead: subTile(sender),
         title: sender.displayName || sender.address,
-        sub: subLine,
+        sub: subLine || undefined,
+        meta: opened,
         actions: primary ? [primary, menu] : [menu],
         disclosure: strip,
       });
