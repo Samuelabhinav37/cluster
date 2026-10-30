@@ -51,10 +51,15 @@ export function senderTile(
   img.loading = "lazy";
   img.decoding = "async";
   img.referrerPolicy = "no-referrer";
-  img.addEventListener("error", () => {
+  const fallBack = () => {
     img.remove();
     tile.classList.remove("has-favicon");
     paintMonogram();
+  };
+  img.addEventListener("error", fallBack);
+  // The favicon service answers an unknown site with a 16px globe; a letter reads better.
+  img.addEventListener("load", () => {
+    if (img.naturalWidth <= 16) fallBack();
   });
   tile.appendChild(img);
 

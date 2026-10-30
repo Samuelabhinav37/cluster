@@ -1,14 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
-import {
-  arrivalGrid,
-  detailMessages,
-  detailSenders,
-  initDetailsPanel,
-  weekOf,
-  type DetailsActions,
-} from "./detailsPanel";
+import { detailSenders, initDetailsPanel, weekOf, type DetailsActions } from "./detailsPanel";
 
 const NOW = new Date(2026, 9, 27, 12).getTime(); // Tue 27 Oct, noon local
 const DAY = 24 * 60 * 60 * 1000;
@@ -86,17 +79,6 @@ describe("weekOf", () => {
   });
 });
 
-describe("arrivalGrid", () => {
-  it("counts mail by weekday, Monday first, and local hour", () => {
-    const grid = arrivalGrid(detailMessages(mailbox()));
-    expect(grid).toHaveLength(7);
-    expect(grid[0]).toHaveLength(24);
-    // Mon 26 (Mom), Wed 7 and Sun 25 (Shop), all at noon.
-    expect([grid[0][12], grid[2][12], grid[6][12]]).toEqual([1, 1, 1]);
-    expect(grid.flat().reduce((a, b) => a + b)).toBe(3);
-  });
-});
-
 describe("detailSenders", () => {
   it("gives each sender its volume, opens and main kind, most mail first", () => {
     const got = detailSenders(mailbox()).map((s) => [s.name, s.emails, s.opened, s.kind]);
@@ -127,17 +109,6 @@ describe("Details panel", () => {
     days[3].click();
     expect(rows(root)).toEqual([]);
     expect(root.querySelector(".empty")?.textContent).toBe("Nothing here.");
-  });
-
-  it("shows when mail arrives for the week chosen, darker where more lands", () => {
-    const panel = boot();
-    panel.open({ kind: "promo" });
-    const heat = root.querySelector(".heat")!;
-    expect(heat.querySelectorAll("i")).toHaveLength(7 * 24);
-    expect(heat.querySelectorAll("i[style]")).toHaveLength(2);
-    expect(heat.getAttribute("aria-label")).toMatch(/^Most mail arrives /);
-    root.querySelectorAll<HTMLButtonElement>(".col")[7].click();
-    expect(root.querySelectorAll(".heat i[style]")).toHaveLength(1);
   });
 
   it("protected mail can't be ticked, and Trash gets only what was ticked", () => {

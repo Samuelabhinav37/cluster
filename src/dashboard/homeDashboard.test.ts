@@ -92,6 +92,7 @@ describe("mailByKind", () => {
       total: 4,
       thisWeek: 2,
       lastWeek: 1,
+      peopleWeek: 1,
     });
   });
 });
@@ -141,13 +142,13 @@ const text = (el: Element | null) => el?.textContent ?? "";
 const sections = (el: HTMLElement) => Array.from(el.querySelectorAll("h2.section-label")).map(text);
 
 describe("renderHomeDashboard", () => {
-  it("says all clear with the since-you-started total when nothing needs you, and hides Next up", () => {
+  it("says nothing needs you in one sentence, and hides Next up", () => {
     const el = renderHomeDashboard(
       { ...calm, cleared: { byDay: [0, 0, 0, 0, 0, 0, 0], total: 1240 } },
       vi.fn(),
     );
-    expect(text(el.querySelector(".home-verdict"))).toBe("All clear.Nothing needs you today.");
-    expect(text(el.querySelector(".home-sub"))).toBe("1,240 emails cleared since you started.");
+    expect(text(el.querySelector(".home-verdict"))).toBe("Nothing needs you today.");
+    expect(el.querySelector(".home-sub")).toBeNull();
     expect(el.querySelector(".home-hero .btn")).toBeNull();
     expect(sections(el)).toEqual(["This week", "Your inbox"]);
   });
@@ -155,34 +156,38 @@ describe("renderHomeDashboard", () => {
   it("leads with the scams and opens Protect from the one button", () => {
     const go = vi.fn();
     const el = renderHomeDashboard({ ...calm, suspicious: 3, fakedBrands: ["paypal", "netflix"] }, go);
-    expect(text(el.querySelector(".home-verdict .warn"))).toBe("3 emails need you.");
-    expect(text(el.querySelector(".home-sub"))).toBe(
-      "Don't click anything that says it's from PayPal, Netflix.",
-    );
-    el.querySelector<HTMLButtonElement>(".home-hero .btn")!.click();
+    expect(text(el.querySelector(".home-verdict"))).toBe("3 emails pretend to be PayPal and Netflix.");
+    const review = el.querySelector<HTMLButtonElement>(".home-hero .btn")!;
+    expect(text(review)).toBe("Review");
+    review.click();
     expect(go).toHaveBeenCalledWith("impersonation");
   });
 
   it("shows this week's results with gray days, today last, and a comparison chip", () => {
+    const openKind = vi.fn();
     const el = renderHomeDashboard(
       {
         ...calm,
         thisWeek: 82,
         lastWeek: 100,
         cleared: { byDay: [1, 2, 3, 4, 5, 6, 10], total: 500 },
-        suspicious: 2,
+        peopleWeek: 8,
       },
       vi.fn(),
+      openKind,
     );
     const cards = Array.from(el.querySelectorAll(".week-card"));
-    expect(cards.map((c) => text(c.querySelector("b")))).toEqual(["31", "82", "2"]);
+    expect(cards.map((c) => text(c.querySelector("b")))).toEqual(["31", "82", "8"]);
     expect(el.querySelectorAll(".spark i")).toHaveLength(7);
     expect(el.querySelector(".spark i:last-child")!.className).toBe("now");
     expect(text(cards[0].querySelector(".chip-delta"))).toBe("500 since you started");
     const arrived = cards[1].querySelector(".chip-delta")!;
     expect(text(arrived)).toBe("↓ 18% vs last week");
     expect(arrived.classList.contains("good")).toBe(true);
-    expect(text(cards[2].querySelector("span"))).toBe("scams caught");
+    expect(text(cards[2].querySelector("span"))).toBe("from people");
+    expect(text(cards[2].querySelector(".chip-delta"))).toBe("10% of this week's mail");
+    (cards[2] as HTMLButtonElement).click();
+    expect(openKind).toHaveBeenCalledWith("primary");
   });
 
   it("lists at most three next steps, each with one button that starts its place's own step", () => {

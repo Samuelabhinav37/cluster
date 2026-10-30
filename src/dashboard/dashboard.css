@@ -3448,11 +3448,6 @@ body[data-state="connect"] .crumbs {
 .details-chart .fill { width: 100%; border-radius: 3px 3px 1px 1px; background: var(--k2); }
 .details-chart .dim .fill { background: var(--k4); }
 .details-chart .lbl { font-size: 11px; color: var(--label-4); white-space: nowrap; }
-.details-chart .heat { display: grid; grid-template-columns: 12px repeat(24, 1fr); gap: 2px; margin-bottom: 4px; }
-.details-chart .cols + .chart-head { margin-top: 10px; }
-.heat-day { font-size: 10px; line-height: 9px; color: var(--label-4); }
-.heat i { height: 9px; border-radius: 2px; background: var(--neutral-fill); }
-.heat i[style] { background: var(--k2); }
 .details .sheet-wrap { flex: 1; min-height: 0; overflow: auto; border-top: 1px solid var(--separator); }
 table.sheet { width: 100%; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
 .sheet th { position: sticky; top: 0; z-index: 1; padding: 6px 8px; border-bottom: 1px solid var(--separator); background: var(--glass-bar);
@@ -3493,12 +3488,6 @@ table.sheet { width: 100%; border-collapse: collapse; table-layout: fixed; font-
 }
 
 /* Protect: a segmented control that switches between its three views. */
-.protect-tiles { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; margin: 4px 0 22px; border-radius: 10px; background: var(--neutral-fill); }
-.protect-tile { padding: 6px 14px; border: 0; border-radius: 8px; background: none; color: var(--label-2); font: inherit; cursor: pointer; }
-.protect-tile:hover { color: var(--label); }
-.protect-tile[aria-selected="true"] { background: var(--glass-bar); color: var(--label); font-weight: 600; box-shadow: var(--shadow-card); }
-.protect-tile b { font-weight: 600; color: var(--label-3); font-variant-numeric: tabular-nums; }
-.protect-tile.alert b { color: var(--danger-text); }
 .tier[hidden] { display: none; }
 .tier + .tier { margin-top: 26px; }
 [data-screen="impersonation"] + .nav-children { display: none !important; }
@@ -3536,7 +3525,7 @@ section.screen { max-width: 1120px; margin: 0 auto; padding: 32px 48px 180px; }
 .section-label { font-size: 13px; font-weight: 600; color: var(--label-4); margin: 28px 0 10px; }
 .section-head .section-label { margin: 0; }
 .section-head { margin: 0 0 10px; }
-.rec-card, .protect-tile { border: 1px solid var(--separator); background: var(--glass); }
+.rec-card { border: 1px solid var(--separator); background: var(--glass); }
 .rec-card { gap: 4px; min-height: 146px; }
 .rec-name { font-size: 15px; font-weight: 600; }
 .rec-fact { color: var(--accent-text); font-size: 13px; font-weight: 600; }
@@ -3559,6 +3548,11 @@ table.sheet { font-size: 12px; }
 .sheet .tick { width: 13px; height: 13px; }
 .sheet .logo-tile { width: 18px; height: 18px; border-radius: 5px; font-size: 10px; }
 .sheet .logo-tile .logo-img { inset: 15%; width: 70%; height: 70%; }
+/* One center line for tick, caret, logo and name. */
+.sheet td { vertical-align: middle; }
+.sheet .c .tick { display: block; }
+.sheet .caret { width: 14px; font-size: 10px; line-height: 1; vertical-align: middle; text-align: center; }
+.sheet .from .logo-tile { width: 20px; height: 20px; margin: 0 8px 0 2px; }
 .sheet tr.unread .subj { font-weight: 600; }
 .sheet .subj { color: var(--label-2); }
 /* The base button/input/checkbox rules size for touch; the sheet is a dense table. */
@@ -3573,9 +3567,6 @@ table.sheet { font-size: 12px; }
 #sender-groups .row-actions { justify-content: flex-end; }
 #sender-groups .row-actions .btn { min-height: 0; }
 /* Protect (mockup): icon tiles, then scams as one grouped list of rows. */
-.protect-tile { flex-direction: row; align-items: center; gap: 12px; }
-.protect-tile > span:last-child { display: flex; flex-direction: column; align-items: flex-start; font-size: 13px; color: var(--label-2); }
-.protect-tile.alert b { color: var(--label); }
 #security-sender-list, #security-low-list { gap: 0; border: 1px solid var(--separator); border-radius: 14px; overflow: hidden; background: var(--glass); }
 #security-section .scam-card { gap: 8px; padding: 10px 16px; border-radius: 0; box-shadow: none; background: none; }
 #security-section .scam-card + .scam-card { border-top: 1px solid var(--separator); }
@@ -3697,6 +3688,9 @@ table.sheet { font-size: 12px; }
 .ios-row + .ios-row, .set-row + .set-row, #presets .rec-card + .rec-card { border-top: 1px solid var(--separator); }
 .ios-row .app-ic, .set-ic, #presets .rec-card .app-ic { grid-row: 1 / span 2; width: 30px; height: 30px; margin: 0; border-radius: 8px; background: var(--neutral-fill); }
 .ios-row .app-warn .i { stroke: var(--danger-text); }
+button.ios-row { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+button.ios-row:hover { background: var(--neutral-fill); }
+button.ios-row .tile-chev { margin-left: 10px; color: var(--label-4); }
 .ios-row .app-ic .i, .set-ic svg, #presets .rec-card .app-ic .i { width: 17px; height: 17px; fill: none; stroke: var(--label-2); stroke-width: 2;
   stroke-linecap: round; stroke-linejoin: round; }
 .ios-row .grow, .set-row .grow { grid-row: 1 / span 2; display: flex; flex-direction: column; font-size: 15px; color: var(--label); }

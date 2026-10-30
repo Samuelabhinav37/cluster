@@ -32,20 +32,25 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 export function mailByKind(
   senders: readonly SenderSummary[],
   now: number,
-): { kinds: Record<HomeKind, number>; total: number; thisWeek: number; lastWeek: number } {
+): { kinds: Record<HomeKind, number>; total: number; thisWeek: number; lastWeek: number; peopleWeek: number } {
   const kinds: Record<HomeKind, number> = { primary: 0, trans: 0, updates: 0, promo: 0 };
   let total = 0;
   let thisWeek = 0;
   let lastWeek = 0;
+  let peopleWeek = 0;
   for (const s of senders) {
     for (const m of s.messages) {
-      kinds[kindOf(m)] += 1;
+      const kind = kindOf(m);
+      kinds[kind] += 1;
       total += 1;
-      if (now - m.receivedAt < WEEK_MS) thisWeek += 1;
+      if (now - m.receivedAt < WEEK_MS) {
+        thisWeek += 1;
+        if (kind === "primary") peopleWeek += 1;
+      }
       else if (now - m.receivedAt < 2 * WEEK_MS) lastWeek += 1;
     }
   }
-  return { kinds, total, thisWeek, lastWeek };
+  return { kinds, total, thisWeek, lastWeek, peopleWeek };
 }
 
 export interface HomeFacts {
@@ -72,6 +77,8 @@ export interface HomeFacts {
   since?: number;
   /** Arrivals in the seven days before this week. */
   lastWeek?: number;
+  /** This week's arrivals from people, the mail worth reading. */
+  peopleWeek?: number;
   /** Emails cleared per day (oldest first, today last) and since install. */
   cleared?: { byDay: number[]; total: number };
   /** During the first read: messages read so far and how many there are. */
@@ -427,27 +434,25 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
   const hero = el("section", "home-hero");
   const words = el("div", "home-words");
   const verdict = el("p", "home-verdict");
-  const sub = el("p", "home-sub");
   if (f.suspicious > 0) {
-    verdict.append(
-      el("span", "warn", `${plural(f.suspicious, "email needs", "emails need")} you.`),
-      el("br", ""),
-      "The rest is handled.",
-    );
     const brands = (f.fakedBrands ?? []).slice(0, 3).map(brandName);
-    sub.textContent = brands.length
-      ? `Don't click anything that says it's from ${brands.join(", ")}.`
-      : "Don't click anything in them.";
-    const review = el("button", "btn btn-accent-solid", `Review ${n(f.suspicious)}`);
+    const who = brands.length > 1 ? `${brands.slice(0, -1).join(", ")} and ${brands.at(-1)}` : brands[0];
+    verdict.append(
+      el(
+        "span",
+        "warn",
+        who
+          ? `${plural(f.suspicious, "email pretends", "emails pretend")} to be ${who}.`
+          : `${plural(f.suspicious, "email looks", "emails look")} like a scam.`,
+      ),
+    );
+    const review = el("button", "btn btn-accent-solid", "Review");
     review.type = "button";
     review.onclick = () => go("impersonation");
-    words.append(verdict, sub, review);
+    words.append(verdict, review);
   } else {
-    verdict.append("All clear.", el("br", ""), "Nothing needs you today.");
-    sub.textContent = f.cleared?.total
-      ? `${plural(f.cleared.total, "email", "emails")} cleared since you started.`
-      : "Cluster checks new mail as it arrives.";
-    words.append(verdict, sub);
+    verdict.append("Nothing needs you today.");
+    words.append(verdict);
   }
   hero.append(el("div", "home-kai"), words);
   root.append(f.reading ? readHero(f.reading) : hero);
@@ -481,16 +486,20 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
   const arrivedChip = deltaChip(f.thisWeek, f.lastWeek ?? 0, true);
   if (arrivedChip) arrived.append(arrivedChip);
 
-  // The same scams the verdict counts, so Home never shows two numbers for one thing.
-  const scams = el("button", "week-card");
-  scams.type = "button";
-  scams.onclick = () => go("impersonation");
-  scams.append(
-    el("b", "", n(f.suspicious)),
-    el("span", "", f.suspicious === 1 ? "scam caught" : "scams caught"),
-  );
+  // Mail from people is what you came for; its share shows how much is noise.
+  const people = el(openKind ? "button" : "div", "week-card");
+  if (openKind) {
+    (people as HTMLButtonElement).type = "button";
+    people.onclick = () => openKind("primary");
+  }
+  const peopleWeek = f.peopleWeek ?? 0;
+  people.append(el("b", "", n(peopleWeek)), el("span", "", "from people"));
+  if (f.thisWeek > 0)
+    people.append(
+      el("small", "chip-delta", `${Math.round((peopleWeek / f.thisWeek) * 100)}% of this week's mail`),
+    );
   const week = el("div", "home-week");
-  week.append(cleared, arrived, scams);
+  week.append(cleared, arrived, people);
   // During the first read nothing is cleared yet; show what turns up instead.
   if (f.reading) root.append(el("h2", "section-label", "Found so far"), foundSoFar(f));
   else root.append(el("h2", "section-label", "This week"), week);
