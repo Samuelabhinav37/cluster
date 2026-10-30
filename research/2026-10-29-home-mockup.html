@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Home v2 mockup</title>
+<!-- Serve the repo root (not research/) so the real Kai loads: /research/2026-10-29-home-mockup.html -->
+<link rel="stylesheet" href="../src/dashboard/kai/kai.css">
+<script src="../src/dashboard/kai/kaiLife.js"></script>
 <style>
   :root {
     --canvas: #fff; --panel: #f5f5f7; --card: #fff; --label: #18181b; --label-2: #3f3f46; --label-4: #71717a;
@@ -41,8 +44,7 @@
 
   /* 1. The verdict: one sentence, said by Kai */
   .hero { display: flex; gap: 18px; align-items: flex-start; }
-  .kai { flex: none; width: 56px; height: 56px; border-radius: 18px; background: #1b1b20; display: grid; place-items: center; box-shadow: 0 0 0 1px var(--sep); }
-  .kai::before { content: ""; width: 26px; height: 12px; background: radial-gradient(circle at 25% 50%, #fff 4px, transparent 5px), radial-gradient(circle at 75% 50%, #fff 4px, transparent 5px); }
+  .hero .kai { --kai-w: 52px; margin-top: -14px; }
   .hero h1 { margin: 0; font: 500 clamp(28px, 3.4vw, 40px)/1.12 var(--font); letter-spacing: -0.02em; }
   .hero h1 .warn { color: var(--danger); }
   .hero p { margin: 8px 0 0; color: var(--label-4); font-size: 15px; }
@@ -96,16 +98,57 @@
   .row.gone { animation: out 0.4s ease forwards; }
   @keyframes out { to { opacity: 0; transform: translateX(24px); height: 0; padding-top: 0; padding-bottom: 0; } }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 10px 10px 10px 16px; border-radius: 14px; background: var(--label); color: var(--canvas); box-shadow: 0 10px 30px rgba(0,0,0,.25); animation: up 0.35s cubic-bezier(.34,1.56,.64,1); }
+  .toast[hidden] { display: none; }
   .toast .btn { padding: 7px 12px; background: transparent; color: var(--canvas); border-color: rgba(127,127,127,.5); }
   @keyframes up { from { opacity: 0; transform: translate(-50%, 12px); } }
   .stat b.bump { animation: bump 0.5s cubic-bezier(.34,1.56,.64,1); }
   @keyframes bump { 40% { transform: scale(1.12); } }
   .found .count { font-variant-numeric: tabular-nums; }
 
+  /* First read v2: the real Kai reads beside a live counter */
+  .read { display: grid; grid-template-columns: auto 1fr; gap: 28px; align-items: center; padding: 22px 26px 22px 18px; border: 1px solid var(--sep); border-radius: 20px; background: var(--card); }
+  .read .stage { position: relative; width: 104px; display: grid; justify-items: center; }
+  .read .kai { --kai-w: 84px; }
+  .read h1 { margin: 0; font: 500 clamp(26px, 3vw, 34px)/1.15 var(--font); letter-spacing: -0.02em; }
+  .read p { margin: 6px 0 0; color: var(--label-4); font-size: 15px; }
+  .meter { margin-top: 18px; }
+  .meter .nums { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+  .meter .nums b { font: 600 22px/1 var(--font); letter-spacing: -0.01em; }
+  .meter .nums span { color: var(--label-4); font-size: 13px; }
+  .meter .nums em { margin-left: auto; font-style: normal; color: var(--label-4); font-size: 13px; }
+  .track { position: relative; height: 8px; border-radius: 4px; background: var(--fill); overflow: hidden; }
+  .track i { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 4px; background: var(--accent); }
+  .track i::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent); animation: sheen 1.6s linear infinite; }
+  .read.done .track i::after { animation: none; opacity: 0; }
+  @keyframes sheen { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+  .say { position: absolute; left: 30px; top: -44px; z-index: 2; width: max-content; max-width: 210px; padding: 8px 11px; border-radius: 12px 12px 12px 4px; background: var(--label); color: var(--canvas); font-size: 13px; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,.18); opacity: 0; transform: translateY(6px) scale(.96); transform-origin: 0 100%; transition: opacity .25s, transform .3s cubic-bezier(.34,1.56,.64,1); pointer-events: none; }
+  .say.on { opacity: 1; transform: none; }
+
+  /* Found so far: one row of three, no empty right half */
+  .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--sep); border-radius: 16px; background: var(--card); overflow: hidden; }
+  .tile { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+  .tile + .tile { border-left: 1px solid var(--sep); }
+  .tile b { display: block; font: 600 24px/1 var(--font); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .tile .label { display: block; margin-top: 4px; color: var(--label-2); font-size: 13px; line-height: 1.25; }
+  .tile.pop b { animation: bump .5s cubic-bezier(.34,1.56,.64,1); }
+
+  /* App-style icons: filled glyph on a colored squircle, like the sidebar */
+  .app-ic { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; box-shadow: inset 0 0 0 .5px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.08); }
+  .app-ic svg { width: 21px; height: 21px; }
+  .app-ic.red { background: linear-gradient(#ff6b5e, #e5362b); }
+  .app-ic.orange { background: linear-gradient(#ffb340, #f47a0a); }
+  .app-ic.blue { background: linear-gradient(#4fa8ff, #0a6cff); }
+  .app-ic.purple { background: linear-gradient(#b38bff, #7a4cf0); }
+  .app-ic.teal { background: linear-gradient(#3fd3c0, #12a594); }
+  .row .app-ic svg { width: 21px; height: 21px; fill: initial; stroke: none; }
+
   @media (max-width: 760px) {
     .app { grid-template-columns: 1fr; } nav { display: none; }
     .week { grid-template-columns: 1fr; }
+    .read { grid-template-columns: 1fr; justify-items: start; }
+    .tiles { grid-template-columns: 1fr; } .tile + .tile { border-left: 0; border-top: 1px solid var(--sep); }
   }
+  @media (prefers-reduced-motion: reduce) { .track i::after { animation: none; } }
 </style>
 </head>
 <body class="s-needs">
@@ -128,8 +171,8 @@
   </nav>
   <main>
     <!-- 1. Verdict -->
-    <section class="hero">
-      <div class="kai" aria-hidden="true"></div>
+    <div data-state="needs clear"><section class="hero">
+      <div class="kai" id="kai-hero" aria-hidden="true"></div>
       <div>
         <div data-state="needs">
           <h1><span class="warn">3 emails need you.</span><br>The rest is handled.</h1>
@@ -140,25 +183,41 @@
           <h1>All clear.<br>Nothing needs you today.</h1>
           <p>Cluster checks new mail as it arrives. 1,240 emails cleared since you started.</p>
         </div>
-        <div data-state="reading">
-          <h1>Reading your mail.<br>You can look around.</h1>
-          <p>84 of 184 so far. About a minute left. Kai will tell you what turns up.</p>
-          <div class="reading"><i></i></div>
+      </div>
+    </section></div>
+
+    <!-- 1b. First read: Kai reads, the counter moves, Kai speaks up when something turns up -->
+    <div data-state="reading">
+      <section class="read" id="read">
+        <div class="stage">
+          <div class="kai" id="kai-read" aria-hidden="true"></div>
+          <div class="say" id="say" role="status"></div>
+        </div>
+        <div>
+          <h1 id="read-title">Reading your mail.</h1>
+          <p id="read-sub">Look around while I read. Nothing changes in Gmail until you choose.</p>
+          <div class="meter">
+            <div class="nums"><b id="read-n">0</b><span>of 184 emails</span><em id="read-eta">About a minute left</em></div>
+            <div class="track" role="progressbar" aria-label="Emails read" aria-valuemin="0" aria-valuemax="184" aria-valuenow="0" id="read-bar"><i></i></div>
+          </div>
+        </div>
+      </section>
+
+      <h2>Found so far</h2>
+      <div class="tiles found">
+        <div class="tile" data-at="0.35" data-say="That one isn't really PayPal.">
+          <span class="app-ic red"><svg viewBox="0 0 24 24"><path fill="#fff" d="M12 2.2 4.6 5.1a1 1 0 0 0-.6.9V11c0 5 3.3 9.2 7.7 10.7a1 1 0 0 0 .6 0C16.7 20.2 20 16 20 11V6a1 1 0 0 0-.6-.9z"/><rect x="11" y="7" width="2" height="7" rx="1" fill="#e5362b"/><circle cx="12" cy="16.6" r="1.25" fill="#e5362b"/></svg></span>
+          <span><b class="count" data-to="3">0</b><span class="label">look like scams</span></span>
+        </div>
+        <div class="tile">
+          <span class="app-ic orange"><svg viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="19" height="15" rx="3" fill="#fff"/><path d="m3.5 6.5 7.3 5.6a2 2 0 0 0 2.4 0l7.3-5.6" fill="none" stroke="#f47a0a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span><b class="count" data-to="30">0</b><span class="label">you never open</span></span>
+        </div>
+        <div class="tile">
+          <span class="app-ic blue"><svg viewBox="0 0 24 24"><circle cx="16.6" cy="8.4" r="2.9" fill="#fff" opacity=".7"/><path d="M14.2 13.3a6 6 0 0 1 2.4-.5c2.9 0 5 2 5 4.9v.8a.5.5 0 0 1-.5.5h-4.6" fill="#fff" opacity=".7"/><circle cx="9" cy="7.9" r="3.6" fill="#fff"/><path d="M2.4 19c0-3.6 2.9-6.1 6.6-6.1s6.6 2.5 6.6 6.1v.5a.5.5 0 0 1-.5.5H2.9a.5.5 0 0 1-.5-.5z" fill="#fff"/></svg></span>
+          <span><b class="count" data-to="12">0</b><span class="label">people you write to</span></span>
         </div>
       </div>
-    </section>
-
-    <div data-state="reading">
-      <h2>Found so far</h2>
-      <div class="list found">
-        <div class="row"><span class="ic danger"><svg viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4M12 16h.01"/></svg></span>
-          <span class="words"><b><span class="count" data-to="3">0</span> emails that look like scams</b><span>Cluster checks who really sent each one.</span></span></div>
-        <div class="row"><span class="ic"><svg viewBox="0 0 24 24"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h9"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m17 17 4 4M21 17l-4 4"/></svg></span>
-          <span class="words"><b><span class="count" data-to="30">0</span> emails you never open</b><span>Newsletters and offers you skip.</span></span></div>
-        <div class="row"><span class="ic"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-          <span class="words"><b><span class="count" data-to="12">0</span> people you write to</b><span>Their mail always stays in your inbox.</span></span></div>
-      </div>
-      <p class="note">Nothing changes in Gmail until you choose.</p>
     </div>
 
     <!-- 2. This week -->
@@ -186,17 +245,17 @@
       <h2>Next up</h2>
       <div class="list">
         <div class="row" id="never-row">
-          <span class="ic"><svg viewBox="0 0 24 24"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h9"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m17 17 4 4M21 17l-4 4"/></svg></span>
+          <span class="app-ic orange"><svg viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="19" height="15" rx="3" fill="#fff"/><path d="m3.5 6.5 7.3 5.6a2 2 0 0 0 2.4 0l7.3-5.6" fill="none" stroke="#f47a0a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           <span class="words"><b>30 emails you never open</b><span>From LinkedIn, Groupon and 2 more. They go to Trash, and you can undo.</span></span>
           <button class="btn" id="clear30">Clear 30</button>
         </div>
         <div class="row">
-          <span class="ic"><svg viewBox="0 0 24 24"><path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1"/></svg></span>
+          <span class="app-ic purple"><svg viewBox="0 0 24 24"><path fill="#fff" d="M3 4.5A1.5 1.5 0 0 1 4.5 3h6.4a2 2 0 0 1 1.4.6l8.4 8.4a2 2 0 0 1 0 2.8l-6.1 6.1a2 2 0 0 1-2.8 0l-8.4-8.4a2 2 0 0 1-.6-1.4z"/><circle cx="8" cy="8" r="1.7" fill="#7a4cf0"/></svg></span>
           <span class="words"><b>Let promotions leave after a day</b><span>About 50 a week would leave on their own. They stay in Gmail's Promotions.</span></span>
           <button class="btn">Turn on</button>
         </div>
         <div class="row">
-          <span class="ic"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg></span>
+          <span class="app-ic teal"><svg viewBox="0 0 24 24"><circle cx="9.5" cy="7.9" r="3.6" fill="#fff"/><path d="M2.9 19c0-3.6 2.9-6.1 6.6-6.1s6.6 2.5 6.6 6.1v.5a.5.5 0 0 1-.5.5H3.4a.5.5 0 0 1-.5-.5z" fill="#fff"/><path d="M19 8.5v6M16 11.5h6" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span>
           <span class="words"><b>2 new senders</b><span>People you haven't heard from before. Let them in or hold them.</span></span>
           <button class="btn">Look</button>
         </div>
@@ -238,9 +297,48 @@
     };
     requestAnimationFrame(tick);
   };
-  document.querySelector('[data-s="reading"]').addEventListener("click", () => {
-    document.querySelectorAll(".found .count").forEach((c, i) => { c.textContent = "0"; setTimeout(() => countUp(c, Number(c.dataset.to), 2500), i * 400); });
-  });
+  const kaiHero = window.Kai(document.getElementById("kai-hero"), { src: "../public/characters/", imgWidth: 160, calm: true, lite: true });
+  const kai = window.Kai(document.getElementById("kai-read"), { src: "../public/characters/", imgWidth: 320, calm: true });
+  const $ = (id) => document.getElementById(id);
+  const say = (text, ms = 2600) => {
+    $("say").textContent = text; $("say").classList.add("on"); kai.talk(900);
+    clearTimeout(say.t); say.t = setTimeout(() => $("say").classList.remove("on"), ms);
+  };
+  let run = 0;
+  const firstRead = () => {
+    const id = ++run, total = 184, ms = 9000, t0 = performance.now();
+    const tiles = [...document.querySelectorAll(".found .tile")];
+    const shown = tiles.map(() => 0);
+    $("read").classList.remove("done");
+    $("read-title").textContent = "Reading your mail.";
+    $("read-sub").textContent = "Look around while I read. Nothing changes in Gmail until you choose.";
+    kai.setMood("focused"); kai.think(true); kai.lookAt($("read-bar"));
+    const tick = (t) => {
+      if (id !== run) return;
+      const k = Math.min(1, (t - t0) / ms), n = Math.round(total * k);
+      $("read-n").textContent = n;
+      $("read-bar").setAttribute("aria-valuenow", n);
+      $("read-bar").firstElementChild.style.width = k * 100 + "%";
+      $("read-eta").textContent = k < 0.5 ? "About a minute left" : k < 1 ? "Almost done" : "All read";
+      tiles.forEach((tile, i) => {
+        const v = Math.floor(Number(tile.querySelector(".count").dataset.to) * k);
+        if (v === shown[i]) return;
+        if (shown[i] === 0 && tile.dataset.say) { kai.think(false); kai.react("found"); say(tile.dataset.say); setTimeout(() => kai.think(true), 1400); }
+        shown[i] = v;
+        tile.querySelector(".count").textContent = v;
+        tile.classList.remove("pop"); void tile.offsetWidth; tile.classList.add("pop");
+      });
+      if (k < 1) return setTimeout(() => tick(performance.now()), 40);
+      $("read").classList.add("done");
+      $("read-title").textContent = "All read. Here's what I found.";
+      $("read-sub").textContent = "3 emails need you. Everything else can wait.";
+      kai.think(false); kai.setMood("happy"); kai.do("nod"); kai.lookAt(null);
+    };
+    tick(performance.now());
+  };
+  document.querySelector('[data-s="reading"]').addEventListener("click", firstRead);
+  // #needs, #clear or #reading opens that state directly
+  document.querySelector(`[data-s="${location.hash.slice(1)}"]`)?.click();
   document.getElementById("clear30").onclick = () => {
     document.getElementById("never-row").classList.add("gone");
     const n = document.getElementById("cleared");
