@@ -1,5 +1,10 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { certifiedCompaniesForBrand, companyForDomain, setBrandRegistry, type BrandRegistry } from "./brandRegistry";
+import {
+  certifiedCompaniesForBrand,
+  companyForDomain,
+  setBrandRegistry,
+  type BrandRegistry,
+} from "./brandRegistry";
 import { scoreMessageForThreats, setBrandDomainSource } from "./threatSignals";
 import type { NormalizedMessageMetadata } from "./providers/emailProvider";
 import registryData from "../../public/data/brand-registry.json";
@@ -32,10 +37,15 @@ afterEach(() => setBrandRegistry(null));
 describe("brand registry", () => {
   it("finds the certified company behind a domain or its subdomain", () => {
     setBrandRegistry(registry);
-    expect(companyForDomain("chase.com")).toMatchObject({ trust: "certified", name: expect.stringMatching(/JPMorgan Chase/) });
+    expect(companyForDomain("chase.com")).toMatchObject({
+      trust: "certified",
+      name: expect.stringMatching(/JPMorgan Chase/),
+    });
     expect(companyForDomain("alerts.chase.com")?.name).toMatch(/JPMorgan Chase/);
     expect(companyForDomain("chase-alerts.com")).toBeUndefined();
-    expect(certifiedCompaniesForBrand("chase").map((c) => c.name)).toContainEqual(expect.stringMatching(/JPMorgan Chase/));
+    expect(certifiedCompaniesForBrand("chase").map((c) => c.name)).toContainEqual(
+      expect.stringMatching(/JPMorgan Chase/),
+    );
   });
 
   it("a certified domain the hand list missed stops reading as a fake Amazon", () => {
@@ -48,7 +58,15 @@ describe("brand registry", () => {
   it("can only widen brands the hand list already knows", () => {
     setBrandRegistry({
       issuers: [],
-      companies: [{ id: "evil.example", name: "Totally PayPal", trust: "listed", brand: "not-a-brand", domains: ["evil.example"] }],
+      companies: [
+        {
+          id: "evil.example",
+          name: "Totally PayPal",
+          trust: "listed",
+          brand: "not-a-brand",
+          domains: ["evil.example"],
+        },
+      ],
     });
     expect(kinds("PayPal", "service@evil.example")).toContain("brand-impersonation");
     // A patch naming an unknown brand is dropped whole, not partly applied.

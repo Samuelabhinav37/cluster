@@ -50,7 +50,9 @@ function isBrandRegistry(data: unknown): data is BrandRegistry {
   return (
     Array.isArray(d?.issuers) &&
     Array.isArray(d?.companies) &&
-    d.companies.every((c) => typeof c?.id === "string" && typeof c.name === "string" && Array.isArray(c.domains))
+    d.companies.every(
+      (c) => typeof c?.id === "string" && typeof c.name === "string" && Array.isArray(c.domains),
+    )
   );
 }
 
@@ -58,7 +60,9 @@ function isBrandRegistry(data: unknown): data is BrandRegistry {
 function brandOf(company: RegistryCompany, base: Readonly<Record<string, string[]>>): string | undefined {
   if (company.trust === "listed") return company.brand;
   return Object.keys(base).find((brand) =>
-    base[brand].some((own) => company.domains.some((d) => isSameOrSubdomain(d, own) || isSameOrSubdomain(own, d))),
+    base[brand].some((own) =>
+      company.domains.some((d) => isSameOrSubdomain(d, own) || isSameOrSubdomain(own, d)),
+    ),
   );
 }
 
