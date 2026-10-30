@@ -4,6 +4,7 @@
 import { senderUnread, senderVolume } from "./census";
 import type { SenderSummary } from "./senderModel";
 import type { SenderProfile, SenderTier, TemplateGroup } from "./senderProfile";
+import { isFreeMailDomain } from "./freeMail";
 import { registrableDomain } from "./registrableDomain";
 
 export type SenderSortId = "volume" | "unread" | "newest" | "leastOpened" | "lastOpened" | "people";
@@ -19,13 +20,20 @@ export const SENDER_SORT_LABELS: Record<SenderSortId, string> = {
 
 const TIER_ORDER: SenderTier[] = ["close", "known", "regular", "other", "new", "ignored"];
 
-/** You interact with them (tier), and they are a person: not a machine and
- * their mail reads person to person. Starring or answering a receipt makes
- * service@paypal.com important, not a person. */
+/** You interact with them (tier), and they are a person: not a machine,
+ * their mail reads person to person, and they write from a personal account
+ * (free mail or a school). A company address is a business contact, so a
+ * recruiter at mercor.com stays under Companies unless the user moves them.
+ * Starring or answering a receipt makes service@paypal.com important, not a
+ * person. */
 export function isPerson(profile: SenderProfile | undefined): boolean {
   if (profile?.personOverride !== undefined) return profile.personOverride;
+  const domain = profile?.address.slice(profile.address.lastIndexOf("@") + 1) ?? "";
   return (
-    (profile?.tier === "close" || profile?.tier === "known") && !profile.machine && profile.kind === "person"
+    (profile?.tier === "close" || profile?.tier === "known") &&
+    !profile.machine &&
+    profile.kind === "person" &&
+    (isFreeMailDomain(domain) || /\.edu$/i.test(domain))
   );
 }
 

@@ -23,7 +23,7 @@ const GO_KEYS: Record<string, string> = {
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
 
 function applyShowKai(show: boolean) {
-  for (const el of Array.from(document.querySelectorAll<HTMLElement>(".kai-guide"))) el.hidden = !show;
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>(".kai-guide, .ask-kai-face"))) el.hidden = !show;
 }
 
 /** Turning a notification on asks Chrome for the permission first; a refusal leaves it off. */

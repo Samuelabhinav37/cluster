@@ -3418,7 +3418,7 @@ body[data-state="connect"] .crumbs {
 .details-chart .lbl { font-size: 11px; color: var(--label-4); white-space: nowrap; }
 .details .sheet-wrap { flex: 1; min-height: 0; overflow: auto; border-top: 1px solid var(--separator); }
 table.sheet { width: 100%; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
-.sheet th { position: sticky; top: 0; z-index: 1; padding: 6px 8px; border-bottom: 1px solid var(--separator); background: var(--glass-bar);
+.sheet th { position: sticky; top: 0; z-index: 2; padding: 6px 8px; border-bottom: 1px solid var(--separator); background: var(--glass-bar);
   text-align: left; font-weight: 600; color: var(--label-4); }
 .sheet td { padding: 6px 8px; border-bottom: 1px solid var(--separator); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .sheet th:first-child, .sheet .c { width: 30px; padding-right: 0; }
@@ -3430,6 +3430,8 @@ table.sheet { width: 100%; border-collapse: collapse; table-layout: fixed; font-
 .sheet.senders th:nth-child(3) { width: 92px; }
 .sheet.senders th:nth-child(4) { width: 64px; }
 .sheet .from .logo-tile { display: inline-flex; margin-right: 6px; vertical-align: middle; }
+/* A long name shortens itself; inside the cell it would turn into a bare "…". */
+.sheet .who { display: inline-block; max-width: calc(100% - 30px); overflow: hidden; text-overflow: ellipsis; }
 .sheet .who, .sheet .sort, .details .link { padding: 0; border: 0; background: none; color: inherit; font: inherit; vertical-align: middle; }
 .sheet button.who:hover { text-decoration: underline; }
 .details .link { color: var(--accent-text); font-weight: 600; }
@@ -3440,7 +3442,7 @@ table.sheet { width: 100%; border-collapse: collapse; table-layout: fixed; font-
 .cellbar { display: inline-block; width: 36px; height: 4px; margin-right: 8px; overflow: hidden; border-radius: 2px; background: var(--neutral-fill);
   vertical-align: middle; }
 .cellbar i { display: block; height: 100%; background: var(--k3); }
-.sheet tr.group td { position: sticky; top: 29px; background: var(--glass-bar); font-size: 11px; font-weight: 600; color: var(--label-2); cursor: default; }
+.sheet tr.group td { position: sticky; top: var(--sheet-head, 33px); z-index: 1; background: var(--glass-bar); font-size: 11px; font-weight: 600; color: var(--label-2); cursor: default; }
 .sheet tr.group span, .sheet .when { margin: 0 8px 0 6px; font-weight: 400; color: var(--label-4); }
 .sheet tr.sub td { background: var(--row-hover); color: var(--label-2); cursor: default; }
 .sheet .empty { padding: 24px; text-align: center; color: var(--label-4); }
@@ -3896,6 +3898,11 @@ body[data-screen="overview"] .kai-guide:not(.open) .kg-launch { visibility: hidd
 .kai-guide.docked .kg-panel { position: static; transform-origin: 0 100%; }
 .kai-guide.docked .kg-head .kg-kai { --kg-kai: 44px; flex: none; }
 #ask-kai-open { position: relative; }
+.ask-kai-face { flex: none; display: flex; margin: -7px 0 -5px; }
+.ask-kai-face .kai { --kai-w: 18px; }
+#ask-kai-open:has(.ask-kai-face:not([hidden])) > svg { display: none; }
+body[data-screen="overview"] .ask-kai-face { display: none; }
+body[data-screen="overview"] #ask-kai-open > svg { display: block; }
 #ask-kai-open[data-nudge]::after {
   content: attr(data-nudge); position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
   padding: 6px 12px; border: 1px solid var(--neutral-border); border-radius: 12px; white-space: nowrap;

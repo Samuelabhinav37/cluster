@@ -126,6 +126,15 @@ describe("List-Id groups, person override, companies you talk to", () => {
     expect(isPerson({ ...p, personOverride: false })).toBe(false);
   });
 
+  it("counts only personal accounts as people, not someone at a company", async () => {
+    const known = { tier: "known", machine: false, kind: "person" } as const;
+    const { profiles } = await setup(many(3, { fromAddress: "pat@gmail.com", unread: false }));
+    const p = profiles.get("gmail:pat@gmail.com")!;
+    expect(isPerson({ ...p, ...known })).toBe(true);
+    expect(isPerson({ ...p, ...known, address: "prof@cs.stanford.edu" })).toBe(true);
+    expect(isPerson({ ...p, ...known, address: "recruiting@mercor.com" })).toBe(false);
+  });
+
   it("puts each sender in one list: people, companies or subscriptions", async () => {
     const unsub = { httpUrl: "https://shop.example/u" };
     const rows = [

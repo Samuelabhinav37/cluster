@@ -574,6 +574,15 @@ function seatHomeKai() {
   slot.replaceWith(homeKai);
 }
 
+// A small Kai on Ask Kai, so he is on every page. Home hides it: its own Kai is there.
+function seatAskKaiFace() {
+  if (typeof window.Kai !== "function") return;
+  const face = Object.assign(document.createElement("span"), { className: "ask-kai-face" });
+  face.hidden = !ctx.settings.showKai;
+  document.getElementById("ask-kai-open")!.prepend(face);
+  window.Kai(face, { src: "/characters/", imgWidth: 160, calm: true });
+}
+
 async function main() {
   kaiGuide = initKaiGuide(document, {
     questions: CLUSTER_QUESTIONS,
@@ -613,6 +622,7 @@ async function main() {
   }
   wireDetails();
   wireAccountMenu();
+  seatAskKaiFace();
   initAskKai(
     document.getElementById("ask-kai-open")!,
     () => askFacts,

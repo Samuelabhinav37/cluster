@@ -706,6 +706,9 @@ export function initDetailsPanel(
       chart.hidden = false;
       renderChart();
       renderEmails();
+      // Day rows stick right under the header, whatever height it renders at.
+      const head = table.tHead?.offsetHeight;
+      if (head) table.style.setProperty("--sheet-head", `${head}px`);
     } else {
       chart.hidden = st.week === null;
       if (!chart.hidden) renderChart();
