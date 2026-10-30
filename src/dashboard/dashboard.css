@@ -3727,6 +3727,14 @@ table.sheet { font-size: 12px; }
   .sidebar :is(.nav-item, .nav-item.nav-child) { justify-content: center; gap: 0; padding: 8px 0; font-size: 0; }
   .side-panel .account-wrap { padding-inline: 8px; }
   .side-panel .account-menu { right: auto; width: 180px; }
+  /* Icons only here, so each item names itself on hover and keyboard focus. */
+  /* shortcut: no scrolling here so the tooltip isn't clipped; fine for the 8 icons, revisit if the rail grows. */
+  .side-panel .sidebar { overflow: visible; }
+  .sidebar .nav-item { position: relative; }
+  .sidebar .nav-item:is(:hover, :focus-visible)::after { content: attr(data-label); position: absolute; left: calc(100% + 10px); top: 50%;
+    z-index: 40; transform: translateY(-50%); padding: 5px 9px; border: 1px solid var(--hairline); border-radius: 7px;
+    background: var(--glass-solid); color: var(--label); font-size: 12px; font-weight: 500; white-space: nowrap; pointer-events: none;
+    box-shadow: var(--shadow-card); }
   .screen { padding-inline: 20px; }
 }
 

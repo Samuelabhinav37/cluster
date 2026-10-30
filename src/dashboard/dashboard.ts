@@ -345,6 +345,12 @@ function wireNav() {
       panel.setAttribute("aria-labelledby", btn.id);
     }
     btn.onclick = () => void selectScreen(name);
+    // The narrow sidebar shows icons only; this is its tooltip text (CSS).
+    btn.dataset.label = Array.from(btn.childNodes)
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.textContent)
+      .join("")
+      .trim();
   }
   for (const btn of Array.from(document.querySelectorAll<HTMLButtonElement>("#account-menu [data-open]"))) {
     const panel = screenPanels.find((p) => p.dataset.screen === btn.dataset.open);
