@@ -10,9 +10,9 @@ or transmits, and keep it in sync with [`docs/privacy.md`](privacy.md) and `SECU
 
 ## Short description (≤132 chars — CWS "summary")
 
-> Clean up Gmail and Outlook and catch scams. Your mail never leaves your browser.
+> Clean up Gmail and Outlook and catch scams. Your mail never goes to our servers.
 
-(81 chars. Plain words, one job per sentence, per docs/ui-plan-2026-10-29b.md Step 8.)
+(80 chars. Plain words, one job per sentence, per docs/ui-plan-2026-10-29b.md Step 8.)
 
 ## Screenshot captions
 
