@@ -1516,7 +1516,7 @@ function decisionReason(sender: SenderSummary): string {
  * button opens its own confirm (reused from the pre-redesign row). */
 function buildActionGroups(sender: SenderSummary): Array<{ act: string; label: string; el: HTMLDivElement }> {
   return [
-    { act: "trash", label: "Trash their mail", el: buildTrashCell(sender) },
+    { act: "trash", label: "Trash", el: buildTrashCell(sender) },
     { act: "unsubscribe", label: "Unsubscribe", el: buildUnsubscribeCell(sender) },
     { act: "keepSorted", label: "Move to a label", el: buildKeepSortedCell(sender) },
     { act: "mute", label: "Mute", el: buildMuteCell(sender) },
@@ -1791,7 +1791,7 @@ function alwaysDoThis(sender: SenderSummary): HTMLButtonElement {
 function buildTrashCell(sender: SenderSummary): HTMLDivElement {
   const cell = document.createElement("div");
   const ids = idsSafeToMoveOut(sender);
-  const btn = Object.assign(document.createElement("button"), { textContent: "Trash their mail" });
+  const btn = Object.assign(document.createElement("button"), { textContent: "Trash" });
   btn.disabled = ids.length === 0;
   const reset = () => cell.replaceChildren(btn);
   btn.onclick = () => {

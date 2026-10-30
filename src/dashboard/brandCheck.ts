@@ -45,7 +45,7 @@ export function claimedBrand(sender: SenderSummary): string | undefined {
 
 /** Senders claiming a brand from an unlisted domain that nobody has settled yet. */
 export function mismatchedSenders(senders: SenderSummary[]): SenderSummary[] {
-  const verdicts = ctx.settings.brandVerdicts ?? {};
+  const verdicts = ctx.settings?.brandVerdicts ?? {};
   return senders.filter((s) => claimedBrand(s) && !verdicts[domainOf(s.address)]);
 }
 

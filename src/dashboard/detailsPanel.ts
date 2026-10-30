@@ -6,12 +6,13 @@
 // supplied by the dashboard, which owns the protection checks, confirm,
 // Undo and the activity log. Built with DOM calls only, no markup strings.
 
+import { mismatchedSenders } from "./brandCheck";
 import type { ProviderId } from "../lib/providers/emailProvider";
 import type { SenderSummary } from "../lib/senderModel";
 import { SMART_VIEWS } from "../lib/smartViews";
 import { companyName, senderName } from "../lib/senderListView";
 import { HOME_KINDS, kindOf, type HomeKind } from "./homeDashboard";
-import { senderTile } from "./senderTile";
+import { certifiedCompany, senderTile, verifiedTick } from "./senderTile";
 
 const DAY = 24 * 60 * 60 * 1000;
 const WEEKS = 8;
@@ -601,6 +602,9 @@ export function initDetailsPanel(
         senderTile(s.address, s.name, "sz-26"),
         h("span", "who", s.name),
       );
+      // Round 2: the same marks as Senders, a claim nobody settled or a certificate.
+      if (mismatchedSenders(s.members).length > 0) from.append(h("span", "chip chip-danger", "Doesn't match"));
+      else if (certifiedCompany(s.address)) from.append(verifiedTick());
       from.title = s.members.map((m) => m.address).join(", ");
       const n = h("td", "num");
       const cell = h("span", "cellbar");
@@ -686,7 +690,7 @@ export function initDetailsPanel(
         );
       }
       acts.push(
-        button("btn btn-accent-solid btn-sm", "Trash their mail", () =>
+        button("btn btn-accent-solid btn-sm", "Trash", () =>
           actions.trash(mail, bar, reset, settle),
         ),
       );
