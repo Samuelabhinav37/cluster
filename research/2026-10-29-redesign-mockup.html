@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Clean up, Stop mail, Organize, Settings mockup</title>
 <!-- Round 2: one accent, no subtitles, bare numbers, verb buttons, (i) explains on click.
-     Rules: research/2026-10-29-apple-google-restraint.md. Open with #protect, #cleanup, #more, #stop, #organize or #settings. -->
+     Rules: research/2026-10-29-apple-google-restraint.md. Open with #home, #senders, #protect, #cleanup, #more, #stop, #organize or #settings. -->
 <style>
   :root {
     --canvas: #0b0b0d; --panel: #111114; --card: #17171a; --label: #f4f4f5; --label-2: #d4d4d8; --label-3: #a1a1aa; --label-4: #8e8e96;
@@ -166,6 +166,54 @@
   .verified { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
   .vcell { display: flex; align-items: center; gap: 10px; padding: 10px 12px; font-weight: 500; white-space: nowrap; overflow: hidden; }
   .vcell span { overflow: hidden; text-overflow: ellipsis; }
+
+  /* ── Home ─────────────────────────────────────────────────── */
+  .hero { display: flex; align-items: center; gap: 18px; padding: 22px 24px; }
+  .kai { flex: none; width: 52px; height: 52px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #6fb1ff, #2c5a92 70%); box-shadow: 0 0 0 4px var(--fill); }
+  .hero p { flex: 1; margin: 0; font: 600 24px/1.25 var(--font); letter-spacing: -0.01em; }
+  .weeks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .wk { display: flex; flex-direction: column; gap: 4px; padding: 18px 20px; min-height: 150px; }
+  .wk b { font: 600 34px/1 var(--font); letter-spacing: -0.02em; }
+  .wk > span { color: var(--label-3); font-weight: 500; }
+  .wk .chip { align-self: flex-start; margin-top: auto; }
+  .spark { display: flex; align-items: flex-end; gap: 4px; height: 36px; margin-top: auto; }
+  .spark i { flex: 1; border-radius: 3px 3px 1px 1px; background: var(--a3); }
+  .spark i.now { background: var(--a1); }
+  .next { display: grid; grid-template-columns: 26px minmax(0, 1fr) 60px auto; align-items: center; gap: 12px; padding: 12px 16px; }
+  .next + .next { border-top: 1px solid var(--sep); }
+  .next svg { color: var(--label-4); }
+  .next b { font-weight: 500; }
+  .next .num { text-align: right; }
+  .inbox { padding: 18px 20px; }
+  .inbox .meter-bar { margin-top: 0; height: 14px; border-radius: 7px; }
+  .inbox .legend { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 14px; }
+
+  /* ── Senders ──────────────────────────────────────────────── */
+  .people { display: grid; grid-template-columns: 180px minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+  .lists { padding: 8px; }
+  .lists button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--label-3); font-weight: 500; text-align: left; cursor: pointer; }
+  .lists button span { margin-left: auto; color: var(--label-4); font-size: 12px; }
+  .lists button[aria-pressed="true"] { background: var(--fill); color: var(--label); }
+  .search { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-bottom: 10px; border: 1px solid var(--sep); border-radius: 10px; background: var(--card); color: var(--label-4); }
+  .search input { flex: 1; border: 0; outline: 0; background: none; color: var(--label); font: inherit; }
+  .who { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto 40px; align-items: center; gap: 12px; width: 100%; padding: 10px 16px; border: 0; background: none; text-align: left; cursor: pointer; }
+  .who + .who { border-top: 1px solid var(--sep); }
+  .who[aria-pressed="true"] { background: var(--fill); }
+  .who b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .who .num { text-align: right; }
+  .tickmark { width: 15px; height: 15px; color: var(--label-3); vertical-align: -2px; margin-left: 5px; }
+  .pcard { padding: 20px; position: sticky; top: 64px; }
+  .pcard .top { display: flex; align-items: center; gap: 12px; }
+  .pcard .top .mark, .pcard .top .logo { width: 44px; height: 44px; border-radius: 11px; font-size: 15px; }
+  .pcard h3 { margin: 0; font: 700 18px/1.2 var(--font); }
+  .pcard .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0; }
+  .pcard .facts div { display: flex; flex-direction: column; gap: 2px; padding: 10px; border-radius: 10px; background: var(--fill); }
+  .pcard .facts b { font: 600 18px/1 var(--font); }
+  .pcard .facts span { font-size: 12px; color: var(--label-4); }
+  .pcard .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .addrs { margin-top: 16px; border-top: 1px solid var(--sep); }
+  .addrs div { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; font-size: 12px; color: var(--label-3); border-bottom: 1px solid var(--sep); }
+  .addrs div span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -187,9 +235,14 @@
   <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></symbol>
   <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2"/></symbol>
   <symbol id="i-key" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M7 14h10"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M12 2.5 14.6 5l3.5-.4.8 3.4 3 1.9-1.4 3.2 1.4 3.2-3 1.9-.8 3.4-3.5-.4L12 21.5 9.4 19l-3.5.4-.8-3.4-3-1.9 1.4-3.2L2.1 9.9l3-1.9.8-3.4 3.5.4z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-userplus" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c.8-3.4 3.2-5 6-5s5.2 1.6 6 5M19 8v6M16 11h6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></symbol>
 </svg>
 <div class="bar">
   <b>Mockup</b>
+  <button data-go="home">Home</button>
+  <button data-go="senders">Senders</button>
   <button data-go="protect">Protect</button>
   <button data-go="cleanup">Clean up</button>
   <button data-go="more">More ways</button>
@@ -200,8 +253,8 @@
 <div class="app">
   <nav>
     <div class="brand"><i></i>Cluster</div>
-    <a href="#"><svg class="i"><use href="#i-home"/></svg>Home</a>
-    <a href="#"><svg class="i"><use href="#i-users"/></svg>Senders</a>
+    <a href="#home" data-nav="home"><svg class="i"><use href="#i-home"/></svg>Home</a>
+    <a href="#senders" data-nav="senders"><svg class="i"><use href="#i-users"/></svg>Senders</a>
     <a href="#cleanup" data-nav="cleanup more"><svg class="i"><use href="#i-trash"/></svg>Clean up</a>
     <a href="#stop" class="child" data-nav="stop"><svg class="i"><use href="#i-stop"/></svg>Stop mail</a>
     <a href="#organize" data-nav="organize"><svg class="i"><use href="#i-layers"/></svg>Organize</a>
@@ -209,6 +262,49 @@
     <a href="#settings" data-nav="settings" style="margin-top:24px"><svg class="i"><use href="#i-gear"/></svg>Settings</a>
   </nav>
   <main>
+
+  <!-- ═══ Home ═══ -->
+  <section class="view" id="v-home">
+    <h1>Home</h1>
+    <div class="card hero"><span class="kai" aria-hidden="true"></span><p>2 emails pretend to be PayPal and Chase.</p><button class="btn solid" data-goto="protect">Review</button></div>
+    <h2>This week</h2>
+    <div class="weeks">
+      <div class="card wk"><b>248</b><span>cleared</span><div class="spark" aria-label="Cleared per day"><i style="height:30%"></i><i style="height:55%"></i><i style="height:20%"></i><i style="height:80%"></i><i style="height:45%"></i><i style="height:35%"></i><i class="now" style="height:100%"></i></div></div>
+      <div class="card wk"><b>412</b><span>arrived</span><span class="chip">12% fewer</span></div>
+      <button class="card wk" style="text-align:left;cursor:pointer"><b>38</b><span>from people</span><span class="chip">9%</span></button>
+    </div>
+    <h2>Next up</h2>
+    <div class="card">
+      <div class="next"><svg class="i"><use href="#i-mailx"/></svg><b>Never opened</b><span class="num">111</span><button class="btn" data-goto="cleanup">Trash</button></div>
+      <div class="next"><svg class="i"><use href="#i-clock"/></svg><b>Past its date</b><span class="num">135</span><button class="btn" data-goto="cleanup">Trash</button></div>
+      <div class="next"><svg class="i"><use href="#i-userplus"/></svg><b>New senders</b><span class="num">4</span><button class="btn" data-goto="protect">Review</button></div>
+    </div>
+    <h2>Your inbox <button class="info" popovertarget="p-inbox" aria-label="About Your inbox">i</button></h2>
+    <div popover id="p-inbox">Every email Cluster has read, by kind. Tap a kind to see those emails.</div>
+    <div class="card inbox">
+      <div class="meter-bar"><i style="flex:212;background:var(--a1)"></i><i style="flex:388;background:var(--a2)"></i><i style="flex:1240;background:var(--a3)"></i><i style="flex:2105;background:var(--a4)"></i></div>
+      <div class="legend">
+        <div><span class="dot" style="--c:var(--a1)"></span>People<em class="num">212</em></div>
+        <div><span class="dot" style="--c:var(--a2)"></span>Receipts<em class="num">388</em></div>
+        <div><span class="dot" style="--c:var(--a3)"></span>Updates<em class="num">1,240</em></div>
+        <div><span class="dot" style="--c:var(--a4)"></span>Promotions<em class="num">2,105</em></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Senders ═══ -->
+  <section class="view" id="v-senders">
+    <h1>Senders</h1>
+    <div class="people">
+      <div class="card lists" id="lists"></div>
+      <div>
+        <label class="search"><svg class="i"><use href="#i-search"/></svg><input type="search" placeholder="Search" id="who-q"></label>
+        <div class="card" id="who-list"></div>
+      </div>
+      <div class="card pcard" id="pcard"></div>
+    </div>
+    <div popover id="p-verified"></div>
+  </section>
 
   <!-- ═══ Protect: senders checked against the brand registry ═══ -->
   <section class="view" id="v-protect">
@@ -389,9 +485,9 @@
   </main>
 </div>
 <script>
-  const views = ["protect", "cleanup", "more", "stop", "organize", "settings"];
+  const views = ["home", "senders", "protect", "cleanup", "more", "stop", "organize", "settings"];
   function show() {
-    const v = views.includes(location.hash.slice(1)) ? location.hash.slice(1) : "protect";
+    const v = views.includes(location.hash.slice(1)) ? location.hash.slice(1) : "home";
     for (const id of views) document.getElementById("v-" + id).classList.toggle("on", id === v);
     for (const b of document.querySelectorAll("[data-go]")) b.setAttribute("aria-pressed", String(b.dataset.go === v));
     for (const a of document.querySelectorAll("nav a[data-nav]")) a.classList.toggle("on", a.dataset.nav.split(" ").includes(v));
@@ -484,7 +580,50 @@
   const VERIFIED = ["PayPal", "Chase", "Amazon", "Apple", "LinkedIn", "eBay", "UPS", "Adobe", "Bank of America", "American Express", "Wells Fargo", "DHL"];
   const paintVerified = () => { document.getElementById("verified").innerHTML = VERIFIED.map((n) => `<div class="card vcell">${mark(n, true)}<span>${n}</span></div>`).join(""); };
   paintProtect(); paintVerified();
-  fetch("/public/data/brand-logos.json").then((r) => r.json()).then((d) => { LOGOS = d.logos; paintProtect(); paintVerified(); }).catch(() => {});
+  fetch("/public/data/brand-logos.json").then((r) => r.json()).then((d) => { LOGOS = d.logos; paintProtect(); paintVerified(); paintSenders(); }).catch(() => {});
+
+  document.querySelectorAll("[data-goto]").forEach((b) => (b.onclick = () => { location.hash = b.dataset.goto; }));
+
+  // Senders. Verified = a certified address in public/data/brand-registry.json.
+  const SENDERS = [
+    { name: "LinkedIn", kind: "companies", n: 59, opened: 22, often: "Daily", cert: "Microsoft Corporation", addrs: [["messages-noreply@linkedin.com", 31], ["jobs-listings@linkedin.com", 18], ["news@linkedin.com", 10]], stop: true },
+    { name: "Amazon", kind: "companies", n: 25, opened: 36, often: "Weekly", cert: "Amazon Web Services, Inc.", addrs: [["shipment-tracking@amazon.com", 14], ["auto-confirm@amazon.com", 8], ["store-news@amazon.com", 3]], stop: true },
+    { name: "Medium", kind: "companies", n: 20, opened: 0, often: "Daily", addrs: [["noreply@medium.com", 20]], stop: true, never: true },
+    { name: "Quora", kind: "companies", n: 15, opened: 0, often: "Daily", addrs: [["digest-noreply@quora.com", 15]], stop: true, never: true },
+    { name: "Sarah Chen", kind: "people", n: 14, opened: 100, often: "Weekly", addrs: [["sarah.chen@gmail.com", 14]] },
+    { name: "PayPal", kind: "companies", n: 12, opened: 83, often: "Weekly", cert: "PayPal, Inc.", addrs: [["service@paypal.com", 12]] },
+    { name: "Chase", kind: "companies", n: 9, opened: 67, often: "Monthly", cert: "JPMorgan Chase & Co.", addrs: [["no.reply.alerts@chase.com", 9]] },
+    { name: "Apple", kind: "companies", n: 7, opened: 57, often: "Monthly", cert: "Apple Inc.", addrs: [["no_reply@email.apple.com", 7]] },
+    { name: "Dev Patel", kind: "people", n: 6, opened: 100, often: "Now and then", addrs: [["dev@patel.studio", 6]] },
+    { name: "PayPal", fake: true, kind: "companies", n: 3, opened: 0, often: "Twice", addrs: [["service@paypal-billing.help", 3]] },
+  ];
+  const LISTS = [["all", "All"], ["people", "People"], ["companies", "Companies"], ["never", "Never opened"], ["verified", "Verified"]];
+  let list = "all", pick = SENDERS[1], q = "";
+  const inList = (x) => list === "all" || x.kind === list || (list === "never" && x.never) || (list === "verified" && x.cert);
+  const tile = (x) => (x.cert ? mark(x.name) : `<span class="logo">${x.fake ? "pa" : x.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}</span>`);
+  const tick = `<svg class="tickmark i"><use href="#i-check"/></svg>`;
+  function paintSenders() {
+    document.getElementById("lists").innerHTML = LISTS.map(([k, label]) => `<button data-list="${k}" aria-pressed="${k === list}">${label}<span>${SENDERS.filter((x) => k === "all" || x.kind === k || (k === "never" && x.never) || (k === "verified" && x.cert)).length}</span></button>`).join("");
+    const shown = SENDERS.filter((x) => inList(x) && (x.name + x.addrs[0][0]).toLowerCase().includes(q));
+    document.getElementById("who-list").innerHTML = shown.map((x) => `<button class="who" data-who="${SENDERS.indexOf(x)}" aria-pressed="${x === pick}">${tile(x)}
+      <b>${x.name}${x.cert ? tick : ""}</b>${x.fake ? `<span class="chip bad">Doesn't match</span>` : "<span></span>"}<span class="num">${x.n}</span></button>`).join("");
+    const c = pick;
+    const acts = c.fake ? `<button class="btn solid" data-goto="protect">Check</button><button class="btn">Block</button>`
+      : c.stop ? `<button class="btn solid">Unsubscribe</button><button class="btn">Mute</button><button class="btn">Show</button>`
+      : `<button class="btn">Show</button><button class="btn">Add rule</button>`;
+    document.getElementById("pcard").innerHTML = `<div class="top">${tile(c)}<div><h3>${c.name}</h3>
+      ${c.cert ? `<button class="chip" popovertarget="p-verified" style="border:0;cursor:pointer">${tick.replace("tickmark i", "tickmark i\" style=\"margin:0 4px 0 0")}Verified</button>`
+        : c.fake ? `<span class="chip bad">Doesn't match</span>` : c.kind === "people" ? `<span class="chip">Person</span>` : ""}</div></div>
+      <div class="facts"><div><b>${c.n}</b><span>emails</span></div><div><b>${c.opened}%</b><span>opened</span></div><div><b style="font-size:14px">${c.often}</b><span>how often</span></div></div>
+      <div class="acts">${acts}</div>
+      <div class="addrs">${c.addrs.map(([a, n]) => `<div><span>${a}</span><span class="num">${n}</span></div>`).join("")}</div>`;
+    document.getElementById("p-verified").textContent = c.cert ? `Certified to ${c.cert}. A certificate authority checked the trademark.` : "";
+    document.querySelectorAll("[data-list]").forEach((b) => (b.onclick = () => { list = b.dataset.list; paintSenders(); }));
+    document.querySelectorAll("[data-who]").forEach((b) => (b.onclick = () => { pick = SENDERS[+b.dataset.who]; paintSenders(); }));
+    document.querySelectorAll("#pcard [data-goto]").forEach((b) => (b.onclick = () => { location.hash = b.dataset.goto; }));
+  }
+  document.getElementById("who-q").oninput = (e) => { q = e.target.value.toLowerCase(); paintSenders(); };
+  paintSenders();
 
   for (const b of document.querySelectorAll("#set-nav button")) b.onclick = () => {
     for (const x of document.querySelectorAll("#set-nav button")) x.setAttribute("aria-pressed", String(x === b));
