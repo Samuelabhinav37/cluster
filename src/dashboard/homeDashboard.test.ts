@@ -2,7 +2,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 import { inboxTabOf } from "../lib/senderModel";
-import { kindOf, mailByKind, renderHomeDashboard, type HomeFacts } from "./homeDashboard";
+import type { ActionLogEntry } from "../lib/actionLog";
+import { clearedByDay, kindOf, mailByKind, renderHomeDashboard, type HomeFacts } from "./homeDashboard";
 
 const NOW = Date.UTC(2026, 9, 17);
 const DAY = 24 * 60 * 60 * 1000;
@@ -67,18 +68,54 @@ describe("kindOf", () => {
 });
 
 describe("mailByKind", () => {
-  it("counts each kind, the total and the last seven days", () => {
+  it("counts each kind, the total, this week and the week before", () => {
     const got = mailByKind(
       [
         sender("shop@example.com", [
           msg({ tab: "promotions" }),
           msg({ tab: "promotions", receivedAt: NOW - 9 * DAY }),
+          msg({ tab: "promotions", receivedAt: NOW - 20 * DAY }),
         ]),
         sender("friend@example.com", [msg()]),
       ],
       NOW,
     );
-    expect(got).toEqual({ kinds: { primary: 1, trans: 0, updates: 0, promo: 2 }, total: 3, thisWeek: 2 });
+    expect(got).toEqual({
+      kinds: { primary: 1, trans: 0, updates: 0, promo: 3 },
+      total: 4,
+      thisWeek: 2,
+      lastWeek: 1,
+    });
+  });
+});
+
+describe("clearedByDay", () => {
+  const entry = (
+    at: number,
+    ids: number,
+    via: "untrash" | "unarchive" | "unmute",
+    undone = false,
+  ): ActionLogEntry => ({
+    id: String(at),
+    at,
+    kind: "trash",
+    summary: "",
+    undone,
+    undo: { provider: "gmail", ids: Array.from({ length: ids }, String), via },
+  });
+
+  it("counts emails trashed or filed out per day, today last, and skips undone and older entries", () => {
+    const got = clearedByDay(
+      [
+        entry(NOW, 3, "untrash"),
+        entry(NOW - DAY, 2, "unarchive"),
+        entry(NOW - DAY, 5, "unarchive", true),
+        entry(NOW - 2 * DAY, 4, "unmute"),
+        entry(NOW - 8 * DAY, 9, "untrash"),
+      ],
+      NOW,
+    );
+    expect(got).toEqual([0, 0, 0, 0, 0, 2, 3]);
   });
 });
 
@@ -93,86 +130,94 @@ const calm: HomeFacts = {
   clearable: 0,
   limitsOn: 0,
 };
-const tiles = (el: HTMLElement) => Array.from(el.querySelectorAll(".tile-name")).map((t) => t.textContent);
-const tileOf = (el: HTMLElement, name: string) =>
-  Array.from(el.querySelectorAll<HTMLElement>(".tile")).find(
-    (t) => t.querySelector(".tile-name")!.textContent === name,
-  )!;
+const text = (el: Element | null) => el?.textContent ?? "";
+const sections = (el: HTMLElement) => Array.from(el.querySelectorAll("h2.section-label")).map(text);
 
 describe("renderHomeDashboard", () => {
-  it("names how far back the total goes while mail is still being read", () => {
-    const el = renderHomeDashboard({ ...calm, kinds: { ...calm.kinds, trans: 0 }, since: NOW - 3 * DAY }, vi.fn());
-    expect(el.querySelector(".home-big")!.textContent).toMatch(/^65 emails since \w+ \d+$/);
-  });
-
-  it("lays out four tiles: Inbox and Protect, then Clean up and Organize", () => {
-    expect(tiles(renderHomeDashboard(calm, vi.fn()))).toEqual(["All mail", "Protect", "Clean up", "Organize"]);
-  });
-
-  it("Inbox shows the total, one bar segment per kind with mail, and a labelled legend", () => {
-    const el = renderHomeDashboard({ ...calm, kinds: { ...calm.kinds, trans: 0 } }, vi.fn());
-    expect(el.querySelector(".home-big")!.textContent).toBe("65 emails");
-    expect(el.querySelector(".tile-sub")).toBeNull();
-    expect(el.querySelectorAll(".kind-bar span")).toHaveLength(3);
-    expect(el.querySelector(".kind-bar")!.getAttribute("aria-label")).toBe(
-      "Primary 10, Transactions 0, Updates 20, Promotions 30",
+  it("says all clear with the since-you-started total when nothing needs you, and hides Next up", () => {
+    const el = renderHomeDashboard(
+      { ...calm, cleared: { byDay: [0, 0, 0, 0, 0, 0, 0], total: 1240 } },
+      vi.fn(),
     );
-    expect(Array.from(el.querySelectorAll(".kind-legend li")).map((li) => li.textContent)).toEqual([
-      "Primary10",
-      "Transactions0",
-      "Updates20",
-      "Promotions30",
-    ]);
+    expect(text(el.querySelector(".home-verdict"))).toBe("All clear.Nothing needs you today.");
+    expect(text(el.querySelector(".home-sub"))).toBe("1,240 emails cleared since you started.");
+    expect(el.querySelector(".home-hero .btn")).toBeNull();
+    expect(sections(el)).toEqual(["This week", "Your inbox"]);
   });
 
-  it("says each number once, has no buttons in tiles, and opens the place from anywhere on the tile", () => {
+  it("leads with the scams and opens Protect from the one button", () => {
     const go = vi.fn();
+    const el = renderHomeDashboard({ ...calm, suspicious: 3, fakedBrands: ["paypal", "netflix"] }, go);
+    expect(text(el.querySelector(".home-verdict .warn"))).toBe("3 emails need you.");
+    expect(text(el.querySelector(".home-sub"))).toBe(
+      "Don't click anything that says it's from PayPal, Netflix.",
+    );
+    el.querySelector<HTMLButtonElement>(".home-hero .btn")!.click();
+    expect(go).toHaveBeenCalledWith("impersonation");
+  });
+
+  it("shows this week's results with gray days, today last, and a comparison chip", () => {
     const el = renderHomeDashboard(
       {
         ...calm,
+        thisWeek: 82,
+        lastWeek: 100,
+        cleared: { byDay: [1, 2, 3, 4, 5, 6, 10], total: 500 },
         suspicious: 2,
-        waiting: 4,
-        neverOpened: { senders: 1, emails: 3 },
-        pastDate: 2,
-        // One email is both never opened and past its date.
-        clearable: 4,
-        fakedBrands: ["paypal", "netflix"],
       },
-      go,
-    );
-    expect(tileOf(el, "Protect").querySelector(".tile-stat")!.textContent).toBe("2to review");
-    expect(tileOf(el, "Protect").querySelectorAll(".tile-faces .logo-tile")).toHaveLength(2);
-    expect(tileOf(el, "Protect").querySelector(".tile-note")!.textContent).toBe(
-      "Pretending to be PayPal, Netflix",
-    );
-    expect(tileOf(el, "Clean up").querySelector(".tile-stat")!.textContent).toBe("4of 65 ready to go");
-    expect(tileOf(el, "Clean up").textContent).not.toMatch(/\b3\b/);
-    expect(el.querySelectorAll(".tile-body button")).toHaveLength(0);
-    for (const name of ["Protect", "Clean up", "Organize"])
-      tileOf(el, name).querySelector<HTMLElement>(".tile-body")!.click();
-    expect(go.mock.calls).toEqual([["impersonation"], ["delete"], ["organize"]]);
-  });
-
-  it("shows calm tiles with no buttons when nothing needs you", () => {
-    const el = renderHomeDashboard({ ...calm, limitsOn: 3 }, vi.fn());
-    expect(Array.from(el.querySelectorAll(".tile-empty")).map((e) => e.textContent)).toEqual([
-      "Nothing looks off",
-      "Nothing to clear",
-    ]);
-    expect(tileOf(el, "Organize").querySelector(".tile-stat")!.textContent).toBe("3kinds tidy themselves");
-    expect(el.querySelectorAll(".tile-body button")).toHaveLength(0);
-  });
-
-  it("keeps Home under its word budget with every tile busy", () => {
-    const el = renderHomeDashboard(
-      { ...calm, suspicious: 1, neverOpened: { senders: 12, emails: 150 }, pastDate: 29, clearable: 179 },
       vi.fn(),
     );
-    const words = (el.textContent ?? "")
-      .replace(/(\d)([A-Z])/g, "$1 $2")
-      .split(/\s+/)
-      .filter(Boolean);
-    expect(words.length).toBeLessThanOrEqual(45);
-    expect(el.textContent).not.toMatch(/[–—]/);
+    const cards = Array.from(el.querySelectorAll(".week-card"));
+    expect(cards.map((c) => text(c.querySelector("b")))).toEqual(["31", "82", "2"]);
+    expect(el.querySelectorAll(".spark i")).toHaveLength(7);
+    expect(el.querySelector(".spark i:last-child")!.className).toBe("now");
+    expect(text(cards[0].querySelector(".chip-delta"))).toBe("500 since you started");
+    const arrived = cards[1].querySelector(".chip-delta")!;
+    expect(text(arrived)).toBe("↓ 18% vs last week");
+    expect(arrived.classList.contains("good")).toBe(true);
+    expect(text(cards[2].querySelector("span"))).toBe("scams caught");
+  });
+
+  it("lists at most three next steps, each with one button that starts its place's own step", () => {
+    const go = vi.fn();
+    const el = renderHomeDashboard(
+      { ...calm, neverOpened: { senders: 2, emails: 30 }, pastDate: 4, waiting: 2, couldLeaveWeekly: 50 },
+      go,
+    );
+    const rows = Array.from(el.querySelectorAll(".next-row"));
+    expect(rows.map((r) => text(r.querySelector("b")))).toEqual([
+      "30 emails you never open",
+      "4 emails past their date",
+      "2 new senders",
+    ]);
+    expect(rows.every((r) => r.querySelectorAll("button").length === 1)).toBe(true);
+    rows[0].querySelector("button")!.click();
+    expect(go).toHaveBeenCalledWith("delete", "trash-never-opened");
+  });
+
+  it("says what the bar means and gives each kind its count and share", () => {
+    const openKind = vi.fn();
+    const el = renderHomeDashboard(
+      { ...calm, kinds: { ...calm.kinds, trans: 0 }, total: 60 },
+      vi.fn(),
+      openKind,
+    );
+    expect(text(el.querySelector(".inbox-line"))).toBe(
+      "Most of your mail is promotions. Only 10 of 60 are from people.",
+    );
+    expect(el.querySelectorAll(".kind-bar span")).toHaveLength(3);
+    expect(Array.from(el.querySelectorAll(".kind-legend li")).map(text)).toEqual([
+      "People10 · 17%",
+      "Receipts0 · 0%",
+      "Updates20 · 33%",
+      "Promotions30 · 50%",
+    ]);
+    el.querySelector<HTMLButtonElement>(".kind-legend button")!.click();
+    expect(openKind).toHaveBeenCalledWith("primary");
+  });
+
+  it("names how far back it has read while mail is still being read", () => {
+    const el = renderHomeDashboard({ ...calm, since: NOW - 3 * DAY }, vi.fn());
+    expect(text(el.querySelector(".inbox-line"))).toMatch(/Read back to \w+ \d+ so far\.$/);
   });
 });

@@ -57,6 +57,8 @@ export interface ClusterSettings {
   rules: ClusterRule[];
   /** Rolling "here's what I did" log (see actionLog.ts). Capped at MAX_LOG_ENTRIES. */
   actionLog: ActionLogEntry[];
+  /** Emails Cluster took out of the inbox since install (Home's "since you started"). */
+  clearedTotal?: number;
   /** From-addresses the user has muted via the local BlackHole. */
   mutedSenders: string[];
   /** "This is a person" (true) / "Not a person" (false), by sender key. */

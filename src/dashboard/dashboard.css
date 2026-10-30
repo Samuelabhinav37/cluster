@@ -3341,23 +3341,7 @@ body[data-state="connect"] .crumbs {
 
 
 
-/* Home (Track 2): the total, the kind bar, up to three next steps. */
-.home-big {
-  margin: 0;
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  color: var(--label-2);
-  font-size: 15px;
-}
-
-.home-big b {
-  font: 700 44px/1 var(--font-display);
-  letter-spacing: -0.03em;
-  color: var(--label);
-  font-variant-numeric: tabular-nums;
-}
-
+/* Home: the kind bar and its legend. */
 .kind-bar {
   display: flex;
   gap: 2px;
@@ -3422,37 +3406,6 @@ body[data-state="connect"] .crumbs {
 
 .rec-card .btn {
   margin-top: auto;
-}
-
-.rec-ic {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  margin-bottom: 4px;
-  border-radius: 9px;
-  background: var(--neutral-fill);
-  color: var(--label-2);
-}
-
-.rec-ic.danger {
-  background: var(--danger-fill);
-  color: var(--danger-text);
-}
-
-.rec-ic.ok {
-  background: var(--success-fill);
-  color: var(--success-text);
-}
-
-.rec-ic .i {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.75;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .rec-name {
@@ -3582,7 +3535,6 @@ section.screen { max-width: 1120px; margin: 0 auto; padding: 32px 48px 180px; }
 .rec-card { gap: 4px; min-height: 146px; }
 .rec-name { font-size: 15px; font-weight: 600; }
 .rec-fact { color: var(--accent-text); font-size: 13px; font-weight: 600; }
-.home-big { margin-bottom: 14px; }
 .kind-bar { height: 14px; }
 .side-panel { width: 220px; }
 .side-panel .sidebar { align-self: stretch; background: none; }
@@ -3635,7 +3587,7 @@ table.sheet { font-size: 12px; }
 .app-ic, .sidebar .nav-item svg.nav-icon { display: grid; place-items: center; flex: none; border-radius: 22.5%; color: #fff;
   box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25); }
 .app-ic { width: 36px; height: 36px; }
-.app-ic .i, .tile-empty .i { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+.app-ic .i { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
 .app-ic .i { width: 20px; height: 20px; stroke-width: 2; }
 .app-inbox { background: linear-gradient(#3d9bff, #0a6cff); }
 .app-clean { background: linear-gradient(#ffa63d, #f47a0a); }
@@ -3645,37 +3597,14 @@ table.sheet { font-size: 12px; }
 .sidebar .nav-item svg.nav-icon.nav-icon, .sidebar .nav-item svg.nav-icon * { color: #fff; stroke-width: 2; }
 .sidebar .nav-item.nav-child svg.nav-icon { width: 20px; height: 20px; padding: 3.5px; }
 
-/* Bento Home: one-unit and two-unit tiles, each with a header strip. */
+/* Bento grid (Protect's Report). */
 .bento { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
-.tile { display: flex; flex-direction: column; min-height: 236px; overflow: hidden; border: 1px solid var(--separator); border-radius: 18px;
-  background: var(--glass); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22); }
-.tile.wide { grid-column: span 2; }
-.tile-head { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 0; padding: 12px 16px; border: 0; border-radius: 0;
-  background: var(--neutral-fill); text-align: left; }
-.tile-head:hover { background: var(--neutral-fill-hover); }
-.tile-name { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; color: var(--label); }
 .tile-chev { margin-left: auto; font-size: 20px; color: var(--label-4); }
-.tile { cursor: pointer; }
-.tile:hover { border-color: var(--neutral-border); }
-.tile-body { flex: 1; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 12px; padding: 18px 20px; }
-.tile .home-big { margin: 0; font-size: 15px; color: var(--label-3); }
-.tile .home-big b { font-size: 40px; }
-.tile .kind-bar { width: 100%; height: 12px; }
 .tile-stat { display: flex; align-items: baseline; gap: 8px; margin: 0; font-size: 15px; color: var(--label-3); }
 .tile-stat b { font-size: 40px; line-height: 1.1; color: var(--label); }
 .tile-stat.danger b { color: var(--danger-text); }
-.tile-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; align-self: stretch; text-align: center; font-size: 15px;
-  font-weight: 500; color: var(--label-2); }
-.tile-empty .i { width: 40px; height: 40px; stroke-width: 1.6; color: var(--accent-text); }
-.tile-empty.ok .i { color: var(--success-text); }
-.tile-row { display: flex; align-items: center; gap: 12px; align-self: stretch; }
-.tile-row + .tile-row { padding-top: 12px; border-top: 1px solid var(--separator); }
-.tile-row { font-size: 14px; color: var(--label-2); }
-.tile-faces { display: flex; gap: 6px; }
-.tile-note { margin: 0; font-size: 13px; color: var(--label-4); }
 @media (max-width: 900px) {
   .bento { grid-template-columns: minmax(0, 1fr); }
-  .tile.wide { grid-column: auto; }
 }
 
 /* Banners as iCloud's notice: icon left, bold line, short line, action right. */
@@ -3877,3 +3806,43 @@ select:not([multiple]):hover { background-color: var(--neutral-fill-hover); }
 .set-row-details > summary { list-style: none; cursor: pointer; }
 .set-row-details > summary::-webkit-details-marker { display: none; }
 .set-row-details > .hint { margin: 0; padding: 0 16px 14px 60px; }
+
+/* ── Home v2 (docs/ui-plan-2026-10-29b.md): verdict, this week, next up, inbox ── */
+.home-hero { display: flex; align-items: center; gap: 28px; margin: 8px 0 4px; }
+.home-kai-btn { flex: none; padding: 0; border: 0; background: none; border-radius: 16px; cursor: pointer; }
+.home-kai-btn:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 4px; }
+.home-kai-btn .kai { --kai-w: 84px; }
+.home-verdict { margin: 0; font: 500 clamp(26px, 3vw, 36px)/1.15 var(--font-display); letter-spacing: -0.02em; color: var(--label); }
+.home-verdict .warn { color: var(--danger-text); }
+.home-sub { margin: 8px 0 0; font-size: 15px; color: var(--label-4); }
+.home-words > .btn { margin-top: 16px; }
+.home-week { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.week-card { display: flex; flex-direction: column; align-items: flex-start; padding: 16px; border: 1px solid var(--separator); border-radius: 16px;
+  background: var(--glass); color: inherit; font: inherit; text-align: left; }
+button.week-card { cursor: pointer; }
+button.week-card:hover { background: var(--row-hover); }
+.week-card > b { font: 600 30px/1 var(--font-display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--label); }
+.week-card > span { margin-top: 6px; color: var(--label-2); }
+.chip-delta { margin-top: auto; padding: 3px 8px; border-radius: 999px; background: var(--neutral-fill); color: var(--label-2); font-size: 12px; font-weight: 500; }
+.week-card > span + .chip-delta, .spark + .chip-delta { margin-top: 10px; }
+.chip-delta.good { color: var(--success-text); }
+/* Gray days, today in the accent (research/2026-10-29-dashboard-examples-muzli.md). */
+.spark { display: flex; gap: 4px; align-items: flex-end; align-self: stretch; height: 34px; margin-top: 12px; }
+.spark i { flex: 1; border-radius: 3px; background: var(--label-4); opacity: 0.35; }
+.spark i.now { background: var(--accent); opacity: 1; }
+.next-list { border: 1px solid var(--separator); border-radius: 16px; background: var(--glass); overflow: hidden; }
+.next-row { display: flex; align-items: center; gap: 14px; padding: 12px 16px; }
+.next-row + .next-row { border-top: 1px solid var(--separator); }
+.next-words { flex: 1; min-width: 0; }
+.next-words b { display: block; font-weight: 600; }
+.next-words span { color: var(--label-4); font-size: 13px; }
+.home-inbox { padding: 18px; border: 1px solid var(--separator); border-radius: 16px; background: var(--glass); }
+.inbox-line { margin: 0; font-size: 15px; color: var(--label-2); }
+.inbox-line b { font-weight: 600; color: var(--label); }
+.home-inbox .kind-legend { margin-bottom: 0; }
+/* One Kai on Home: the hero is Kai, so the corner one shows only while the chat is open. */
+body[data-screen="overview"] .kai-guide:not(.open) .kg-launch { visibility: hidden; }
+@media (max-width: 760px) {
+  .home-week { grid-template-columns: minmax(0, 1fr); }
+  .home-hero { flex-direction: column; align-items: flex-start; }
+}

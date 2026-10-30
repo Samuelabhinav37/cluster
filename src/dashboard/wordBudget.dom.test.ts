@@ -11,7 +11,8 @@ import { bootDashboard, type BootedDashboard } from "./testHarness";
 // Ceilings sit a little above the 2026-10-29 counts (UI plan step 7); raise
 // one only on purpose.
 const BUDGET: Record<string, { words: number; controls: number }> = {
-  overview: { words: 50, controls: 10 },
+  // Raised for Home v2 (verdict, this week, next up, inbox), approved 2026-10-29.
+  overview: { words: 96, controls: 10 },
   delete: { words: 80, controls: 16 },
   subscriptions: { words: 50, controls: 8 },
   organize: { words: 195, controls: 28 },
@@ -102,7 +103,9 @@ describe("word budget (every screen, after a scan)", () => {
             box.getAttribute("aria-label") ||
             (box.getAttribute("aria-labelledby") &&
               document.getElementById(box.getAttribute("aria-labelledby")!)?.textContent) ||
-            Array.from(box.labels ?? []).map((l) => l.textContent).join("");
+            Array.from(box.labels ?? [])
+              .map((l) => l.textContent)
+              .join("");
           return !name?.trim();
         })
         .map((box) => `${screen}#${box.id}`);

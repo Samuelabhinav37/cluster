@@ -98,13 +98,7 @@ import { initSuggestionModel, learnFromFeedback, suggestionModel } from "./sugge
 import { answerKind, initKindModel, kindModel } from "./kindLearning";
 import { markLearnedTransactional, sendersToAsk } from "../lib/kindModel";
 import { isAuthCancelled } from "../lib/chromeError";
-import {
-  formatRelativeTime,
-  headerRow,
-  pruneSelection,
-  renderConfirmStep,
-  runNow,
-} from "./ui";
+import { formatRelativeTime, headerRow, pruneSelection, renderConfirmStep, runNow } from "./ui";
 import { reasonLabel, suggestSpamSenders, type SpamSuggestion } from "../lib/spamSuggestions";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { spamListSize } from "../lib/spamList";
@@ -123,13 +117,7 @@ import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib
 import { senderTile, type TileSize } from "./senderTile";
 import { wireAccountMenu } from "./accountMenu";
 import { initAskKai, type AskFacts } from "./askKai";
-import {
-  HOME_KINDS,
-  mailByKind,
-  renderHomeDashboard,
-  type HomeAct,
-  type HomeFacts,
-} from "./homeDashboard";
+import { clearedByDay, mailByKind, renderHomeDashboard, type HomeAct, type HomeFacts } from "./homeDashboard";
 import {
   DETAILS_PREF,
   detailSenders,
@@ -552,7 +540,23 @@ function wireThemeSelect() {
 }
 
 let kaiGuide: KaiGuide | null = null;
-let kaiTipped = false;
+
+// Home's Kai, made once and moved into each new render (a new Kai per render
+// would leave its observers and frame loop behind). Tapping him opens the chat.
+let homeKai: HTMLButtonElement | null = null;
+function seatHomeKai() {
+  const slot = overviewContentEl.querySelector(".home-kai");
+  if (!slot || !ctx.settings.showKai || typeof window.Kai !== "function") return;
+  if (!homeKai) {
+    homeKai = Object.assign(document.createElement("button"), { type: "button", className: "home-kai-btn" });
+    homeKai.setAttribute("aria-label", "Ask Kai");
+    homeKai.onclick = () => kaiGuide?.open();
+    const host = document.createElement("span");
+    homeKai.append(host);
+    window.Kai(host, { src: "/characters/", imgWidth: 320, calm: true });
+  }
+  slot.replaceWith(homeKai);
+}
 
 async function main() {
   kaiGuide = initKaiGuide(document, {
@@ -984,7 +988,10 @@ async function scanAndRender({
     const track = document.createElement("div");
     track.className = "scan-track";
     track.appendChild(fill);
-    statusEl.replaceChildren(`Reading your mail · ${done.toLocaleString()} of ${total.toLocaleString()}`, track);
+    statusEl.replaceChildren(
+      `Reading your mail · ${done.toLocaleString()} of ${total.toLocaleString()}`,
+      track,
+    );
   };
   const progressTimer = setInterval(showProgress, 250);
   try {
@@ -1154,7 +1161,11 @@ function goAndAct(screen: string, act?: HomeAct) {
   });
 }
 
-function updateNavCounts(senders: SenderSummary[], securitySenders: SenderSummary[], allSenders: SenderSummary[]) {
+function updateNavCounts(
+  senders: SenderSummary[],
+  securitySenders: SenderSummary[],
+  allSenders: SenderSummary[],
+) {
   const health = buildInboxHealth({ senders, securitySenders, settings: ctx.settings });
   const byId = new Map(health.metrics.map((m) => [m.id, m.value]));
   setNavCount("delete", clearOutPlan(senders).total, true, "emails to clear out");
@@ -1293,7 +1304,11 @@ function oldestRead(senders: SenderSummary[]): number | undefined {
 
 // ── Overview screen (v3) ────────────────────────────────────────────────
 // Home: the total, the kind bar and up to three next steps (homeDashboard.ts).
-function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary[], allSenders: SenderSummary[]) {
+function renderOverview(
+  senders: SenderSummary[],
+  securitySenders: SenderSummary[],
+  allSenders: SenderSummary[],
+) {
   const health = buildInboxHealth({ senders, securitySenders, settings: ctx.settings });
   const byId = new Map(health.metrics.map((m) => [m.id, m.value]));
   overviewHeadlineEl.textContent = `Scanned ${health.scannedSenders} sender${
@@ -1319,24 +1334,22 @@ function renderOverview(senders: SenderSummary[], securitySenders: SenderSummary
       : 0,
     couldLeaveWeekly: [...weeklyByBucket(senders, Date.now()).values()].reduce((n, c) => n + c, 0),
     fakedBrands: fakedBrands(securitySenders),
+    cleared: {
+      byDay: clearedByDay(ctx.settings.actionLog, Date.now()),
+      total: ctx.settings.clearedTotal ?? 0,
+    },
     // Until reading is done the total covers only recent mail, so say how far back.
-    since: [...indexRuns.values()].some((r) => r.progress?.phase === "reading") ? oldestRead(allSenders) : undefined,
+    since: [...indexRuns.values()].some((r) => r.progress?.phase === "reading")
+      ? oldestRead(allSenders)
+      : undefined,
   };
   // Day one: the census has counted senders' mail before it is all read.
   const counted = allSenders.reduce((n, s) => n + senderVolume(s), 0);
   if (counted > facts.total) Object.assign(facts, { total: counted, since: undefined });
   overviewContentEl.appendChild(renderHomeDashboard(facts, goAndAct, (kind) => details?.open({ kind })));
+  seatHomeKai();
   const moved = movedTodayCard();
   if (moved) overviewContentEl.appendChild(moved);
-  // Kai's tip, once a visit: the kind that fills most of the inbox.
-  const top = HOME_KINDS.reduce((a, b) => (facts.kinds[b.key] > facts.kinds[a.key] ? b : a));
-  if (!kaiTipped && facts.total > 0 && facts.kinds[top.key] / facts.total >= 0.4) {
-    kaiTipped = true;
-    setTimeout(
-      () => kaiGuide?.tip(`Most of your mail is ${top.label.toLowerCase()}. Tap the bar to see it.`),
-      1500,
-    );
-  }
   if (lastScanCapHit) {
     const footNote = document.createElement("p");
     footNote.className = "text-meta";
@@ -1426,7 +1439,8 @@ function clearOutPlan(senders: SenderSummary[]) {
   // date), so the total counts each message id once.
   const ids = new Set<string>();
   for (const bucket of expiry)
-    for (const [provider, list] of bucket.messageIdsByProvider) for (const id of list) ids.add(`${provider}:${id}`);
+    for (const [provider, list] of bucket.messageIdsByProvider)
+      for (const id of list) ids.add(`${provider}:${id}`);
   for (const s of spam) for (const id of s.sender.messageIds) ids.add(`${s.sender.provider}:${id}`);
   for (const s of neverRead) for (const id of s.safeMessageIds) ids.add(`${s.sender.provider}:${id}`);
   return {
@@ -1444,7 +1458,6 @@ function decisionReason(sender: SenderSummary): string {
   const opened = total - senderUnread(sender);
   return opened === 0 ? "Never opened" : `${Math.round((opened / Math.max(1, total)) * 100)}% opened`;
 }
-
 
 /** The four working per-sender action groups, each a live element whose inner
  * button opens its own confirm (reused from the pre-redesign row). */
@@ -1624,7 +1637,8 @@ function buildCompanyDecisionRow(members: SenderSummary[]): HTMLElement {
   const cell = document.createElement("div");
   const btn = Object.assign(document.createElement("button"), { className: "btn", textContent: "Trash" });
   const byProvider = new Map<ProviderId, string[]>();
-  for (const s of members) byProvider.set(s.provider, [...(byProvider.get(s.provider) ?? []), ...idsSafeToMoveOut(s)]);
+  for (const s of members)
+    byProvider.set(s.provider, [...(byProvider.get(s.provider) ?? []), ...idsSafeToMoveOut(s)]);
   const ids = [...byProvider.values()].flat();
   btn.disabled = ids.length === 0;
   const reset = () => cell.replaceChildren(btn);
@@ -1641,7 +1655,9 @@ function buildCompanyDecisionRow(members: SenderSummary[]): HTMLElement {
         await logAction(
           "trash",
           `Moved ${ids.length} from ${name} to Trash`,
-          undoableGmailIds.length > 0 ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" } : undefined,
+          undoableGmailIds.length > 0
+            ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" }
+            : undefined,
         );
         void refreshView();
         return message;
@@ -1650,7 +1666,9 @@ function buildCompanyDecisionRow(members: SenderSummary[]): HTMLElement {
   };
   reset();
 
-  const menu = rowMenu([{ label: "Show emails", run: () => details?.open({ view: "emails", senderKey: top.key }) }]);
+  const menu = rowMenu([
+    { label: "Show emails", run: () => details?.open({ view: "emails", senderKey: top.key }) },
+  ]);
   return listRow({
     lead: makeLogoTile(top, "sz-34"),
     title: name,
@@ -1710,7 +1728,9 @@ function buildTrashCell(sender: SenderSummary): HTMLDivElement {
         await logAction(
           "trash",
           `Moved ${ids.length} from ${sender.address} to Trash`,
-          undoableGmailIds.length > 0 ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" } : undefined,
+          undoableGmailIds.length > 0
+            ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" }
+            : undefined,
         );
         void refreshView();
         return message;
@@ -1792,93 +1812,98 @@ const detailRowKey = (s: SenderSummary) => groupKeyFor(ctx.profiles.get(s.key)) 
 function wireDetails() {
   const root = document.getElementById("details");
   if (!root) return;
-  details = initDetailsPanel(root, {
-    trash(messages, slot, reset, settle) {
-      const merged = idsByProvider(messages);
-      const total = [...merged.values()].reduce((n, ids) => n + ids.length, 0);
-      const skip = messages.length - total;
-      const plural = (n: number) => `${n} email${n === 1 ? "" : "s"}`;
-      const summaryText =
-        describePermanentDelete(merged) ||
-        `Move ${plural(total)} to Trash?${skip > 0 ? ` ${skip} protected stay.` : ""}`;
-      renderConfirmStep(slot, reset, summaryText, true, async () => {
-        const { message, undoableGmailIds } = await executeSmartDelete(merged);
-        // Protected mail skipped by the live re-check simply reappears on the next scan.
-        settle.gone([...merged.values()].flat());
-        appendUndoButton(slot, undoableGmailIds);
-        if (undoableGmailIds.length > 0)
-          slot.lastElementChild?.addEventListener("click", () => settle.back(undoableGmailIds));
-        await logAction(
-          "trash",
-          `Moved ${plural(total)} to Trash from Details`,
-          undoableGmailIds.length > 0
-            ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" }
-            : undefined,
-        );
-        void refreshView();
-        return message;
-      });
-    },
-    archive: [...providerById.values()].some((p) => p.archiveMessages)
-      ? (messages, slot, reset, settle) => {
-          const merged = idsByProvider(messages);
-          runNow(slot, async () => {
+  details = initDetailsPanel(
+    root,
+    {
+      trash(messages, slot, reset, settle) {
+        const merged = idsByProvider(messages);
+        const total = [...merged.values()].reduce((n, ids) => n + ids.length, 0);
+        const skip = messages.length - total;
+        const plural = (n: number) => `${n} email${n === 1 ? "" : "s"}`;
+        const summaryText =
+          describePermanentDelete(merged) ||
+          `Move ${plural(total)} to Trash?${skip > 0 ? ` ${skip} protected stay.` : ""}`;
+        renderConfirmStep(slot, reset, summaryText, true, async () => {
+          const { message, undoableGmailIds } = await executeSmartDelete(merged);
+          // Protected mail skipped by the live re-check simply reappears on the next scan.
+          settle.gone([...merged.values()].flat());
+          appendUndoButton(slot, undoableGmailIds);
+          if (undoableGmailIds.length > 0)
+            slot.lastElementChild?.addEventListener("click", () => settle.back(undoableGmailIds));
+          await logAction(
+            "trash",
+            `Moved ${plural(total)} to Trash from Details`,
+            undoableGmailIds.length > 0
+              ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" }
+              : undefined,
+          );
+          void refreshView();
+          return message;
+        });
+      },
+      archive: [...providerById.values()].some((p) => p.archiveMessages)
+        ? (messages, slot, reset, settle) => {
+            const merged = idsByProvider(messages);
+            runNow(slot, async () => {
+              let done = 0;
+              for (const [pid, ids] of merged) {
+                const provider = providerById.get(pid);
+                if (!provider?.archiveMessages || ids.length === 0) continue;
+                await provider.archiveMessages(await provider.getAuthToken(false), ids);
+                settle.gone(ids);
+                done += ids.length;
+              }
+              const gmailIds = merged.get("gmail") ?? [];
+              await logAction(
+                "archive",
+                `Archived ${done} from Details`,
+                gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "unarchive" } : undefined,
+              );
+              void refreshView();
+              return `Archived ${done} ✓`;
+            });
+          }
+        : undefined,
+      pin: [...providerById.values()].some((p) => p.pinMessages)
+        ? async (messages, slot) => {
             let done = 0;
-            for (const [pid, ids] of merged) {
+            for (const [pid, ids] of idsByProvider(messages)) {
               const provider = providerById.get(pid);
-              if (!provider?.archiveMessages || ids.length === 0) continue;
-              await provider.archiveMessages(await provider.getAuthToken(false), ids);
-              settle.gone(ids);
+              if (!provider?.pinMessages || ids.length === 0) continue;
+              await provider.pinMessages(await provider.getAuthToken(false), ids);
               done += ids.length;
             }
-            const gmailIds = merged.get("gmail") ?? [];
-            await logAction(
-              "archive",
-              `Archived ${done} from Details`,
-              gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "unarchive" } : undefined,
-            );
+            slot.replaceChildren(`Pinned ${done}. Rules leave them alone.`);
+            await logAction("pin", `Pinned ${done} from Details`);
             void refreshView();
-            return `Archived ${done} ✓`;
-          });
-        }
-      : undefined,
-    pin: [...providerById.values()].some((p) => p.pinMessages)
-      ? async (messages, slot) => {
-          let done = 0;
-          for (const [pid, ids] of idsByProvider(messages)) {
-            const provider = providerById.get(pid);
-            if (!provider?.pinMessages || ids.length === 0) continue;
-            await provider.pinMessages(await provider.getAuthToken(false), ids);
-            done += ids.length;
           }
-          slot.replaceChildren(`Pinned ${done}. Rules leave them alone.`);
-          await logAction("pin", `Pinned ${done} from Details`);
-          void refreshView();
-        }
-      : undefined,
-    mute: [...providerById.values()].some((p) => p.muteSender)
-      ? (senders, slot, reset, settle) => {
-          const can = senders.filter((s) => providerById.get(s.provider)?.muteSender);
-          const n = can.length;
-          renderConfirmStep(
-            slot,
-            reset,
-            `Hide all mail from ${n} sender${n === 1 ? "" : "s"}, now and in future?`,
-            false,
-            async () => {
-              let done = 0;
-              for (const sender of can) {
-                if (!(await muteOneSender(sender))) continue;
-                done += 1;
-                settle.gone(idsSafeToMoveOut(sender));
-              }
-              void refreshView();
-              return `Muted ${done} ✓`;
-            },
-          );
-        }
-      : undefined,
-  }, undefined, detailRowKey);
+        : undefined,
+      mute: [...providerById.values()].some((p) => p.muteSender)
+        ? (senders, slot, reset, settle) => {
+            const can = senders.filter((s) => providerById.get(s.provider)?.muteSender);
+            const n = can.length;
+            renderConfirmStep(
+              slot,
+              reset,
+              `Hide all mail from ${n} sender${n === 1 ? "" : "s"}, now and in future?`,
+              false,
+              async () => {
+                let done = 0;
+                for (const sender of can) {
+                  if (!(await muteOneSender(sender))) continue;
+                  done += 1;
+                  settle.gone(idsSafeToMoveOut(sender));
+                }
+                void refreshView();
+                return `Muted ${done} ✓`;
+              },
+            );
+          }
+        : undefined,
+    },
+    undefined,
+    detailRowKey,
+  );
   // Always there: open beside the page on wide windows unless minimized last time.
   let pref: string | null = null;
   try {
@@ -2051,7 +2076,8 @@ function renderSenderCard() {
   else if (hasAnyUnsubscribe(sender.unsubscribe))
     btn("Stop this mail", "btn btn-accent-solid", () => void selectScreen("subscriptions"));
   // No unsubscribe, so Stop mail can't list it: Mute stays here.
-  else if (providerById.get(sender.provider)?.muteSender) btn("Mute", "btn btn-accent-solid", () => run("mute"));
+  else if (providerById.get(sender.provider)?.muteSender)
+    btn("Mute", "btn btn-accent-solid", () => run("mute"));
   btn("New rule…", "btn", () => openRuleSheetFor(sender));
   btn("Show emails", "btn", () => details?.open({ view: "emails", senderKey: sender.key }));
   if (profile) {
@@ -2471,7 +2497,10 @@ function buildDomainRow(group: DomainGroup): HTMLTableRowElement {
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
   checkbox.dataset.domainKey = group.key;
-  checkbox.setAttribute("aria-label", `Select ${group.isFreeMailException ? (group.senders[0]?.address ?? group.domain) : group.domain}`);
+  checkbox.setAttribute(
+    "aria-label",
+    `Select ${group.isFreeMailException ? (group.senders[0]?.address ?? group.domain) : group.domain}`,
+  );
   checkbox.checked = selectedDomainKeys.has(group.key);
   checkbox.onchange = () => {
     if (checkbox.checked) selectedDomainKeys.add(group.key);

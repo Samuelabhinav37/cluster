@@ -50,6 +50,15 @@ export interface ActionLogEntry {
 
 export const MAX_LOG_ENTRIES = 200;
 
+/** Emails an entry took out of the inbox (trashed, archived or filed out), for Home's "cleared". */
+export function clearedCount(e: ActionLogEntry): number {
+  const u = e.undo;
+  if (e.undone || !u) return 0;
+  return u.via === "untrash" || u.via === "unarchive" || (u.via === "unsort" && u.wasFiledOut)
+    ? u.ids.length
+    : 0;
+}
+
 // Append under the settings storage lock so a dashboard action and the
 // background triage writing entries at the same time don't clobber each other
 // (chrome.storage has no atomic update). Keeps only the newest MAX_LOG_ENTRIES.
@@ -58,6 +67,8 @@ export async function appendActionLog(entries: ActionLogEntry[]): Promise<void> 
   await mutateSettings((settings) => ({
     ...settings,
     actionLog: [...settings.actionLog, ...entries].slice(-MAX_LOG_ENTRIES),
+    // The log drops old entries, so "since you started" keeps its own count.
+    clearedTotal: (settings.clearedTotal ?? 0) + entries.reduce((n, e) => n + clearedCount(e), 0),
   }));
 }
 

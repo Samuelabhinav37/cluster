@@ -1,18 +1,16 @@
-// Home, the iPhone Storage way: one number, one bar of your inbox by Apple
-// Mail's four kinds, and up to three next steps, most urgent first
-// (docs/dashboard-plan.md Track 2; approved mockup
-// research/2026-10-27-home-cleanup-mockup.html). Facts are computed here from
-// the scan; the dashboard supplies the counts it already has.
+// Home v2 (docs/ui-plan-2026-10-29b.md Step 1): Kai's verdict, this week's
+// results, up to three next steps, and the inbox by Apple Mail's four kinds.
+// Facts are computed here from the scan; the dashboard supplies the counts it
+// already has.
 
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
-import { brandHomeDomain } from "../lib/threatSignals";
-import { senderTile } from "./senderTile";
+import { clearedCount, type ActionLogEntry } from "../lib/actionLog";
 
 export type HomeKind = "primary" | "trans" | "updates" | "promo";
 
 export const HOME_KINDS: ReadonlyArray<{ key: HomeKind; label: string }> = [
-  { key: "primary", label: "Primary" },
-  { key: "trans", label: "Transactions" },
+  { key: "primary", label: "People" },
+  { key: "trans", label: "Receipts" },
   { key: "updates", label: "Updates" },
   { key: "promo", label: "Promotions" },
 ];
@@ -30,22 +28,24 @@ export function kindOf(m: MessageRecord): HomeKind {
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Messages per kind, the total, and how many arrived in the last 7 days. */
+/** Messages per kind, the total, and how many arrived in the last 7 days and the 7 before. */
 export function mailByKind(
   senders: readonly SenderSummary[],
   now: number,
-): { kinds: Record<HomeKind, number>; total: number; thisWeek: number } {
+): { kinds: Record<HomeKind, number>; total: number; thisWeek: number; lastWeek: number } {
   const kinds: Record<HomeKind, number> = { primary: 0, trans: 0, updates: 0, promo: 0 };
   let total = 0;
   let thisWeek = 0;
+  let lastWeek = 0;
   for (const s of senders) {
     for (const m of s.messages) {
       kinds[kindOf(m)] += 1;
       total += 1;
       if (now - m.receivedAt < WEEK_MS) thisWeek += 1;
+      else if (now - m.receivedAt < 2 * WEEK_MS) lastWeek += 1;
     }
   }
-  return { kinds, total, thisWeek };
+  return { kinds, total, thisWeek, lastWeek };
 }
 
 export interface HomeFacts {
@@ -70,6 +70,10 @@ export interface HomeFacts {
   fakedBrands?: string[];
   /** While mail is still being read: the oldest message read so far. */
   since?: number;
+  /** Arrivals in the seven days before this week. */
+  lastWeek?: number;
+  /** Emails cleared per day (oldest first, today last) and since install. */
+  cleared?: { byDay: number[]; total: number };
 }
 
 /** Open a place; `act` also starts that place's own confirm step. */
@@ -278,38 +282,6 @@ const el = <K extends keyof HTMLElementTagNameMap>(
   return e;
 };
 
-/** One bento tile: the place's app icon and name, then the body. The whole
- * tile opens the place; the header is the button screen readers reach. */
-function tile(o: { app: string; ic: string; name: string; open: () => void; wide?: boolean }) {
-  const root = el("section", `tile${o.wide ? " wide" : ""}`);
-  const head = el("button", "tile-head");
-  head.type = "button";
-  head.onclick = o.open;
-  root.onclick = (event) => {
-    if (!(event.target as HTMLElement).closest("button")) o.open();
-  };
-  const ic = el("span", `app-ic app-${o.app}`);
-  ic.append(icon(o.ic));
-  head.append(ic, el("b", "tile-name", o.name), el("span", "tile-chev", "›"));
-  const body = el("div", "tile-body");
-  root.append(head, body);
-  return { root, body };
-}
-
-/** The tile's one number, said once, with a short unit after it. */
-function stat(n: number, unit: string, tone = ""): HTMLElement {
-  const p = el("p", `tile-stat${tone ? ` ${tone}` : ""}`);
-  p.append(el("b", "", n.toLocaleString()), el("span", "", unit));
-  return p;
-}
-
-/** A calm tile body: one big glyph and one line. */
-function quiet(ic: string, text: string, tone = ""): HTMLElement {
-  const box = el("div", `tile-empty${tone ? ` ${tone}` : ""}`);
-  box.append(icon(ic), el("span", "", text));
-  return box;
-}
-
 // Brand keys are lower case; these don't title-case cleanly.
 const BRAND_NAMES: Record<string, string> = {
   paypal: "PayPal",
@@ -328,24 +300,190 @@ const BRAND_NAMES: Record<string, string> = {
 };
 const brandName = (key: string) => BRAND_NAMES[key] ?? key.replace(/\b\w/g, (c) => c.toUpperCase());
 
-/** Home as a bento grid: All mail and Protect, then Clean up and Organize.
- * `openKind` opens those emails in Details. */
-export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: HomeKind) => void): HTMLElement {
-  const root = el("div", "home bento");
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-  // All mail read: the number, the bar and the legend, like iCloud's storage.
-  const inbox = tile({
-    app: "inbox",
-    ic: "mail",
-    name: "All mail",
-    wide: true,
-    open: () => openKind?.("primary"),
+/** Emails cleared on each of the last seven days, oldest first, today last. */
+export function clearedByDay(log: readonly ActionLogEntry[], now: number): number[] {
+  const days = [0, 0, 0, 0, 0, 0, 0];
+  const today = new Date(now).setHours(0, 0, 0, 0);
+  for (const e of log) {
+    // Round, not floor: a day across a clock change is 23 or 25 hours.
+    const ago = Math.round((today - new Date(e.at).setHours(0, 0, 0, 0)) / DAY_MS);
+    if (ago >= 0 && ago < 7) days[6 - ago] += clearedCount(e);
+  }
+  return days;
+}
+
+const n = (x: number) => x.toLocaleString();
+const plural = (x: number, one: string, many: string) => `${n(x)} ${x === 1 ? one : many}`;
+
+/** "↓ 18% vs last week"; green only when the change is the good way. */
+function deltaChip(now: number, before: number, fewerIsGood: boolean): HTMLElement | null {
+  if (before <= 0) return null;
+  const pct = Math.round(((now - before) / before) * 100);
+  if (pct === 0) return el("small", "chip-delta", "Same as last week");
+  const good = pct < 0 === fewerIsGood;
+  return el(
+    "small",
+    `chip-delta${good ? " good" : ""}`,
+    `${pct < 0 ? "↓" : "↑"} ${Math.abs(pct)}% vs last week`,
+  );
+}
+
+/** A row with its place's app icon, two lines and one button. */
+function nextRow(o: { app: string; ic: string; title: string; sub: string; act: string; run: () => void }) {
+  const row = el("div", "next-row");
+  const ic = el("span", `app-ic app-${o.app}`);
+  ic.append(icon(o.ic));
+  const words = el("span", "next-words");
+  words.append(el("b", "", o.title), el("span", "", o.sub));
+  const btn = el("button", "btn btn-sm", o.act);
+  btn.type = "button";
+  btn.onclick = o.run;
+  row.append(ic, words, btn);
+  return row;
+}
+
+/** Home: Kai's verdict, what Cluster did this week, up to three next steps,
+ * and the inbox by kind (approved mockup research/2026-10-29-home-mockup.html).
+ * `openKind` opens those emails in Details. The `.home-kai` slot is left
+ * empty; the dashboard seats the live Kai there. */
+export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: HomeKind) => void): HTMLElement {
+  const root = el("div", "home");
+
+  // 1. The verdict: one sentence in large type, said by Kai.
+  const hero = el("section", "home-hero");
+  const words = el("div", "home-words");
+  const verdict = el("p", "home-verdict");
+  const sub = el("p", "home-sub");
+  if (f.suspicious > 0) {
+    verdict.append(
+      el("span", "warn", `${plural(f.suspicious, "email needs", "emails need")} you.`),
+      el("br", ""),
+      "The rest is handled.",
+    );
+    const brands = (f.fakedBrands ?? []).slice(0, 3).map(brandName);
+    sub.textContent = brands.length
+      ? `Don't click anything that says it's from ${brands.join(", ")}.`
+      : "Don't click anything in them.";
+    const review = el("button", "btn btn-accent-solid", `Review ${n(f.suspicious)}`);
+    review.type = "button";
+    review.onclick = () => go("impersonation");
+    words.append(verdict, sub, review);
+  } else {
+    verdict.append("All clear.", el("br", ""), "Nothing needs you today.");
+    sub.textContent = f.cleared?.total
+      ? `${plural(f.cleared.total, "email", "emails")} cleared since you started.`
+      : "Cluster checks new mail as it arrives.";
+    words.append(verdict, sub);
+  }
+  hero.append(el("div", "home-kai"), words);
+  root.append(hero);
+
+  // 2. This week: results, each with a comparison.
+  const byDay = f.cleared?.byDay ?? [0, 0, 0, 0, 0, 0, 0];
+  const cleared = el("div", "week-card");
+  cleared.append(el("b", "", n(byDay.reduce((a, b) => a + b, 0))), el("span", "", "cleared for you"));
+  const spark = el("div", "spark");
+  spark.setAttribute("role", "img");
+  const top = Math.max(1, ...byDay);
+  const dayName = (ago: number) =>
+    ago === 0
+      ? "Today"
+      : new Date(Date.now() - ago * DAY_MS).toLocaleDateString(undefined, { weekday: "short" });
+  spark.setAttribute(
+    "aria-label",
+    `Cleared per day: ${byDay.map((v, i) => `${dayName(6 - i)} ${v}`).join(", ")}`,
+  );
+  byDay.forEach((v, i) => {
+    const bar = el("i", i === 6 ? "now" : "");
+    bar.style.height = `${Math.max(6, (v / top) * 100)}%`;
+    bar.title = `${dayName(6 - i)}: ${n(v)}`;
+    spark.append(bar);
   });
-  const big = el("p", "home-big");
-  big.append(el("b", "", f.total.toLocaleString()), ` ${f.total === 1 ? "email" : "emails"}`);
+  cleared.append(spark);
+  if (f.cleared?.total) cleared.append(el("small", "chip-delta", `${n(f.cleared.total)} since you started`));
+
+  const arrived = el("div", "week-card");
+  arrived.append(el("b", "", n(f.thisWeek)), el("span", "", "arrived this week"));
+  const arrivedChip = deltaChip(f.thisWeek, f.lastWeek ?? 0, true);
+  if (arrivedChip) arrived.append(arrivedChip);
+
+  // The same scams the verdict counts, so Home never shows two numbers for one thing.
+  const scams = el("button", "week-card");
+  scams.type = "button";
+  scams.onclick = () => go("impersonation");
+  scams.append(
+    el("b", "", n(f.suspicious)),
+    el("span", "", f.suspicious === 1 ? "scam caught" : "scams caught"),
+  );
+  const week = el("div", "home-week");
+  week.append(cleared, arrived, scams);
+  root.append(el("h2", "section-label", "This week"), week);
+
+  // 3. Next up: at most three, each says what happens and has one button.
+  const rows: HTMLElement[] = [];
+  if (f.neverOpened.emails > 0)
+    rows.push(
+      nextRow({
+        app: "clean",
+        ic: "mail-x",
+        title: `${plural(f.neverOpened.emails, "email", "emails")} you never open`,
+        sub: "You can undo this.",
+        act: `Trash ${n(f.neverOpened.emails)}`,
+        run: () => go("delete", "trash-never-opened"),
+      }),
+    );
+  if (f.pastDate > 0)
+    rows.push(
+      nextRow({
+        app: "clean",
+        ic: "clock",
+        title: `${plural(f.pastDate, "email", "emails")} past their date`,
+        sub: "Old codes and expired offers.",
+        act: `Trash ${n(f.pastDate)}`,
+        run: () => go("delete", "trash-past-date"),
+      }),
+    );
+  if (f.waiting > 0)
+    rows.push(
+      nextRow({
+        app: "protect",
+        ic: "user-plus",
+        title: plural(f.waiting, "new sender", "new senders"),
+        sub: "Let them in or hold them.",
+        act: "Look",
+        run: () => go("screener"),
+      }),
+    );
+  if (f.limitsOn === 0 && f.couldLeaveWeekly)
+    rows.push(
+      nextRow({
+        app: "organize",
+        ic: "layers",
+        title: "Let old mail leave on its own",
+        sub: `About ${n(f.couldLeaveWeekly)} a week would leave.`,
+        act: "Turn on",
+        run: () => go("organize"),
+      }),
+    );
+  if (rows.length > 0) {
+    const list = el("div", "next-list");
+    list.append(...rows.slice(0, 3));
+    root.append(el("h2", "section-label", "Next up"), list);
+  }
+
+  // 4. Your inbox: the bar, with one sentence that says what it means.
+  const inbox = el("section", "home-inbox");
+  const most = HOME_KINDS.reduce((a, b) => (f.kinds[b.key] > f.kinds[a.key] ? b : a));
+  const line = el("p", "inbox-line");
+  if (f.total > 0) {
+    line.append(el("b", "", `Most of your mail is ${most.label.toLowerCase()}.`));
+    if (most.key !== "primary") line.append(` Only ${n(f.kinds.primary)} of ${n(f.total)} are from people.`);
+  } else line.textContent = "No mail read yet.";
   if (f.since)
-    big.append(
-      ` since ${new Date(f.since).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`,
+    line.append(
+      ` Read back to ${new Date(f.since).toLocaleDateString(undefined, { month: "short", day: "numeric" })} so far.`,
     );
   const bar = el("div", "kind-bar");
   bar.setAttribute("role", "img");
@@ -356,7 +494,7 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
     if (count > 0) {
       const seg = el("span", `kind-${k.key}`);
       seg.style.flexGrow = String(count);
-      seg.title = `${k.label}: ${count.toLocaleString()}`;
+      seg.title = `${k.label}: ${n(count)}`;
       if (openKind) seg.onclick = () => openKind(k.key);
       bar.append(seg);
     }
@@ -365,68 +503,13 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
       item.type = "button";
       item.onclick = () => openKind!(k.key);
     }
-    item.append(el("i", `kind-${k.key}`), k.label, el("em", "", count.toLocaleString()));
+    const pct = f.total ? Math.round((count / f.total) * 100) : 0;
+    item.append(el("i", `kind-${k.key}`), k.label, el("em", "", `${n(count)} · ${pct}%`));
     const li = el("li", "");
     li.append(item);
     legend.append(li);
   }
-  inbox.body.append(big, bar, legend);
-
-  // Protect: scams first, with the brands they fake; then new senders.
-  const scams = f.suspicious > 0;
-  const protect = tile({
-    app: "protect",
-    ic: "shield-check",
-    name: "Protect",
-    open: () => go(scams || f.waiting === 0 ? "impersonation" : "screener"),
-  });
-  if (scams) {
-    protect.body.append(stat(f.suspicious, "to review", "danger"));
-    const brands = (f.fakedBrands ?? []).slice(0, 3);
-    if (brands.length > 0) {
-      const faces = el("div", "tile-faces");
-      for (const b of brands) {
-        const domain = brandHomeDomain(b);
-        faces.append(
-          senderTile(domain ? `no-reply@${domain}` : `${b}@example.invalid`, brandName(b), "sz-26"),
-        );
-      }
-      protect.body.append(
-        faces,
-        el("p", "tile-note", `Pretending to be ${brands.map(brandName).join(", ")}`),
-      );
-    }
-  } else if (f.waiting > 0)
-    protect.body.append(stat(f.waiting, f.waiting === 1 ? "new sender" : "new senders"));
-  else protect.body.append(quiet("shield-check", "Nothing looks off", "ok"));
-
-  // Clean up: the total once, then what it's made of, without repeating counts.
-  const clearable = f.clearable;
-  const clean = tile({ app: "clean", ic: "trash", name: "Clean up", wide: true, open: () => go("delete") });
-  if (clearable === 0) clean.body.append(quiet("check", "Nothing to clear", "ok"));
-  else {
-    // "of N" names the total it is part of, the All mail number above.
-    clean.body.append(stat(clearable, `of ${f.total.toLocaleString()} ready to go`));
-    const parts: Array<[ic: string, name: string]> = [];
-    if (f.neverOpened.senders > 0) parts.push(["mail-x", "Never opened"]);
-    if (f.pastDate > 0) parts.push(["clock", "Past its date"]);
-    for (const [ic, name] of parts) {
-      const row = el("div", "tile-row");
-      const mark = el("span", "rec-ic");
-      mark.append(icon(ic));
-      row.append(mark, el("span", "", name));
-      clean.body.append(row);
-    }
-  }
-
-  // Organize: how many kinds leave the inbox on their own.
-  const organize = tile({ app: "organize", ic: "layers", name: "Organize", open: () => go("organize") });
-  if (f.limitsOn > 0)
-    organize.body.append(stat(f.limitsOn, f.limitsOn === 1 ? "kind tidies itself" : "kinds tidy themselves"));
-  else if (f.couldLeaveWeekly)
-    organize.body.append(stat(f.couldLeaveWeekly, "a week could leave on their own"));
-  else organize.body.append(quiet("clock", "Let old mail leave on its own"));
-
-  root.append(inbox.root, protect.root, clean.root, organize.root);
+  inbox.append(line, bar, legend);
+  root.append(el("h2", "section-label", "Your inbox"), inbox);
   return root;
 }

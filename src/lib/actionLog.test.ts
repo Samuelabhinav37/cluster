@@ -3,7 +3,7 @@ import type { ActionLogEntry } from "./actionLog";
 
 // appendActionLog goes through mutateSettings (settings storage lock). Stub it
 // with an in-memory settings object that applies the updater, same contract.
-const settings: { actionLog: ActionLogEntry[] } = { actionLog: [] };
+const settings: { actionLog: ActionLogEntry[]; clearedTotal?: number } = { actionLog: [] };
 
 vi.mock("./settingsStore", () => ({
   mutateSettings: async (fn: (s: typeof settings) => typeof settings) => {
@@ -20,6 +20,7 @@ function entry(id: string): ActionLogEntry {
 
 beforeEach(() => {
   settings.actionLog = [];
+  settings.clearedTotal = undefined;
 });
 
 describe("appendActionLog", () => {
@@ -45,6 +46,21 @@ describe("appendActionLog", () => {
     expect(settings.actionLog.at(-1)?.id).toBe("new-2");
     expect(settings.actionLog.at(-2)?.id).toBe("new-1");
     expect(settings.actionLog[0].id).toBe("old-2"); // old-0, old-1 dropped
+  });
+
+  it("adds emails taken out of the inbox to the running total, which outlives the log", async () => {
+    const undo = (via: "untrash" | "unmute", n: number) => ({
+      provider: "gmail" as const,
+      ids: Array.from({ length: n }, String),
+      via,
+    });
+    await appendActionLog([
+      { ...entry("a"), undo: undo("untrash", 3) },
+      { ...entry("b"), undo: undo("unmute", 5) },
+    ]);
+    settings.actionLog = [];
+    await appendActionLog([{ ...entry("c"), undo: undo("untrash", 2) }]);
+    expect(settings.clearedTotal).toBe(5);
   });
 });
 
