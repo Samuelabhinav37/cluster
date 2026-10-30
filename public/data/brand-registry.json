@@ -1,0 +1,4285 @@
+{
+  "sources": {
+    "certified": "BIMI Verified Mark Certificates (default._bimi TXT), chains verified to pinned CAs",
+    "listed": "Wikidata P856 official website (CC0)",
+    "candidates": "src/lib/data/brandDomains.json + Tranco list PYK6J top 5000"
+  },
+  "generatedAt": "2026-10-30T04:46:46.596Z",
+  "issuers": [
+    {
+      "ca": "DigiCert",
+      "name": "DigiCert Verified Mark Europe RSA4096 SHA256 2023 CA1",
+      "expires": "2038-03-07",
+      "spki": "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAvzS27KOw5ROg4sS3IY3zJRK6gQ5KyTVDwbY4YKGY7S54L0pCJciAp63iLoP12Dtc1OnjSAt/HwlQ1dtqVMzdgov7J74s/5Rv+RIikkEFxTQFbhDPPabirhF7pEU9+n3ANAbJL+NmHmqEsVfQRoh/shh4fEYVwXsGC3YCLxwB/CSppLVnCNMVapNYciIX3OPKQRHqUddVPgKM/zAFENdK9ynAmKkkosINPw/cdskmDCeRFu7yRM4YGPeCZjCOmKqhL0waAOSbqXPrSZROT5U5EaUgWCB5oAYkWk4DkvfI2nuBst7iTfvRfsMIOb5Xnp6MBowD3nHgX01t/ZSb9DYVJ5MsgCHlDTutrvYWeMwzASpJL9sUJBogDXaIYj5WmZzE3/w+NK6+gCEz0ECI7olqWOoberli/qMCllnh5mRfHR2rPILq1gFomKgYnpA8VeydQsRNkrIFHlMrHDndw+HcxvPLN2ZdR/RsilIF3OzRP4kHAi+wa3P9vscxtiikz6m6WYHP3InIF7cR1aocofpaYMnDDayAp+8yU9xvYwJKkUA1lJEM12h3yoEVfpJPiGfl8NftFMj8CKwBce4WYn/vCNOwDttMj8SuPPI0XV7HHoqR6T0Ml0h9zNAykcwM1sRYzxsXA4egcnuA56CYer3A+FmiL/t5WURUgVtzZwF+U1sCAwEAAQ=="
+    },
+    {
+      "ca": "DigiCert",
+      "name": "DigiCert Verified Mark RSA4096 SHA256 2021 CA1",
+      "expires": "2036-06-30",
+      "spki": "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA3C9kCZwwWm/6cxH92KIupgF5ig9+DDoKjKLhi00+Ar1kroE4v8Yzz2xU39syRuD4Md+GGiBmM7500oKbHKTX/rLLYgDw6xD8LlpP2UJqOBOO3K5zlYR0x5bTnPF0YqdVMAj8zgdocJp2cBUzz+pEuoafGqPT+amuNFKdN7IdUIYcb4VU13+g7MUozFaQs9gSAmueplu5T3hH+QYKqnWnlKBL2HcOJsPt+1eb7oFBfKR9ZbrPCX/ew2DwgvLn9eEcMPDV4Tniy8lMpaj/bdFkuZ5cD44qGyQJv1XYYKzs2wLlMlObidm5k+G7aemhzb5jnrB74REven1nY7Lto3VUE2vXvOzyvlc1IknQwzR8LWP5mlBtMvQGE4VPT2ihJBon5hdfvPHczfiHk7MuOvYpEOZ1hLO5RIlvKJjtmqg3GNgWEX3FA2j+BF+UXVcC5SH91oLFVXo4GdGnZagfopoqdgxxRw+8ZwgPmpA30QC4HXJDbcRonDMVgrrbZrkBrH+/tznsTNKsjKNxfsr6/h6/M61fRYyZ/EdXKwAb6Ll/vZtuIY9kJSNzhgF0o966yzF2WZhXgG9Ykz6qX5AwCW+baTE6llmxGrNi++mqM7RbfZ+JGUH3Nww8eC+B8VJBfhgbIv6aqedDqdrWiJ6p05JenGbdSRWlyciL/82a14E8DdUCAwEAAQ=="
+    },
+    {
+      "ca": "GlobalSign",
+      "name": "GlobalSign GCC R42 Verified Mark CA 2023",
+      "expires": "2038-11-15",
+      "spki": "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA8SSO8kXGPNlxyddd5N8QVA1nWGlxxc5ECzVi0nBsAW005r/K80TUgxo/k9YAngD2yspOFFmF6iyff9hLsz7yvakN2oaDHv6ZV7GYuuKBwo17He4Du3OqwvnB4bVILdxikDhPO+C2ONNGkDO7GBAwvZubjZe2op3IyJMWDRCqe/772SFQuYnWEFozEwz/xx1kpet835YcMt4/pQdEwhL5Mcn9RxNL6U3e7iZpHKHhrc1K9OWMN1FWwNnP26JVFGfucKOg/EMdno8z+j3XwXYOg2uCE0cGgopfBlYdkJG0LuQg+Rsx8+P1m3bRK/PV8xHhMUhRl8nYI0S7KOULfwCteflMJf4fwLQmhNAqjd4FbqZxQD7jwJ/CRfggM0MCudXMmxIVtzgVg+X+2nY5VWLfLAv746z14DQpq5sRv7KDmTSFbpbFWGaYIEg73PO3/ZqW6MRSeOY32gVzHp2YC4M5b7CZMP0BGuyIir2uav66Bz4pA38WDV5JngY9Vttu1Hgbe4ul76TH+QFS6mrYP6f/IDXfrBKvZAYkIWuh/wntXXAyHDxypWOuAu9apy651yhffwXBMUgJNHVmHsE1FE4XKAP6xzQjnqdnJvY4hpVW6HgL0jzAzJqhl407mRT2kat2t+kJzoISUWgWs7HKkgR7irKWzYORNha0AGFA6S8ZTbkCAwEAAQ=="
+    },
+    {
+      "ca": "SSL.com",
+      "name": "Sectigo Limited VMC Issuing RSA CA 1",
+      "expires": "2035-11-11",
+      "spki": "MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAn/nUHkXfcP1GoI59Ng7vcnss/cCl7vQ6Kdfl+oiov6ir1nMvWmzW1nzhPQgt+W1C0ywozRNb3jut7WzyOtF+bVIO7eulcAMwYNGZ24x3/qIiEP5ezJHJBSDQCMXcAL838iXPYVYPqYbMt0d1KaMh7xsXYoLh2tD71/LHQAumAwnc9UhCqYdpqG0sFZ/hQ7iUlQCjudCG4M8ZHGUJk0DNcdy0hocPceN8l02k6bgxvCQgX6d01q0aqXgzKqFPg2V2YWCU2tPhe4ZhMNYsgHwR5C67E2FPYM8sEYSFZIN2d2KQNE+D8up/OcsEiw9zj3/eRzuC2pCtFxtha4gbLXleS2hNGC2YyiuG1vHuzqBfKMaeKepOShRQXpDoxKw8h07EOo0jynbr6r/yUBlRiPiNPFXoxeoND+mSbIuz9itzHBSQDPd7nvgTbchAzwhgBMiyEtsFSrUL/+Bdbok4/i4uVhqg2fQGgbydRSaaBnIGNFY2dWnxDopzjnF1kMVn6veXAgMBAAE="
+    },
+    {
+      "ca": "SSL.com",
+      "name": "SSL.com VMC Issuing RSA CA 1",
+      "expires": "2034-03-24",
+      "spki": "MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA3//sodyE/g7MoDU4RMj7fiFehwhpC5VS+pdQ+i2TjhuB0Ee4aJdP2P1XFufyGBa2qxJsPRzCUx/uMcsVkcj5LLLA8heU4D8SFI7ahJhhV3ZS1wC9lF/MaeZZXxeKX0Yh4avZZacf7a9odtmJ2D85peomkP7TGUEEErREBKtj66WC4Im0KgWwX3tSFQ6hrLaCCv2NKS/NhVoFNKnexKvavxsFD3xDrCLqkEEWAux1CPOlvSsKbK+8E3akU/JOribw+r4Wfznd9E0eZEGSNegY9xO+7Qi3sFM6jWKqw3ASrH2ce0vmstu1yoMOn/duHzLCdyLliMISu0GlaklGHObrX45SDtwunjb65i6B4WhvbC1xuQSDU3mU77Kbmv2rYB/QOeBsBBx8CYLBuAwtVak9s2vC462AezoBJoqQ/KirJy3xHoJvV8o5vB5IqAEUchB2BKAAcd9iqzciokvUUtdvley9lIRfGXcM8p3VQzINAku5tJO7BV4RUToC4nW+1d95AgMBAAE="
+    }
+  ],
+  "companies": [
+    {
+      "id": "1password.ca",
+      "name": "1Password (AgileBits, Inc)",
+      "trust": "certified",
+      "domains": [
+        "1password.ca",
+        "1password.com",
+        "1password.eu",
+        "agilebits.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7510505",
+      "expires": "2027-02-04",
+      "logo": true
+    },
+    {
+      "id": "leboncoin.fr",
+      "name": "ADEVINTA SERVICESCO S.L.",
+      "trust": "certified",
+      "domains": [
+        "leboncoin.fr"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "FR 5158798",
+      "expires": "2027-06-02",
+      "logo": true
+    },
+    {
+      "id": "adguard.com",
+      "name": "Adguard Software Limited",
+      "trust": "certified",
+      "domains": [
+        "adguard.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7800198",
+      "expires": "2027-10-07",
+      "logo": true
+    },
+    {
+      "id": "adobe.com",
+      "name": "Adobe Inc.",
+      "trust": "certified",
+      "domains": [
+        "adobe.com",
+        "e.adobe.com",
+        "email.adobe.com",
+        "info.adobe.com",
+        "mail.adobe.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 019047182",
+      "expires": "2027-09-22",
+      "logo": true
+    },
+    {
+      "id": "adtelligent.com",
+      "name": "Adtelligent Inc.",
+      "trust": "certified",
+      "domains": [
+        "adtelligent.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7727130",
+      "expires": "2027-11-20",
+      "logo": true
+    },
+    {
+      "id": "affirm-stage.com",
+      "name": "Affirm, Inc.",
+      "trust": "certified",
+      "domains": [
+        "affirm-stage.com",
+        "affirm.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7230878",
+      "expires": "2027-04-27",
+      "logo": true
+    },
+    {
+      "id": "aftonbladet.se",
+      "name": "Aftonbladet Hierta Aktiebolag",
+      "trust": "certified",
+      "domains": [
+        "aftonbladet.se"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 018751417",
+      "expires": "2027-05-13",
+      "logo": true
+    },
+    {
+      "id": "aliexpress.com",
+      "name": "Alibaba.com Singapore E-Commerce Private Limited",
+      "trust": "certified",
+      "domains": [
+        "aliexpress.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4626611",
+      "expires": "2027-10-14",
+      "logo": true
+    },
+    {
+      "id": "allegro.cz",
+      "name": "Allegro sp. z o.o.",
+      "trust": "certified",
+      "domains": [
+        "allegro.cz",
+        "allegro.pl",
+        "allegro.sk"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 018458315",
+      "expires": "2027-04-30",
+      "logo": true
+    },
+    {
+      "id": "amazon.ae",
+      "name": "Amazon Web Services, Inc.",
+      "trust": "certified",
+      "domains": [
+        "amazon.ae",
+        "amazon.ca",
+        "amazon.cl",
+        "amazon.cn",
+        "amazon.co.jp",
+        "amazon.co.uk",
+        "amazon.co.za",
+        "amazon.com",
+        "amazon.com.au",
+        "amazon.com.be",
+        "amazon.com.br",
+        "amazon.com.co",
+        "amazon.com.mx",
+        "amazon.com.ng",
+        "amazon.com.tr",
+        "amazon.de",
+        "amazon.eg",
+        "amazon.es",
+        "amazon.fr",
+        "amazon.ie",
+        "amazon.in",
+        "amazon.it",
+        "amazon.lu",
+        "amazon.nl",
+        "amazon.pl",
+        "amazon.sa",
+        "amazon.se",
+        "amazon.sg",
+        "aws.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7055660",
+      "expires": "2027-02-02",
+      "logo": true
+    },
+    {
+      "id": "audible.ca",
+      "name": "Amazon.com Inc",
+      "trust": "certified",
+      "domains": [
+        "audible.ca",
+        "audible.co.jp",
+        "audible.co.uk",
+        "audible.com",
+        "audible.com.au",
+        "audible.com.br",
+        "audible.de",
+        "audible.es",
+        "audible.fr",
+        "audible.in",
+        "audible.it"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4118905",
+      "expires": "2027-11-26",
+      "logo": true
+    },
+    {
+      "id": "primevideo.com",
+      "name": "Amazon.com Services LLC",
+      "trust": "certified",
+      "domains": [
+        "primevideo.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "BX 1518558",
+      "expires": "2027-06-11",
+      "logo": true
+    },
+    {
+      "id": "aexp.com",
+      "name": "American Express Company",
+      "trust": "certified",
+      "domains": [
+        "aexp.com",
+        "americanexpress.com",
+        "centurion.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00003625046",
+      "expires": "2027-04-12",
+      "logo": true
+    },
+    {
+      "id": "claude.com",
+      "name": "Anthropic PBC",
+      "trust": "certified",
+      "domains": [
+        "claude.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 8061956",
+      "expires": "2027-01-10",
+      "logo": true
+    },
+    {
+      "id": "cursor.com",
+      "name": "Anysphere, Inc.",
+      "trust": "certified",
+      "domains": [
+        "cursor.com",
+        "mail.cursor.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Prior Use Mark",
+      "expires": "2027-10-23",
+      "logo": true
+    },
+    {
+      "id": "appfolio.com",
+      "name": "AppFolio, Inc.",
+      "trust": "certified",
+      "domains": [
+        "appfolio.com"
+      ],
+      "ca": "SSL.com",
+      "mark": "Registered Mark",
+      "trademark": "US 4807051",
+      "expires": "2027-02-07",
+      "logo": true
+    },
+    {
+      "id": "apple.com",
+      "name": "Apple Inc.",
+      "trust": "certified",
+      "domains": [
+        "apple.com",
+        "applecard.apple",
+        "applecash.apple",
+        "applemusic.com",
+        "engage.apple",
+        "gs-savings.apple",
+        "performance-partners.apple"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6315885",
+      "expires": "2027-04-11",
+      "logo": true
+    },
+    {
+      "id": "argos-support.co.uk",
+      "name": "Argos Limited",
+      "trust": "certified",
+      "domains": [
+        "argos-support.co.uk",
+        "argos.co.uk",
+        "argosclearance.co.uk",
+        "argosfinancialservices.com",
+        "argosgiftingplatform.co.uk",
+        "argoshelpers.co.uk",
+        "argospetinsurance.co.uk"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00003027252",
+      "expires": "2027-02-16",
+      "logo": true
+    },
+    {
+      "id": "asana.com",
+      "name": "Asana, Inc.",
+      "trust": "certified",
+      "domains": [
+        "asana.com"
+      ],
+      "ca": "SSL.com",
+      "mark": "Registered Mark",
+      "trademark": "US 4214394",
+      "expires": "2027-10-02",
+      "logo": true
+    },
+    {
+      "id": "asos.com",
+      "name": "ASOS PLC",
+      "trust": "certified",
+      "domains": [
+        "asos.com",
+        "asossamplesale.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7393988",
+      "expires": "2027-02-18",
+      "logo": true
+    },
+    {
+      "id": "asus.com",
+      "name": "ASUSTeK COMPUTER INC.",
+      "trust": "certified",
+      "domains": [
+        "asus.com"
+      ],
+      "ca": "GlobalSign",
+      "mark": "Registered Mark",
+      "trademark": "EM 000934273",
+      "expires": "2027-05-10",
+      "logo": true
+    },
+    {
+      "id": "att.com",
+      "name": "AT&T Services, Inc.",
+      "trust": "certified",
+      "domains": [
+        "att.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5745786",
+      "expires": "2027-07-23",
+      "logo": true
+    },
+    {
+      "id": "atlassian.com",
+      "name": "Atlassian Pty Ltd",
+      "trust": "certified",
+      "domains": [
+        "atlassian.com",
+        "atlassian.net",
+        "trello.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "AU 1910272",
+      "expires": "2027-10-11",
+      "logo": true
+    },
+    {
+      "id": "autodesk.com",
+      "name": "Autodesk, Inc.",
+      "trust": "certified",
+      "domains": [
+        "autodesk.com",
+        "autodeskcommunications.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6883068",
+      "expires": "2027-10-19",
+      "logo": true
+    },
+    {
+      "id": "auvik.com",
+      "name": "Auvik Networks Inc.",
+      "trust": "certified",
+      "domains": [
+        "auvik.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4929977",
+      "expires": "2027-11-20",
+      "logo": true
+    },
+    {
+      "id": "bankofamerica.com",
+      "name": "Bank of America Corporation",
+      "trust": "certified",
+      "domains": [
+        "bankofamerica.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6075812",
+      "expires": "2027-04-13",
+      "logo": true
+    },
+    {
+      "id": "eventbrite.com",
+      "name": "Bending Spoons SPA",
+      "trust": "certified",
+      "domains": [
+        "eventbrite.com",
+        "evernote.com",
+        "wetransfer.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "AU 2599390",
+      "expires": "2027-07-22",
+      "logo": true
+    },
+    {
+      "id": "bestbuy.com",
+      "name": "Best Buy Co., Inc.",
+      "trust": "certified",
+      "domains": [
+        "bestbuy.com"
+      ],
+      "ca": "GlobalSign",
+      "mark": "Registered Mark",
+      "trademark": "US 5848282",
+      "expires": "2027-10-31",
+      "logo": true
+    },
+    {
+      "id": "bharatpetroleum.in",
+      "name": "BHARAT PETROLEUM CORPORATION LIMITED",
+      "trust": "certified",
+      "domains": [
+        "bharatpetroleum.in",
+        "bpcl.in",
+        "hellobpcl.in"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "IN 4756039",
+      "expires": "2027-01-29",
+      "logo": true
+    },
+    {
+      "id": "bookmyshow.com",
+      "name": "BIG TREE ENTERTAINMENT PRIVATE LIMITED",
+      "trust": "certified",
+      "domains": [
+        "bookmyshow.com"
+      ],
+      "ca": "SSL.com",
+      "mark": "Registered Mark",
+      "trademark": "IN 2835807",
+      "expires": "2027-08-17",
+      "logo": true
+    },
+    {
+      "id": "fetlife.com",
+      "name": "BitLove Inc.",
+      "trust": "certified",
+      "domains": [
+        "fetlife.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6801251",
+      "expires": "2027-10-09",
+      "logo": true
+    },
+    {
+      "id": "battle.net",
+      "name": "Blizzard Entertainment, Inc.",
+      "trust": "certified",
+      "domains": [
+        "battle.net",
+        "blizzard.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7402400",
+      "expires": "2027-08-17",
+      "logo": true
+    },
+    {
+      "id": "blueapron.com",
+      "name": "Blue Apron, LLC",
+      "trust": "certified",
+      "domains": [
+        "blueapron.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4919036",
+      "expires": "2027-04-02",
+      "logo": true
+    },
+    {
+      "id": "bol.com",
+      "name": "Bol.com b.v.",
+      "trust": "certified",
+      "domains": [
+        "bol.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "BX 1489360",
+      "expires": "2027-03-16",
+      "logo": true
+    },
+    {
+      "id": "bostonglobe.com",
+      "name": "BOSTON GLOBE MEDIA PARTNERS, LLC",
+      "trust": "certified",
+      "domains": [
+        "bostonglobe.com",
+        "globe.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5675056",
+      "expires": "2026-12-04",
+      "logo": true
+    },
+    {
+      "id": "brave.com",
+      "name": "Brave Software, Inc.",
+      "trust": "certified",
+      "domains": [
+        "brave.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5068665",
+      "expires": "2027-10-05",
+      "logo": true
+    },
+    {
+      "id": "bbc.co.uk",
+      "name": "British Broadcasting Corporation",
+      "trust": "certified",
+      "domains": [
+        "bbc.co.uk"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 3686147",
+      "expires": "2027-05-21",
+      "logo": true
+    },
+    {
+      "id": "bumble.com",
+      "name": "Bumble Trading LLC",
+      "trust": "certified",
+      "domains": [
+        "bumble.com"
+      ],
+      "ca": "SSL.com",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00004011568",
+      "expires": "2027-04-21",
+      "logo": true
+    },
+    {
+      "id": "cnn.com",
+      "name": "Cable News Network, Inc.",
+      "trust": "certified",
+      "domains": [
+        "cnn.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5817930",
+      "expires": "2027-09-01",
+      "logo": true
+    },
+    {
+      "id": "ameli.fr",
+      "name": "Caisse Nationale de l'Assurance Maladie",
+      "trust": "certified",
+      "domains": [
+        "ameli.fr",
+        "assurance-maladie.fr"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "FR 5032857",
+      "expires": "2027-08-26",
+      "logo": true
+    },
+    {
+      "id": "calendly.com",
+      "name": "Calendly, LLC",
+      "trust": "certified",
+      "domains": [
+        "calendly.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "CH 850194",
+      "expires": "2027-06-23",
+      "logo": true
+    },
+    {
+      "id": "capitaloneshopping.com",
+      "name": "Capital One Financial Corporation",
+      "trust": "certified",
+      "domains": [
+        "capitaloneshopping.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 3989909",
+      "expires": "2027-09-07",
+      "logo": true
+    },
+    {
+      "id": "cargurus.ca",
+      "name": "CarGurus, Inc.",
+      "trust": "certified",
+      "domains": [
+        "cargurus.ca",
+        "cargurus.co.uk",
+        "cargurus.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7580563",
+      "expires": "2027-08-14",
+      "logo": true
+    },
+    {
+      "id": "cars.com",
+      "name": "Cars Commerce LLC",
+      "trust": "certified",
+      "domains": [
+        "cars.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7495443",
+      "expires": "2027-03-05",
+      "logo": true
+    },
+    {
+      "id": "launchdarkly.com",
+      "name": "Catamorphic Co.",
+      "trust": "certified",
+      "domains": [
+        "launchdarkly.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7087866",
+      "expires": "2027-11-26",
+      "logo": true
+    },
+    {
+      "id": "change.org",
+      "name": "Change.org, PBC",
+      "trust": "certified",
+      "domains": [
+        "change.org"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7215883",
+      "expires": "2027-04-28",
+      "logo": true
+    },
+    {
+      "id": "check24.at",
+      "name": "CHECK24 GmbH",
+      "trust": "certified",
+      "domains": [
+        "check24.at",
+        "check24.de",
+        "check24.es"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 018632462",
+      "expires": "2027-01-17",
+      "logo": true
+    },
+    {
+      "id": "chess.com",
+      "name": "Chess.com, LLC",
+      "trust": "certified",
+      "domains": [
+        "chess.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7458135",
+      "expires": "2027-07-25",
+      "logo": true
+    },
+    {
+      "id": "chewy.com",
+      "name": "Chewy, Inc.",
+      "trust": "certified",
+      "domains": [
+        "chewy.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6659506",
+      "expires": "2027-08-06",
+      "logo": true
+    },
+    {
+      "id": "chime.com",
+      "name": "Chime Financial, Inc",
+      "trust": "certified",
+      "domains": [
+        "chime.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7108797",
+      "expires": "2027-03-21",
+      "logo": true
+    },
+    {
+      "id": "cisco.com",
+      "name": "CISCO SYSTEMS, INC.",
+      "trust": "certified",
+      "domains": [
+        "cisco.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6889507",
+      "expires": "2027-06-24",
+      "logo": true
+    },
+    {
+      "id": "clickup.com",
+      "name": "ClickUp (Mango Technologies, Inc.)",
+      "trust": "certified",
+      "domains": [
+        "clickup.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6431830",
+      "expires": "2027-08-29",
+      "logo": true
+    },
+    {
+      "id": "hoyoverse.com",
+      "name": "COGNOSPHERE PTE. LTD.",
+      "trust": "certified",
+      "domains": [
+        "hoyoverse.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7191930",
+      "expires": "2027-05-01",
+      "logo": true
+    },
+    {
+      "id": "xfinity.com",
+      "name": "Comcast Cable Communications Management, LLC",
+      "trust": "certified",
+      "domains": [
+        "xfinity.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7262295",
+      "expires": "2027-07-18",
+      "logo": true
+    },
+    {
+      "id": "arstechnica.com",
+      "name": "Conde Nast Holdings Limited",
+      "trust": "certified",
+      "domains": [
+        "arstechnica.com",
+        "info.revistavanityfair.es",
+        "newyorker.com",
+        "vanityfair.co.uk",
+        "vanityfair.com",
+        "vanityfair.fr",
+        "vanityfair.it",
+        "vf.com",
+        "vogue.com",
+        "wired.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 018321016",
+      "expires": "2027-06-30",
+      "logo": true
+    },
+    {
+      "id": "metamask.io",
+      "name": "CONSENSYS SOFTWARE INC.",
+      "trust": "certified",
+      "domains": [
+        "metamask.io"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5523186",
+      "expires": "2027-11-17",
+      "logo": true
+    },
+    {
+      "id": "homes.com",
+      "name": "Costar Group Inc",
+      "trust": "certified",
+      "domains": [
+        "homes.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Prior Use Mark",
+      "expires": "2027-02-05",
+      "logo": true
+    },
+    {
+      "id": "coupang.com",
+      "name": "Coupang Corp.",
+      "trust": "certified",
+      "domains": [
+        "coupang.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "KR 4016738410000",
+      "expires": "2027-04-26",
+      "logo": true
+    },
+    {
+      "id": "craigslist.org",
+      "name": "Craigslist, Inc.",
+      "trust": "certified",
+      "domains": [
+        "craigslist.org"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 3856547",
+      "expires": "2027-02-01",
+      "logo": true
+    },
+    {
+      "id": "creditkarma.ca",
+      "name": "Credit Karma LLC",
+      "trust": "certified",
+      "domains": [
+        "creditkarma.ca",
+        "creditkarma.co.uk",
+        "creditkarma.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Prior Use Mark",
+      "expires": "2027-09-24",
+      "logo": true
+    },
+    {
+      "id": "crowdstrike.com",
+      "name": "CrowdStrike, Inc.",
+      "trust": "certified",
+      "domains": [
+        "crowdstrike.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4732154",
+      "expires": "2027-06-16",
+      "logo": true
+    },
+    {
+      "id": "caremark.com",
+      "name": "CVS Pharmacy, Inc.",
+      "trust": "certified",
+      "domains": [
+        "caremark.com",
+        "cvs.com",
+        "cvscaremarkrxalerts.com",
+        "cvshealth.com",
+        "cvsspecialty.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5307113",
+      "expires": "2027-08-04",
+      "logo": true
+    },
+    {
+      "id": "cyberfolks.pl",
+      "name": "CYBER_FOLKS S.A.",
+      "trust": "certified",
+      "domains": [
+        "cyberfolks.pl"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 018665001",
+      "expires": "2027-10-15",
+      "logo": true
+    },
+    {
+      "id": "corpengdatabricks.com",
+      "name": "DATABRICKS, INC.",
+      "trust": "certified",
+      "domains": [
+        "corpengdatabricks.com",
+        "databricks.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6365721",
+      "expires": "2027-09-30",
+      "logo": true
+    },
+    {
+      "id": "datadome.co",
+      "name": "DATADOME SA",
+      "trust": "certified",
+      "domains": [
+        "datadome.co"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 019141021",
+      "expires": "2027-02-23",
+      "logo": true
+    },
+    {
+      "id": "deepl.com",
+      "name": "DeepL SE",
+      "trust": "certified",
+      "domains": [
+        "deepl.com"
+      ],
+      "ca": "GlobalSign",
+      "mark": "Registered Mark",
+      "trademark": "EM 018641201",
+      "expires": "2026-12-29",
+      "logo": true
+    },
+    {
+      "id": "fsapartners.ed.gov",
+      "name": "Department of Education",
+      "trust": "certified",
+      "domains": [
+        "fsapartners.ed.gov",
+        "info.fsapartners.ed.gov",
+        "info.nsldsfap.ed.gov",
+        "info.studentaid.gov",
+        "info.test.fsapartners.ed.gov",
+        "info.test.nsldsfap.ed.gov",
+        "info.test.studentaid.gov",
+        "login.studentaid.gov",
+        "login.test.studentaid.gov",
+        "mail.fsapartners.ed.gov",
+        "mail.nsldsfap.ed.gov",
+        "mail.studentaid.gov",
+        "mail.test.fsapartners.ed.gov",
+        "mail.test.nsldsfap.ed.gov",
+        "mail.test.studentaid.gov",
+        "nsldsfap.ed.gov",
+        "studentaid.gov",
+        "test.fsapartners.ed.gov",
+        "test.nsldsfap.ed.gov",
+        "test.studentaid.gov"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7039743",
+      "expires": "2027-09-02",
+      "logo": true
+    },
+    {
+      "id": "depop.com",
+      "name": "DEPOP LIMITED",
+      "trust": "certified",
+      "domains": [
+        "depop.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00801432340",
+      "expires": "2027-05-18",
+      "logo": true
+    },
+    {
+      "id": "depositphotos.com",
+      "name": "Depositphotos Inc.",
+      "trust": "certified",
+      "domains": [
+        "depositphotos.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6970659",
+      "expires": "2026-11-03",
+      "logo": true
+    },
+    {
+      "id": "dhl.com",
+      "name": "Deutsche Post IT Services GmbH",
+      "trust": "certified",
+      "domains": [
+        "dhl.com",
+        "dhl.de",
+        "dhl.pl",
+        "dhlecommerce.be",
+        "dhlecommerce.nl",
+        "dhlfreight-news.com",
+        "dhlparcel.be",
+        "dhlparcel.co.uk",
+        "dhlparcel.lu",
+        "dhlparcel.nl",
+        "forwarding.dhl"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 003056421",
+      "expires": "2027-09-13",
+      "logo": true
+    },
+    {
+      "id": "discover.com",
+      "name": "DFS Services LLC",
+      "trust": "certified",
+      "domains": [
+        "discover.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5865151",
+      "expires": "2027-05-07",
+      "logo": true
+    },
+    {
+      "id": "digicert.com",
+      "name": "DigiCert, Inc.",
+      "trust": "certified",
+      "domains": [
+        "digicert.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5383664",
+      "expires": "2027-03-04",
+      "logo": true
+    },
+    {
+      "id": "discogs.com",
+      "name": "Discogs (Zink Media, LLC)",
+      "trust": "certified",
+      "domains": [
+        "discogs.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 98709380",
+      "expires": "2027-11-21",
+      "logo": true
+    },
+    {
+      "id": "docusign.com",
+      "name": "DocuSign, Inc.",
+      "trust": "certified",
+      "domains": [
+        "docusign.com",
+        "docusign.net"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7735905",
+      "expires": "2027-10-06",
+      "logo": true
+    },
+    {
+      "id": "todoist.com",
+      "name": "Doist Inc.",
+      "trust": "certified",
+      "domains": [
+        "todoist.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 019159245",
+      "expires": "2027-01-10",
+      "logo": true
+    },
+    {
+      "id": "doordash.com",
+      "name": "Doordash, Inc.",
+      "trust": "certified",
+      "domains": [
+        "doordash.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5729017",
+      "expires": "2026-12-13",
+      "logo": true
+    },
+    {
+      "id": "porsche.com",
+      "name": "Dr. Ing. h.c. F. Porsche AG",
+      "trust": "certified",
+      "domains": [
+        "porsche.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 3052270",
+      "expires": "2027-09-22",
+      "logo": true
+    },
+    {
+      "id": "dreamstime.com",
+      "name": "Dreamstime.com, LLC",
+      "trust": "certified",
+      "domains": [
+        "dreamstime.com"
+      ],
+      "ca": "SSL.com",
+      "mark": "Registered Mark",
+      "trademark": "US 3176620",
+      "expires": "2027-10-13",
+      "logo": true
+    },
+    {
+      "id": "duolingo.com",
+      "name": "Duolingo, Inc.",
+      "trust": "certified",
+      "domains": [
+        "duolingo.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7255487",
+      "expires": "2027-09-26",
+      "logo": true
+    },
+    {
+      "id": "ebay.co.uk",
+      "name": "eBay, Inc.",
+      "trust": "certified",
+      "domains": [
+        "ebay.co.uk",
+        "ebay.com",
+        "ebay.com.au",
+        "ebay.de",
+        "ebay.es",
+        "ebay.fr",
+        "ebay.it",
+        "ebaychina.com",
+        "noreply1.ebay.com",
+        "reply.ebay.ca",
+        "reply.ebay.co.uk",
+        "reply.ebay.com",
+        "reply.ebay.com.au",
+        "reply.ebay.de",
+        "reply.ebay.es",
+        "reply.ebay.fr",
+        "reply.ebay.it",
+        "reply5.ebay.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4408423",
+      "expires": "2027-07-30",
+      "logo": true
+    },
+    {
+      "id": "elpais.com",
+      "name": "EDICIONES EL PAIS SL",
+      "trust": "certified",
+      "domains": [
+        "elpais.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 019189826",
+      "expires": "2027-02-11",
+      "logo": true
+    },
+    {
+      "id": "vecteezy.com",
+      "name": "Eezy LLC",
+      "trust": "certified",
+      "domains": [
+        "vecteezy.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 8221520",
+      "expires": "2027-06-14",
+      "logo": true
+    },
+    {
+      "id": "egnyte.com",
+      "name": "Egnyte, Inc.",
+      "trust": "certified",
+      "domains": [
+        "egnyte.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4742970",
+      "expires": "2027-11-18",
+      "logo": true
+    },
+    {
+      "id": "elementor.com",
+      "name": "ELEMENTOR LTD",
+      "trust": "certified",
+      "domains": [
+        "elementor.com",
+        "news-mail.elementor.com",
+        "ops-mail.elementor.com",
+        "system-mail.elementor.com",
+        "user-mail.elementor.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6599655",
+      "expires": "2027-03-19",
+      "logo": true
+    },
+    {
+      "id": "elevenlabs.io",
+      "name": "Eleven Labs Inc.",
+      "trust": "certified",
+      "domains": [
+        "elevenlabs.io"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 8113236",
+      "expires": "2027-11-29",
+      "logo": true
+    },
+    {
+      "id": "revolve.com",
+      "name": "Eminent Inc.",
+      "trust": "certified",
+      "domains": [
+        "revolve.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 1536400",
+      "expires": "2027-01-10",
+      "logo": true
+    },
+    {
+      "id": "entrepreneur.com",
+      "name": "Entrepreneur Media LLC",
+      "trust": "certified",
+      "domains": [
+        "entrepreneur.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4345424",
+      "expires": "2027-03-23",
+      "logo": true
+    },
+    {
+      "id": "envato.com",
+      "name": "ENVATO PTY LTD",
+      "trust": "certified",
+      "domains": [
+        "envato.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "AU 2443605",
+      "expires": "2026-12-10",
+      "logo": true
+    },
+    {
+      "id": "epicgames.com",
+      "name": "Epic Games, Inc.",
+      "trust": "certified",
+      "domains": [
+        "epicgames.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5712421",
+      "expires": "2027-09-20",
+      "logo": true
+    },
+    {
+      "id": "whitehouse.gov",
+      "name": "Executive Office of the President",
+      "trust": "certified",
+      "domains": [
+        "whitehouse.gov"
+      ],
+      "ca": "DigiCert",
+      "mark": "Government Mark",
+      "expires": "2027-06-06",
+      "logo": true
+    },
+    {
+      "id": "expedia.com",
+      "name": "Expedia Group, Inc.",
+      "trust": "certified",
+      "domains": [
+        "expedia.com",
+        "vrbo.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Prior Use Mark",
+      "expires": "2027-07-14",
+      "logo": true
+    },
+    {
+      "id": "fanduel.com",
+      "name": "FanDuel Inc.",
+      "trust": "certified",
+      "domains": [
+        "fanduel.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7169700",
+      "expires": "2027-08-31",
+      "logo": true
+    },
+    {
+      "id": "farfetch.com",
+      "name": "FARFETCH UK LIMITED",
+      "trust": "certified",
+      "domains": [
+        "farfetch.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00003509596",
+      "expires": "2027-02-05",
+      "logo": true
+    },
+    {
+      "id": "uniqlo-usa.com",
+      "name": "FAST RETAILING CO., LTD.",
+      "trust": "certified",
+      "domains": [
+        "uniqlo-usa.com",
+        "uniqlo.ca",
+        "uniqlo.co.id",
+        "uniqlo.co.jp",
+        "uniqlo.co.kr",
+        "uniqlo.co.th",
+        "uniqlo.com",
+        "uniqlo.com.au",
+        "uniqlo.com.hk",
+        "uniqlo.com.my",
+        "uniqlo.com.ph",
+        "uniqlo.com.sg",
+        "uniqlo.eu",
+        "uniqlo.in",
+        "uniqlo.tw",
+        "uniqlo.vn"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "JP 5308263",
+      "expires": "2027-03-04",
+      "logo": true
+    },
+    {
+      "id": "ft.com",
+      "name": "FINANCIAL TIMES LIMITED(THE)",
+      "trust": "certified",
+      "domains": [
+        "ft.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00003237429",
+      "expires": "2027-07-19",
+      "logo": true
+    },
+    {
+      "id": "flo.health",
+      "name": "FLO HEALTH UK LTD",
+      "trust": "certified",
+      "domains": [
+        "flo.health",
+        "owhealth.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5632767",
+      "expires": "2027-07-14",
+      "logo": true
+    },
+    {
+      "id": "fnac.be",
+      "name": "FNAC DARTY SA",
+      "trust": "certified",
+      "domains": [
+        "fnac.be",
+        "fnac.ch",
+        "fnac.com",
+        "fnac.es",
+        "fnac.pt"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 000180885",
+      "expires": "2027-02-05",
+      "logo": true
+    },
+    {
+      "id": "made-in-china.com",
+      "name": "Focus Technology Co., Ltd.",
+      "trust": "certified",
+      "domains": [
+        "made-in-china.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7082644",
+      "expires": "2027-01-20",
+      "logo": true
+    },
+    {
+      "id": "ford.com",
+      "name": "Ford Motor Company",
+      "trust": "certified",
+      "domains": [
+        "ford.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 1738379",
+      "expires": "2027-07-31",
+      "logo": true
+    },
+    {
+      "id": "freelancer.com",
+      "name": "FREELANCER TECHNOLOGY PTY. LIMITED",
+      "trust": "certified",
+      "domains": [
+        "freelancer.com"
+      ],
+      "ca": "GlobalSign",
+      "mark": "Registered Mark",
+      "trademark": "US 4125990",
+      "expires": "2027-05-17",
+      "logo": true
+    },
+    {
+      "id": "frontiersin.com",
+      "name": "Frontiers Media SA",
+      "trust": "certified",
+      "domains": [
+        "frontiersin.com",
+        "frontiersin.org"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00004363758",
+      "expires": "2027-10-18",
+      "logo": true
+    },
+    {
+      "id": "g2.com",
+      "name": "G2.com, Inc.",
+      "trust": "certified",
+      "domains": [
+        "g2.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7229353",
+      "expires": "2027-02-03",
+      "logo": true
+    },
+    {
+      "id": "gallup.com",
+      "name": "GALLUP, INC.",
+      "trust": "certified",
+      "domains": [
+        "gallup.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 2242387",
+      "expires": "2027-01-04",
+      "logo": true
+    },
+    {
+      "id": "gamestop.com",
+      "name": "Gamestop Corp.",
+      "trust": "certified",
+      "domains": [
+        "gamestop.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7414981",
+      "expires": "2027-07-12",
+      "logo": true
+    },
+    {
+      "id": "gamma.app",
+      "name": "Gamma Tech, Inc.",
+      "trust": "certified",
+      "domains": [
+        "gamma.app"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 8338305",
+      "expires": "2027-08-02",
+      "logo": true
+    },
+    {
+      "id": "garmin.com",
+      "name": "Garmin International, Inc.",
+      "trust": "certified",
+      "domains": [
+        "garmin.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 3468532",
+      "expires": "2027-10-12",
+      "logo": true
+    },
+    {
+      "id": "gartner.com",
+      "name": "Gartner, Inc.",
+      "trust": "certified",
+      "domains": [
+        "gartner.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 2627746",
+      "expires": "2026-11-22",
+      "logo": true
+    },
+    {
+      "id": "coingecko.com",
+      "name": "Gecko Labs Pte. Ltd.",
+      "trust": "certified",
+      "domains": [
+        "coingecko.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00004163000",
+      "expires": "2027-07-06",
+      "logo": true
+    },
+    {
+      "id": "lifelock.com",
+      "name": "Gen Digital Inc.",
+      "trust": "certified",
+      "domains": [
+        "lifelock.com",
+        "norton.com",
+        "reputationdefender.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 3861132",
+      "expires": "2027-03-10",
+      "logo": true
+    },
+    {
+      "id": "globalsign.com",
+      "name": "GMO GlobalSign Pte. Ltd.",
+      "trust": "certified",
+      "domains": [
+        "globalsign.com"
+      ],
+      "ca": "GlobalSign",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00800952838",
+      "expires": "2027-05-12",
+      "logo": true
+    },
+    {
+      "id": "e.godaddy.com",
+      "name": "GoDaddy.com, LLC",
+      "trust": "certified",
+      "domains": [
+        "e.godaddy.com",
+        "e.payments.godaddy.com",
+        "godaddy.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6155356",
+      "expires": "2027-07-08",
+      "logo": true
+    },
+    {
+      "id": "gofundme.com",
+      "name": "GoFundMe Inc.",
+      "trust": "certified",
+      "domains": [
+        "gofundme.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Modified Registered Mark",
+      "trademark": "US 6951506",
+      "expires": "2027-03-17",
+      "logo": true
+    },
+    {
+      "id": "guard.io",
+      "name": "Guardio LTD",
+      "trust": "certified",
+      "domains": [
+        "guard.io",
+        "guardiosecurity.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 018851478",
+      "expires": "2027-07-11",
+      "logo": true
+    },
+    {
+      "id": "hm.com",
+      "name": "H & M Hennes & Mauritz AB",
+      "trust": "certified",
+      "domains": [
+        "hm.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00801102244",
+      "expires": "2027-07-01",
+      "logo": true
+    },
+    {
+      "id": "xhamster.com",
+      "name": "Hammy Media Ltd",
+      "trust": "certified",
+      "domains": [
+        "xhamster.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "BR 919602738",
+      "expires": "2027-03-30",
+      "logo": true
+    },
+    {
+      "id": "handelsblatt.com",
+      "name": "Handelsblatt GmbH",
+      "trust": "certified",
+      "domains": [
+        "handelsblatt.com"
+      ],
+      "ca": "SSL.com",
+      "mark": "Registered Mark",
+      "trademark": "DE 302009045934",
+      "expires": "2027-10-14",
+      "logo": true
+    },
+    {
+      "id": "hbomax.com",
+      "name": "Home Box Office, Inc.",
+      "trust": "certified",
+      "domains": [
+        "hbomax.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Modified Registered Mark",
+      "trademark": "US 6241188",
+      "expires": "2027-08-01",
+      "logo": true
+    },
+    {
+      "id": "home.pl",
+      "name": "HOME.PL Sp. z o.o.",
+      "trust": "certified",
+      "domains": [
+        "home.pl"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 010497444",
+      "expires": "2027-09-08",
+      "logo": true
+    },
+    {
+      "id": "hostinger.com",
+      "name": "Hostinger Operations, UAB",
+      "trust": "certified",
+      "domains": [
+        "hostinger.com",
+        "hostingermedia.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 018979545",
+      "expires": "2027-11-12",
+      "logo": true
+    },
+    {
+      "id": "hubspot.com",
+      "name": "HubSpot, Inc.",
+      "trust": "certified",
+      "domains": [
+        "hubspot.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4111271",
+      "expires": "2027-01-26",
+      "logo": true
+    },
+    {
+      "id": "idealista.com",
+      "name": "Idealista SA",
+      "trust": "certified",
+      "domains": [
+        "idealista.com",
+        "idealista.it",
+        "idealista.pt"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 018882423",
+      "expires": "2027-02-14",
+      "logo": true
+    },
+    {
+      "id": "imdb.com",
+      "name": "IMDb.com Inc.",
+      "trust": "certified",
+      "domains": [
+        "imdb.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4710373",
+      "expires": "2027-01-23",
+      "logo": true
+    },
+    {
+      "id": "immobiliare.it",
+      "name": "Immobiliare.It S.P.A.",
+      "trust": "certified",
+      "domains": [
+        "immobiliare.it",
+        "immotop.lu",
+        "indomio.es",
+        "indomio.gr",
+        "kuce.rs",
+        "nekretnine.hr"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 019165843",
+      "expires": "2026-10-31",
+      "logo": true
+    },
+    {
+      "id": "zara.com",
+      "name": "INDUSTRIA DE DISEÑO TEXTIL, S.A.",
+      "trust": "certified",
+      "domains": [
+        "zara.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "NZ 1258045",
+      "expires": "2027-09-11",
+      "logo": true
+    },
+    {
+      "id": "naukri.com",
+      "name": "INFO EDGE (INDIA) LIMITED",
+      "trust": "certified",
+      "domains": [
+        "naukri.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "IN 6357244",
+      "expires": "2026-12-23",
+      "logo": true
+    },
+    {
+      "id": "infomaniak.com",
+      "name": "INFOMANIAK NETWORK SA",
+      "trust": "certified",
+      "domains": [
+        "infomaniak.com",
+        "infomaniakgroup.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "CH 815432",
+      "expires": "2027-01-09",
+      "logo": true
+    },
+    {
+      "id": "businessinsider.com",
+      "name": "Insider Inc",
+      "trust": "certified",
+      "domains": [
+        "businessinsider.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7642957",
+      "expires": "2026-11-14",
+      "logo": true
+    },
+    {
+      "id": "olympic.org",
+      "name": "International Olympic Committee (IOC)",
+      "trust": "certified",
+      "domains": [
+        "olympic.org",
+        "olympics.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7602196",
+      "expires": "2027-09-27",
+      "logo": true
+    },
+    {
+      "id": "ionos.ca",
+      "name": "IONOS SE",
+      "trust": "certified",
+      "domains": [
+        "ionos.ca",
+        "ionos.co.uk",
+        "ionos.com",
+        "ionos.de",
+        "ionos.es",
+        "ionos.fr",
+        "ionos.it",
+        "ionos.mx"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 017894437",
+      "expires": "2027-06-29",
+      "logo": true
+    },
+    {
+      "id": "chase.com",
+      "name": "JPMorgan Chase & Co.",
+      "trust": "certified",
+      "domains": [
+        "chase.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 2015389",
+      "expires": "2027-08-17",
+      "logo": true
+    },
+    {
+      "id": "justdial.com",
+      "name": "JUST DIAL LIMITED",
+      "trust": "certified",
+      "domains": [
+        "justdial.com"
+      ],
+      "ca": "GlobalSign",
+      "mark": "Registered Mark",
+      "trademark": "IN 2189355",
+      "expires": "2027-10-19",
+      "logo": true
+    },
+    {
+      "id": "kayak.com",
+      "name": "Kayak Software Corporation",
+      "trust": "certified",
+      "domains": [
+        "kayak.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6558622",
+      "expires": "2027-07-06",
+      "logo": true
+    },
+    {
+      "id": "klaviyo.com",
+      "name": "Klaviyo Inc.",
+      "trust": "certified",
+      "domains": [
+        "klaviyo.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7329660",
+      "expires": "2027-01-05",
+      "logo": true
+    },
+    {
+      "id": "lequipe.fr",
+      "name": "L'EQUIPE SAS",
+      "trust": "certified",
+      "domains": [
+        "lequipe.fr"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "FR 5135743",
+      "expires": "2027-01-20",
+      "logo": true
+    },
+    {
+      "id": "lowes.com",
+      "name": "LF, LLC",
+      "trust": "certified",
+      "domains": [
+        "lowes.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4001201",
+      "expires": "2027-07-24",
+      "logo": true
+    },
+    {
+      "id": "macys.com",
+      "name": "Macy's IP Holdings LLC",
+      "trust": "certified",
+      "domains": [
+        "macys.com"
+      ],
+      "ca": "SSL.com",
+      "mark": "Registered Mark",
+      "trademark": "US 3060081",
+      "expires": "2027-08-25",
+      "logo": true
+    },
+    {
+      "id": "instacart.com",
+      "name": "Maplebear Inc.",
+      "trust": "certified",
+      "domains": [
+        "instacart.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7317030",
+      "expires": "2026-11-10",
+      "logo": true
+    },
+    {
+      "id": "gistworld.com",
+      "name": "MARKS AND SPENCER P.L.C.",
+      "trust": "certified",
+      "domains": [
+        "gistworld.com",
+        "madetomeasure-marksandspencer.com",
+        "mands.com",
+        "mandsupdates.in",
+        "mandsyourschooluniform.com",
+        "marks-and-spencer.com",
+        "marks-and-spencer.cz",
+        "marksandspencer.com",
+        "marksandspencer.cz",
+        "marksandspencer.eu",
+        "marksandspencer.fr",
+        "marksandspencer.ie",
+        "marksandspencerfood.gr",
+        "marksandspencerlondon.com",
+        "marksandspencerschooluniform.gr",
+        "mnscorp.net",
+        "per-una.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00900211037",
+      "expires": "2027-08-14",
+      "logo": true
+    },
+    {
+      "id": "mastercard.com",
+      "name": "MasterCard International Incorporated",
+      "trust": "certified",
+      "domains": [
+        "mastercard.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7414651",
+      "expires": "2027-01-19",
+      "logo": true
+    },
+    {
+      "id": "mcafee.com",
+      "name": "McAfee, LLC",
+      "trust": "certified",
+      "domains": [
+        "mcafee.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5688528",
+      "expires": "2027-10-24",
+      "logo": true
+    },
+    {
+      "id": "mheducation.com",
+      "name": "MCGRAW HILL LLC",
+      "trust": "certified",
+      "domains": [
+        "mheducation.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 2899528",
+      "expires": "2027-04-03",
+      "logo": true
+    },
+    {
+      "id": "medallia.ca",
+      "name": "Medallia, Inc.",
+      "trust": "certified",
+      "domains": [
+        "medallia.ca",
+        "medallia.com",
+        "medallia.com.au",
+        "medallia.eu"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6013041",
+      "expires": "2027-06-29",
+      "logo": true
+    },
+    {
+      "id": "mediaexpert.pl",
+      "name": "MEDIAEXPERT S.A.",
+      "trust": "certified",
+      "domains": [
+        "mediaexpert.pl"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 018908520",
+      "expires": "2027-01-13",
+      "logo": true
+    },
+    {
+      "id": "meetup.com",
+      "name": "Meetup LLC",
+      "trust": "certified",
+      "domains": [
+        "meetup.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "BX 1536350",
+      "expires": "2026-12-18",
+      "logo": true
+    },
+    {
+      "id": "mega.app",
+      "name": "Mega Privacy LLC",
+      "trust": "certified",
+      "domains": [
+        "mega.app",
+        "mega.co.nz",
+        "mega.io",
+        "mega.nz"
+      ],
+      "ca": "GlobalSign",
+      "mark": "Registered Mark",
+      "trademark": "NZ 1047205",
+      "expires": "2027-09-06",
+      "logo": true
+    },
+    {
+      "id": "mercadolibre.cl",
+      "name": "Mercadolibre S.R.L",
+      "trust": "certified",
+      "domains": [
+        "mercadolibre.cl",
+        "mercadolibre.co.cr",
+        "mercadolibre.com",
+        "mercadolibre.com.ar",
+        "mercadolibre.com.bo",
+        "mercadolibre.com.co",
+        "mercadolibre.com.do",
+        "mercadolibre.com.ec",
+        "mercadolibre.com.gt",
+        "mercadolibre.com.hn",
+        "mercadolibre.com.mx",
+        "mercadolibre.com.ni",
+        "mercadolibre.com.pa",
+        "mercadolibre.com.pe",
+        "mercadolibre.com.py",
+        "mercadolibre.com.sv",
+        "mercadolibre.com.uy",
+        "mercadolibre.com.ve",
+        "mercadolivre.com",
+        "mercadolivre.com.br",
+        "mercadopago.cl",
+        "mercadopago.com",
+        "mercadopago.com.ar",
+        "mercadopago.com.br",
+        "mercadopago.com.co",
+        "mercadopago.com.ec",
+        "mercadopago.com.mx",
+        "mercadopago.com.pe",
+        "mercadopago.com.uy"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "BR 919125808",
+      "expires": "2027-05-19",
+      "logo": true
+    },
+    {
+      "id": "linkedin.com",
+      "name": "Microsoft Corporation",
+      "trust": "certified",
+      "domains": [
+        "linkedin.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00913250873",
+      "expires": "2027-04-08",
+      "logo": true
+    },
+    {
+      "id": "screener.in",
+      "name": "Mittal Analytics Private Limited",
+      "trust": "certified",
+      "domains": [
+        "screener.in"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "IN 4303102",
+      "expires": "2027-09-15",
+      "logo": true
+    },
+    {
+      "id": "mlb.com",
+      "name": "MLB Advanced Media, L.P.",
+      "trust": "certified",
+      "domains": [
+        "mlb.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 2680015",
+      "expires": "2027-01-19",
+      "logo": true
+    },
+    {
+      "id": "mozilla.com",
+      "name": "Mozilla Corporation",
+      "trust": "certified",
+      "domains": [
+        "mozilla.com",
+        "mozilla.org"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 019048686",
+      "expires": "2027-01-11",
+      "logo": true
+    },
+    {
+      "id": "namecheap.com",
+      "name": "NAMECHEAP, INC.",
+      "trust": "certified",
+      "domains": [
+        "namecheap.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 018907122",
+      "expires": "2027-10-18",
+      "logo": true
+    },
+    {
+      "id": "e.npr.org",
+      "name": "National Public Radio, Inc.",
+      "trust": "certified",
+      "domains": [
+        "e.npr.org",
+        "nl.npr.org"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5773745",
+      "expires": "2027-05-25",
+      "logo": true
+    },
+    {
+      "id": "netgear.com",
+      "name": "NETGEAR, Inc.",
+      "trust": "certified",
+      "domains": [
+        "netgear.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5760720",
+      "expires": "2027-07-19",
+      "logo": true
+    },
+    {
+      "id": "nextdoor.com",
+      "name": "Nextdoor, Inc.",
+      "trust": "certified",
+      "domains": [
+        "nextdoor.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5964880",
+      "expires": "2027-06-25",
+      "logo": true
+    },
+    {
+      "id": "nintendo.com",
+      "name": "Nintendo of America Inc.",
+      "trust": "certified",
+      "domains": [
+        "nintendo.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "CA TMA841347",
+      "expires": "2027-03-14",
+      "logo": true
+    },
+    {
+      "id": "makenotion.com",
+      "name": "Notion Labs, Inc",
+      "trust": "certified",
+      "domains": [
+        "makenotion.com",
+        "notion.com",
+        "notion.so"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6843807",
+      "expires": "2027-04-09",
+      "logo": true
+    },
+    {
+      "id": "nu.co",
+      "name": "NU PAGAMENTOS S.A. - INSTITUICAO DE PAGAMENTO",
+      "trust": "certified",
+      "domains": [
+        "nu.co",
+        "nu.com.br",
+        "nu.com.co",
+        "nu.com.mx",
+        "nubank.com.br"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7383657",
+      "expires": "2027-01-21",
+      "logo": true
+    },
+    {
+      "id": "nvidia.com",
+      "name": "NVIDIA Corporation",
+      "trust": "certified",
+      "domains": [
+        "nvidia.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 2341815",
+      "expires": "2026-12-19",
+      "logo": true
+    },
+    {
+      "id": "ollama.com",
+      "name": "Ollama Inc.",
+      "trust": "certified",
+      "domains": [
+        "ollama.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 018962410",
+      "expires": "2027-03-13",
+      "logo": true
+    },
+    {
+      "id": "one.com",
+      "name": "one.com Group AB",
+      "trust": "certified",
+      "domains": [
+        "one.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 019281909",
+      "expires": "2027-09-24",
+      "logo": true
+    },
+    {
+      "id": "onesignal.com",
+      "name": "OneSignal, Inc.",
+      "trust": "certified",
+      "domains": [
+        "onesignal.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7549056",
+      "expires": "2027-09-17",
+      "logo": true
+    },
+    {
+      "id": "openai.com",
+      "name": "OpenAI OpCo, LLC",
+      "trust": "certified",
+      "domains": [
+        "openai.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7315465",
+      "expires": "2027-04-13",
+      "logo": true
+    },
+    {
+      "id": "ovh.com",
+      "name": "OVH SAS",
+      "trust": "certified",
+      "domains": [
+        "ovh.com",
+        "ovhcloud.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7318004",
+      "expires": "2027-09-01",
+      "logo": true
+    },
+    {
+      "id": "oxylabs.io",
+      "name": "Oxylabs, UAB",
+      "trust": "certified",
+      "domains": [
+        "oxylabs.io"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7021164",
+      "expires": "2027-06-07",
+      "logo": true
+    },
+    {
+      "id": "paypal.co.uk",
+      "name": "PayPal, Inc.",
+      "trust": "certified",
+      "domains": [
+        "paypal.co.uk",
+        "paypal.com",
+        "paypal.de",
+        "venmo.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "BX 1510250",
+      "expires": "2027-07-12",
+      "logo": true
+    },
+    {
+      "id": "kraken.com",
+      "name": "Payward, Inc.",
+      "trust": "certified",
+      "domains": [
+        "kraken.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7454684",
+      "expires": "2027-09-24",
+      "logo": true
+    },
+    {
+      "id": "perplexity.ai",
+      "name": "Perplexity AI, Inc.",
+      "trust": "certified",
+      "domains": [
+        "perplexity.ai"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7601250",
+      "expires": "2027-02-03",
+      "logo": true
+    },
+    {
+      "id": "picsart.com",
+      "name": "PicsArt, Inc.",
+      "trust": "certified",
+      "domains": [
+        "picsart.com",
+        "picsart.io"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6966680",
+      "expires": "2027-03-04",
+      "logo": true
+    },
+    {
+      "id": "pixiv.net",
+      "name": "pixiv Inc.",
+      "trust": "certified",
+      "domains": [
+        "pixiv.net"
+      ],
+      "ca": "GlobalSign",
+      "mark": "Registered Mark",
+      "trademark": "JP 6938147",
+      "expires": "2027-02-24",
+      "logo": true
+    },
+    {
+      "id": "plex.tv",
+      "name": "Plex, Inc.",
+      "trust": "certified",
+      "domains": [
+        "plex.tv",
+        "plexapp.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7401242",
+      "expires": "2027-11-03",
+      "logo": true
+    },
+    {
+      "id": "politico.com",
+      "name": "POLITICO LLC",
+      "trust": "certified",
+      "domains": [
+        "politico.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 3350909",
+      "expires": "2027-10-07",
+      "logo": true
+    },
+    {
+      "id": "getpostman.com",
+      "name": "Postman, Inc",
+      "trust": "certified",
+      "domains": [
+        "getpostman.com",
+        "postman.com",
+        "postmanlabs.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5605648",
+      "expires": "2027-02-23",
+      "logo": true
+    },
+    {
+      "id": "priceline.com",
+      "name": "Priceline.com LLC",
+      "trust": "certified",
+      "domains": [
+        "priceline.com"
+      ],
+      "ca": "SSL.com",
+      "mark": "Registered Mark",
+      "trademark": "US 5642316",
+      "expires": "2027-04-24",
+      "logo": true
+    },
+    {
+      "id": "principal.com",
+      "name": "Principal Financial Group, Inc.",
+      "trust": "certified",
+      "domains": [
+        "principal.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5074931",
+      "expires": "2027-05-30",
+      "logo": true
+    },
+    {
+      "id": "property24.com",
+      "name": "Property24 (HomeFind24 (Pty) Ltd)",
+      "trust": "certified",
+      "domains": [
+        "property24.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Prior Use Mark",
+      "expires": "2027-08-07",
+      "logo": true
+    },
+    {
+      "id": "bca.co.id",
+      "name": "PT. Bank Central Asia, Tbk",
+      "trust": "certified",
+      "domains": [
+        "bca.co.id",
+        "klikbca.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "JP 6641389",
+      "expires": "2027-04-28",
+      "logo": true
+    },
+    {
+      "id": "pbs.org",
+      "name": "Public Broadcasting Service",
+      "trust": "certified",
+      "domains": [
+        "pbs.org"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 2626226",
+      "expires": "2027-10-21",
+      "logo": true
+    },
+    {
+      "id": "bc.qvcemail.com",
+      "name": "QVC GROUP, INC.",
+      "trust": "certified",
+      "domains": [
+        "bc.qvcemail.com",
+        "qvc.com",
+        "qvcemail.com",
+        "qvcitaly.qvcemail.com",
+        "t.qvcemail.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00003342300",
+      "expires": "2027-08-11",
+      "logo": true
+    },
+    {
+      "id": "aipsurveys.com",
+      "name": "Rakuten Group, Inc.",
+      "trust": "certified",
+      "domains": [
+        "aipsurveys.com",
+        "aipsurveyschina.com",
+        "bitwallet.co.jp",
+        "fril.jp",
+        "kdreams.jp",
+        "logo-test01.r-bimi-test.com",
+        "news-rakuten.fr",
+        "r-bimi-test.com",
+        "rakuten-bank.co.jp",
+        "rakuten-card.co.jp",
+        "rakuten-insurance.co.jp",
+        "rakuten-life.co.jp",
+        "rakuten-sec.co.jp",
+        "rakuten-wallet.co.jp",
+        "rakuten.at",
+        "rakuten.cn",
+        "rakuten.co.id",
+        "rakuten.co.in",
+        "rakuten.co.jp",
+        "rakuten.co.th",
+        "rakuten.com",
+        "rakuten.com.au",
+        "rakuten.com.hk",
+        "rakuten.com.my",
+        "rakuten.com.ph",
+        "rakuten.com.sg",
+        "rakuten.com.tw",
+        "rakuten.com.vn",
+        "rakuten.fr",
+        "rakuten.kr",
+        "rakuten.ne.jp",
+        "rakuten.tv",
+        "rakuten.tw",
+        "rakuten.us",
+        "rebates.jp",
+        "rmb-shop.jp"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "JP 6361616",
+      "expires": "2027-02-05",
+      "logo": true
+    },
+    {
+      "id": "rapid7.com",
+      "name": "Rapid7 LLC",
+      "trust": "certified",
+      "domains": [
+        "rapid7.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4639698",
+      "expires": "2026-12-13",
+      "logo": true
+    },
+    {
+      "id": "razorpay.com",
+      "name": "Razorpay Software Limited",
+      "trust": "certified",
+      "domains": [
+        "razorpay.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "IN 4836887",
+      "expires": "2027-08-31",
+      "logo": true
+    },
+    {
+      "id": "realestate.com.au",
+      "name": "Realestate.com.au Pty Ltd",
+      "trust": "certified",
+      "domains": [
+        "realestate.com.au"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "IN 5627406",
+      "expires": "2026-12-13",
+      "logo": true
+    },
+    {
+      "id": "redbull.com",
+      "name": "Red Bull GmbH",
+      "trust": "certified",
+      "domains": [
+        "redbull.com",
+        "redbullshop.com",
+        "redbullshopus.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 003350501",
+      "expires": "2027-01-16",
+      "logo": true
+    },
+    {
+      "id": "redfin.com",
+      "name": "Redfin Corporation",
+      "trust": "certified",
+      "domains": [
+        "redfin.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 8107111",
+      "expires": "2027-03-24",
+      "logo": true
+    },
+    {
+      "id": "revolut.com",
+      "name": "Revolut Ltd",
+      "trust": "certified",
+      "domains": [
+        "revolut.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00003946764",
+      "expires": "2027-08-24",
+      "logo": true
+    },
+    {
+      "id": "shein.co.uk",
+      "name": "Roadget Business Pte. Ltd.",
+      "trust": "certified",
+      "domains": [
+        "shein.co.uk",
+        "shein.com",
+        "sheinemail.com",
+        "sheinmail.com",
+        "sheinnotice.com",
+        "sheinnotify.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "AU 1911641",
+      "expires": "2027-09-16",
+      "logo": true
+    },
+    {
+      "id": "robinhood.com",
+      "name": "Robinhood Markets, Inc.",
+      "trust": "certified",
+      "domains": [
+        "robinhood.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4761667",
+      "expires": "2027-03-05",
+      "logo": true
+    },
+    {
+      "id": "rockstargames.com",
+      "name": "Rockstar Games, Inc.",
+      "trust": "certified",
+      "domains": [
+        "rockstargames.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Prior Use Mark",
+      "expires": "2027-10-22",
+      "logo": true
+    },
+    {
+      "id": "roku.com",
+      "name": "Roku, Inc.",
+      "trust": "certified",
+      "domains": [
+        "roku.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4286058",
+      "expires": "2026-12-02",
+      "logo": true
+    },
+    {
+      "id": "healthline.com",
+      "name": "RVO Health, LLC",
+      "trust": "certified",
+      "domains": [
+        "healthline.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6067015",
+      "expires": "2026-12-05",
+      "logo": true
+    },
+    {
+      "id": "buzzair.com",
+      "name": "Ryanair DAC",
+      "trust": "certified",
+      "domains": [
+        "buzzair.com",
+        "laudaeurope.com",
+        "maltaair.com",
+        "ryanair.com",
+        "ryanairemail.com",
+        "ryanairemail.it",
+        "ryanairemail.pl",
+        "ryanairemails.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 018569162",
+      "expires": "2027-09-14",
+      "logo": true
+    },
+    {
+      "id": "spaeg.spglobal.com",
+      "name": "S&P Global Inc.",
+      "trust": "certified",
+      "domains": [
+        "spaeg.spglobal.com",
+        "spglobal.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00004199681",
+      "expires": "2027-11-22",
+      "logo": true
+    },
+    {
+      "id": "immobilienscout24.at",
+      "name": "Scout24 SE",
+      "trust": "certified",
+      "domains": [
+        "immobilienscout24.at",
+        "immobilienscout24.de"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 019263226",
+      "expires": "2027-10-07",
+      "logo": true
+    },
+    {
+      "id": "jobsdb.com",
+      "name": "SEEK Limited",
+      "trust": "certified",
+      "domains": [
+        "jobsdb.com",
+        "jobstreet.com",
+        "seek.co.nz",
+        "seek.com",
+        "seek.com.au",
+        "seekasia.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "AU 1033983",
+      "expires": "2026-12-02",
+      "logo": true
+    },
+    {
+      "id": "shop.app",
+      "name": "Shopify Inc.",
+      "trust": "certified",
+      "domains": [
+        "shop.app",
+        "shop.com",
+        "shopify.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "CA 1753981",
+      "expires": "2027-11-23",
+      "logo": true
+    },
+    {
+      "id": "shutterstock.com",
+      "name": "Shutterstock, Inc",
+      "trust": "certified",
+      "domains": [
+        "shutterstock.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 8184418",
+      "expires": "2027-03-25",
+      "logo": true
+    },
+    {
+      "id": "siemens.com",
+      "name": "Siemens AG",
+      "trust": "certified",
+      "domains": [
+        "siemens.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "DE 2077533",
+      "expires": "2027-01-26",
+      "logo": true
+    },
+    {
+      "id": "theregister.com",
+      "name": "Situation Publishing LTD",
+      "trust": "certified",
+      "domains": [
+        "theregister.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Prior Use Mark",
+      "expires": "2027-05-05",
+      "logo": true
+    },
+    {
+      "id": "bskyb.com",
+      "name": "Sky UK Limited",
+      "trust": "certified",
+      "domains": [
+        "bskyb.com",
+        "sky.at",
+        "sky.ch",
+        "sky.com",
+        "sky.de",
+        "sky.eu",
+        "sky.ie",
+        "sky.uk",
+        "skycustomersupport.com",
+        "skygroup.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00918123754",
+      "expires": "2026-12-13",
+      "logo": true
+    },
+    {
+      "id": "snapchat.com",
+      "name": "Snap Inc.",
+      "trust": "certified",
+      "domains": [
+        "snapchat.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4573338",
+      "expires": "2027-06-04",
+      "logo": true
+    },
+    {
+      "id": "sofi.com",
+      "name": "Social Finance, LLC",
+      "trust": "certified",
+      "domains": [
+        "sofi.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5548789",
+      "expires": "2027-02-26",
+      "logo": true
+    },
+    {
+      "id": "secureworks.com",
+      "name": "Sophos Limited",
+      "trust": "certified",
+      "domains": [
+        "secureworks.com",
+        "sophos.at",
+        "sophos.co.jp",
+        "sophos.co.nz",
+        "sophos.com",
+        "sophos.com.au",
+        "sophos.de",
+        "sophos.fi",
+        "sophos.fr",
+        "sophos.hk",
+        "sophos.it",
+        "sophos.nl",
+        "sophos.se",
+        "sophosapps.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00004244600",
+      "expires": "2027-01-08",
+      "logo": true
+    },
+    {
+      "id": "soundcloud.com",
+      "name": "SoundCloud Global Limited & Co. KG",
+      "trust": "certified",
+      "domains": [
+        "soundcloud.com"
+      ],
+      "ca": "GlobalSign",
+      "mark": "Registered Mark",
+      "trademark": "EM 018227676",
+      "expires": "2027-06-02",
+      "logo": true
+    },
+    {
+      "id": "spaceship.com",
+      "name": "SPACESHIP, INC.",
+      "trust": "certified",
+      "domains": [
+        "spaceship.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "DE 302024110169",
+      "expires": "2027-05-29",
+      "logo": true
+    },
+    {
+      "id": "spiegel.de",
+      "name": "SPIEGEL-Verlag Rudolf Augstein GmbH & Co KG",
+      "trust": "certified",
+      "domains": [
+        "spiegel.de",
+        "spiegelgruppe.de"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "DE 302023214193",
+      "expires": "2026-12-29",
+      "logo": true
+    },
+    {
+      "id": "sproutsocial.com",
+      "name": "Sprout Social, Inc.",
+      "trust": "certified",
+      "domains": [
+        "sproutsocial.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6622210",
+      "expires": "2027-11-16",
+      "logo": true
+    },
+    {
+      "id": "strato-hosting.co.uk",
+      "name": "STRATO GmbH",
+      "trust": "certified",
+      "domains": [
+        "strato-hosting.co.uk",
+        "strato.com",
+        "strato.de",
+        "strato.es",
+        "strato.fr",
+        "strato.it",
+        "strato.nl",
+        "strato.se"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "DE 018316975",
+      "expires": "2027-08-02",
+      "logo": true
+    },
+    {
+      "id": "strava.com",
+      "name": "Strava, Inc.",
+      "trust": "certified",
+      "domains": [
+        "strava.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7142012",
+      "expires": "2027-08-28",
+      "logo": true
+    },
+    {
+      "id": "studocu.com",
+      "name": "StuDocu B.V.",
+      "trust": "certified",
+      "domains": [
+        "studocu.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7510439",
+      "expires": "2027-04-02",
+      "logo": true
+    },
+    {
+      "id": "surfshark.com",
+      "name": "Surfshark Holding B.V.",
+      "trust": "certified",
+      "domains": [
+        "surfshark.com",
+        "surfsharkbiz.com",
+        "surfsharkpress.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 019069924",
+      "expires": "2027-03-16",
+      "logo": true
+    },
+    {
+      "id": "surveymonkey.com",
+      "name": "Surveymonkey Inc.",
+      "trust": "certified",
+      "domains": [
+        "surveymonkey.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5690205",
+      "expires": "2027-08-27",
+      "logo": true
+    },
+    {
+      "id": "t-mobile.com",
+      "name": "T-Mobile USA, Inc.",
+      "trust": "certified",
+      "domains": [
+        "t-mobile.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 2472584",
+      "expires": "2027-09-30",
+      "logo": true
+    },
+    {
+      "id": "taboola.com",
+      "name": "TABOOLA.COM LTD",
+      "trust": "certified",
+      "domains": [
+        "taboola.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5189039",
+      "expires": "2027-05-29",
+      "logo": true
+    },
+    {
+      "id": "tesla.com",
+      "name": "Tesla, Inc.",
+      "trust": "certified",
+      "domains": [
+        "tesla.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6251645",
+      "expires": "2027-07-29",
+      "logo": true
+    },
+    {
+      "id": "livechat.com",
+      "name": "Text, Inc.",
+      "trust": "certified",
+      "domains": [
+        "livechat.com",
+        "livechatinc.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00003514900",
+      "expires": "2026-12-14",
+      "logo": true
+    },
+    {
+      "id": "aaa.com",
+      "name": "The American Automobile Association, Inc.",
+      "trust": "certified",
+      "domains": [
+        "aaa.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 3316227",
+      "expires": "2027-03-16",
+      "logo": true
+    },
+    {
+      "id": "gap.ca",
+      "name": "The Gap, Inc.",
+      "trust": "certified",
+      "domains": [
+        "gap.ca",
+        "gap.com"
+      ],
+      "ca": "SSL.com",
+      "mark": "Registered Mark",
+      "trademark": "US 1576510",
+      "expires": "2027-09-10",
+      "logo": true
+    },
+    {
+      "id": "fool.com",
+      "name": "The Motley Fool Holdings, Inc.",
+      "trust": "certified",
+      "domains": [
+        "fool.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6654569",
+      "expires": "2027-03-08",
+      "logo": true
+    },
+    {
+      "id": "pewresearch.org",
+      "name": "The Pew Research Center",
+      "trust": "certified",
+      "domains": [
+        "pewresearch.org"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5607826",
+      "expires": "2027-10-19",
+      "logo": true
+    },
+    {
+      "id": "e-vanguard.co.uk",
+      "name": "The Vanguard Group, Inc.",
+      "trust": "certified",
+      "domains": [
+        "e-vanguard.co.uk",
+        "e-vanguard.com",
+        "e-vanguard.com.au",
+        "m-vanguard.com",
+        "vanguard.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5697413",
+      "expires": "2027-10-14",
+      "logo": true
+    },
+    {
+      "id": "disneyplus.com",
+      "name": "The Walt Disney Company",
+      "trust": "certified",
+      "domains": [
+        "disneyplus.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6351110",
+      "expires": "2027-04-12",
+      "logo": true
+    },
+    {
+      "id": "weather.com",
+      "name": "THE WEATHER COMPANY LLC",
+      "trust": "certified",
+      "domains": [
+        "weather.com"
+      ],
+      "ca": "SSL.com",
+      "mark": "Registered Mark",
+      "trademark": "US 4729838",
+      "expires": "2027-07-23",
+      "logo": true
+    },
+    {
+      "id": "gotinder.com",
+      "name": "Tinder LLC",
+      "trust": "certified",
+      "domains": [
+        "gotinder.com",
+        "mail.tinder.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5544147",
+      "expires": "2027-06-02",
+      "logo": true
+    },
+    {
+      "id": "email.tradingview.com",
+      "name": "TradingView, Inc.",
+      "trust": "certified",
+      "domains": [
+        "email.tradingview.com",
+        "tradingview.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7031139",
+      "expires": "2027-10-27",
+      "logo": true
+    },
+    {
+      "id": "traveloka.com",
+      "name": "Traveloka Technology Pte Ltd",
+      "trust": "certified",
+      "domains": [
+        "traveloka.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5093331",
+      "expires": "2027-08-11",
+      "logo": true
+    },
+    {
+      "id": "trendmicro.com",
+      "name": "Trend Micro Incorporated",
+      "trust": "certified",
+      "domains": [
+        "trendmicro.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 2913480",
+      "expires": "2027-06-05",
+      "logo": true
+    },
+    {
+      "id": "trimble.com",
+      "name": "Trimble, Inc",
+      "trust": "certified",
+      "domains": [
+        "trimble.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 2722041",
+      "expires": "2027-05-28",
+      "logo": true
+    },
+    {
+      "id": "twilio.com",
+      "name": "Twilio Inc.",
+      "trust": "certified",
+      "domains": [
+        "twilio.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5076448",
+      "expires": "2027-11-27",
+      "logo": true
+    },
+    {
+      "id": "typeform.com",
+      "name": "Typeform SL",
+      "trust": "certified",
+      "domains": [
+        "typeform.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 019162505",
+      "expires": "2027-09-22",
+      "logo": true
+    },
+    {
+      "id": "nordvpn.com",
+      "name": "UAB 360 IT",
+      "trust": "certified",
+      "domains": [
+        "nordvpn.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7458945",
+      "expires": "2027-09-03",
+      "logo": true
+    },
+    {
+      "id": "ui.com",
+      "name": "Ubiquiti Inc.",
+      "trust": "certified",
+      "domains": [
+        "ui.com",
+        "uisp.com",
+        "unmsapp.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7681209",
+      "expires": "2026-12-27",
+      "logo": true
+    },
+    {
+      "id": "mailing.ubs.com",
+      "name": "UBS AG",
+      "trust": "certified",
+      "domains": [
+        "mailing.ubs.com",
+        "ubs.com",
+        "ubsdev.com",
+        "ubstest.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 3025058",
+      "expires": "2027-02-22",
+      "logo": true
+    },
+    {
+      "id": "udemy.com",
+      "name": "Udemy, Inc.",
+      "trust": "certified",
+      "domains": [
+        "udemy.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6755124",
+      "expires": "2026-11-23",
+      "logo": true
+    },
+    {
+      "id": "unesco.org",
+      "name": "United Nations Educational, Scientific and Cultural Organization",
+      "trust": "certified",
+      "domains": [
+        "unesco.org"
+      ],
+      "ca": "DigiCert",
+      "mark": "Government Mark",
+      "expires": "2027-06-23",
+      "logo": true
+    },
+    {
+      "id": "emails.ups.com",
+      "name": "United Parcel Service, Inc.",
+      "trust": "certified",
+      "domains": [
+        "emails.ups.com",
+        "ups.com",
+        "upsemail.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 2981794",
+      "expires": "2027-08-18",
+      "logo": true
+    },
+    {
+      "id": "usaa.com",
+      "name": "United Services Automobile Association",
+      "trust": "certified",
+      "domains": [
+        "usaa.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6909777",
+      "expires": "2027-11-02",
+      "logo": true
+    },
+    {
+      "id": "uic.edu",
+      "name": "University of Illinois Chicago",
+      "trust": "certified",
+      "domains": [
+        "uic.edu"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4890466",
+      "expires": "2027-04-02",
+      "logo": true
+    },
+    {
+      "id": "fightingirish.com",
+      "name": "University of Notre Dame Du Lac",
+      "trust": "certified",
+      "domains": [
+        "fightingirish.com",
+        "nd.edu"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 1992538",
+      "expires": "2027-09-03",
+      "logo": true
+    },
+    {
+      "id": "pitt.edu",
+      "name": "University of Pittsburgh",
+      "trust": "certified",
+      "domains": [
+        "pitt.edu"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6141639",
+      "expires": "2027-04-16",
+      "logo": true
+    },
+    {
+      "id": "usf.edu",
+      "name": "University of South Florida",
+      "trust": "certified",
+      "domains": [
+        "usf.edu"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4954009",
+      "expires": "2027-04-03",
+      "logo": true
+    },
+    {
+      "id": "upwork.com",
+      "name": "Upwork Inc.",
+      "trust": "certified",
+      "domains": [
+        "upwork.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "JP 5947861",
+      "expires": "2027-04-24",
+      "logo": true
+    },
+    {
+      "id": "collider.com",
+      "name": "VALNET INC.",
+      "trust": "certified",
+      "domains": [
+        "collider.com",
+        "howtogeek.com",
+        "screenrant.com",
+        "xda-developers.com"
+      ],
+      "ca": "SSL.com",
+      "mark": "Registered Mark",
+      "trademark": "US 4844638",
+      "expires": "2027-02-06",
+      "logo": true
+    },
+    {
+      "id": "steampowered.com",
+      "name": "Valve Corporation",
+      "trust": "certified",
+      "domains": [
+        "steampowered.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7316660",
+      "expires": "2027-09-23",
+      "logo": true
+    },
+    {
+      "id": "veeam.com",
+      "name": "Veeam Software Group GmbH",
+      "trust": "certified",
+      "domains": [
+        "veeam.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 3942772",
+      "expires": "2027-03-19",
+      "logo": true
+    },
+    {
+      "id": "vercel.com",
+      "name": "Vercel Inc.",
+      "trust": "certified",
+      "domains": [
+        "vercel.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6333927",
+      "expires": "2027-06-23",
+      "logo": true
+    },
+    {
+      "id": "victoriassecret.com",
+      "name": "VICTORIA'S SECRET & CO.",
+      "trust": "certified",
+      "domains": [
+        "victoriassecret.com"
+      ],
+      "ca": "SSL.com",
+      "mark": "Registered Mark",
+      "trademark": "US 7356953",
+      "expires": "2027-09-24",
+      "logo": true
+    },
+    {
+      "id": "vimeo.com",
+      "name": "Vimeo.com, Inc.",
+      "trust": "certified",
+      "domains": [
+        "vimeo.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5119655",
+      "expires": "2027-11-06",
+      "logo": true
+    },
+    {
+      "id": "team.vinted.com",
+      "name": "Vinted, UAB",
+      "trust": "certified",
+      "domains": [
+        "team.vinted.com",
+        "vinted.at",
+        "vinted.be",
+        "vinted.ca",
+        "vinted.co.uk",
+        "vinted.com",
+        "vinted.cz",
+        "vinted.de",
+        "vinted.dk",
+        "vinted.ee",
+        "vinted.es",
+        "vinted.fi",
+        "vinted.fr",
+        "vinted.gr",
+        "vinted.hr",
+        "vinted.hu",
+        "vinted.ie",
+        "vinted.it",
+        "vinted.lt",
+        "vinted.lu",
+        "vinted.lv",
+        "vinted.nl",
+        "vinted.pl",
+        "vinted.pt",
+        "vinted.ro",
+        "vinted.se",
+        "vinted.si",
+        "vinted.sk"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7665531",
+      "expires": "2027-07-14",
+      "logo": true
+    },
+    {
+      "id": "visa.com",
+      "name": "Visa International Service Association",
+      "trust": "certified",
+      "domains": [
+        "visa.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 3850998",
+      "expires": "2027-01-21",
+      "logo": true
+    },
+    {
+      "id": "wargaming.net",
+      "name": "Wargaming Group Limited",
+      "trust": "certified",
+      "domains": [
+        "wargaming.net"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00908579518",
+      "expires": "2027-08-23",
+      "logo": true
+    },
+    {
+      "id": "email.watchguard.com",
+      "name": "WatchGuard Technologies, Inc.",
+      "trust": "certified",
+      "domains": [
+        "email.watchguard.com",
+        "watchguard.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 5898044",
+      "expires": "2027-02-16",
+      "logo": true
+    },
+    {
+      "id": "wayground.com",
+      "name": "Wayground (Quizizz Inc)",
+      "trust": "certified",
+      "domains": [
+        "wayground.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 8134554",
+      "expires": "2027-06-21",
+      "logo": true
+    },
+    {
+      "id": "mail1.wellsfargo.com",
+      "name": "Wells Fargo & Company",
+      "trust": "certified",
+      "domains": [
+        "mail1.wellsfargo.com",
+        "mail19.wellsfargo.com",
+        "mail2.wellsfargorewards.com",
+        "notify.wellsfargo.com",
+        "travel.wellsfargorewards.com",
+        "wellsfargo.com",
+        "wellsfargorewards.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7069066",
+      "expires": "2027-08-25",
+      "logo": true
+    },
+    {
+      "id": "emails.comms.westernunion.com",
+      "name": "Western Union Services India Private Limited",
+      "trust": "certified",
+      "domains": [
+        "emails.comms.westernunion.com",
+        "ops.comms.westernunion.com",
+        "txns.comms.westernunion.com",
+        "westernunion.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 7600348",
+      "expires": "2027-04-30",
+      "logo": true
+    },
+    {
+      "id": "windy.com",
+      "name": "Windyty, SE",
+      "trust": "certified",
+      "domains": [
+        "windy.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "GB UK00918130130",
+      "expires": "2027-04-10",
+      "logo": true
+    },
+    {
+      "id": "transferwise.com",
+      "name": "Wise Payments Limited",
+      "trust": "certified",
+      "domains": [
+        "transferwise.com",
+        "wise.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "BR 919954855",
+      "expires": "2027-07-30",
+      "logo": true
+    },
+    {
+      "id": "wix.com",
+      "name": "Wix.com Ltd.",
+      "trust": "certified",
+      "domains": [
+        "wix.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 4899937",
+      "expires": "2027-05-28",
+      "logo": true
+    },
+    {
+      "id": "wolt.com",
+      "name": "Wolt Oy",
+      "trust": "certified",
+      "domains": [
+        "wolt.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "EM 018342137",
+      "expires": "2027-04-05",
+      "logo": true
+    },
+    {
+      "id": "x.com",
+      "name": "X Corp.",
+      "trust": "certified",
+      "domains": [
+        "x.com"
+      ],
+      "ca": "SSL.com",
+      "mark": "Registered Mark",
+      "trademark": "EM 1833747",
+      "expires": "2027-05-26",
+      "logo": true
+    },
+    {
+      "id": "xero.com",
+      "name": "Xero Limited",
+      "trust": "certified",
+      "domains": [
+        "xero.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "NZ 1219141",
+      "expires": "2027-04-11",
+      "logo": true
+    },
+    {
+      "id": "yotpo.com",
+      "name": "Yotpo LTD",
+      "trust": "certified",
+      "domains": [
+        "yotpo.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Prior Use Mark",
+      "expires": "2027-05-03",
+      "logo": true
+    },
+    {
+      "id": "trulia.com",
+      "name": "Zillow Group, Inc.",
+      "trust": "certified",
+      "domains": [
+        "trulia.com",
+        "zillow.com",
+        "zillowgroup.com",
+        "zillowhomeloans.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "US 6165127",
+      "expires": "2026-11-11",
+      "logo": true
+    },
+    {
+      "id": "zoominfo.com",
+      "name": "ZoomInfo Technologies, Inc",
+      "trust": "certified",
+      "domains": [
+        "zoominfo.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Prior Use Mark",
+      "expires": "2027-09-24",
+      "logo": true
+    },
+    {
+      "id": "cookpad.com",
+      "name": "クックパッド株式会社",
+      "trust": "certified",
+      "domains": [
+        "cookpad.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "JP 5804981",
+      "expires": "2027-10-21",
+      "logo": true
+    },
+    {
+      "id": "kakuyomu.jp",
+      "name": "株式会社KADOKAWA",
+      "trust": "certified",
+      "domains": [
+        "kakuyomu.jp"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "JP 5929741",
+      "expires": "2027-10-05",
+      "logo": true
+    },
+    {
+      "id": "takarakuji-official.jp",
+      "name": "株式会社NTTデータ",
+      "trust": "certified",
+      "domains": [
+        "takarakuji-official.jp"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "JP 5944913",
+      "expires": "2027-03-08",
+      "logo": true
+    },
+    {
+      "id": "dlsite.com",
+      "name": "株式会社エイシス",
+      "trust": "certified",
+      "domains": [
+        "dlsite.com"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "JP 6212441",
+      "expires": "2027-10-30",
+      "logo": true
+    },
+    {
+      "id": "mynavi.jp",
+      "name": "株式会社マイナビ",
+      "trust": "certified",
+      "domains": [
+        "mynavi.jp"
+      ],
+      "ca": "DigiCert",
+      "mark": "Registered Mark",
+      "trademark": "JP 7039773",
+      "expires": "2027-06-08",
+      "logo": true
+    },
+    {
+      "id": "cash.app",
+      "name": "Cash App",
+      "brand": "cash app",
+      "trust": "listed",
+      "domains": [
+        "cash.app"
+      ],
+      "wikidata": "Q55633750"
+    },
+    {
+      "id": "zellepay.com",
+      "name": "Zelle",
+      "brand": "zelle",
+      "trust": "listed",
+      "domains": [
+        "zellepay.com"
+      ],
+      "wikidata": "Q22907300"
+    },
+    {
+      "id": "citi.com",
+      "name": "Citibank",
+      "brand": "citibank",
+      "trust": "listed",
+      "domains": [
+        "citi.com",
+        "citibank.com",
+        "online.citibank.co.in"
+      ],
+      "wikidata": "Q857063"
+    },
+    {
+      "id": "capitalone.com",
+      "name": "Capital One",
+      "brand": "capital one",
+      "trust": "listed",
+      "domains": [
+        "capitalone.com"
+      ],
+      "wikidata": "Q1034654"
+    },
+    {
+      "id": "coinbase.com",
+      "name": "Coinbase",
+      "brand": "coinbase",
+      "trust": "listed",
+      "domains": [
+        "coinbase.com"
+      ],
+      "wikidata": "Q16972754"
+    },
+    {
+      "id": "fidelity.com",
+      "name": "Fidelity Investments",
+      "brand": "fidelity",
+      "trust": "listed",
+      "domains": [
+        "fidelity.com"
+      ],
+      "wikidata": "Q1411292"
+    },
+    {
+      "id": "usbank.com",
+      "name": "U.S. Bank NA",
+      "brand": "usbank",
+      "trust": "listed",
+      "domains": [
+        "usbank.com"
+      ],
+      "wikidata": "Q138534823"
+    },
+    {
+      "id": "fedex.com",
+      "name": "FedEx",
+      "brand": "fedex",
+      "trust": "listed",
+      "domains": [
+        "fedex.com"
+      ],
+      "wikidata": "Q459477"
+    },
+    {
+      "id": "microsoft.com",
+      "name": "Microsoft",
+      "brand": "microsoft",
+      "trust": "listed",
+      "domains": [
+        "microsoft.com",
+        "office.com"
+      ],
+      "wikidata": "Q2283"
+    },
+    {
+      "id": "google.ac",
+      "name": "Google Search",
+      "brand": "google",
+      "trust": "listed",
+      "domains": [
+        "google.ac",
+        "google.ad",
+        "google.ae",
+        "google.be",
+        "google.ca",
+        "google.ch",
+        "google.co.in",
+        "google.co.jp",
+        "google.co.uk",
+        "google.com",
+        "google.com.af",
+        "google.com.bd",
+        "google.com.tr",
+        "google.es",
+        "google.fr",
+        "google.gl",
+        "google.ie",
+        "google.it",
+        "google.nl"
+      ],
+      "wikidata": "Q9366"
+    },
+    {
+      "id": "dropbox.com",
+      "name": "Dropbox",
+      "brand": "dropbox",
+      "trust": "listed",
+      "domains": [
+        "dropbox.com"
+      ],
+      "wikidata": "Q142539"
+    },
+    {
+      "id": "facebook.com",
+      "name": "Facebook",
+      "brand": "facebook",
+      "trust": "listed",
+      "domains": [
+        "facebook.com"
+      ],
+      "wikidata": "Q355"
+    },
+    {
+      "id": "netflix.com",
+      "name": "Netflix",
+      "brand": "netflix",
+      "trust": "listed",
+      "domains": [
+        "netflix.com"
+      ],
+      "wikidata": "Q907311"
+    },
+    {
+      "id": "verizon.com",
+      "name": "Verizon",
+      "brand": "verizon",
+      "trust": "listed",
+      "domains": [
+        "verizon.com",
+        "verizon.net"
+      ],
+      "wikidata": "Q467752"
+    },
+    {
+      "id": "irs.gov",
+      "name": "IRS tax forms",
+      "brand": "irs",
+      "trust": "listed",
+      "domains": [
+        "irs.gov"
+      ],
+      "wikidata": "Q14293015"
+    },
+    {
+      "id": "ssa.gov",
+      "name": "Social Security Administration",
+      "brand": "social security",
+      "trust": "listed",
+      "domains": [
+        "ssa.gov"
+      ],
+      "wikidata": "Q2824618"
+    },
+    {
+      "id": "investors.spotify.com",
+      "name": "Spotify",
+      "brand": "spotify",
+      "trust": "listed",
+      "domains": [
+        "investors.spotify.com",
+        "open.spotify.com",
+        "spotify.com"
+      ],
+      "wikidata": "Q689141"
+    },
+    {
+      "id": "costco.com",
+      "name": "Costco",
+      "brand": "costco",
+      "trust": "listed",
+      "domains": [
+        "costco.com"
+      ],
+      "wikidata": "Q715583"
+    },
+    {
+      "id": "uber.com",
+      "name": "Uber",
+      "brand": "uber",
+      "trust": "listed",
+      "domains": [
+        "uber.com"
+      ],
+      "wikidata": "Q780442"
+    },
+    {
+      "id": "lyft.com",
+      "name": "Lyft",
+      "brand": "lyft",
+      "trust": "listed",
+      "domains": [
+        "lyft.com"
+      ],
+      "wikidata": "Q17077936"
+    },
+    {
+      "id": "airbnb.com",
+      "name": "Airbnb",
+      "brand": "airbnb",
+      "trust": "listed",
+      "domains": [
+        "airbnb.com"
+      ],
+      "wikidata": "Q63327"
+    },
+    {
+      "id": "discord.com",
+      "name": "Discord",
+      "brand": "discord",
+      "trust": "listed",
+      "domains": [
+        "discord.com",
+        "discord.gg",
+        "discord.new"
+      ],
+      "wikidata": "Q22907849"
+    },
+    {
+      "id": "github.com",
+      "name": "GitHub",
+      "brand": "github",
+      "trust": "listed",
+      "domains": [
+        "github.com"
+      ],
+      "wikidata": "Q364"
+    },
+    {
+      "id": "slack.com",
+      "name": "Slack",
+      "brand": "slack",
+      "trust": "listed",
+      "domains": [
+        "slack.com"
+      ],
+      "wikidata": "Q17130715"
+    },
+    {
+      "id": "intuit.com",
+      "name": "Intuit",
+      "brand": "intuit",
+      "trust": "listed",
+      "domains": [
+        "intuit.com"
+      ],
+      "wikidata": "Q1318848"
+    },
+    {
+      "id": "binance.com",
+      "name": "Binance",
+      "brand": "binance",
+      "trust": "listed",
+      "domains": [
+        "binance.com"
+      ],
+      "wikidata": "Q51403327"
+    },
+    {
+      "id": "navyfederal.org",
+      "name": "Navy Federal Credit Union",
+      "brand": "navy federal",
+      "trust": "listed",
+      "domains": [
+        "navyfederal.org"
+      ],
+      "wikidata": "Q6982632"
+    },
+    {
+      "id": "schwab.com",
+      "name": "Charles Schwab Corporation",
+      "brand": "charles schwab",
+      "trust": "listed",
+      "domains": [
+        "schwab.com"
+      ],
+      "wikidata": "Q1066028"
+    },
+    {
+      "id": "hsbc.co.uk",
+      "name": "HSBC",
+      "brand": "hsbc",
+      "trust": "listed",
+      "domains": [
+        "hsbc.co.uk",
+        "hsbc.com"
+      ],
+      "wikidata": "Q190464"
+    },
+    {
+      "id": "barclays.co.uk",
+      "name": "Barclays",
+      "brand": "barclays",
+      "trust": "listed",
+      "domains": [
+        "barclays.co.uk",
+        "barclays.com",
+        "home.barclays"
+      ],
+      "wikidata": "Q245343"
+    },
+    {
+      "id": "cms.gov",
+      "name": "Medicare",
+      "brand": "medicare",
+      "trust": "listed",
+      "domains": [
+        "cms.gov",
+        "medicare.gov"
+      ],
+      "wikidata": "Q559392"
+    },
+    {
+      "id": "hulu.com",
+      "name": "Hulu",
+      "brand": "hulu",
+      "trust": "listed",
+      "domains": [
+        "hulu.com"
+      ],
+      "wikidata": "Q1630304"
+    },
+    {
+      "id": "yahoo.com",
+      "name": "Yahoo",
+      "brand": "yahoo",
+      "trust": "listed",
+      "domains": [
+        "yahoo.com"
+      ],
+      "wikidata": "Q37093"
+    }
+  ]
+}
