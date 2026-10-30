@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Clean up, Stop mail, Organize, Settings mockup</title>
 <!-- Round 2: one accent, no subtitles, bare numbers, verb buttons, (i) explains on click.
-     Rules: research/2026-10-29-apple-google-restraint.md. Open with #cleanup, #more, #stop, #organize or #settings. -->
+     Rules: research/2026-10-29-apple-google-restraint.md. Open with #protect, #cleanup, #more, #stop, #organize or #settings. -->
 <style>
   :root {
     --canvas: #0b0b0d; --panel: #111114; --card: #17171a; --label: #f4f4f5; --label-2: #d4d4d8; --label-3: #a1a1aa; --label-4: #8e8e96;
@@ -152,6 +152,20 @@
   .pick { display: inline-flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--fill); }
   .pick span { padding: 5px 10px; border-radius: 7px; font-size: 12px; color: var(--label-3); }
   .pick span.on { background: var(--card); color: var(--label); }
+
+  /* ── Protect: brand check ─────────────────────────────────── */
+  .mark { flex: none; width: 26px; height: 26px; border-radius: 7px; background: #fff; object-fit: contain; }
+  .mark.sm { width: 22px; height: 22px; border-radius: 6px; }
+  .mm { display: grid; grid-template-columns: 26px minmax(0, 1fr) 44px auto; align-items: center; gap: 12px; padding: 11px 16px; }
+  .mm + .mm { border-top: 1px solid var(--sep); }
+  .mm b { font-weight: 600; }
+  .mm .addr { display: block; font-size: 12px; color: var(--label-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mm .num { text-align: right; }
+  .mm .acts { display: flex; gap: 8px; align-items: center; justify-content: flex-end; min-width: 170px; }
+  .chip.bad { color: var(--danger); }
+  .verified { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+  .vcell { display: flex; align-items: center; gap: 10px; padding: 10px 12px; font-weight: 500; white-space: nowrap; overflow: hidden; }
+  .vcell span { overflow: hidden; text-overflow: ellipsis; }
 </style>
 </head>
 <body>
@@ -176,6 +190,7 @@
 </svg>
 <div class="bar">
   <b>Mockup</b>
+  <button data-go="protect">Protect</button>
   <button data-go="cleanup">Clean up</button>
   <button data-go="more">More ways</button>
   <button data-go="stop">Stop mail</button>
@@ -190,10 +205,26 @@
     <a href="#cleanup" data-nav="cleanup more"><svg class="i"><use href="#i-trash"/></svg>Clean up</a>
     <a href="#stop" class="child" data-nav="stop"><svg class="i"><use href="#i-stop"/></svg>Stop mail</a>
     <a href="#organize" data-nav="organize"><svg class="i"><use href="#i-layers"/></svg>Organize</a>
-    <a href="#"><svg class="i"><use href="#i-shield"/></svg>Protect</a>
+    <a href="#protect" data-nav="protect"><svg class="i"><use href="#i-shield"/></svg>Protect</a>
     <a href="#settings" data-nav="settings" style="margin-top:24px"><svg class="i"><use href="#i-gear"/></svg>Settings</a>
   </nav>
   <main>
+
+  <!-- ═══ Protect: senders checked against the brand registry ═══ -->
+  <section class="view" id="v-protect">
+    <h1>Protect</h1>
+    <div class="row-head">
+      <h2>Doesn't match <button class="info" popovertarget="p-mm" aria-label="About Doesn't match">i</button></h2>
+      <button class="btn solid" id="check-all">Check all</button>
+    </div>
+    <div popover id="p-mm">These use a company's name but write from an address the company doesn't list. Check reads the address's trademark certificate, which only the real owner can get.</div>
+    <div class="card" id="mismatch"></div>
+    <h2>Checked</h2>
+    <div class="card" id="checked"></div>
+    <h2>Verified senders <button class="info" popovertarget="p-ver" aria-label="About Verified senders">i</button></h2>
+    <div popover id="p-ver">A certificate authority checked each company's trademark before tying its name and logo to these addresses.</div>
+    <div class="verified" id="verified"></div>
+  </section>
 
   <!-- ═══ Clean up ═══ -->
   <section class="view" id="v-cleanup">
@@ -358,9 +389,9 @@
   </main>
 </div>
 <script>
-  const views = ["cleanup", "more", "stop", "organize", "settings"];
+  const views = ["protect", "cleanup", "more", "stop", "organize", "settings"];
   function show() {
-    const v = views.includes(location.hash.slice(1)) ? location.hash.slice(1) : "cleanup";
+    const v = views.includes(location.hash.slice(1)) ? location.hash.slice(1) : "protect";
     for (const id of views) document.getElementById("v-" + id).classList.toggle("on", id === v);
     for (const b of document.querySelectorAll("[data-go]")) b.setAttribute("aria-pressed", String(b.dataset.go === v));
     for (const a of document.querySelectorAll("nav a[data-nav]")) a.classList.toggle("on", a.dataset.nav.split(" ").includes(v));
@@ -406,6 +437,54 @@
     host.append(card);
     set();
   }
+
+  // Protect. Logos are the real ones from public/data/brand-logos.json (serve the repo root).
+  const LOGO_IDS = { PayPal: "paypal.co.uk", Chase: "chase.com", Amazon: "amazon.ae", Apple: "apple.com", LinkedIn: "linkedin.com", eBay: "ebay.co.uk",
+    UPS: "emails.ups.com", Adobe: "adobe.com", "Bank of America": "bankofamerica.com", "American Express": "aexp.com", "Wells Fargo": "mail1.wellsfargo.com", DHL: "dhl.com" };
+  let LOGOS = {};
+  const svgSrc = (svg) => "data:image/svg+xml;base64," + btoa(String.fromCharCode(...new TextEncoder().encode(svg)));
+  const mono = (from) => `<span class="logo">${from.split("@")[1].slice(0, 2)}</span>`;
+  const mark = (name, sm) => LOGOS[LOGO_IDS[name]] ? `<img class="mark${sm ? " sm" : ""}" alt="" src="${svgSrc(LOGOS[LOGO_IDS[name]])}">` : `<span class="logo">${name.slice(0, 2)}</span>`;
+  const MISMATCH = [
+    { name: "PayPal", from: "service@paypal-billing.help", n: 3, result: { chip: "No certificate" } },
+    { name: "Wells Fargo", from: "alerts@wellsfargoadvisors.com", n: 6, result: { real: true } },
+    { name: "Microsoft", from: "account@msft-team.net", n: 2, result: { chip: "Certified to Contoso Ltd", bad: true } },
+    { name: "Chase", from: "alerts@chase-secure-login.com", n: 1, result: { chip: "No certificate" } },
+  ];
+  const CHECKED = [{ name: "Apple", from: "news@engage.apple", verdict: "Real" }, { name: "DHL", from: "noreply@dhl-parcel-track.co", verdict: "Blocked" }];
+  function paintProtect() {
+    document.getElementById("check-all").hidden = !MISMATCH.some((m) => !m.done);
+    document.getElementById("mismatch").innerHTML = MISMATCH.map((m, i) => `<div class="mm">${mono(m.from)}
+      <div><b>${m.name}</b><span class="addr">${m.from}</span></div>
+      <span class="num">${m.n}</span>
+      <div class="acts">${!m.done ? `<button class="btn" data-check="${i}">${m.busy ? "Checking" : "Check"}</button>`
+        : `<span class="chip${m.result.bad ? " bad" : ""}">${m.result.chip}</span><button class="btn quiet" data-v="${i}:Real">Trust</button><button class="btn" data-v="${i}:Blocked">Block</button>`}</div>
+    </div>`).join("") || `<div class="mm"><span></span><span class="num" style="text-align:left">All checked</span></div>`;
+    document.getElementById("checked").innerHTML = CHECKED.map((c) => `<div class="mm">${c.verdict === "Real" ? mark(c.name) : mono(c.from)}
+      <div><b>${c.name}</b><span class="addr">${c.from}</span></div><span></span>
+      <div class="acts"><span class="chip${c.verdict === "Blocked" ? " bad" : ""}">${c.verdict}</span></div></div>`).join("");
+    document.querySelectorAll("[data-check]").forEach((b) => (b.onclick = () => check(MISMATCH[+b.dataset.check])));
+    document.querySelectorAll("[data-v]").forEach((b) => (b.onclick = () => {
+      const [i, verdict] = b.dataset.v.split(":");
+      const [m] = MISMATCH.splice(+i, 1);
+      CHECKED.unshift({ name: m.name, from: m.from, verdict });
+      paintProtect();
+    }));
+  }
+  function check(m) {
+    m.busy = true; paintProtect();
+    setTimeout(() => {
+      m.busy = false; m.done = true;
+      // A certificate for the claimed company settles it: Real, nothing to ask.
+      if (m.result.real) { MISMATCH.splice(MISMATCH.indexOf(m), 1); CHECKED.unshift({ name: m.name, from: m.from, verdict: "Real" }); }
+      paintProtect();
+    }, 700);
+  }
+  document.getElementById("check-all").onclick = () => MISMATCH.filter((m) => !m.done).forEach(check);
+  const VERIFIED = ["PayPal", "Chase", "Amazon", "Apple", "LinkedIn", "eBay", "UPS", "Adobe", "Bank of America", "American Express", "Wells Fargo", "DHL"];
+  const paintVerified = () => { document.getElementById("verified").innerHTML = VERIFIED.map((n) => `<div class="card vcell">${mark(n, true)}<span>${n}</span></div>`).join(""); };
+  paintProtect(); paintVerified();
+  fetch("/public/data/brand-logos.json").then((r) => r.json()).then((d) => { LOGOS = d.logos; paintProtect(); paintVerified(); }).catch(() => {});
 
   for (const b of document.querySelectorAll("#set-nav button")) b.onclick = () => {
     for (const x of document.querySelectorAll("#set-nav button")) x.setAttribute("aria-pressed", String(x === b));
