@@ -195,11 +195,14 @@ export function foldByCompany(
   return out;
 }
 
-/** A company you write to or answer, such as your bank's support desk:
- * not a person, but not mail to clear out either. */
-export function talksTo(group: CompanyGroup, profiles: ReadonlyMap<string, SenderProfile>): boolean {
-  return group.senders.some((s) => {
-    const p = profiles.get(s.key);
-    return Boolean(p && (p.youWrote > 0 || p.replied));
-  });
+export type SenderGroup = "people" | "companies" | "subs";
+
+/** The one Senders list a sender belongs in. Subscriptions are lists you can
+ * leave; a company's receipts, codes and deliveries stay under Companies even
+ * when they carry an unsubscribe link. */
+export function senderGroup(sender: SenderSummary, profile: SenderProfile | undefined): SenderGroup {
+  if (isPerson(profile)) return "people";
+  const { postUrl, httpUrl, mailto } = sender.unsubscribe;
+  const service = profile?.kind === "receipt" || profile?.kind === "shipping" || profile?.kind === "otp";
+  return (postUrl || httpUrl || mailto) && !service ? "subs" : "companies";
 }

@@ -14,6 +14,7 @@ describe("Senders — a company's card", () => {
     const news = { ...shop, id: "n1", fromAddress: "news@shop.example", fromDisplayName: "Shop" };
     const dash = await bootDashboard({ mailbox: [...mailbox, news] });
     dash.showScreen("senders");
+    dash.el("sender-filter").querySelector<HTMLButtonElement>('[data-filter="subs"]')!.click();
 
     const row = dash.el("all-senders-list").querySelector<HTMLElement>('[data-pick="company:shop.example"]')!;
     row.click();

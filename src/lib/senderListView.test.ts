@@ -7,7 +7,7 @@ import {
   foldByCompany,
   groupByCompany,
   isPerson,
-  talksTo,
+  senderGroup,
   mainTemplate,
   profileLine,
   sortSenders,
@@ -126,17 +126,23 @@ describe("List-Id groups, person override, companies you talk to", () => {
     expect(isPerson({ ...p, personOverride: false })).toBe(false);
   });
 
-  it("finds companies you write to", async () => {
+  it("puts each sender in one list: people, companies or subscriptions", async () => {
+    const unsub = { httpUrl: "https://shop.example/u" };
     const rows = [
-      ...many(3, { fromAddress: "help@bank.example", authenticationResults: signed("bank.example") }),
-      ...many(3, { fromAddress: "news@shop.example", authenticationResults: signed("shop.example") }),
+      ...many(3, { fromAddress: "news@shop.example", subject: "New arrivals", unsubscribe: unsub }),
+      ...many(3, { fromAddress: "orders@shop.example", subject: "Your receipt", unsubscribe: unsub }),
+      ...many(3, { fromAddress: "alerts@bank.example", subject: "Balance update", unsubscribe: {} }),
     ];
-    const sent: SentRecord[] = [
-      { id: "s", provider: "gmail", sentAt: NOW - DAY, to: [{ address: "help@bank.example", name: "" }], cc: [], bcc: [] },
-    ];
-    const { list, profiles } = await setup(rows, sent);
-    const talked = groupByCompany(list, profiles).filter((g) => talksTo(g, profiles));
-    expect(talked.map((g) => g.key)).toEqual(["bank.example"]);
+    const { list, profiles } = await setup(rows);
+    const group = (address: string) => {
+      const s = list.find((x) => x.address === address)!;
+      return senderGroup(s, profiles.get(s.key));
+    };
+    expect([group("news@shop.example"), group("orders@shop.example"), group("alerts@bank.example")]).toEqual([
+      "subs",
+      "companies",
+      "companies",
+    ]);
   });
 });
 

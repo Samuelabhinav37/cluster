@@ -58,14 +58,14 @@ import {
   companyName,
   foldByCompany,
   type CompanyGroup,
-  groupByCompany,
   groupKeyFor,
   isPerson,
   type ListEntry,
   profileLine,
   senderName,
   sortSenders,
-  talksTo,
+  senderGroup,
+  type SenderGroup,
   type SenderSortId,
 } from "../lib/senderListView";
 import { getSettings, mutateSettings, updateSettings, type ClusterSettings } from "../lib/settingsStore";
@@ -134,7 +134,6 @@ import {
   type DetailsPanel,
 } from "./detailsPanel";
 import { listGroup, listRow } from "./listRow";
-import { neverReadSenders } from "../lib/neverRead";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import { rowMenu } from "./rowMenu";
 import type { ClusterRule } from "../lib/rules";
@@ -2020,8 +2019,7 @@ function updateSenderBulkBar() {
 // A flat, searchable, filterable list of every scanned sender. The pixel
 // exact "engagement bar + one action" row treatment lands in the All-senders
 // screen commit; this keeps the screen populated and the controls live.
-type SenderFilterId = "all" | "people" | "companies" | "talk" | "subs" | "never" | "quiet" | "muted" | "verified";
-let allSendersFilter: SenderFilterId = "all";
+let allSendersFilter: SenderGroup = "people";
 let allSendersSort: SenderSortId = "volume";
 let allSendersQuery = "";
 let allSendersLimit = 25;
@@ -2200,7 +2198,7 @@ function wireAllSendersControls() {
   const seg = document.getElementById("sender-filter");
   seg?.querySelectorAll<HTMLButtonElement>("button[data-filter]").forEach((btn) => {
     btn.onclick = () => {
-      allSendersFilter = btn.dataset.filter as SenderFilterId;
+      allSendersFilter = btn.dataset.filter as SenderGroup;
       allSendersLimit = 25;
       seg
         .querySelectorAll<HTMLButtonElement>("button[data-filter]")
@@ -2210,70 +2208,22 @@ function wireAllSendersControls() {
   });
 }
 
-function filteredSenders(senders: SenderSummary[], filter: SenderFilterId = allSendersFilter): SenderSummary[] {
-  const neverKeys = new Set(
-    neverReadSenders(senders, buildProtectionContext(ctx.settings)).map((s) => s.key),
-  );
+/** One list's senders; a search looks through all three lists. */
+function filteredSenders(senders: SenderSummary[], filter: SenderGroup = allSendersFilter): SenderSummary[] {
   return senders.filter((s) => {
-    const profile = ctx.profiles.get(s.key);
-    if (filter === "never" && !neverKeys.has(s.key)) return false;
-    if (filter === "people" && !isPerson(profile)) return false;
-    if (filter === "quiet" && (!profile || profile.stillSending)) return false;
-    if (filter === "subs" && !hasAnyUnsubscribe(s.unsubscribe)) return false;
-    if (filter === "muted" && !ctx.settings.mutedSenders.includes(s.address)) return false;
-    if (filter === "verified" && !certifiedCompany(s.address)) return false;
-    if (allSendersQuery) {
-      const hay = `${s.displayName ?? ""} ${s.address}`.toLowerCase();
-      if (!hay.includes(allSendersQuery)) return false;
-    }
-    return true;
+    if (allSendersQuery) return `${s.displayName ?? ""} ${s.address}`.toLowerCase().includes(allSendersQuery);
+    return senderGroup(s, ctx.profiles.get(s.key)) === filter;
   });
-}
-
-/** The company view: one row per authenticated company, opt in through the
- * Companies filter. "Show senders" narrows the list to that company. */
-function renderCompanyRows(senders: SenderSummary[]) {
-  if (!allSendersListEl) return;
-  const groups = groupByCompany(senders, ctx.profiles);
-  allSendersListEl.innerHTML = "";
-  if (groups.length === 0) {
-    allSendersListEl.appendChild(
-      Object.assign(document.createElement("p"), {
-        className: "empty-state",
-        textContent: "No company senders match this filter.",
-      }),
-    );
-    return;
-  }
-  const rows = groups.slice(0, allSendersLimit).map((group) => {
-    const show = document.createElement("button");
-    show.className = "btn btn-sm";
-    show.textContent = "Show senders";
-    show.onclick = () => {
-      const search = document.getElementById("sender-search") as HTMLInputElement | null;
-      if (search) search.value = group.key;
-      allSendersQuery = group.key;
-      document.querySelector<HTMLButtonElement>('#sender-filter button[data-filter="all"]')?.click();
-    };
-    const opens = group.openRate === null ? "" : ` · opens ${Math.round(group.openRate * 100)}%`;
-    return listRow({
-      lead: makeLogoTile(group.senders[0], "sz-34"),
-      title: companyName(group),
-      sub: `${group.senders.length} address${group.senders.length === 1 ? "" : "es"} · ${group.total.toLocaleString()} messages${opens}`,
-      actions: [show],
-    });
-  });
-  allSendersListEl.appendChild(listGroup(rows));
 }
 
 /** Each list's count, as the list would show it (a company's addresses fold into one). */
 function paintSenderListCounts(senders: SenderSummary[]) {
   document.querySelectorAll<HTMLButtonElement>("#sender-filter button[data-filter]").forEach((btn) => {
-    const filter = btn.dataset.filter as SenderFilterId;
-    const list = filteredSenders(senders, filter);
-    let count = filter === "companies" ? groupByCompany(list, ctx.profiles).length : foldByCompany(list, ctx.profiles).length;
-    if (filter === "talk")
-      count = foldByCompany(list, ctx.profiles).filter((e) => e.kind === "company" && talksTo(e.group, ctx.profiles)).length;
+    const group = btn.dataset.filter as SenderGroup;
+    const count = foldByCompany(
+      senders.filter((s) => senderGroup(s, ctx.profiles.get(s.key)) === group),
+      ctx.profiles,
+    ).length;
     let badge = btn.querySelector<HTMLElement>(".list-count");
     if (!badge) btn.append((badge = Object.assign(document.createElement("span"), { className: "list-count" })));
     badge.textContent = count.toLocaleString();
@@ -2303,15 +2253,9 @@ function renderAllSenders(senders: SenderSummary[]) {
       ? `Who emailed you, from your latest ${MAIL_INDEX_CAP.toLocaleString()} messages.`
       : `Who emailed you in the last ${ctx.settings.scanWindowDays} days.`;
   }
-  if (allSendersFilter === "companies") {
-    renderCompanyRows(filteredSenders(senders));
-    return;
-  }
   const sorted = sortSenders(filteredSenders(senders), ctx.profiles, allSendersSort);
   // A company's addresses fold into one row (LinkedIn, not five LinkedIns), as in Clean up and Details.
-  let rows: ListEntry[] = foldByCompany(sorted, ctx.profiles);
-  if (allSendersFilter === "talk")
-    rows = rows.filter((e) => e.kind === "company" && talksTo(e.group, ctx.profiles));
+  const rows: ListEntry[] = foldByCompany(sorted, ctx.profiles);
   // A folded company counts all its addresses, so re-rank by the total.
   if (allSendersSort === "volume") {
     const size = (e: (typeof rows)[number]) => (e.kind === "sender" ? senderVolume(e.sender) : e.group.total);
