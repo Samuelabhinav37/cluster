@@ -35,7 +35,17 @@ export const KIND_PHRASES: Record<SubjectKind, string[]> = {
     "order confirmed",
     "tracking number",
   ],
-  receipt: ["receipt", "invoice", "payment received", "payment confirmation", "your bill"],
+  receipt: [
+    "receipt",
+    "invoice",
+    "payment received",
+    "payment confirmation",
+    "received your payment",
+    "purchase confirmation",
+    "refund confirmation",
+    "booking confirmation",
+    "your bill",
+  ],
   social: ["mentioned you", "tagged you", "new follower", "friend request", "liked your", "commented on"],
 };
 

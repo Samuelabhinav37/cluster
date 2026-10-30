@@ -48,9 +48,11 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "linkedin.com", "pinterest.com", "tiktok.com", "reddit.com", "snapchat.com",
     "discord.com", "meetup.com", "nextdoor.com",
   ],
+  // Not google.com or microsoft.com: they send security alerts, account
+  // notices and ads from the same domain, so the domain says nothing.
   productivity: [
     "slack.com", "notion.so", "atlassian.com", "github.com", "gitlab.com", "dropbox.com",
-    "zoom.us", "asana.com", "trello.com", "figma.com", "google.com", "microsoft.com",
+    "zoom.us", "asana.com", "trello.com", "figma.com",
     "salesforce.com", "hubspot.com", "monday.com", "airtable.com", "calendly.com",
     "docusign.com", "adobe.com",
   ],

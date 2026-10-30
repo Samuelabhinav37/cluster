@@ -103,10 +103,14 @@ const CATEGORY_BUCKET: Partial<Record<DomainCategory, SortBucket>> = {
 /**
  * The bucket a message belongs in, or null if neither its kind nor its
  * sender's domain category is specific enough (both fell through to "other").
- * Kind takes priority, then the sender's category, then Gmail's own
- * Promotions tab as the catch-all for ads.
+ * Kind takes priority (list mail in Gmail's Promotions tab is an ad, not a
+ * newsletter), then the sender's category, then the Promotions tab as the
+ * catch-all for ads.
  */
 export function classifySortBucket(kind: MessageKind, senderDomain: string, promotion = false): SortBucket | null {
+  // Any list mail has an unsubscribe link, so "newsletter" alone can't tell
+  // an ad from news; Gmail's Promotions tab can.
+  if (kind === "newsletter" && promotion) return "promotions";
   const byKind = KIND_BUCKET[kind];
   if (byKind) return byKind;
   const byCategory = CATEGORY_BUCKET[categorizeDomain(senderDomain)];

@@ -21,7 +21,7 @@ const OTP_EXCLUDE_RE = /\b(alert|disabled|changed|new sign[- ]?in|suspicious)\b/
 const SHIPPING_RE =
   /\b(shipped|out for delivery|delivery (update|attempt|scheduled|exception|confirmation)|delivered|tracking (number|info|information|update|details)|track your (order|package|parcel|shipment)|order (confirm|confirmed|confirmation)|order #|order (is |has been )?(confirmed|placed|received)|has shipped|arriving|on its way)\b/i;
 const RECEIPT_RE =
-  /\b(receipt|invoice|payment (received|confirmation)|your bill|e-?statement|statement (is )?(ready|available)|your (\w+ )?statement|paid|will renew|renews on|is renewing|renewal (notice|reminder|confirmation)|auto-?renew)\b/i;
+  /\b(receipt|invoice|payment (received|confirmation)|received your payment|purchase (confirmation|confirmed)|refund (confirmation|issued|processed)|your refund|booking confirm(ation|ed)|your tickets?|your bill|e-?statement|statement (is )?(ready|available)|your (\w+ )?statement|paid|will renew|renews on|is renewing|renewal (notice|reminder|confirmation)|auto-?renew)\b/i;
 const SOCIAL_RE = /\b(mentioned you|tagged you|new follower|friend request|liked your|commented on)\b/i;
 // When the subject says nothing ("Your Thursday evening trip with Uber"), a
 // sender named for receipts or orders still does: "Uber Receipts",

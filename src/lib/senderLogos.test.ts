@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { domainFromAddress, logoFor } from "./senderLogos";
+import { domainFromAddress, faviconUrl, logoFor } from "./senderLogos";
 
 describe("domainFromAddress", () => {
   it("pulls the domain out of a bare address", () => {
@@ -47,5 +47,12 @@ describe("logoFor", () => {
 
   it("derives a monogram from the address when there is no display name", () => {
     expect(logoFor("kev.wexler@brightpath-consulting.io").monogram).toBe("KE");
+  });
+});
+
+describe("faviconUrl", () => {
+  it("asks for the company domain, not the mail subdomain", () => {
+    expect(faviconUrl("emails@emails.cinemark.com")).toContain("domain=cinemark.com&");
+    expect(faviconUrl("capitalone@notification.capitalone.com")).toContain("domain=capitalone.com&");
   });
 });

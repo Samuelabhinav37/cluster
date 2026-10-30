@@ -18,6 +18,10 @@ describe("classifyMessageKind", () => {
     expect(classifyMessageKind("Your receipt from Acme", false)).toBe("receipt");
     expect(classifyMessageKind("Invoice #99 is ready", false)).toBe("receipt");
     expect(classifyMessageKind("Payment received, thank you", false)).toBe("receipt");
+    expect(classifyMessageKind("Cinemark Purchase Confirmation", true)).toBe("receipt");
+    expect(classifyMessageKind("Cinemark Refund Confirmation", true)).toBe("receipt");
+    expect(classifyMessageKind("We've received your payment", true)).toBe("receipt");
+    expect(classifyMessageKind("The hottest ticket in the multiverse", true)).toBe("newsletter");
   });
 
   it("detects social notifications", () => {

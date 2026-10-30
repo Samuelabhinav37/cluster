@@ -28,6 +28,11 @@ describe("classifySortBucket", () => {
     expect(classifySortBucket("other", "some-random-domain.example")).toBeNull();
   });
 
+  it("files list mail Gmail put in Promotions as an ad, not a newsletter", () => {
+    expect(classifySortBucket("newsletter", "emails.cinemark.com", true)).toBe("promotions");
+    expect(classifySortBucket("receipt", "info.cinemark.com", true)).toBe("receipt");
+  });
+
   it("maps kind newsletter/social straight through", () => {
     expect(classifySortBucket("newsletter", "x.example")).toBe("newsletter");
     expect(classifySortBucket("social", "x.example")).toBe("social");

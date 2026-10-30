@@ -11,7 +11,7 @@
 //
 // This module is pure: it returns the colour + text to paint. The dashboard
 // layer builds the actual DOM tile from it.
-import { normalizeDomain, registrableDomainCandidates } from "./registrableDomain";
+import { normalizeDomain, registrableDomain, registrableDomainCandidates } from "./registrableDomain";
 
 export interface SenderLogo {
   /** Two-letter (or one-letter) monogram to render in the tile. */
@@ -144,10 +144,11 @@ export function domainFromAddress(address: string): string {
 // failure. networkEgress.test.ts pins this host to this file.
 const FAVICON_HOST = "https://www.google.com/s2/favicons";
 
-/** Favicon URL for a sender's domain, or null when there's no usable domain.
- * Defaults to a 128px source so downscaled tiles stay crisp on HiDPI. */
+/** Favicon URL for a sender's company domain, or null when there's no usable
+ * domain. Mail subdomains (emails.cinemark.com) have no favicon, the
+ * registrable domain does. 128px so downscaled tiles stay crisp on HiDPI. */
 export function faviconUrl(address: string, size = 128): string | null {
-  const domain = domainFromAddress(address);
+  const domain = registrableDomain(domainFromAddress(address));
   if (!domain) return null;
   return `${FAVICON_HOST}?domain=${encodeURIComponent(domain)}&sz=${size}`;
 }
