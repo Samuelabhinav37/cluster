@@ -3448,6 +3448,11 @@ body[data-state="connect"] .crumbs {
 .details-chart .fill { width: 100%; border-radius: 3px 3px 1px 1px; background: var(--k2); }
 .details-chart .dim .fill { background: var(--k4); }
 .details-chart .lbl { font-size: 11px; color: var(--label-4); white-space: nowrap; }
+.details-chart .heat { display: grid; grid-template-columns: 12px repeat(24, 1fr); gap: 2px; margin-bottom: 4px; }
+.details-chart .cols + .chart-head { margin-top: 10px; }
+.heat-day { font-size: 10px; line-height: 9px; color: var(--label-4); }
+.heat i { height: 9px; border-radius: 2px; background: var(--neutral-fill); }
+.heat i[style] { background: var(--k2); }
 .details .sheet-wrap { flex: 1; min-height: 0; overflow: auto; border-top: 1px solid var(--separator); }
 table.sheet { width: 100%; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
 .sheet th { position: sticky; top: 0; z-index: 1; padding: 6px 8px; border-bottom: 1px solid var(--separator); background: var(--glass-bar);

@@ -162,6 +162,16 @@ export function weekOf(at: number, now: number): { week: number; day: number } {
   return { week: Math.floor(days / 7), day: days % 7 };
 }
 
+/** Arrivals per weekday (rows, Monday first) and local hour (columns). */
+export function arrivalGrid(messages: readonly DetailMessage[]): number[][] {
+  const grid = Array.from({ length: 7 }, () => new Array<number>(24).fill(0));
+  for (const m of messages) {
+    const d = new Date(m.at);
+    grid[(d.getDay() + 6) % 7][d.getHours()] += 1;
+  }
+  return grid;
+}
+
 function startOfDay(t: number): number {
   const d = new Date(t);
   d.setHours(0, 0, 0, 0);
@@ -441,6 +451,33 @@ export function initDetailsPanel(
       cols.append(col);
     }
     chart.replaceChildren(caption, cols);
+    if (st.view === "emails") chart.append(...heatmap(base.filter(inWeek)));
+  }
+
+  /** When mail lands: a day by hour grid, darker where more arrives. */
+  function heatmap(messages: DetailMessage[]): HTMLElement[] {
+    if (messages.length === 0) return [];
+    const grid = arrivalGrid(messages);
+    const max = Math.max(...grid.flat());
+    const peak = grid.flat().indexOf(max);
+    const monday = new Date(2024, 0, 1); // a Monday, only for weekday names
+    const dayName = (r: number) =>
+      new Date(monday.getTime() + r * DAY).toLocaleDateString(undefined, { weekday: "short" });
+    const hourName = (c: number) => new Date(2024, 0, 1, c).toLocaleTimeString(undefined, { hour: "numeric" });
+    const busiest = `${dayName(Math.floor(peak / 24))} around ${hourName(peak % 24)}`;
+    const cells = h("div", "heat");
+    cells.setAttribute("role", "img");
+    cells.setAttribute("aria-label", `Most mail arrives ${busiest}`);
+    grid.forEach((row, r) => {
+      cells.append(h("span", "heat-day", dayName(r).slice(0, 1)));
+      row.forEach((n, c) => {
+        const cell = h("i");
+        if (n > 0) cell.style.opacity = String(0.15 + (0.85 * n) / max);
+        cell.title = `${dayName(r)} ${hourName(c)}: ${n}`;
+        cells.append(cell);
+      });
+    });
+    return [h("div", "chart-head", `Most arrives ${busiest}`), cells];
   }
 
   function tick(id: string, label: string, disabled = false): HTMLInputElement {
