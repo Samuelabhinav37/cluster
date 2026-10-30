@@ -5,9 +5,9 @@
 //   how much was held, and one safety tip.
 // - Setup (research/2026-10-29-onboarding.md): four questions and a plan,
 //   one per screen. On the right, Kai and a card that fills in as you answer
-//   (research/2026-10-29-onboarding-audit.md). Step 2 is a practice
-//   inbox of made-up mail; what you do there becomes the answer. Answers
-//   are kept in settings.onboarding so Setup reopens with them, and only
+//   (research/2026-10-29-onboarding-audit.md). Round 2 (2026-10-30): three
+//   questions and the plan, no practice inbox, no kickers or subtitles, gray
+//   icons. Answers are kept in settings.onboarding so Setup reopens with them, and only
 //   Start changes anything. Gmail filters are made only for "Tidy for me".
 import "./kai/kaiLife.js";
 import type { KaiInstance, KaiMood } from "./kai/kaiLife";
@@ -20,8 +20,6 @@ import {
   SEEDS,
   type KeepKind,
   type OnboardingAnswers,
-  type PracticeChoice,
-  type PracticeKind,
   type Who,
 } from "../lib/onboardingPlan";
 import { ctx } from "./state";
@@ -130,34 +128,17 @@ function glyph(name: string): HTMLElement {
   return g;
 }
 
-type Step = "who" | "try" | "keep" | "hands" | "plan";
-const STEPS: Step[] = ["who", "try", "keep", "hands", "plan"];
+type Step = "who" | "keep" | "hands" | "plan";
+const STEPS: Step[] = ["who", "keep", "hands", "plan"];
 
 // What Kai says on each step: one short line, like Duolingo's owl.
 const KAI_LINES: Record<Step | "done", string> = {
   who: "Hi, I'm Kai. Let's set up Cluster.",
-  try: "Practice mail. One of these is fake.",
   keep: "What should never move?",
   hands: "Should I wait for you?",
   plan: "Nothing changes until you press Start.",
   done: "All set. I'm reading your mail now.",
 };
-
-const PRACTICE: Array<{ kind: PracticeKind; name: string; subject: string; color: string; flag?: string }> = [
-  { kind: "promo", name: "Daily Deals", subject: "48 hours only: 60% off everything", color: "#d6409f" },
-  { kind: "news", name: "The Morning Brief", subject: "Your weekly digest is here", color: "#12a594" },
-  {
-    kind: "scam",
-    name: "Account Team",
-    subject: "Your account is locked. Verify now",
-    color: "#71717a",
-    flag: "Looks fake",
-  },
-  { kind: "bank", name: "Northside Bank", subject: "Your October statement is ready", color: "#1f9d63" },
-  { kind: "social", name: "Connect", subject: "You appeared in 9 searches this week", color: "#8b5cf6" },
-];
-
-const GONE_LABEL: Record<PracticeChoice, string> = { keep: "Kept", later: "Later", trash: "Let go" };
 
 const VOICE_PREF = "cluster.kaiVoice";
 
@@ -327,7 +308,6 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   let saidHello = false;
   // What just changed, so only that piece animates on the next render.
   let picked = "";
-  let bumped: PracticeChoice | "" = "";
   let couldGo = false;
   let shown = new Set<string>();
 
@@ -386,22 +366,18 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     return row;
   };
 
-  const heading = (kicker: string, title: string, sub: string) => [
-    el("p", "onb-kicker", kicker),
-    el("h1", "onb-title", title),
-    el("p", "onb-sub", sub),
-  ];
+  const heading = (title: string) => [el("h1", "onb-title", title)];
 
   function renderWho(body: HTMLElement) {
-    body.append(...heading("Step 1 of 4", "What describes you?", "Pick the closest one."));
+    body.append(...heading("What describes you?"));
     const opts = el("div", "onb-opts");
     opts.setAttribute("role", "group");
     opts.setAttribute("aria-label", "What describes you");
     const choices: Array<[Who, string, string, string]> = [
-      ["me", "Personal mail", "user", "blue"],
-      ["business", "Invoices, suppliers, clients", "briefcase", "orange"],
-      ["safe", "Scams worry me most", "shield-check", "indigo"],
-      ["busy", "I need to find people fast", "users", "purple"],
+      ["me", "", "user", "blue"],
+      ["business", "", "briefcase", "orange"],
+      ["safe", "", "shield-check", "indigo"],
+      ["busy", "", "users", "purple"],
     ];
     for (const [who, sub, ic, tone] of choices) {
       const b = option(`who-${who}`, WHO_LABEL[who], sub, ic, tone, answers.who === who, () => {
@@ -415,71 +391,9 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     body.append(opts, nav(Boolean(answers.who)));
   }
 
-  function renderPractice(body: HTMLElement) {
-    body.append(
-      ...heading(
-        "Step 2 of 4 · Try it",
-        "Sort five emails",
-        "Your choices teach Cluster what you want gone.",
-      ),
-    );
-    const inbox = el("div", "onb-inbox");
-    const left = PRACTICE.filter((m) => !answers.sorted[m.kind]);
-    for (const m of left) {
-      const row = el("div", "onb-mail");
-      row.dataset.kind = m.kind;
-      const av = el("span", "onb-av", m.name[0]);
-      av.style.background = m.color;
-      const words = el("span", "onb-mail-words");
-      words.append(el("b", "", m.name));
-      if (m.flag) words.append(el("span", "onb-flag", m.flag));
-      words.append(el("span", "onb-subject", m.subject));
-      const pick = (choice: PracticeChoice) => () => {
-        if (row.dataset.gone) return;
-        row.dataset.gone = GONE_LABEL[choice];
-        row.classList.add(`gone-${choice}`);
-        window.setTimeout(() => {
-          answers = { ...answers, sorted: { ...answers.sorted, [m.kind]: choice } };
-          bumped = choice;
-          if (m.kind === "scam")
-            kai.say(
-              choice === "keep" ? "Careful. That one was fake." : "Good catch. That one was fake.",
-              choice === "keep" ? "worried" : "happy",
-            );
-          render();
-        }, 420);
-      };
-      const acts = el("span", "onb-acts");
-      acts.append(
-        button("Keep", "onb-mini", pick("keep")),
-        button("Later", "onb-mini", pick("later")),
-        button("Let go", "onb-mini", pick("trash")),
-      );
-      row.append(av, words, acts);
-      inbox.append(row);
-    }
-    if (left.length === 0) {
-      const done = el("p", "onb-done");
-      done.append(
-        iconTile("check", "green"),
-        el("span", "", "All sorted. Cluster will treat mail like this the same way."),
-      );
-      inbox.append(done);
-    }
-    const tally = el("p", "onb-tally");
-    for (const c of ["keep", "later", "trash"] as const) {
-      const n = Object.values(answers.sorted).filter((v) => v === c).length;
-      const part = el("span", bumped === c ? "bump" : "");
-      part.append(`${GONE_LABEL[c]} `, el("b", "", String(n)));
-      tally.append(part);
-    }
-    bumped = "";
-    body.append(inbox, tally, nav(left.length === 0));
-  }
-
   function renderKeep(body: HTMLElement) {
     body.append(
-      ...heading("Step 3 of 4", "What should always stay?", "These never leave your inbox on their own."),
+      ...heading("What should always stay?"),
     );
     const opts = el("div", "onb-opts");
     const choices: Array<[KeepKind, string, string, string, string]> = [
@@ -504,7 +418,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   }
 
   function renderHands(body: HTMLElement) {
-    body.append(...heading("Step 4 of 4", "How hands-on?", "You can change this in Organize."));
+    body.append(...heading("How hands-on?"));
     const opts = el("div", "onb-opts");
     const choose = (hands: "ask" | "tidy") => () => {
       answers = { ...answers, hands };
@@ -536,7 +450,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   function renderPlan(body: HTMLElement) {
     const plan = buildOnboardingPlan(answers);
     body.append(
-      ...heading("Your plan", "Here's what Cluster will do", "Change any of it later in Settings."),
+      ...heading("Here's your plan"),
     );
     const list = el("ul", "onb-plan");
     plan.lines.forEach((line, i) => {
@@ -607,10 +521,10 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       }
     }
     const dots = el("div", "onb-dots");
-    dots.setAttribute("aria-label", `Step ${Math.min(at + 1, 4)} of 4`);
+    dots.setAttribute("aria-label", `Step ${at + 1} of ${STEPS.length}`);
     STEPS.forEach((_, i) => dots.append(el("i", i < at ? "on" : i === at ? "on now" : "")));
     const body = el("div", newStep ? "onb-body onb-in" : "onb-body");
-    ({ who: renderWho, try: renderPractice, keep: renderKeep, hands: renderHands, plan: renderPlan })[step](
+    ({ who: renderWho, keep: renderKeep, hands: renderHands, plan: renderPlan })[step](
       body,
     );
     pane.replaceChildren(dots, body);

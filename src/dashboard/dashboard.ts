@@ -563,7 +563,7 @@ function seatHomeKai() {
   if (!homeKai) {
     homeKai = Object.assign(document.createElement("button"), { type: "button", className: "home-kai-btn" });
     homeKai.setAttribute("aria-label", "Ask Kai");
-    homeKai.onclick = () => kaiGuide?.open();
+    homeKai.onclick = () => setTimeout(() => kaiGuide?.open()); // after the outside-click rule has run
     const host = document.createElement("span");
     homeKai.append(host);
     window.Kai(host, { src: "/characters/", imgWidth: 320, calm: true });
@@ -577,15 +577,9 @@ async function main() {
     firstOn: CLUSTER_FIRST_ON,
     currentScreen: () =>
       document.querySelector<HTMLElement>("#sidebar .nav-item.active")?.dataset.screen ?? "overview",
+    // One Kai: no corner figure; the chat opens beside Ask Kai, which carries the nudges.
+    dock: document.getElementById("ask-kai-open")!,
   });
-  // Kai sits bottom right and keeps a 24 px gap from Details (CSS reads --details-w).
-  const detailsPanel = document.getElementById("details");
-  if (detailsPanel && typeof ResizeObserver !== "undefined") {
-    new ResizeObserver(() => {
-      const docked = getComputedStyle(detailsPanel).position !== "fixed";
-      document.documentElement.style.setProperty("--details-w", `${docked ? detailsPanel.offsetWidth : 0}px`);
-    }).observe(detailsPanel);
-  }
   statusEl.textContent = "Connecting…";
   // Domain matching needs the Public Suffix List and the brand registry (local files, quick to load).
   const [settings] = await Promise.all([
@@ -616,10 +610,18 @@ async function main() {
   }
   wireDetails();
   wireAccountMenu();
-  initAskKai(document.getElementById("ask-kai-open")!, () => askFacts, {
-    details: (filter) => details?.open(filter),
-    go: goAndAct,
-  });
+  initAskKai(
+    document.getElementById("ask-kai-open")!,
+    () => askFacts,
+    { details: (filter) => details?.open(filter), go: goAndAct },
+    () => {
+      const screen = document.querySelector<HTMLElement>("#sidebar .nav-item.active")?.dataset.screen ?? "overview";
+      const first = CLUSTER_FIRST_ON[screen] ?? [];
+      return [...CLUSTER_QUESTIONS]
+        .sort((a, b) => (first.indexOf(a.id) + 1 || 99) - (first.indexOf(b.id) + 1 || 99))
+        .map((q) => ({ label: q.ask, run: () => kaiGuide?.ask(q.id) }));
+    },
+  );
   wireAllSendersControls();
   fastDeleteToggle.checked = ctx.settings.fastPermanentDeleteEnabled;
   wireFastDeleteToggle();

@@ -13,12 +13,12 @@ type Dash = Awaited<ReturnType<typeof bootDashboard>>;
 
 const setupSection = (dash: Dash) => dash.el("setup-flow").closest("section")!;
 
-/** Picks "who", then skips the practice inbox and the next two questions, and presses Start. */
+/** Picks "who", then skips the next two questions, and presses Start. */
 async function runSetup(dash: Dash, who: string) {
   expect(setupSection(dash).hidden).toBe(false);
   (document.querySelector(`[data-who="${who}"]`) as HTMLButtonElement).click();
   (dash.el("setup-next") as HTMLButtonElement).click();
-  for (let i = 0; i < 3; i++)
+  for (let i = 0; i < 2; i++)
     Array.from(document.querySelectorAll<HTMLButtonElement>(".onb-nav button"))
       .find((b) => b.textContent === "Skip")!
       .click();
@@ -41,8 +41,8 @@ describe("first-run setup", () => {
     expect((dash.el("setup-next") as HTMLButtonElement).disabled).toBe(true);
     (document.querySelector('[data-who="me"]') as HTMLButtonElement).click();
     (dash.el("setup-next") as HTMLButtonElement).click();
-    expect(document.querySelectorAll(".onb-mail")).toHaveLength(5);
-    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toContain("Practice mail"));
+    expect(document.querySelector(".onb-title")!.textContent).toBe("What should always stay?");
+    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toContain("never move"));
   });
 
   it("Keep me safe turns on scam holding and simple mode", async () => {

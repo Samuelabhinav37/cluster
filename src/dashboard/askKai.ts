@@ -109,7 +109,18 @@ export function askIntents(raw: string, f: AskFacts, act: AskActions): AskHit[] 
 }
 
 /** The box itself: opened by the sidebar's Ask Kai, "/" or Ctrl+K. */
-export function initAskKai(trigger: HTMLElement, facts: () => AskFacts, act: AskActions): { open(): void; close(): void } {
+export interface AskQuestion {
+  label: string;
+  run: () => void;
+}
+
+/** One Kai: typed requests go to a place, and Kai's set questions open the chat. */
+export function initAskKai(
+  trigger: HTMLElement,
+  facts: () => AskFacts,
+  act: AskActions,
+  questions: () => AskQuestion[] = () => [],
+): { open(): void; close(): void } {
   const backdrop = document.createElement("div");
   backdrop.className = "ask";
   backdrop.hidden = true;
@@ -152,8 +163,15 @@ export function initAskKai(trigger: HTMLElement, facts: () => AskFacts, act: Ask
   function render() {
     hits = askIntents(input.value, facts(), act);
     sel = Math.min(sel, Math.max(0, hits.length - 1));
-    if (!input.value.trim()) {
+    const q = input.value.trim().toLowerCase();
+    const asks = questions()
+      .filter((a) => !q || a.label.toLowerCase().includes(q))
+      .slice(0, q ? 3 : 4)
+      .map((a) => row(a.label, "", false, () => (close(), a.run())));
+    const askBlock = asks.length ? [heading("Ask Kai"), ...asks] : [];
+    if (!q) {
       results.replaceChildren(
+        ...askBlock,
         heading("Try"),
         ...ASK_EXAMPLES.map((t) =>
           row(t, "", false, () => {
@@ -163,6 +181,10 @@ export function initAskKai(trigger: HTMLElement, facts: () => AskFacts, act: Ask
           }),
         ),
       );
+      return;
+    }
+    if (hits.length === 0 && asks.length) {
+      results.replaceChildren(...askBlock);
       return;
     }
     if (hits.length === 0) {
@@ -175,6 +197,7 @@ export function initAskKai(trigger: HTMLElement, facts: () => AskFacts, act: Ask
         r.append(Object.assign(document.createElement("em"), { textContent: h.verb }));
         return i === 0 ? [heading("Best match"), r] : i === 1 ? [heading("More"), r] : [r];
       }),
+      ...askBlock,
     );
   }
 

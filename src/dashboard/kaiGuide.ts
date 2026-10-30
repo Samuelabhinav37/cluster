@@ -40,6 +40,9 @@ export interface KaiOptions {
   firstOn: Record<string, string[]>;
   /** Folder holding Kai's images, with a trailing slash. */
   src?: string;
+  /** Round 2: no Kai in the corner. Kai sits in the chat's header, the chat
+   * opens beside the sidebar, and nudges show on this element (Ask Kai). */
+  dock?: HTMLElement;
 }
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -102,6 +105,8 @@ export interface KaiGuide {
   tip: (text: string) => void;
   /** Kai's element, so a page can seat him in its header. */
   root: HTMLElement;
+  /** Opens the chat and asks one of the questions straight away. */
+  ask: (id: string) => void;
 }
 
 export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
@@ -147,6 +152,11 @@ export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
   button.append(kaiHost);
   launch.append(tag, button);
   root.append(panel, launch);
+  const dock = options.dock;
+  if (dock) {
+    root.classList.add("docked");
+    head.prepend(kaiHost);
+  }
   doc.body.append(root);
   const kai = makeKai(kaiHost, options.src ?? "/characters/");
 
@@ -268,6 +278,12 @@ export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
     }
     log.replaceChildren();
     asked.clear();
+    const first = pendingAsk ? byId.get(pendingAsk) : undefined;
+    pendingAsk = "";
+    if (first) {
+      ask(first, el(doc, "div"));
+      return;
+    }
     busy = true;
     say("Hi, I'm Kai. I'm small, but I know Cluster inside out. What can I help with?", null, () => {
       busy = false;
@@ -275,6 +291,7 @@ export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
     });
     win.setTimeout(() => panel.querySelector<HTMLButtonElement>(".kai-q")?.focus(), wait(400));
   };
+  let pendingAsk = "";
   let closedAt = 0;
   const hide = () => {
     if (panel.hidden) return;
@@ -291,6 +308,7 @@ export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
   let sizeTimer = 0;
   let hint = false;
   const tagSay = (text: string) => {
+    if (dock) dock.dataset.nudge = text;
     win.clearTimeout(swapTimer);
     win.clearTimeout(sizeTimer);
     if (!root.classList.contains("tag-on") || reduced) {
@@ -314,6 +332,7 @@ export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
     }, 130);
   };
   const tagFold = () => {
+    if (dock) delete dock.dataset.nudge;
     win.clearTimeout(swapTimer);
     root.classList.remove("tag-on");
     tag.classList.remove("swap");
@@ -354,7 +373,7 @@ export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
   let pending = false;
   let px = 0;
   let py = 0;
-  doc.addEventListener("pointermove", (event) => {
+  if (!dock) doc.addEventListener("pointermove", (event) => {
     px = event.clientX;
     py = event.clientY;
     if (pending) return;
@@ -400,7 +419,8 @@ export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
   // composedPath, not contains: a question's button is removed by the
   // answer before the click reaches the document.
   doc.addEventListener("click", (event) => {
-    if (isOpen() && !event.composedPath().includes(root)) hide();
+    const path = event.composedPath();
+    if (isOpen() && !path.includes(root) && !(dock && path.includes(dock))) hide();
   });
 
   // "Got it": a small nod when a setting changes, once per control per visit.
@@ -454,7 +474,18 @@ export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
       if (hint) { hint = false; tagFold(); }
     }, 9000);
   };
-  return { open: show, close: hide, isOpen, watch, tip, root };
+  const askNow = (qid: string) => {
+    if (isOpen()) {
+      const q = byId.get(qid);
+      if (q) ask(q, log.querySelector<HTMLElement>(".kai-list") ?? el(doc, "div"));
+      return;
+    }
+    pendingAsk = qid;
+    closedAt = 0;
+    // After the click that asked has finished, or the outside-click rule closes it again.
+    win.setTimeout(show, 0);
+  };
+  return { open: show, close: hide, isOpen, watch, tip, root, ask: askNow };
 }
 
 /** Cluster's questions. Short, plain answers; each names the screen it opens. */
