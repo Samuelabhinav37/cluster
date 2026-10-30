@@ -87,3 +87,17 @@ export function formatRelativeTime(epochMs: number): string {
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
 }
+
+let infoCount = 0;
+/** An (i) that explains on click (the native popover), so the screen itself
+ * carries no explanation lines. Returns the button and its popover; place
+ * both, the popover anywhere. */
+export function infoButton(text: string, about: string): [HTMLButtonElement, HTMLElement] {
+  const id = `info-${++infoCount}`;
+  const pop = Object.assign(document.createElement("div"), { id, className: "info-pop", textContent: text });
+  pop.setAttribute("popover", "");
+  const btn = Object.assign(document.createElement("button"), { type: "button", className: "info", textContent: "i" });
+  btn.setAttribute("popovertarget", id);
+  btn.setAttribute("aria-label", about);
+  return [btn, pop];
+}

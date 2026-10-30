@@ -139,7 +139,7 @@ const calm: HomeFacts = {
   limitsOn: 0,
 };
 const text = (el: Element | null) => el?.textContent ?? "";
-const sections = (el: HTMLElement) => Array.from(el.querySelectorAll("h2.section-label")).map(text);
+const sections = (el: HTMLElement) => Array.from(el.querySelectorAll("h2.section-label")).map((h) => h.firstChild?.textContent ?? "");
 
 describe("renderHomeDashboard", () => {
   it("says nothing needs you in one sentence, and hides Next up", () => {
@@ -180,12 +180,12 @@ describe("renderHomeDashboard", () => {
     expect(cards.map((c) => text(c.querySelector("b")))).toEqual(["31", "82", "8"]);
     expect(el.querySelectorAll(".spark i")).toHaveLength(7);
     expect(el.querySelector(".spark i:last-child")!.className).toBe("now");
-    expect(text(cards[0].querySelector(".chip-delta"))).toBe("500 since you started");
+    expect(cards[0].querySelector(".chip-delta")).toBeNull();
     const arrived = cards[1].querySelector(".chip-delta")!;
-    expect(text(arrived)).toBe("↓ 18% vs last week");
+    expect(text(arrived)).toBe("18% fewer");
     expect(arrived.classList.contains("good")).toBe(true);
     expect(text(cards[2].querySelector("span"))).toBe("from people");
-    expect(text(cards[2].querySelector(".chip-delta"))).toBe("10% of this week's mail");
+    expect(text(cards[2].querySelector(".chip-delta"))).toBe("10%");
     (cards[2] as HTMLButtonElement).click();
     expect(openKind).toHaveBeenCalledWith("primary");
   });
@@ -197,32 +197,26 @@ describe("renderHomeDashboard", () => {
       go,
     );
     const rows = Array.from(el.querySelectorAll(".next-row"));
-    expect(rows.map((r) => text(r.querySelector("b")))).toEqual([
-      "30 emails you never open",
-      "4 emails past their date",
-      "2 new senders",
-    ]);
+    expect(rows.map((r) => text(r.querySelector("b")))).toEqual(["Never opened", "Past its date", "New senders"]);
+    expect(rows.map((r) => text(r.querySelector(".next-num")))).toEqual(["30", "4", "2"]);
     expect(rows.every((r) => r.querySelectorAll("button").length === 1)).toBe(true);
     rows[0].querySelector("button")!.click();
     expect(go).toHaveBeenCalledWith("delete", "trash-never-opened");
   });
 
-  it("says what the bar means and gives each kind its count and share", () => {
+  it("gives each kind its count", () => {
     const openKind = vi.fn();
     const el = renderHomeDashboard(
       { ...calm, kinds: { ...calm.kinds, trans: 0 }, total: 60 },
       vi.fn(),
       openKind,
     );
-    expect(text(el.querySelector(".inbox-line"))).toBe(
-      "Most of your mail is promotions. Only 10 of 60 are from people.",
-    );
     expect(el.querySelectorAll(".kind-bar span")).toHaveLength(3);
     expect(Array.from(el.querySelectorAll(".kind-legend li")).map(text)).toEqual([
-      "People10 · 17%",
-      "Receipts0 · 0%",
-      "Updates20 · 33%",
-      "Promotions30 · 50%",
+      "People10",
+      "Receipts0",
+      "Updates20",
+      "Promotions30",
     ]);
     el.querySelector<HTMLButtonElement>(".kind-legend button")!.click();
     expect(openKind).toHaveBeenCalledWith("primary");
@@ -230,7 +224,7 @@ describe("renderHomeDashboard", () => {
 
   it("names how far back it has read while mail is still being read", () => {
     const el = renderHomeDashboard({ ...calm, since: NOW - 3 * DAY }, vi.fn());
-    expect(text(el.querySelector(".inbox-line"))).toMatch(/Read back to \w+ \d+ so far\.$/);
+    expect(text(el.querySelector(".info-pop"))).toMatch(/Read back to \w+ \d+ so far\.$/);
   });
 
   it("during the first read shows Kai's counter and Found so far instead of the verdict and this week", () => {

@@ -3874,3 +3874,38 @@ body[data-screen="overview"] .kai-guide:not(.open) .kg-launch { visibility: hidd
 .gauge-ticks { display: flex; gap: 3px; height: 18px; margin-top: 14px; }
 .gauge-ticks i { flex: 1; border-radius: 3px; background: var(--neutral-fill); }
 .gauge-ticks i.on { background: var(--accent); }
+
+/* ── Round 2 (2026-10-30): one muted color, gray place icons, (i) on click ──
+   research/2026-10-29-redesign-mockup.html. Overrides the iCloud look above. */
+/* Place icons are gray glyphs; only the current place takes the accent. */
+.sidebar .nav-item svg.nav-icon, .sidebar .nav-item svg.nav-icon * { background: none; box-shadow: none; color: var(--label-3); }
+:is(.nav-item, .page-title) svg.nav-icon[class*="ni-"] { background: none; box-shadow: none; }
+.sidebar .nav-item.active svg.nav-icon, .sidebar .nav-item.active svg.nav-icon * { color: var(--accent-text); }
+.page-title svg.nav-icon { display: none; }
+.app-ic:is(.app-inbox, .app-clean, .app-organize, .app-protect, .app-gray) { background: var(--neutral-fill); box-shadow: none; color: var(--label-3); }
+.chip-delta.good { color: var(--label-2); }
+
+/* (i): the explanation waits until it's asked for. */
+.info { display: inline-grid; place-items: center; flex: none; width: 20px; height: 20px; min-width: 0; min-height: 0; margin-left: 6px; padding: 0; border: 1px solid var(--separator); border-radius: 50%;
+  background: none; color: var(--label-4); font: italic 600 11px/1 Georgia, serif; vertical-align: 1px; cursor: pointer; }
+.info:hover { color: var(--label); border-color: var(--label-4); }
+.info-pop { max-width: 300px; margin: 0; padding: 12px 14px; border: 1px solid var(--separator); border-radius: 12px; background: var(--glass-solid);
+  color: var(--label-2); font-size: 13px; line-height: 1.5; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); position-area: bottom span-right; position-try-fallbacks: flip-block; }
+
+/* Home: Kai's verdict in a card, one verb per row. */
+.home-card { padding: 18px 22px; border: 1px solid var(--separator); border-radius: 16px; background: var(--glass); }
+.home-hero.home-card { gap: 18px; margin: 0 0 4px; }
+.home-hero .home-words { flex: 1; }
+.home-hero .home-kai-btn .kai { --kai-w: 52px; }
+.home-verdict { font-size: clamp(20px, 2.2vw, 24px); font-weight: 600; letter-spacing: -0.01em; }
+.next-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) 60px auto; gap: 12px; }
+.next-ic { display: grid; place-items: center; color: var(--label-4); }
+.next-ic .i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.next-name { font-weight: 500; }
+.next-num { text-align: right; font-variant-numeric: tabular-nums; color: var(--label-3); }
+#sender-filter .list-count { margin-left: auto; color: var(--label-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+.chip-danger { color: var(--danger); }
+.verified-tick { flex: none; width: 15px; height: 15px; color: var(--accent); vertical-align: -2px; }
+.chip-verified { display: inline-flex; align-items: center; gap: 4px; }
+.verified-tick path:first-child { fill: currentColor; stroke: none; }
+.verified-tick path:last-child { fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }

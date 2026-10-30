@@ -165,7 +165,7 @@ describe("Rules — from a sender", () => {
     dash.showScreen("senders");
     dash.el("all-senders-list").querySelector<HTMLElement>('[data-pick="sender:gmail:deals@shop.example"]')!.click();
     Array.from(dash.el("sender-card").querySelectorAll<HTMLButtonElement>("button"))
-      .find((b) => b.textContent === "New rule…")!
+      .find((b) => b.textContent === "Add rule")!
       .click();
     expect((dash.el("rule-from-address") as HTMLInputElement).value).toBe("deals@shop.example");
     expect(dash.el("rule-existing-text").textContent).toBe("Also do this to the 3 you have now");

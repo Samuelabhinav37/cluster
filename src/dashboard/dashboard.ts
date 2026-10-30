@@ -99,7 +99,7 @@ import { initSuggestionModel, learnFromFeedback, suggestionModel } from "./sugge
 import { answerKind, initKindModel, kindModel } from "./kindLearning";
 import { markLearnedTransactional, sendersToAsk } from "../lib/kindModel";
 import { isAuthCancelled } from "../lib/chromeError";
-import { formatRelativeTime, headerRow, pruneSelection, renderConfirmStep, runNow } from "./ui";
+import { formatRelativeTime, headerRow, infoButton, pruneSelection, renderConfirmStep, runNow } from "./ui";
 import { reasonLabel, suggestSpamSenders, type SpamSuggestion } from "../lib/spamSuggestions";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { spamListSize } from "../lib/spamList";
@@ -115,7 +115,7 @@ import { applySimpleMode, renderSettingsSetup, renderSimpleHome, screenForMode, 
 import { renderScreenerTab, wireScreenerTab } from "./screenerTab";
 import { recordUnsubscribeRequests, renderSubscriptionsTab, wireSubscriptionsTab } from "./subscriptionsTab";
 import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib/inboxHealth";
-import { senderTile, type TileSize } from "./senderTile";
+import { certifiedCompany, senderTile, verifiedTick, type TileSize } from "./senderTile";
 import { wireAccountMenu } from "./accountMenu";
 import { initAskKai, type AskFacts } from "./askKai";
 import {
@@ -1993,7 +1993,7 @@ function updateSenderBulkBar() {
 // A flat, searchable, filterable list of every scanned sender. The pixel
 // exact "engagement bar + one action" row treatment lands in the All-senders
 // screen commit; this keeps the screen populated and the controls live.
-type SenderFilterId = "all" | "people" | "companies" | "talk" | "subs" | "never" | "quiet" | "muted";
+type SenderFilterId = "all" | "people" | "companies" | "talk" | "subs" | "never" | "quiet" | "muted" | "verified";
 let allSendersFilter: SenderFilterId = "all";
 let allSendersSort: SenderSortId = "volume";
 let allSendersQuery = "";
@@ -2004,11 +2004,10 @@ let senderCardPick: { company: CompanyGroup } | { sender: SenderSummary } | null
 
 /** One row for a company; its addresses are listed in the card. */
 function buildCompanyEntry(group: CompanyGroup): HTMLElement {
-  const opens = group.openRate === null ? "" : ` · opens ${Math.round(group.openRate * 100)}%`;
   const row = listRow({
     lead: makeLogoTile(group.senders[0], "sz-34"),
     title: companyName(group),
-    sub: `${group.senders.length} addresses${opens}`,
+    titleBadges: group.senders.some(doesntMatch) ? rowBadges(group.senders.find(doesntMatch)!) : rowBadges(group.senders[0]),
     meta: rowCount(group.total),
     href: () => pickSenderCard({ company: group }),
   });
@@ -2088,7 +2087,7 @@ function renderSenderCard() {
     const muteAll = Object.assign(document.createElement("button"), {
       type: "button",
       className: "btn",
-      textContent: "Mute all",
+      textContent: "Mute",
     });
     const reset = () => slot.replaceChildren(muteAll);
     muteAll.onclick = () =>
@@ -2120,6 +2119,12 @@ function renderSenderCard() {
   const profile = ctx.profiles.get(sender.key);
   fact(profileLine(profile) || "Now and then", "how often");
   if (profile?.via) who.append(textEl("span", `via ${profile.via}`));
+  const certified = certifiedCompany(sender.address);
+  if (certified) {
+    const chip = textEl("span", "Verified", "chip chip-verified");
+    chip.prepend(verifiedTick());
+    who.append(chip, ...infoButton(`Certified to ${certified.name}`, "About Verified"));
+  }
 
   // The card decides where a sender goes; stopping and sorting live in their own places.
   const { area, run } = actionArea(sender);
@@ -2128,12 +2133,12 @@ function renderSenderCard() {
   else if (ctx.settings.mutedSenders.includes(sender.address))
     acts.append(textEl("p", "Muted. New mail skips your inbox.", "hint"));
   else if (hasAnyUnsubscribe(sender.unsubscribe))
-    btn("Stop this mail", "btn btn-accent-solid", () => void selectScreen("subscriptions"));
+    btn("Unsubscribe", "btn btn-accent-solid", () => void selectScreen("subscriptions"));
   // No unsubscribe, so Stop mail can't list it: Mute stays here.
   else if (providerById.get(sender.provider)?.muteSender)
     btn("Mute", "btn btn-accent-solid", () => run("mute"));
-  btn("New rule…", "btn", () => openRuleSheetFor(sender));
-  btn("Show emails", "btn", () => details?.open({ view: "emails", senderKey: sender.key }));
+  btn("Add rule", "btn", () => openRuleSheetFor(sender));
+  btn("Show", "btn", () => details?.open({ view: "emails", senderKey: sender.key }));
   if (profile) {
     const person = isPerson(profile);
     btn(person ? "Not a person" : "This is a person", "btn", async () => {
@@ -2178,17 +2183,18 @@ function wireAllSendersControls() {
   });
 }
 
-function filteredSenders(senders: SenderSummary[]): SenderSummary[] {
+function filteredSenders(senders: SenderSummary[], filter: SenderFilterId = allSendersFilter): SenderSummary[] {
   const neverKeys = new Set(
     neverReadSenders(senders, buildProtectionContext(ctx.settings)).map((s) => s.key),
   );
   return senders.filter((s) => {
     const profile = ctx.profiles.get(s.key);
-    if (allSendersFilter === "never" && !neverKeys.has(s.key)) return false;
-    if (allSendersFilter === "people" && !isPerson(profile)) return false;
-    if (allSendersFilter === "quiet" && (!profile || profile.stillSending)) return false;
-    if (allSendersFilter === "subs" && !hasAnyUnsubscribe(s.unsubscribe)) return false;
-    if (allSendersFilter === "muted" && !ctx.settings.mutedSenders.includes(s.address)) return false;
+    if (filter === "never" && !neverKeys.has(s.key)) return false;
+    if (filter === "people" && !isPerson(profile)) return false;
+    if (filter === "quiet" && (!profile || profile.stillSending)) return false;
+    if (filter === "subs" && !hasAnyUnsubscribe(s.unsubscribe)) return false;
+    if (filter === "muted" && !ctx.settings.mutedSenders.includes(s.address)) return false;
+    if (filter === "verified" && !certifiedCompany(s.address)) return false;
     if (allSendersQuery) {
       const hay = `${s.displayName ?? ""} ${s.address}`.toLowerCase();
       if (!hay.includes(allSendersQuery)) return false;
@@ -2233,8 +2239,37 @@ function renderCompanyRows(senders: SenderSummary[]) {
   allSendersListEl.appendChild(listGroup(rows));
 }
 
+/** Each list's count, as the list would show it (a company's addresses fold into one). */
+function paintSenderListCounts(senders: SenderSummary[]) {
+  document.querySelectorAll<HTMLButtonElement>("#sender-filter button[data-filter]").forEach((btn) => {
+    const filter = btn.dataset.filter as SenderFilterId;
+    const list = filteredSenders(senders, filter);
+    let count = filter === "companies" ? groupByCompany(list, ctx.profiles).length : foldByCompany(list, ctx.profiles).length;
+    if (filter === "talk")
+      count = foldByCompany(list, ctx.profiles).filter((e) => e.kind === "company" && talksTo(e.group, ctx.profiles)).length;
+    let badge = btn.querySelector<HTMLElement>(".list-count");
+    if (!badge) btn.append((badge = Object.assign(document.createElement("span"), { className: "list-count" })));
+    badge.textContent = count.toLocaleString();
+  });
+}
+
+/** A brand-claim warning the user hasn't settled: the row says so where it stands. */
+function doesntMatch(sender: SenderSummary): boolean {
+  const domain = sender.address.slice(sender.address.lastIndexOf("@") + 1).toLowerCase();
+  return (
+    !ctx.settings.brandVerdicts?.[domain] &&
+    sender.threatSignals.some((t) => t.kind === "brand-impersonation" || t.kind === "freemail-brand-claim")
+  );
+}
+
+function rowBadges(sender: SenderSummary): HTMLElement[] {
+  if (doesntMatch(sender)) return [textEl("span", "Doesn't match", "chip chip-danger")];
+  return certifiedCompany(sender.address) ? [verifiedTick()] : [];
+}
+
 function renderAllSenders(senders: SenderSummary[]) {
   if (!allSendersListEl) return;
+  paintSenderListCounts(senders);
   const lead = document.getElementById("senders-lead");
   if (lead) {
     lead.textContent = lastScanCapHit
@@ -2307,19 +2342,11 @@ function renderAllSenders(senders: SenderSummary[]) {
 }
 
 function buildAllSendersRow(sender: SenderSummary): HTMLElement {
-  const marks = [
-    sender.protectedMessageIds.length > 0 ? "Starred" : "",
-    ctx.settings.mutedSenders.includes(sender.address) ? "Muted" : "",
-  ];
-  const profile = ctx.profiles.get(sender.key);
-  const via = profile?.via ? `via ${profile.via}` : "";
-  const sub = [...marks, via, profileLine(profile), sender.displayName ? sender.address : ""]
-    .filter(Boolean)
-    .join(" · ");
+  // The name and one value; the card holds the rest.
   const row = listRow({
     lead: makeLogoTile(sender, "sz-34"),
     title: senderName(sender),
-    sub,
+    titleBadges: rowBadges(sender),
     meta: rowCount(senderVolume(sender)),
     href: () => pickSenderCard({ sender }),
   });

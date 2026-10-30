@@ -5,6 +5,7 @@
 
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 import { clearedCount, type ActionLogEntry } from "../lib/actionLog";
+import { infoButton } from "./ui";
 
 export type HomeKind = "primary" | "trans" | "updates" | "promo";
 
@@ -334,24 +335,18 @@ function deltaChip(now: number, before: number, fewerIsGood: boolean): HTMLEleme
   const pct = Math.round(((now - before) / before) * 100);
   if (pct === 0) return el("small", "chip-delta", "Same as last week");
   const good = pct < 0 === fewerIsGood;
-  return el(
-    "small",
-    `chip-delta${good ? " good" : ""}`,
-    `${pct < 0 ? "↓" : "↑"} ${Math.abs(pct)}% vs last week`,
-  );
+  return el("small", `chip-delta${good ? " good" : ""}`, `${Math.abs(pct)}% ${pct < 0 ? "fewer" : "more"}`);
 }
 
-/** A row with its place's app icon, two lines and one button. */
-function nextRow(o: { app: string; ic: string; title: string; sub: string; act: string; run: () => void }) {
+/** A row: a gray glyph, the name, its number and one verb. */
+function nextRow(o: { ic: string; title: string; count: number; act: string; run: () => void }) {
   const row = el("div", "next-row");
-  const ic = el("span", `app-ic app-${o.app}`);
+  const ic = el("span", "next-ic");
   ic.append(icon(o.ic));
-  const words = el("span", "next-words");
-  words.append(el("b", "", o.title), el("span", "", o.sub));
   const btn = el("button", "btn btn-sm", o.act);
   btn.type = "button";
   btn.onclick = o.run;
-  row.append(ic, words, btn);
+  row.append(ic, el("b", "next-name", o.title), el("span", "next-num", n(o.count)), btn);
   return row;
 }
 
@@ -431,36 +426,33 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
   const root = el("div", "home");
 
   // 1. The verdict: one sentence in large type, said by Kai.
-  const hero = el("section", "home-hero");
+  const hero = el("section", "home-hero home-card");
   const words = el("div", "home-words");
   const verdict = el("p", "home-verdict");
   if (f.suspicious > 0) {
     const brands = (f.fakedBrands ?? []).slice(0, 3).map(brandName);
     const who = brands.length > 1 ? `${brands.slice(0, -1).join(", ")} and ${brands.at(-1)}` : brands[0];
     verdict.append(
-      el(
-        "span",
-        "warn",
-        who
-          ? `${plural(f.suspicious, "email pretends", "emails pretend")} to be ${who}.`
-          : `${plural(f.suspicious, "email looks", "emails look")} like a scam.`,
-      ),
+      who
+        ? `${plural(f.suspicious, "email pretends", "emails pretend")} to be ${who}.`
+        : `${plural(f.suspicious, "email looks", "emails look")} like a scam.`,
     );
     const review = el("button", "btn btn-accent-solid", "Review");
     review.type = "button";
     review.onclick = () => go("impersonation");
-    words.append(verdict, review);
+    words.append(verdict);
+    hero.append(el("div", "home-kai"), words, review);
   } else {
     verdict.append("Nothing needs you today.");
     words.append(verdict);
+    hero.append(el("div", "home-kai"), words);
   }
-  hero.append(el("div", "home-kai"), words);
   root.append(f.reading ? readHero(f.reading) : hero);
 
   // 2. This week: results, each with a comparison.
   const byDay = f.cleared?.byDay ?? [0, 0, 0, 0, 0, 0, 0];
   const cleared = el("div", "week-card");
-  cleared.append(el("b", "", n(byDay.reduce((a, b) => a + b, 0))), el("span", "", "cleared for you"));
+  cleared.append(el("b", "", n(byDay.reduce((a, b) => a + b, 0))), el("span", "", "cleared"));
   const spark = el("div", "spark");
   spark.setAttribute("role", "img");
   const top = Math.max(1, ...byDay);
@@ -479,10 +471,9 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
     spark.append(bar);
   });
   cleared.append(spark);
-  if (f.cleared?.total) cleared.append(el("small", "chip-delta", `${n(f.cleared.total)} since you started`));
 
   const arrived = el("div", "week-card");
-  arrived.append(el("b", "", n(f.thisWeek)), el("span", "", "arrived this week"));
+  arrived.append(el("b", "", n(f.thisWeek)), el("span", "", "arrived"));
   const arrivedChip = deltaChip(f.thisWeek, f.lastWeek ?? 0, true);
   if (arrivedChip) arrived.append(arrivedChip);
 
@@ -496,7 +487,7 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
   people.append(el("b", "", n(peopleWeek)), el("span", "", "from people"));
   if (f.thisWeek > 0)
     people.append(
-      el("small", "chip-delta", `${Math.round((peopleWeek / f.thisWeek) * 100)}% of this week's mail`),
+      el("small", "chip-delta", `${Math.round((peopleWeek / f.thisWeek) * 100)}%`),
     );
   const week = el("div", "home-week");
   week.append(cleared, arrived, people);
@@ -509,43 +500,39 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
   if (f.neverOpened.emails > 0)
     rows.push(
       nextRow({
-        app: "clean",
         ic: "mail-x",
-        title: `${plural(f.neverOpened.emails, "email", "emails")} you never open`,
-        sub: "You can undo this.",
-        act: `Trash ${n(f.neverOpened.emails)}`,
+        title: "Never opened",
+        count: f.neverOpened.emails,
+        act: "Trash",
         run: () => go("delete", "trash-never-opened"),
       }),
     );
   if (f.pastDate > 0)
     rows.push(
       nextRow({
-        app: "clean",
         ic: "clock",
-        title: `${plural(f.pastDate, "email", "emails")} past their date`,
-        sub: "Old codes and expired offers.",
-        act: `Trash ${n(f.pastDate)}`,
+        title: "Past its date",
+        count: f.pastDate,
+        act: "Trash",
         run: () => go("delete", "trash-past-date"),
       }),
     );
   if (f.waiting > 0)
     rows.push(
       nextRow({
-        app: "protect",
         ic: "user-plus",
-        title: plural(f.waiting, "new sender", "new senders"),
-        sub: "Let them in or hold them.",
-        act: "Look",
+        title: "New senders",
+        count: f.waiting,
+        act: "Review",
         run: () => go("screener"),
       }),
     );
   if (f.limitsOn === 0 && f.couldLeaveWeekly)
     rows.push(
       nextRow({
-        app: "organize",
         ic: "layers",
-        title: "Let old mail leave on its own",
-        sub: `About ${n(f.couldLeaveWeekly)} a week would leave.`,
+        title: "Leave on its own",
+        count: f.couldLeaveWeekly,
         act: "Turn on",
         run: () => go("organize"),
       }),
@@ -558,16 +545,6 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
 
   // 4. Your inbox: the bar, with one sentence that says what it means.
   const inbox = el("section", "home-inbox");
-  const most = HOME_KINDS.reduce((a, b) => (f.kinds[b.key] > f.kinds[a.key] ? b : a));
-  const line = el("p", "inbox-line");
-  if (f.total > 0) {
-    line.append(el("b", "", `Most of your mail is ${most.label.toLowerCase()}.`));
-    if (most.key !== "primary") line.append(` Only ${n(f.kinds.primary)} of ${n(f.total)} are from people.`);
-  } else line.textContent = "No mail read yet.";
-  if (f.since)
-    line.append(
-      ` Read back to ${new Date(f.since).toLocaleDateString(undefined, { month: "short", day: "numeric" })} so far.`,
-    );
   const bar = el("div", "kind-bar");
   bar.setAttribute("role", "img");
   bar.setAttribute("aria-label", HOME_KINDS.map((k) => `${k.label} ${f.kinds[k.key]}`).join(", "));
@@ -586,13 +563,18 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
       item.type = "button";
       item.onclick = () => openKind!(k.key);
     }
-    const pct = f.total ? Math.round((count / f.total) * 100) : 0;
-    item.append(el("i", `kind-${k.key}`), k.label, el("em", "", `${n(count)} · ${pct}%`));
+    item.append(el("i", `kind-${k.key}`), k.label, el("em", "", n(count)));
     const li = el("li", "");
     li.append(item);
     legend.append(li);
   }
-  inbox.append(line, bar, legend);
-  root.append(el("h2", "section-label", "Your inbox"), inbox);
+  inbox.append(bar, legend);
+  const head = el("h2", "section-label", "Your inbox");
+  const since = f.since
+    ? ` Read back to ${new Date(f.since).toLocaleDateString(undefined, { month: "short", day: "numeric" })} so far.`
+    : "";
+  const [info, pop] = infoButton(`Every email Cluster has read, by kind. Tap a kind to see them.${since}`, "About Your inbox");
+  head.append(info);
+  root.append(head, pop, inbox);
   return root;
 }

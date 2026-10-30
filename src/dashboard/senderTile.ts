@@ -8,6 +8,36 @@
 // over. This is the only off-origin asset the dashboard pulls; see
 // senderLogos.faviconUrl.
 import { faviconUrl, logoFor } from "../lib/senderLogos";
+import { companyForDomain, companyLogo, type RegistryCompany } from "../lib/brandRegistry";
+
+function domainOf(address: string): string {
+  return address.slice(address.lastIndexOf("@") + 1).toLowerCase();
+}
+
+/** The certified company behind an address, if a mark certificate names its domain. */
+export function certifiedCompany(address: string): RegistryCompany | undefined {
+  const company = companyForDomain(domainOf(address));
+  return company?.trust === "certified" ? company : undefined;
+}
+
+/** The small check that marks a verified sender. */
+export function verifiedTick(): HTMLElement {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("class", "verified-tick");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "Verified");
+  for (const d of [
+    "M12 2.5 14.6 5l3.5-.4.8 3.4 3 1.9-1.4 3.2 1.4 3.2-3 1.9-.8 3.4-3.5-.4L12 21.5 9.4 19l-3.5.4-.8-3.4-3-1.9 1.4-3.2L2.1 9.9l3-1.9.8-3.4 3.5.4z",
+    "m8.5 12 2.5 2.5 4.5-5",
+  ]) {
+    const path = document.createElementNS(ns, "path");
+    path.setAttribute("d", d);
+    svg.append(path);
+  }
+  return svg as unknown as HTMLElement;
+}
 
 export type TileSize = "sz-26" | "sz-30" | "sz-34" | "sz-44";
 
@@ -30,6 +60,25 @@ export function senderTile(
     tile.style.color = logo.foreground;
     mono.style.opacity = "1";
   };
+
+  // A certified company's own logo, from its mark certificate (brand-logos.json).
+  const company = certifiedCompany(address);
+  if (company?.logo) {
+    tile.classList.add("has-favicon", "certified");
+    mono.style.opacity = "0";
+    tile.appendChild(mono);
+    const img = Object.assign(document.createElement("img"), { className: "logo-img", alt: "" });
+    tile.appendChild(img);
+    void companyLogo(company).then((svg) => {
+      if (svg) img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      else {
+        img.remove();
+        tile.classList.remove("has-favicon", "certified");
+        paintMonogram();
+      }
+    });
+    return tile;
+  }
 
   // 128px source so the small tiles stay crisp on HiDPI displays.
   const url = faviconUrl(address, 128);

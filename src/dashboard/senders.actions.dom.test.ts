@@ -18,7 +18,7 @@ describe("Senders — a company's card", () => {
     const row = dash.el("all-senders-list").querySelector<HTMLElement>('[data-pick="company:shop.example"]')!;
     row.click();
     const card = dash.el("sender-card");
-    const muteAll = Array.from(card.querySelectorAll("button")).find((b) => b.textContent === "Mute all")!;
+    const muteAll = Array.from(card.querySelectorAll("button")).find((b) => b.textContent === "Mute")!;
     const slot = muteAll.parentElement as HTMLElement;
     muteAll.click();
     await confirmStep(slot);
