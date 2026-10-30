@@ -81,7 +81,7 @@ Settings: how far back to read, rescan, accounts, notifications, theme, simple m
 Activity: everything Cluster did, by day, each with Undo.
 
 ### Kai and Details
-- **Kai** is the narrator. It says the one-line verdict on Home and guides first-run setup. Ask Kai (press `/`) understands short typed requests and takes you to the right place.
+- **Kai** is the narrator. It says the one-line verdict on Home and guides first-run setup. There is one Kai: Ask Kai in the sidebar (press `/`) takes short typed requests and lists Kai's questions. A question, or tapping Kai on Home, opens Kai's chat beside the sidebar. Nudges ("Need help?") show on Ask Kai. There is no Kai in the corner.
 - **Details** is the right-hand panel that lists the actual emails behind any number you tap.
 
 ## 6. How scams are caught
@@ -145,7 +145,7 @@ The published lists are signed with Cluster's key and checked before use, so a t
 ## 10. Where things stand (2026-10-30)
 
 - **Built and tested**: everything above except what's listed below. 1,237 tests, typecheck and lint pass. Some dashboard tests time out when the whole suite runs at once on a busy machine; they pass on their own.
-- **Mockups awaiting approval** (`research/2026-10-29-redesign-mockup.html`): the round 2 redesign of Home, Senders, Protect (Doesn't match), Clean up, Stop mail, Organize and Settings.
+- **Round 2 built** (2026-10-30): Home, Senders, Protect (Doesn't match, Checked, Verified senders), Clean up, Stop mail, Organize, Settings, Details, one Kai, and a four-step setup (no practice inbox). The mockup is `research/2026-10-29-redesign-mockup.html`.
 - **Not live-tested**: the brand check and most of October's work haven't run against your real mailbox yet.
 - **Waiting on you**: deploying the sign-in helper (`wrangler login`, then set the secret), the Outlook redirect on Azure, and a hand-labelled sample for the 10 life categories.
 - **Nothing pushed**: all of this sits on `feat/ui-plan-2026-10`.
