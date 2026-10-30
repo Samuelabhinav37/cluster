@@ -4,12 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Clean up, Stop mail, Organize, Settings mockup</title>
-<!-- Five redesigns asked for on 2026-10-29. Open with #cleanup, #more, #stop, #organize or #settings. -->
+<!-- Round 2: one accent, no subtitles, bare numbers, verb buttons, (i) explains on click.
+     Rules: research/2026-10-29-apple-google-restraint.md. Open with #cleanup, #more, #stop, #organize or #settings. -->
 <style>
   :root {
     --canvas: #0b0b0d; --panel: #111114; --card: #17171a; --label: #f4f4f5; --label-2: #d4d4d8; --label-3: #a1a1aa; --label-4: #8e8e96;
-    --sep: #26262b; --fill: #1f1f23; --danger: #ff6b6b; --ok: #3fd38b; --warn: #f5b546; --accent: #4c9bff;
-    --k1: #4c9bff; --k2: #8b7cff; --k3: #3fc7c0; --k4: #f5a142; --k5: #5d5d66;
+    --sep: #26262b; --fill: #1f1f23; --fill-2: #2a2a30; --accent: #4c9bff; --danger: #ff6b6b;
+    /* One hue, four steps, for anything split into parts. */
+    --a1: #4c9bff; --a2: #3a77c4; --a3: #2c5a92; --a4: #22416a;
     --font: "Inter Tight", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   * { box-sizing: border-box; }
@@ -23,156 +25,155 @@
   nav { padding: 18px 12px; background: var(--panel); border-right: 1px solid var(--sep); }
   nav .brand { display: flex; gap: 9px; align-items: center; padding: 0 8px 18px; font: 700 18px/1 var(--font); }
   nav .brand i { width: 28px; height: 28px; border-radius: 7px; background: #030307; box-shadow: 0 0 0 1px var(--sep); }
-  nav a { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; color: var(--label-2); text-decoration: none; font-weight: 500; }
+  nav a { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; color: var(--label-3); text-decoration: none; font-weight: 500; }
   nav a.on { background: var(--fill); color: var(--label); }
+  nav a.on svg { color: var(--accent); }
   nav a.child { padding-left: 22px; }
-  nav .sq { width: 22px; height: 22px; border-radius: 6px; }
-  .sq.blue { background: linear-gradient(#3d9bff, #0a6cff); } .sq.orange { background: linear-gradient(#ffa63d, #f47a0a); }
-  .sq.purple { background: linear-gradient(#a879ff, #7a4cf0); } .sq.indigo { background: linear-gradient(#5a6cff, #3346d9); }
-  .sq.gray { background: linear-gradient(#8e8e93, #636366); }
   main { padding: 32px clamp(16px, 4vw, 56px) 80px; max-width: 1040px; margin: 0 auto; width: 100%; }
   .view { display: none; } .view.on { display: block; }
-  h1 { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; font: 700 30px/1.1 var(--font); letter-spacing: -0.02em; }
-  h1 .sq { width: 34px; height: 34px; border-radius: 9px; }
-  .lead { margin: 0 0 24px; color: var(--label-4); font-size: 15px; }
-  h2 { margin: 32px 0 10px; font: 600 13px/1 var(--font); color: var(--label-4); }
-  .why { margin: 40px 0 0; padding: 14px 16px; border: 1px dashed var(--sep); border-radius: 12px; color: var(--label-3); font-size: 13px; }
-  .why b { color: var(--label-2); }
+  h1 { display: flex; align-items: center; gap: 10px; margin: 0 0 24px; font: 700 30px/1.1 var(--font); letter-spacing: -0.02em; }
+  h2 { display: flex; align-items: center; gap: 6px; margin: 32px 0 10px; font: 600 13px/1 var(--font); color: var(--label-4); }
   .card { border: 1px solid var(--sep); border-radius: 16px; background: var(--card); }
   .btn { padding: 8px 14px; border-radius: 9px; border: 1px solid var(--sep); background: var(--fill); font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; }
   .btn.solid { background: var(--accent); border-color: var(--accent); color: #fff; }
   .btn.quiet { border-color: transparent; background: none; color: var(--accent); padding: 8px 6px; }
-  .logo { flex: none; display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; color: #fff; font: 700 11px/1 var(--font); }
+  .logo { flex: none; display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; background: var(--fill-2); color: var(--label-2); font: 700 11px/1 var(--font); }
   .logo.sm { width: 20px; height: 20px; border-radius: 5px; font-size: 9px; }
-  .chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; background: var(--fill); color: var(--label-2); font-size: 12px; font-weight: 500; white-space: nowrap; }
-  .chip.warn { color: var(--warn); background: rgba(245, 181, 70, 0.12); }
-  .chip.ok { color: var(--ok); background: rgba(63, 211, 139, 0.12); }
+  .chip { display: inline-flex; padding: 3px 9px; border-radius: 999px; background: var(--fill); color: var(--label-3); font-size: 12px; font-weight: 500; white-space: nowrap; }
+  .chip.now { color: var(--accent); }
   svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .num { font-variant-numeric: tabular-nums; color: var(--label-3); }
 
-  /* ── Clean up: the two quick wins as pictures ───────────────── */
+  /* (i): the explanation waits until it's asked for. */
+  .info { display: inline-grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 1px solid var(--sep); border-radius: 50%; background: none; color: var(--label-4); font: italic 600 11px/1 Georgia, serif; cursor: pointer; }
+  .info:hover { color: var(--label); border-color: var(--label-4); }
+  h1 .info { width: 22px; height: 22px; font-size: 12px; }
+  [popover] { max-width: 300px; margin: 0; padding: 12px 14px; border: 1px solid var(--sep); border-radius: 12px; background: var(--panel); color: var(--label-2); font: 400 13px/1.5 var(--font); box-shadow: 0 10px 30px rgba(0,0,0,.5); position-area: bottom span-right; position-try-fallbacks: flip-block; }
+
+  /* ── Clean up ─────────────────────────────────────────────── */
   .meter { padding: 18px 20px; }
-  .meter-top { display: flex; justify-content: space-between; align-items: baseline; }
-  .meter-top b { font: 600 22px/1 var(--font); }
-  .meter-top span { color: var(--label-4); }
-  .meter-bar { display: flex; height: 12px; margin-top: 12px; border-radius: 6px; overflow: hidden; background: var(--fill); }
-  .meter-bar i { display: block; }
-  .meter-key { display: flex; gap: 16px; margin-top: 10px; font-size: 12px; color: var(--label-3); }
-  .meter-key span::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 2px; background: var(--c); }
+  .meter b { font: 600 22px/1 var(--font); }
+  .meter-bar { display: flex; height: 10px; margin-top: 14px; border-radius: 5px; overflow: hidden; background: var(--fill); gap: 2px; }
+  .key { display: flex; gap: 16px; margin-top: 10px; font-size: 12px; color: var(--label-3); }
+  .key span::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 2px; background: var(--c); }
   .wins { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
   .win { display: flex; flex-direction: column; padding: 20px; }
   .win-head { display: flex; align-items: center; gap: 10px; color: var(--label-3); font-weight: 600; }
-  .win-head .ic { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--fill); }
-  .win-num { margin: 14px 0 2px; font: 600 40px/1 var(--font); letter-spacing: -0.02em; }
-  .win-sub { color: var(--label-4); }
-  .stack { display: flex; height: 26px; margin: 18px 0 12px; border-radius: 7px; overflow: hidden; gap: 2px; }
-  .stack i { display: grid; place-items: center; min-width: 0; color: #fff; font: 700 10px/1 var(--font); font-style: normal; }
-  .legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; font-size: 13px; }
+  .win-head svg { color: var(--label-4); }
+  .win-num { margin: 14px 0 0; font: 600 34px/1 var(--font); letter-spacing: -0.02em; }
+  .win-num small { margin-left: 6px; font-size: 15px; font-weight: 500; color: var(--label-4); letter-spacing: 0; }
+  .stack { display: flex; height: 10px; margin: 20px 0 14px; border-radius: 5px; overflow: hidden; gap: 2px; }
+  .legend { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; font-size: 13px; }
   .legend div { display: flex; align-items: center; gap: 8px; }
-  .legend em { margin-left: auto; font-style: normal; color: var(--label-4); font-variant-numeric: tabular-nums; }
-  .donut-row { display: flex; align-items: center; gap: 20px; margin: 16px 0 10px; }
+  .legend em { margin-left: auto; font-style: normal; }
+  .legend .dot { width: 8px; height: 8px; border-radius: 2px; background: var(--c); }
+  .donut-row { display: flex; align-items: center; gap: 22px; margin: 16px 0 6px; }
   .donut-row .legend { grid-template-columns: 1fr; flex: 1; }
-  .legend .dot { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
-  .legend small { display: block; color: var(--label-4); font-size: 12px; }
-  .win-foot { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 16px; }
-  .win-foot .note { margin-left: auto; color: var(--label-4); font-size: 12px; }
+  .win-foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 18px; }
 
-  /* ── More ways: four tools, one opens at a time ─────────────── */
-  .tools { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-  .tool { display: flex; flex-direction: column; gap: 6px; padding: 16px; text-align: left; cursor: pointer; }
-  .tool[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-  .tool .ic { display: grid; place-items: center; width: 34px; height: 34px; margin-bottom: 6px; border-radius: 9px; background: var(--fill); color: var(--label-2); }
-  .tool b { font-size: 15px; }
-  .tool span { color: var(--label-4); font-size: 13px; }
-  .tool strong { margin-top: 6px; font: 600 20px/1 var(--font); }
-  .sheet { margin-top: 14px; padding: 6px 0; }
-  .srow { display: grid; grid-template-columns: 22px 26px minmax(0, 1fr) 160px 70px 90px; align-items: center; gap: 12px; padding: 9px 16px; }
+  /* ── More ways ────────────────────────────────────────────── */
+  .tools { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .tool { display: flex; align-items: center; gap: 10px; padding: 12px 14px; text-align: left; cursor: pointer; }
+  .tool svg { color: var(--label-4); flex: none; }
+  .tool b { flex: 1; font-weight: 600; white-space: nowrap; }
+  .tool[aria-pressed="true"] { border-color: var(--accent); }
+  .tool[aria-pressed="true"] svg { color: var(--accent); }
+  .sheet { margin-top: 12px; }
+  .srow { display: grid; grid-template-columns: 18px 26px minmax(0, 1fr) 180px 40px auto; align-items: center; gap: 12px; padding: 10px 16px; }
   .srow + .srow { border-top: 1px solid var(--sep); }
-  .srow .sub { color: var(--label-4); font-size: 12px; }
+  .srow b { font-weight: 500; }
   .share { height: 6px; border-radius: 3px; background: var(--fill); overflow: hidden; }
-  .share i { display: block; height: 100%; background: var(--k1); border-radius: 3px; }
-  .srow .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--label-2); }
+  .share i { display: block; height: 100%; background: var(--a2); }
+  .srow .num { text-align: right; }
   .tick { width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--label-4); }
   .tick.on { background: var(--accent); border-color: var(--accent); }
   .float { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 10px 12px 10px 18px; border-radius: 12px; background: var(--fill); }
   .float span { flex: 1; color: var(--label-2); }
 
-  /* ── Stop mail ────────────────────────────────────────────────── */
-  .seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--fill); }
-  .seg button { padding: 7px 14px; border: 0; border-radius: 8px; background: none; color: var(--label-3); font-weight: 500; cursor: pointer; }
-  .seg button b { margin-left: 4px; color: var(--label); }
-  .seg button[aria-pressed="true"] { background: var(--card); color: var(--label); box-shadow: 0 1px 2px rgba(0,0,0,.4); }
+  /* ── Stop mail ────────────────────────────────────────────── */
   .subs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-  .sub-card { display: flex; flex-direction: column; gap: 10px; padding: 16px; }
-  .sub-card .top { display: flex; align-items: center; gap: 10px; }
-  .sub-card .top b { flex: 1; font-size: 15px; }
-  .sub-card .last { color: var(--label-4); font-size: 12px; }
-  .how { display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--fill); color: var(--label-3); font-size: 13px; }
-  .how b { color: var(--label); }
-  .how ol { margin: 4px 0 0; padding-left: 18px; }
-  .news-head { display: flex; align-items: center; gap: 12px; margin: 32px 0 10px; }
-  .news-head h2 { margin: 0; flex: 1; }
+  .sub-card { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
+  .sub-card b { flex: 1; font-weight: 600; }
+  .row-head { display: flex; align-items: center; gap: 12px; margin: 32px 0 10px; }
+  .row-head h2 { margin: 0; flex: 1; }
+  .seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--fill); }
+  .seg button { padding: 6px 12px; border: 0; border-radius: 8px; background: none; color: var(--label-3); font-weight: 500; cursor: pointer; }
+  .seg button span { margin-left: 5px; color: var(--label-4); }
+  .seg button[aria-pressed="true"] { background: var(--card); color: var(--label); }
   .news { display: grid; grid-template-columns: 1fr 1fr; }
-  .nrow { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 11px 16px; }
+  .nrow { display: grid; grid-template-columns: 26px minmax(0, 1fr) 44px auto; align-items: center; gap: 12px; padding: 11px 16px; }
   .nrow:nth-child(n+3) { border-top: 1px solid var(--sep); }
   .nrow:nth-child(odd) { border-right: 1px solid var(--sep); }
-  .nrow b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .freq { display: flex; gap: 3px; margin-top: 4px; }
-  .freq i { width: 6px; height: 6px; border-radius: 50%; background: var(--label-4); opacity: .9; }
-  .freq i.off { opacity: .2; }
-  .opened { width: 46px; text-align: right; color: var(--label-4); font-size: 12px; }
+  .nrow b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nrow .num { text-align: right; font-size: 12px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; }
+  .cols div { display: grid; grid-template-columns: 26px minmax(0, 1fr) 44px 98px; gap: 12px; padding: 0 16px 6px; font-size: 11px; color: var(--label-4); }
+  .cols div span:nth-child(3) { text-align: right; }
 
-  /* ── Organize: a live picture of where mail goes ─────────────── */
+  /* ── Organize ─────────────────────────────────────────────── */
   .flow { padding: 18px 20px; }
-  .flow-top { display: flex; align-items: baseline; gap: 10px; }
-  .flow-top b { font: 600 22px/1 var(--font); }
-  .flow-top span { color: var(--label-4); }
-  .flow-bars { display: grid; grid-template-columns: 70px 1fr 60px; gap: 8px 12px; align-items: center; margin-top: 14px; font-size: 12px; color: var(--label-3); }
-  .flow-bars .b { height: 14px; border-radius: 4px; background: var(--fill); overflow: hidden; display: flex; }
+  .flow b { font: 600 22px/1 var(--font); }
+  .flow-bars { display: grid; grid-template-columns: 70px 1fr 40px; gap: 8px 12px; align-items: center; margin-top: 14px; font-size: 12px; color: var(--label-3); }
+  .flow-bars .b { height: 10px; border-radius: 5px; background: var(--fill); overflow: hidden; }
   .flow-bars .b i { display: block; height: 100%; transition: width .35s ease; }
-  .flow-bars em { font-style: normal; text-align: right; font-variant-numeric: tabular-nums; color: var(--label-2); }
+  .flow-bars em { font-style: normal; text-align: right; }
   .kinds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
   .kind { padding: 16px; }
   .kind-head { display: flex; align-items: center; gap: 10px; }
-  .kind-head .ic { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; color: #fff; }
-  .kind-head b { flex: 1; font-size: 15px; }
-  .kind-head span { color: var(--label-4); font-size: 12px; }
+  .kind-head svg { color: var(--label-4); }
+  .kind-head b { flex: 1; font-size: 15px; font-weight: 600; }
   .samples { display: flex; flex-direction: column; gap: 6px; margin: 14px 0; }
   .samples div { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--label-3); white-space: nowrap; overflow: hidden; }
-  .samples div span { overflow: hidden; text-overflow: ellipsis; }
+  .samples div span:last-child { overflow: hidden; text-overflow: ellipsis; }
   .when { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; padding: 3px; border-radius: 9px; background: var(--fill); }
   .when button { padding: 6px 0; border: 0; border-radius: 7px; background: none; color: var(--label-3); font-size: 12px; font-weight: 500; cursor: pointer; }
-  .when button[aria-pressed="true"] { background: var(--card); color: var(--label); box-shadow: 0 1px 2px rgba(0,0,0,.4); }
-  .kind .effect { margin-top: 10px; font-size: 12px; color: var(--label-4); min-height: 1.4em; }
-  .kind .effect b { color: var(--label-2); }
+  .when button[aria-pressed="true"] { background: var(--card); color: var(--label); }
+  .effect { display: flex; justify-content: space-between; margin-top: 10px; font-size: 12px; color: var(--label-4); }
+  .effect b { color: var(--label-2); font-weight: 600; }
 
-  /* ── Settings: one group at a time ──────────────────────────── */
+  /* ── Settings ─────────────────────────────────────────────── */
   .set { display: grid; grid-template-columns: 230px 1fr; gap: 20px; align-items: start; }
   .set-nav { padding: 8px; }
   .acct { display: flex; align-items: center; gap: 10px; padding: 10px 10px 14px; margin-bottom: 6px; border-bottom: 1px solid var(--sep); }
-  .acct .av { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(#3d9bff, #0a6cff); font-weight: 700; font-size: 13px; }
-  .acct b { display: block; font-size: 13px; }
-  .acct span { color: var(--ok); font-size: 12px; }
-  .set-nav button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--label-2); font-weight: 500; text-align: left; cursor: pointer; }
-  .set-nav button .ic { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; color: #fff; }
-  .set-nav button .ic svg { width: 14px; height: 14px; }
+  .acct .av { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--fill-2); font-weight: 700; font-size: 13px; }
+  .acct b { font-size: 13px; font-weight: 600; }
+  .set-nav button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--label-3); font-weight: 500; text-align: left; cursor: pointer; }
+  .set-nav button svg { color: var(--label-4); width: 16px; height: 16px; }
   .set-nav button[aria-pressed="true"] { background: var(--fill); color: var(--label); }
+  .set-nav button[aria-pressed="true"] svg { color: var(--accent); }
   .pane { display: none; } .pane.on { display: block; }
-  .pane h3 { margin: 0 0 4px; font: 700 20px/1.2 var(--font); }
-  .pane > p { margin: 0 0 16px; color: var(--label-4); }
-  .prow { display: flex; align-items: center; gap: 12px; padding: 13px 16px; }
+  .pane h3 { margin: 6px 0 14px; font: 700 20px/1.2 var(--font); }
+  .prow { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 16px; }
   .prow + .prow { border-top: 1px solid var(--sep); }
   .prow .grow { flex: 1; }
-  .prow .grow small { display: block; color: var(--label-4); font-size: 12px; }
-  .sw { width: 40px; height: 24px; border-radius: 12px; background: var(--fill); border: 1px solid var(--sep); position: relative; }
-  .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--label-3); }
-  .sw.on { background: var(--ok); border-color: var(--ok); } .sw.on::after { left: 18px; background: #fff; }
+  .sw { width: 40px; height: 24px; border-radius: 12px; background: var(--fill-2); position: relative; }
+  .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--label-3); }
+  .sw.on { background: var(--accent); } .sw.on::after { left: 19px; background: #fff; }
   .pick { display: inline-flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--fill); }
   .pick span { padding: 5px 10px; border-radius: 7px; font-size: 12px; color: var(--label-3); }
   .pick span.on { background: var(--card); color: var(--label); }
-  .store { display: flex; height: 10px; margin: 6px 0 4px; border-radius: 5px; overflow: hidden; gap: 2px; }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c.8-3.4 3.2-5 6-5s5.2 1.6 6 5M16 4.5a3.5 3.5 0 0 1 0 7M18 15c1.6.6 2.6 2.2 3 5"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></symbol>
+  <symbol id="i-mailx" viewBox="0 0 24 24"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h9"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m17 17 4 4m0-4-4 4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+  <symbol id="i-stack" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 13h14M7 17h10"/></symbol>
+  <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 6.1A10 10 0 0 1 22 12a14 14 0 0 1-2.5 3.2M6.6 6.6A14 14 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M7 14h10"/></symbol>
+</svg>
 <div class="bar">
   <b>Mockup</b>
   <button data-go="cleanup">Clean up</button>
@@ -184,194 +185,175 @@
 <div class="app">
   <nav>
     <div class="brand"><i></i>Cluster</div>
-    <a href="#"><span class="sq blue"></span>Home</a>
-    <a href="#"><span class="sq gray"></span>Senders</a>
-    <a href="#cleanup" data-nav="cleanup more"><span class="sq orange"></span>Clean up</a>
-    <a href="#stop" class="child" data-nav="stop"><span class="sq orange"></span>Stop mail</a>
-    <a href="#organize" data-nav="organize"><span class="sq purple"></span>Organize</a>
-    <a href="#"><span class="sq indigo"></span>Protect</a>
-    <a href="#settings" data-nav="settings" style="margin-top:24px"><span class="sq gray"></span>Settings</a>
+    <a href="#"><svg class="i"><use href="#i-home"/></svg>Home</a>
+    <a href="#"><svg class="i"><use href="#i-users"/></svg>Senders</a>
+    <a href="#cleanup" data-nav="cleanup more"><svg class="i"><use href="#i-trash"/></svg>Clean up</a>
+    <a href="#stop" class="child" data-nav="stop"><svg class="i"><use href="#i-stop"/></svg>Stop mail</a>
+    <a href="#organize" data-nav="organize"><svg class="i"><use href="#i-layers"/></svg>Organize</a>
+    <a href="#"><svg class="i"><use href="#i-shield"/></svg>Protect</a>
+    <a href="#settings" data-nav="settings" style="margin-top:24px"><svg class="i"><use href="#i-gear"/></svg>Settings</a>
   </nav>
   <main>
 
-  <!-- ═══ 1. Clean up: the two quick wins as pictures ═══ -->
+  <!-- ═══ Clean up ═══ -->
   <section class="view" id="v-cleanup">
-    <h1><span class="sq orange"></span>Clean up</h1>
-    <p class="lead">Two picks clear most of your clutter.</p>
+    <h1>Clean up</h1>
     <div class="card meter">
-      <div class="meter-top"><b>191 of 356 emails can go</b><span>54% of your inbox</span></div>
-      <div class="meter-bar">
-        <i style="width:31%;background:var(--k1)"></i><i style="width:23%;background:var(--k4)"></i>
-      </div>
-      <div class="meter-key">
-        <span style="--c:var(--k1)">Never opened 111</span><span style="--c:var(--k4)">Past its date 80 more</span><span style="--c:var(--fill)">Stays 165</span>
-      </div>
+      <b>191 emails can go</b>
+      <div class="meter-bar"><i style="flex:111;background:var(--a1)"></i><i style="flex:80;background:var(--a3)"></i><i style="flex:165;background:none"></i></div>
+      <div class="key"><span style="--c:var(--a1)">Never opened</span><span style="--c:var(--a3)">Past its date</span></div>
     </div>
     <div class="wins">
       <div class="card win">
-        <div class="win-head"><span class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h9"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m17 17 4 4m0-4-4 4"/></svg></span>Never opened</div>
-        <div class="win-num">111</div>
-        <div class="win-sub">emails from 10 senders you never open</div>
-        <div class="stack" aria-label="By sender">
-          <i style="flex:20;background:#1a1a1a">Md</i><i style="flex:15;background:#b92b27">Q</i><i style="flex:14;background:#53a318">G</i><i style="flex:12;background:#0a3d82">ON</i><i style="flex:11;background:#3a3a3a">N</i><i style="flex:39;background:var(--k5)">+5</i>
-        </div>
+        <div class="win-head"><svg class="i"><use href="#i-mailx"/></svg>Never opened</div>
+        <div class="win-num">111<small>emails</small></div>
+        <div class="stack"><i style="flex:20;background:var(--a1)"></i><i style="flex:15;background:var(--a2)"></i><i style="flex:14;background:var(--a3)"></i><i style="flex:12;background:var(--a4)"></i><i style="flex:50;background:var(--fill-2)"></i></div>
         <div class="legend">
-          <div><span class="logo sm" style="background:#1a1a1a">Md</span>Medium<em>20</em></div>
-          <div><span class="logo sm" style="background:#b92b27">Q</span>Quora<em>15</em></div>
-          <div><span class="logo sm" style="background:#53a318">G</span>Groupon<em>14</em></div>
-          <div><span class="logo sm" style="background:#0a3d82">ON</span>Old Navy<em>12</em></div>
-          <div><span class="logo sm" style="background:#3a3a3a">N</span>Nike<em>11</em></div>
-          <div><span class="logo sm" style="background:var(--k5)">+5</span>5 more<em>39</em></div>
+          <div><span class="dot" style="--c:var(--a1)"></span>Medium<em class="num">20</em></div>
+          <div><span class="dot" style="--c:var(--a2)"></span>Quora<em class="num">15</em></div>
+          <div><span class="dot" style="--c:var(--a3)"></span>Groupon<em class="num">14</em></div>
+          <div><span class="dot" style="--c:var(--a4)"></span>Old Navy<em class="num">12</em></div>
+          <div><span class="dot" style="--c:var(--fill-2)"></span>6 more<em class="num">50</em></div>
         </div>
-        <div class="win-foot"><button class="btn solid">Trash 111</button><button class="btn quiet">Pick senders</button><span class="note">You can undo this</span></div>
+        <div class="win-foot"><button class="btn solid">Trash</button><button class="btn quiet">Pick senders</button></div>
       </div>
       <div class="card win">
-        <div class="win-head"><span class="ic"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Past its date</div>
-        <div class="win-num">135</div>
-        <div class="win-sub">emails nobody needs after a few days</div>
+        <div class="win-head"><svg class="i"><use href="#i-clock"/></svg>Past its date
+          <button class="info" popovertarget="p-date" aria-label="About Past its date">i</button></div>
+        <div popover id="p-date">Codes go after a day. Offers and delivered parcels go after a week.</div>
+        <div class="win-num">135<small>emails</small></div>
         <div class="donut-row">
-          <svg width="112" height="112" viewBox="0 0 42 42" aria-label="By kind">
-            <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--fill)" stroke-width="6"/>
-            <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--k4)" stroke-width="6" stroke-dasharray="53 47" stroke-dashoffset="25"/>
-            <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--k3)" stroke-width="6" stroke-dasharray="31 69" stroke-dashoffset="72"/>
-            <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--k2)" stroke-width="6" stroke-dasharray="16 84" stroke-dashoffset="41"/>
-            <text x="21" y="23.5" text-anchor="middle" fill="var(--label)" font-size="7" font-weight="600">135</text>
+          <svg width="104" height="104" viewBox="0 0 42 42" aria-label="By kind">
+            <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--fill)" stroke-width="5"/>
+            <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--a1)" stroke-width="5" stroke-dasharray="52 48" stroke-dashoffset="25"/>
+            <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--a2)" stroke-width="5" stroke-dasharray="29 71" stroke-dashoffset="71"/>
+            <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--a4)" stroke-width="5" stroke-dasharray="15 85" stroke-dashoffset="40"/>
           </svg>
           <div class="legend">
-            <div><span class="dot" style="--c:var(--k4)"></span><span>Expired offers<small>older than a week</small></span><em>72</em></div>
-            <div><span class="dot" style="--c:var(--k3)"></span><span>Delivered parcels<small>older than a week</small></span><em>41</em></div>
-            <div><span class="dot" style="--c:var(--k2)"></span><span>Old codes<small>older than a day</small></span><em>22</em></div>
+            <div><span class="dot" style="--c:var(--a1)"></span>Expired offers<em class="num">72</em></div>
+            <div><span class="dot" style="--c:var(--a2)"></span>Delivered parcels<em class="num">41</em></div>
+            <div><span class="dot" style="--c:var(--a4)"></span>Old codes<em class="num">22</em></div>
           </div>
         </div>
-        <div class="win-foot"><button class="btn solid">Trash 135</button><button class="btn quiet">See them</button><span class="note">You can undo this</span></div>
+        <div class="win-foot"><button class="btn solid">Trash</button><button class="btn quiet">See them</button></div>
       </div>
     </div>
-    <p class="why"><b>Why:</b> a stacked bar of who sends it, and a ring of what kind it is, so you know what you're trashing before you press one button. The meter on top shows both together against the whole inbox, overlap counted once. Every number above already exists in Cluster: senders never opened, and the past-date buckets by kind.</p>
   </section>
 
-  <!-- ═══ 2. More ways: four tools ═══ -->
+  <!-- ═══ More ways ═══ -->
   <section class="view" id="v-more">
-    <h1><span class="sq orange"></span>Clean up</h1>
-    <h2>More ways to clean up</h2>
+    <h1>Clean up</h1>
+    <h2>More ways</h2>
     <div class="tools">
-      <button class="card tool" aria-pressed="false"><span class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9.5 9.5 5 5m0-5-5 5"/></svg></span><b>Known spam</b><span>Senders on public spam lists</span><strong>4</strong></button>
-      <button class="card tool" aria-pressed="false"><span class="ic"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 13h14M7 17h10"/></svg></span><b>Keep newest</b><span>Only the latest 3 from each</span><strong>48</strong></button>
-      <button class="card tool" aria-pressed="true"><span class="ic"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span><b>By website</b><span>Everything from one site</span><strong>34</strong></button>
-      <button class="card tool" aria-pressed="false"><span class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><path d="m6 6 2 2m8 8 2 2m0-12-2 2m-8 8-2 2"/></svg></span><b>Stopped reading</b><span>You used to open these</span><strong>6</strong></button>
+      <button class="card tool"><svg class="i"><use href="#i-shield"/></svg><b>Known spam</b><span class="num">4</span></button>
+      <button class="card tool"><svg class="i"><use href="#i-stack"/></svg><b>Keep newest</b><span class="num">48</span></button>
+      <button class="card tool" aria-pressed="true"><svg class="i"><use href="#i-globe"/></svg><b>By website</b><span class="num">34</span></button>
+      <button class="card tool"><svg class="i"><use href="#i-eyeoff"/></svg><b>Stopped reading</b><span class="num">6</span></button>
     </div>
     <div class="card sheet">
-      <div class="srow"><span class="tick on"></span><span class="logo" style="background:#0a66c2">in</span><div><b>linkedin.com</b><div class="sub">5 addresses · 22% opened</div></div><div class="share"><i style="width:100%"></i></div><span class="num">59</span><button class="btn">Trash</button></div>
-      <div class="srow"><span class="tick on"></span><span class="logo" style="background:#1a1a1a">Md</span><div><b>medium.com</b><div class="sub">Never opened</div></div><div class="share"><i style="width:34%"></i></div><span class="num">20</span><button class="btn">Trash</button></div>
-      <div class="srow"><span class="tick"></span><span class="logo" style="background:#e8a33a">MB</span><div><b>morningbrew.com</b><div class="sub">17% opened</div></div><div class="share"><i style="width:31%"></i></div><span class="num">18</span><button class="btn">Trash</button></div>
-      <div class="srow"><span class="tick on"></span><span class="logo" style="background:#b92b27">Q</span><div><b>quora.com</b><div class="sub">Never opened</div></div><div class="share"><i style="width:25%"></i></div><span class="num">15</span><button class="btn">Trash</button></div>
-      <div class="srow"><span class="tick"></span><span class="logo" style="background:#ff9900">a</span><div><b>amazon.com</b><div class="sub">9 kept safe · 36% opened</div></div><div class="share"><i style="width:42%"></i></div><span class="num">25</span><button class="btn">Trash</button></div>
+      <div class="srow"><span class="tick on"></span><span class="logo">in</span><b>linkedin.com</b><div class="share"><i style="width:100%"></i></div><span class="num">59</span><button class="btn">Trash</button></div>
+      <div class="srow"><span class="tick"></span><span class="logo">a</span><b>amazon.com</b><div class="share"><i style="width:42%"></i></div><span class="num">25</span><button class="btn">Trash</button></div>
+      <div class="srow"><span class="tick on"></span><span class="logo">Md</span><b>medium.com</b><div class="share"><i style="width:34%"></i></div><span class="num">20</span><button class="btn">Trash</button></div>
+      <div class="srow"><span class="tick"></span><span class="logo">MB</span><b>morningbrew.com</b><div class="share"><i style="width:31%"></i></div><span class="num">18</span><button class="btn">Trash</button></div>
+      <div class="srow"><span class="tick on"></span><span class="logo">Q</span><b>quora.com</b><div class="share"><i style="width:25%"></i></div><span class="num">15</span><button class="btn">Trash</button></div>
     </div>
-    <div class="float"><span>3 websites ticked · 94 emails</span><button class="btn quiet">Clear</button><button class="btn solid">Trash 94</button></div>
-    <p class="why"><b>Why:</b> today these four are stacked headings inside a fold, with a red "Delete domain" button on every row. Now each is a tile with its count, so you see what's there before opening it. One opens below at a time, rows match Clean up's list (logo, share bar, count), and the red goes away: one Trash per row plus one bar for what you ticked. "By domain" becomes "By website".</p>
+    <div class="float"><span>3 ticked</span><button class="btn quiet">Clear</button><button class="btn solid">Trash</button></div>
   </section>
 
-  <!-- ═══ 3. Stop mail ═══ -->
+  <!-- ═══ Stop mail ═══ -->
   <section class="view" id="v-stop">
-    <h1><span class="sq orange"></span>Stop mail</h1>
-    <h2>Paid subscriptions and trials</h2>
+    <h1>Stop mail</h1>
+    <h2>Paid subscriptions <button class="info" popovertarget="p-subs" aria-label="How these are found">i</button></h2>
+    <div popover id="p-subs">Found from the sender and subject, like "your trial ends" or "renews on". Cluster can't see prices, so it may miss some.</div>
     <div class="subs">
-      <div class="card sub-card"><div class="top"><span class="logo" style="background:#1db954">S</span><b>Spotify</b><span class="chip warn">Trial ending</span></div><div class="last">Last email 3 days ago</div><button class="btn">How to cancel</button></div>
-      <div class="card sub-card"><div class="top"><span class="logo" style="background:#e50914">N</span><b>Netflix</b><span class="chip">Renews</span></div><div class="last">Last email 11 days ago</div><button class="btn">How to cancel</button></div>
-      <div class="card sub-card"><div class="top"><span class="logo" style="background:#555">A</span><b>Apple</b><span class="chip">Renews</span></div><div class="last">Last email 17 days ago</div><button class="btn">How to cancel</button></div>
+      <div class="card sub-card"><span class="logo">S</span><b>Spotify</b><span class="chip now">Trial ending</span><button class="btn">Cancel</button></div>
+      <div class="card sub-card"><span class="logo">N</span><b>Netflix</b><span class="chip">Renews</span><button class="btn">Cancel</button></div>
+      <div class="card sub-card"><span class="logo">A</span><b>Apple</b><span class="chip">Renews</span><button class="btn">Cancel</button></div>
     </div>
-    <div class="how">
-      <svg class="i" viewBox="0 0 24 24" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
-      <div><b>How Cluster spots these.</b> From the sender and subject only:
-        <ol><li>"Your free trial ends" in a subject means Trial ending.</li><li>"Renews on" or "auto-renewal" means Renews.</li><li>Mail from a known paid service like Netflix, if it isn't an ad.</li></ol>
-        It can't see prices, so it may miss some.</div>
-    </div>
-    <div class="news-head">
+    <div class="row-head">
       <h2>Newsletters</h2>
-      <div class="seg"><button aria-pressed="true">One click<b>22</b></button><button aria-pressed="false">On their site<b>5</b></button><button aria-pressed="false">By email<b>2</b></button></div>
-      <button class="btn solid">Unsubscribe all 22</button>
+      <div class="seg"><button aria-pressed="true">One click<span>22</span></button><button>On their site<span>5</span></button><button>By email<span>2</span></button></div>
+      <button class="btn solid">Unsubscribe all</button>
     </div>
+    <div class="cols"><div><span></span><span></span><span>Opened</span></div><div><span></span><span></span><span>Opened</span></div></div>
     <div class="card news">
-      <div class="nrow"><span class="logo" style="background:#0a66c2">in</span><div><b>LinkedIn</b><div class="freq" title="4 a month"><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i></div></div><span class="opened">22%</span><button class="btn">Unsubscribe</button></div>
-      <div class="nrow"><span class="logo" style="background:#1a1a1a">Md</span><div><b>Medium Daily Digest</b><div class="freq" title="3 a month"><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i></div></div><span class="opened">None</span><button class="btn">Unsubscribe</button></div>
-      <div class="nrow"><span class="logo" style="background:#e8a33a">MB</span><div><b>Morning Brew</b><div class="freq"><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i></div></div><span class="opened">17%</span><button class="btn">Unsubscribe</button></div>
-      <div class="nrow"><span class="logo" style="background:#ff9900">a</span><div><b>Amazon.com</b><div class="freq"><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i></div></div><span class="opened">36%</span><button class="btn">Unsubscribe</button></div>
-      <div class="nrow"><span class="logo" style="background:#b92b27">Q</span><div><b>Quora Digest</b><div class="freq"><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i></div></div><span class="opened">None</span><button class="btn">Unsubscribe</button></div>
-      <div class="nrow"><span class="logo" style="background:#0a66c2">in</span><div><b>LinkedIn Job Alerts</b><div class="freq"><i></i><i></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i></div></div><span class="opened">None</span><button class="btn">Unsubscribe</button></div>
-      <div class="nrow"><span class="logo" style="background:#0a3d82">ON</span><div><b>Old Navy</b><div class="freq"><i></i><i></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i></div></div><span class="opened">None</span><button class="btn">Unsubscribe</button></div>
-      <div class="nrow"><span class="logo" style="background:#3a3a3a">N</span><div><b>Nike</b><div class="freq"><i></i><i></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i><i class="off"></i></div></div><span class="opened">None</span><button class="btn">Unsubscribe</button></div>
+      <div class="nrow"><span class="logo">in</span><b>LinkedIn</b><span class="num">22%</span><button class="btn">Unsubscribe</button></div>
+      <div class="nrow"><span class="logo">Md</span><b>Medium Daily Digest</b><span class="num">0%</span><button class="btn">Unsubscribe</button></div>
+      <div class="nrow"><span class="logo">MB</span><b>Morning Brew</b><span class="num">17%</span><button class="btn">Unsubscribe</button></div>
+      <div class="nrow"><span class="logo">a</span><b>Amazon.com</b><span class="num">36%</span><button class="btn">Unsubscribe</button></div>
+      <div class="nrow"><span class="logo">Q</span><b>Quora Digest</b><span class="num">0%</span><button class="btn">Unsubscribe</button></div>
+      <div class="nrow"><span class="logo">in</span><b>LinkedIn Job Alerts</b><span class="num">0%</span><button class="btn">Unsubscribe</button></div>
+      <div class="nrow"><span class="logo">ON</span><b>Old Navy</b><span class="num">0%</span><button class="btn">Unsubscribe</button></div>
+      <div class="nrow"><span class="logo">N</span><b>Nike</b><span class="num">0%</span><button class="btn">Unsubscribe</button></div>
     </div>
-    <p class="why"><b>Why:</b> the old list gave each sender a full row with a 6-part line ("4 a month · Stops in one click · mostly newsletter · address"), so only 6 fit on screen. Now: subscriptions as 3 cards; newsletters in two columns, so 8+ fit; how-it-stops moves into the tabs on top; how often is dots (one per email a month); opened is one number; the address shows on hover. The note says how paid subscriptions are spotted.</p>
   </section>
 
-  <!-- ═══ 4. Organize: interactive ═══ -->
+  <!-- ═══ Organize ═══ -->
   <section class="view" id="v-organize">
-    <h1><span class="sq purple"></span>Organize</h1>
-    <p class="lead">Pick how long each kind stays. The picture shows what changes.</p>
+    <h1>Organize <button class="info" popovertarget="p-org" aria-label="How this works">i</button></h1>
+    <div popover id="p-org">Pick how long each kind stays in your inbox. After that it moves to its own label. Mail from people always stays.</div>
     <div class="card flow">
-      <div class="flow-top"><b id="flow-left">About 70</b><span>of these emails in your inbox at a time. Mail from people always stays.</span></div>
+      <b id="flow-left"></b>
       <div class="flow-bars">
-        <span>Today</span><div class="b"><i style="width:100%;background:var(--label-4)"></i></div><em id="flow-today"></em>
-        <span>With this</span><div class="b"><i id="flow-bar" style="background:var(--accent)"></i></div><em id="flow-n">70</em>
+        <span>Today</span><div class="b"><i style="width:100%;background:var(--fill-2)"></i></div><em class="num" id="flow-today"></em>
+        <span>After</span><div class="b"><i id="flow-bar" style="background:var(--accent)"></i></div><em class="num" id="flow-n"></em>
       </div>
     </div>
     <div class="kinds" id="kinds"></div>
-    <p class="why"><b>Why:</b> today Organize is 12 rows of name plus a dropdown, with no hint of what's inside each kind or what a choice does. Now each kind is a card that shows 3 real subjects, so you can see what "Updates" means. The time picker is five taps instead of a dropdown, and each tap changes the card's line ("About 6 in your inbox at a time") and the inbox bar on top right away. This is the live preview that Fastmail and lockrMail rule builders use. Kinds with no mail fold under "Show 6 more". Click the pickers, they work.</p>
   </section>
 
-  <!-- ═══ 5. Settings: one group at a time ═══ -->
+  <!-- ═══ Settings ═══ -->
   <section class="view" id="v-settings">
-    <h1><span class="sq gray"></span>Settings</h1>
-    <p class="lead">&nbsp;</p>
+    <h1>Settings</h1>
     <div class="set">
       <div class="card set-nav" id="set-nav">
-        <div class="acct"><span class="av">YO</span><div><b>you@example.com</b><span>Gmail connected</span></div></div>
-        <button data-pane="mail" aria-pressed="true"><span class="ic" style="background:#0a6cff"><svg class="i" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg></span>Mail</button>
-        <button data-pane="alerts"><span class="ic" style="background:#ff453a"><svg class="i" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>Notifications</button>
-        <button data-pane="look"><span class="ic" style="background:#8b5cf6"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></span>Appearance</button>
-        <button data-pane="learned"><span class="ic" style="background:#f59e0b"><svg class="i" viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2"/></svg></span>What Cluster learned</button>
-        <button data-pane="privacy"><span class="ic" style="background:#30b158"><svg class="i" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/></svg></span>Privacy</button>
-        <button data-pane="keys"><span class="ic" style="background:#636366"><svg class="i" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg></span>Keyboard</button>
+        <div class="acct"><span class="av">YO</span><b>you@example.com</b></div>
+        <button data-pane="mail" aria-pressed="true"><svg class="i"><use href="#i-mail"/></svg>Mail</button>
+        <button data-pane="alerts"><svg class="i"><use href="#i-bell"/></svg>Notifications</button>
+        <button data-pane="look"><svg class="i"><use href="#i-sun"/></svg>Appearance</button>
+        <button data-pane="learned"><svg class="i"><use href="#i-bulb"/></svg>Learned</button>
+        <button data-pane="privacy"><svg class="i"><use href="#i-shield"/></svg>Privacy</button>
+        <button data-pane="keys"><svg class="i"><use href="#i-key"/></svg>Keyboard</button>
       </div>
       <div>
-        <div class="pane on" data-pane="mail"><h3>Mail</h3><p>What Cluster reads, and from which accounts.</p>
+        <div class="pane on" data-pane="mail"><h3>Mail</h3>
           <div class="card">
-            <div class="prow"><div class="grow">Days to look back<small>Older mail is left alone</small></div><div class="pick"><span>30</span><span>90</span><span class="on">180</span><span>365</span></div></div>
-            <div class="prow"><div class="grow">Read my mail again<small>Last read 2 hours ago</small></div><button class="btn">Rescan</button></div>
-            <div class="prow"><div class="grow">Outlook<small>Add a second inbox</small></div><button class="btn">Add</button></div>
-            <div class="prow"><div class="grow">Setup<small>Not set up yet</small></div><button class="btn">Change</button></div>
+            <div class="prow"><span class="grow">Days to look back</span><div class="pick"><span>30</span><span>90</span><span class="on">180</span><span>365</span></div></div>
+            <div class="prow"><span class="grow">Read my mail again</span><button class="btn">Rescan</button></div>
+            <div class="prow"><span class="grow">Outlook</span><button class="btn">Add</button></div>
+            <div class="prow"><span class="grow">Setup</span><button class="btn">Change</button></div>
+            <div class="prow"><span class="grow">you@example.com</span><button class="btn">Sign out</button></div>
           </div></div>
-        <div class="pane" data-pane="alerts"><h3>Notifications</h3><p>Cluster only speaks up when it matters.</p>
+        <div class="pane" data-pane="alerts"><h3>Notifications</h3>
           <div class="card">
-            <div class="prow"><div class="grow">When a scam is held</div><span class="sw on"></span></div>
-            <div class="prow"><div class="grow">Weekly summary<small>Monday morning, in Chrome</small></div><span class="sw"></span></div>
+            <div class="prow"><span class="grow">When a scam is held</span><span class="sw on"></span></div>
+            <div class="prow"><span class="grow">Weekly summary</span><span class="sw"></span></div>
           </div></div>
-        <div class="pane" data-pane="look"><h3>Appearance</h3><p>&nbsp;</p>
+        <div class="pane" data-pane="look"><h3>Appearance</h3>
           <div class="card">
-            <div class="prow"><div class="grow">Theme</div><div class="pick"><span>Light</span><span>Dark</span><span class="on">System</span></div></div>
-            <div class="prow"><div class="grow">Simple mode<small>Bigger text, fewer screens</small></div><span class="sw"></span></div>
-            <div class="prow"><div class="grow">Show Kai</div><span class="sw on"></span></div>
+            <div class="prow"><span class="grow">Theme</span><div class="pick"><span>Light</span><span>Dark</span><span class="on">System</span></div></div>
+            <div class="prow"><span class="grow">Simple mode</span><span class="sw"></span></div>
+            <div class="prow"><span class="grow">Show Kai</span><span class="sw on"></span></div>
           </div></div>
-        <div class="pane" data-pane="learned"><h3>What Cluster learned</h3><p>From your choices. Clear one to start it fresh.</p>
+        <div class="pane" data-pane="learned"><h3>Learned</h3>
           <div class="card">
-            <div class="prow"><div class="grow">Sort choices</div><span class="chip">None yet</span></div>
-            <div class="prow"><div class="grow">People you marked as people</div><span class="chip">None yet</span></div>
-            <div class="prow"><div class="grow">Receipt senders</div><span class="chip">None yet</span></div>
+            <div class="prow"><span class="grow">Sort choices</span><span class="num">0</span></div>
+            <div class="prow"><span class="grow">People</span><span class="num">0</span></div>
+            <div class="prow"><span class="grow">Receipt senders</span><span class="num">0</span></div>
           </div></div>
-        <div class="pane" data-pane="privacy"><h3>Privacy</h3><p>Everything stays on this computer.</p>
+        <div class="pane" data-pane="privacy"><h3>Privacy</h3>
           <div class="card">
-            <div class="prow"><div class="grow">Stored here<small>Settings, rules, an index of senders, subjects and dates</small>
-              <div class="store"><i style="flex:6;background:var(--k1)"></i><i style="flex:2;background:var(--k2)"></i><i style="flex:1;background:var(--k3)"></i><i style="flex:11;background:var(--fill)"></i></div><small>4.1 MB of 10 MB</small></div></div>
-            <div class="prow"><div class="grow">Export settings and rules</div><button class="btn">Export</button></div>
-            <div class="prow"><div class="grow">Erase everything</div><button class="btn" style="color:var(--danger)">Erase</button></div>
+            <div class="prow"><span class="grow">Stored on this computer</span><span class="num">4.1 MB</span></div>
+            <div class="prow"><span class="grow">Export settings and rules</span><button class="btn">Export</button></div>
+            <div class="prow"><span class="grow">Erase everything</span><button class="btn" style="color:var(--danger)">Erase</button></div>
           </div></div>
-        <div class="pane" data-pane="keys"><h3>Keyboard</h3><p>&nbsp;</p>
+        <div class="pane" data-pane="keys"><h3>Keyboard</h3>
           <div class="card">
-            <div class="prow"><div class="grow">Ask Kai</div><span class="chip">/</span></div>
-            <div class="prow"><div class="grow">Go to a place</div><span class="chip">G then H S C O P</span></div>
+            <div class="prow"><span class="grow">Ask Kai</span><span class="chip">/</span></div>
+            <div class="prow"><span class="grow">Go to a place</span><span class="chip">G then H S C O P</span></div>
           </div></div>
       </div>
     </div>
-    <p class="why"><b>Why:</b> today Settings is one long page of 9 groups and an Advanced fold. Now it works like macOS System Settings: your account at the top, groups down the left with colored icons, one group at a time on the right. Small choices are pickers instead of number boxes. Privacy shows how much is stored as a bar. Advanced moves into the group it belongs to. Click the groups, they work.</p>
   </section>
   </main>
 </div>
@@ -387,38 +369,37 @@
   addEventListener("hashchange", show);
   show();
 
-  // Organize: each kind's weekly count, samples, and pick; the top bar adds up what stays.
+  // Organize: with a limit of d days, the inbox holds about d days of that kind at a time.
   const STEPS = [["Keep", 0], ["1 mo", 30], ["1 wk", 7], ["3 d", 3], ["1 d", 1]];
   const KINDS = [
-    { name: "Newsletters", now: 177, c: "#4c9bff", week: 41, pick: 3, s: [["Md", "#1a1a1a", "The 5 best essays this week"], ["MB", "#e8a33a", "Markets dip as rates hold"], ["Q", "#b92b27", "Why do cats knock things over?"]] },
-    { name: "Orders and shipping", now: 17, c: "#3fc7c0", week: 5, pick: 2, s: [["a", "#ff9900", "Your parcel was delivered"], ["DD", "#ff3008", "Your order is on its way"], ["UPS", "#5c3d1e", "Arriving tomorrow by 8pm"]] },
-    { name: "One-time codes", now: 8, c: "#8b7cff", week: 1, pick: 4, s: [["G", "#4285f4", "Your code is 482 913"], ["in", "#0a66c2", "Your verification code"], ["Ub", "#000", "Your Uber code"]] },
-    { name: "Receipts", now: 26, c: "#30b158", week: 2, pick: 2, s: [["Ub", "#000", "Your Tuesday trip with Uber"], ["S", "#1db954", "Your Spotify receipt"], ["a", "#ff9900", "Order confirmed #112-55"]] },
-    { name: "Social", now: 93, c: "#f5a142", week: 9, pick: 3, s: [["f", "#1877f2", "You have 3 new notifications"], ["R", "#ff4500", "Trending in r/design"], ["in", "#0a66c2", "Sam viewed your profile"]] },
-    { name: "Promotions", now: 30, c: "#ff6b6b", week: 4, pick: 4, s: [["N", "#3a3a3a", "Members get 25% off"], ["ON", "#0a3d82", "Last day: 40% off"], ["T", "#cc0000", "Deals picked for you"]] },
+    { name: "Newsletters", now: 177, week: 41, pick: 3, s: [["Md", "The 5 best essays this week"], ["MB", "Markets dip as rates hold"], ["Q", "Why do cats knock things over?"]] },
+    { name: "Orders and shipping", now: 17, week: 5, pick: 2, s: [["a", "Your parcel was delivered"], ["DD", "Your order is on its way"], ["UPS", "Arriving tomorrow by 8pm"]] },
+    { name: "One-time codes", now: 8, week: 1, pick: 4, s: [["G", "Your code is 482 913"], ["in", "Your verification code"], ["Ub", "Your Uber code"]] },
+    { name: "Receipts", now: 26, week: 2, pick: 2, s: [["Ub", "Your Tuesday trip with Uber"], ["S", "Your Spotify receipt"], ["a", "Order confirmed #112-55"]] },
+    { name: "Social", now: 93, week: 9, pick: 3, s: [["f", "You have 3 new notifications"], ["R", "Trending in r/design"], ["in", "Sam viewed your profile"]] },
+    { name: "Promotions", now: 30, week: 4, pick: 4, s: [["N", "Members get 25% off"], ["ON", "Last day: 40% off"], ["T", "Deals picked for you"]] },
   ];
   const TODAY = KINDS.reduce((n, k) => n + k.now, 0);
-  const host = document.getElementById("kinds");
-  // With a limit of d days, the inbox holds about d days of that kind at a time.
-  function held(k) { return k.pick === 0 ? k.now : Math.min(k.now, Math.round((k.week * STEPS[k.pick][1]) / 7)); }
+  const held = (k) => (k.pick === 0 ? k.now : Math.min(k.now, Math.round((k.week * STEPS[k.pick][1]) / 7)));
   function paint() {
     const left = KINDS.reduce((n, k) => n + held(k), 0);
+    document.getElementById("flow-left").textContent = `${left} emails in your inbox`;
     document.getElementById("flow-today").textContent = TODAY;
-    document.getElementById("flow-left").textContent = "About " + left;
     document.getElementById("flow-n").textContent = left;
     document.getElementById("flow-bar").style.width = (left / TODAY) * 100 + "%";
   }
+  const host = document.getElementById("kinds");
   for (const k of KINDS) {
     const card = document.createElement("div");
     card.className = "card kind";
-    card.innerHTML = `<div class="kind-head"><span class="ic" style="background:${k.c}"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span><b>${k.name}</b><span>${k.week} a week</span></div>
-      <div class="samples">${k.s.map(([m, bg, t]) => `<div><span class="logo sm" style="background:${bg}">${m}</span><span>${t}</span></div>`).join("")}</div>
+    card.innerHTML = `<div class="kind-head"><svg class="i"><use href="#i-mail"/></svg><b>${k.name}</b></div>
+      <div class="samples">${k.s.map(([m, t]) => `<div><span class="logo sm">${m}</span><span>${t}</span></div>`).join("")}</div>
       <div class="when">${STEPS.map(([l], i) => `<button data-i="${i}">${l}</button>`).join("")}</div>
-      <div class="effect"></div>`;
-    const effect = card.querySelector(".effect");
+      <div class="effect"><span>In inbox</span><b></b></div>`;
+    const effect = card.querySelector(".effect b");
     const set = () => {
       card.querySelectorAll(".when button").forEach((b, i) => b.setAttribute("aria-pressed", String(i === k.pick)));
-      effect.innerHTML = k.pick === 0 ? `All <b>${k.now}</b> stay in your inbox` : `About <b>${held(k)}</b> in your inbox at a time, older ones go to their label`;
+      effect.textContent = held(k);
       paint();
     };
     card.querySelectorAll(".when button").forEach((b) => (b.onclick = () => { k.pick = +b.dataset.i; set(); }));
@@ -426,7 +407,6 @@
     set();
   }
 
-  // Settings: one group at a time.
   for (const b of document.querySelectorAll("#set-nav button")) b.onclick = () => {
     for (const x of document.querySelectorAll("#set-nav button")) x.setAttribute("aria-pressed", String(x === b));
     for (const p of document.querySelectorAll(".pane")) p.classList.toggle("on", p.dataset.pane === b.dataset.pane);
