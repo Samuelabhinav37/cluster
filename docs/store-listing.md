@@ -10,9 +10,19 @@ or transmits, and keep it in sync with [`docs/privacy.md`](privacy.md) and `SECU
 
 ## Short description (≤132 chars — CWS "summary")
 
-> Sort, declutter, and secure your Gmail/Outlook inbox. Mail stays in your browser, on-device AI, open source.
+> Clean up Gmail and Outlook and catch scams. Your mail never leaves your browser.
 
-(108 chars.)
+(81 chars. Plain words, one job per sentence, per docs/ui-plan-2026-10-29b.md Step 8.)
+
+## Screenshot captions
+
+One per store screenshot, in this order. Verb first, under eight words, no dashes.
+
+1. **Home:** See what needs you today.
+2. **Clean up:** Trash a whole sender in one click.
+3. **Protect:** Catch scams that pretend to be brands.
+4. **Organize:** Sort new mail with ready presets.
+5. **Details:** Find any email by week, day or sender.
 
 ## Full description
 
