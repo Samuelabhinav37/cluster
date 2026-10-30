@@ -3840,9 +3840,26 @@ button.week-card:hover { background: var(--row-hover); }
 .inbox-line { margin: 0; font-size: 15px; color: var(--label-2); }
 .inbox-line b { font-weight: 600; color: var(--label); }
 .home-inbox .kind-legend { margin-bottom: 0; }
+/* First read: the counter and bar beside Kai, and Found so far in one row. */
+.read-nums { display: flex; align-items: baseline; gap: 8px; margin: 18px 0 8px; font-variant-numeric: tabular-nums; }
+.read-nums b { font: 600 22px/1 var(--font-display); color: var(--label); }
+.read-nums span { font-size: 13px; color: var(--label-4); }
+.read-nums em { margin-left: auto; font-style: normal; font-size: 13px; color: var(--label-4); }
+.read-done:empty ~ em { margin-left: 0; }
+.read-track { height: 8px; border-radius: 4px; background: var(--neutral-fill); overflow: hidden; }
+.read-track i { display: block; height: 100%; border-radius: 4px; background: var(--accent); transition: width 0.4s linear; }
+.home-read .home-words { flex: 1; max-width: 640px; }
+.found-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--separator); border-radius: 16px;
+  background: var(--glass); overflow: hidden; }
+.found-tile { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+.found-tile + .found-tile { border-left: 1px solid var(--separator); }
+.found-tile b { display: block; font: 600 24px/1 var(--font-display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.found-label { display: block; margin-top: 4px; font-size: 13px; color: var(--label-2); }
+body[data-screen="overview"] #index-status.home-shows { display: none; }
 /* One Kai on Home: the hero is Kai, so the corner one shows only while the chat is open. */
 body[data-screen="overview"] .kai-guide:not(.open) .kg-launch { visibility: hidden; }
 @media (max-width: 760px) {
-  .home-week { grid-template-columns: minmax(0, 1fr); }
+  .home-week, .found-strip { grid-template-columns: minmax(0, 1fr); }
+  .found-tile + .found-tile { border-left: 0; border-top: 1px solid var(--separator); }
   .home-hero { flex-direction: column; align-items: flex-start; }
 }

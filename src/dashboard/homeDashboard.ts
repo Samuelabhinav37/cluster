@@ -74,6 +74,10 @@ export interface HomeFacts {
   lastWeek?: number;
   /** Emails cleared per day (oldest first, today last) and since install. */
   cleared?: { byDay: number[]; total: number };
+  /** During the first read: messages read so far and how many there are. */
+  reading?: { done: number; total: number };
+  /** People you write to, from your sent mail. */
+  people?: number;
 }
 
 /** Open a place; `act` also starts that place's own confirm step. */
@@ -344,6 +348,74 @@ function nextRow(o: { app: string; ic: string; title: string; sub: string; act: 
   return row;
 }
 
+/** The first read: Kai beside a live counter. The dashboard moves the numbers
+ * with `paintHomeRead` as reading goes on. */
+function readHero(r: { done: number; total: number }): HTMLElement {
+  const hero = el("section", "home-hero home-read");
+  const words = el("div", "home-words");
+  const nums = el("div", "read-nums");
+  nums.append(
+    el("b", "read-done", n(r.done)),
+    el("span", "read-of", `of ${n(r.total)} emails`),
+    el("em", "read-eta"),
+  );
+  const track = el("div", "read-track");
+  track.setAttribute("role", "progressbar");
+  track.setAttribute("aria-label", "Emails read");
+  track.append(el("i", ""));
+  words.append(
+    el("p", "home-verdict", "Reading your mail."),
+    el("p", "home-sub", "Nothing changes in Gmail until you choose."),
+    nums,
+    track,
+  );
+  hero.append(el("div", "home-kai"), words);
+  paintHomeRead(hero, r.done, r.total, "");
+  return hero;
+}
+
+/** Moves the first-read counter and bar. `label` says which mail is being
+ * read; `eta` is the status line's time left. Between phases the count reads
+ * "150 of 150", which looks finished, so it hides like the status line's. */
+export function paintHomeRead(
+  card: Element,
+  done: number,
+  total: number,
+  eta: string,
+  label = "Reading your mail",
+): void {
+  card.querySelector(".home-verdict")!.textContent = `${label}.`;
+  card.querySelector(".read-done")!.textContent = done < total ? n(done) : "";
+  card.querySelector(".read-of")!.textContent = done < total ? `of ${n(total)} emails` : "";
+  card.querySelector(".read-eta")!.textContent = eta;
+  const track = card.querySelector<HTMLElement>(".read-track")!;
+  track.hidden = done >= total;
+  track.setAttribute("aria-valuenow", String(done));
+  track.setAttribute("aria-valuemax", String(Math.max(done, total)));
+  track.querySelector<HTMLElement>("i")!.style.width =
+    `${total > 0 ? Math.min(100, (done / total) * 100) : 0}%`;
+}
+
+/** Found so far: one row of three, each a place's icon, a number and a label. */
+function foundSoFar(f: HomeFacts): HTMLElement {
+  const strip = el("div", "found-strip");
+  const tiles: Array<[app: string, ic: string, count: number, label: string]> = [
+    ["protect", "shield-alert", f.suspicious, "look like scams"],
+    ["clean", "mail-x", f.neverOpened.emails, "you never open"],
+    ["inbox", "users", f.people ?? 0, "people you write to"],
+  ];
+  for (const [app, ic, count, label] of tiles) {
+    const tile = el("div", "found-tile");
+    const mark = el("span", `app-ic app-${app}`);
+    mark.append(icon(ic));
+    const words = el("span", "");
+    words.append(el("b", "", n(count)), el("span", "found-label", label));
+    tile.append(mark, words);
+    strip.append(tile);
+  }
+  return strip;
+}
+
 /** Home: Kai's verdict, what Cluster did this week, up to three next steps,
  * and the inbox by kind (approved mockup research/2026-10-29-home-mockup.html).
  * `openKind` opens those emails in Details. The `.home-kai` slot is left
@@ -378,7 +450,7 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
     words.append(verdict, sub);
   }
   hero.append(el("div", "home-kai"), words);
-  root.append(hero);
+  root.append(f.reading ? readHero(f.reading) : hero);
 
   // 2. This week: results, each with a comparison.
   const byDay = f.cleared?.byDay ?? [0, 0, 0, 0, 0, 0, 0];
@@ -419,7 +491,9 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
   );
   const week = el("div", "home-week");
   week.append(cleared, arrived, scams);
-  root.append(el("h2", "section-label", "This week"), week);
+  // During the first read nothing is cleared yet; show what turns up instead.
+  if (f.reading) root.append(el("h2", "section-label", "Found so far"), foundSoFar(f));
+  else root.append(el("h2", "section-label", "This week"), week);
 
   // 3. Next up: at most three, each says what happens and has one button.
   const rows: HTMLElement[] = [];

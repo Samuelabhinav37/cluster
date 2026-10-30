@@ -117,7 +117,14 @@ import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib
 import { senderTile, type TileSize } from "./senderTile";
 import { wireAccountMenu } from "./accountMenu";
 import { initAskKai, type AskFacts } from "./askKai";
-import { clearedByDay, mailByKind, renderHomeDashboard, type HomeAct, type HomeFacts } from "./homeDashboard";
+import {
+  clearedByDay,
+  mailByKind,
+  paintHomeRead,
+  renderHomeDashboard,
+  type HomeAct,
+  type HomeFacts,
+} from "./homeDashboard";
 import {
   DETAILS_PREF,
   detailSenders,
@@ -870,18 +877,26 @@ function updateIndexStatus() {
   const minutes = Math.ceil((total - done) / perMs / 60_000);
   // Waits past the usual gap are Gmail's per-minute limit; say when reading resumes.
   const resumeIn = Math.ceil((buildResumesAt - Date.now()) / 1000);
-  const parts = [
-    phase === "sent" ? "Reading your sent mail" : "Reading your mail",
-    // Between phases the last one reads "150 of 150", which looks finished.
-    done < total ? `${done.toLocaleString()} of ${total.toLocaleString()}` : "",
+  const eta =
     resumeIn * 1000 > BUILD_PACE.minGapMs + 2_000
       ? `paused for Gmail's speed limit, back in ${resumeIn} s`
       : done < total && minutes > 0
         ? minutes >= 60
           ? `about ${Math.round(minutes / 60)} h left`
           : `about ${minutes} min left`
-        : "",
+        : "";
+  const parts = [
+    phase === "sent" ? "Reading your sent mail" : "Reading your mail",
+    // Between phases the last one reads "150 of 150", which looks finished.
+    done < total ? `${done.toLocaleString()} of ${total.toLocaleString()}` : "",
+    eta,
   ].filter(Boolean);
+  // Home's first-read card carries the progress there; the bar hides on Home (CSS).
+  const homeRead = overviewContentEl.querySelector(".home-read");
+  const firstRead = active.some((p) => p.phase !== "detail");
+  if (homeRead && firstRead) paintHomeRead(homeRead, done, total, eta, parts[0]);
+  if (homeRead && !firstRead) void refreshView();
+  indexStatusEl.classList.toggle("home-shows", !!homeRead && firstRead);
   const fill = document.createElement("div");
   fill.style.width = `${total > 0 ? Math.round((done / total) * 100) : 0}%`;
   const track = document.createElement("div");
@@ -1295,6 +1310,15 @@ function movedTodayCard(): HTMLElement | null {
   return card;
 }
 
+/** Messages read so far in the first read (not the slow detail pass), or undefined. */
+function firstReadProgress(): { done: number; total: number } | undefined {
+  const runs = [...indexRuns.values()]
+    .map((r) => r.progress)
+    .filter((p) => p?.phase === "reading" || p?.phase === "sent");
+  if (runs.length === 0) return undefined;
+  return { done: runs.reduce((n, p) => n + p!.done, 0), total: runs.reduce((n, p) => n + p!.total, 0) };
+}
+
 /** The oldest message read so far, or undefined when none is. */
 function oldestRead(senders: SenderSummary[]): number | undefined {
   let oldest = Infinity;
@@ -1338,6 +1362,8 @@ function renderOverview(
       byDay: clearedByDay(ctx.settings.actionLog, Date.now()),
       total: ctx.settings.clearedTotal ?? 0,
     },
+    reading: firstReadProgress(),
+    people: ctx.settings.sentCorrespondents.addresses.length,
     // Until reading is done the total covers only recent mail, so say how far back.
     since: [...indexRuns.values()].some((r) => r.progress?.phase === "reading")
       ? oldestRead(allSenders)

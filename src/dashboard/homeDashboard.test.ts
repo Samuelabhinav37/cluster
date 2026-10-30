@@ -3,7 +3,14 @@ import { describe, expect, it, vi } from "vitest";
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 import { inboxTabOf } from "../lib/senderModel";
 import type { ActionLogEntry } from "../lib/actionLog";
-import { clearedByDay, kindOf, mailByKind, renderHomeDashboard, type HomeFacts } from "./homeDashboard";
+import {
+  clearedByDay,
+  kindOf,
+  mailByKind,
+  paintHomeRead,
+  renderHomeDashboard,
+  type HomeFacts,
+} from "./homeDashboard";
 
 const NOW = Date.UTC(2026, 9, 17);
 const DAY = 24 * 60 * 60 * 1000;
@@ -219,5 +226,44 @@ describe("renderHomeDashboard", () => {
   it("names how far back it has read while mail is still being read", () => {
     const el = renderHomeDashboard({ ...calm, since: NOW - 3 * DAY }, vi.fn());
     expect(text(el.querySelector(".inbox-line"))).toMatch(/Read back to \w+ \d+ so far\.$/);
+  });
+
+  it("during the first read shows Kai's counter and Found so far instead of the verdict and this week", () => {
+    const el = renderHomeDashboard(
+      {
+        ...calm,
+        suspicious: 1,
+        neverOpened: { senders: 3, emails: 14 },
+        people: 5,
+        reading: { done: 40, total: 184 },
+      },
+      vi.fn(),
+    );
+    expect(el.querySelector(".home-read .home-kai")).not.toBeNull();
+    expect(text(el.querySelector(".home-verdict"))).toBe("Reading your mail.");
+    expect(text(el.querySelector(".read-nums"))).toBe("40of 184 emails");
+    // Next up stays: you can act while the rest is read.
+    expect(sections(el)).toEqual(["Found so far", "Next up", "Your inbox"]);
+    expect(Array.from(el.querySelectorAll(".found-tile")).map(text)).toEqual([
+      "1look like scams",
+      "14you never open",
+      "5people you write to",
+    ]);
+    // A scam during the first read is still found, not hidden behind the verdict.
+    expect(el.querySelector(".home-hero .btn")).toBeNull();
+  });
+
+  it("moves the counter, the bar and the time left as reading goes on", () => {
+    const el = renderHomeDashboard({ ...calm, reading: { done: 0, total: 200 } }, vi.fn());
+    const card = el.querySelector(".home-read")!;
+    paintHomeRead(card, 50, 200, "about 2 min left");
+    expect(text(card.querySelector(".read-nums"))).toBe("50of 200 emailsabout 2 min left");
+    expect(card.querySelector<HTMLElement>(".read-track i")!.style.width).toBe("25%");
+    expect(card.querySelector(".read-track")!.getAttribute("aria-valuenow")).toBe("50");
+    // Between phases "200 of 200" would look finished: say what is read, hide the count.
+    paintHomeRead(card, 200, 200, "", "Reading your sent mail");
+    expect(text(card.querySelector(".home-verdict"))).toBe("Reading your sent mail.");
+    expect(text(card.querySelector(".read-nums"))).toBe("");
+    expect(card.querySelector<HTMLElement>(".read-track")!.hidden).toBe(true);
   });
 });
