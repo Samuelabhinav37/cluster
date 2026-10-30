@@ -19,7 +19,7 @@ const post = (path: string, body: unknown, origin: string | null = ORIGIN) =>
   });
 
 function google(status = 200, answer: unknown = { access_token: "a", expires_in: 3599 }) {
-  return vi.fn(async (_url: string, _init: RequestInit) => new Response(JSON.stringify(answer), { status }));
+  return vi.fn<(url: string, init: RequestInit) => Promise<Response>>(async () => new Response(JSON.stringify(answer), { status }));
 }
 
 describe("cluster-auth worker", () => {

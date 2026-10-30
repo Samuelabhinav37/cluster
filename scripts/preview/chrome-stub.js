@@ -1,3 +1,4 @@
+/* global chrome */
 /* UI preview harness (see docs/testing.md, `npm run preview:ui`).
  *
  * Injected ahead of the built dashboard by scripts/preview/serve.mjs. Stubs

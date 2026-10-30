@@ -11,7 +11,7 @@
     "build": "vite build",
     "preview:ui": "vite build && node scripts/preview/serve.mjs",
     "check:bundle": "vite build && node scripts/check-bundle.mjs",
-    "test": "vitest run",
+    "test": "vitest run --exclude \"src/nonfunctional/performance.test.ts\" && vitest run src/nonfunctional/performance.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{ts,css,html}\" \"scripts/**/*.mjs\"",
