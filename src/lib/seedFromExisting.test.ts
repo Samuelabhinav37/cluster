@@ -21,6 +21,14 @@ describe("findLabelReuseCandidates", () => {
   });
 });
 
+describe("findLabelReuseCandidates with Cluster's emoji names", () => {
+  it("offers the user's plain label, never one Cluster made itself", () => {
+    expect(findLabelReuseCandidates(["🧾 Receipts", "📰 Newsletters"], ["Receipts", "📰 Newsletters"], [])).toEqual([
+      { bucketLabel: "🧾 Receipts", existing: "Receipts" },
+    ]);
+  });
+});
+
 describe("filteredFromTargets", () => {
   const f = (from: string): GmailFilterResource => ({ id: from, criteria: { from } });
 

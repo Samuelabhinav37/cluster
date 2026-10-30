@@ -44,17 +44,20 @@ export function findLabelReuseCandidates(
   clusterOwnedLabels: string[],
 ): LabelReuseCandidate[] {
   const owned = new Set(clusterOwnedLabels.map((n) => n.toLowerCase()));
-  const byLower = new Map<string, string>();
+  // "Receipts" and "🧾 Receipts" are the same label to a person. A label named
+  // exactly like Cluster's is one Cluster made, so there is nothing to reuse.
+  const plain = (name: string) => name.replace(/^[^\p{L}\p{N}]+/u, "").toLowerCase();
+  const byPlain = new Map<string, string>();
   for (const name of userLabelNames) {
     const lower = name.toLowerCase();
-    if (SYSTEM_LABELS.has(lower) || lower.startsWith("category_")) continue;
-    if (!byLower.has(lower)) byLower.set(lower, name);
+    if (SYSTEM_LABELS.has(lower) || lower.startsWith("category_") || owned.has(lower)) continue;
+    if (bucketLabels.includes(name)) continue;
+    if (!byPlain.has(plain(name))) byPlain.set(plain(name), name);
   }
   const out: LabelReuseCandidate[] = [];
   for (const bucketLabel of bucketLabels) {
-    const lower = bucketLabel.toLowerCase();
-    const existing = byLower.get(lower);
-    if (existing && !owned.has(lower)) out.push({ bucketLabel, existing });
+    const existing = byPlain.get(plain(bucketLabel));
+    if (existing && !owned.has(bucketLabel.toLowerCase())) out.push({ bucketLabel, existing });
   }
   return out;
 }
