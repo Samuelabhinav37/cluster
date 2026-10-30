@@ -1,0 +1,138 @@
+/* Cluster's site. Apple's product-page grammar: one big idea per section,
+   large type, real screenshots in a plain window, lots of room. */
+@font-face {
+  font-family: "Inter Tight";
+  src: url("fonts/inter-tight.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --bg: #fbfbfd;
+  --ink: #1d1d1f;
+  --ink-2: #6e6e73;
+  --line: #d2d2d7;
+  --tile: #fff;
+  --blue: #0071e3;
+  --blue-hover: #0077ed;
+  --link: #0066cc;
+  --font: "Inter Tight", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 52px; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 17px/1.47 var(--font);
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+img { display: block; max-width: 100%; height: auto; }
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1, h2, h3, p { margin: 0; }
+
+/* Nav: a thin translucent bar, like apple.com's local nav. */
+.nav {
+  position: sticky; top: 0; z-index: 10;
+  background: rgba(251, 251, 253, 0.8);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+.nav-in { display: flex; align-items: center; gap: 28px; max-width: 1024px; height: 52px; margin: 0 auto; padding: 0 22px; }
+.brand { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 21px; font-weight: 650; letter-spacing: -0.02em; }
+.brand:hover { text-decoration: none; }
+.brand img { border-radius: 6px; }
+.nav-links { display: flex; gap: 24px; margin-left: auto; }
+.nav-links a { color: var(--ink); font-size: 13px; opacity: 0.8; }
+.nav-links a:hover { opacity: 1; text-decoration: none; }
+
+.pill {
+  display: inline-block; padding: 12px 22px; border-radius: 980px;
+  background: var(--blue); color: #fff; font-size: 17px; font-weight: 500;
+}
+.pill:hover { background: var(--blue-hover); text-decoration: none; }
+.pill.small { padding: 5px 14px; font-size: 13px; }
+.more { font-size: 17px; }
+.more::after { content: " ›"; }
+
+/* Type */
+h1, h2 { font-weight: 700; letter-spacing: -0.035em; line-height: 1.05; }
+h1 { font-size: clamp(48px, 8vw, 96px); }
+h2 { font-size: clamp(40px, 6vw, 72px); }
+.lede { max-width: 680px; margin: 24px auto 0; color: var(--ink-2); font-size: clamp(19px, 2vw, 24px); font-weight: 500; line-height: 1.35; letter-spacing: -0.015em; }
+.lede b, .statement b { color: var(--ink); font-weight: 600; }
+
+/* Sections */
+section { padding: 140px 22px 0; text-align: center; }
+.hero { padding-top: 96px; }
+.ctas { display: flex; justify-content: center; align-items: center; gap: 28px; margin-top: 36px; }
+
+/* A plain window: the product is the picture, the frame stays quiet. */
+.window {
+  max-width: 1180px; margin: 72px auto 0; overflow: hidden;
+  border-radius: 14px; background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 30px 80px rgba(0, 0, 0, 0.12);
+}
+.bar { display: flex; gap: 8px; padding: 12px 14px; background: #f2f2f4; border-bottom: 1px solid rgba(0, 0, 0, 0.06); }
+.bar i { width: 12px; height: 12px; border-radius: 50%; background: #d9d9de; }
+.hero-shot { margin-top: 64px; }
+
+.statement p { max-width: 900px; margin: 0 auto; color: var(--ink-2); font-size: clamp(28px, 4vw, 48px); font-weight: 650; line-height: 1.15; letter-spacing: -0.03em; }
+
+.groups { display: flex; justify-content: center; flex-wrap: wrap; gap: 40px; margin: 48px auto 0; padding: 0; list-style: none; }
+.groups li { display: flex; flex-direction: column; gap: 2px; color: var(--ink-2); font-size: 15px; }
+.groups b { color: var(--ink); font-size: 21px; font-weight: 650; letter-spacing: -0.02em; }
+
+/* Protect sits on black, the way Apple sets apart its pro features. */
+.dark { margin-top: 140px; padding-bottom: 140px; background: #000; color: #f5f5f7; }
+.dark .lede { color: #86868b; }
+.dark .lede b { color: #f5f5f7; }
+.dark .window { background: #1c1c1e; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 30px 80px rgba(0, 0, 0, 0.6); }
+.dark .bar { background: #2c2c2e; border-color: rgba(255, 255, 255, 0.06); }
+.dark .bar i { background: #48484a; }
+.dark + section { padding-top: 140px; }
+
+.kai-in { display: flex; align-items: center; justify-content: center; gap: 56px; max-width: 900px; margin: 0 auto; text-align: left; }
+.kai-in img { flex: none; width: 240px; }
+.kai .lede { margin-left: 0; }
+
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; max-width: 980px; margin: 64px auto 0; text-align: left; }
+.tile { padding: 40px; border-radius: 28px; background: var(--tile); }
+.tile h3 { font-size: 28px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.1; }
+.tile p { margin-top: 12px; color: var(--ink-2); font-size: 17px; }
+
+.end { padding-bottom: 160px; }
+
+.foot { border-top: 1px solid var(--line); background: #f5f5f7; }
+.foot-in { display: flex; gap: 24px; max-width: 1024px; margin: 0 auto; padding: 20px 22px; color: var(--ink-2); font-size: 12px; }
+.foot-in span { margin-right: auto; }
+.foot a { color: var(--ink-2); }
+
+/* Reveal on scroll. Only with JS, so the page reads without it. */
+.js .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.js .reveal.in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .js .reveal { opacity: 1; transform: none; transition: none; }
+}
+
+@media (max-width: 734px) {
+  .nav-links { display: none; }
+  .nav-in .get { margin-left: auto; }
+  section { padding-top: 96px; }
+  .ctas { flex-direction: column; gap: 18px; }
+  .window { margin-top: 48px; border-radius: 10px; }
+  .bar { padding: 8px 10px; }
+  .bar i { width: 8px; height: 8px; }
+  .groups { gap: 20px 32px; }
+  .kai-in { flex-direction: column; gap: 24px; text-align: center; }
+  .kai-in img { width: 180px; }
+  .kai .lede { margin-left: auto; }
+  .tiles { grid-template-columns: 1fr; }
+  .tile { padding: 28px; }
+  .foot-in { flex-wrap: wrap; }
+}

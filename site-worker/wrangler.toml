@@ -1,0 +1,17 @@
+# Cluster's website at samuelabhinav.com/cluster/. Static files only: the
+# Worker has no script, Cloudflare serves site/ directly. Deploy with
+# `npx wrangler deploy -c site-worker/wrangler.toml`.
+#
+# The route takes /cluster* away from the portfolio's Pages project; every
+# other path on samuelabhinav.com still goes to the portfolio.
+name = "cluster-site"
+compatibility_date = "2026-10-01"
+workers_dev = false
+routes = [
+  { pattern = "samuelabhinav.com/cluster*", zone_name = "samuelabhinav.com" },
+]
+
+[assets]
+directory = "../site"
+html_handling = "auto-trailing-slash"
+not_found_handling = "none"
