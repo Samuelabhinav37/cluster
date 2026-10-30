@@ -54,6 +54,13 @@ export function classifyMessageKind(
   return "other";
 }
 
+/** Gmail's Purchases view is stronger evidence than any subject phrase:
+ * what it lists is a receipt unless the subject already says code or
+ * shipping. */
+export function withPurchase(kind: MessageKind, purchase: boolean | undefined): MessageKind {
+  return purchase && kind !== "otp" && kind !== "shipping" ? "receipt" : kind;
+}
+
 // Subjects that read like an actual code to type in, not just a mention of
 // "one-time" or "2FA" ("Your one-time payment receipt", "Enable 2FA").
 const CODE_PHRASE_RE =

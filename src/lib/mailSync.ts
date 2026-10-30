@@ -139,7 +139,7 @@ export async function syncMailIndex(
 
   if (options.changesOnly) {
     if (applied) {
-      await refreshRiskyIds(provider, token, state, options.windowDays);
+      await refreshSearchFlags(provider, token, state, options.windowDays);
       await enforceLimits(provider, store, cap, options.windowDays, now);
       await store.setState({ ...state, lastSyncAt: now() });
     }
@@ -183,7 +183,7 @@ export async function syncMailIndex(
     result.read += await backfillSent(provider, token, store, state, options);
   }
 
-  await refreshRiskyIds(provider, token, state, options.windowDays);
+  await refreshSearchFlags(provider, token, state, options.windowDays);
   await enforceLimits(provider, store, cap, options.windowDays, now);
   await store.setState({ ...state, lastSyncAt: now() });
   signalQuick();
@@ -589,17 +589,26 @@ async function discoverAndCount(
   return { read: readIds.size, pending: queue.filter((id) => !readIds.has(id)) };
 }
 
-async function refreshRiskyIds(
+/** Flags only a search can find (risky attachments, Gmail Purchases). */
+async function refreshSearchFlags(
   provider: EmailProvider,
   token: string,
   state: MailIndexState,
   windowDays: number,
 ): Promise<void> {
-  if (!provider.listRiskyAttachmentMessageIds) return;
-  try {
-    state.riskyIds = [...(await provider.listRiskyAttachmentMessageIds(token, windowDays))];
-  } catch {
-    // Best-effort, as in the scan: a failed lookup only skips this one check.
+  if (provider.listRiskyAttachmentMessageIds) {
+    try {
+      state.riskyIds = [...(await provider.listRiskyAttachmentMessageIds(token, windowDays))];
+    } catch {
+      // Best-effort, as in the scan: a failed lookup only skips this one check.
+    }
+  }
+  if (provider.listPurchaseMessageIds) {
+    try {
+      state.purchaseIds = [...(await provider.listPurchaseMessageIds(token, windowDays))];
+    } catch {
+      // Same: sorting falls back to Cluster's own receipt checks.
+    }
   }
 }
 
@@ -618,8 +627,8 @@ async function enforceLimits(
   await store.remove(provider.id, drop);
 }
 
-/** Every indexed message for these providers, with the risky-attachment flag
- * from the last sync applied. */
+/** Every indexed message for these providers, with the risky-attachment and
+ * purchase flags from the last sync applied. */
 export async function readMailIndex(
   store: MailIndexStore,
   providers: readonly EmailProvider[],
@@ -628,8 +637,15 @@ export async function readMailIndex(
   for (const provider of providers) {
     const [rows, state] = await Promise.all([store.all(provider.id), store.getState(provider.id)]);
     const risky = new Set(state?.riskyIds ?? []);
+    const purchases = new Set(state?.purchaseIds ?? []);
     for (const row of rows) {
-      out.push(risky.has(row.id) ? { ...row, hasRiskyAttachment: true } : row);
+      if (!risky.has(row.id) && !purchases.has(row.id)) out.push(row);
+      else
+        out.push({
+          ...row,
+          ...(risky.has(row.id) && { hasRiskyAttachment: true }),
+          ...(purchases.has(row.id) && { gmailPurchase: true }),
+        });
     }
   }
   return out;

@@ -64,6 +64,8 @@ export interface NormalizedMessageMetadata extends Partial<RelationshipFields>, 
   /** Gmail filed it under the Promotions tab (CATEGORY_PROMOTIONS). Feeds
    * the 🏷 Promotions sort category; Outlook has no equivalent. */
   gmailPromotion?: boolean;
+  /** Gmail lists it under Purchases (receipts, orders, deliveries). */
+  gmailPurchase?: boolean;
   /** The provider's own long-lived, per-user importance signal -- Gmail's
    * IMPORTANT / CATEGORY_PERSONAL labels (its personalized model, built
    * from actual reply/open/star history with that sender) or Outlook's
@@ -256,6 +258,9 @@ export interface EmailProvider {
    * scan by senderModel.ts before scoring each message's threat signals.
    */
   listRiskyAttachmentMessageIds?(token: string, windowDays: number): Promise<Set<string>>;
+  /** Message ids the provider itself files as purchases (Gmail's Purchases
+   * view). Optional; applied by mailSync.ts like the risky ids. */
+  listPurchaseMessageIds?(token: string, windowDays: number): Promise<Set<string>>;
   /**
    * Local mail index support (mailSync.ts). All optional: a provider without
    * them is kept current by re-listing and fetching only unknown messages.

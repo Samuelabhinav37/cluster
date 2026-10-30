@@ -232,6 +232,17 @@ export async function listRiskyAttachmentMessageIds(
   return new Set(stubs.map((s) => s.id));
 }
 
+/** Ids in Gmail's own Purchases view (receipts, orders, deliveries). Gmail
+ * sets no label for it, so only a search finds it. One cheap list call. */
+export async function listPurchaseMessageIds(
+  token: string,
+  windowDays: number,
+  maxResults = 2000,
+): Promise<Set<string>> {
+  const stubs = await listMessageIds(token, `category:purchases newer_than:${windowDays}d`, maxResults);
+  return new Set(stubs.map((s) => s.id));
+}
+
 /** Every currently-starred message id — one `messages.list` (5 units/page,
  * usually one page since a starred set is small), not a per-id fetch. Used by
  * the bulk-delete safety re-check (see EmailProvider.listProtectedMessageIds). */

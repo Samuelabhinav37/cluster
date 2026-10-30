@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyMessageKind, looksAutomated } from "./messageKind";
+import { classifyMessageKind, looksAutomated, withPurchase } from "./messageKind";
 
 describe("classifyMessageKind", () => {
   it("detects one-time codes", () => {
@@ -48,6 +48,13 @@ describe("classifyMessageKind", () => {
     expect(classifyMessageKind("Votre code de vérification : 304411", false)).toBe("otp");
     expect(classifyMessageKind("Tu código de verificación es 7790", false)).toBe("otp");
     expect(classifyMessageKind("Ihr Bestätigungscode", false)).toBe("otp");
+  });
+
+  it("lets Gmail's Purchases view make a receipt, but not over a code or shipping", () => {
+    expect(withPurchase("newsletter", true)).toBe("receipt");
+    expect(withPurchase("shipping", true)).toBe("shipping");
+    expect(withPurchase("otp", true)).toBe("otp");
+    expect(withPurchase("newsletter", undefined)).toBe("newsletter");
   });
 
   it("treats renewal notices as receipts", () => {

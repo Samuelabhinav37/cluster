@@ -7,7 +7,7 @@ import { buildCorrespondents } from "./correspondents";
 import { passingDkimDomains } from "./emailAuth";
 import { isListedPlatform, isSharedSenderDomain } from "./freeMail";
 import type { CensusRow } from "./mailIndex";
-import { classifyMessageKind, looksAutomated } from "./messageKind";
+import { classifyMessageKind, looksAutomated, withPurchase } from "./messageKind";
 import type { NormalizedMessageMetadata, ProviderId, SentRecord } from "./providers/emailProvider";
 import { registrableDomain } from "./registrableDomain";
 
@@ -147,7 +147,10 @@ function kindVote(m: NormalizedMessageMetadata, repliesToYou: boolean): Exclude<
   if (repliesToYou) return "person";
   const labels = m.labelIds ?? [];
   const bulk = isBulk(m);
-  const kind = classifyMessageKind(m.subject, hasUnsubscribe(m), { address: m.fromAddress, displayName: m.fromDisplayName });
+  const kind = withPurchase(
+    classifyMessageKind(m.subject, hasUnsubscribe(m), { address: m.fromAddress, displayName: m.fromDisplayName }),
+    m.gmailPurchase,
+  );
   if (kind === "otp" || kind === "receipt" || kind === "shipping") return kind;
   if (kind === "social" || labels.includes("CATEGORY_SOCIAL")) return "social";
   if (m.gmailPromotion) return "promotion";

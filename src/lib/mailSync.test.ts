@@ -272,6 +272,19 @@ describe("readMailIndex", () => {
     expect(rows.find((r) => r.id === "a")?.hasRiskyAttachment).toBeUndefined();
     expect(rows.find((r) => r.id === "b")?.hasRiskyAttachment).toBe(true);
   });
+
+  it("applies Gmail's Purchases ids from the last sync", async () => {
+    const store = createMemoryMailIndex();
+    await store.put([message("a", ["INBOX"]), message("b", ["INBOX"])]);
+    await store.setState({ provider: "gmail", complete: true, purchaseIds: ["a"] });
+    const { provider } = fakeGmail([]);
+
+    const rows = await readMailIndex(store, [provider]);
+
+    expect(rows.find((r) => r.id === "a")?.gmailPurchase).toBe(true);
+    expect(rows.find((r) => r.id === "a")?.hasRiskyAttachment).toBeUndefined();
+    expect(rows.find((r) => r.id === "b")?.gmailPurchase).toBeUndefined();
+  });
 });
 
 describe("syncMailIndex: scan window", () => {

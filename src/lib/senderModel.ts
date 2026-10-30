@@ -1,5 +1,5 @@
 import { mapWithConcurrency } from "./concurrency";
-import { classifyMessageKind, looksAutomated, type MessageKind } from "./messageKind";
+import { classifyMessageKind, looksAutomated, withPurchase, type MessageKind } from "./messageKind";
 import {
   scoreMessageAuthentication,
   scoreMessageContext,
@@ -56,6 +56,9 @@ export interface MessageRecord {
   looksAutomated: boolean;
   /** Gmail put it in the Promotions tab (CATEGORY_PROMOTIONS). */
   promotion?: boolean;
+  /** Gmail lists it under Purchases; its kind then holds against the
+   * sender's usual kind. */
+  purchase?: boolean;
   /** The Gmail inbox tab it sits in. Unset for providers without tabs. */
   tab?: InboxTab;
   /** Registrable domains of the DKIM signatures the provider says passed.
@@ -156,10 +159,14 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     subject: meta.subject,
     receivedAt: meta.receivedAt,
     threadId: meta.threadId,
-    kind: classifyMessageKind(meta.subject, hasUnsubscribe(meta.unsubscribe), {
-      address: meta.fromAddress,
-      displayName: meta.fromDisplayName,
-    }),
+    kind: withPurchase(
+      classifyMessageKind(meta.subject, hasUnsubscribe(meta.unsubscribe), {
+        address: meta.fromAddress,
+        displayName: meta.fromDisplayName,
+      }),
+      meta.gmailPurchase,
+    ),
+    purchase: meta.gmailPurchase || undefined,
     isProtected: meta.isProtected,
     unread: meta.unread,
     sizeBytes: meta.sizeBytes,

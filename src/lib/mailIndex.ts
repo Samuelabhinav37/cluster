@@ -18,8 +18,8 @@ export const MAIL_INDEX_CAP = 20_000;
  * 2: relationship headers (To/Cc, thread, List-Id, Return-Path, Feedback-ID). */
 export const MAIL_ROW_VERSION = 2;
 /** 2: Social and Forums mail joined the index (it was Inbox, Promotions and
- * Updates only). */
-export const INDEX_SCOPE_VERSION = 2;
+ * Updates only). 3: mail filed under any label stays in. */
+export const INDEX_SCOPE_VERSION = 3;
 
 export interface MailIndexState {
   provider: ProviderId;
@@ -47,6 +47,9 @@ export interface MailIndexState {
   /** Message ids with a risky attachment shape, from the last sync. Applied
    * when the index is read, so the flag stays current without rewriting rows. */
   riskyIds?: string[];
+  /** Message ids in Gmail's Purchases view, from the last sync. Applied the
+   * same way as riskyIds. */
+  purchaseIds?: string[];
 }
 
 /** One sender's mail as counted with a search ("fetch one, count many"):

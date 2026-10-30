@@ -71,8 +71,12 @@ export function buildSortPlan(
     const senderKind = senderKinds.get(sender.key);
     for (const msg of sender.messages) {
       if (msg.isProtected || senderKind === "person" || neverMove(msg, sender.address)) continue;
-      const kind = kindFromSender(senderKind, msg.kind);
-      const promotion = senderKind === "promotion" || (senderKind === undefined || senderKind === "mixed" ? msg.promotion : false);
+      const kind = msg.purchase ? msg.kind : kindFromSender(senderKind, msg.kind);
+      // A list sender's ads still go to Promotions; only a sender whose mail
+      // is mostly receipts or codes keeps the Promotions tab from deciding.
+      const promotion =
+        senderKind === "promotion" ||
+        (senderKind === undefined || senderKind === "mixed" || senderKind === "list" ? msg.promotion : false);
       const bucket = effectiveBucket(kind, domain, sender.address, overrides, promotion);
       if (!bucket) continue;
 

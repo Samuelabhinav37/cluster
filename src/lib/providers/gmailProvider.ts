@@ -20,6 +20,7 @@ import {
   allowSenderThrough as apiAllowSenderThrough,
   listMessageIds,
   listRiskyAttachmentMessageIds as apiListRiskyAttachmentMessageIds,
+  listPurchaseMessageIds as apiListPurchaseMessageIds,
   listStarredMessageIds as apiListStarredMessageIds,
   listInboxMessageIdsSince,
   listSentCorrespondents as apiListSentCorrespondents,
@@ -51,7 +52,9 @@ export function gmailQueryForPurpose(purpose: CandidateScope, windowDays: number
   const age = `newer_than:${windowDays}d`;
   if (purpose === "security") return `in:inbox ${age}`;
   const machine = "category:promotions OR category:updates OR category:social OR category:forums";
-  if (purpose === "combined") return `(${machine} OR in:inbox) ${age}`;
+  // Filed mail (any user label, Cluster's included) stays in the index, so
+  // sorting mail out of Primary doesn't make it vanish from every count.
+  if (purpose === "combined") return `(${machine} OR in:inbox OR (has:userlabels -in:sent)) ${age}`;
   return `(${machine}) ${age}`;
 }
 
@@ -70,6 +73,9 @@ export function lanesFromLabelIds(labelIds: readonly string[]): ScanPurpose[] {
   return lanes.length > 0 ? lanes : ["cleanup"];
 }
 
+/** Gmail gives every label a user (or Cluster) made an id like "Label_12". */
+const isUserLabelId = (id: string) => id.startsWith("Label_");
+
 /** Labels that take a message out of the mail index entirely. */
 const OUT_OF_SCOPE_LABELS = ["TRASH", "SPAM", "DRAFT"];
 
@@ -78,7 +84,9 @@ const OUT_OF_SCOPE_LABELS = ["TRASH", "SPAM", "DRAFT"];
 export function inIndexScope(labelIds: readonly string[]): boolean {
   if (OUT_OF_SCOPE_LABELS.some((label) => labelIds.includes(label))) return false;
   return (
-    labelIds.includes("INBOX") || CLEANUP_CATEGORIES.some((c) => labelIds.includes(c))
+    labelIds.includes("INBOX") ||
+    CLEANUP_CATEGORIES.some((c) => labelIds.includes(c)) ||
+    (!labelIds.includes("SENT") && labelIds.some(isUserLabelId))
   );
 }
 
@@ -269,6 +277,10 @@ export const gmailProvider: EmailProvider = {
 
   async listRiskyAttachmentMessageIds(token, windowDays) {
     return await apiListRiskyAttachmentMessageIds(token, windowDays);
+  },
+
+  async listPurchaseMessageIds(token, windowDays) {
+    return await apiListPurchaseMessageIds(token, windowDays);
   },
 
   async trashMessages(token, ids) {

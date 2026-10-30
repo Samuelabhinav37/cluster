@@ -49,6 +49,20 @@ describe("buildSortPlan", () => {
     ]);
   });
 
+  it("files a list sender's ads as Promotions and its Gmail purchases as receipts", () => {
+    const ad = { ...msg("ad", "newsletter"), promotion: true };
+    const news = msg("news", "newsletter");
+    const bought = { ...msg("buy", "receipt"), purchase: true };
+    const plan = buildSortPlan(
+      [sender("emails@emails.cinemark.example", "gmail", [ad, news, bought])],
+      {},
+      {},
+      new Map([["gmail:emails@emails.cinemark.example", "list" as const]]),
+    );
+    const bucketOf = (id: string) => plan.find((e) => e.messages.some((m) => m.id === id))?.bucket;
+    expect([bucketOf("ad"), bucketOf("news"), bucketOf("buy")]).toEqual(["promotions", "newsletter", "receipt"]);
+  });
+
   it("never sorts mail that fails authentication or looks like a scam", () => {
     const spoofed = sender("orders@amazon.com", "gmail", [msg("f1", "shipping")]);
     spoofed.authVerdicts = { spf: "pass", dkim: "fail", dmarc: "fail" };
