@@ -3,11 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Cluster: a calmer Gmail</title>
-    <meta
-      name="description"
-      content="Cluster clears the mail you never open, sorts the rest and catches scams before you click. It runs in your browser."
-    />
+    <title>Cluster: a quiet Gmail</title>
+    <meta name="description" content="Cluster clears, sorts and guards your Gmail. Free. No account. Runs in your browser." />
     <link rel="icon" href="img/icon.png" />
     <link rel="preload" href="fonts/inter-tight.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="site.css" />
@@ -17,153 +14,150 @@
     <header class="nav">
       <div class="nav-in">
         <a class="brand" href="#top"><img src="img/icon.png" alt="" width="22" height="22" />Cluster</a>
-        <nav class="nav-links" aria-label="Page">
-          <a href="#clean">Clean up</a>
-          <a href="#sort">Sort</a>
-          <a href="#protect">Protect</a>
-          <a href="#privacy">Privacy</a>
-        </nav>
-        <a class="pill small get" href="https://github.com/Samuelabhinav37/cluster">Get Cluster</a>
+        <a class="pill small" href="https://github.com/Samuelabhinav37/cluster">Get Cluster</a>
       </div>
     </header>
 
     <main id="top">
+      <!-- Hero: the inbox sorts itself. -->
       <section class="hero">
-        <h1 class="reveal">Your inbox,<br />finally quiet.</h1>
-        <p class="lede reveal">
-          Cluster clears the mail you never open, sorts the rest and catches scams before you click. All in your
-          browser.
-        </p>
-        <div class="ctas reveal">
-          <a class="pill get" href="https://github.com/Samuelabhinav37/cluster">Get Cluster</a>
-          <a class="more" href="#clean">See how it works</a>
+        <h1 class="up">Your inbox,<br />finally quiet.</h1>
+        <p class="line up">Cluster clears, sorts and guards your Gmail.</p>
+        <div class="up">
+          <a class="pill" href="https://github.com/Samuelabhinav37/cluster">Get Cluster</a>
+          <p class="trust">Free. No account. Runs in your browser.</p>
         </div>
-        <figure class="window hero-shot reveal">
-          <div class="bar" aria-hidden="true"><i></i><i></i><i></i></div>
-          <img
-            src="img/home-light.webp"
-            width="2880"
-            height="1800"
-            alt="Cluster's Home: three scams found, 111 emails never opened, and the inbox split into people, receipts, updates and promotions."
-          />
-        </figure>
+
+        <div
+          class="mail up"
+          data-play="sort"
+          role="img"
+          aria-label="An inbox sorting itself. Mail from people stays, the rest moves to labels, and a fake PayPal email is held."
+        >
+          <aside class="labels">
+            <div class="lbl on"><span>Inbox</span><b data-count="inbox">10</b></div>
+            <div class="lbl" data-to="tx"><span>Transactions</span><b>0</b></div>
+            <div class="lbl" data-to="up"><span>Updates</span><b>0</b></div>
+            <div class="lbl" data-to="pe"><span>Personal</span><b>0</b></div>
+            <div class="lbl held" data-to="held"><span>Held</span><b>0</b></div>
+          </aside>
+          <ul class="rows">
+            <li data-go="people"><i class="av a1">M</i><b>Mom</b><span>Dinner on Sunday?</span></li>
+            <li data-go="up"><i class="av a2">G</i><b>Groupon</b><span>70% off spa days near you</span></li>
+            <li data-go="tx"><i class="av a3">A</i><b>Amazon</b><span>Your order has shipped</span></li>
+            <li data-go="held"><i class="av a4">P</i><b>PayPal</b><span>Action required: verify your identity</span><em>Fake</em></li>
+            <li data-go="up"><i class="av a5">M</i><b>Medium Daily Digest</b><span>Today's highlights</span></li>
+            <li data-go="people"><i class="av a6">A</i><b>Alex Chen</b><span>Notes from Thursday</span></li>
+            <li data-go="pe"><i class="av a7">C</i><b>Chase</b><span>Your statement is ready</span></li>
+            <li data-go="tx"><i class="av a8">U</i><b>Uber</b><span>Your Thursday evening trip</span></li>
+            <li data-go="up"><i class="av a9">L</i><b>LinkedIn</b><span>12 new jobs for you</span></li>
+            <li data-go="people"><i class="av a1">J</i><b>Jordan</b><span>Photos from the trip</span></li>
+          </ul>
+          <p class="calm">Just the people.</p>
+          <button class="replay" type="button" hidden>Replay</button>
+        </div>
       </section>
 
-      <section class="statement">
-        <p class="reveal">
-          Most mail isn't from people. <b>It's receipts, newsletters, ads and codes.</b> Cluster puts each one where
-          it belongs, so mail from people is what you see first.
-        </p>
-      </section>
-
-      <section class="feature" id="clean">
-        <h2 class="reveal">Years of mail.<br />Cleared in a minute.</h2>
-        <p class="lede reveal">
-          See who sends you the most and how much of it you open. <b>Pick a sender and move it all to Trash.</b>
-          Changed your mind? Undo.
-        </p>
-        <figure class="window reveal">
-          <div class="bar" aria-hidden="true"><i></i><i></i><i></i></div>
-          <img
-            src="img/cleanup-light.webp"
-            width="2150"
-            height="1500"
-            loading="lazy"
-            alt="Clean up: senders you never open, mail past its date, and the senders who send the most."
-          />
-        </figure>
-      </section>
-
-      <section class="feature" id="sort">
-        <h2 class="reveal">Every email<br />in its place.</h2>
-        <p class="lede reveal">
-          Four groups, the way Apple Mail does it. <b>People, Transactions, Updates and Personal.</b> Choose how long
-          each one stays in your inbox. Gmail keeps sorting new mail even when your browser is closed.
-        </p>
-        <ul class="groups reveal" aria-label="The four groups">
-          <li><b>People</b>Always kept</li>
-          <li><b>Transactions</b>Receipts and orders</li>
-          <li><b>Updates</b>Newsletters and ads</li>
-          <li><b>Personal</b>Bank, travel, work</li>
-        </ul>
-        <figure class="window reveal">
-          <div class="bar" aria-hidden="true"><i></i><i></i><i></i></div>
-          <img
-            src="img/organize-light.webp"
-            width="2150"
-            height="1500"
-            loading="lazy"
-            alt="Organize: a switch for one-time codes, then People, Transactions, Updates and Personal, each with how long it stays."
-          />
-        </figure>
-      </section>
-
-      <section class="feature dark" id="protect">
-        <h2 class="reveal">Fake PayPal.<br />Caught.</h2>
-        <p class="lede reveal">
-          Cluster checks every sender against the company it claims to be. <b>Mail that doesn't match is flagged
-          before you open it.</b> Real companies get a check mark.
-        </p>
-        <figure class="window reveal">
-          <div class="bar" aria-hidden="true"><i></i><i></i><i></i></div>
-          <img
-            src="img/protect-dark.webp"
-            width="2150"
-            height="1500"
-            loading="lazy"
-            alt="Protect: three emails pretending to be PayPal, Netflix and Apple, each with a Check button, and a row of verified senders."
-          />
-        </figure>
-      </section>
-
-      <section class="kai">
-        <div class="kai-in">
-          <img class="reveal" src="img/kai.webp" width="320" height="320" alt="Kai, Cluster's robot guide." />
-          <div class="reveal">
-            <h2>Meet Kai.</h2>
-            <p class="lede">
-              Ask him where your receipts went or who sends the most. <b>He knows your inbox and takes you
-              straight there.</b>
-            </p>
+      <!-- Clean up -->
+      <section class="feat">
+        <h2 class="up">Clear years of mail.</h2>
+        <p class="line up">Pick a sender. Trash it all.</p>
+        <div class="card clean up" data-play="clean" role="img" aria-label="111 emails you never opened, moved to Trash in one go, with Undo.">
+          <div class="clean-head">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" /><path d="m4 7 8 6 8-6" /></svg>
+            <span>Never opened</span>
           </div>
+          <p class="big"><b data-count="clean">111</b> emails</p>
+          <ul class="senders">
+            <li><span>Medium Daily Digest</span><b>20</b></li>
+            <li><span>Quora Digest</span><b>15</b></li>
+            <li><span>Groupon</span><b>14</b></li>
+            <li><span>Old Navy</span><b>12</b></li>
+          </ul>
+          <div class="clean-foot"><span class="btn trash">Trash</span><span class="btn undo">Undo</span></div>
         </div>
       </section>
 
-      <section class="privacy" id="privacy">
-        <h2 class="reveal">Private by design.</h2>
-        <div class="tiles">
-          <article class="tile reveal">
-            <h3>Runs in your browser.</h3>
-            <p>Your mail goes from Gmail to Chrome. Cluster keeps no copy on any server.</p>
-          </article>
-          <article class="tile reveal">
-            <h3>Reads the envelope.</h3>
-            <p>Sender, subject and date. It opens a message only to check the links in one that looks like a scam.</p>
-          </article>
-          <article class="tile reveal">
-            <h3>No account.</h3>
-            <p>Sign in with Google. There's no Cluster account to make or lose.</p>
-          </article>
-          <article class="tile reveal">
-            <h3>Nothing gone for good.</h3>
-            <p>Cluster moves mail to a label or to Trash. Gmail keeps Trash for 30 days.</p>
-          </article>
+      <!-- Sort -->
+      <section class="feat">
+        <h2 class="up">Everything in its place.</h2>
+        <div class="card groups up" data-play="groups" role="img" aria-label="Four groups and how long each stays: People keep, Transactions one week, Updates one day, Personal one month.">
+          <div class="grp"><b>People</b><span class="seg" data-pick="0"><i></i><s>Keep</s><s>1 mo</s><s>1 wk</s><s>1 d</s></span></div>
+          <div class="grp"><b>Transactions</b><span class="seg" data-pick="2"><i></i><s>Keep</s><s>1 mo</s><s>1 wk</s><s>1 d</s></span></div>
+          <div class="grp"><b>Updates</b><span class="seg" data-pick="3"><i></i><s>Keep</s><s>1 mo</s><s>1 wk</s><s>1 d</s></span></div>
+          <div class="grp"><b>Personal</b><span class="seg" data-pick="1"><i></i><s>Keep</s><s>1 mo</s><s>1 wk</s><s>1 d</s></span></div>
+        </div>
+      </section>
+
+      <!-- Protect -->
+      <section class="feat dark">
+        <h2 class="up">Fake PayPal. Caught.</h2>
+        <p class="line up">Flagged before you open it.</p>
+        <div class="card scams up" data-play="scams" role="img" aria-label="Three emails pretending to be PayPal, Netflix and Apple, each flagged: the address doesn't match.">
+          <div class="scam"><b>PayPal</b><span>service@<u>paypa1-secure</u>.com</span><em>Doesn't match</em></div>
+          <div class="scam"><b>Netflix</b><span>billing@<u>netflix-account-update</u>.xyz</span><em>Doesn't match</em></div>
+          <div class="scam"><b>Apple</b><span>support@<u>apple-id-verify</u>.co</span><em>Doesn't match</em></div>
+        </div>
+      </section>
+
+      <!-- Kai -->
+      <section class="feat kai">
+        <img class="kai-img up" src="img/kai.webp" width="320" height="320" alt="Kai, Cluster's robot guide." />
+        <h2 class="up">Meet Kai.</h2>
+        <p class="line up">Ask him anything about your inbox.</p>
+        <div class="ask up" data-play="ask">
+          <span class="q" data-text="Where did my receipts go?">Where did my receipts go?</span><span class="caret" aria-hidden="true"></span>
+        </div>
+      </section>
+
+      <!-- Privacy -->
+      <section class="feat">
+        <h2 class="up">Private by design.</h2>
+        <ul class="facts">
+          <li class="up">Runs in your browser.</li>
+          <li class="up">Reads the envelope, not the letter.</li>
+          <li class="up">No account.</li>
+          <li class="up">Nothing deleted for good.</li>
+        </ul>
+      </section>
+
+      <!-- FAQ -->
+      <section class="feat faq">
+        <h2 class="up">Questions.</h2>
+        <div class="qa up">
+          <details>
+            <summary>Does Cluster read my email?</summary>
+            <p>It reads who sent it, the subject and the date. It opens a message only to check the links in one that looks like a scam.</p>
+          </details>
+          <details>
+            <summary>Where does my mail go?</summary>
+            <p>From Gmail to Chrome, on your computer. Cluster keeps no copy on any server.</p>
+          </details>
+          <details>
+            <summary>Can I undo?</summary>
+            <p>Yes. Cluster moves mail to a label or to Trash, never deletes it for good. Gmail keeps Trash for 30 days.</p>
+          </details>
+          <details>
+            <summary>Does it sort when Chrome is closed?</summary>
+            <p>Yes. Cluster sets up Gmail filters, so new mail is sorted as it arrives.</p>
+          </details>
+          <details>
+            <summary>Is it free?</summary>
+            <p>Yes.</p>
+          </details>
         </div>
       </section>
 
       <section class="end">
-        <h2 class="reveal">Calm your inbox.</h2>
-        <p class="lede reveal">Free for Chrome and Gmail.</p>
-        <div class="ctas reveal">
-          <a class="pill get" href="https://github.com/Samuelabhinav37/cluster">Get Cluster</a>
-        </div>
+        <h2 class="up">Calm your inbox.</h2>
+        <div class="up"><a class="pill" href="https://github.com/Samuelabhinav37/cluster">Get Cluster</a></div>
       </section>
     </main>
 
     <footer class="foot">
       <div class="foot-in">
         <span>Cluster, 2026</span>
-        <a href="https://github.com/Samuelabhinav37/cluster/blob/master/SECURITY.md">How Cluster handles your data</a>
+        <a href="https://github.com/Samuelabhinav37/cluster/blob/master/SECURITY.md">Data</a>
         <a href="https://github.com/Samuelabhinav37/cluster">Source</a>
       </div>
     </footer>
