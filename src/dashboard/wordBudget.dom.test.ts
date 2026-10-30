@@ -15,7 +15,8 @@ const BUDGET: Record<string, { words: number; controls: number }> = {
   overview: { words: 96, controls: 10 },
   delete: { words: 80, controls: 16 },
   subscriptions: { words: 50, controls: 8 },
-  organize: { words: 195, controls: 28 },
+  // Round 2 (approved 2026-10-30): a five-step picker on each kind card.
+  organize: { words: 300, controls: 75 },
   impersonation: { words: 80, controls: 10 },
   screener: { words: 60, controls: 6 },
   report: { words: 45, controls: 5 },

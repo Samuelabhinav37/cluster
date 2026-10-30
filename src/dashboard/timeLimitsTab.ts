@@ -35,6 +35,41 @@ export const LIMIT_CHOICES: { label: string; hours: number | null }[] = [
   { label: "After 30 days", hours: 720 },
 ];
 
+/** Round 2's picker: five steps from keep to a day. Other values stay in the
+ * (hidden) menu, which is still what gets saved. */
+const STEPS: { label: string; hours: number | null; name: string }[] = [
+  { label: "Keep", hours: null, name: "Stays in inbox" },
+  { label: "1 mo", hours: 720, name: "After 30 days" },
+  { label: "1 wk", hours: 168, name: "After 1 week" },
+  { label: "3 d", hours: 72, name: "After 3 days" },
+  { label: "1 d", hours: 24, name: "After 1 day" },
+];
+
+function stepPicker(select: HTMLSelectElement, name: string): HTMLElement {
+  const seg = document.createElement("div");
+  seg.className = "step-pick";
+  seg.setAttribute("role", "group");
+  seg.setAttribute("aria-label", `${name}: how long it stays`);
+  const paint = () => {
+    for (const b of Array.from(seg.children) as HTMLButtonElement[])
+      b.setAttribute("aria-pressed", String(b.dataset.value === select.value));
+  };
+  for (const step of STEPS) {
+    const b = Object.assign(document.createElement("button"), { type: "button", textContent: step.label });
+    b.dataset.value = choiceValue(step.hours);
+    b.setAttribute("aria-label", `${name}: ${step.name}`);
+    b.onclick = () => {
+      select.value = b.dataset.value!;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      paint();
+    };
+    seg.append(b);
+  }
+  select.addEventListener("change", paint);
+  paint();
+  return seg;
+}
+
 /** "Straight to label" skips the inbox entirely, so it's offered only for
  * Promotions, where missing one ad costs nothing. */
 export function limitChoicesFor(bucket: SortBucket) {
@@ -137,7 +172,7 @@ export function renderTimeLimits(): void {
     ...ALL_SORT_BUCKETS.map((bucket) => {
       const plainName = categoryLabelName(bucket, ctx.settings.labelChoices).replace(/^\S+\s/, "");
       const row = document.createElement("div");
-      row.className = "ios-row";
+      row.className = "glass-card kind-card";
       row.title = BUCKET_HINT[bucket];
       const mark = document.createElement("span");
       mark.className = "app-ic";
@@ -153,7 +188,11 @@ export function renderTimeLimits(): void {
       for (const choice of limitChoicesFor(bucket)) select.add(new Option(choice.label, choiceValue(choice.hours)));
       select.value = choiceValue(cfg.inboxHoursByBucket[bucket] ?? null);
       select.onchange = () => void chooseLimit();
-      row.append(mark, words, select);
+      select.hidden = true;
+      const head = document.createElement("div");
+      head.className = "kind-head";
+      head.append(mark, words);
+      row.append(head, stepPicker(select, plainName), select);
       return row;
     }),
   );

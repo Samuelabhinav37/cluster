@@ -3938,3 +3938,12 @@ body[data-screen="overview"] .kai-guide:not(.open) .kg-launch { visibility: hidd
   #subscriptions-list .grouped-list > :nth-child(odd of :not(.row-sep)) { border-right: 1px solid var(--separator); }
   #subscriptions-list .list-row--check-media-meta-actions { grid-template-columns: 22px minmax(0, 1fr) 40px max-content; gap: 10px; padding: 10px 12px; }
 }
+/* Organize, round 2: a card per kind with a five-step picker. */
+.kind-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.kind-card { display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; }
+.kind-head { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.kind-head .sub { display: block; font-weight: 400; font-size: 12.5px; color: var(--label-3); }
+.step-pick { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; padding: 3px; border-radius: 10px; background: var(--neutral-fill); }
+.step-pick button { min-height: 0; padding: 6px 0; border: 0; border-radius: 8px; background: none; color: var(--label-3); font-size: 12.5px; font-weight: 500; line-height: 1.2; cursor: pointer; }
+.step-pick button:hover { color: var(--label); }
+.step-pick button[aria-pressed="true"] { background: var(--glass-solid); color: var(--label); font-weight: 650; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); }
