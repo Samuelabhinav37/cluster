@@ -25,6 +25,8 @@ describe("Phishing screen — flagged senders", () => {
     dash.showScreen("impersonation");
 
     const card = findThreatCard(dash.el("security-sender-list"), "paypal-help@gmail.com");
+    // The risk reads on the row itself, as a word.
+    expect(card.querySelector(".scam-head .risk-chip")!.textContent).toMatch(/^(High|Medium) risk$/);
     const blockBtn = Array.from(card.querySelectorAll("button")).find(
       (b) => b.textContent === "Block sender",
     )!;
@@ -179,4 +181,16 @@ describe("Phishing screen — sender-controlled text", () => {
     expect(list.querySelector('img[src^="https://evil.example"]')).toBeNull();
   });
 
+});
+
+describe("Scam report — sender checks gauge", () => {
+  it("shows the share that passed with 20 ticks filled to it", async () => {
+    const dash = await bootDashboard();
+    dash.showScreen("report");
+    const pct = parseInt(dash.el("report-checks-pct").textContent!, 10);
+    const ticks = dash.el("report-checks-gauge").querySelectorAll("i");
+    expect(ticks).toHaveLength(20);
+    expect(dash.el("report-checks-gauge").querySelectorAll("i.on")).toHaveLength(Math.round(pct / 5));
+    expect(dash.el("report-checks-sub").textContent).toMatch(/^passed · \d+ of \d+ failed$/);
+  });
 });

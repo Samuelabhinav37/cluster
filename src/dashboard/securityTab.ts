@@ -285,10 +285,11 @@ function reportSteps(): { button: HTMLButtonElement; steps: HTMLOListElement } {
   return { button, steps };
 }
 
+// On the row itself, so the risk reads at a glance (a word, not color alone).
 const TIER_CHIP: Record<VerdictTier, [string, string]> = {
   hold: ["hold", "High risk"],
-  warn: ["warn", "Check before you act"],
-  none: ["none", "Worth a look"],
+  warn: ["warn", "Medium risk"],
+  none: ["none", "Low risk"],
 };
 
 export function renderSecuritySection(senders: SenderSummary[], autoCheck = true) {
@@ -430,13 +431,13 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
     more.hidden = !more.hidden;
     toggle.setAttribute("aria-expanded", String(!more.hidden));
   };
-  head.append(fakedBrandTile(sender), id, quick, toggle);
+  head.append(fakedBrandTile(sender), id, chip, quick, toggle);
   li.appendChild(head);
   li.appendChild(more);
 
   const fromLine = document.createElement("p");
   fromLine.className = "scam-from";
-  fromLine.append(chip, " ", fromText);
+  fromLine.append(fromText);
   more.append(fromLine, reasonList(verdict));
 
   // A familiar sender whose identity changed is the invoice-fraud shape:

@@ -174,8 +174,22 @@ export function renderScamReport(securitySenders: SenderSummary[]): void {
   const pct = $("report-checks-pct");
   const pctSub = $("report-checks-sub");
   if (pct && pctSub) {
-    pct.textContent = scanned > 0 ? String(failed) : "–";
-    pctSub.textContent = scanned > 0 ? `of ${scanned} failed` : "";
+    // A ratio against a 100% target: the one place a gauge fits
+    // (research/2026-10-29-dashboard-examples-muzli.md).
+    const passed = scanned > 0 ? Math.round(((scanned - failed) / scanned) * 100) : 0;
+    pct.textContent = scanned > 0 ? `${passed}%` : "–";
+    pctSub.textContent = scanned > 0 ? `passed · ${failed} of ${scanned} failed` : "";
+    const gauge = $("report-checks-gauge");
+    if (gauge) {
+      gauge.setAttribute("aria-label", `${passed}% of senders passed`);
+      gauge.replaceChildren(
+        ...Array.from({ length: 20 }, (_, i) => {
+          const tick = document.createElement("i");
+          if (scanned > 0 && i < Math.round(passed / 5)) tick.className = "on";
+          return tick;
+        }),
+      );
+    }
   }
   const kindRows: [string, number][] = [...kindCounts].sort((a, b) => b[1] - a[1]).map(([k, n]) => [KIND_NAME[k], n]);
   const kindsEl = $("report-kinds");

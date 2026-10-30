@@ -42,7 +42,8 @@ const BUDGETS = {
   // 2026-10-27: 66 → 72 KB to match the approved mockup (skin block, Details).
   // 2026-10-27: 72 → 76 KB for the iCloud look (bento Home, app icons, banners, sign-in).
   // 2026-10-29: 76 -> 88 KB for the split sign-in page and the animated setup screens.
-  "dashboard CSS": 88 * KB,
+  // 2026-10-29: 88 -> 89 KB for Home v2, share bars and the Report gauge.
+  "dashboard CSS": 89 * KB,
 };
 
 function file(name) {

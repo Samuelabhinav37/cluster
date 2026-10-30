@@ -3871,3 +3871,7 @@ body[data-screen="overview"] .kai-guide:not(.open) .kg-launch { visibility: hidd
   .found-tile + .found-tile { border-left: 0; border-top: 1px solid var(--separator); }
   .home-hero { flex-direction: column; align-items: flex-start; }
 }
+/* Sender checks: 20 ticks filled to the share that passed. */
+.gauge-ticks { display: flex; gap: 3px; height: 18px; margin-top: 14px; }
+.gauge-ticks i { flex: 1; border-radius: 3px; background: var(--neutral-fill); }
+.gauge-ticks i.on { background: var(--accent); }
