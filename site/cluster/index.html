@@ -7,13 +7,15 @@
     <meta name="description" content="Cluster clears, sorts and guards your Gmail. Free. No account. Runs in your browser." />
     <link rel="icon" href="img/icon.png" />
     <link rel="preload" href="fonts/inter-tight.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="kai/kai.css" />
     <link rel="stylesheet" href="site.css" />
+    <script src="kai/kaiLife.js" defer></script>
     <script src="site.js" defer></script>
   </head>
   <body>
     <header class="nav">
       <div class="nav-in">
-        <a class="brand" href="#top"><img src="img/icon.png" alt="" width="22" height="22" />Cluster</a>
+        <a class="brand" href="#top"><img src="img/icon.png" alt="" width="32" height="32" />Cluster</a>
         <a class="pill small" href="https://github.com/Samuelabhinav37/cluster">Get Cluster</a>
       </div>
     </header>
@@ -58,41 +60,40 @@
         </div>
       </section>
 
-      <!-- Clean up -->
+      <!-- Sort: a real inbox -->
       <section class="feat">
-        <h2 class="up">Clear years of mail.</h2>
-        <p class="line up">Pick a sender. Trash it all.</p>
-        <div class="card clean up" data-play="clean" role="img" aria-label="111 emails you never opened, moved to Trash in one go, with Undo.">
-          <div class="clean-head">
-            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" /><path d="m4 7 8 6 8-6" /></svg>
-            <span>Never opened</span>
-          </div>
-          <p class="big"><b data-count="clean">111</b> emails</p>
-          <ul class="senders">
-            <li><span>Medium Daily Digest</span><b>20</b></li>
-            <li><span>Quora Digest</span><b>15</b></li>
-            <li><span>Groupon</span><b>14</b></li>
-            <li><span>Old Navy</span><b>12</b></li>
-          </ul>
-          <div class="clean-foot"><span class="btn trash">Trash</span><span class="btn undo">Undo</span></div>
-        </div>
+        <h2 class="up">Mail from people, first.</h2>
+        <p class="line up">Everything else gets a label in Gmail.</p>
+        <figure class="shot up">
+          <img src="img/gmail.webp" width="1518" height="680" alt="A real Gmail inbox after Cluster. Each email carries a label like Newsletters, Finance or Orders and shipping, and the labels list on the left shows how many are waiting." />
+          <figcaption>A real inbox, sorted by Cluster.</figcaption>
+        </figure>
       </section>
 
-      <!-- Sort -->
+      <!-- Clean up -->
       <section class="feat">
-        <h2 class="up">Everything in its place.</h2>
-        <div class="card groups up" data-play="groups" role="img" aria-label="Four groups and how long each stays: People keep, Transactions one week, Updates one day, Personal one month.">
-          <div class="grp"><b>People</b><span class="seg" data-pick="0"><i></i><s>Keep</s><s>1 mo</s><s>1 wk</s><s>1 d</s></span></div>
-          <div class="grp"><b>Transactions</b><span class="seg" data-pick="2"><i></i><s>Keep</s><s>1 mo</s><s>1 wk</s><s>1 d</s></span></div>
-          <div class="grp"><b>Updates</b><span class="seg" data-pick="3"><i></i><s>Keep</s><s>1 mo</s><s>1 wk</s><s>1 d</s></span></div>
-          <div class="grp"><b>Personal</b><span class="seg" data-pick="1"><i></i><s>Keep</s><s>1 mo</s><s>1 wk</s><s>1 d</s></span></div>
+        <h2 class="up">Let go of mail you never read.</h2>
+        <p class="line up">681 unread newsletters. Gone in one click.</p>
+        <div class="card clean up">
+          <div class="clean-head">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" /><path d="m4 7 8 6 8-6" /></svg>
+            <span>Newsletters</span>
+          </div>
+          <p class="big"><b>681</b> unread</p>
+          <ul class="senders">
+            <li><span>Avis</span></li>
+            <li><span>Outlier AI</span></li>
+            <li><span>Komatsu Jobs</span></li>
+            <li><span>MoTaverse</span></li>
+          </ul>
+          <div class="clean-foot"><span class="btn trash">Trash</span></div>
         </div>
       </section>
 
       <!-- Protect -->
       <section class="feat dark">
-        <h2 class="up">Fake PayPal. Caught.</h2>
-        <p class="line up">Flagged before you open it.</p>
+        <h2 class="up">Know a scam before you open it.</h2>
+        <p class="line up">Cluster checks the sender is who they say they are.</p>
         <div class="card scams up" data-play="scams" role="img" aria-label="Three emails pretending to be PayPal, Netflix and Apple, each flagged: the address doesn't match.">
           <div class="scam"><b>PayPal</b><span>service@<u>paypa1-secure</u>.com</span><em>Doesn't match</em></div>
           <div class="scam"><b>Netflix</b><span>billing@<u>netflix-account-update</u>.xyz</span><em>Doesn't match</em></div>
@@ -101,12 +102,22 @@
       </section>
 
       <!-- Kai -->
-      <section class="feat kai">
-        <img class="kai-img up" src="img/kai.webp" width="320" height="320" alt="Kai, Cluster's robot guide." />
+      <section class="feat meet">
+        <button class="kai-btn up" type="button" aria-label="Say hi to Kai"><span id="kai"></span></button>
         <h2 class="up">Meet Kai.</h2>
         <p class="line up">Ask him anything about your inbox.</p>
-        <div class="ask up" data-play="ask">
-          <span class="q" data-text="Where did my receipts go?">Where did my receipts go?</span><span class="caret" aria-hidden="true"></span>
+        <div class="talk up">
+          <p class="say" aria-live="polite">Hi. Pick a question, or type one.</p>
+          <div class="chips">
+            <button type="button">Where did my receipts go?</button>
+            <button type="button">Is this PayPal email real?</button>
+            <button type="button">Do you read my email?</button>
+            <button type="button">Can I undo?</button>
+          </div>
+          <form class="ask">
+            <input type="text" name="q" placeholder="Ask Kai" autocomplete="off" aria-label="Ask Kai" />
+            <button type="submit">Ask</button>
+          </form>
         </div>
       </section>
 

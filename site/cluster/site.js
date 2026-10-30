@@ -1,18 +1,9 @@
-/* global document, IntersectionObserver, matchMedia, setTimeout */
+/* global document, window, IntersectionObserver, matchMedia, setTimeout */
 // Each part fades up as it scrolls in, and each product piece plays its
 // little story once. With reduced motion every piece shows its end state.
 document.documentElement.classList.add("js");
 const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const wait = (ms) => new Promise((r) => setTimeout(r, still ? 0 : ms));
-
-/** Counts an element's number from `from` to `to` over `ms`. */
-async function count(el, from, to, ms) {
-  const steps = still ? 1 : 24;
-  for (let i = 1; i <= steps; i++) {
-    el.textContent = String(Math.round(from + ((to - from) * i) / steps));
-    await wait(ms / steps);
-  }
-}
 
 const plays = {
   // Mail leaves for its label; people stay; the fake PayPal is flagged and held.
@@ -57,54 +48,12 @@ const plays = {
     };
   },
 
-  // Trash is pressed, the senders cross out, the count runs to zero, Undo shows.
-  async clean(card) {
-    await wait(1000);
-    const trash = card.querySelector(".trash");
-    trash.classList.add("press");
-    await wait(160);
-    trash.classList.remove("press");
-    const rows = [...card.querySelectorAll(".senders li")];
-    const counting = count(card.querySelector('[data-count="clean"]'), 111, 0, 1300);
-    for (const row of rows) {
-      row.classList.add("gone");
-      await wait(220);
-    }
-    await counting;
-    card.classList.add("done");
-  },
-
-  // Each group's picker slides to how long that group stays.
-  async groups(card) {
-    await wait(500);
-    for (const seg of card.querySelectorAll(".seg")) {
-      const pick = Number(seg.dataset.pick);
-      const opts = seg.querySelectorAll("s");
-      seg.querySelector("i").style.transform = `translateX(${opts[0].offsetWidth * pick}px)`;
-      opts.forEach((o, i) => o.classList.toggle("on", i === pick));
-      await wait(260);
-    }
-  },
-
   // The fake part of each address is marked, then stamped.
   async scams(card) {
     await wait(700);
     for (const row of card.querySelectorAll(".scam")) {
       row.classList.add("hit");
       await wait(550);
-    }
-  },
-
-  // A question types itself into Ask Kai.
-  async ask(box) {
-    const q = box.querySelector(".q");
-    const text = q.dataset.text;
-    if (still) return;
-    q.textContent = "";
-    await wait(600);
-    for (let i = 1; i <= text.length; i++) {
-      q.textContent = text.slice(0, i);
-      await wait(55);
     }
   },
 };
@@ -122,3 +71,53 @@ const seen = new IntersectionObserver(
   { rootMargin: "0px 0px -15% 0px" },
 );
 for (const el of document.querySelectorAll(".up")) seen.observe(el);
+
+// Kai: follows the pointer, waves when clicked, answers a few questions.
+// The answers are written here; the real Kai lives in the extension.
+const answers = [
+  [/receipt|order|invoice/i, "In the Receipts label, in Gmail and in Cluster.", "found"],
+  [/paypal|scam|fake|real|phish|safe/i, "If the address isn't really paypal.com, I hold it before you open it.", "found"],
+  [/read|privacy|private|data/i, "No. I look at who sent it, the subject and the date.", "found"],
+  [/undo|back|delete|trash/i, "Yes. Anything I move can come back. Trash keeps it 30 days.", "found"],
+  [/most|who sends|newsletter|unsubscribe/i, "Open Clean up. The busiest senders are at the top.", "found"],
+  [/hi|hello|hey/i, "Hi! I'm Kai. I keep your inbox calm.", "hello"],
+  [/joke|funny/i, "I tried to unsubscribe from my own thoughts. Still getting them.", "joke"],
+];
+const fallback = ["Good question. Add Cluster and ask me in your own inbox.", "miss"];
+
+const stage = document.getElementById("kai");
+if (stage && typeof window.Kai === "function") {
+  const kai = new window.Kai(stage, { src: "kai/", imgWidth: 320, auto: true });
+  stage.classList.add("on-light");
+  const say = document.querySelector(".say");
+  const field = document.querySelector(".ask input");
+  let turn = 0;
+
+  const ask = async (q) => {
+    const mine = ++turn;
+    const [, text, kind] = answers.find(([re]) => re.test(q)) || [null, ...fallback];
+    say.textContent = "…";
+    kai.think(true);
+    await wait(700);
+    if (mine !== turn) return;
+    kai.think(false);
+    say.textContent = text;
+    kai.react(kind, text.length);
+  };
+
+  document.querySelector(".kai-btn").addEventListener("click", () => {
+    say.textContent = "Hi! I'm Kai. I keep your inbox calm.";
+    kai.react("hello");
+  });
+  for (const chip of document.querySelectorAll(".chips button")) {
+    chip.addEventListener("click", () => void ask(chip.textContent));
+    chip.addEventListener("pointerenter", () => kai.lookAt(chip));
+  }
+  document.querySelector(".ask").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const q = field.value.trim();
+    if (!q) return;
+    field.value = "";
+    void ask(q);
+  });
+}
