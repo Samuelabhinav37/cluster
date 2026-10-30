@@ -384,6 +384,10 @@ function wireNav() {
     void selectScreen(btn.dataset.screen!);
   });
 
+  document.getElementById("never-opened-pick")?.addEventListener("click", (event) => {
+    event.preventDefault();
+    details?.open({ view: "senders", never: true });
+  });
   seeAllSendersLink?.addEventListener("click", (event) => {
     event.preventDefault();
     details?.open({ view: "senders" });
@@ -1491,6 +1495,8 @@ function clearOutPlan(senders: SenderSummary[]) {
   for (const s of spam) for (const id of s.sender.messageIds) ids.add(`${s.sender.provider}:${id}`);
   for (const s of neverRead) for (const id of s.safeMessageIds) ids.add(`${s.sender.provider}:${id}`);
   return {
+    expiry,
+    neverRead,
     expiryTotal: totalExpiryCount(expiry),
     spamMsgs: spam.reduce((n, s) => n + s.messageCount, 0),
     neverReadMsgs: neverRead.reduce((n, s) => n + s.safeMessageIds.length, 0),
@@ -1554,19 +1560,38 @@ function updateSenderState(senders: SenderSummary[]) {
   );
 }
 
-// Clean up's head and its two bulk cards. Each card's button is the existing
-// confirm (mute never-opened, trash past-date), moved into the card.
+// Clean up: a meter of what can go, then a card per kind. Each card's button
+// is the existing confirm (mute never-opened, trash past-date), moved in.
 function renderDeleteScreen(senders: SenderSummary[]) {
   const plan = clearOutPlan(senders);
-  const unopened = unopenedSuggestions(currentSuggestions(senders)).length;
-  const emails = (n: number) => `${n.toLocaleString()} ${n === 1 ? "email" : "emails"}`;
-  document.getElementById("cleanup-lead")!.textContent = `${emails(plan.total)} you can clear.`;
-  document.getElementById("never-opened-card")!.hidden = unopened === 0;
-  document.getElementById("never-opened-name")!.textContent =
-    `${unopened} ${unopened === 1 ? "sender" : "senders"}`;
-  document.getElementById("never-opened-fact")!.textContent = emails(plan.neverReadMsgs);
+  const n = (v: number) => v.toLocaleString();
+  const both = plan.neverReadMsgs + plan.expiryTotal;
+  document.getElementById("cleanup-meter")!.hidden = plan.total === 0;
+  document.getElementById("cleanup-total")!.textContent = `${n(plan.total)} ${plan.total === 1 ? "email" : "emails"} can go`;
+  document.getElementById("cu-bar-never")!.style.flexGrow = String(plan.neverReadMsgs / Math.max(1, both));
+  document.getElementById("cu-bar-past")!.style.flexGrow = String(plan.expiryTotal / Math.max(1, both));
+  document.getElementById("cu-leg-never")!.hidden = plan.neverReadMsgs === 0;
+  document.getElementById("cu-leg-past")!.hidden = plan.expiryTotal === 0;
+  document.getElementById("never-opened-card")!.hidden = plan.neverRead.length === 0;
+  document.getElementById("never-opened-fact")!.textContent = n(plan.neverReadMsgs);
   document.getElementById("past-date-card")!.hidden = plan.expiryTotal === 0;
-  document.getElementById("past-date-fact")!.textContent = emails(plan.expiryTotal);
+  document.getElementById("past-date-fact")!.textContent = n(plan.expiryTotal);
+  // Name and count, biggest first; the rest fold into "N more".
+  const list = (id: string, rows: Array<[string, number]>) => {
+    rows.sort((a, b) => b[1] - a[1]);
+    const shown = rows.slice(0, 4);
+    const rest = rows.slice(4).reduce((t, [, c]) => t + c, 0);
+    if (rest > 0) shown.push([`${rows.length - 4} more`, rest]);
+    document.getElementById(id)!.replaceChildren(
+      ...shown.map(([name, count]) => {
+        const li = document.createElement("li");
+        li.append(textEl("span", name), textEl("em", n(count)));
+        return li;
+      }),
+    );
+  };
+  list("never-opened-top", plan.neverRead.map((s) => [senderName(s.sender), s.safeMessageIds.length]));
+  list("past-date-top", plan.expiry.filter((b) => b.count > 0).map((b) => [b.label, b.count]));
 }
 
 function renderOrganizeScreen(senders: SenderSummary[]) {

@@ -221,7 +221,6 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Clean up</h1>
-                <p class="lead" id="cleanup-lead"></p>
               </div>
               <button type="button" class="tool" data-details aria-controls="details">
                 <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
@@ -231,38 +230,49 @@
               </button>
             </div>
 
-            <div class="ios-group cleanup-quick">
-              <div class="ios-row" id="never-opened-card" hidden>
-                <span class="app-ic app-clean"
-                  ><svg class="i" viewBox="0 0 24 24" aria-hidden="true">
+            <!-- Round 2: one meter, then a card per kind of win. -->
+            <div class="glass-card cu-meter" id="cleanup-meter" hidden>
+              <b id="cleanup-total"></b>
+              <div class="cu-bar"><i id="cu-bar-never"></i><i id="cu-bar-past"></i></div>
+              <ul class="cu-legend"><li id="cu-leg-never">Never opened</li><li id="cu-leg-past">Past its date</li></ul>
+            </div>
+            <div class="cu-cards">
+              <div class="glass-card cu-card" id="never-opened-card" hidden>
+                <h3 class="cu-head">
+                  <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h9"></path>
                     <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
                     <path d="m17 17 4 4"></path>
                     <path d="m21 17-4 4"></path></svg
-                ></span>
-                <span class="grow">Never opened<span class="sub" id="never-opened-name"></span></span>
-                <span class="ios-value" id="never-opened-fact"></span>
-                <span id="never-read-trash-slot"
-                  ><button id="never-read-trash-btn" class="btn btn-sm">Trash</button></span
-                >
+                  >Never opened
+                </h3>
+                <p class="cu-num"><b id="never-opened-fact"></b> emails</p>
+                <ul class="cu-list" id="never-opened-top"></ul>
+                <div class="cu-acts">
+                  <span id="never-read-trash-slot"><button id="never-read-trash-btn" class="btn">Trash</button></span>
+                  <a href="#" id="never-opened-pick">Pick senders</a>
+                </div>
               </div>
-              <div class="ios-row" id="past-date-card" hidden>
-                <span class="app-ic app-clean"
-                  ><svg class="i" viewBox="0 0 24 24" aria-hidden="true">
+              <div class="glass-card cu-card" id="past-date-card" hidden>
+                <h3 class="cu-head">
+                  <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
                     <circle cx="12" cy="12" r="10"></circle>
                     <polyline points="12 6 12 12 16 14"></polyline></svg
-                ></span>
-                <span class="grow">Past its date<span class="sub">Old codes and expired offers</span></span>
-                <span class="ios-value" id="past-date-fact"></span>
-                <span id="expiry-cleanup-slot"
-                  ><button id="expiry-cleanup-btn" class="btn btn-sm">Trash</button></span
-                >
+                  >Past its date
+                </h3>
+                <p class="cu-num"><b id="past-date-fact"></b> emails</p>
+                <ul class="cu-list" id="past-date-top"></ul>
+                <div class="cu-acts">
+                  <span id="expiry-cleanup-slot"><button id="expiry-cleanup-btn" class="btn">Trash</button></span>
+                </div>
               </div>
             </div>
 
+            <details class="disclosure" id="cleanup-more">
+              <summary>More ways to clean up</summary>
             <section id="senders-worth-decision">
               <div class="section-head">
-                <h2 class="section-label">Most mail first</h2>
+                <h3 class="section-label">By sender</h3>
                 <span class="muted" id="worth-decision-count"></span>
                 <span class="spacer"></span>
                 <a href="#" id="see-all-senders-link">See all in Details</a>
@@ -296,8 +306,6 @@
               </div>
             </section>
 
-            <details class="disclosure" id="cleanup-more">
-              <summary>More ways to clean up</summary>
               <section id="never-read-section" class="review-panel" hidden>
                 <h3 class="section-label">Personalized cleanup suggestions</h3>
                 <p class="hint">Senders you never open. Starred senders are left out.</p>
