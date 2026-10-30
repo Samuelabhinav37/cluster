@@ -19,6 +19,7 @@ import {
   classifyOtherSubjects,
 } from "../lib/aiMessageKind";
 import { loadPublicSuffixList } from "../lib/publicSuffix";
+import { loadBrandRegistry } from "../lib/brandRegistry";
 import { applySenderLedger } from "../lib/senderLedgerStore";
 import { buildDomainGroups, type DomainGroup } from "../lib/domainGrouping";
 import {
@@ -586,10 +587,11 @@ async function main() {
     }).observe(detailsPanel);
   }
   statusEl.textContent = "Connecting…";
-  // Domain matching needs the Public Suffix List (a local file, quick to load).
+  // Domain matching needs the Public Suffix List and the brand registry (local files, quick to load).
   const [settings] = await Promise.all([
     getSettings(),
     loadPublicSuffixList(),
+    loadBrandRegistry(),
     initSuggestionModel(),
     initKindModel(),
     initBodyChecks(),

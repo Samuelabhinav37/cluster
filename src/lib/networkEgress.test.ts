@@ -59,6 +59,7 @@ const ALLOWED_FETCH_CALLERS = [
   "lib/httpRetry.ts", // the shared wrapper every fixed-endpoint API call flows through
   "lib/providers/msalAuth.ts", // login.microsoftonline.com token endpoint
   "lib/publicSuffix.ts", // the extension's own bundled data file (chrome.runtime.getURL), never the network
+  "lib/brandRegistry.ts", // same: bundled brand-registry.json and brand-logos.json only
   "lib/remoteDataset.ts", // Cluster's own published reference datasets -- see its header comment
   "lib/unsubscribe.ts", // user-approved unsubscribe origin, one click at a time
 ];

@@ -97,21 +97,34 @@ function isValidBrandDomainsPatch(data: unknown): data is Record<string, string[
   );
 }
 
-function mergeBrandDomains(patch: Record<string, string[]>): Record<string, string[]> {
+// Where extra domains for known brands come from: the signed weekly copy,
+// the bundled brand registry (brandRegistry.ts), and the user's own "Real"
+// verdicts. Each is replaced whole when it changes.
+type BrandDomainSource = "dataset" | "registry" | "local";
+const brandDomainSources: Partial<Record<BrandDomainSource, Record<string, string[]>>> = {};
+
+/** Widens known brands' domain lists. Patches naming an unknown brand are
+ * ignored whole, so no source can mint a new trusted identity. */
+export function setBrandDomainSource(source: BrandDomainSource, patch: unknown): void {
+  if (!isValidBrandDomainsPatch(patch)) return;
+  brandDomainSources[source] = patch;
   const merged: Record<string, string[]> = {};
   for (const [brand, domains] of Object.entries(BRAND_DOMAINS_BASE)) {
-    merged[brand] = [...new Set([...domains, ...(patch[brand] ?? [])])];
+    merged[brand] = [...new Set([...domains, ...Object.values(brandDomainSources).flatMap((p) => p[brand] ?? [])])];
   }
-  return merged;
+  BRAND_DOMAINS = merged;
+}
+
+/** The hand-checked list's brands and their own domains, unwidened. */
+export function baseBrandDomains(): Readonly<Record<string, string[]>> {
+  return BRAND_DOMAINS_BASE;
 }
 
 // Hydrate from any existing cache at module load -- local storage only,
 // never blocks on network, so this can't slow anything down. If nothing is
 // cached yet (fresh install, or the alarm hasn't fired), this is a no-op and
 // BRAND_DOMAINS just stays BRAND_DOMAINS_BASE.
-void getDataset<Record<string, string[]>>("brandDomains", {}).then((patch) => {
-  if (isValidBrandDomainsPatch(patch)) BRAND_DOMAINS = mergeBrandDomains(patch);
-});
+void getDataset<Record<string, string[]>>("brandDomains", {}).then((patch) => setBrandDomainSource("dataset", patch));
 
 /** A known brand's own main domain, for showing its real logo. */
 export function brandHomeDomain(brand: string): string | undefined {
@@ -123,10 +136,7 @@ export function brandHomeDomain(brand: string): string | undefined {
 export async function refreshBrandDomains(publicKeyB64?: string): Promise<boolean> {
   // An allow-list: only a signed copy is taken (see datasetSignature.ts).
   const updated = await refreshDataset("brandDomains", "brandDomains.json", isValidBrandDomainsPatch, "allow", publicKeyB64);
-  if (updated) {
-    const patch = await getDataset<Record<string, string[]>>("brandDomains", {});
-    if (isValidBrandDomainsPatch(patch)) BRAND_DOMAINS = mergeBrandDomains(patch);
-  }
+  if (updated) setBrandDomainSource("dataset", await getDataset<Record<string, string[]>>("brandDomains", {}));
   return updated;
 }
 
