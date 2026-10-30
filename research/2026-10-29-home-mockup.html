@@ -43,8 +43,8 @@
   .sq.gray { background: linear-gradient(#8e8e93, #636366); }
 
   /* 1. The verdict: one sentence, said by Kai */
-  .hero { display: flex; gap: 18px; align-items: flex-start; }
-  .hero .kai { --kai-w: 52px; margin-top: -14px; }
+  .hero { display: flex; gap: 28px; align-items: center; }
+  .hero .kai { --kai-w: 84px; } /* same size as the first-read Kai, so it never shrinks between states */
   .hero h1 { margin: 0; font: 500 clamp(28px, 3.4vw, 40px)/1.12 var(--font); letter-spacing: -0.02em; }
   .hero h1 .warn { color: var(--danger); }
   .hero p { margin: 8px 0 0; color: var(--label-4); font-size: 15px; }
@@ -297,7 +297,7 @@
     };
     requestAnimationFrame(tick);
   };
-  const kaiHero = window.Kai(document.getElementById("kai-hero"), { src: "../public/characters/", imgWidth: 160, calm: true, lite: true });
+  const kaiHero = window.Kai(document.getElementById("kai-hero"), { src: "../public/characters/", imgWidth: 320, calm: true });
   const kai = window.Kai(document.getElementById("kai-read"), { src: "../public/characters/", imgWidth: 320, calm: true });
   const $ = (id) => document.getElementById(id);
   const say = (text, ms = 2600) => {
