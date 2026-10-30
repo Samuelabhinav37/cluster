@@ -12,6 +12,7 @@
 // missed stops reading as a fake. It never adds a brand: matching a display
 // name to a brand stays the hand list's job.
 import { isSameOrSubdomain, normalizeDomain } from "./registrableDomain";
+import type { BrandVerdict } from "./settingsStore";
 import { baseBrandDomains, setBrandDomainSource } from "./threatSignals";
 
 export interface RegistryCompany {
@@ -129,4 +130,13 @@ export async function companyLogo(company: RegistryCompany): Promise<string | un
     .then((d) => d.logos ?? {})
     .catch(() => ({}));
   return (await logos)[company.id];
+}
+
+/** Domains judged "real" become the claimed brand's own (threatSignals "local" source). */
+export function applyBrandVerdicts(verdicts: Record<string, BrandVerdict> | undefined): void {
+  const patch: Record<string, string[]> = {};
+  for (const [domain, v] of Object.entries(verdicts ?? {})) {
+    if (v.verdict === "real" && v.brand in baseBrandDomains()) (patch[v.brand] ??= []).push(domain);
+  }
+  setBrandDomainSource("local", patch);
 }

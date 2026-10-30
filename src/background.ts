@@ -32,7 +32,7 @@ import { resumeUnsubscribeQueue } from "./lib/unsubscribeGmail";
 import { runUnsubscribedSweep } from "./lib/unsubscribedSweep";
 import { getRuleCompletionKeys, recordRuleCompletions } from "./lib/ruleCompletionLedger";
 import { loadPublicSuffixList } from "./lib/publicSuffix";
-import { loadBrandRegistry } from "./lib/brandRegistry";
+import { applyBrandVerdicts, loadBrandRegistry } from "./lib/brandRegistry";
 import { applySenderLedger } from "./lib/senderLedgerStore";
 import { notify, weeklySummary } from "./lib/notices";
 
@@ -94,7 +94,10 @@ chrome.runtime.onStartup.addListener(() => {
 chrome.alarms.onAlarm.addListener((alarm) => {
   // Domain matching needs the Public Suffix List and the brand registry.
   // Both are local files loaded once per service-worker start, so waiting is quick.
-  void Promise.all([loadPublicSuffixList(), loadBrandRegistry()]).then(() => handleAlarm(alarm));
+  void Promise.all([loadPublicSuffixList(), loadBrandRegistry(), getSettings()]).then(([, , settings]) => {
+    applyBrandVerdicts(settings.brandVerdicts);
+    handleAlarm(alarm);
+  });
 });
 
 function handleAlarm(alarm: chrome.alarms.Alarm): void {

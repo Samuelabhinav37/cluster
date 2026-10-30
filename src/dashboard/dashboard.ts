@@ -19,7 +19,7 @@ import {
   classifyOtherSubjects,
 } from "../lib/aiMessageKind";
 import { loadPublicSuffixList } from "../lib/publicSuffix";
-import { loadBrandRegistry } from "../lib/brandRegistry";
+import { applyBrandVerdicts, loadBrandRegistry } from "../lib/brandRegistry";
 import { applySenderLedger } from "../lib/senderLedgerStore";
 import { buildDomainGroups, type DomainGroup } from "../lib/domainGrouping";
 import {
@@ -597,6 +597,7 @@ async function main() {
     initBodyChecks(),
   ]);
   ctx.settings = settings;
+  applyBrandVerdicts(settings.brandVerdicts);
   applyTheme(ctx.settings.theme);
   applySimpleMode(ctx.settings.simpleMode);
   wireSetup(selectScreen);

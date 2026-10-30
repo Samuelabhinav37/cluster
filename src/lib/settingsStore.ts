@@ -87,6 +87,9 @@ export interface ClusterSettings {
   setupDone: boolean;
   /** The first-run setup's answers, kept so Setup can reopen with them (onboardingPlan.ts). */
   onboarding?: { version: 1; answers: OnboardingAnswers; answeredAt: number };
+  /** Sender domain → verdict on a brand it claimed (brandRegistry.ts). "real"
+   * domains count as the brand's own from then on. */
+  brandVerdicts?: Record<string, BrandVerdict>;
   /** Bigger text and a three-item nav (setupTab.ts). */
   simpleMode: boolean;
   /** Kai's corner button and tips. */
@@ -181,6 +184,17 @@ export interface ClusterSettings {
    * once per scan when the current week has no entry yet (see
    * inboxHealth.recordHealthSnapshot). */
   healthHistory: HealthSnapshot[];
+}
+
+export interface BrandVerdict {
+  /** Hand-list brand the sender claimed, e.g. "paypal". */
+  brand: string;
+  verdict: "real" | "fake";
+  /** "certificate" when the one-tap check decided (markCheck.ts). */
+  by: "certificate" | "you";
+  /** Legal name a certificate named. */
+  company?: string;
+  at: number;
 }
 
 export interface HealthSnapshot {

@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
+  applyBrandVerdicts,
   certifiedCompaniesForBrand,
   companyForDomain,
   setBrandRegistry,
@@ -75,5 +76,15 @@ describe("brand registry", () => {
     setBrandDomainSource("local", { paypal: ["paypal-real.example"] });
     expect(kinds("PayPal", "service@paypal-real.example")).not.toContain("brand-impersonation");
     setBrandDomainSource("local", {});
+  });
+
+  it("your Real verdict makes a domain the brand's own; Fake changes nothing", () => {
+    expect(kinds("PayPal", "service@paypal-mail.example")).toContain("brand-impersonation");
+    applyBrandVerdicts({ "paypal-mail.example": { brand: "paypal", verdict: "fake", by: "you", at: 0 } });
+    expect(kinds("PayPal", "service@paypal-mail.example")).toContain("brand-impersonation");
+    applyBrandVerdicts({ "paypal-mail.example": { brand: "paypal", verdict: "real", by: "you", at: 0 } });
+    expect(kinds("PayPal", "service@paypal-mail.example")).not.toContain("brand-impersonation");
+    applyBrandVerdicts(undefined);
+    expect(kinds("PayPal", "service@paypal-mail.example")).toContain("brand-impersonation");
   });
 });
