@@ -1568,12 +1568,16 @@ function renderDecisionSenders(senders: SenderSummary[]) {
   const list = document.createElement("div");
   list.className = "grouped-list";
 
+  // Each row's bar is its share of the biggest row, like Details' Emails column.
+  const top = Math.max(1, ...decide.map((row) => row.reduce((n, s) => n + senderVolume(s), 0)));
   for (const row of decide) {
     const sep = document.createElement("div");
     sep.className = "row-sep";
     sep.style.marginLeft = "16px";
     list.appendChild(sep);
-    list.appendChild(row.length === 1 ? buildDecisionRow(row[0], senders) : buildCompanyDecisionRow(row));
+    list.appendChild(
+      row.length === 1 ? buildDecisionRow(row[0], senders, top) : buildCompanyDecisionRow(row, top),
+    );
   }
 
   if (protectedOne) {
@@ -1622,7 +1626,7 @@ function actionArea(sender: SenderSummary) {
   return { area, groups, run };
 }
 
-function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): HTMLElement {
+function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[], top: number): HTMLElement {
   const primary = document.createElement("button");
   primary.className = "btn";
   primary.textContent = "Trash";
@@ -1648,18 +1652,26 @@ function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[]): H
     lead: makeLogoTile(sender, "sz-34"),
     title: senderName(sender),
     sub: decisionReason(sender),
-    meta: Object.assign(document.createElement("span"), {
-      className: "ios-value",
-      textContent: `${senderVolume(sender).toLocaleString()} ${senderVolume(sender) === 1 ? "email" : "emails"}`,
-    }),
+    meta: volumeMeta(senderVolume(sender), top),
     actions: [primary, menu],
     disclosure,
     href: () => details?.open({ view: "emails", senderKey: sender.key }),
   });
 }
 
+/** "59 emails" with a short bar for its share of the biggest row. */
+function volumeMeta(n: number, top: number): HTMLElement {
+  const meta = Object.assign(document.createElement("span"), { className: "ios-value" });
+  const bar = Object.assign(document.createElement("span"), { className: "cellbar" });
+  const fill = document.createElement("i");
+  fill.style.width = `${Math.min(100, (n / top) * 100)}%`;
+  bar.append(fill);
+  meta.append(bar, `${n.toLocaleString()} ${n === 1 ? "email" : "emails"}`);
+  return meta;
+}
+
 /** One company's addresses as one Clean up row: Trash takes all of them. */
-function buildCompanyDecisionRow(members: SenderSummary[]): HTMLElement {
+function buildCompanyDecisionRow(members: SenderSummary[], biggest: number): HTMLElement {
   const top = [...members].sort((a, b) => senderVolume(b) - senderVolume(a))[0];
   const total = members.reduce((n, s) => n + senderVolume(s), 0);
   const opened = total - members.reduce((n, s) => n + senderUnread(s), 0);
@@ -1705,10 +1717,7 @@ function buildCompanyDecisionRow(members: SenderSummary[]): HTMLElement {
     lead: makeLogoTile(top, "sz-34"),
     title: name,
     sub: `${members.length} addresses · ${reason}`,
-    meta: Object.assign(document.createElement("span"), {
-      className: "ios-value",
-      textContent: `${total.toLocaleString()} ${total === 1 ? "email" : "emails"}`,
-    }),
+    meta: volumeMeta(total, biggest),
     actions: [cell, menu],
     href: () => details?.open({ view: "emails", senderKey: top.key }),
   });

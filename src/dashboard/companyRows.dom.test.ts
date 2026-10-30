@@ -17,8 +17,8 @@ async function bootWithShopCompany() {
 }
 
 const rowsTitled = (root: HTMLElement, title: string) =>
-  Array.from(root.querySelectorAll<HTMLElement>(".list-row")).filter((r) =>
-    r.querySelector(".row-title")?.textContent?.trim() === title,
+  Array.from(root.querySelectorAll<HTMLElement>(".list-row")).filter(
+    (r) => r.querySelector(".row-title")?.textContent?.trim() === title,
   );
 
 describe("one row per company", () => {
@@ -30,6 +30,12 @@ describe("one row per company", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].textContent).toContain("2 addresses");
     expect(rows[0].textContent).toContain("4 emails");
+    // Each row's bar is its share of the biggest row; the biggest fills it.
+    const widths = Array.from(
+      dash.el("sender-groups").querySelectorAll<HTMLElement>(".ios-value .cellbar i"),
+    ).map((i) => parseFloat(i.style.width));
+    expect(Math.max(...widths)).toBe(100);
+    expect(widths.every((w) => w > 0 && w <= 100)).toBe(true);
 
     const trash = Array.from(rows[0].querySelectorAll("button")).find((b) => b.textContent === "Trash")!;
     const cell = trash.parentElement!;
@@ -50,8 +56,15 @@ describe("one row per company", () => {
         messages: ids.map((id) => ({ id, receivedAt: at, unread: true })),
       }) as unknown as SenderSummary;
     const senders = [sender("deals@shop.example", ["s1", "s2"]), sender("news@shop.example", ["n1"])];
-    const rows = detailSenders(senders, (s) => (s.address.endsWith("@shop.example") ? "shop.example" : s.key));
+    const rows = detailSenders(senders, (s) =>
+      s.address.endsWith("@shop.example") ? "shop.example" : s.key,
+    );
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ key: "shop.example", address: "deals@shop.example", addresses: 2, emails: 3 });
+    expect(rows[0]).toMatchObject({
+      key: "shop.example",
+      address: "deals@shop.example",
+      addresses: 2,
+      emails: 3,
+    });
   });
 });
