@@ -62,6 +62,7 @@ const ALLOWED_FETCH_CALLERS = [
   "lib/brandRegistry.ts", // same: bundled brand-registry.json and brand-logos.json only
   "lib/remoteDataset.ts", // Cluster's own published reference datasets -- see its header comment
   "lib/unsubscribe.ts", // user-approved unsubscribe origin, one click at a time
+  "lib/markCheck.ts", // one tap on Check: DNS-over-HTTPS for one domain's BIMI record, then its certificate
 ];
 
 // dashboard/testHarness.ts's dynamic import() re-imports the local
@@ -87,6 +88,7 @@ const ALLOWED_HOSTS = [
   "samuelabhinav37.github.io",
   "www.googleapis.com", // OAuth scope URN prefix, e.g. .../auth/gmail.modify
   "mail.google.com", // restricted-scope URN for opt-in permanent delete
+  "cloudflare-dns.com", // markCheck.ts: DNS-over-HTTPS lookup of one domain's BIMI record, on a tap
 ];
 
 describe("network egress invariant", () => {
@@ -107,6 +109,7 @@ describe("network egress invariant", () => {
       "lib/providers/outlookProvider.ts",
       "lib/providers/msalAuth.ts",
       "lib/remoteDataset.ts",
+      "lib/markCheck.ts",
     ];
     const seen = new Set<string>();
     for (const [path, text] of nonTestFiles) {
