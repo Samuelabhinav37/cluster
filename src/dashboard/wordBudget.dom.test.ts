@@ -27,9 +27,10 @@ const BUDGET: Record<string, { words: number; controls: number }> = {
 // Each action's one home (docs/ui-plan-2026-10-29.md). Elsewhere it may be a
 // link or sit in a row's ⋯ menu, never a plain button.
 const HOME: Record<string, string[]> = {
-  Trash: ["delete"],
-  Unsubscribe: ["subscriptions"],
-  Mute: ["subscriptions"],
+  // Round 2 (approved 2026-10-30): Home's next steps and the Senders card act in place.
+  Trash: ["delete", "overview"],
+  Unsubscribe: ["subscriptions", "senders"],
+  Mute: ["subscriptions", "senders"],
   Block: ["impersonation", "screener"],
 };
 
@@ -40,7 +41,7 @@ beforeAll(async () => {
 
 function visible(n: Node): boolean {
   const el = n instanceof Element ? n : n.parentElement;
-  if (!el || el.closest("[hidden], template, option, .sr-only, [aria-hidden=true]")) return false;
+  if (!el || el.closest("[hidden], template, option, .sr-only, [aria-hidden=true], [popover]")) return false;
   const closed = el.closest("details:not([open])");
   return !closed || el.closest("summary")?.parentElement === closed;
 }

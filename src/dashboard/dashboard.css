@@ -3909,3 +3909,15 @@ body[data-screen="overview"] .kai-guide:not(.open) .kg-launch { visibility: hidd
 .chip-verified { display: inline-flex; align-items: center; gap: 4px; }
 .verified-tick path:first-child { fill: currentColor; stroke: none; }
 .verified-tick path:last-child { fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+/* Protect: brand check */
+#brand-check .section-head { display: flex; align-items: center; justify-content: space-between; }
+.mm-card { padding: 0; overflow: hidden; }
+.mm-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) 44px auto; align-items: center; gap: 12px; padding: 11px 16px; }
+.mm-row + .mm-row { border-top: 1px solid var(--separator); }
+.mm-who b { display: block; font-weight: 600; }
+.mm-addr { display: block; font-size: 12px; color: var(--label-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mm-num { text-align: right; color: var(--label-2); font-variant-numeric: tabular-nums; }
+.mm-acts { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+.verified-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.vcell { display: flex; flex-direction: row; flex-direction: row; align-items: center; gap: 10px; padding: 10px 12px; font-weight: 500; white-space: nowrap; overflow: hidden; }
+.vcell span:last-child { overflow: hidden; text-overflow: ellipsis; }

@@ -2258,7 +2258,7 @@ function doesntMatch(sender: SenderSummary): boolean {
   const domain = sender.address.slice(sender.address.lastIndexOf("@") + 1).toLowerCase();
   return (
     !ctx.settings.brandVerdicts?.[domain] &&
-    sender.threatSignals.some((t) => t.kind === "brand-impersonation" || t.kind === "freemail-brand-claim")
+    sender.threatSignals.some((t) => t.kind === "brand-impersonation")
   );
 }
 

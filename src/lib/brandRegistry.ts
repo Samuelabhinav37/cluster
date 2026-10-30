@@ -14,6 +14,7 @@
 import { isSameOrSubdomain, normalizeDomain } from "./registrableDomain";
 import type { BrandVerdict } from "./settingsStore";
 import { baseBrandDomains, setBrandDomainSource } from "./threatSignals";
+import { FREE_MAIL_DOMAINS } from "./freeMail";
 
 export interface RegistryCompany {
   /** Stable key, also the key into brand-logos.json. */
@@ -136,7 +137,7 @@ export async function companyLogo(company: RegistryCompany): Promise<string | un
 export function applyBrandVerdicts(verdicts: Record<string, BrandVerdict> | undefined): void {
   const patch: Record<string, string[]> = {};
   for (const [domain, v] of Object.entries(verdicts ?? {})) {
-    if (v.verdict === "real" && v.brand in baseBrandDomains()) (patch[v.brand] ??= []).push(domain);
+    if (v.verdict === "real" && v.brand in baseBrandDomains() && !FREE_MAIL_DOMAINS.has(domain)) (patch[v.brand] ??= []).push(domain);
   }
   setBrandDomainSource("local", patch);
 }

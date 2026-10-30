@@ -16,6 +16,7 @@ import { recordQuarantineVerdict } from "../lib/quarantineReview";
 import type { SenderSummary } from "../lib/senderModel";
 import type { ProviderId } from "../lib/providers/emailProvider";
 import { renderConfirmStep } from "./ui";
+import { renderBrandCheck } from "./brandCheck";
 import { senderTile } from "./senderTile";
 import { rowMenu } from "./rowMenu";
 import { brandHomeDomain } from "../lib/threatSignals";
@@ -295,6 +296,7 @@ const TIER_CHIP: Record<VerdictTier, [string, string]> = {
 export function renderSecuritySection(senders: SenderSummary[], autoCheck = true) {
   applyBodyChecks(senders, bodyChecks);
   renderQuarantineReview(senders);
+  renderBrandCheck(senders);
   // Rank by combined risk so a sender tripping several signals (or a
   // freemail brand claim) sorts above one with a lone medium signal.
   const known = knownSenderSet(ctx.settings);
