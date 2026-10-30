@@ -174,13 +174,46 @@ function wireSignOut() {
   };
 }
 
+/** Round 2: Settings as a left list of its sections, one pane at a time. */
+function wireSettingsNav(): (inside: Element | null) => void {
+  const list = document.querySelector<HTMLElement>(".settings-list");
+  const secs = Array.from(document.querySelectorAll<HTMLElement>(".settings-list > .set-sec"));
+  if (!list || secs.length === 0) return () => {};
+  const nav = document.createElement("nav");
+  nav.className = "settings-nav";
+  nav.setAttribute("aria-label", "Settings sections");
+  const show = (sec: HTMLElement) => {
+    for (const s of secs) s.hidden = s !== sec;
+    for (const b of Array.from(nav.children)) b.setAttribute("aria-current", String(b === buttons.get(sec)));
+  };
+  const buttons = new Map<HTMLElement, HTMLButtonElement>();
+  for (const sec of secs) {
+    const name = sec.querySelector("h2")?.textContent?.trim().replace(/^What Cluster learned$/, "Learned") ?? "";
+    const b = Object.assign(document.createElement("button"), { type: "button", textContent: name });
+    b.onclick = () => show(sec);
+    buttons.set(sec, b);
+    nav.append(b);
+  }
+  const split = document.createElement("div");
+  split.className = "settings-split";
+  list.before(split);
+  split.append(nav, list);
+  show(secs[0]);
+  return (inside) => {
+    const sec = inside?.closest<HTMLElement>(".settings-list > .set-sec");
+    if (sec) show(sec);
+  };
+}
+
 export function wireSettingsMore(showScreen: (name: string) => void): void {
+  const openPaneOf = wireSettingsNav();
   // The account menu's Sign out opens the same choice in Settings.
   const menuSignOut = $<HTMLButtonElement>("menu-signout");
   if (menuSignOut)
     menuSignOut.onclick = () => {
       showScreen("settings");
       const btn = $<HTMLButtonElement>("settings-signout");
+      openPaneOf(btn);
       btn?.click();
       $("settings-signout-slot")?.scrollIntoView({ block: "center" });
     };

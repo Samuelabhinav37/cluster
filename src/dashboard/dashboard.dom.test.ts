@@ -155,7 +155,7 @@ describe("dashboard boot smoke", () => {
   });
 
   it("lists the unsubscribe-capable sender in the Subscriptions tab", () => {
-    expect(document.getElementById("subscriptions-list")!.textContent).toContain("shop.example");
+    expect(document.getElementById("subscriptions-list")!.textContent).toContain("Shop");
   });
 
   it("shows the empty Recently-done state", () => {
