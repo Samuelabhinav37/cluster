@@ -1571,13 +1571,11 @@ function updateSenderState(senders: SenderSummary[]) {
   );
 }
 
-// Clean up: the total that can go, then a card per kind. Each card's button
+// Clean up: a card per kind. Each card's button
 // is the existing confirm (mute never-opened, trash past-date), moved in.
 function renderDeleteScreen(senders: SenderSummary[]) {
   const plan = clearOutPlan(senders);
   const n = (v: number) => v.toLocaleString();
-  document.getElementById("cleanup-meter")!.hidden = plan.total === 0;
-  document.getElementById("cleanup-total")!.textContent = `${n(plan.total)} ${plan.total === 1 ? "email" : "emails"} can go`;
   document.getElementById("never-opened-card")!.hidden = plan.neverRead.length === 0;
   document.getElementById("never-opened-fact")!.textContent = n(plan.neverReadMsgs);
   document.getElementById("past-date-card")!.hidden = plan.expiryTotal === 0;

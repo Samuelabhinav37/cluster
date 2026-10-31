@@ -3915,8 +3915,6 @@ body[data-screen="overview"] #ask-kai-open > svg { display: block; }
 .onb-opt[aria-pressed="true"] .onb-ic { color: var(--accent-text); }
 .onb-title { margin-bottom: 20px; }
 /* Clean up, round 2: a meter, then a card per kind of win. */
-.cu-meter { margin: 0 0 14px; }
-.cu-meter b { font-size: 22px; font-weight: 650; }
 .cu-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 18px; }
 .cu-card { display: flex; flex-direction: column; gap: 4px; padding: 22px 24px; }
 .cu-head { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 17px; font-weight: 650; color: var(--label); }
