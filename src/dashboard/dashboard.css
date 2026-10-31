@@ -3593,23 +3593,22 @@ table.sheet { font-size: 12px; }
 .ios-group, .set-rows { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--separator); border-radius: 14px;
   background: var(--glass); }
 /* One row: icon, words, control. Organize's preset cards become rows too. */
-.ios-row, .set-row, #presets .rec-card { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; column-gap: 14px; align-items: center;
+.ios-row, .set-row, .cu-auto .rec-card { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; column-gap: 14px; align-items: center;
   min-height: 52px; padding: 10px 16px; border: 0; border-radius: 0; background: none; box-shadow: none; }
-.ios-row + .ios-row, .set-row + .set-row, #presets .rec-card + .rec-card { border-top: 1px solid var(--separator); }
-.ios-row .app-ic, .set-ic, #presets .rec-card .app-ic { grid-row: 1 / span 2; width: 30px; height: 30px; margin: 0; border-radius: 8px; background: var(--neutral-fill); }
+.ios-row + .ios-row, .set-row + .set-row, .cu-auto .rec-card + .rec-card { border-top: 1px solid var(--separator); }
+.ios-row .app-ic, .set-ic, .cu-auto .rec-card .app-ic { grid-row: 1 / span 2; width: 30px; height: 30px; margin: 0; border-radius: 8px; background: var(--neutral-fill); }
 .ios-row .app-warn .i { stroke: var(--danger-text); }
 button.ios-row { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 button.ios-row:hover { background: var(--neutral-fill); }
 button.ios-row .tile-chev { margin-left: 10px; color: var(--label-4); }
-.ios-row .app-ic .i, .set-ic svg, #presets .rec-card .app-ic .i { width: 17px; height: 17px; fill: none; stroke: var(--label-2); stroke-width: 2;
+.ios-row .app-ic .i, .set-ic svg, .cu-auto .rec-card .app-ic .i { width: 17px; height: 17px; fill: none; stroke: var(--label-2); stroke-width: 2;
   stroke-linecap: round; stroke-linejoin: round; }
 .ios-row .grow, .set-row .grow { grid-row: 1 / span 2; display: flex; flex-direction: column; font-size: 15px; color: var(--label); }
 .ios-row .sub, .set-row .sub { font-size: 12px; color: var(--label-4); }
-.ios-row > :last-child, .set-row > :last-child, #presets .rec-card > :last-child { grid-column: 3; grid-row: 1 / span 2; justify-self: end; }
-#presets .rec-card { grid-template-rows: auto auto; row-gap: 1px; }
-#presets .rec-name { grid-column: 2; font-size: 15px; font-weight: 500; }
-#presets .rec-fact { grid-column: 2; font-size: 12px; font-weight: 400; color: var(--label-4); }
-#presets { display: flex; flex-direction: column; gap: 24px; }
+.ios-row > :last-child, .set-row > :last-child, .cu-auto .rec-card > :last-child { grid-column: 3; grid-row: 1 / span 2; justify-self: end; }
+.cu-auto .rec-card { grid-template-rows: auto auto; row-gap: 1px; }
+.cu-auto .rec-name { grid-column: 2; font-size: 15px; font-weight: 500; }
+.cu-auto .rec-fact { grid-column: 2; font-size: 12px; font-weight: 400; color: var(--label-4); }
 .ios-value { color: var(--label-4); font-size: 14px; }
 .ios-value.warn { color: var(--danger-text); font-weight: 600; }
 .set-ic { display: grid; place-items: center; }
@@ -3888,3 +3887,16 @@ body[data-screen="overview"] #ask-kai-open > svg { display: block; }
 
 /* Organize: each label icon wears its Gmail label color (set inline). */
 .ios-row .app-ic.label-ic .i { stroke: currentColor; }
+
+/* Clean up: three cards, each opening its own page. */
+.cu-cards { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.cu-card.row-link { cursor: pointer; transition: box-shadow .15s ease; }
+.cu-card.row-link:hover { box-shadow: 0 0 0 1px var(--neutral-border), var(--shadow-card, 0 1px 3px rgba(0, 0, 0, .06)); }
+.cu-page { display: grid; gap: 6px; }
+.cu-back { justify-self: start; padding: 0; border: 0; background: none; font: 500 14px/1.4 var(--font); color: var(--accent-solid); cursor: pointer; }
+.cu-page-title { margin: 4px 0 0; font-size: 22px; font-weight: 650; color: var(--label); }
+.cu-page .cu-num { margin: 4px 0 0; }
+.cu-weeks { height: 90px; margin: 4px 0 14px; }
+.cu-selbar { display: flex; align-items: center; gap: 12px; margin: 6px 0 8px; padding: 0 14px; }
+.cu-auto { margin-top: 22px; }
+.list-row--check-media-meta { grid-template-columns: 22px minmax(0, 1fr) max-content; }

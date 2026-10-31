@@ -643,3 +643,13 @@ export function wireSubscriptionsTab() {
     );
   };
 }
+
+/** Ticks these lists (those with one-click unsubscribe) and opens the
+ * Unsubscribe confirm, for Clean up's "Lists you can leave" button. */
+export function preselectLists(keys: string[]) {
+  const oneClick = new Set(ctx.senders.filter((s) => s.unsubscribe.postUrl).map((s) => s.key));
+  selectedSubKeys.clear();
+  for (const k of keys) if (oneClick.has(k)) selectedSubKeys.add(k);
+  renderSubscriptionsTab(ctx.senders);
+  if (selectedSubKeys.size > 0) subsUnsubAllBtn.click();
+}

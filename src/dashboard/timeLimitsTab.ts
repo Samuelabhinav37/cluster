@@ -248,7 +248,6 @@ async function save(): Promise<boolean> {
 
 // ── Presets: what arrives on a schedule, and one-time moves ────────────
 
-const presetsEl = document.getElementById("presets") as HTMLDivElement | null;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** How many of each kind arrived in the last 7 days, by the sort taxonomy. */
@@ -335,30 +334,15 @@ export function setPresetActions(cards: () => HTMLElement[]): void {
 
 export function renderPresets(senders: readonly SenderSummary[] = presetSenders): void {
   presetSenders = senders;
-  if (!presetsEl) return;
   renderKindSubs();
   const cards = [
     newsletterDayCard(),
     ...extraCards(),
   ];
-  // Grouped lists, like iOS Settings: what arrives on a schedule, and
-  // one-time moves out of the inbox.
-  presetsEl.replaceChildren(
-    ...PRESET_GROUPS.map(([head, ids]) => {
-      const rows = cards.filter((c) => ids.includes(c.dataset.preset ?? ""));
-      const wrap = document.createElement("section");
-      wrap.className = "ios-section";
-      wrap.hidden = rows.length === 0;
-      const h = document.createElement("h2");
-      h.className = "ios-head";
-      h.textContent = head;
-      const group = document.createElement("div");
-      group.className = "ios-group";
-      group.append(...rows);
-      wrap.append(h, group);
-      return wrap;
-    }),
-  );
+  // Each Clean up card's page shows the switches that belong to it.
+  for (const [holder, ids] of PRESET_GROUPS) {
+    document.getElementById(holder)?.replaceChildren(...cards.filter((c) => ids.includes(c.dataset.preset ?? "")));
+  }
   // Each preset wears its own colored icon, like a Reminders list.
   for (const card of cards) {
     const glyph = PRESET_ICONS[card.dataset.preset!];
@@ -370,9 +354,10 @@ export function renderPresets(senders: readonly SenderSummary[] = presetSenders)
   }
 }
 
-const PRESET_GROUPS: ReadonlyArray<[head: string, ids: string[]]> = [
-  ["Arrive on time", ["saturday", "no-reply"]],
-  ["Move out once", ["never-opened", "keep-newest", "delivered"]],
+const PRESET_GROUPS: ReadonlyArray<[holder: string, ids: string[]]> = [
+  ["presets-lists", ["saturday", "no-reply"]],
+  ["presets-never", ["never-opened"]],
+  ["presets-old", ["keep-newest", "delivered"]],
 ];
 
 const PRESET_ICONS: Record<string, string> = {

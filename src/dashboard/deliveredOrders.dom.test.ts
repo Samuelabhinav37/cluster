@@ -31,7 +31,7 @@ describe("Delivered orders", () => {
       ],
     });
     dash.showScreen("organize");
-    const card = () => document.querySelector<HTMLElement>('#presets [data-preset="delivered"]');
+    const card = () => document.querySelector<HTMLElement>('[data-preset="delivered"]');
     await vi.waitFor(() => {
       if (!card()) throw new Error("no card yet");
     });

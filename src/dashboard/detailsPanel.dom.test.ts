@@ -189,7 +189,7 @@ describe("Details panel", () => {
 });
 
 describe("Details on screens without mail", () => {
-  it("minimizes on Settings and Protect, and comes back on Clean up", async () => {
+  it("minimizes on Settings, Protect and Clean up, and comes back on Senders", async () => {
     const { bootDashboard } = await import("./testHarness");
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 1300 });
     localStorage.setItem("cluster.details", "open");
@@ -197,11 +197,13 @@ describe("Details on screens without mail", () => {
     const root = document.getElementById("details")!;
     const go = (screen: string) =>
       document.querySelector<HTMLButtonElement>(`#sidebar [data-screen="${screen}"], #account-menu [data-open="${screen}"]`)!.click();
-    go("delete");
+    go("senders");
     expect(root.classList.contains("min")).toBe(false);
     go("impersonation");
     expect(root.classList.contains("min")).toBe(true);
     go("delete");
+    expect(root.classList.contains("min")).toBe(true);
+    go("senders");
     expect(root.classList.contains("min")).toBe(false);
     // Resting is per screen; it never overwrites the saved choice.
     expect(localStorage.getItem("cluster.details")).toBe("open");

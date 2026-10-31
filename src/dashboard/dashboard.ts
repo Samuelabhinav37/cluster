@@ -79,7 +79,8 @@ import { initKindModel, kindModel } from "./kindLearning";
 import { markLearnedTransactional } from "../lib/kindModel";
 import { isAuthCancelled } from "../lib/chromeError";
 import { formatRelativeTime, infoButton, pruneSelection, renderConfirmStep, runNow } from "./ui";
-import { suggestSpamSenders } from "../lib/spamSuggestions";
+import { buildCleanupCards } from "../lib/cleanupCards";
+import { renderCleanupPage, type PageItem } from "./cleanupPage";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { keepNewestExcess } from "../lib/keepNewest";
 import { deliveredUpdates } from "../lib/orderEvents";
@@ -91,7 +92,7 @@ import { renderScamReport } from "./reportTab";
 import { heldByWeek } from "../lib/scamHistory";
 import { wireSetup } from "./setupTab";
 import { renderScreenerTab, wireScreenerTab } from "./screenerTab";
-import { recordUnsubscribeRequests, renderSubscriptionsTab, wireSubscriptionsTab } from "./subscriptionsTab";
+import { preselectLists, recordUnsubscribeRequests, renderSubscriptionsTab, wireSubscriptionsTab } from "./subscriptionsTab";
 import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib/inboxHealth";
 import { certifiedCompany, senderTile, verifiedTick, type TileSize } from "./senderTile";
 import { wireAccountMenu } from "./accountMenu";
@@ -241,8 +242,9 @@ function navItemShown(btn: HTMLButtonElement): boolean {
   return !btn.hidden && !btn.closest(".nav-area:not(.open) .nav-children");
 }
 
-// Screens that don't list mail start with Details minimized.
-const DETAILS_RESTS_ON = new Set(["settings", "impersonation", "screener", "report", "setup"]);
+// Screens that don't list mail start with Details minimized, and so does Clean up:
+// its rows open Details when you pick one.
+const DETAILS_RESTS_ON = new Set(["settings", "impersonation", "screener", "report", "setup", "delete", "subscriptions"]);
 
 /** Minimizes Details on those screens and brings it back elsewhere, unless you minimized it. */
 function fitDetailsTo(screen: string) {
@@ -319,10 +321,7 @@ function wireNav() {
     void selectScreen(btn.dataset.screen!);
   });
 
-  document.getElementById("never-opened-pick")?.addEventListener("click", (event) => {
-    event.preventDefault();
-    details?.open({ view: "senders", never: true });
-  });
+  wireCleanupCards();
 
   // First run opens on setup; skipping or answering it sets setupDone.
   showScreen(ctx.settings.setupDone ? ctx.settings.activeTab : "setup");
@@ -1320,28 +1319,24 @@ function currentSuggestions(senders: SenderSummary[]): Suggestion[] {
   );
 }
 
-/** Messages in the Clear out plan. Home, the metric band and the sidebar
- * badge all show this one total, so they never disagree. */
+/** Clean up's cards. Home, the cards and the sidebar badge all show this
+ * one total, so they never disagree. */
 function clearOutPlan(senders: SenderSummary[]) {
   const protectionCtx = buildProtectionContext(ctx.settings);
-  const expiry = buildExpiryBuckets(senders, protectionCtx);
-  const spam = suggestSpamSenders(senders, undefined, protectionCtx);
-  const neverRead = unopenedSuggestions(currentSuggestions(senders));
-  // One email can sit in more than one part (an unopened newsletter past its
-  // date), so the total counts each message id once.
-  const ids = new Set<string>();
-  for (const bucket of expiry)
-    for (const [provider, list] of bucket.messageIdsByProvider)
-      for (const id of list) ids.add(`${provider}:${id}`);
-  for (const s of spam) for (const id of s.sender.messageIds) ids.add(`${s.sender.provider}:${id}`);
-  for (const s of neverRead) for (const id of s.safeMessageIds) ids.add(`${s.sender.provider}:${id}`);
+  const cards = buildCleanupCards(
+    senders,
+    ctx.profiles,
+    unopenedSuggestions(currentSuggestions(senders)),
+    buildExpiryBuckets(senders, protectionCtx),
+    protectionCtx,
+  );
   return {
-    expiry,
-    neverRead,
-    expiryTotal: totalExpiryCount(expiry),
-    spamMsgs: spam.reduce((n, s) => n + s.messageCount, 0),
-    neverReadMsgs: neverRead.reduce((n, s) => n + s.safeMessageIds.length, 0),
-    total: ids.size,
+    expiry: cards.old,
+    neverRead: cards.never,
+    lists: cards.lists,
+    expiryTotal: cards.oldCount,
+    neverReadMsgs: cards.neverCount,
+    total: cards.total,
   };
 }
 
@@ -1378,6 +1373,84 @@ function renderDeleteScreen(senders: SenderSummary[]) {
   };
   list("never-opened-top", plan.neverRead.map((s) => [senderName(s.sender), s.safeMessageIds.length]));
   list("past-date-top", plan.expiry.filter((b) => b.count > 0).map((b) => [b.label, b.count]));
+  document.getElementById("lists-card")!.hidden = plan.lists.length === 0;
+  document.getElementById("lists-fact")!.textContent = n(plan.lists.length);
+  list("lists-top", plan.lists.map((s) => [senderName(s), senderVolume(s)]));
+  lastPlan = plan;
+  if (openPage) showCleanupPage(openPage);
+}
+
+let lastPlan: ReturnType<typeof clearOutPlan> | null = null;
+let openPage: "never" | "old" | null = null;
+
+/** The items a card's page lists: each sender with the ids that card holds. */
+function pageItems(page: "never" | "old"): PageItem[] {
+  if (!lastPlan) return [];
+  if (page === "never") return lastPlan.neverRead.map((s) => ({ sender: s.sender, ids: s.safeMessageIds }));
+  const wanted = new Set(lastPlan.expiry.flatMap((b) => [...b.messageIdsByProvider.values()].flat()));
+  return ctx.senders
+    .map((sender) => ({ sender, ids: sender.messages.map((m) => m.id).filter((id) => wanted.has(id)) }))
+    .filter((item) => item.ids.length > 0);
+}
+
+function showCleanupPage(page: "never" | "old" | null) {
+  openPage = page;
+  const root = document.getElementById("cu-page")!;
+  const cards = document.querySelector<HTMLElement>('section[data-screen="delete"] .cu-cards')!;
+  root.hidden = page === null;
+  cards.hidden = page !== null;
+  if (page === null) {
+    root.replaceChildren();
+    return;
+  }
+  renderCleanupPage(root, {
+    title: page === "never" ? "You never open these" : "Old codes and news",
+    items: pageItems(page),
+    rowKeyOf: detailRowKey,
+    openRow: (key) => details?.open({ view: "emails", senderKey: key }),
+    trash: (merged, senders, slot, reset) => trashFromPage(page, merged, senders, slot, reset),
+    back: () => showCleanupPage(null),
+    auto: document.getElementById(page === "never" ? "presets-never" : "presets-old"),
+  });
+}
+
+/** A card opens its page; its button still runs the card's own action. */
+function wireCleanupCards() {
+  for (const card of Array.from(document.querySelectorAll<HTMLElement>(".cu-card[data-page]"))) {
+    card.classList.add("row-link");
+    card.addEventListener("click", (e) => {
+      if (e.target instanceof HTMLElement && e.target.closest("button, a, input, label, .confirm-slot")) return;
+      const page = card.dataset.page;
+      if (page === "lists") void selectScreen("subscriptions");
+      else showCleanupPage(page as "never" | "old");
+    });
+  }
+  document.getElementById("lists-unsub-btn")?.addEventListener("click", () => {
+    const keys = (lastPlan?.lists ?? []).map((s) => s.key);
+    void selectScreen("subscriptions").then(() => preselectLists(keys));
+  });
+}
+
+function trashFromPage(
+  page: "never" | "old",
+  merged: Map<ProviderId, string[]>,
+  senders: SenderSummary[],
+  slot: HTMLElement,
+  reset: () => void,
+) {
+  const total = [...merged.values()].reduce((n, ids) => n + ids.length, 0);
+  renderConfirmStep(slot, reset, `Move ${total.toLocaleString()} to Trash?`, true, async () => {
+    const { message, undoableGmailIds } = await executeSmartDelete(merged);
+    appendUndoButton(slot, undoableGmailIds);
+    if (page === "never") await saveEngagementFeedback(senders.map((s) => s.key), "accept");
+    await logAction(
+      "trash",
+      `Moved ${total} to Trash from ${page === "never" ? "You never open these" : "Old codes and news"}`,
+      undoableGmailIds.length > 0 ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" } : undefined,
+    );
+    await scanAndRender();
+    return message;
+  });
 }
 
 function buildActionGroups(sender: SenderSummary): Array<{ act: string; label: string; el: HTMLDivElement }> {
@@ -2132,7 +2205,8 @@ function buildSnoozeCell(sender: SenderSummary): HTMLDivElement {
 
 // ── Ready-to-clean-up (retention expiry) section ────────────────────────
 function renderExpirySection(senders: SenderSummary[]) {
-  currentExpiryBuckets = buildExpiryBuckets(senders, buildProtectionContext(ctx.settings));
+  // The card's own buckets: mail already counted under "never open" is left out.
+  currentExpiryBuckets = lastPlan?.expiry ?? clearOutPlan(senders).expiry;
   const total = totalExpiryCount(currentExpiryBuckets);
   if (total === 0) return;
   resetExpiryCleanupSlot();
@@ -2198,7 +2272,7 @@ function resetNeverReadSlots() {
 }
 
 function renderNeverReadSection(senders: SenderSummary[]) {
-  engagementSuggestions = unopenedSuggestions(currentSuggestions(senders));
+  engagementSuggestions = lastPlan?.neverRead ?? unopenedSuggestions(currentSuggestions(senders));
   neverReadTrashSlot.hidden = engagementSuggestions.length === 0;
   if (engagementSuggestions.length === 0) return;
 

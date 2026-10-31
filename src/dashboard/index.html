@@ -67,12 +67,12 @@
                 <span class="nav-count" id="nav-count-delete"></span>
               </button>
               <div class="nav-children">
-                <button type="button" class="nav-item nav-child" data-screen="subscriptions">
+                <button type="button" class="nav-item nav-child" data-screen="subscriptions" hidden>
                   <svg class="nav-icon ni-stop" viewBox="0 0 24 24" aria-hidden="true">
                     <circle cx="12" cy="12" r="8"></circle>
                     <path d="M6.4 6.4l11.2 11.2"></path>
                   </svg>
-                  Stop mail
+                  Lists you can leave
                 </button>
               </div>
             </div>
@@ -225,41 +225,55 @@
 
             <!-- A card per kind of win. -->
             <div class="cu-cards">
-              <div class="glass-card cu-card" id="never-opened-card" hidden>
+              <div class="glass-card cu-card" id="never-opened-card" data-page="never" hidden>
                 <h3 class="cu-head">
                   <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h9"></path>
                     <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
                     <path d="m17 17 4 4"></path>
                     <path d="m21 17-4 4"></path></svg
-                  >Never opened
+                  >You never open these
                 </h3>
-                <p class="cu-say">Senders you never open.</p>
                 <p class="cu-num"><b id="never-opened-fact"></b> emails</p>
                 <ul class="cu-list" id="never-opened-top"></ul>
                 <div class="cu-acts">
                   <span id="never-read-trash-slot"><button id="never-read-trash-btn" class="btn btn-accent-solid">Trash</button></span>
-                  <a href="#" id="never-opened-pick">Pick senders</a>
                 </div>
               </div>
-              <div class="glass-card cu-card" id="past-date-card" hidden>
+              <div class="glass-card cu-card" id="past-date-card" data-page="old" hidden>
                 <h3 class="cu-head">
                   <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
                     <circle cx="12" cy="12" r="10"></circle>
                     <polyline points="12 6 12 12 16 14"></polyline></svg
-                  >Past its date
+                  >Old codes and news
                 </h3>
-                <p class="cu-say">Codes, deals and news that ran out.</p>
                 <p class="cu-num"><b id="past-date-fact"></b> emails</p>
                 <ul class="cu-list" id="past-date-top"></ul>
                 <div class="cu-acts">
                   <span id="expiry-cleanup-slot"><button id="expiry-cleanup-btn" class="btn btn-accent-solid">Trash</button></span>
                 </div>
               </div>
+              <div class="glass-card cu-card" id="lists-card" data-page="lists" hidden>
+                <h3 class="cu-head">
+                  <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <path d="M5.6 5.6l12.8 12.8"></path></svg
+                  >Lists you can leave
+                </h3>
+                <p class="cu-num"><b id="lists-fact"></b> lists</p>
+                <ul class="cu-list" id="lists-top"></ul>
+                <div class="cu-acts">
+                  <button type="button" id="lists-unsub-btn" class="btn btn-accent-solid">Unsubscribe</button>
+                </div>
+              </div>
             </div>
 
-            <!-- Moved from Organize; the Clean up redesign folds these into its cards. -->
-            <div class="rec-grid" id="presets"></div>
+            <!-- A card's own page; its switches move in from the holder below. -->
+            <div id="cu-page" class="cu-page" hidden></div>
+            <div hidden>
+              <div id="presets-never" class="ios-group"></div>
+              <div id="presets-old" class="ios-group"></div>
+            </div>
           </section>
 
           <!-- ══ Organize ══════════════════════════════════════════════ -->
@@ -454,8 +468,7 @@
           <section class="screen" data-screen="subscriptions" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Stop mail</h1>
-                <p class="lead">Unsubscribe from lists and mute senders you don't need.</p>
+                <h1 class="page-title">Lists you can leave</h1>
               </div>
             </div>
 
@@ -485,6 +498,10 @@
                 </label>
               </div>
               <div id="subscriptions-list" class="scroll-x"></div>
+            </section>
+            <section class="ios-section cu-auto">
+              <h2 class="ios-head">Do this automatically</h2>
+              <div id="presets-lists" class="ios-group"></div>
             </section>
           </section>
 

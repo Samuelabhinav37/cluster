@@ -107,7 +107,7 @@ describe("Organize action cards", () => {
     mailbox.push({ ...shop[0], id: "s4", subject: "Oldest deal", receivedAt: shop[2].receivedAt - 86_400_000 });
     const dash = await bootDashboard({ mailbox });
     await openOrganize(dash);
-    const card = document.querySelector<HTMLElement>('#presets [data-preset="keep-newest"]')!;
+    const card = document.querySelector<HTMLElement>('[data-preset="keep-newest"]')!;
     expect(card.textContent).toContain("1 older email moves out");
     card.querySelector("button")!.click();
     const archive = dash.gmail.archiveMessages as ReturnType<typeof vi.fn>;
@@ -127,7 +127,7 @@ describe("Never opened skips the inbox", () => {
         subject: `Issue ${i}`, receivedAt: Date.now() - (i + 1) * 10 * 86_400_000 });
     const dash = await bootDashboard({ mailbox });
     await openOrganize(dash);
-    const card = document.querySelector<HTMLElement>('#presets [data-preset="never-opened"]');
+    const card = document.querySelector<HTMLElement>('[data-preset="never-opened"]');
     expect(card, "no never-opened card for the fixture").toBeTruthy();
     card!.querySelector("button")!.click();
     const keepSorted = dash.gmail.keepSorted as ReturnType<typeof vi.fn>;
@@ -153,7 +153,7 @@ describe("Newsletters on Saturday", () => {
   it("holds newsletters through the sweep (10 minutes) and shows On", async () => {
     const dash = await bootDashboard();
     await openOrganize(dash);
-    const card = () => document.querySelector<HTMLElement>('#presets [data-preset="saturday"]')!;
+    const card = () => document.querySelector<HTMLElement>('[data-preset="saturday"]')!;
     card().querySelector<HTMLInputElement>("input.switch")!.click();
     await vi.waitFor(() => {
       const s = dash.storedSettings();
