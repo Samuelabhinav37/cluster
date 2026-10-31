@@ -3729,12 +3729,6 @@ button.week-card:hover { background: var(--row-hover); }
 .spark { display: flex; gap: 4px; align-items: flex-end; align-self: stretch; height: 34px; margin-top: 12px; }
 .spark i { flex: 1; border-radius: 3px; background: var(--label-4); opacity: 0.35; }
 .spark i.now { background: var(--accent); opacity: 1; }
-.next-list { border: 1px solid var(--separator); border-radius: 16px; background: var(--glass); overflow: hidden; }
-.next-row { display: flex; align-items: center; gap: 14px; padding: 12px 16px; }
-.next-row + .next-row { border-top: 1px solid var(--separator); }
-.next-words { flex: 1; min-width: 0; }
-.next-words b { display: block; font-weight: 600; }
-.next-words span { color: var(--label-4); font-size: 13px; }
 .home-inbox { padding: 18px; border: 1px solid var(--separator); border-radius: 16px; background: var(--glass); }
 .inbox-line { margin: 0; font-size: 15px; color: var(--label-2); }
 .inbox-line b { font-weight: 600; color: var(--label); }
@@ -3789,11 +3783,6 @@ body[data-screen="overview"] .kai-guide:not(.open) .kg-launch { visibility: hidd
 .home-hero.home-card { gap: 18px; margin: 0 0 4px; }
 .home-hero .home-words { flex: 1; }
 .home-verdict { font-size: clamp(20px, 2.2vw, 24px); font-weight: 600; letter-spacing: -0.01em; }
-.next-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) 60px auto; gap: 12px; }
-.next-ic { display: grid; place-items: center; color: var(--label-4); }
-.next-ic .i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.next-name { font-weight: 500; }
-.next-num { text-align: right; font-variant-numeric: tabular-nums; color: var(--label-3); }
 #sender-filter .list-count { margin-left: auto; color: var(--label-3); font-size: 12px; font-variant-numeric: tabular-nums; }
 .chip-danger { color: var(--danger); }
 .verified-tick { flex: none; width: 15px; height: 15px; color: var(--accent); vertical-align: -2px; }
@@ -3932,3 +3921,10 @@ section.screen.paged > :not(.page-head):not(#protect-page) { display: none !impo
 .settings-search { display: block; width: min(420px, 100%); margin: 0 0 14px; padding: 8px 12px; border: 0; border-radius: 10px; background: var(--neutral-fill); color: var(--label); font: inherit; }
 .set-row .sub.warn { color: var(--danger-label); }
 .key-btn { min-width: 64px; font-variant-numeric: tabular-nums; }
+
+/* Home tiles: the place's name on top, then its number; the whole tile opens it. */
+.home-tile { position: relative; text-align: left; }
+.home-tile .tile-name { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-weight: 600; font-size: 13px; color: var(--label-2); }
+.home-tile .tile-name .app-ic { width: 22px; height: 22px; }
+.home-tile > .btn { position: absolute; right: 16px; bottom: 16px; }
+.home-hero + .home-week { margin-top: 16px; }

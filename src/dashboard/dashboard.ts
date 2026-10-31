@@ -12,7 +12,7 @@ import { buildProtectionContext, idsSafeToMoveOut } from "../lib/protectionPolic
 import { clusterLabelName } from "../lib/clusterLabels";
 import { runReplyReminders } from "../lib/replyReminders";
 import { markRepliesToYou } from "../lib/correspondents";
-import { getProfileEmail, GmailApiError } from "../lib/gmailApi";
+import { getLabel, getProfileEmail, GmailApiError } from "../lib/gmailApi";
 import { clearMetadataCache } from "../lib/metadataCache";
 import { MAIL_INDEX_CAP, openMailIndex } from "../lib/mailIndex";
 import {
@@ -74,6 +74,7 @@ import {
   type Suggestion,
 } from "../lib/suggestions";
 import { markFirstContact } from "../lib/firstContact";
+import { recordUnread, unreadDays, unreadWeekAgo } from "../lib/inboxTrend";
 import { markNameMatches } from "../lib/nameMatch";
 import { knownSenderSet } from "../lib/screener";
 import { log } from "../lib/log";
@@ -1197,6 +1198,28 @@ function oldestRead(senders: SenderSummary[]): number | undefined {
   return Number.isFinite(oldest) ? oldest : undefined;
 }
 
+// Gmail's inbox unread count for Home's Inbox tile, read at most every 5 minutes.
+let inboxUnread: number | undefined;
+let unreadAt = 0;
+let lastOverview: Parameters<typeof renderOverview> | null = null;
+async function refreshInboxUnread(): Promise<void> {
+  if (Date.now() - unreadAt < 5 * 60 * 1000 || !providerById.has("gmail")) return;
+  unreadAt = Date.now();
+  try {
+    const token = await providerById.get("gmail")!.getAuthToken(false);
+    const unread = (await getLabel(token, "INBOX")).messagesUnread;
+    if (typeof unread !== "number") return;
+    ctx.settings = await updateSettings({
+      unreadSnapshots: recordUnread(ctx.settings.unreadSnapshots ?? {}, unread, Date.now()),
+    });
+    if (unread === inboxUnread) return;
+    inboxUnread = unread;
+    if (lastOverview) renderOverview(...lastOverview);
+  } catch (err) {
+    log.error("home: inbox unread failed", err);
+  }
+}
+
 // ── Overview screen (v3) ────────────────────────────────────────────────
 // Home: the total, the kind bar and up to three next steps (homeDashboard.ts).
 function renderOverview(
@@ -1237,6 +1260,10 @@ function renderOverview(
     },
     reading: firstReadProgress(),
     people: ctx.settings.sentCorrespondents.addresses.length,
+    inboxUnread,
+    unreadByDay: unreadDays(ctx.settings.unreadSnapshots ?? {}, Date.now()),
+    unreadWeekAgo: unreadWeekAgo(ctx.settings.unreadSnapshots ?? {}, Date.now()),
+    heldThisWeek: heldByWeek(ctx.settings.scamHistory, 1)[0]?.held ?? 0,
     // Until reading is done the total covers only recent mail, so say how far back.
     since: [...indexRuns.values()].some((r) => r.progress?.phase === "reading")
       ? oldestRead(allSenders)
@@ -1246,6 +1273,8 @@ function renderOverview(
   const counted = allSenders.reduce((n, s) => n + senderVolume(s), 0);
   if (counted > facts.total) Object.assign(facts, { total: counted, since: undefined });
   overviewContentEl.appendChild(renderHomeDashboard(facts, goAndAct, (kind) => details?.open({ kind })));
+  lastOverview = [senders, securitySenders, allSenders];
+  void refreshInboxUnread();
   const moved = movedTodayCard();
   if (moved) overviewContentEl.appendChild(moved);
   if (lastScanCapHit) {

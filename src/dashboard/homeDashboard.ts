@@ -86,6 +86,14 @@ export interface HomeFacts {
   reading?: { done: number; total: number };
   /** People you write to, from your sent mail. */
   people?: number;
+  /** Gmail's inbox unread count, once it has answered. */
+  inboxUnread?: number;
+  /** Unread on each of the last seven days, oldest first; null where not recorded. */
+  unreadByDay?: (number | null)[];
+  /** Unread a week ago, when recorded. */
+  unreadWeekAgo?: number;
+  /** Emails held as scams this week. */
+  heldThisWeek?: number;
 }
 
 /** Open a place; `act` also starts that place's own confirm step. */
@@ -321,18 +329,6 @@ function deltaChip(now: number, before: number, fewerIsGood: boolean): HTMLEleme
   return el("small", `chip-delta${good ? " good" : ""}`, `${Math.abs(pct)}% ${pct < 0 ? "fewer" : "more"}`);
 }
 
-/** A row: a gray glyph, the name, its number and one verb. */
-function nextRow(o: { ic: string; title: string; count: number; act: string; run: () => void }) {
-  const row = el("div", "next-row");
-  const ic = el("span", "next-ic");
-  ic.append(icon(o.ic));
-  const btn = el("button", "btn btn-sm", o.act);
-  btn.type = "button";
-  btn.onclick = o.run;
-  row.append(ic, el("b", "next-name", o.title), el("span", "next-num", n(o.count)), btn);
-  return row;
-}
-
 /** The first read: Kai beside a live counter. The dashboard moves the numbers
  * with `paintHomeRead` as reading goes on. */
 function readHero(r: { done: number; total: number }): HTMLElement {
@@ -401,6 +397,82 @@ function foundSoFar(f: HomeFacts): HTMLElement {
   return strip;
 }
 
+/** A tile: a place's icon and name, a big number, a line under it. */
+function tile(o: { app: string; ic: string; name: string; value: string; label: string; open: () => void }): HTMLElement {
+  const card = el("div", "week-card home-tile row-link");
+  card.tabIndex = 0;
+  card.setAttribute("role", "button");
+  card.setAttribute("aria-label", `${o.name}: ${o.value} ${o.label}`);
+  card.onclick = (e) => {
+    if (!(e.target instanceof HTMLElement && e.target.closest("button"))) o.open();
+  };
+  card.onkeydown = (e) => {
+    if (e.target === card && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      o.open();
+    }
+  };
+  const head = el("span", "tile-name");
+  const mark = el("span", `app-ic app-${o.app}`);
+  mark.append(icon(o.ic));
+  head.append(mark, o.name);
+  card.append(head, el("b", "", o.value), el("span", "", o.label));
+  return card;
+}
+
+function homeTiles(f: HomeFacts, go: Go, openKind?: (kind: HomeKind) => void): HTMLElement {
+  const unread = f.inboxUnread;
+  const inbox = tile({
+    app: "inbox",
+    ic: "users",
+    name: "Inbox",
+    value: unread === undefined ? "–" : n(unread),
+    label: "unread",
+    open: () => openKind?.("primary"),
+  });
+  const days = f.unreadByDay ?? [];
+  if (days.some((d) => d !== null)) {
+    const spark = el("div", "spark");
+    spark.setAttribute("role", "img");
+    spark.setAttribute("aria-label", `Unread each day: ${days.map((d) => d ?? "none").join(", ")}`);
+    const top = Math.max(1, ...days.map((d) => d ?? 0));
+    days.forEach((d, i) => {
+      const bar = el("i", i === 6 ? "now" : "");
+      bar.style.height = `${d === null ? 0 : Math.max(6, (d / top) * 100)}%`;
+      spark.append(bar);
+    });
+    inbox.append(spark);
+  }
+  const change = unread !== undefined && f.unreadWeekAgo !== undefined ? deltaChip(unread, f.unreadWeekAgo, true) : null;
+  if (change) inbox.append(change);
+
+  const clean = tile({ app: "clean", ic: "mail-x", name: "Clean up", value: n(f.clearable), label: "can go", open: () => go("delete") });
+  // The bigger card's own button, so one click starts its confirm.
+  const top: [number, HomeAct] | null =
+    f.neverOpened.emails >= f.pastDate && f.neverOpened.emails > 0
+      ? [f.neverOpened.emails, "trash-never-opened"]
+      : f.pastDate > 0
+        ? [f.pastDate, "trash-past-date"]
+        : null;
+  if (top) {
+    const btn = el("button", "btn btn-sm", "Trash");
+    btn.type = "button";
+    btn.title = `Trash ${n(top[0])}`;
+    btn.onclick = () => go("delete", top[1]);
+    clean.append(btn);
+  }
+
+  // What needs a look comes first; then what was held; else all clear.
+  const held = f.heldThisWeek ?? 0;
+  const [value, label] =
+    f.suspicious > 0 ? [n(f.suspicious), "to look at"] : held > 0 ? [n(held), "held this week"] : ["All clear", ""];
+  const security = tile({ app: "protect", ic: "shield-alert", name: "Security", value, label, open: () => go("impersonation") });
+
+  const row = el("div", "home-week");
+  row.append(inbox, clean, security);
+  return row;
+}
+
 /** Home: Kai's verdict, what Cluster did this week, up to three next steps,
  * and the inbox by kind (approved mockup research/2026-10-29-home-mockup.html).
  * `openKind` opens those emails in Details. */
@@ -418,106 +490,13 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
     review.onclick = () => go("impersonation");
     words.append(verdict);
     hero.append(words, review);
-  } else {
-    verdict.append("Nothing needs you today.");
-    words.append(verdict);
-    hero.append(words);
   }
-  root.append(f.reading ? readHero(f.reading) : hero);
+  if (f.reading) root.append(readHero(f.reading));
+  else if (f.suspicious > 0) root.append(hero);
 
-  // 2. This week: results, each with a comparison.
-  const byDay = f.cleared?.byDay ?? [0, 0, 0, 0, 0, 0, 0];
-  const cleared = el("div", "week-card");
-  cleared.append(el("b", "", n(byDay.reduce((a, b) => a + b, 0))), el("span", "", "cleared"));
-  const spark = el("div", "spark");
-  spark.setAttribute("role", "img");
-  const top = Math.max(1, ...byDay);
-  const dayName = (ago: number) =>
-    ago === 0
-      ? "Today"
-      : new Date(Date.now() - ago * DAY_MS).toLocaleDateString(undefined, { weekday: "short" });
-  spark.setAttribute(
-    "aria-label",
-    `Cleared per day: ${byDay.map((v, i) => `${dayName(6 - i)} ${v}`).join(", ")}`,
-  );
-  byDay.forEach((v, i) => {
-    const bar = el("i", i === 6 ? "now" : "");
-    bar.style.height = `${Math.max(6, (v / top) * 100)}%`;
-    bar.title = `${dayName(6 - i)}: ${n(v)}`;
-    spark.append(bar);
-  });
-  cleared.append(spark);
-
-  const arrived = el("div", "week-card");
-  arrived.append(el("b", "", n(f.thisWeek)), el("span", "", "arrived"));
-  const arrivedChip = deltaChip(f.thisWeek, f.lastWeek ?? 0, true);
-  if (arrivedChip) arrived.append(arrivedChip);
-
-  // Mail from people is what you came for; its share shows how much is noise.
-  const people = el(openKind ? "button" : "div", "week-card");
-  if (openKind) {
-    (people as HTMLButtonElement).type = "button";
-    people.onclick = () => openKind("primary");
-  }
-  const peopleWeek = f.peopleWeek ?? 0;
-  people.append(el("b", "", n(peopleWeek)), el("span", "", "from people"));
-  if (f.thisWeek > 0)
-    people.append(
-      el("small", "chip-delta", `${Math.round((peopleWeek / f.thisWeek) * 100)}%`),
-    );
-  const week = el("div", "home-week");
-  week.append(cleared, arrived, people);
-  // During the first read nothing is cleared yet; show what turns up instead.
+  // 2. Three tiles: Inbox, Clean up, Security. Each opens its place.
   if (f.reading) root.append(el("h2", "section-label", "Found so far"), foundSoFar(f));
-  else root.append(el("h2", "section-label", "This week"), week);
-
-  // 3. Next up: at most three, each says what happens and has one button.
-  const rows: HTMLElement[] = [];
-  if (f.neverOpened.emails > 0)
-    rows.push(
-      nextRow({
-        ic: "mail-x",
-        title: "Never opened",
-        count: f.neverOpened.emails,
-        act: "Trash",
-        run: () => go("delete", "trash-never-opened"),
-      }),
-    );
-  if (f.pastDate > 0)
-    rows.push(
-      nextRow({
-        ic: "clock",
-        title: "Past its date",
-        count: f.pastDate,
-        act: "Trash",
-        run: () => go("delete", "trash-past-date"),
-      }),
-    );
-  if (f.waiting > 0)
-    rows.push(
-      nextRow({
-        ic: "user-plus",
-        title: "New senders",
-        count: f.waiting,
-        act: "Review",
-        run: () => go("screener"),
-      }),
-    );
-  if (f.limitsOn === 0 && f.couldLeaveWeekly)
-    rows.push(
-      nextRow({
-        ic: "layers",
-        title: "Leave on its own",
-        count: f.couldLeaveWeekly,
-        act: "Turn on",
-        run: () => go("organize"),
-      }),
-    );
-  if (rows.length > 0) {
-    const list = el("div", "next-list");
-    list.append(...rows.slice(0, 3));
-    root.append(el("h2", "section-label", "Next up"), list);
-  }
+  else root.append(homeTiles(f, go, openKind));
 
   // 4. Your inbox: the bar, with one sentence that says what it means.
   const inbox = el("section", "home-inbox");

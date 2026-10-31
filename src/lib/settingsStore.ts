@@ -61,6 +61,8 @@ export interface ClusterSettings {
   keymap?: Record<string, string>;
   /** Single-key shortcuts on. Off leaves only Ctrl or Cmd shortcuts. */
   singleKeys?: boolean;
+  /** Gmail's inbox unread count, one a day (inboxTrend.ts). */
+  unreadSnapshots?: Record<string, number>;
   /** Rolling "here's what I did" log (see actionLog.ts). Capped at MAX_LOG_ENTRIES. */
   actionLog: ActionLogEntry[];
   /** Emails Cluster took out of the inbox since install (Home's "since you started"). */

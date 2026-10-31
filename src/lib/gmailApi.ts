@@ -775,6 +775,7 @@ export interface GmailLabelInfo {
   color?: { backgroundColor?: string; textColor?: string };
   /** Only present on labels.get, not labels.list. */
   messagesTotal?: number;
+  messagesUnread?: number;
 }
 
 export async function listLabels(token: string): Promise<GmailLabelInfo[]> {
