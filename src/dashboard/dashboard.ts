@@ -2208,7 +2208,7 @@ function renderNeverReadSection(senders: SenderSummary[]) {
   );
 }
 
-// ── Organize: one-time action cards beside the time-limit presets ──────
+// ── Clean up: one-time action cards beside the time-limit presets ──────
 // What the last one did, shown on its card after the rescan redraws it.
 const presetNotes = new Map<string, string>();
 const KEEP_IN_INBOX = 3;
