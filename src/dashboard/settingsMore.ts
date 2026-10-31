@@ -292,6 +292,34 @@ function showKeysSheet(): void {
   if (!sheet.open) sheet.showModal?.();
 }
 
+/** Settings > Kai: what Kai couldn't answer, kept on this computer. */
+export function renderKaiMissed(): void {
+  const root = $("settings-kai-missed");
+  if (!root) return;
+  const missed = ctx.settings.kaiMissed ?? [];
+  const rows = missed.map((m) => {
+    const row = document.createElement("div");
+    row.className = "set-row plain";
+    row.append(
+      Object.assign(document.createElement("span"), { className: "grow", textContent: m.q }),
+      Object.assign(document.createElement("span"), { className: "hint", textContent: new Date(m.at).toLocaleDateString() }),
+    );
+    return row;
+  });
+  const clear = document.createElement("div");
+  clear.className = "set-row";
+  clear.append(Object.assign(document.createElement("span"), { className: "grow", textContent: "Forget what Kai learned" }));
+  const btn = Object.assign(document.createElement("button"), { type: "button", className: "btn", textContent: "Clear" });
+  btn.onclick = async () => {
+    ctx.settings = await updateSettings({ kaiMissed: [], kaiLearned: {} });
+    renderKaiMissed();
+  };
+  clear.append(btn);
+  if (rows.length === 0)
+    rows.push(Object.assign(document.createElement("div"), { className: "set-row plain", textContent: "Kai has answered everything so far." }));
+  root.replaceChildren(...rows, clear);
+}
+
 export interface KeyActions {
   search(): void;
   kai(): void;
@@ -301,6 +329,7 @@ export function wireSettingsMore(showScreen: (name: string) => void, act?: KeyAc
   const openPaneOf = wireSettingsNav();
   wireSettingsSearch();
   renderKeys();
+  renderKaiMissed();
   const single = $<HTMLInputElement>("single-keys-toggle");
   if (single) {
     single.checked = ctx.settings.singleKeys !== false;

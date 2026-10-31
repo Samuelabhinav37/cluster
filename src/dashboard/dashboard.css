@@ -3928,3 +3928,7 @@ section.screen.paged > :not(.page-head):not(#protect-page) { display: none !impo
 .home-tile .tile-name .app-ic { width: 22px; height: 22px; }
 .home-tile > .btn { position: absolute; right: 16px; bottom: 16px; }
 .home-hero + .home-week { margin-top: 16px; }
+
+/* Kai: one box to type a question, under the chat. */
+.kg-form { padding: 10px 12px 12px; border-top: 1px solid var(--separator); }
+.kg-input { width: 100%; padding: 9px 12px; border: 0; border-radius: 10px; background: var(--neutral-fill); color: var(--label); font: inherit; }

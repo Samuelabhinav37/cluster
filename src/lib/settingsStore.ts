@@ -61,6 +61,10 @@ export interface ClusterSettings {
   keymap?: Record<string, string>;
   /** Single-key shortcuts on. Off leaves only Ctrl or Cmd shortcuts. */
   singleKeys?: boolean;
+  /** Words from Kai questions linked to the answers picked (kaiMatch.ts). */
+  kaiLearned?: Record<string, Record<string, { n: number; at: number }>>;
+  /** Questions Kai couldn't answer, newest first, at most 50. */
+  kaiMissed?: { q: string; at: number }[];
   /** Gmail's inbox unread count, one a day (inboxTrend.ts). */
   unreadSnapshots?: Record<string, number>;
   /** Rolling "here's what I did" log (see actionLog.ts). Capped at MAX_LOG_ENTRIES. */

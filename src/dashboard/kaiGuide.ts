@@ -1,9 +1,9 @@
 // Kai, the guide in the bottom-right corner of the dashboard, with "Ask
 // Kai" in a small bubble above it (the same Kai as in Moat and on the
-// website). Pressing Kai opens a chat of plain questions about Cluster;
-// there is no text box, so every question has an answer. Kai answers in a
-// sentence or two and offers "Show me": the right screen opens and, where
-// there is one, the control is outlined for a moment.
+// website). Pressing Kai opens a chat of plain questions about Cluster, and
+// a box to type your own (matched on this computer, kaiMatch.ts). Kai answers
+// in a sentence or two and offers "Take me there": the right screen opens
+// and, where there is one, the control is outlined for a moment.
 //
 // Kai is the live front-facing Kai (./kai/kaiLife.js) in calm mode: it
 // blinks, glances, follows the pointer when it comes near and reacts while
@@ -30,6 +30,8 @@ export interface KaiQuestion {
   target?: string;
   /** Question ids to offer next. */
   follow?: string[];
+  /** Other ways people ask, for typed questions. */
+  phrases?: string[];
 }
 
 export interface KaiOptions {
@@ -43,6 +45,14 @@ export interface KaiOptions {
   /** Round 2: no Kai in the corner. Kai sits in the chat's header, the chat
    * opens beside the sidebar, and nudges show on this element (Ask Kai). */
   dock?: HTMLElement;
+  /** Answers for a typed question, best first; empty when Kai doesn't know. */
+  match?: (text: string) => KaiQuestion[];
+  /** The person took this answer for what they typed. */
+  picked?: (text: string, id: string) => void;
+  /** Kai had no answer for this. */
+  missed?: (text: string) => void;
+  /** Opens a screen, including ones with no sidebar item (Settings, Activity). */
+  go?: (screen: string) => void;
 }
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -134,7 +144,16 @@ export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
   const log = el(doc, "div", "kg-log");
   log.setAttribute("aria-live", "polite");
   body.append(log);
-  panel.append(head, body);
+  // One box to type a question; the set questions stay as chips above it.
+  const form = el(doc, "form", "kg-form");
+  const input = el(doc, "input", "kg-input");
+  input.type = "text";
+  input.placeholder = "Ask Kai";
+  input.autocomplete = "off";
+  input.setAttribute("aria-label", "Ask Kai");
+  form.append(input);
+  if (options.match) panel.append(head, body, form);
+  else panel.append(head, body);
 
   const launch = el(doc, "div", "kg-launch");
   const tag = el(doc, "button", "kg-tag");
@@ -177,17 +196,65 @@ export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
     b.addEventListener("click", onClick);
     return b;
   };
-  const showMe = (q: KaiQuestion) => {
-    const b = el(doc, "button", "kg-go", "Show me →");
+  const showMe = (q: KaiQuestion, label = "Show me →", onGo?: () => void) => {
+    const b = el(doc, "button", "kg-go", label);
     b.type = "button";
     b.addEventListener("click", () => {
+      onGo?.();
       hide();
-      doc.querySelector<HTMLButtonElement>(`.nav-item[data-screen="${q.screen}"]`)?.click();
+      if (q.screen) {
+        if (options.go) options.go(q.screen);
+        else doc.querySelector<HTMLButtonElement>(`.nav-item[data-screen="${q.screen}"]`)?.click();
+      }
       const target = q.target;
       if (target) win.setTimeout(() => pointAt(doc, target, kai), 250);
     });
     return b;
   };
+
+  /** A typed question: the best answer with Take me there, and up to two others. */
+  const askTyped = (text: string) => {
+    if (busy || !options.match) return;
+    const found = options.match(text);
+    log.querySelector(".kai-list")?.remove();
+    bubble("me", text);
+    const best = found[0];
+    if (!best) {
+      options.missed?.(text);
+      busy = true;
+      say("I don't know that one yet. I kept it so it can be added.", null, () => {
+        busy = false;
+        choices(firstIds(), false);
+      });
+      return;
+    }
+    busy = true;
+    asked.add(best.id);
+    const go = best.screen || best.target ? showMe(best, "Take me there ↵", () => options.picked?.(text, best.id)) : null;
+    say(best.answer, go, () => {
+      busy = false;
+      go?.focus();
+      const others = found.slice(1, 3);
+      if (others.length === 0) return;
+      const wrap = el(doc, "div", "kai-list");
+      for (const o of others)
+        wrap.append(
+          chip(o.ask, () => {
+            options.picked?.(text, o.id);
+            ask(o, wrap);
+          }),
+        );
+      log.append(wrap);
+      scrollDown();
+    });
+  };
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    askTyped(text);
+  });
 
   /** Kai says `text` (typed out while its mouth moves), then `then()`. */
   const say = (text: string, extra: HTMLElement | null, then: () => void) => {
@@ -488,27 +555,50 @@ export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
   return { open: show, close: hide, isOpen, watch, tip, root, ask: askNow };
 }
 
-/** Cluster's questions. Short, plain answers; each names the screen it opens. */
+/** Cluster's questions. Short, plain answers; each names the screen it opens.
+ * `phrases` are other ways people ask, for typed questions (kaiMatch.ts). */
 export const CLUSTER_QUESTIONS: KaiQuestion[] = [
-  { id: "read", ask: "Does Cluster read my emails?", answer: "No. It reads senders, subjects, dates, labels and a few sender-check headers, never the message itself. Everything runs in your browser.", follow: ["starred", "undo"] },
-  { id: "sort", ask: "How do I sort my inbox?", answer: "Open Organize and press Sort my inbox. You see every group first and tick what to file. Nothing moves until you confirm.", screen: "organize", target: "#sort-inbox-section", follow: ["keep", "undo"] },
-  { id: "flagged", ask: "Why was this sender flagged?", answer: "It looked like someone else: a lookalike domain, a failed sender check, or a reply address that goes somewhere different. Each flag lists its reasons.", screen: "impersonation", follow: ["read"] },
-  { id: "undo", ask: "How do I undo something?", answer: "Activity lists everything Cluster did, newest first, with Undo wherever your mail provider allows it.", screen: "recent", follow: ["starred"] },
-  { id: "unsub", ask: "How do I unsubscribe from lots at once?", answer: "Stop mail lists every sender you can leave. Pick the ones you want, or press Unsubscribe all for everyone who stops in one click.", screen: "subscriptions", follow: ["undo"] },
-  { id: "keep", ask: "Can Cluster keep new mail sorted?", answer: "Yes. Any label on Organize that isn't Off keeps sorting new mail. Sender-based labels use Gmail filters, so they work with Chrome closed.", screen: "organize", target: "#sort-inbox-section", follow: ["undo"] },
-  { id: "screener", ask: "What is New senders?", answer: "Turn on Hold mail from new senders, and mail from people you've never emailed waits there, out of your inbox, until you let them in.", screen: "screener", target: "#screener-toggle-row", follow: ["read"] },
-  { id: "starred", ask: "Will it touch my starred mail?", answer: "Never. Starred mail is always skipped, and nothing is moved or deleted before you confirm.", follow: ["undo"] },
+  { id: "read", ask: "Does Cluster read my emails?", answer: "No. It reads senders, subjects, dates, labels and a few sender-check headers, never the message itself. Everything runs in your browser.", follow: ["starred", "undo"],
+    phrases: ["is my mail private", "do you send my data anywhere", "is cluster safe", "does it use the cloud or ai"] },
+  { id: "sort", ask: "How do I sort my inbox?", answer: "Open Organize, set each label, then press Sort my inbox at the top. Nothing moves until you confirm.", screen: "organize", target: "#sort-inbox-bar", follow: ["keep", "undo"],
+    phrases: ["put mail into labels", "organize my email", "file mail into folders", "group my emails"] },
+  { id: "flagged", ask: "Why was this sender flagged?", answer: "It looked like someone else: a lookalike address, a failed sender check, or a name you know from a new address. Open a row in Look at these to see every reason.", screen: "impersonation", follow: ["read"],
+    phrases: ["why is this a scam", "is this email phishing", "why does protect warn me", "what are warning signs"] },
+  { id: "undo", ask: "How do I undo something?", answer: "Activity lists everything Cluster did, newest first, with Undo wherever Gmail allows it. Trashed mail also stays in Gmail's Trash for 30 days.", screen: "recent", follow: ["starred"],
+    phrases: ["i deleted something by mistake", "get my emails back", "restore trashed mail", "where did my mail go"] },
+  { id: "unsub", ask: "How do I unsubscribe from lots at once?", answer: "Clean up has a Lists you can leave card. Press Unsubscribe and pick the lists, or leave them all ticked.", screen: "delete", target: "#lists-card", follow: ["undo"],
+    phrases: ["stop newsletters", "get off mailing lists", "too many marketing emails", "unsubscribe all"] },
+  { id: "keep", ask: "Can Cluster keep new mail sorted?", answer: "Yes. Any label on Organize that isn't Off keeps sorting new mail. Sender rules become Gmail filters, so they work with Chrome closed.", screen: "organize", target: "#time-limits-rows", follow: ["rules", "undo"],
+    phrases: ["sort new mail automatically", "does it work when chrome is closed", "keep my inbox tidy"] },
+  { id: "screener", ask: "What is New senders?", answer: "Turn on Hold mail from new senders, and mail from people you've never emailed waits there, out of your inbox, until you let them in.", screen: "screener", target: "#screener-toggle-row", follow: ["read"],
+    phrases: ["hold mail from strangers", "unknown senders", "first time senders", "let someone in"] },
+  { id: "starred", ask: "Will it touch my starred mail?", answer: "Never. Starred and important mail is always skipped, and nothing is moved or deleted before you confirm.", follow: ["undo"],
+    phrases: ["will it delete important emails", "is starred mail safe", "protect my important mail"] },
+  { id: "cleanup", ask: "How do I clear out old mail?", answer: "Clean up has a card for mail you never open and one for old codes and news. Press Trash on a card, or open it to pick senders.", screen: "delete", target: ".cu-cards", follow: ["undo", "starred"],
+    phrases: ["delete old emails", "free up space", "trash mail i never open", "remove old codes", "my inbox is full"] },
+  { id: "rules", ask: "How do I make a rule?", answer: "On Organize, under Your rules, press New rule. Say who it's from and what to do. Rules about the sender also become Gmail filters.", screen: "organize", target: "#your-rules", follow: ["keep"],
+    phrases: ["always label mail from a sender", "create a filter", "if this then that", "automatically archive mail from someone"] },
+  { id: "block", ask: "How do I block a scam?", answer: "On Protect, press Block on its row. Its mail moves out of your inbox, and with Send held mail to Spam on, Gmail learns from it too.", screen: "impersonation", target: "#security-section", follow: ["flagged"],
+    phrases: ["stop a scammer", "mark as spam", "get rid of phishing mail", "block this sender"] },
+  { id: "find", ask: "How do I find an email?", answer: "Use the search at the top, or press /. Pick a company or person, or Search all of Gmail for older mail.", target: "#ask-kai-open", follow: ["contacts"],
+    phrases: ["search my mail", "look for a message", "where is the search bar", "find mail from someone"] },
+  { id: "contacts", ask: "Where are the people who email me?", answer: "Contacts lists everyone who writes to you: People, Companies and Subscriptions. Press a row to see its emails.", screen: "senders", follow: ["find"],
+    phrases: ["list of senders", "who sends me the most mail", "see all companies", "my subscriptions"] },
+  { id: "keys", ask: "What are the keyboard shortcuts?", answer: "Press ? to see them all. You can change any key in Settings, under Keyboard.", screen: "settings", follow: ["find"],
+    phrases: ["change a hotkey", "turn off shortcuts", "keyboard keys"] },
+  { id: "held", ask: "Where does held mail go?", answer: "Held mail leaves your inbox under a Suspicious label. Open Scams per week on Protect to see it and release anything safe.", screen: "impersonation", target: "#report-held-card", follow: ["block"],
+    phrases: ["quarantine", "release a held email", "mail went missing", "suspicious label"] },
 ];
 
 /** Which questions come first on each screen. */
 export const CLUSTER_FIRST_ON: Record<string, string[]> = {
   overview: ["read", "sort"],
-  delete: ["undo", "starred"],
-  senders: ["unsub", "flagged"],
+  delete: ["cleanup", "undo", "starred"],
+  senders: ["contacts", "unsub"],
   subscriptions: ["unsub", "undo"],
-  organize: ["sort", "keep"],
-  rules: ["keep", "undo"],
-  impersonation: ["flagged", "read"],
+  settings: ["keys", "read"],
+  organize: ["sort", "rules", "keep"],
+  impersonation: ["flagged", "block", "held"],
   screener: ["screener", "read"],
   recent: ["undo"],
 };

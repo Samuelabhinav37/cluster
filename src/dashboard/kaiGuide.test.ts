@@ -2,10 +2,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLUSTER_FIRST_ON, CLUSTER_QUESTIONS, initKaiGuide } from "./kaiGuide";
 
-function setup(screen = "overview") {
+function setup(screen = "overview", extra: Partial<Parameters<typeof initKaiGuide>[1]> = {}) {
   document.body.innerHTML = `
     <nav id="sidebar"><button class="nav-item active" data-screen="${screen}">Here</button><button class="nav-item" data-screen="organize">Sorting</button></nav>
-    <section id="sort-inbox-section">Sort my inbox</section>`;
+    <section id="sort-inbox-bar">Sort my inbox</section>`;
   const sortNav = document.querySelector<HTMLButtonElement>('.nav-item[data-screen="organize"]')!;
   const navClick = vi.fn();
   sortNav.addEventListener("click", navClick);
@@ -13,6 +13,7 @@ function setup(screen = "overview") {
     questions: CLUSTER_QUESTIONS,
     firstOn: CLUSTER_FIRST_ON,
     currentScreen: () => document.querySelector<HTMLElement>("#sidebar .nav-item.active")?.dataset.screen ?? "overview",
+    ...extra,
   });
   const button = document.querySelector<HTMLButtonElement>(".kai-button")!;
   const panel = document.getElementById("kai-chat")!;
@@ -71,7 +72,7 @@ describe("Kai's guide in Cluster", () => {
     const { open, said, chips } = setup("organize");
     open();
     expect(said()).toEqual(["Hi, I'm Kai. I'm small, but I know Cluster inside out. What can I help with?"]);
-    expect(chips().slice(0, 2)).toEqual(["How do I sort my inbox?", "Can Cluster keep new mail sorted?"]);
+    expect(chips().slice(0, 2)).toEqual(["How do I sort my inbox?", "How do I make a rule?"]);
     expect(chips().at(-1)).toBe("Ask something else");
   });
 
@@ -82,16 +83,16 @@ describe("Kai's guide in Cluster", () => {
     expect(panel.querySelector(".kg-msg.typing")).not.toBeNull();
     expect(panel.querySelector(".kg-status")!.textContent).toBe("Thinking");
     vi.advanceTimersByTime(3000);
-    expect(said().at(-1)).toContain("Open Organize and press Sort my inbox.");
+    expect(said().at(-1)).toContain("Open Organize, set each label, then press Sort my inbox");
     expect(panel.querySelectorAll(".kg-msg.kai")).toHaveLength(0);
     panel.querySelector<HTMLButtonElement>(".kg-go")!.click();
     expect(navClick).toHaveBeenCalledOnce();
     expect(panel.hidden).toBe(true);
     // Kai looks at the spot first, then the ring appears
     vi.advanceTimersByTime(300);
-    expect(document.getElementById("sort-inbox-section")!.classList.contains("kai-here")).toBe(false);
+    expect(document.getElementById("sort-inbox-bar")!.classList.contains("kai-here")).toBe(false);
     vi.advanceTimersByTime(700);
-    expect(document.getElementById("sort-inbox-section")!.classList.contains("kai-here")).toBe(true);
+    expect(document.getElementById("sort-inbox-bar")!.classList.contains("kai-here")).toBe(true);
   });
 
   it("answers without Show me when there is nowhere to go, then offers follow-ups", () => {
@@ -110,12 +111,43 @@ describe("Kai's guide in Cluster", () => {
     expect(panel.hidden).toBe(true);
     expect(button.getAttribute("aria-expanded")).toBe("false");
     open();
-    document.getElementById("sort-inbox-section")!.click();
+    document.getElementById("sort-inbox-bar")!.click();
     expect(panel.hidden).toBe(true);
   });
 
-  it("every question that opens a screen names a real sidebar screen", () => {
-    const screens = new Set(["overview", "delete", "senders", "subscriptions", "organize", "rules", "impersonation", "screener", "report", "recent"]);
+  it("answers a typed question with Take me there, learns the pick, and keeps a miss", () => {
+    const sort = CLUSTER_QUESTIONS.find((q) => q.id === "sort")!;
+    const picked = vi.fn();
+    const missed = vi.fn();
+    const go = vi.fn();
+    const { open, panel, said } = setup("overview", {
+      match: (t) => (t.includes("sort") ? [sort] : []),
+      picked,
+      missed,
+      go,
+    });
+    open();
+    const input = panel.querySelector<HTMLInputElement>(".kg-input")!;
+    input.value = "sort my mail";
+    panel.querySelector("form")!.dispatchEvent(new Event("submit", { cancelable: true }));
+    vi.advanceTimersByTime(3000);
+    expect(said().at(-1)).toBe(sort.answer);
+    const takeMe = panel.querySelector<HTMLButtonElement>(".kg-go")!;
+    expect(takeMe.textContent).toBe("Take me there ↵");
+    takeMe.click();
+    expect(picked).toHaveBeenCalledWith("sort my mail", "sort");
+    expect(go).toHaveBeenCalledWith("organize");
+
+    open();
+    input.value = "what is the weather";
+    panel.querySelector("form")!.dispatchEvent(new Event("submit", { cancelable: true }));
+    vi.advanceTimersByTime(3000);
+    expect(missed).toHaveBeenCalledWith("what is the weather");
+    expect(said().at(-1)).toContain("I don't know that one yet");
+  });
+
+  it("every question that opens a screen names a real screen", () => {
+    const screens = new Set(["overview", "delete", "senders", "subscriptions", "organize", "impersonation", "screener", "recent", "settings"]);
     for (const q of CLUSTER_QUESTIONS) if (q.screen) expect(screens.has(q.screen), q.id).toBe(true);
     for (const ids of Object.values(CLUSTER_FIRST_ON)) for (const id of ids) expect(CLUSTER_QUESTIONS.some((q) => q.id === id), id).toBe(true);
   });

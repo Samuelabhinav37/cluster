@@ -74,6 +74,8 @@ import {
   type Suggestion,
 } from "../lib/suggestions";
 import { markFirstContact } from "../lib/firstContact";
+import { learnPick, matchKai, rememberMiss } from "../lib/kaiMatch";
+import { renderKaiMissed } from "./settingsMore";
 import { recordUnread, unreadDays, unreadWeekAgo } from "../lib/inboxTrend";
 import { markNameMatches } from "../lib/nameMatch";
 import { knownSenderSet } from "../lib/screener";
@@ -491,6 +493,7 @@ function wireThemeSelect() {
 }
 
 let kaiGuide: KaiGuide | null = null;
+const KAI_DOCS = CLUSTER_QUESTIONS.map((q) => ({ id: q.id, texts: [q.ask, ...(q.phrases ?? [])] }));
 let search: { open(): void } | null = null;
 
 async function main() {
@@ -499,6 +502,20 @@ async function main() {
     firstOn: CLUSTER_FIRST_ON,
     currentScreen: () =>
       document.querySelector<HTMLElement>("#sidebar .nav-item.active")?.dataset.screen ?? "overview",
+    match: (text) => {
+      const byId = new Map(CLUSTER_QUESTIONS.map((q) => [q.id, q]));
+      return matchKai(text, KAI_DOCS, ctx.settings.kaiLearned ?? {}).map((r) => byId.get(r.id)!);
+    },
+    go: (screen) => void selectScreen(screen),
+    picked: (text, id) =>
+      void updateSettings({ kaiLearned: learnPick(ctx.settings.kaiLearned ?? {}, text, id) }).then((s) => {
+        ctx.settings = s;
+      }),
+    missed: (text) =>
+      void updateSettings({ kaiMissed: rememberMiss(ctx.settings.kaiMissed ?? [], text) }).then((s) => {
+        ctx.settings = s;
+        renderKaiMissed();
+      }),
   });
   statusEl.textContent = "Connecting…";
   // Domain matching needs the Public Suffix List and the brand registry (local files, quick to load).
