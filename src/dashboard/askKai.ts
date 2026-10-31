@@ -158,7 +158,7 @@ export function searchGroups(raw: string, f: AskFacts, act: AskActions, openUrl:
   return groups.filter((g) => g.hits.length > 0);
 }
 
-/** The box itself: opened by the top search bar or "/". */
+/** The box itself: opened by the top search bar or its shortcut. */
 export interface AskQuestion {
   label: string;
   run: () => void;
@@ -291,12 +291,7 @@ export function initAskKai(
       if (!backdrop.hidden) render();
       return;
     }
-    const active = document.activeElement as HTMLElement | null;
-    const typing = active && (active.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName));
-    if (e.key === "/" && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
-      open();
-    }
+    // Opening by key lives with the other shortcuts (settingsMore.ts).
   });
   return { open, close };
 }

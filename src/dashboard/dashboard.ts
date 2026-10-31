@@ -490,6 +490,7 @@ function wireThemeSelect() {
 }
 
 let kaiGuide: KaiGuide | null = null;
+let search: { open(): void } | null = null;
 
 async function main() {
   kaiGuide = initKaiGuide(document, {
@@ -513,7 +514,10 @@ async function main() {
   applyTheme(ctx.settings.theme);
   wireSetup(selectScreen);
   wireThemeSelect();
-  wireSettingsMore(showScreen);
+  wireSettingsMore(showScreen, {
+    search: () => search?.open(),
+    kai: () => kaiGuide?.open(),
+  });
   wireNav();
   // Each page title wears its place's app icon, like iCloud Drive's headers.
   for (const icon of Array.from(
@@ -526,7 +530,7 @@ async function main() {
   }
   wireDetails();
   wireAccountMenu();
-  initAskKai(
+  search = initAskKai(
     document.getElementById("ask-kai-open")!,
     () => askFacts,
     { details: (filter) => details?.open(filter), go: goAndAct },

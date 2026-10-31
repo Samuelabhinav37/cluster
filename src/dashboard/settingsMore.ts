@@ -5,20 +5,13 @@ import { deleteFiltersInto, getAuthToken, listLabels, revokeGoogleAccess } from 
 import { forgetGmailSignIn, gmailRefreshToken } from "../lib/gmailWebAuth";
 import { log } from "../lib/log";
 import { clusterLabelIdSet } from "../lib/seedFromExisting";
+import { clashes, GO_SCREENS, keysOf, SHORTCUTS, usableKey } from "../lib/keymap";
 import { getSettings, updateSettings } from "../lib/settingsStore";
 import { kindModel, resetKindModel } from "./kindLearning";
 import { ctx } from "./state";
 import { renderConfirmStep } from "./ui";
 
 const MAIL_INDEX_DB = "cluster-mail-index";
-// Gmail-style "G then a letter" jumps to a place.
-const GO_KEYS: Record<string, string> = {
-  h: "overview",
-  s: "senders",
-  c: "delete",
-  o: "organize",
-  p: "impersonation",
-};
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
 
@@ -205,8 +198,122 @@ function wireSettingsNav(): (inside: Element | null) => void {
   };
 }
 
-export function wireSettingsMore(showScreen: (name: string) => void): void {
+/** Settings' search: matching rows from every section; empty, the chosen section again. */
+function wireSettingsSearch(): void {
+  const input = $<HTMLInputElement>("settings-search");
+  if (!input) return;
+  const secs = () => Array.from(document.querySelectorAll<HTMLElement>(".settings-list > .set-sec"));
+  let shownBefore: HTMLElement | undefined;
+  input.oninput = () => {
+    const q = input.value.trim().toLowerCase();
+    if (q && !shownBefore) shownBefore = secs().find((sec) => !sec.hidden);
+    for (const sec of secs()) {
+      const heading = sec.querySelector("h2")?.textContent?.toLowerCase() ?? "";
+      let any = false;
+      for (const row of Array.from(sec.querySelectorAll<HTMLElement>(".set-row, .set-row-details"))) {
+        if (row.parentElement?.closest(".set-row-details")) continue;
+        const hit = !q || heading.includes(q) || (row.textContent ?? "").toLowerCase().includes(q);
+        row.hidden = !hit;
+        any ||= hit;
+      }
+      sec.hidden = q ? !any : sec !== shownBefore;
+    }
+    if (!q) shownBefore = undefined;
+  };
+}
+
+const keyLabel = (key: string) => (key.length === 1 ? key.toUpperCase() : key);
+
+/** Settings > Keyboard: click a key, press a new one. Esc cancels. */
+function renderKeys(): void {
+  const root = $("settings-keys");
+  if (!root) return;
+  const keys = keysOf(ctx.settings.keymap);
+  const clash = clashes(keys);
+  root.replaceChildren(
+    ...SHORTCUTS.map((s) => {
+      const row = document.createElement("div");
+      row.className = "set-row";
+      const name = Object.assign(document.createElement("span"), { className: "grow", textContent: s.label });
+      if (clash.has(s.id))
+        name.append(Object.assign(document.createElement("span"), { className: "sub warn", textContent: "Same key as another shortcut" }));
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn key-btn";
+      btn.setAttribute("aria-label", `${s.label}: ${keyLabel(keys[s.id])}. Change`);
+      btn.textContent = `${s.afterG ? "G then " : ""}${keyLabel(keys[s.id])}`;
+      btn.onclick = () => {
+        btn.textContent = "Press a key";
+        const take = async (e: KeyboardEvent) => {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          document.removeEventListener("keydown", take, true);
+          if (e.key !== "Escape" && usableKey(e.key))
+            ctx.settings = await updateSettings({ keymap: { ...ctx.settings.keymap, [s.id]: e.key.toLowerCase() } });
+          renderKeys();
+        };
+        document.addEventListener("keydown", take, true);
+      };
+      row.append(name, btn);
+      return row;
+    }),
+  );
+}
+
+/** The ? sheet: every shortcut and its key. */
+function showKeysSheet(): void {
+  let sheet = $<HTMLDialogElement>("keys-sheet");
+  if (!sheet) {
+    sheet = Object.assign(document.createElement("dialog"), { id: "keys-sheet", className: "unsub-sheet" });
+    sheet.setAttribute("aria-label", "Keyboard shortcuts");
+    document.body.append(sheet);
+  }
+  const keys = keysOf(ctx.settings.keymap);
+  const title = Object.assign(document.createElement("h2"), { className: "unsub-title", textContent: "Keyboard shortcuts" });
+  const list = document.createElement("div");
+  list.className = "set-rows";
+  const line = (label: string, key: string) => {
+    const row = document.createElement("div");
+    row.className = "set-row plain";
+    row.append(Object.assign(document.createElement("span"), { className: "grow", textContent: label }));
+    const k = document.createElement("span");
+    k.append(...key.split(" ").map((part) => Object.assign(document.createElement("kbd"), { textContent: part })));
+    row.append(k);
+    return row;
+  };
+  list.append(
+    ...SHORTCUTS.map((s) => line(s.label, `${s.afterG ? "G " : ""}${keyLabel(keys[s.id])}`)),
+    line("Kai", "Ctrl K"),
+    line("Close", "Esc"),
+  );
+  const close = Object.assign(document.createElement("button"), { type: "button", className: "btn", textContent: "Done" });
+  close.onclick = () => sheet!.close?.();
+  sheet.replaceChildren(title, list, close);
+  if (!sheet.open) sheet.showModal?.();
+}
+
+export interface KeyActions {
+  search(): void;
+  kai(): void;
+}
+
+export function wireSettingsMore(showScreen: (name: string) => void, act?: KeyActions): void {
   const openPaneOf = wireSettingsNav();
+  wireSettingsSearch();
+  renderKeys();
+  const single = $<HTMLInputElement>("single-keys-toggle");
+  if (single) {
+    single.checked = ctx.settings.singleKeys !== false;
+    single.onchange = async () => {
+      ctx.settings = await updateSettings({ singleKeys: single.checked });
+    };
+  }
+  const reset = $<HTMLButtonElement>("keys-reset");
+  if (reset)
+    reset.onclick = async () => {
+      ctx.settings = await updateSettings({ keymap: {} });
+      renderKeys();
+    };
   // The account menu's Sign out opens the same choice in Settings.
   const menuSignOut = $<HTMLButtonElement>("menu-signout");
   if (menuSignOut)
@@ -265,14 +372,30 @@ export function wireSettingsMore(showScreen: (name: string) => void): void {
 
   let goPending = 0;
   document.addEventListener("keydown", (e) => {
-    const active = document.activeElement as HTMLElement | null;
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (active && (active.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName))) return;
-    const key = e.key.toLowerCase();
-    if (Date.now() - goPending < 1500 && GO_KEYS[key]) {
-      goPending = 0;
+    if (e.defaultPrevented) return;
+    if (e.key.toLowerCase() === "k" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
-      showScreen(GO_KEYS[key]);
-    } else goPending = key === "g" ? Date.now() : 0;
+      act?.kai();
+      return;
+    }
+    const active = document.activeElement as HTMLElement | null;
+    if (e.ctrlKey || e.metaKey || e.altKey || ctx.settings.singleKeys === false) return;
+    if (active && (active.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName))) return;
+    if (document.querySelector("dialog[open], .ask:not([hidden])")) return;
+    const key = e.key.toLowerCase();
+    const keys = keysOf(ctx.settings.keymap);
+    const hit = (afterG: boolean) => SHORTCUTS.find((s) => !!s.afterG === afterG && keys[s.id] === key);
+    const jump = Date.now() - goPending < 1500 ? hit(true) : undefined;
+    goPending = 0;
+    if (jump) {
+      e.preventDefault();
+      showScreen(GO_SCREENS[jump.id]);
+      return;
+    }
+    const plain = hit(false);
+    if (plain?.id === "search") act?.search();
+    else if (plain?.id === "help") showKeysSheet();
+    else if (key === "g") goPending = Date.now();
+    if (plain) e.preventDefault();
   });
 }

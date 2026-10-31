@@ -18,6 +18,37 @@ describe("Settings: more groups", () => {
     expect(shown()).toBe("organize");
   });
 
+  it("a changed key works, a shared key warns, Reset brings the usual keys back", async () => {
+    const dash = await bootDashboard();
+    const keyBtn = (label: string) =>
+      Array.from(dash.el("settings-keys").querySelectorAll<HTMLButtonElement>("button")).find((b) =>
+        b.getAttribute("aria-label")?.startsWith(label),
+      )!;
+    keyBtn("Go to Home").click();
+    key("o");
+    await vi.waitFor(() => expect(dash.storedSettings().keymap).toEqual({ "go-home": "o" }));
+    expect(dash.el("settings-keys").textContent).toContain("Same key as another shortcut");
+    keyBtn("Go to Organize").click();
+    key("Escape");
+    expect(dash.storedSettings().keymap).toEqual({ "go-home": "o" });
+
+    (dash.el("keys-reset") as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(dash.storedSettings().keymap).toEqual({}));
+    expect(dash.el("settings-keys").textContent).not.toContain("Same key");
+  });
+
+  it("Single-key shortcuts off stops G jumps", async () => {
+    const dash = await bootDashboard();
+    const toggle = dash.el("single-keys-toggle") as HTMLInputElement;
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(dash.storedSettings().singleKeys).toBe(false));
+    const before = shown();
+    key("g");
+    key("o");
+    expect(shown()).toBe(before);
+  });
+
   it("Show Kai off hides Kai and is remembered", async () => {
     const dash = await bootDashboard();
     const toggle = dash.el("show-kai-toggle") as HTMLInputElement;

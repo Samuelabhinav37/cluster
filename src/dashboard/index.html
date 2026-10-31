@@ -658,7 +658,21 @@
             </div>
 
 
+            <input type="search" id="settings-search" class="settings-search" placeholder="Search settings" aria-label="Search settings" />
             <div class="settings-list">
+              <div class="set-sec">
+                <h2>Accounts</h2>
+                <div class="set-rows">
+                  <div class="set-row">
+                    <span class="set-ic set-ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6"></path></svg></span>
+                    <span class="grow" id="settings-account">Gmail</span>
+                    <span class="row-actions">
+                      <button type="button" class="btn" id="connect-outlook">Add Outlook</button>
+                      <span id="settings-signout-slot"><button type="button" class="btn" id="settings-signout">Sign out</button></span>
+                    </span>
+                  </div>
+                </div>
+              </div>
               <div class="set-sec">
                 <h2>Mail</h2>
                 <div class="set-rows">
@@ -679,19 +693,6 @@
                     ></span>
                     <span class="grow">Read my mail again</span>
                     <button type="button" class="btn" id="apply-scan-settings-btn">Rescan</button>
-                  </div>
-                </div>
-              </div>
-              <div class="set-sec">
-                <h2>Accounts</h2>
-                <div class="set-rows">
-                  <div class="set-row">
-                    <span class="set-ic set-ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6"></path></svg></span>
-                    <span class="grow" id="settings-account">Gmail</span>
-                    <span class="row-actions">
-                      <button type="button" class="btn" id="connect-outlook">Add Outlook</button>
-                      <span id="settings-signout-slot"><button type="button" class="btn" id="settings-signout">Sign out</button></span>
-                    </span>
                   </div>
                 </div>
               </div>
@@ -762,8 +763,20 @@
               <div class="set-sec">
                 <h2>Keyboard</h2>
                 <div class="set-rows">
-                  <div class="set-row plain"><span class="grow">Ask Kai</span><span><kbd>/</kbd></span></div>
-                  <div class="set-row plain"><span class="grow">Go to Home, Senders, Clean up, Organize, Protect</span><span><kbd>G</kbd> then <kbd>H S C O P</kbd></span></div>
+                  <label class="set-row">
+                    <span class="grow">Single-key shortcuts<span class="sub">Off leaves Ctrl K for Kai</span></span>
+                    <input type="checkbox" class="switch" role="switch" id="single-keys-toggle" />
+                  </label>
+                </div>
+                <div class="set-rows" id="settings-keys"></div>
+                <div class="set-rows">
+                  <div class="set-row plain">
+                    <span class="grow">Kai</span><span><kbd>Ctrl</kbd> <kbd>K</kbd></span>
+                  </div>
+                  <div class="set-row">
+                    <span class="grow">Back to the usual keys</span>
+                    <button type="button" class="btn" id="keys-reset">Reset</button>
+                  </div>
                 </div>
               </div>
             </div>

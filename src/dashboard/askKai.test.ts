@@ -60,11 +60,11 @@ describe("searchGroups", () => {
 });
 
 describe("Ask Kai box", () => {
-  it("opens on /, runs the chosen hit on Enter and closes", () => {
+  it("opens from the bar, runs the chosen hit on Enter and closes", () => {
     document.body.innerHTML = '<button id="t"></button>';
     const a = act();
     initAskKai(document.getElementById("t")!, () => facts, a);
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "/" }));
+    document.getElementById("t")!.click();
     const box = document.querySelector<HTMLElement>(".ask")!;
     expect(box.hidden).toBe(false);
     const input = box.querySelector<HTMLInputElement>("input")!;

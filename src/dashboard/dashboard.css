@@ -3702,6 +3702,8 @@ select:not([multiple]):hover { background-color: var(--neutral-fill-hover); }
 .protect-bento .tile-wide { grid-column: span 2; }
 @media (max-width: 900px) { .protect-bento .tile-wide { grid-column: auto; } }
 .set-row.plain { grid-template-columns: minmax(0, 1fr) auto; color: var(--label-2); }
+/* A row with no icon: words, then its control. */
+.set-row:not(:has(> .set-ic)) { grid-template-columns: minmax(0, 1fr) auto; }
 .set-row-details + .set-row, .set-row + .set-row-details { border-top: 1px solid var(--separator); }
 .set-row-details > summary { list-style: none; cursor: pointer; }
 .set-row-details > summary::-webkit-details-marker { display: none; }
@@ -3925,3 +3927,8 @@ body[data-state="connect"] .top-bar { display: none; }
 
 /* A Protect tile's page replaces the rest of the screen until Back. */
 section.screen.paged > :not(.page-head):not(#protect-page) { display: none !important; }
+
+/* Settings: search on top; keys change in place. */
+.settings-search { display: block; width: min(420px, 100%); margin: 0 0 14px; padding: 8px 12px; border: 0; border-radius: 10px; background: var(--neutral-fill); color: var(--label); font: inherit; }
+.set-row .sub.warn { color: var(--danger-label); }
+.key-btn { min-width: 64px; font-variant-numeric: tabular-nums; }

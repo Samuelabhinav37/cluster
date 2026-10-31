@@ -57,6 +57,10 @@ export interface ClusterSettings {
   rules: ClusterRule[];
   /** The Gmail filter standing in for each rule Gmail can run (ruleFilters.ts), by rule id. */
   ruleFilters?: Record<string, { id: string; spec: string }>;
+  /** Shortcut keys the user changed, by shortcut id (keymap.ts). */
+  keymap?: Record<string, string>;
+  /** Single-key shortcuts on. Off leaves only Ctrl or Cmd shortcuts. */
+  singleKeys?: boolean;
   /** Rolling "here's what I did" log (see actionLog.ts). Capped at MAX_LOG_ENTRIES. */
   actionLog: ActionLogEntry[];
   /** Emails Cluster took out of the inbox since install (Home's "since you started"). */
@@ -231,6 +235,8 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   newsletterDay: { enabled: false, lastDelivered: 0 },
   rules: [],
   ruleFilters: {},
+  keymap: {},
+  singleKeys: true,
   actionLog: [],
   mutedSenders: [],
   personOverrides: {},
