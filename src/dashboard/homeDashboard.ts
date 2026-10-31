@@ -294,23 +294,6 @@ const el = <K extends keyof HTMLElementTagNameMap>(
   return e;
 };
 
-// Brand keys are lower case; these don't title-case cleanly.
-const BRAND_NAMES: Record<string, string> = {
-  paypal: "PayPal",
-  "at&t": "AT&T",
-  amex: "Amex",
-  dhl: "DHL",
-  docusign: "DocuSign",
-  fedex: "FedEx",
-  irs: "IRS",
-  linkedin: "LinkedIn",
-  "t-mobile": "T-Mobile",
-  ups: "UPS",
-  usbank: "U.S. Bank",
-  uscis: "USCIS",
-  usps: "USPS",
-};
-const brandName = (key: string) => BRAND_NAMES[key] ?? key.replace(/\b\w/g, (c) => c.toUpperCase());
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -371,7 +354,7 @@ function readHero(r: { done: number; total: number }): HTMLElement {
     nums,
     track,
   );
-  hero.append(el("div", "home-kai"), words);
+  hero.append(words);
   paintHomeRead(hero, r.done, r.total, "");
   return hero;
 }
@@ -420,32 +403,25 @@ function foundSoFar(f: HomeFacts): HTMLElement {
 
 /** Home: Kai's verdict, what Cluster did this week, up to three next steps,
  * and the inbox by kind (approved mockup research/2026-10-29-home-mockup.html).
- * `openKind` opens those emails in Details. The `.home-kai` slot is left
- * empty; the dashboard seats the live Kai there. */
+ * `openKind` opens those emails in Details. */
 export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: HomeKind) => void): HTMLElement {
   const root = el("div", "home");
 
-  // 1. The verdict: one sentence in large type, said by Kai.
+  // 1. The verdict: one sentence in large type.
   const hero = el("section", "home-hero home-card");
   const words = el("div", "home-words");
   const verdict = el("p", "home-verdict");
   if (f.suspicious > 0) {
-    const brands = (f.fakedBrands ?? []).slice(0, 3).map(brandName);
-    const who = brands.length > 1 ? `${brands.slice(0, -1).join(", ")} and ${brands.at(-1)}` : brands[0];
-    verdict.append(
-      who
-        ? `${plural(f.suspicious, "email pretends", "emails pretend")} to be ${who}.`
-        : `${plural(f.suspicious, "email looks", "emails look")} like a scam.`,
-    );
+    verdict.append(`${plural(f.suspicious, "email looks", "emails look")} like a scam.`);
     const review = el("button", "btn btn-accent-solid", "Review");
     review.type = "button";
     review.onclick = () => go("impersonation");
     words.append(verdict);
-    hero.append(el("div", "home-kai"), words, review);
+    hero.append(words, review);
   } else {
     verdict.append("Nothing needs you today.");
     words.append(verdict);
-    hero.append(el("div", "home-kai"), words);
+    hero.append(words);
   }
   root.append(f.reading ? readHero(f.reading) : hero);
 

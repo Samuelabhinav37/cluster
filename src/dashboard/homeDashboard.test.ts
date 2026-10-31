@@ -156,7 +156,7 @@ describe("renderHomeDashboard", () => {
   it("leads with the scams and opens Protect from the one button", () => {
     const go = vi.fn();
     const el = renderHomeDashboard({ ...calm, suspicious: 3, fakedBrands: ["paypal", "netflix"] }, go);
-    expect(text(el.querySelector(".home-verdict"))).toBe("3 emails pretend to be PayPal and Netflix.");
+    expect(text(el.querySelector(".home-verdict"))).toBe("3 emails look like a scam.");
     const review = el.querySelector<HTMLButtonElement>(".home-hero .btn")!;
     expect(text(review)).toBe("Review");
     review.click();
@@ -238,7 +238,6 @@ describe("renderHomeDashboard", () => {
       },
       vi.fn(),
     );
-    expect(el.querySelector(".home-read .home-kai")).not.toBeNull();
     expect(text(el.querySelector(".home-verdict"))).toBe("Reading your mail.");
     expect(text(el.querySelector(".read-nums"))).toBe("40of 184 emails");
     // Next up stays: you can act while the rest is read.

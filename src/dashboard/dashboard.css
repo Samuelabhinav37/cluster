@@ -3726,9 +3726,6 @@ select:not([multiple]):hover { background-color: var(--neutral-fill-hover); }
 
 /* ── Home v2 (docs/ui-plan-2026-10-29b.md): verdict, this week, next up, inbox ── */
 .home-hero { display: flex; align-items: center; gap: 28px; margin: 8px 0 4px; }
-.home-kai-btn { flex: none; padding: 0; border: 0; background: none; border-radius: 16px; cursor: pointer; }
-.home-kai-btn:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 4px; }
-.home-kai-btn .kai { --kai-w: 84px; }
 .home-verdict { margin: 0; font: 500 clamp(26px, 3vw, 36px)/1.15 var(--font-display); letter-spacing: -0.02em; color: var(--label); }
 .home-verdict .warn { color: var(--danger-text); }
 .home-sub { margin: 8px 0 0; font-size: 15px; color: var(--label-4); }
@@ -3806,7 +3803,6 @@ body[data-screen="overview"] .kai-guide:not(.open) .kg-launch { visibility: hidd
 .home-card { padding: 18px 22px; border: 1px solid var(--separator); border-radius: 16px; background: var(--glass); }
 .home-hero.home-card { gap: 18px; margin: 0 0 4px; }
 .home-hero .home-words { flex: 1; }
-.home-hero .home-kai-btn .kai { --kai-w: 52px; }
 .home-verdict { font-size: clamp(20px, 2.2vw, 24px); font-weight: 600; letter-spacing: -0.01em; }
 .next-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) 60px auto; gap: 12px; }
 .next-ic { display: grid; place-items: center; color: var(--label-4); }
@@ -3835,10 +3831,6 @@ body[data-screen="overview"] .kai-guide:not(.open) .kg-launch { visibility: hidd
 .kai-guide.docked .kg-panel { position: static; transform-origin: 0 100%; }
 .kai-guide.docked .kg-head .kg-kai { --kg-kai: 44px; flex: none; }
 #ask-kai-open { position: relative; }
-#ask-kai-open .ask-kai-face { display: block; flex: none; align-self: center; margin: -7px 0 -5px; }
-.ask-kai-face.kai, .ask-kai-face .kai { --kai-w: 18px; }
-#ask-kai-open:has(.ask-kai-face:not([hidden])) > svg { display: none; }
-body[data-screen="overview"] #ask-kai-open .ask-kai-face, #ask-kai-open .ask-kai-face[hidden] { display: none; }
 body[data-screen="overview"] #ask-kai-open > svg { display: block; }
 #ask-kai-open[data-nudge]::after {
   content: attr(data-nudge); position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);

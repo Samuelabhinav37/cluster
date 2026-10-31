@@ -489,32 +489,6 @@ function wireThemeSelect() {
 
 let kaiGuide: KaiGuide | null = null;
 
-// Home's Kai, made once and moved into each new render (a new Kai per render
-// would leave its observers and frame loop behind). Tapping him opens the chat.
-let homeKai: HTMLButtonElement | null = null;
-function seatHomeKai() {
-  const slot = overviewContentEl.querySelector(".home-kai");
-  if (!slot || !ctx.settings.showKai || typeof window.Kai !== "function") return;
-  if (!homeKai) {
-    homeKai = Object.assign(document.createElement("button"), { type: "button", className: "home-kai-btn" });
-    homeKai.setAttribute("aria-label", "Ask Kai");
-    homeKai.onclick = () => setTimeout(() => kaiGuide?.open()); // after the outside-click rule has run
-    const host = document.createElement("span");
-    homeKai.append(host);
-    window.Kai(host, { src: "/characters/", imgWidth: 320, calm: true });
-  }
-  slot.replaceWith(homeKai);
-}
-
-// A small Kai on Ask Kai, so he is on every page. Home hides it: its own Kai is there.
-function seatAskKaiFace() {
-  if (typeof window.Kai !== "function") return;
-  const face = Object.assign(document.createElement("span"), { className: "ask-kai-face" });
-  face.hidden = !ctx.settings.showKai;
-  document.getElementById("ask-kai-open")!.prepend(face);
-  window.Kai(face, { src: "/characters/", imgWidth: 160, calm: true });
-}
-
 async function main() {
   kaiGuide = initKaiGuide(document, {
     questions: CLUSTER_QUESTIONS,
@@ -552,7 +526,6 @@ async function main() {
   }
   wireDetails();
   wireAccountMenu();
-  seatAskKaiFace();
   initAskKai(
     document.getElementById("ask-kai-open")!,
     () => askFacts,
@@ -1270,7 +1243,6 @@ function renderOverview(
   const counted = allSenders.reduce((n, s) => n + senderVolume(s), 0);
   if (counted > facts.total) Object.assign(facts, { total: counted, since: undefined });
   overviewContentEl.appendChild(renderHomeDashboard(facts, goAndAct, (kind) => details?.open({ kind })));
-  seatHomeKai();
   const moved = movedTodayCard();
   if (moved) overviewContentEl.appendChild(moved);
   if (lastScanCapHit) {
