@@ -31,6 +31,9 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "macys.com", "nordstrom.com", "chewy.com", "instacart.com", "doordash.com",
     "ubereats.com", "grubhub.com", "sephora.com", "ikea.com", "homedepot.com",
     "lowes.com", "zappos.com", "newegg.com", "shein.com", "temu.com",
+    // Amazon's country stores are their own registrable domains.
+    "amazon.in", "amazon.co.uk", "amazon.ca", "amazon.de", "amazon.com.au", "amazon.co.jp",
+    "flipkart.com", "myntra.com", "ajio.com", "meesho.com", "nykaa.com", "swiggy.in", "zomato.com",
   ],
   travel: [
     "expedia.com", "booking.com", "airbnb.com", "uber.com", "lyft.com", "delta.com",
@@ -41,7 +44,7 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "paypal.com", "chase.com", "bankofamerica.com", "wellsfargo.com", "americanexpress.com",
     "capitalone.com", "venmo.com", "robinhood.com", "fidelity.com", "schwab.com",
     "coinbase.com", "stripe.com", "intuit.com", "turbotax.com", "discover.com",
-    "citibank.com", "usbank.com", "ally.com", "sofi.com",
+    "citibank.com", "usbank.com", "ally.com", "sofi.com", "amazonpay.in", "paytm.com",
   ],
   social: [
     "facebook.com", "facebookmail.com", "instagram.com", "twitter.com", "x.com",

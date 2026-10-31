@@ -72,9 +72,9 @@ describe("categoryQuery", () => {
 });
 
 describe("classifySortBucket with Promotions", () => {
-  it("uses Gmail's Promotions tab only after kind and sender category", () => {
+  it("uses Gmail's Promotions tab after kind, before sender category", () => {
     expect(classifySortBucket("other", "deals.example", true)).toBe("promotions");
-    expect(classifySortBucket("other", "amazon.com", true)).toBe("shopping");
+    expect(classifySortBucket("other", "amazon.com", true)).toBe("promotions");
     expect(classifySortBucket("shipping", "deals.example", true)).toBe("shipping");
     expect(classifySortBucket("other", "deals.example", false)).toBeNull();
   });

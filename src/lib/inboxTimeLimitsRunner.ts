@@ -3,7 +3,7 @@
 // action log. Called by the 5-minute background alarm and by the dashboard
 // right after the user saves their limits.
 import { appendActionLog, makeLogId } from "./actionLog";
-import { categoryLabelName } from "./categoryFilters";
+import { categoryLabelName, syncGmailCategoryFilters } from "./categoryFilters";
 import { batchModify, findLabelIds, getOrCreateLabel, listMessageIds } from "./gmailApi";
 import {
   pinInInbox,
@@ -33,6 +33,15 @@ export async function runInboxTimeLimits(now = Date.now()): Promise<TimeLimitRun
   if (!settings.autoSort.timeLimitsEnabled) return null;
   if (!(await gmailProvider.isConnected())) return null;
   const token = await gmailProvider.getAuthToken(false);
+  // An update can change what a category matches; Gmail's filters keep the
+  // old query until rewritten. Unchanged filters cost no API calls.
+  const synced = await syncGmailCategoryFilters(settings, token);
+  if (synced.created > 0 || synced.deleted > 0) {
+    await mutateSettings((current) => ({
+      ...current,
+      autoSort: { ...current.autoSort, filterIdsByBucket: synced.filterIdsByBucket, filterSpecByBucket: synced.filterSpecByBucket },
+    }));
+  }
 
   const limits: CategoryLimit[] = ALL_SORT_BUCKETS.map((bucket) => ({
     bucket,

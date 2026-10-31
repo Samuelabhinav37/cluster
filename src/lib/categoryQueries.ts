@@ -123,6 +123,8 @@ export function categoryQuery(bucket: SortBucket, overrides: Record<string, Sort
     const domains = domainsForCategory(bucket as DomainCategory);
     if (domains.length > 0) matchAny.push(fromAny(domains));
     not.push(subjectAny(ALL_KIND_PHRASES));
+    // Mirrors classifySortBucket: the Promotions tab wins over the domain.
+    not.push("category:promotions");
   }
   if (include.length > 0) matchAny.push(fromAny(include));
   if (matchAny.length === 0) return null;

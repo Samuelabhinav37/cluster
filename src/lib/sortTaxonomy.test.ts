@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { classifyMessageKind } from "./messageKind";
 import {
   bucketLabelName,
   classifySortBucket,
@@ -31,6 +32,13 @@ describe("classifySortBucket", () => {
   it("files list mail Gmail put in Promotions as an ad, not a newsletter", () => {
     expect(classifySortBucket("newsletter", "emails.cinemark.com", true)).toBe("promotions");
     expect(classifySortBucket("receipt", "info.cinemark.com", true)).toBe("receipt");
+  });
+
+  it("lets the Promotions tab beat the sender's domain, and knows Amazon's country stores", () => {
+    expect(classifySortBucket("newsletter", "github.com", true)).toBe("promotions");
+    expect(classifySortBucket("other", "amazon.in", true)).toBe("promotions");
+    expect(classifySortBucket("other", "amazon.in")).toBe("shopping");
+    expect(classifySortBucket(classifyMessageKind('Ordered: "Philips Steam Iron..."', false), "amazon.in")).toBe("shipping");
   });
 
   it("maps kind newsletter/social straight through", () => {
