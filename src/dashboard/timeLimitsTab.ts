@@ -8,7 +8,7 @@ import { categoryLabelName, syncGmailCategoryFilters } from "../lib/categoryFilt
 import { runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
 import { log } from "../lib/log";
 import { CLUSTER_LABEL_COLORS } from "../lib/clusterLabels";
-import { colorClusterLabels } from "../lib/gmailApi";
+import { colorClusterLabels, getLabel, listLabels } from "../lib/gmailApi";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { getSettings, updateSettings } from "../lib/settingsStore";
 import { domainOf } from "../lib/domainGrouping";
@@ -20,7 +20,6 @@ import { ctx } from "./state";
 
 const rowsEl = document.getElementById("time-limits-rows") as HTMLDivElement | null;
 const statusEl = document.getElementById("time-limits-status") as HTMLParagraphElement | null;
-const lastRunEl = document.getElementById("time-limits-last") as HTMLParagraphElement | null;
 
 /** Menu choices after Off: hours, or null for "label only". */
 export const LIMIT_CHOICES: { label: string; hours: number | null }[] = [
@@ -113,23 +112,53 @@ export function setNowCounts(counts: ReadonlyMap<SortBucket, number>): void {
   renderKindSubs();
 }
 
-function kindSub(bucket: SortBucket, weekly: ReadonlyMap<SortBucket, number>): string {
-  const now = nowByBucket.get(bucket) ?? 0;
-  const week = weekly.get(bucket) ?? 0;
-  if (now === 0 && week === 0) return "None right now";
-  return week > 0 ? `${now.toLocaleString()} now · about ${week.toLocaleString()} a week` : `${now.toLocaleString()} now`;
+// Gmail's own count of each label, read when Organize draws. Missing until it answers.
+let gmailCounts = new Map<SortBucket, number>();
+let countsAt = 0;
+const COUNTS_TTL_MS = 5 * 60 * 1000;
+
+/** Reads each Cluster label's message count from Gmail (labels.get), so the
+ * list shows what Gmail shows. */
+async function refreshGmailCounts(): Promise<void> {
+  if (Date.now() - countsAt < COUNTS_TTL_MS) return;
+  countsAt = Date.now();
+  try {
+    const token = await gmailProvider.getAuthToken(false);
+    const byName = new Map((await listLabels(token)).map((l) => [l.name, l.id]));
+    const next = new Map<SortBucket, number>();
+    await Promise.all(
+      ALL_SORT_BUCKETS.map(async (bucket) => {
+        const id = byName.get(categoryLabelName(bucket, ctx.settings.labelChoices));
+        if (!id) return;
+        const total = (await getLabel(token, id)).messagesTotal;
+        if (typeof total === "number") next.set(bucket, total);
+      }),
+    );
+    gmailCounts = next;
+    renderKindSubs();
+  } catch (err) {
+    log.error("organize: label counts failed", err);
+  }
+}
+
+/** The muted number on a label's row: Gmail's count, else what Sort would label now. */
+export function labelCount(bucket: SortBucket): number {
+  return gmailCounts.get(bucket) ?? nowByBucket.get(bucket) ?? 0;
 }
 
 function renderKindSubs(): void {
   const weekly = weeklyByBucket(presetSenders, Date.now());
   for (const bucket of ALL_SORT_BUCKETS) {
-    const sub = document.getElementById(`time-limit-sub-${bucket}`);
-    if (sub) sub.textContent = kindSub(bucket, weekly);
+    const count = document.getElementById(`time-limit-count-${bucket}`);
+    if (count) count.textContent = labelCount(bucket).toLocaleString();
+    const row = count?.closest<HTMLElement>(".ios-row");
+    const week = weekly.get(bucket) ?? 0;
+    if (row) row.title = week > 0 ? `${BUCKET_HINT[bucket]}. About ${week.toLocaleString()} a week.` : BUCKET_HINT[bucket];
   }
 }
 
 export function renderTimeLimits(): void {
-  if (!rowsEl || !lastRunEl) return;
+  if (!rowsEl) return;
   const cfg = ctx.settings.autoSort;
   // One list of Cluster's labels, in Gmail's order (by name), each icon in
   // its Gmail label color. Anything but Off also sorts new mail.
@@ -138,7 +167,7 @@ export function renderTimeLimits(): void {
   const rows = buckets.map((bucket) => {
     const name = labelName(bucket).replace(/^\S+\s/, "");
     const row = document.createElement("div");
-    row.className = "ios-row";
+    row.className = "ios-row org-row";
     row.title = BUCKET_HINT[bucket];
     const mark = document.createElement("span");
     mark.className = "app-ic label-ic";
@@ -147,8 +176,11 @@ export function renderTimeLimits(): void {
     mark.append(icon(BUCKET_ICON[bucket]));
     const words = document.createElement("span");
     words.className = "grow";
-    const sub = Object.assign(document.createElement("span"), { className: "sub", id: `time-limit-sub-${bucket}` });
-    words.append(name, sub);
+    words.append(name);
+    const count = Object.assign(document.createElement("span"), {
+      className: "ios-value",
+      id: `time-limit-count-${bucket}`,
+    });
     const select = document.createElement("select");
     select.id = `time-limit-${bucket}`;
     select.className = "kind-pick";
@@ -157,7 +189,7 @@ export function renderTimeLimits(): void {
     for (const choice of limitChoicesFor(bucket)) select.add(new Option(choice.label, choiceValue(choice.hours)));
     select.value = storedValue(bucket);
     select.onchange = () => void queueSave();
-    row.append(mark, words, select);
+    row.append(mark, words, count, select);
     return row;
   });
   const wrap = document.createElement("section");
@@ -168,10 +200,13 @@ export function renderTimeLimits(): void {
   wrap.append(Object.assign(document.createElement("h2"), { className: "ios-head", textContent: "Labels" }), group);
   rowsEl.replaceChildren(wrap);
   renderKindSubs();
-  lastRunEl.textContent =
-    cfg.timeLimitsEnabled && cfg.lastSweep.at > 0
-      ? `Last checked ${ago(cfg.lastSweep.at)}: moved ${plural(cfg.lastSweep.moved, "message")} into their labels.`
-      : "";
+  void refreshGmailCounts();
+  // One status line: a save in progress or just done, else the last check.
+  if (statusEl && !saveNote)
+    statusEl.textContent =
+      cfg.timeLimitsEnabled && cfg.lastSweep.at > 0
+        ? `Last checked ${ago(cfg.lastSweep.at)}. Moved ${plural(cfg.lastSweep.moved, "email")}.`
+        : "";
   renderPresets();
 }
 
@@ -204,12 +239,20 @@ function queueSave(): Promise<boolean> {
   return saving;
 }
 
+// What the last save said; shown in place of "Last checked" until the page is left.
+let saveNote = "";
+
+function note(text: string) {
+  saveNote = text;
+  if (statusEl) statusEl.textContent = text;
+}
+
 async function save(): Promise<boolean> {
   if (!statusEl) return false;
   const inboxHoursByBucket = limitsFromMenus();
   const labelsOff = ALL_SORT_BUCKETS.filter((b) => selectFor(b)?.value === OFF);
   const on = labelsOff.length < ALL_SORT_BUCKETS.length;
-  statusEl.textContent = "Saving…";
+  note("Saving…");
   try {
     ctx.settings = await updateSettings({
       autoSort: { ...ctx.settings.autoSort, timeLimitsEnabled: on, keepSorting: on, inboxHoursByBucket, labelsOff },
@@ -223,23 +266,20 @@ async function save(): Promise<boolean> {
         filterSpecByBucket: synced.filterSpecByBucket,
       },
     });
-    const filters = Object.keys(synced.filterIdsByBucket).length;
     if (!on) {
-      statusEl.textContent = "Off. New mail stays where it lands.";
+      note("Off. New mail stays where it lands.");
     } else {
       await colorClusterLabels(token).catch((err) => log.error("time limits: label colors failed", err));
-      statusEl.textContent = `Saved. ${plural(filters, "Gmail filter")} ${filters === 1 ? "labels" : "label"} new mail as it arrives. Checking your inbox…`;
+      note("Saved. Checking your inbox…");
       const run = await runInboxTimeLimits();
       // The run recorded lastSweep in storage; pick it up for the render.
       ctx.settings = await getSettings();
-      statusEl.textContent = run
-        ? `Saved. ${plural(filters, "Gmail filter")} ${filters === 1 ? "labels" : "label"} new mail as it arrives. Moved ${plural(run.moved, "message")} that ${run.moved === 1 ? "was" : "were"} past ${run.moved === 1 ? "its" : "their"} time${run.more ? ", more on the next check" : ""}.`
-        : `Saved. ${plural(filters, "Gmail filter")} ${filters === 1 ? "labels" : "label"} new mail as it arrives.`;
+      note(run && run.moved > 0 ? `Saved. Moved ${plural(run.moved, "email")}${run.more ? ", more soon" : ""}.` : "Saved.");
     }
     return true;
   } catch (err) {
     log.error("time limits: save failed", err);
-    statusEl.textContent = "Couldn't save to Gmail. Try again.";
+    note("Couldn't save to Gmail. Try again.");
     return false;
   } finally {
     renderTimeLimits();

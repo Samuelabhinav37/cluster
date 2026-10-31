@@ -101,14 +101,22 @@ function chosenEntries(now = Date.now()): SortPlanEntry[] {
   });
 }
 
+/** The slot still holds the plain button (no confirm or progress showing). */
+function sortInboxSlotIdle(): boolean {
+  return sortInboxBtn.isConnected;
+}
+
 function updateSortInboxCount() {
   const chosen = chosenEntries();
   const moving = totalPlanCount(chosen.filter((e) => e.fileOut));
   const labelled = totalPlanCount(chosen) - moving;
   const emails = (n: number) => `${n.toLocaleString()} email${n === 1 ? "" : "s"}`;
   sortInboxCountEl.textContent =
-    moving > 0 ? `${emails(moving)} move now` : labelled > 0 ? `${emails(labelled)} get labels` : "Nothing to sort";
+    moving > 0 ? `${emails(moving)} move now` : labelled > 0 ? `${emails(labelled)} get labels` : "";
   sortInboxBtn.disabled = chosen.length === 0;
+  // Nothing to sort: no button at all, rather than a disabled one.
+  const bar = document.getElementById("sort-inbox-bar");
+  if (bar) bar.hidden = chosen.length === 0 && sortInboxSlotIdle();
 }
 
 /** The plan changed: refresh each kind's "N now" and the button's count. */

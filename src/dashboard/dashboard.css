@@ -3909,3 +3909,10 @@ body[data-screen="overview"] #ask-kai-open > svg { display: block; }
 .sub-facts { font-size: 12px; color: var(--label-4); }
 .sub-unsub .unsubscribe-status { display: none; }
 .sub-card.picked { box-shadow: 0 0 0 2px var(--accent-solid); }
+
+/* Organize: icon, name, a muted count, then where it goes. */
+.ios-row.org-row { grid-template-columns: 30px minmax(0, 1fr) auto auto; }
+.org-row .ios-value { grid-column: 3; grid-row: 1 / span 2; margin-right: 6px; font-variant-numeric: tabular-nums; }
+.ios-row.org-row > select { grid-column: 4; grid-row: 1 / span 2; }
+[data-screen="organize"] .page-head #sort-inbox-bar { display: flex; align-items: center; gap: 12px; }
+[data-screen="organize"] .page-head #sort-inbox-bar[hidden] { display: none; }

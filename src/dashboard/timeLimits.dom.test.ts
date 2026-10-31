@@ -36,7 +36,8 @@ describe("Where each kind of mail goes", () => {
     expect(text.indexOf("Education")).toBeLessThan(text.indexOf("Promotions"));
     const icon = dash.el("time-limit-receipt").closest(".ios-row")!.querySelector<HTMLElement>(".app-ic")!;
     expect(icon.style.background).not.toBe("");
-    expect(dash.el("time-limit-sub-travel").textContent).toMatch(/now|None right now/);
+    // A muted count sits on each row; the weekly rate is on hover.
+    expect(dash.el("time-limit-count-travel").textContent).toMatch(/^\d+$/);
     // "Skip the inbox" means never seeing it, so only Promotions offers it.
     const values = (id: string) => Array.from((dash.el(id) as HTMLSelectElement).options).map((o) => o.value);
     expect(values("time-limit-otp")).toEqual(expect.arrayContaining(["off", "stay", "24"]));
@@ -85,18 +86,20 @@ describe("Where each kind of mail goes", () => {
     const dash = await bootDashboard();
     await openOrganize(dash);
     const kinds = Array.from(document.querySelectorAll<HTMLSelectElement>("#time-limits-rows select"));
-    expect(dash.el("sort-inbox-count").textContent).toBe("Nothing to sort");
-    expect((dash.el("sort-inbox-btn") as HTMLButtonElement).disabled).toBe(true);
+    // Nothing to sort: the button isn't there at all.
+    expect(dash.el("sort-inbox-bar").hidden).toBe(true);
 
     // The fixture's mail is all older than 10 minutes, so all of a kind moves.
-    const busy = kinds.find((k) => /^\d+ now/.test(dash.el(k.id.replace("time-limit-", "time-limit-sub-")).textContent ?? ""))!;
-    const n = Number.parseInt(dash.el(busy.id.replace("time-limit-", "time-limit-sub-")).textContent!, 10);
+    const count = (k: HTMLSelectElement) => Number(dash.el(k.id.replace("time-limit-", "time-limit-count-")).textContent);
+    const busy = kinds.find((k) => count(k) > 0)!;
+    const n = count(busy);
     const emails = `${n} email${n === 1 ? "" : "s"}`;
     pick(busy.id, "stay");
     expect(dash.el("sort-inbox-count").textContent).toBe(`${emails} get labels`);
     pick(busy.id, String(1 / 6));
     expect(dash.el("sort-inbox-count").textContent).toBe(`${emails} move now`);
     expect((dash.el("sort-inbox-btn") as HTMLButtonElement).disabled).toBe(false);
+    expect(dash.el("sort-inbox-bar").hidden).toBe(false);
   });
 });
 

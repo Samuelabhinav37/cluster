@@ -281,21 +281,19 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Organize</h1>
-                <p class="lead">Choose where each kind of mail goes.</p>
+              </div>
+              <div id="sort-inbox-bar" class="confirm-slot" hidden>
+                <span id="sort-inbox-count" class="hint"></span>
+                <span id="sort-inbox-slot"
+                  ><button id="sort-inbox-btn" class="btn">Sort my inbox</button></span
+                >
               </div>
             </div>
 
             <section id="sort-inbox-section">
+              <div id="sort-inbox-preview"></div>
               <div id="time-limits-rows" class="org-list"></div>
               <p id="time-limits-status" class="hint" role="status"></p>
-              <p id="time-limits-last" class="hint"></p>
-              <div id="sort-inbox-bar" class="confirm-slot">
-                <span id="sort-inbox-slot"
-                  ><button id="sort-inbox-btn" class="btn btn-accent-solid">Sort my inbox</button></span
-                >
-                <span id="sort-inbox-count" class="hint"></span>
-              </div>
-              <div id="sort-inbox-preview"></div>
             </section>
 
             <section id="your-rules">
