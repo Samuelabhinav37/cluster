@@ -70,7 +70,7 @@ import {
 } from "../lib/senderListView";
 import { getSettings, mutateSettings, updateSettings, type ClusterSettings } from "../lib/settingsStore";
 import { activeProviders, ctx, providerById, setBridge } from "./state";
-import { maybeShowSeedCard, renderSortInbox, wireSortInbox } from "./sortInbox";
+import { renderSortInbox, wireSortInbox } from "./sortInbox";
 import { maybeShowLabelTidyCard } from "./labelTidy";
 import {
   presetSwitch,
@@ -712,7 +712,6 @@ async function main() {
   renderRecentTab();
   await wireDigest();
   await wireAiMessageKind();
-  maybeShowSeedCard().catch((err) => log.error("seed-from-existing card failed", err));
   maybeShowLabelTidyCard().catch((err) => log.error("label tidy-up card failed", err));
   await scanAndRender();
 }

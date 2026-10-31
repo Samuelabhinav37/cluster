@@ -23,18 +23,7 @@ import {
   bucketMatchTerms,
   isServerSortBucket,
 } from "../lib/serverSort";
-import {
-  clusterLabelIdSet,
-  filteredFromTargets,
-  findLabelReuseCandidates,
-  skipOverridesFor,
-} from "../lib/seedFromExisting";
-import {
-  getFilterAuthToken,
-  listFilters,
-  listLabelNames,
-  listLabels,
-} from "../lib/gmailApi";
+import { listLabelNames } from "../lib/gmailApi";
 import {
   createInboxRule,
   deleteInboxRule,
@@ -58,7 +47,6 @@ const sortInboxBtn = document.getElementById("sort-inbox-btn") as HTMLButtonElem
 const sortInboxSlot = document.getElementById("sort-inbox-slot") as HTMLSpanElement;
 const sortInboxCountEl = document.getElementById("sort-inbox-count") as HTMLSpanElement;
 const sortInboxPreviewEl = document.getElementById("sort-inbox-preview") as HTMLDivElement;
-const sortSeedCardEl = document.getElementById("sort-seed-card") as HTMLElement;
 
 // ── "Sort my inbox" (Clean up tab) ──────────────────────────────────────
 // Buckets that come from the message kind (subject) rather than the sender's
@@ -570,98 +558,10 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
   return `Sorted ${total} into ${effective.length} label${effective.length === 1 ? "" : "s"}${suffix}`;
 }
 
-// First run only: offer to reuse a label the user already made that matches a
-// bucket name, and to leave alone senders they already filter themselves.
-async function maybeShowSeedCard() {
-  if (ctx.settings.seededFromExisting) return;
-
-  let labelNames: string[];
-  let filterTargets: string[];
-  try {
-    const token = await gmailProvider.getAuthToken(false);
-    // Runs on load, so never prompt: no filter permission yet means no filters to offer.
-    const filtersIfAllowed = getFilterAuthToken(false).then(
-      () => listFilters(token),
-      () => [],
-    );
-    const [labels, filters] = await Promise.all([listLabels(token), filtersIfAllowed]);
-    labelNames = labels.map((l) => l.name);
-    filterTargets = filteredFromTargets(filters, clusterLabelIdSet(labels, ctx.settings.clusterOwnedLabels));
-  } catch (err) {
-    log.error("seed-from-existing: Gmail read failed", err);
-    return;
-  }
-
-  const bucketLabels = ALL_SORT_BUCKETS.map((b) => SORT_BUCKET_LABELS[b]);
-  const labelCandidates = findLabelReuseCandidates(
-    bucketLabels,
-    labelNames,
-    ctx.settings.clusterOwnedLabels,
-  );
-  // Don't badger the user if there's nothing useful to offer.
-  if (labelCandidates.length === 0 && filterTargets.length === 0) {
-    ctx.settings = await updateSettings({ seededFromExisting: true });
-    return;
-  }
-
-  const dismiss = async () => {
-    sortSeedCardEl.hidden = true;
-    ctx.settings = await updateSettings({ seededFromExisting: true });
-  };
-
-  sortSeedCardEl.innerHTML = "";
-  const intro = document.createElement("p");
-  intro.textContent =
-    "Cluster found labels you already use. Reuse them:";
-  sortSeedCardEl.appendChild(intro);
-
-  if (labelCandidates.length > 0) {
-    const row = document.createElement("p");
-    row.textContent = `Reuse your own label${labelCandidates.length === 1 ? "" : "s"} ${labelCandidates
-      .map((c) => `“${c.existing}”`)
-      .join(", ")} for the matching bucket${labelCandidates.length === 1 ? "" : "s"}? `;
-    const yes = document.createElement("button");
-    yes.textContent = "Reuse";
-    yes.onclick = async () => {
-      const labelChoices = { ...ctx.settings.labelChoices };
-      for (const c of labelCandidates) labelChoices[c.bucketLabel] = c.existing;
-      ctx.settings = await updateSettings({ labelChoices });
-      yes.textContent = "Reusing ✓";
-      yes.disabled = true;
-    };
-    row.appendChild(yes);
-    sortSeedCardEl.appendChild(row);
-  }
-
-  if (filterTargets.length > 0) {
-    const row = document.createElement("p");
-    row.textContent = `Leave the ${filterTargets.length} sender${
-      filterTargets.length === 1 ? "" : "s"
-    } you already filter yourself out of sorting? `;
-    const yes = document.createElement("button");
-    yes.textContent = "Skip them";
-    yes.onclick = async () => {
-      ctx.settings = await updateSettings({
-        sortOverrides: { ...ctx.settings.sortOverrides, ...skipOverridesFor(filterTargets) },
-      });
-      yes.textContent = "Skipping ✓";
-      yes.disabled = true;
-    };
-    row.appendChild(yes);
-    sortSeedCardEl.appendChild(row);
-  }
-
-  const dismissBtn = document.createElement("button");
-  dismissBtn.textContent = "Done";
-  dismissBtn.onclick = dismiss;
-  sortSeedCardEl.appendChild(dismissBtn);
-  sortSeedCardEl.hidden = false;
-}
-
 function wireSortInbox() {
   sortInboxBtn.onclick = () => void startSortFlow();
   // A kind's menu changed: recount what moves.
   document.getElementById("time-limits-rows")?.addEventListener("change", updateSortInboxCount);
 }
 
-export { maybeShowSeedCard, renderSortInbox, wireSortInbox };
+export { renderSortInbox, wireSortInbox };
