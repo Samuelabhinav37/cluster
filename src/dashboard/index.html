@@ -509,6 +509,7 @@
                 <h1 class="page-title">Protect</h1>
                 <p class="lead" data-protect-sub></p>
               </div>
+            </div>
             <section class="ios-section">
               <h2 class="ios-head">This scan</h2>
               <div class="bento protect-bento">
@@ -523,15 +524,14 @@
                   <p class="tile-stat"><b id="report-checks-pct">–</b><span id="report-checks-sub"></span></p>
                   <div class="gauge-ticks" id="report-checks-gauge" role="img"></div>
                 </div>
-                <div class="glass-card chart-card tile-wide">
+                <div class="glass-card chart-card tile-wide" id="report-signs-card">
                   <h2>Warning signs</h2>
                   <div class="hbars" id="report-kinds"></div>
                 </div>
               </div>
             </section>
-            </div>
 
-            <section id="brand-check"></section>
+            <div id="protect-page" class="cu-page" hidden></div>
 
             <section id="quarantine-review-section" hidden>
               <div class="section-head">
@@ -543,11 +543,12 @@
 
             <section id="security-section" hidden>
               <div id="security-high" class="tier">
-                <div class="section-head"><h2 class="section-label">High priority</h2></div>
+                <div class="section-head"><h2 class="section-label">Look at these</h2></div>
                 <div id="security-sender-list" class="stack"></div>
               </div>
             </section>
-            <p id="security-empty" class="empty-state">Nothing looks like a scam right now.</p>
+            <section id="brand-check"></section>
+            <p id="security-empty" class="empty-state">Nothing looks wrong.</p>
             <section class="ios-section">
               <h2 class="ios-head">Holding</h2>
               <div class="ios-group">

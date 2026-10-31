@@ -16,7 +16,7 @@ import { recordQuarantineVerdict } from "../lib/quarantineReview";
 import type { SenderSummary } from "../lib/senderModel";
 import type { ProviderId } from "../lib/providers/emailProvider";
 import { renderConfirmStep } from "./ui";
-import { renderBrandCheck } from "./brandCheck";
+import { brandCheckButton, renderBrandCheck } from "./brandCheck";
 import { senderTile } from "./senderTile";
 import { rowMenu } from "./rowMenu";
 import { brandHomeDomain } from "../lib/threatSignals";
@@ -295,7 +295,6 @@ const TIER_CHIP: Record<VerdictTier, [string, string]> = {
 export function renderSecuritySection(senders: SenderSummary[], autoCheck = true) {
   applyBodyChecks(senders, bodyChecks);
   renderQuarantineReview(senders);
-  renderBrandCheck(senders);
   // Rank by combined risk so a sender tripping several signals (or a
   // freemail brand claim) sorts above one with a lone medium signal.
   const known = knownSenderSet(ctx.settings);
@@ -313,11 +312,13 @@ export function renderSecuritySection(senders: SenderSummary[], autoCheck = true
     .sort((a, b) => b.verdict.score - a.verdict.score);
   // Only warned or held senders get a row; a lone weak sign isn't worth one.
   const high = flagged.filter(({ verdict }) => verdict.tier !== "none");
+  // One list: brand-name senders already above aren't listed again below.
+  const more = renderBrandCheck(senders, new Set(high.map(({ sender }) => sender.key)));
   securitySectionEl.hidden = high.length === 0;
-  securityEmptyEl.hidden = high.length > 0;
+  securityEmptyEl.hidden = high.length > 0 || more > 0;
   if (high.length === 0) return;
   securitySenderListEl.replaceChildren(
-    ...high.map(({ sender, verdict }) => buildThreatCard(sender, verdict)),
+    ...high.map(({ sender, verdict }) => buildThreatCard(sender, verdict, senders)),
   );
   if (autoCheck && !checkingBodies) {
     checkingBodies = true;
@@ -381,7 +382,7 @@ function fakedBrandTile(sender: SenderSummary): HTMLElement {
   return wrap;
 }
 
-function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
+function buildThreatCard(sender: SenderSummary, verdict: Verdict, allSenders: SenderSummary[]): HTMLElement {
   const li = document.createElement("li");
   li.className = "glass-card scam-card";
 
@@ -472,6 +473,8 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict): HTMLElement {
     li.hidden = true;
   };
   actions.append(genuine, report.button);
+  const check = brandCheckButton(sender, () => renderSecuritySection(allSenders, false));
+  if (check) actions.append(check);
 
   if (provider?.getMessageLinks) {
     const scanResult = document.createElement("span");

@@ -52,7 +52,8 @@ export type ThreatSignalKind =
   | "risky-attachment"
   | "identity-change"
   | "provider-flagged"
-  | "blocklisted-link";
+  | "blocklisted-link"
+  | "name-match";
 
 export interface ThreatSignal {
   kind: ThreatSignalKind;
@@ -527,6 +528,9 @@ const SIGNAL_WEIGHTS: Record<ThreatSignalKind, number> = {
   // A link in the body goes to a site on the scam/malware list. Only checked
   // on mail that's already flagged (bodyChecks.ts).
   "blocklisted-link": 5,
+  // The name of someone you write to, from an address you don't know (nameMatch.ts).
+  // Warns alone; holds only with a second kind of evidence.
+  "name-match": 3,
 };
 
 export type RiskTier = "high" | "elevated" | "low";

@@ -9,7 +9,10 @@ import type { SenderSummary } from "../lib/senderModel";
 import { knownSenderSet } from "../lib/screener";
 import type { ThreatSignalKind } from "../lib/threatSignals";
 import { brandName, senderVerdict } from "../lib/verdict";
+import { senderName } from "../lib/senderListView";
 import { ctx } from "./state";
+import { listGroup, listRow } from "./listRow";
+import { senderTile } from "./senderTile";
 
 const WEEKS = 8;
 
@@ -28,6 +31,7 @@ const KIND_NAME: Record<ThreatSignalKind, string> = {
   "identity-change": "Familiar sender changed",
   "provider-flagged": "Outlook flagged it",
   "blocklisted-link": "Links to a scam site",
+  "name-match": "Familiar name, new address",
 };
 
 const BRAND_KINDS = new Set<ThreatSignalKind>(["brand-impersonation", "freemail-brand-claim", "lookalike-domain"]);
@@ -102,6 +106,77 @@ function table(caption: string, rows: [string, number][]): HTMLTableElement {
   return t;
 }
 
+// The senders behind each warning sign, for the Warning signs page.
+let signSenders = new Map<ThreatSignalKind, { sender: SenderSummary; why: string }[]>();
+let openSender: (key: string) => void = () => {};
+
+/** A tile's own page on Protect: Scams per week, or Warning signs. */
+function showProtectPage(page: "held" | "signs" | null): void {
+  const screen = document.querySelector<HTMLElement>('section.screen[data-screen="impersonation"]');
+  const root = $("protect-page");
+  const held = $("quarantine-review-section");
+  if (!screen || !root || !held) return;
+  screen.classList.toggle("paged", page !== null);
+  root.hidden = page === null;
+  // The held list lives on the Scams page while it's open.
+  if (page !== "held" && held.parentElement === root) $("security-section")?.before(held);
+  if (page === null) return root.replaceChildren();
+  const back = el("button", "cu-back", "‹ Protect");
+  (back as HTMLButtonElement).type = "button";
+  back.onclick = () => showProtectPage(null);
+  if (page === "held") {
+    const chart = $("report-held-card")!.cloneNode(true) as HTMLElement;
+    chart.removeAttribute("id");
+    chart.classList.remove("row-link");
+    chart.querySelector("h2")?.remove();
+    for (const n of Array.from(chart.querySelectorAll("[id]"))) n.removeAttribute("id");
+    root.replaceChildren(back, el("h2", "cu-page-title", "Scams per week"), chart, held);
+    return;
+  }
+  const groups = [...signSenders].sort((a, b) => b[1].length - a[1].length);
+  root.replaceChildren(
+    back,
+    el("h2", "cu-page-title", "Warning signs"),
+    ...groups.flatMap(([kind, rows]) => {
+      const section = el("section", "ios-section");
+      section.append(
+        el("h2", "ios-head", `${KIND_NAME[kind]} · ${rows.length}`),
+        listGroup(
+          rows.map(({ sender, why }) =>
+            listRow({
+              lead: senderTile(sender.address, sender.displayName, "sz-30"),
+              title: senderName(sender),
+              sub: why,
+              href: () => openSender(sender.key),
+            }),
+          ),
+          { inset: true },
+        ),
+      );
+      return [section];
+    }),
+  );
+}
+
+/** The two tiles open their pages; a row on a page opens its emails in Details. */
+export function wireProtectPages(open: (senderKey: string) => void): void {
+  openSender = open;
+  for (const [id, page] of [["report-held-card", "held"], ["report-signs-card", "signs"]] as const) {
+    const card = $(id);
+    if (!card) continue;
+    card.classList.add("row-link");
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+    card.onclick = () => showProtectPage(page);
+    card.onkeydown = (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        showProtectPage(page);
+      }
+    };
+  }
+}
+
 export function renderScamReport(securitySenders: SenderSummary[]): void {
   wireTooltips();
   const weeks = heldByWeek(ctx.settings.scamHistory, WEEKS);
@@ -158,15 +233,20 @@ export function renderScamReport(securitySenders: SenderSummary[]): void {
   const known = knownSenderSet(ctx.settings);
   const brandCounts = new Map<string, number>();
   const kindCounts = new Map<ThreatSignalKind, number>();
+  signSenders = new Map();
   for (const sender of securitySenders) {
-    const { signals } = senderVerdict(sender, {
+    const { signals, reasons } = senderVerdict(sender, {
       knownCorrespondent: known.has(sender.address.toLowerCase()),
       review: ctx.settings.quarantineReview[sender.key],
     });
     if (signals.length === 0) continue;
     const brand = signals.find((s) => BRAND_KINDS.has(s.kind))?.brand;
     if (brand) brandCounts.set(brandName(brand), (brandCounts.get(brandName(brand)) ?? 0) + 1);
-    for (const kind of new Set(signals.map((s) => s.kind))) kindCounts.set(kind, (kindCounts.get(kind) ?? 0) + 1);
+    for (const kind of new Set(signals.map((s) => s.kind))) {
+      kindCounts.set(kind, (kindCounts.get(kind) ?? 0) + 1);
+      const why = reasons.find((r) => r.kind === kind)?.text ?? KIND_NAME[kind];
+      signSenders.set(kind, [...(signSenders.get(kind) ?? []), { sender, why }]);
+    }
   }
   const brandRows = [...brandCounts].sort((a, b) => b[1] - a[1]).slice(0, 8);
   const scanned = ctx.senders.length;
@@ -194,6 +274,10 @@ export function renderScamReport(securitySenders: SenderSummary[]): void {
   const kindRows: [string, number][] = [...kindCounts].sort((a, b) => b[1] - a[1]).map(([k, n]) => [KIND_NAME[k], n]);
   const kindsEl = $("report-kinds");
   if (kindsEl) hbars(kindsEl, kindRows, "senders", "No warning signs in this scan.");
+  const signsCard = $("report-signs-card");
+  if (signsCard) signsCard.hidden = kindRows.length === 0;
+  if (!$("protect-page")?.hidden && $("protect-page")?.querySelector(".cu-page-title")?.textContent === "Warning signs")
+    showProtectPage("signs");
 
   const tableEl = $("report-table");
   if (tableEl) {

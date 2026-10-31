@@ -2,7 +2,7 @@
 /// <reference types="vite/client" />
 //
 // Protect's brand check: a sender using PayPal's name from its own domain is listed
-// under Doesn't match; Check with no certificate offers Trust and Block, and
+// under Look at these; Check with no certificate offers Trust and Block, and
 // Trust moves it to Checked for good.
 import { describe, expect, it, vi } from "vitest";
 import { bootDashboard, fixtureMailbox } from "./testHarness";
@@ -35,8 +35,10 @@ describe("Protect brand check", () => {
       Array.from(root.querySelectorAll<HTMLElement>(".mm-row")).find((r) =>
         r.textContent?.includes("paypal-billing.help"),
       );
-    expect(root.textContent).toContain("Doesn't match");
-    buttonIn(row()!, "Check").click();
+    // Listed once, under "Look at these"; Check sits in the row's actions.
+    expect(row()).toBeUndefined();
+    const card = Array.from(dash.el("security-sender-list").children).find((c) => c.textContent?.includes("paypal-billing.help")) as HTMLElement;
+    buttonIn(card, "Check").click();
     await vi.waitFor(() => expect(row()!.textContent).toContain("No certificate"));
     buttonIn(row()!, "Trust").click();
     await vi.waitFor(() => expect(row()!.textContent).toContain("Real"));

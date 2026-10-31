@@ -74,6 +74,8 @@ import {
   type Suggestion,
 } from "../lib/suggestions";
 import { markFirstContact } from "../lib/firstContact";
+import { markNameMatches } from "../lib/nameMatch";
+import { knownSenderSet } from "../lib/screener";
 import { log } from "../lib/log";
 import { initSuggestionModel, learnFromFeedback, suggestionModel } from "./suggestionLearning";
 import { initKindModel, kindModel } from "./kindLearning";
@@ -89,7 +91,7 @@ import { appendUndoButton, logAction, renderRecentTab, undoEntry } from "./recen
 import { openRuleSheetFor, renderRulesTab, saveRules, wireRulesTab } from "./rulesTab";
 import { renderLearned, SIGNED_OUT_KEY, wireSettingsMore } from "./settingsMore";
 import { initBodyChecks, renderSecuritySection } from "./securityTab";
-import { renderScamReport } from "./reportTab";
+import { renderScamReport, wireProtectPages } from "./reportTab";
 import { heldByWeek } from "../lib/scamHistory";
 import { wireSetup } from "./setupTab";
 import { renderScreenerTab, wireScreenerTab } from "./screenerTab";
@@ -530,6 +532,7 @@ async function main() {
     { details: (filter) => details?.open(filter), go: goAndAct },
   );
   wireAllSendersControls();
+  wireProtectPages((key) => details?.open({ view: "emails", senderKey: key }));
   autoQuarantineToggle.checked = ctx.settings.autoQuarantineHighRisk;
   autoQuarantineToggle.onchange = async () => {
     ctx.settings = await updateSettings({ autoQuarantineHighRisk: autoQuarantineToggle.checked });
@@ -987,6 +990,7 @@ async function scanAndRender({
     securitySenders.filter((sender) => sender.firstContact).map((sender) => sender.key),
   );
   for (const sender of senders) sender.firstContact = newlySeenKeys.has(sender.key);
+  markNameMatches(securitySenders, knownSenderSet(ctx.settings));
   await applySenderLedger(securitySenders);
   if (!ctx.settings.knownSendersInitialized || firstContact.firstContactCount > 0) {
     ctx.settings = await mutateSettings((current) => ({
@@ -1099,7 +1103,7 @@ function renderProtectTiles(scams: number, waiting: number, held: number) {
       ? `${scams} ${scams === 1 ? "sender needs" : "senders need"} a look.`
       : waiting > 0
         ? `${waiting} new ${waiting === 1 ? "sender" : "senders"} waiting.`
-        : "All clear.";
+        : "Nothing looks wrong.";
   for (const el of Array.from(document.querySelectorAll<HTMLElement>("[data-protect-sub]")))
     el.textContent = sub;
 }

@@ -32,7 +32,7 @@ import { senderRiskScore, type ThreatSignal, type ThreatSignalKind } from "./thr
 export type VerdictTier = "hold" | "warn" | "none";
 
 export interface Reason {
-  kind: ThreatSignalKind | "known-correspondent" | "released-before";
+  kind: ThreatSignalKind | "known-correspondent" | "released-before" | "first-contact";
   text: string;
   /** Positive: evidence of a scam. Negative or zero: evidence of trust. */
   points: number;
@@ -123,6 +123,8 @@ export function reasonText(signal: ThreatSignal): string {
       return "A link goes to a site on a public list of scam and malware sites.";
     case "provider-flagged":
       return "Outlook's own filter marked it as phishing or spam.";
+    case "name-match":
+      return `Uses the name of someone you write to (${signal.brand}), from a new address.`;
     default: {
       const unreachable: never = signal.kind;
       return unreachable;
@@ -162,7 +164,10 @@ export function senderVerdict(sender: SenderSummary, context: VerdictContext): V
     signals = kept;
   }
 
-  const adjustment = quarantineScoreAdjustment(context.review);
+  // First contact backs up other evidence, one point, and never counts as a
+  // kind of its own, so it can't warn or hold anything alone.
+  const firstContact = sender.firstContact && signals.length > 0 ? 1 : 0;
+  const adjustment = quarantineScoreAdjustment(context.review) + firstContact;
   if (context.review?.verdict === "released") {
     trustReasons.push({
       kind: "released-before",
@@ -172,7 +177,7 @@ export function senderVerdict(sender: SenderSummary, context: VerdictContext): V
   }
 
   const { tier, score } = judge(signals, adjustment);
-  const reasons = signals
+  const reasons: Reason[] = signals
     .map((signal) => ({ kind: signal.kind, text: reasonText(signal), points: signalPoints(signal) }))
     // "Pretends to be Netflix" reads first; the technical checks back it up.
     .sort(
@@ -180,6 +185,8 @@ export function senderVerdict(sender: SenderSummary, context: VerdictContext): V
         Number(LOOKS_LIKE_A_BRAND.has(b.kind)) - Number(LOOKS_LIKE_A_BRAND.has(a.kind)) ||
         b.points - a.points,
     );
+
+  if (firstContact) reasons.push({ kind: "first-contact", text: "It's the first email from this address.", points: 1 });
 
   // Each message is judged on the signals about the sender's address plus
   // its own, so a hold takes only the messages that earn it: one hijacked

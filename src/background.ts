@@ -8,6 +8,7 @@ import type { EmailProvider, ProviderId } from "./lib/providers/emailProvider";
 import { applyRules } from "./lib/ruleRunner";
 import { knownSenderSet, pendingScreenerSenders, refreshSentCorrespondents } from "./lib/screener";
 import { markFirstContact } from "./lib/firstContact";
+import { markNameMatches } from "./lib/nameMatch";
 import { refreshBrandDomains } from "./lib/threatSignals";
 import { senderVerdict } from "./lib/verdict";
 import { recordHeld, type HeldBatch } from "./lib/scamHistory";
@@ -426,6 +427,7 @@ async function runBackgroundTriage() {
 
     // Before reporting or quarantining, so a familiar sender's change of
     // signing or reply domain is part of the picture (senderLedger.ts).
+    markNameMatches(securitySenders, knownSenderSet(settings));
     await applySenderLedger(securitySenders);
     await reportThreatSignals(securitySenders);
     const quarantined = await runQuarantine(settings, securitySenders);

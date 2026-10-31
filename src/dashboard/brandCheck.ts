@@ -1,5 +1,5 @@
 // Protect's brand check: senders that use a company's name from an address the
-// brand registry doesn't list ("Doesn't match"), what the user or a mark
+// brand registry doesn't list (listed under "Look at these"), what the user or a mark
 // certificate settled ("Checked"). Check reads the one domain's BIMI certificate
 // (markCheck.ts); Trust and Block are the user's call when there is none.
 import { applyBrandVerdicts } from "../lib/brandRegistry";
@@ -83,6 +83,16 @@ async function runCheck(sender: SenderSummary, brand: string, redraw: () => void
     busy.delete(sender.key);
     redraw();
   }
+}
+
+/** "Check" for a row of the main list; the result shows as a row under it. */
+export function brandCheckButton(sender: SenderSummary, redraw: () => void): HTMLButtonElement | null {
+  const brand = claimedBrand(sender);
+  if (!brand || !mismatchedSenders([sender]).length || results.has(sender.key)) return null;
+  const check = button("Check", "btn", () => void runCheck(sender, brand, redraw));
+  check.title = "Reads the address's trademark certificate. Only the domain name leaves your computer.";
+  check.disabled = busy.has(sender.key);
+  return check;
 }
 
 function resultChip(result: MarkCheckResult): HTMLElement {
@@ -179,20 +189,23 @@ function checkedRow(domain: string, v: BrandVerdict): HTMLElement {
   return row;
 }
 
-/** Fills #brand-check. Called with each Protect render. */
-export function renderBrandCheck(senders: SenderSummary[]): void {
+/** Fills #brand-check: the brand-name senders "Look at these" doesn't already
+ * list (`shown`), as more rows of that one list. Returns how many it drew. */
+export function renderBrandCheck(senders: SenderSummary[], shown: ReadonlySet<string> = new Set()): number {
   const root = document.getElementById("brand-check");
-  if (!root) return;
-  const redraw = () => renderBrandCheck(senders);
+  if (!root) return 0;
+  const redraw = () => renderBrandCheck(senders, shown);
   const parts: HTMLElement[] = [];
 
-  const mismatched = mismatchedSenders(senders);
+  // A listed sender shows here only while its check runs or waits for Trust or Block.
+  const mismatched = mismatchedSenders(senders).filter((s) => !shown.has(s.key) || busy.has(s.key) || results.has(s.key));
   if (mismatched.length > 0) {
     const head = el("div", "section-head");
-    const h = el("h2", "section-label", "Doesn't match");
+    // Under the list above, these rows continue it; alone, they carry its heading.
+    const h = el("h2", "section-label", shown.size > 0 ? "" : "Look at these");
     const [info, pop] = infoButton(
       "These use a company's name but write from an address the company doesn't list. Check reads the address's trademark certificate, which only the real owner can get. Only the domain name leaves your computer.",
-      "About Doesn't match",
+      "About these",
     );
     h.append(info);
     head.append(h);
@@ -216,4 +229,5 @@ export function renderBrandCheck(senders: SenderSummary[]): void {
   }
 
   root.replaceChildren(...parts);
+  return mismatched.length;
 }
