@@ -92,6 +92,17 @@ This is the master list. It covers today's chat plus research docs `2026-10-10-a
 **Already built, don't redo:** mailto unsubscribe sent by Cluster (`gmailApi.ts:880`), still-sending → "Send their mail to Trash" (`subscriptionsTab.ts:115`), local data Erase, Track 0–6 dashboard plan, all UI-consistency items.
 **Superseded:** "fewer labels by default" (competitors #11), replaced by your 10 categories.
 
+## Ideas parked
+
+Taken off the screen on 2026-10-31 to keep Organize simple. The libraries
+stay; bring the screen part back from the commit that removed it
+("Organize: park Digest and Classify ambiguous mail").
+
+- **Digest**: a short on-device summary of the inbox counts
+  (src/lib/aiDigest.ts, Chrome's Summarizer).
+- **Classify ambiguous mail**: on-device AI second opinion for subjects the
+  rules called "other" (src/lib/aiMessageKind.ts, Prompt API).
+
 ## Build order
 1. Spike 2.4 (no product change). Its three numbers replace the estimates in `research/2026-10-28-ten-categories-cost.md` B–D.
 2. Build in this order, one commit per item with tests (`npm test`, `npm run typecheck`) and a check in the preview (port 4600, `?reset`):

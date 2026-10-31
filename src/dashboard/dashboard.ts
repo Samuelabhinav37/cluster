@@ -12,12 +12,6 @@ import {
   safeSenderKeys,
   totalDeletableAcrossGroups,
 } from "../lib/bulkActions";
-import { buildDigestInput, checkDigestAvailability, generateDigest } from "../lib/aiDigest";
-import {
-  aiVerdictAllowed,
-  checkMessageKindAiAvailability,
-  classifyOtherSubjects,
-} from "../lib/aiMessageKind";
 import { loadPublicSuffixList } from "../lib/publicSuffix";
 import { applyBrandVerdicts, loadBrandRegistry } from "../lib/brandRegistry";
 import { applySenderLedger } from "../lib/senderLedgerStore";
@@ -189,13 +183,6 @@ const applyScanSettingsBtn = document.getElementById("apply-scan-settings-btn") 
 const onboardingBanner = document.getElementById("onboarding-banner") as HTMLDivElement;
 const onboardingDismissBtn = document.getElementById("onboarding-dismiss-btn") as HTMLButtonElement;
 
-const digestSectionEl = document.getElementById("digest-section") as HTMLElement;
-const generateDigestBtn = document.getElementById("generate-digest-btn") as HTMLButtonElement;
-const digestStatusEl = document.getElementById("digest-status") as HTMLSpanElement;
-const digestTextEl = document.getElementById("digest-text") as HTMLParagraphElement;
-const aiKindSectionEl = document.getElementById("ai-kind-section") as HTMLElement;
-const classifyOtherBtn = document.getElementById("classify-other-btn") as HTMLButtonElement;
-const aiKindStatusEl = document.getElementById("ai-kind-status") as HTMLSpanElement;
 const athenaSectionEl = document.getElementById("athena-section") as HTMLElement;
 const athenaConnectBtn = document.getElementById("athena-connect-btn") as HTMLButtonElement;
 const athenaStatusEl = document.getElementById("athena-status") as HTMLSpanElement;
@@ -710,8 +697,6 @@ async function main() {
   // Rules render from settings, but the dry-run inside needs a scan; let
   // scanAndRender() below do the render so it isn't done twice on load.
   renderRecentTab();
-  await wireDigest();
-  await wireAiMessageKind();
   maybeShowLabelTidyCard().catch((err) => log.error("label tidy-up card failed", err));
   await scanAndRender();
 }
@@ -1163,7 +1148,6 @@ async function scanAndRender({
   safeRender("organize", () => renderPresets(securitySenders));
   safeRender("screener", () => renderScreenerTab(senders));
   safeRender("overview", () => updateNavCounts(senders, securitySenders, allSenders));
-  generateDigestBtn.disabled = false;
 }
 
 // One render block failing must not take down the others — the scan already
@@ -2693,87 +2677,6 @@ function wireScanSettings() {
     } finally {
       applyScanSettingsBtn.disabled = false;
       applyScanSettingsBtn.textContent = "Rescan";
-    }
-  };
-}
-
-// ── AI-powered smart digest (Chrome's on-device Summarizer) ─────────────
-// Narrates only already-computed aggregate counts (category/sender/expiry
-// totals, same data already shown in the tables) — never subjects or
-// bodies. The whole section stays hidden when the on-device model isn't
-// available in this browser/hardware.
-async function wireDigest() {
-  const availability = await checkDigestAvailability();
-  if (availability === "unavailable") return;
-  digestSectionEl.hidden = false;
-
-  generateDigestBtn.onclick = async () => {
-    generateDigestBtn.disabled = true;
-    digestTextEl.hidden = true;
-    digestStatusEl.textContent =
-      availability === "available" ? "Generating…" : "Downloading on-device model…";
-    try {
-      const input = buildDigestInput(ctx.senders, currentExpiryBuckets);
-      const summary = await generateDigest(input, (fraction) => {
-        digestStatusEl.textContent = `Downloading on-device model… ${Math.round(fraction * 100)}%`;
-      });
-      digestStatusEl.textContent = "";
-      digestTextEl.textContent = summary;
-      digestTextEl.hidden = false;
-    } catch (err) {
-      digestStatusEl.textContent = "Couldn't generate a digest right now.";
-      log.error(err);
-    } finally {
-      generateDigestBtn.disabled = false;
-    }
-  };
-}
-
-// ── On-device second opinion for "other"-kind mail (Chrome's Prompt API) ──
-// messageKind.ts's regex classifier is English-only; this asks the on-device
-// model to classify only the subjects the regex already gave up on, in this
-// browser session, and never overrides a classification the regex made. The
-// section stays hidden when the model isn't available in this browser/
-// hardware, same convention as the digest section above.
-async function wireAiMessageKind() {
-  const availability = await checkMessageKindAiAvailability();
-  if (availability === "unavailable") return;
-  aiKindSectionEl.hidden = false;
-  classifyOtherBtn.disabled = false;
-
-  classifyOtherBtn.onclick = async () => {
-    classifyOtherBtn.disabled = true;
-    aiKindStatusEl.textContent = "Classifying…";
-    try {
-      const otherMessages = ctx.senders.flatMap((sender) =>
-        sender.messages.filter((message) => message.kind === "other" && message.subject),
-      );
-      if (otherMessages.length === 0) {
-        aiKindStatusEl.textContent = 'Nothing classified as "other" in the current scan.';
-        return;
-      }
-      const verdicts = await classifyOtherSubjects(otherMessages.map((message) => message.subject ?? ""));
-      let changed = 0;
-      for (const message of otherMessages) {
-        const verdict = message.subject ? verdicts.get(message.subject) : undefined;
-        if (aiVerdictAllowed(message, verdict)) {
-          message.kind = verdict;
-          changed += 1;
-        }
-      }
-      aiKindStatusEl.textContent =
-        changed > 0
-          ? `Reclassified ${changed} of ${otherMessages.length} "other" message${otherMessages.length === 1 ? "" : "s"}.`
-          : "No confident reclassification found.";
-      if (changed > 0) {
-        renderDeleteScreen(ctx.senders);
-        renderOrganizeScreen(ctx.senders);
-      }
-    } catch (err) {
-      aiKindStatusEl.textContent = "Couldn't classify right now.";
-      log.error(err);
-    } finally {
-      classifyOtherBtn.disabled = false;
     }
   };
 }

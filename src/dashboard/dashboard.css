@@ -2106,7 +2106,6 @@ input.switch:disabled {
 #sort-inbox-section .presets-guard { margin: 8px 16px 14px; }
 #sort-inbox-bar { margin-top: 14px; }
 /* Its tools need on-device AI; with neither shown, the disclosure goes too. */
-#more-tools:not(:has(> section:not([hidden]))) { display: none; }
 
 /* ══ v4 Settings, simple mode, setup (stage 4) ════════════════════════════ */
 
