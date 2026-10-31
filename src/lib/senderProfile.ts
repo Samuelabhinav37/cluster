@@ -56,6 +56,8 @@ export interface SenderProfile {
   lastSeenAt: number;
   /** Messages a month over the last 90 days. */
   perMonth: number;
+  /** Median time between their emails; missing with fewer than two. */
+  usualGapMs?: number;
   stillSending: boolean;
   youWrote: number;
   lastWroteAt?: number;
@@ -344,6 +346,7 @@ export function buildSenderProfiles(inputs: ProfileInputs): Map<string, SenderPr
       firstSeenAt,
       lastSeenAt,
       perMonth: Math.round((rows.filter((m) => now - m.receivedAt <= 90 * DAY_MS).length / 3) * 10) / 10,
+      usualGapMs: ascending.length > 1 ? usualGap : undefined,
       stillSending: now - lastSeenAt <= Math.max(QUIET_FLOOR_MS, 2 * usualGap),
       youWrote: correspondent?.sentCount ?? 0,
       lastWroteAt: correspondent?.lastSentAt,

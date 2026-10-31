@@ -20,10 +20,79 @@ export const FREE_MAIL_DOMAINS: ReadonlySet<string> = new Set([
   "proton.me",
   "gmx.com",
   "mail.com",
+  // Regional and other big free-mail services
+  "yahoo.co.in",
+  "yahoo.co.uk",
+  "yahoo.co.jp",
+  "yahoo.fr",
+  "yahoo.de",
+  "yahoo.ca",
+  "yahoo.com.au",
+  "yahoo.com.br",
+  "rocketmail.com",
+  "outlook.in",
+  "outlook.co.uk",
+  "outlook.de",
+  "outlook.fr",
+  "hotmail.co.uk",
+  "hotmail.fr",
+  "hotmail.de",
+  "hotmail.it",
+  "hotmail.es",
+  "live.co.uk",
+  "live.in",
+  "windowslive.com",
+  "pm.me",
+  "protonmail.ch",
+  "tuta.io",
+  "tutanota.com",
+  "tuta.com",
+  "fastmail.com",
+  "hey.com",
+  "zoho.com",
+  "zohomail.in",
+  "yandex.com",
+  "yandex.ru",
+  "mail.ru",
+  "inbox.ru",
+  "bk.ru",
+  "list.ru",
+  "gmx.de",
+  "gmx.net",
+  "web.de",
+  "t-online.de",
+  "libero.it",
+  "orange.fr",
+  "laposte.net",
+  "qq.com",
+  "163.com",
+  "126.com",
+  "sina.com",
+  "naver.com",
+  "daum.net",
+  "hanmail.net",
+  "rediffmail.com",
+  "comcast.net",
+  "verizon.net",
+  "att.net",
+  "sbcglobal.net",
+  "btinternet.com",
 ]);
 
 export function isFreeMailDomain(domain: string): boolean {
   return FREE_MAIL_DOMAINS.has(domain.toLowerCase());
+}
+
+/** A school address: .edu, .edu.xx or .ac.xx (oxford.ac.uk, iitb.ac.in). */
+export function isSchoolDomain(domain: string): boolean {
+  return /\.edu(\.[a-z]{2})?$|\.ac\.[a-z]{2}$/i.test(domain);
+}
+
+// Shared mailboxes and robots. Never a person, even on a free-mail domain.
+const ROLE_LOCAL = /^(no-?reply|do-?not-?reply|support|help|info|hello|hi|team|billing|accounts?|notifications?|alerts?|news|newsletters?|updates|marketing|sales|admin|service|orders?|receipts?|mailer-daemon|postmaster)([+._-]|$)/i;
+
+export function isRoleAddress(address: string): boolean {
+  return ROLE_LOCAL.test(address.slice(0, address.indexOf("@")));
 }
 
 // Platforms that send for many unrelated customers: every address on them is

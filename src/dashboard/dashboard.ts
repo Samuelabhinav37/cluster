@@ -43,6 +43,7 @@ import {
   type ListEntry,
   profileLine,
   senderName,
+  sendFrequency,
   sortSenders,
   senderGroup,
   type SenderGroup,
@@ -1760,7 +1761,7 @@ function pickSenderCard(pick: NonNullable<typeof senderCardPick>) {
   senderCardPick = pick;
   const key = "company" in pick ? `company:${pick.company.key}` : `sender:${pick.sender.key}`;
   allSendersListEl
-    ?.querySelectorAll<HTMLElement>(".list-row")
+    ?.querySelectorAll<HTMLElement>("[data-pick]")
     .forEach((r) => r.classList.toggle("picked", r.dataset.pick === key));
   renderSenderCard();
 }
@@ -1921,18 +1922,28 @@ function filteredSenders(senders: SenderSummary[], filter: SenderGroup = allSend
   });
 }
 
-/** Each list's count, as the list would show it (a company's addresses fold into one). */
+/** Each list's count, as the list would show it (a company's addresses fold
+ * into one). An empty list hides, and the screen never opens on one. */
 function paintSenderListCounts(senders: SenderSummary[]) {
-  document.querySelectorAll<HTMLButtonElement>("#sender-filter button[data-filter]").forEach((btn) => {
+  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("#sender-filter button[data-filter]"));
+  const counts = new Map<SenderGroup, number>();
+  for (const btn of buttons) {
     const group = btn.dataset.filter as SenderGroup;
     const count = foldByCompany(
       senders.filter((s) => senderGroup(s, ctx.profiles.get(s.key)) === group),
       ctx.profiles,
     ).length;
+    counts.set(group, count);
+    btn.hidden = count === 0;
     let badge = btn.querySelector<HTMLElement>(".list-count");
     if (!badge) btn.append((badge = Object.assign(document.createElement("span"), { className: "list-count" })));
     badge.textContent = count.toLocaleString();
-  });
+  }
+  if ((counts.get(allSendersFilter) ?? 0) > 0) return;
+  const first = buttons.find((b) => !b.hidden);
+  if (!first) return;
+  allSendersFilter = first.dataset.filter as SenderGroup;
+  for (const b of buttons) b.setAttribute("aria-pressed", String(b === first));
 }
 
 /** A brand-claim warning the user hasn't settled: the row says so where it stands. */
@@ -1952,12 +1963,6 @@ function rowBadges(sender: SenderSummary): HTMLElement[] {
 function renderAllSenders(senders: SenderSummary[]) {
   if (!allSendersListEl) return;
   paintSenderListCounts(senders);
-  const lead = document.getElementById("senders-lead");
-  if (lead) {
-    lead.textContent = lastScanCapHit
-      ? `Who emailed you, from your latest ${MAIL_INDEX_CAP.toLocaleString()} messages.`
-      : `Who emailed you in the last ${ctx.settings.scanWindowDays} days.`;
-  }
   const sorted = sortSenders(filteredSenders(senders), ctx.profiles, allSendersSort);
   // A company's addresses fold into one row (LinkedIn, not five LinkedIns), as in Clean up and Details.
   const rows: ListEntry[] = foldByCompany(sorted, ctx.profiles);
@@ -1969,13 +1974,22 @@ function renderAllSenders(senders: SenderSummary[]) {
   const shown = rows.slice(0, allSendersLimit);
 
   allSendersListEl.innerHTML = "";
-  allSendersListEl.appendChild(
-    listGroup(
-      shown.flatMap((entry) =>
-        entry.kind === "sender" ? [buildAllSendersRow(entry.sender)] : [buildCompanyEntry(entry.group)],
+  if (allSendersFilter === "subs" && !allSendersQuery) {
+    // Subscriptions as cards, like Stop mail's paid ones: how often, how much you open, and a way out.
+    const payers = companiesYouPay();
+    const grid = document.createElement("div");
+    grid.className = "paid-grid sub-grid";
+    grid.append(...shown.map((e) => buildSubCard(e, payers)));
+    allSendersListEl.appendChild(grid);
+  } else {
+    allSendersListEl.appendChild(
+      listGroup(
+        shown.flatMap((entry) =>
+          entry.kind === "sender" ? [buildAllSendersRow(entry.sender)] : [buildCompanyEntry(entry.group)],
+        ),
       ),
-    ),
-  );
+    );
+  }
 
   const pickKey = (e: (typeof shown)[number]) =>
     e.kind === "sender" ? `sender:${e.sender.key}` : `company:${e.group.key}`;
@@ -2015,6 +2029,44 @@ function renderAllSenders(senders: SenderSummary[]) {
     empty.textContent = "No senders match this filter.";
     allSendersListEl.appendChild(empty);
   }
+}
+
+/** Companies that also send you receipts: you pay them. */
+function companiesYouPay(): Set<string> {
+  const out = new Set<string>();
+  for (const p of ctx.profiles.values()) if (p.kind === "receipt" && p.companyKey) out.add(p.companyKey);
+  return out;
+}
+
+/** One subscription: logo, name, how often and how much you open, and Unsubscribe. */
+function buildSubCard(entry: ListEntry, payers: Set<string>): HTMLElement {
+  const members = entry.kind === "sender" ? [entry.sender] : entry.group.senders;
+  const lead = members.reduce((a, b) => (senderVolume(b) > senderVolume(a) ? b : a));
+  const profile = ctx.profiles.get(lead.key);
+  const total = members.reduce((n, s) => n + senderVolume(s), 0);
+  const unread = members.reduce((n, s) => n + senderUnread(s), 0);
+  const card = document.createElement("div");
+  card.className = "glass-card paid-card sub-card row-link";
+  const words = document.createElement("span");
+  words.className = "sub-words";
+  const name = textEl("b", entry.kind === "sender" ? senderName(lead) : companyName(entry.group));
+  const facts = textEl(
+    "span",
+    `${sendFrequency(profile?.usualGapMs)} · Opened ${Math.round(((total - unread) / Math.max(1, total)) * 100)}%`,
+    "sub-facts",
+  );
+  words.append(name, facts);
+  card.append(makeLogoTile(lead, "sz-30"), words);
+  if (profile?.companyKey && payers.has(profile.companyKey)) card.append(textEl("span", "You pay", "chip"));
+  const unsub = buildUnsubscribeCell(lead);
+  unsub.classList.add("sub-unsub");
+  card.append(unsub);
+  card.addEventListener("click", (e) => {
+    if (e.target instanceof HTMLElement && e.target.closest("button, a, input, select")) return;
+    pickSenderCard(entry.kind === "sender" ? { sender: entry.sender } : { company: entry.group });
+  });
+  card.dataset.pick = entry.kind === "sender" ? `sender:${entry.sender.key}` : `company:${entry.group.key}`;
+  return card;
 }
 
 function buildAllSendersRow(sender: SenderSummary): HTMLElement {

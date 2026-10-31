@@ -4,7 +4,7 @@
 import { senderUnread, senderVolume } from "./census";
 import type { SenderSummary } from "./senderModel";
 import type { SenderProfile, SenderTier, TemplateGroup } from "./senderProfile";
-import { isFreeMailDomain } from "./freeMail";
+import { isFreeMailDomain, isRoleAddress, isSchoolDomain } from "./freeMail";
 import { registrableDomain } from "./registrableDomain";
 
 export type SenderSortId = "volume" | "unread" | "newest" | "leastOpened" | "lastOpened" | "people";
@@ -20,20 +20,19 @@ export const SENDER_SORT_LABELS: Record<SenderSortId, string> = {
 
 const TIER_ORDER: SenderTier[] = ["close", "known", "regular", "other", "new", "ignored"];
 
-/** You interact with them (tier), and they are a person: not a machine,
- * their mail reads person to person, and they write from a personal account
- * (free mail or a school). A company address is a business contact, so a
- * recruiter at mercor.com stays under Companies unless the user moves them.
- * Starring or answering a receipt makes service@paypal.com important, not a
- * person. */
+/** A person: not a machine, mail that reads person to person, and a
+ * personal account (free mail or a school) that isn't a shared mailbox like
+ * support@. A company address is a business contact, so a recruiter at
+ * mercor.com stays under Companies unless the user moves them. */
 export function isPerson(profile: SenderProfile | undefined): boolean {
   if (profile?.personOverride !== undefined) return profile.personOverride;
-  const domain = profile?.address.slice(profile.address.lastIndexOf("@") + 1) ?? "";
+  if (!profile) return false;
+  const domain = profile.address.slice(profile.address.lastIndexOf("@") + 1);
   return (
-    (profile?.tier === "close" || profile?.tier === "known") &&
     !profile.machine &&
     profile.kind === "person" &&
-    (isFreeMailDomain(domain) || /\.edu$/i.test(domain))
+    !isRoleAddress(profile.address) &&
+    (isFreeMailDomain(domain) || isSchoolDomain(domain))
   );
 }
 
@@ -213,4 +212,13 @@ export function senderGroup(sender: SenderSummary, profile: SenderProfile | unde
   const { postUrl, httpUrl, mailto } = sender.unsubscribe;
   const service = profile?.kind === "receipt" || profile?.kind === "shipping" || profile?.kind === "otp";
   return (postUrl || httpUrl || mailto) && !service ? "subs" : "companies";
+}
+
+/** How often a list sends, from the median gap between its emails. */
+export function sendFrequency(gapMs: number | undefined): string {
+  const days = (gapMs ?? Infinity) / 86_400_000;
+  if (days < 2) return "Daily";
+  if (days < 10) return "Weekly";
+  if (days < 45) return "Monthly";
+  return "Now and then";
 }

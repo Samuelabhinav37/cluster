@@ -7,6 +7,7 @@ import {
   foldByCompany,
   groupByCompany,
   isPerson,
+  sendFrequency,
   senderGroup,
   mainTemplate,
   profileLine,
@@ -135,6 +136,20 @@ describe("List-Id groups, person override, companies you talk to", () => {
     expect(isPerson({ ...p, ...known, address: "recruiting@mercor.com" })).toBe(false);
   });
 
+  it("counts school and regional free mail, and never a shared mailbox", async () => {
+    const person = { machine: false, kind: "person" } as const;
+    const { profiles } = await setup(many(3, { fromAddress: "pat@gmail.com", unread: false }));
+    const p = { ...profiles.get("gmail:pat@gmail.com")!, ...person, tier: "new" as const };
+    expect(isPerson({ ...p, address: "asha@rediffmail.com" })).toBe(true);
+    expect(isPerson({ ...p, address: "sam@yahoo.co.in" })).toBe(true);
+    expect(isPerson({ ...p, address: "ravi@iitb.ac.in" })).toBe(true);
+    expect(isPerson({ ...p, address: "li@cs.tsinghua.edu.cn" })).toBe(true);
+    expect(isPerson({ ...p, address: "support@gmail.com" })).toBe(false);
+    expect(isPerson({ ...p, address: "no-reply@gmail.com" })).toBe(false);
+    expect(isPerson({ ...p, address: "info.team@outlook.com" })).toBe(false);
+    expect(isPerson({ ...p, address: "infosys.ravi@gmail.com" })).toBe(true);
+  });
+
   it("puts each sender in one list: people, companies or subscriptions", async () => {
     const unsub = { httpUrl: "https://shop.example/u" };
     const rows = [
@@ -175,5 +190,13 @@ describe("senderName", () => {
         senders: [s("Suhas Nayak", "messages-noreply@linkedin.com", 9), s("LinkedIn Job Alerts", "jobs@linkedin.com", 3)],
       }),
     ).toBe("LinkedIn Job Alerts");
+  });
+});
+
+describe("sendFrequency", () => {
+  it("buckets the usual gap between emails", () => {
+    const d = 86_400_000;
+    expect([1, 7, 30, 90].map((n) => sendFrequency(n * d))).toEqual(["Daily", "Weekly", "Monthly", "Now and then"]);
+    expect(sendFrequency(undefined)).toBe("Now and then");
   });
 });
