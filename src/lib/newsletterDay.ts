@@ -27,6 +27,7 @@ export function newsletterDayOn(settings: ClusterSettings): boolean {
   return (
     settings.newsletterDay.enabled &&
     settings.autoSort.timeLimitsEnabled &&
+    !settings.autoSort.labelsOff.includes("newsletter") &&
     settings.autoSort.inboxHoursByBucket.newsletter === HOLD_HOURS
   );
 }

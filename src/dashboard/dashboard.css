@@ -2102,7 +2102,7 @@ input.switch:disabled {
 /* ══ v4 Organize pages (stage 3) ══════════════════════════════════════════ */
 
 /* The kind list's menus line up in one column. */
-.ios-row .kind-pick { width: 10.5em; min-height: 0; height: 32px; padding: 0 10px; }
+.ios-row .kind-pick { width: 13em; min-height: 0; height: 32px; padding: 0 10px; }
 #sort-inbox-section .presets-guard { margin: 8px 16px 14px; }
 #sort-inbox-bar { margin-top: 14px; }
 /* Its tools need on-device AI; with neither shown, the disclosure goes too. */
@@ -3949,10 +3949,6 @@ body[data-screen="overview"] #ask-kai-open > svg { display: block; }
 .kind-card { display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; }
 .kind-head { display: flex; align-items: center; gap: 10px; font-weight: 600; }
 .kind-head .sub { display: block; font-weight: 400; font-size: 12.5px; color: var(--label-3); }
-.step-pick { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; padding: 3px; border-radius: 10px; background: var(--neutral-fill); }
-.step-pick button { min-height: 0; padding: 6px 0; border: 0; border-radius: 8px; background: none; color: var(--label-3); font-size: 12.5px; font-weight: 500; line-height: 1.2; cursor: pointer; }
-.step-pick button:hover { color: var(--label); }
-.step-pick button[aria-pressed="true"] { background: var(--glass-solid); color: var(--label); font-weight: 650; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); }
 /* Settings, round 2: the sections as a left list, one pane at a time. */
 .settings-split { display: grid; grid-template-columns: 210px minmax(0, 1fr); column-gap: 20px; align-items: start; }
 .settings-nav { display: flex; flex-direction: column; gap: 2px; padding: 8px; border-radius: 16px; background: var(--glass); border: 0.5px solid var(--hairline); position: sticky; top: 16px; }
@@ -3963,10 +3959,6 @@ body[data-screen="overview"] #ask-kai-open > svg { display: block; }
 /* Organize, after Apple Mail's categories: a codes switch, then groups that
    open to their kinds (timeLimitsTab.ts). */
 .org-list { display: flex; flex-direction: column; gap: 22px; }
-.org-value { color: var(--label-4); font-size: 15px; }
-.org-group + .org-group, .ios-row + .org-group { border-top: 1px solid var(--separator); }
-.org-group > summary .org-value::after { content: "›"; display: inline-block; margin-left: 8px; transition: transform .15s ease; }
-.org-group[open] > summary .org-value::after { transform: rotate(90deg); }
-.org-kind { background: var(--neutral-fill); }
-.org-kind .app-ic { visibility: hidden; }
-.org-kind .step-pick { width: 260px; }
+
+/* Organize: each label icon wears its Gmail label color (set inline). */
+.ios-row .app-ic.label-ic .i { stroke: currentColor; }

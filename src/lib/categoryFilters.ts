@@ -31,7 +31,9 @@ export function categoryLabelName(bucket: SortBucket, labelChoices: Record<strin
 export function filteredCategories(settings: ClusterSettings): SortBucket[] {
   const { autoSort } = settings;
   return ALL_SORT_BUCKETS.filter(
-    (b) => autoSort.timeLimitsEnabled || (autoSort.keepSorting && autoSort.enabledBuckets.includes(b)),
+    (b) =>
+      (autoSort.timeLimitsEnabled && !autoSort.labelsOff.includes(b)) ||
+      (autoSort.keepSorting && autoSort.enabledBuckets.includes(b)),
   );
 }
 

@@ -495,7 +495,7 @@ export const CLUSTER_QUESTIONS: KaiQuestion[] = [
   { id: "flagged", ask: "Why was this sender flagged?", answer: "It looked like someone else: a lookalike domain, a failed sender check, or a reply address that goes somewhere different. Each flag lists its reasons.", screen: "impersonation", follow: ["read"] },
   { id: "undo", ask: "How do I undo something?", answer: "Activity lists everything Cluster did, newest first, with Undo wherever your mail provider allows it.", screen: "recent", follow: ["starred"] },
   { id: "unsub", ask: "How do I unsubscribe from lots at once?", answer: "Stop mail lists every sender you can leave. Pick the ones you want, or press Unsubscribe all for everyone who stops in one click.", screen: "subscriptions", follow: ["undo"] },
-  { id: "keep", ask: "Can Cluster keep new mail sorted?", answer: "Yes. When you sort your inbox, tick Keep doing this for new mail. Sender-based labels use Gmail filters, so they work with Chrome closed.", screen: "organize", target: "#sort-inbox-section", follow: ["undo"] },
+  { id: "keep", ask: "Can Cluster keep new mail sorted?", answer: "Yes. Any label on Organize that isn't Off keeps sorting new mail. Sender-based labels use Gmail filters, so they work with Chrome closed.", screen: "organize", target: "#sort-inbox-section", follow: ["undo"] },
   { id: "screener", ask: "What is New senders?", answer: "Turn on Hold mail from new senders, and mail from people you've never emailed waits there, out of your inbox, until you let them in.", screen: "screener", target: "#screener-toggle-row", follow: ["read"] },
   { id: "starred", ask: "Will it touch my starred mail?", answer: "Never. Starred mail is always skipped, and nothing is moved or deleted before you confirm.", follow: ["undo"] },
 ];

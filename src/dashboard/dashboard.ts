@@ -1388,7 +1388,9 @@ function renderOverview(
     pastDate: plan.expiryTotal,
     clearable: plan.total,
     limitsOn: ctx.settings.autoSort.timeLimitsEnabled
-      ? Object.values(ctx.settings.autoSort.inboxHoursByBucket).filter((h) => h != null).length
+      ? Object.entries(ctx.settings.autoSort.inboxHoursByBucket).filter(
+          ([b, h]) => h != null && !ctx.settings.autoSort.labelsOff.includes(b),
+        ).length
       : 0,
     couldLeaveWeekly: [...weeklyByBucket(senders, Date.now()).values()].reduce((n, c) => n + c, 0),
     fakedBrands: fakedBrands(securitySenders),

@@ -4,7 +4,7 @@
 // right after the user saves their limits.
 import { appendActionLog, makeLogId } from "./actionLog";
 import { categoryLabelName, syncGmailCategoryFilters } from "./categoryFilters";
-import { batchModify, findLabelIds, getOrCreateLabel, listMessageIds } from "./gmailApi";
+import { batchModify, colorClusterLabels, findLabelIds, getOrCreateLabel, listMessageIds } from "./gmailApi";
 import {
   pinInInbox,
   sweepExpiredInbox,
@@ -37,13 +37,14 @@ export async function runInboxTimeLimits(now = Date.now()): Promise<TimeLimitRun
   // old query until rewritten. Unchanged filters cost no API calls.
   const synced = await syncGmailCategoryFilters(settings, token);
   if (synced.created > 0 || synced.deleted > 0) {
+    await colorClusterLabels(token);
     await mutateSettings((current) => ({
       ...current,
       autoSort: { ...current.autoSort, filterIdsByBucket: synced.filterIdsByBucket, filterSpecByBucket: synced.filterSpecByBucket },
     }));
   }
 
-  const limits: CategoryLimit[] = ALL_SORT_BUCKETS.map((bucket) => ({
+  const limits: CategoryLimit[] = ALL_SORT_BUCKETS.filter((b) => !settings.autoSort.labelsOff.includes(b)).map((bucket) => ({
     bucket,
     labelName: categoryLabelName(bucket, settings.labelChoices),
     hours: settings.autoSort.inboxHoursByBucket[bucket] ?? null,

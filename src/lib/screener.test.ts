@@ -54,6 +54,7 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
       ruleIdsByBucket: {},
       filterSpecByBucket: {},
       timeLimitsEnabled: false,
+      labelsOff: [],
       inboxHoursByBucket: {},
       lastSweep: { at: 0, moved: 0 },
       keptInInboxIds: [],

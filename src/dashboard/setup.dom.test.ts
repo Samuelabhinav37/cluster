@@ -65,7 +65,7 @@ describe("first-run setup", () => {
     await runSetup(dash, "me");
     await vi.waitFor(() => expect(dash.storedSettings().persona).toBe("calm"));
     expect(dash.storedSettings().setupDone).toBe(true);
-    expect((dash.el("time-limits-toggle") as HTMLInputElement).checked).toBe(false);
+    expect(dash.storedSettings().autoSort.timeLimitsEnabled).toBe(false);
   });
 });
 

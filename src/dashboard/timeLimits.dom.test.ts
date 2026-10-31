@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 /// <reference types="vite/client" />
 //
-// Organize's one list: each kind's menu says where it goes, the switch turns
-// on per-category Gmail filters, and Sort my inbox counts from the menus.
+// Organize's one list: each label's menu says where it goes, anything but Off
+// turns on its Gmail filter, and Sort my inbox counts from the menus.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { bootDashboard, fixtureMailbox } from "./testHarness";
 
@@ -24,80 +24,78 @@ const pick = (id: string, value: string) => {
 };
 
 describe("Where each kind of mail goes", () => {
-  it("shows every kind with its default choice and what it counts", async () => {
+  it("lists every label once, in Gmail's order and colors, Off until chosen", async () => {
     const dash = await bootDashboard();
     await openOrganize(dash);
-    expect((dash.el("time-limit-otp") as HTMLSelectElement).value).toBe("24");
-    expect((dash.el("time-limit-shipping") as HTMLSelectElement).value).toBe("168");
-    expect((dash.el("time-limit-travel") as HTMLSelectElement).value).toBe("stay");
-    expect(dash.el("time-limits-rows").textContent).toContain("Promotions");
+    const kinds = Array.from(document.querySelectorAll<HTMLSelectElement>("#time-limits-rows select"));
+    expect(kinds).toHaveLength(11);
+    expect(kinds.every((k) => k.value === "off")).toBe(true);
+    expect(document.querySelectorAll("#time-limits-rows .ios-group")).toHaveLength(1);
+    expect(document.getElementById("time-limits-toggle")).toBeNull();
+    const text = dash.el("time-limits-rows").textContent!;
+    expect(text.indexOf("Education")).toBeLessThan(text.indexOf("Promotions"));
+    const icon = dash.el("time-limit-receipt").closest(".ios-row")!.querySelector<HTMLElement>(".app-ic")!;
+    expect(icon.style.background).not.toBe("");
     expect(dash.el("time-limit-sub-travel").textContent).toMatch(/now|None right now/);
-    // "Straight to label" skips the inbox, so only Promotions offers it.
+    // "Skip the inbox" means never seeing it, so only Promotions offers it.
     const values = (id: string) => Array.from((dash.el(id) as HTMLSelectElement).options).map((o) => o.value);
+    expect(values("time-limit-otp")).toEqual(expect.arrayContaining(["off", "stay", "24"]));
     expect(values("time-limit-otp")).not.toContain("0");
     expect(values("time-limit-promotions")).toContain("0");
   });
 
-  it("a group's picker sets every kind in it, and codes are one switch", async () => {
-    const dash = await bootDashboard();
-    await openOrganize(dash);
-    document.querySelector<HTMLButtonElement>('[aria-label="Updates: After 1 week"]')!.click();
-    await vi.waitFor(() => {
-      const h = dash.storedSettings().autoSort.inboxHoursByBucket;
-      expect([h.newsletter, h.social, h.promotions]).toEqual([168, 168, 168]);
-    });
-    expect(dash.el("time-limits-rows").textContent).toContain("1 week");
-
-    (document.querySelector('[aria-label="One-time codes leave the inbox"]') as HTMLInputElement).click();
-    await vi.waitFor(() => expect(dash.storedSettings().autoSort.inboxHoursByBucket.otp).toBeNull());
-  });
-
-  it("keeps a menu choice with the switch off but never touches Gmail", async () => {
+  it("anything but Off turns that label on for new mail, alone", async () => {
     const dash = await bootDashboard();
     await openOrganize(dash);
     pick("time-limit-promotions", "0");
-    await vi.waitFor(() => expect(dash.storedSettings().autoSort.inboxHoursByBucket.promotions).toBe(0));
-    expect(dash.storedSettings().autoSort.timeLimitsEnabled).toBe(false);
-    expect(dash.gmailApi.createFilter).not.toHaveBeenCalled();
-  });
-
-  it("Keep doing this creates a filter per category that labels and keeps mail in the inbox", async () => {
-    const dash = await bootDashboard();
-    await openOrganize(dash);
-    pick("time-limit-promotions", "0");
-    await vi.waitFor(() => expect(dash.storedSettings().autoSort.inboxHoursByBucket.promotions).toBe(0));
-    (dash.el("time-limits-toggle") as HTMLInputElement).click();
-
     await vi.waitFor(() => {
       if (!dash.el("time-limits-status").textContent?.startsWith("Saved.")) throw new Error("not saved yet");
     });
     const calls = dash.gmailApi.createFilter.mock.calls as [string, { query?: string }, { removeLabelIds: string[] }][];
-    expect(calls).toHaveLength(11);
-    const otp = calls.find(([, c]) => c.query?.startsWith('subject:("verification code"'));
-    expect(otp?.[2].removeLabelIds).toEqual([]);
-    const promo = calls.find(([, c]) => c.query?.startsWith("category:promotions"));
-    expect(promo?.[2].removeLabelIds).toEqual(["INBOX"]);
-
+    expect(calls).toHaveLength(1);
+    expect(calls[0][1].query).toMatch(/^category:promotions/);
+    expect(calls[0][2].removeLabelIds).toEqual(["INBOX"]);
     const stored = dash.storedSettings().autoSort;
     expect(stored.timeLimitsEnabled).toBe(true);
     expect(stored.keepSorting).toBe(true);
-    expect(Object.keys(stored.filterIdsByBucket)).toHaveLength(11);
-    expect(dash.el("time-limits-status").textContent).toContain("11 Gmail filters label new mail as it arrives");
+    expect(stored.inboxHoursByBucket.promotions).toBe(0);
+    expect(stored.labelsOff).toHaveLength(10);
+    expect(stored.labelsOff).not.toContain("promotions");
+
+    pick("time-limit-promotions", "off");
+    await vi.waitFor(() => expect(dash.storedSettings().autoSort.timeLimitsEnabled).toBe(false));
+    expect(dash.storedSettings().autoSort.inboxHoursByBucket.promotions).toBe(0);
+  });
+
+  it("every label on makes a filter per category that labels and keeps mail in the inbox", async () => {
+    const dash = await bootDashboard();
+    await openOrganize(dash);
+    for (const k of Array.from(document.querySelectorAll<HTMLSelectElement>("#time-limits-rows select"))) pick(k.id, "stay");
+    await vi.waitFor(() => {
+      const stored = dash.storedSettings().autoSort;
+      expect(stored.labelsOff).toEqual([]);
+      expect(Object.keys(stored.filterIdsByBucket)).toHaveLength(11);
+    });
+    const calls = dash.gmailApi.createFilter.mock.calls as [string, { query?: string }, { removeLabelIds: string[] }][];
+    const otp = calls.find(([, c]) => c.query?.startsWith('subject:("verification code"'));
+    expect(otp?.[2].removeLabelIds).toEqual([]);
   });
 
   it("Sort my inbox counts what moves now from the menus", async () => {
     const dash = await bootDashboard();
     await openOrganize(dash);
     const kinds = Array.from(document.querySelectorAll<HTMLSelectElement>("#time-limits-rows select"));
-    for (const k of kinds) pick(k.id, "stay");
     expect(dash.el("sort-inbox-count").textContent).toBe("Nothing to sort");
     expect((dash.el("sort-inbox-btn") as HTMLButtonElement).disabled).toBe(true);
 
     // The fixture's mail is all older than 10 minutes, so all of a kind moves.
     const busy = kinds.find((k) => /^\d+ now/.test(dash.el(k.id.replace("time-limit-", "time-limit-sub-")).textContent ?? ""))!;
     const n = Number.parseInt(dash.el(busy.id.replace("time-limit-", "time-limit-sub-")).textContent!, 10);
+    const emails = `${n} email${n === 1 ? "" : "s"}`;
+    pick(busy.id, "stay");
+    expect(dash.el("sort-inbox-count").textContent).toBe(`${emails} get labels`);
     pick(busy.id, String(1 / 6));
-    expect(dash.el("sort-inbox-count").textContent).toBe(`${n} email${n === 1 ? "" : "s"} move now`);
+    expect(dash.el("sort-inbox-count").textContent).toBe(`${emails} move now`);
     expect((dash.el("sort-inbox-btn") as HTMLButtonElement).disabled).toBe(false);
   });
 });
@@ -161,7 +159,7 @@ describe("Newsletters on Saturday", () => {
       const s = dash.storedSettings();
       expect(s.newsletterDay.enabled).toBe(true);
       expect(s.autoSort.inboxHoursByBucket.newsletter).toBeCloseTo(1 / 6);
-      expect(s.autoSort.inboxHoursByBucket.otp).toBeNull();
+      expect(s.autoSort.labelsOff).toContain("otp");
     });
     await vi.waitFor(() => expect(card().querySelector(".rec-fact")!.textContent).toMatch(/^On, /));
     const when = card().querySelector<HTMLSelectElement>("select.newsletter-when")!;

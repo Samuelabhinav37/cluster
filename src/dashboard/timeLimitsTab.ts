@@ -1,12 +1,14 @@
-// Organize's one list: where each kind of mail goes. A kind stays in the
-// inbox, goes straight to its label, or leaves after a set time. The switch
-// keeps it going for new mail: saving syncs the per-category Gmail filters and
-// runs one sweep straight away; the background alarm repeats it every 5
+// Organize's one list: where each kind of mail goes. A kind is off, labelled
+// in the inbox, or moved out after a set time. Anything but Off also covers
+// new mail: saving syncs the per-category Gmail filters and runs one sweep
+// straight away; the background alarm repeats it every 5
 // minutes (see lib/inboxTimeLimits.ts). Sort my inbox (sortInbox.ts) reads
 // the same menus for mail already here.
 import { categoryLabelName, syncGmailCategoryFilters } from "../lib/categoryFilters";
 import { runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
 import { log } from "../lib/log";
+import { CLUSTER_LABEL_COLORS } from "../lib/clusterLabels";
+import { colorClusterLabels } from "../lib/gmailApi";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { getSettings, updateSettings } from "../lib/settingsStore";
 import { domainOf } from "../lib/domainGrouping";
@@ -16,62 +18,28 @@ import { ALL_SORT_BUCKETS, effectiveBucket, type SortBucket } from "../lib/sortT
 import { icon } from "./homeDashboard";
 import { ctx } from "./state";
 
-const toggleEl = document.getElementById("time-limits-toggle") as HTMLInputElement | null;
 const rowsEl = document.getElementById("time-limits-rows") as HTMLDivElement | null;
 const statusEl = document.getElementById("time-limits-status") as HTMLParagraphElement | null;
 const lastRunEl = document.getElementById("time-limits-last") as HTMLParagraphElement | null;
 
-/** Select options: hours, or null for "stays in inbox". */
+/** Menu choices after Off: hours, or null for "label only". */
 export const LIMIT_CHOICES: { label: string; hours: number | null }[] = [
-  { label: "Stays in inbox", hours: null },
-  { label: "Straight to label", hours: 0 },
-  { label: "After 10 minutes", hours: 1 / 6 },
-  { label: "After 1 hour", hours: 1 },
-  { label: "After 1 day", hours: 24 },
-  { label: "After 2 days", hours: 48 },
-  { label: "After 3 days", hours: 72 },
-  { label: "After 1 week", hours: 168 },
-  { label: "After 2 weeks", hours: 336 },
-  { label: "After 30 days", hours: 720 },
+  { label: "Label only", hours: null },
+  { label: "Skip the inbox", hours: 0 },
+  { label: "Move after 10 minutes", hours: 1 / 6 },
+  { label: "Move after 1 hour", hours: 1 },
+  { label: "Move after 1 day", hours: 24 },
+  { label: "Move after 2 days", hours: 48 },
+  { label: "Move after 3 days", hours: 72 },
+  { label: "Move after 1 week", hours: 168 },
+  { label: "Move after 2 weeks", hours: 336 },
+  { label: "Move after 30 days", hours: 720 },
 ];
 
-/** Round 2's picker: five steps from keep to a day. Other values stay in the
- * (hidden) menu, which is still what gets saved. */
-const STEPS: { label: string; hours: number | null; name: string }[] = [
-  { label: "Keep", hours: null, name: "Stays in inbox" },
-  { label: "1 mo", hours: 720, name: "After 30 days" },
-  { label: "1 wk", hours: 168, name: "After 1 week" },
-  { label: "3 d", hours: 72, name: "After 3 days" },
-  { label: "1 d", hours: 24, name: "After 1 day" },
-];
+/** Off: no label, no Gmail filter, never moved. */
+const OFF = "off";
 
-function stepPicker(select: HTMLSelectElement, name: string): HTMLElement {
-  const seg = document.createElement("div");
-  seg.className = "step-pick";
-  seg.setAttribute("role", "group");
-  seg.setAttribute("aria-label", `${name}: how long it stays`);
-  const paint = () => {
-    for (const b of Array.from(seg.children) as HTMLButtonElement[])
-      b.setAttribute("aria-pressed", String(b.dataset.value === select.value));
-  };
-  for (const step of STEPS) {
-    const b = Object.assign(document.createElement("button"), { type: "button", textContent: step.label });
-    b.dataset.value = choiceValue(step.hours);
-    b.setAttribute("aria-label", `${name}: ${step.name}`);
-    b.onclick = () => {
-      select.value = b.dataset.value!;
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-      paint();
-    };
-    seg.append(b);
-  }
-  select.addEventListener("change", paint);
-  select.addEventListener("sync", paint);
-  paint();
-  return seg;
-}
-
-/** "Straight to label" skips the inbox entirely, so it's offered only for
+/** "Skip the inbox" means never seeing it, so it's offered only for
  * Promotions, where missing one ad costs nothing. */
 export function limitChoicesFor(bucket: SortBucket) {
   return bucket === "promotions" ? LIMIT_CHOICES : LIMIT_CHOICES.filter((c) => c.hours !== 0);
@@ -91,14 +59,6 @@ const BUCKET_HINT: Record<SortBucket, string> = {
   productivity: "Slack, GitHub, Notion and similar",
   education: "Courses and school",
 };
-
-/** Organize's groups, after Apple Mail's categories. Codes and people sit
- * apart; every other kind is in exactly one group. */
-export const ORGANIZE_GROUPS: { name: string; icon: string; kinds: SortBucket[] }[] = [
-  { name: "Transactions", icon: "receipt", kinds: ["receipt", "shipping"] },
-  { name: "Updates", icon: "news", kinds: ["newsletter", "social", "promotions"] },
-  { name: "Personal", icon: "card", kinds: ["finance", "shopping", "travel", "productivity", "education"] },
-];
 
 const BUCKET_ICON: Record<SortBucket, string> = {
   otp: "key",
@@ -138,6 +98,13 @@ function selectFor(bucket: SortBucket): HTMLSelectElement | null {
   return document.getElementById(`time-limit-${bucket}`) as HTMLSelectElement | null;
 }
 
+/** A kind's stored choice as a menu value. */
+function storedValue(bucket: SortBucket): string {
+  const cfg = ctx.settings.autoSort;
+  if (!cfg.timeLimitsEnabled || cfg.labelsOff.includes(bucket)) return OFF;
+  return choiceValue(cfg.inboxHoursByBucket[bucket] ?? null);
+}
+
 // "N now" comes from Sort my inbox's plan (sortInbox.ts), "a week" from the scan.
 let nowByBucket = new Map<SortBucket, number>();
 
@@ -161,30 +128,23 @@ function renderKindSubs(): void {
   }
 }
 
-/** Keeps a menu choice. With the switch on it also goes to Gmail. */
-async function chooseLimit(): Promise<void> {
-  if (toggleEl?.checked) {
-    await save();
-    return;
-  }
-  ctx.settings = await updateSettings({
-    autoSort: { ...ctx.settings.autoSort, inboxHoursByBucket: limitsFromMenus() },
-  });
-}
-
 export function renderTimeLimits(): void {
-  if (!toggleEl || !rowsEl || !lastRunEl) return;
+  if (!rowsEl || !lastRunEl) return;
   const cfg = ctx.settings.autoSort;
-  toggleEl.checked = cfg.timeLimitsEnabled;
-  // Like Apple Mail's categories: codes are one switch, people always stay,
-  // and three groups each take one keep time. A group opens to its kinds,
-  // which still keep their own Gmail labels and can differ.
-  const plainName = (b: SortBucket) => categoryLabelName(b, ctx.settings.labelChoices).replace(/^\S+\s/, "");
-  const kindRow = (bucket: SortBucket) => {
-    const name = plainName(bucket);
+  // One list of Cluster's labels, in Gmail's order (by name), each icon in
+  // its Gmail label color. Anything but Off also sorts new mail.
+  const labelName = (b: SortBucket) => categoryLabelName(b, ctx.settings.labelChoices);
+  const buckets = [...ALL_SORT_BUCKETS].sort((a, b) => (labelName(a) < labelName(b) ? -1 : 1));
+  const rows = buckets.map((bucket) => {
+    const name = labelName(bucket).replace(/^\S+\s/, "");
     const row = document.createElement("div");
-    row.className = "ios-row org-kind";
+    row.className = "ios-row";
     row.title = BUCKET_HINT[bucket];
+    const mark = document.createElement("span");
+    mark.className = "app-ic label-ic";
+    const color = CLUSTER_LABEL_COLORS[bucket];
+    if (color) Object.assign(mark.style, { background: color.backgroundColor, color: color.textColor });
+    mark.append(icon(BUCKET_ICON[bucket]));
     const words = document.createElement("span");
     words.className = "grow";
     const sub = Object.assign(document.createElement("span"), { className: "sub", id: `time-limit-sub-${bucket}` });
@@ -193,101 +153,20 @@ export function renderTimeLimits(): void {
     select.id = `time-limit-${bucket}`;
     select.className = "kind-pick";
     select.setAttribute("aria-label", `${name}: where it goes`);
+    select.add(new Option("Off", OFF));
     for (const choice of limitChoicesFor(bucket)) select.add(new Option(choice.label, choiceValue(choice.hours)));
-    select.value = choiceValue(cfg.inboxHoursByBucket[bucket] ?? null);
-    select.onchange = () => void chooseLimit();
-    select.hidden = true;
-    const mark = document.createElement("span");
-    mark.className = "app-ic";
-    mark.append(icon(BUCKET_ICON[bucket]));
-    row.append(mark, words, stepPicker(select, name), select);
-    return { row, select };
-  };
-
-  const codes = kindRow("otp");
-  const codesOn = presetSwitch("One-time codes leave the inbox", codes.select.value !== "stay", () => {
-    codes.select.value = codesOn.checked ? choiceValue(cfg.inboxHoursByBucket.otp || 24) : "stay";
-    codes.select.dispatchEvent(new Event("change", { bubbles: true }));
-    codesOn.disabled = false;
+    select.value = storedValue(bucket);
+    select.onchange = () => void queueSave();
+    row.append(mark, words, select);
+    return row;
   });
-  const codesRow = document.createElement("label");
-  codesRow.className = "ios-row";
-  const codesWords = document.createElement("span");
-  codesWords.className = "grow";
-  codesWords.append("One-time codes", codes.row.querySelector(".sub")!);
-  const codesMark = document.createElement("span");
-  codesMark.className = "app-ic";
-  codesMark.append(icon("key"));
-  codesRow.append(codesMark, codesWords, codesOn, codes.select);
-
-  const people = document.createElement("div");
-  people.className = "ios-row";
-  const peopleMark = document.createElement("span");
-  peopleMark.className = "app-ic";
-  peopleMark.append(icon("users"));
-  const peopleWords = document.createElement("span");
-  peopleWords.className = "grow";
-  peopleWords.append("People", Object.assign(document.createElement("span"), { className: "sub", textContent: "Starred and people you write to" }));
-  people.append(peopleMark, peopleWords, Object.assign(document.createElement("span"), { className: "org-value", textContent: "Keep" }));
-
-  const groups = ORGANIZE_GROUPS.map((g) => {
-    const kinds = g.kinds.map(kindRow);
-    const box = document.createElement("details");
-    box.className = "set-row-details org-group";
-    const head = document.createElement("summary");
-    head.className = "ios-row";
-    const mark = document.createElement("span");
-    mark.className = "app-ic";
-    mark.append(icon(g.icon));
-    const words = document.createElement("span");
-    words.className = "grow";
-    words.append(g.name, Object.assign(document.createElement("span"), { className: "sub", textContent: g.kinds.map(plainName).join(", ") }));
-    const value = document.createElement("span");
-    value.className = "org-value";
-    head.append(mark, words, value);
-    // One picker for the group, pressed only while every kind agrees.
-    const all = document.createElement("select");
-    for (const step of STEPS) all.add(new Option(step.name, choiceValue(step.hours)));
-    const agreed = () => {
-      const v = kinds[0].select.value;
-      return kinds.every((k) => k.select.value === v) ? v : "";
-    };
-    const paint = () => {
-      const v = agreed();
-      all.value = v;
-      const label = LIMIT_CHOICES.find((c) => choiceValue(c.hours) === v)?.label ?? "Mixed";
-      value.textContent = label.replace(/^After /, "").replace("Stays in inbox", "Keep");
-    };
-    all.onchange = () => {
-      for (const k of kinds) {
-        k.select.value = all.value;
-        k.select.dispatchEvent(new Event("sync"));
-      }
-      paint();
-      rowsEl.dispatchEvent(new Event("change"));
-      void chooseLimit();
-    };
-    box.addEventListener("change", paint);
-    const allRow = document.createElement("div");
-    allRow.className = "ios-row org-kind";
-    const allWords = Object.assign(document.createElement("span"), { className: "grow", textContent: `All ${g.name.toLowerCase()}` });
-    allRow.append(document.createElement("span"), allWords, stepPicker(all, g.name));
-    box.append(head, allRow, ...kinds.map((k) => k.row));
-    paint();
-    return box;
-  });
-
-  const section = (head: string, ...rows: HTMLElement[]) => {
-    const wrap = document.createElement("section");
-    wrap.className = "ios-section";
-    const h = Object.assign(document.createElement("h2"), { className: "ios-head", textContent: head });
-    const group = document.createElement("div");
-    group.className = "ios-group";
-    group.append(...rows);
-    wrap.append(h, group);
-    return wrap;
-  };
-  rowsEl.replaceChildren(section("Cleanup", codesRow), section("Categories", people, ...groups));
+  const wrap = document.createElement("section");
+  wrap.className = "ios-section";
+  const group = document.createElement("div");
+  group.className = "ios-group";
+  group.append(...rows);
+  wrap.append(Object.assign(document.createElement("h2"), { className: "ios-head", textContent: "Labels" }), group);
+  rowsEl.replaceChildren(wrap);
   renderKindSubs();
   lastRunEl.textContent =
     cfg.timeLimitsEnabled && cfg.lastSweep.at > 0
@@ -296,46 +175,44 @@ export function renderTimeLimits(): void {
   renderPresets();
 }
 
-/** Fills the menus with suggested values (from first-run setup) without
- * saving: Gmail only changes when the user turns the switch on. */
-export function proposeTimeLimits(hours: Partial<Record<SortBucket, number | null>>, message: string): void {
-  if (!statusEl) return;
-  for (const [bucket, value] of Object.entries(hours)) {
-    const select = selectFor(bucket as SortBucket);
-    if (select) select.value = choiceValue(value ?? null);
-  }
-  // Sort my inbox recounts from the menus.
-  rowsEl?.dispatchEvent(new Event("change"));
-  statusEl.textContent = message;
-}
-
-/** Setup's "Tidy for me": the menus as they are, switch on, saved to Gmail. */
+/** Setup's "Tidy for me": every kind that is off takes its stored choice,
+ * then all of it goes to Gmail. */
 export async function turnOnTimeLimits(): Promise<boolean> {
   renderTimeLimits();
-  if (!toggleEl) return false;
-  toggleEl.checked = true;
-  return save();
+  for (const bucket of ALL_SORT_BUCKETS) {
+    const select = selectFor(bucket);
+    if (select?.value === OFF) select.value = choiceValue(ctx.settings.autoSort.inboxHoursByBucket[bucket] ?? null);
+  }
+  return queueSave();
 }
 
 function limitsFromMenus(): Record<string, number | null> {
   const inboxHoursByBucket: Record<string, number | null> = { ...ctx.settings.autoSort.inboxHoursByBucket };
   for (const bucket of ALL_SORT_BUCKETS) {
     const select = selectFor(bucket);
-    if (select) inboxHoursByBucket[bucket] = parseChoice(select.value);
+    // Off keeps the last time, so turning a kind back on restores it.
+    if (select && select.value !== OFF) inboxHoursByBucket[bucket] = parseChoice(select.value);
   }
   return inboxHoursByBucket;
 }
 
+// Menu changes save one at a time, so two quick picks can't race on Gmail's filters.
+let saving: Promise<boolean> = Promise.resolve(true);
+
+function queueSave(): Promise<boolean> {
+  saving = saving.then(save, save);
+  return saving;
+}
+
 async function save(): Promise<boolean> {
-  if (!toggleEl || !statusEl) return false;
+  if (!statusEl) return false;
   const inboxHoursByBucket = limitsFromMenus();
-  toggleEl.disabled = true;
+  const labelsOff = ALL_SORT_BUCKETS.filter((b) => selectFor(b)?.value === OFF);
+  const on = labelsOff.length < ALL_SORT_BUCKETS.length;
   statusEl.textContent = "Saving…";
   try {
-    // One switch: the time limits and the filters for new mail go together.
-    const on = toggleEl.checked;
     ctx.settings = await updateSettings({
-      autoSort: { ...ctx.settings.autoSort, timeLimitsEnabled: on, keepSorting: on, inboxHoursByBucket },
+      autoSort: { ...ctx.settings.autoSort, timeLimitsEnabled: on, keepSorting: on, inboxHoursByBucket, labelsOff },
     });
     const token = await gmailProvider.getAuthToken(false);
     const synced = await syncGmailCategoryFilters(ctx.settings, token);
@@ -350,13 +227,14 @@ async function save(): Promise<boolean> {
     if (!on) {
       statusEl.textContent = "Off. New mail stays where it lands.";
     } else {
-      statusEl.textContent = `Saved. ${plural(filters, "Gmail filter")} label new mail as it arrives. Checking your inbox…`;
+      await colorClusterLabels(token).catch((err) => log.error("time limits: label colors failed", err));
+      statusEl.textContent = `Saved. ${plural(filters, "Gmail filter")} ${filters === 1 ? "labels" : "label"} new mail as it arrives. Checking your inbox…`;
       const run = await runInboxTimeLimits();
       // The run recorded lastSweep in storage; pick it up for the render.
       ctx.settings = await getSettings();
       statusEl.textContent = run
-        ? `Saved. ${plural(filters, "Gmail filter")} label new mail as it arrives. Moved ${plural(run.moved, "message")} that ${run.moved === 1 ? "was" : "were"} past ${run.moved === 1 ? "its" : "their"} time${run.more ? ", more on the next check" : ""}.`
-        : `Saved. ${plural(filters, "Gmail filter")} label new mail as it arrives.`;
+        ? `Saved. ${plural(filters, "Gmail filter")} ${filters === 1 ? "labels" : "label"} new mail as it arrives. Moved ${plural(run.moved, "message")} that ${run.moved === 1 ? "was" : "were"} past ${run.moved === 1 ? "its" : "their"} time${run.more ? ", more on the next check" : ""}.`
+        : `Saved. ${plural(filters, "Gmail filter")} ${filters === 1 ? "labels" : "label"} new mail as it arrives.`;
     }
     return true;
   } catch (err) {
@@ -364,7 +242,6 @@ async function save(): Promise<boolean> {
     statusEl.textContent = "Couldn't save to Gmail. Try again.";
     return false;
   } finally {
-    toggleEl.disabled = false;
     renderTimeLimits();
   }
 }
@@ -387,25 +264,13 @@ export function weeklyByBucket(senders: readonly SenderSummary[], now: number): 
   return out;
 }
 
-type Limits = Record<string, number | null>;
-
-/** Sets every menu and the switch, then saves. Time limits stay on while any
- * kind has one. */
-async function saveLimits(hours: Limits): Promise<void> {
-  if (!toggleEl) return;
-  for (const bucket of ALL_SORT_BUCKETS) {
-    const select = selectFor(bucket);
-    if (select) select.value = choiceValue(hours[bucket] ?? null);
+/** Sets the given kinds' menus, then saves. Other kinds keep their choice. */
+async function saveLimits(hours: Record<string, number | null>): Promise<void> {
+  for (const [bucket, h] of Object.entries(hours)) {
+    const select = selectFor(bucket as SortBucket);
+    if (select) select.value = choiceValue(h);
   }
-  toggleEl.checked = Object.values(hours).some((h) => h != null);
-  if (!(await save())) renderPresets();
-}
-
-/** The current limits, or all off when time limits are off, so switching one
- * kind on never turns on every default. */
-function currentLimits(): Limits {
-  const cfg = ctx.settings.autoSort;
-  return cfg.timeLimitsEnabled ? { ...cfg.inboxHoursByBucket } : Object.fromEntries(ALL_SORT_BUCKETS.map((b) => [b, null]));
+  if (!(await queueSave())) renderPresets();
 }
 
 /** An iOS-style switch for a preset row. Flipping it back is the undo. */
@@ -452,9 +317,8 @@ function newsletterDayCard(): HTMLElement {
     fact.append(", ", when);
   }
   const sw = presetSwitch("Saturday newsletters", on, async () => {
-    const base = currentLimits();
     ctx.settings = await updateSettings({ newsletterDay: { enabled: !on, lastDelivered: Date.now() } });
-    await saveLimits({ ...base, newsletter: on ? null : HOLD_HOURS });
+    await saveLimits({ newsletter: on ? null : HOLD_HOURS });
     if (on) await deliverNewsletters(Date.now(), true).catch((err) => log.error("Newsletter delivery failed", err));
   });
   card.append(name, fact, sw);
@@ -520,6 +384,5 @@ const PRESET_ICONS: Record<string, string> = {
 };
 
 export function wireTimeLimits(): void {
-  if (toggleEl) toggleEl.onchange = () => void save();
   renderTimeLimits();
 }

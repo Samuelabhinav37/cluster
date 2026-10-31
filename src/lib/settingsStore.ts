@@ -152,6 +152,8 @@ export interface ClusterSettings {
     /** Hours new mail stays in the inbox, per category. 0 = straight to the
      * label; null = stays in the inbox. Defaults: DEFAULT_INBOX_HOURS. */
     inboxHoursByBucket: Record<string, number | null>;
+    /** Kinds set to Off on Organize: no label, no filter, never moved. */
+    labelsOff: string[];
     /** The last time-limit sweep: when, and how many messages it moved. */
     lastSweep: { at: number; moved: number };
     /** Messages past their limit that a sweep kept in the inbox (starred, a
@@ -263,6 +265,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
     filterSpecByBucket: {},
     timeLimitsEnabled: false,
     inboxHoursByBucket: { ...DEFAULT_INBOX_HOURS },
+    labelsOff: [],
     lastSweep: { at: 0, moved: 0 },
     keptInInboxIds: [],
   },

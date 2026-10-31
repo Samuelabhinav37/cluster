@@ -66,6 +66,33 @@ export const CLUSTER_LABELS: Record<ClusterLabelKey, ClusterLabelSpec> = {
   unsubscribed: spec("📭 Unsubscribed"),
 };
 
+export interface LabelColor {
+  backgroundColor: string;
+  textColor: string;
+}
+
+/** Gmail colors for the sorting labels, from the fixed palette labels.create
+ * accepts. Organize paints each kind's icon with the same pair. */
+export const CLUSTER_LABEL_COLORS: Partial<Record<ClusterLabelKey, LabelColor>> = {
+  otp: { backgroundColor: "#fad165", textColor: "#000000" },
+  receipt: { backgroundColor: "#16a766", textColor: "#ffffff" },
+  shipping: { backgroundColor: "#ffad47", textColor: "#000000" },
+  newsletter: { backgroundColor: "#4a86e8", textColor: "#ffffff" },
+  social: { backgroundColor: "#2da2bb", textColor: "#ffffff" },
+  promotions: { backgroundColor: "#f691b3", textColor: "#000000" },
+  shopping: { backgroundColor: "#fb4c2f", textColor: "#ffffff" },
+  travel: { backgroundColor: "#43d692", textColor: "#000000" },
+  finance: { backgroundColor: "#a479e2", textColor: "#ffffff" },
+  productivity: { backgroundColor: "#666666", textColor: "#ffffff" },
+  education: { backgroundColor: "#285bac", textColor: "#ffffff" },
+};
+
+/** The color a label of this name gets, when it is one of Cluster's. */
+export function clusterLabelColor(name: string): LabelColor | undefined {
+  const key = clusterLabelKeyFor(name);
+  return key ? CLUSTER_LABEL_COLORS[key] : undefined;
+}
+
 export function clusterLabelName(key: ClusterLabelKey): string {
   return CLUSTER_LABELS[key].name;
 }

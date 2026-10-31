@@ -8,7 +8,7 @@ import { extractLinksFromHtml, type ExtractedLink } from "./linkMismatch";
 import { riskyAttachmentGmailQuery } from "./riskyAttachments";
 import { TIME_SENSITIVE_QUERY } from "./categoryQueries";
 import { dropGmailToken, getGmailToken, grantedGmailScopes } from "./gmailWebAuth";
-import { canonicalLabelName, clusterLabelName, labelLookupNames } from "./clusterLabels";
+import { canonicalLabelName, clusterLabelColor, clusterLabelName, labelLookupNames } from "./clusterLabels";
 
 const API_BASE = "https://gmail.googleapis.com/gmail/v1";
 
@@ -715,9 +715,27 @@ async function createLabel(token: string, name: string): Promise<string> {
       name,
       labelListVisibility: "labelShow",
       messageListVisibility: "show",
+      color: clusterLabelColor(name),
     }),
   });
   return data.id;
+}
+
+/** Gives Cluster's sorting labels their colors where they have none yet
+ * (made before labels had colors). A color the user picked is left alone. */
+export async function colorClusterLabels(token: string): Promise<number> {
+  let painted = 0;
+  for (const label of await listLabels(token)) {
+    const color = clusterLabelColor(label.name);
+    if (!color || label.color) continue;
+    await gmailFetch(`/users/me/labels/${encodeURIComponent(label.id)}`, token, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ color }),
+    });
+    painted++;
+  }
+  return painted;
 }
 
 // Gmail's labels.create 409s if the name already exists — every caller that
@@ -754,6 +772,7 @@ export interface GmailLabelInfo {
   id: string;
   name: string;
   type?: "system" | "user";
+  color?: { backgroundColor?: string; textColor?: string };
   /** Only present on labels.get, not labels.list. */
   messagesTotal?: number;
 }

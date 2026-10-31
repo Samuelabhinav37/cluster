@@ -22,7 +22,7 @@ export interface OnboardingPlan {
   hours: Partial<Record<SortBucket, number | null>>;
   holdScams: boolean;
   simpleMode: boolean;
-  /** Turn on "Keep doing this for new mail" (Gmail filters) on Start. */
+  /** Turn every Organize label on (Gmail filters for new mail) on Start. */
   tidy: boolean;
   persona: "calm" | "business" | "safe" | "busy";
 }

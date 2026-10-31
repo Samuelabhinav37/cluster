@@ -82,11 +82,16 @@ function clearSortPreview() {
 
 const HOUR_MS = 60 * 60 * 1000;
 
-/** A kind's menu on the Organize list: hours in the inbox, or null when it stays. */
+/** A kind's menu on the Organize list: hours in the inbox, Infinity when it
+ * stays (labelled only), or null when it is off. */
 function limitFor(bucket: SortBucket): number | null {
   const value = (document.getElementById(`time-limit-${bucket}`) as HTMLSelectElement | null)?.value;
-  if (value === undefined) return ctx.settings.autoSort.inboxHoursByBucket[bucket] ?? null;
-  return value === "stay" ? null : Number(value);
+  if (value === undefined) {
+    if (ctx.settings.autoSort.labelsOff.includes(bucket)) return null;
+    return ctx.settings.autoSort.inboxHoursByBucket[bucket] ?? Infinity;
+  }
+  if (value === "off") return null;
+  return value === "stay" ? Infinity : Number(value);
 }
 
 function planPart(entry: SortPlanEntry, messages: SortPlanMessage[], fileOut: boolean): SortPlanEntry {
@@ -95,8 +100,8 @@ function planPart(entry: SortPlanEntry, messages: SortPlanMessage[], fileOut: bo
   return { ...entry, fileOut, messages, count: messages.length, idsByProvider };
 }
 
-/** The plan as Sort my inbox runs it: kinds that stay drop out, and each other
- * kind splits into mail past its time (moves out now) and mail that isn't yet
+/** The plan as Sort my inbox runs it: kinds that are off drop out, and each
+ * other kind splits into mail past its time (moves out now) and mail that isn't yet
  * (labelled, left in the inbox for the timer). */
 function chosenEntries(now = Date.now()): SortPlanEntry[] {
   return sortPlan.flatMap((entry) => {
@@ -361,7 +366,7 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
   if (effective.length === 0) return "Nothing selected";
 
   const total = effective.reduce((sum, e) => sum + e.count, 0);
-  // The list's switch: keep doing this for new mail.
+  // Any kind that isn't Off also sorts new mail.
   const keepOn = ctx.settings.autoSort.timeLimitsEnabled;
 
   // Apply the one-time backlog.

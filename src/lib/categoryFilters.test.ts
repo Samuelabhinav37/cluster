@@ -23,6 +23,7 @@ function settings(autoSort: Partial<ClusterSettings["autoSort"]> = {}, extra: Pa
       ruleIdsByBucket: {},
       filterSpecByBucket: {},
       timeLimitsEnabled: false,
+      labelsOff: [],
       inboxHoursByBucket: { ...DEFAULT_INBOX_HOURS },
       lastSweep: { at: 0, moved: 0 },
       keptInInboxIds: [],

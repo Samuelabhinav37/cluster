@@ -104,6 +104,11 @@ describe("Organize screen — Sort my inbox", () => {
   it("previews then applies a sort plan, labelling messages via the provider", async () => {
     const dash = await bootDashboard();
     dash.showScreen("organize");
+    // Every label starts Off; turn them on so there is something to sort.
+    for (const k of Array.from(document.querySelectorAll<HTMLSelectElement>("#time-limits-rows select"))) {
+      k.value = "24";
+      k.dispatchEvent(new Event("change", { bubbles: true }));
+    }
 
     const startBtn = dash.el("sort-inbox-btn") as HTMLButtonElement;
     startBtn.click();
