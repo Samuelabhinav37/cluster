@@ -3916,3 +3916,13 @@ body[data-screen="overview"] #ask-kai-open > svg { display: block; }
 .ios-row.org-row > select { grid-column: 4; grid-row: 1 / span 2; }
 [data-screen="organize"] .page-head #sort-inbox-bar { display: flex; align-items: center; gap: 12px; }
 [data-screen="organize"] .page-head #sort-inbox-bar[hidden] { display: none; }
+
+/* A rule reads as one sentence; sender and actions are pills. */
+.rule-sentence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  color: var(--label-2);
+  font-size: 13px;
+}

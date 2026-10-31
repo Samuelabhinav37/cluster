@@ -55,6 +55,8 @@ export interface ClusterSettings {
   // ── Power features (Phases 2–6) ──────────────────────────────────────────
   /** Standing user rules — Auto Clean equivalent (see rules.ts / ruleRunner.ts). */
   rules: ClusterRule[];
+  /** The Gmail filter standing in for each rule Gmail can run (ruleFilters.ts), by rule id. */
+  ruleFilters?: Record<string, { id: string; spec: string }>;
   /** Rolling "here's what I did" log (see actionLog.ts). Capped at MAX_LOG_ENTRIES. */
   actionLog: ActionLogEntry[];
   /** Emails Cluster took out of the inbox since install (Home's "since you started"). */
@@ -228,6 +230,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   securityRules: { toSpam: false, holdAuthFails: false },
   newsletterDay: { enabled: false, lastDelivered: 0 },
   rules: [],
+  ruleFilters: {},
   actionLog: [],
   mutedSenders: [],
   personOverrides: {},

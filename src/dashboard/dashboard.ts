@@ -86,7 +86,7 @@ import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { keepNewestExcess } from "../lib/keepNewest";
 import { deliveredUpdates } from "../lib/orderEvents";
 import { appendUndoButton, logAction, renderRecentTab, undoEntry } from "./recentTab";
-import { openRuleSheetFor, renderRulesTab, wireRulesTab } from "./rulesTab";
+import { openRuleSheetFor, renderRulesTab, saveRules, wireRulesTab } from "./rulesTab";
 import { renderLearned, SIGNED_OUT_KEY, wireSettingsMore } from "./settingsMore";
 import { initBodyChecks, renderSecuritySection } from "./securityTab";
 import { renderScamReport } from "./reportTab";
@@ -1504,7 +1504,7 @@ function alwaysDoThis(sender: SenderSummary): HTMLButtonElement {
       action: "trash",
       appliesFrom: Date.now(),
     };
-    ctx.settings = await updateSettings({ rules: [...ctx.settings.rules, rule] });
+    await saveRules([...ctx.settings.rules, rule]);
     renderRulesTab();
     btn.textContent = "Rule saved ✓";
   };

@@ -2,6 +2,10 @@
 // box, the add-rule form, the manual dry run, and "Apply enabled rules now".
 import { log } from "../lib/log";
 import { getSettings, updateSettings } from "../lib/settingsStore";
+import { gmailFilterFor, syncRuleFilters } from "../lib/ruleFilters";
+import { gmailProvider } from "../lib/providers/gmailProvider";
+import { senderVolume } from "../lib/census";
+import { senderName } from "../lib/senderListView";
 import {
   describeRule,
   DEFAULT_RULE_MAX_MESSAGES_PER_RUN,
@@ -60,6 +64,20 @@ export function openRuleSheetFor(sender: SenderSummary) {
   ruleForm.dispatchEvent(new Event("input"));
   openRuleSheet();
 }
+/** Saves the rules, then mirrors the ones Gmail can run as Gmail filters, so
+ * they keep working with Chrome closed. A failed sync leaves Cluster's own
+ * runner in charge and tries again on the next save. */
+export async function saveRules(rules: ClusterRule[]): Promise<void> {
+  ctx.settings = await updateSettings({ rules });
+  try {
+    const token = await gmailProvider.getAuthToken(false);
+    const ruleFilters = await syncRuleFilters(rules, ctx.settings.ruleFilters ?? {}, token);
+    ctx.settings = await updateSettings({ ruleFilters });
+  } catch (err) {
+    log.error("rules: Gmail filter sync failed", err);
+  }
+}
+
 function closeRuleSheet() {
   if (ruleSheet.open) ruleSheet.close?.();
 }
@@ -96,28 +114,58 @@ export function renderRulesTab() {
   rulePreviewEl.hidden = none;
   const applySlot = document.getElementById("rule-apply-slot");
   if (applySlot) applySlot.hidden = none;
-  if (none) {
-    const p = document.createElement("p");
-    p.className = "empty-state";
-    p.textContent = "No rules yet.";
-    rulesListEl.appendChild(p);
-    return;
-  }
   const rows = ctx.settings.rules.map((rule) => buildRuleRow(rule));
+  if (none) rows.push(...starterRows());
+  rows.push(
+    listRow({
+      title: "New rule",
+      href: () => {
+        ruleForm.reset();
+        openRuleSheet();
+      },
+    }),
+  );
   rulesListEl.appendChild(listGroup(rows, { inset: false }));
 }
 
+/** Up to three of the biggest senders, offered as a first rule.
+ * shortcut: ranks by volume only, not by whether Gmail already labels them. */
+function starterRows(): HTMLElement[] {
+  return [...ctx.senders]
+    .filter((s) => s.protectedMessageIds.length === 0)
+    .sort((a, b) => senderVolume(b) - senderVolume(a))
+    .slice(0, 3)
+    .map((sender) =>
+      listRow({
+        title: `Label mail from ${senderName(sender)}`,
+        href: () => openRuleSheetFor(sender),
+      }),
+    );
+}
+
+function pill(text: string): HTMLSpanElement {
+  return Object.assign(document.createElement("span"), { className: "pill neutral", textContent: text });
+}
+
+/** "From amazon.in → Label Shopping", with the sender and actions as pills. */
+function ruleSentence(rule: ClusterRule): HTMLElement {
+  const line = document.createElement("div");
+  line.className = "rule-sentence";
+  const c = rule.conditions;
+  const from = c.fromAddress ?? (c.fromDomain ? `@${c.fromDomain}` : undefined);
+  const rest = describeRule({ ...rule, conditions: { ...c, fromAddress: undefined, fromDomain: undefined } });
+  const [when, ...then] = rest.split(" → ");
+  line.append(when === "messages" ? "Mail" : when.replace(/^messages/, "Mail"));
+  if (from) line.append(" from ", pill(from));
+  for (const action of then) line.append(" ", pill(action.replace(/^./, (ch) => ch.toUpperCase()).replace(/, then$/, "")));
+  return line;
+}
+
 function buildRuleRow(rule: ClusterRule): HTMLElement {
-  const sub = document.createElement("div");
-  const desc = document.createElement("div");
-  desc.className = "row-sub wrap";
-  desc.textContent = describeRule(rule);
-  const stat = document.createElement("div");
-  stat.className = "recent-detail";
-  stat.textContent = `priority ${rule.priority ?? 0} · limit ${ruleRunLimit(rule)}/run${
-    rule.stopProcessing ? " · stops later rules" : ""
-  }`;
-  sub.append(desc, stat);
+  const sub = ruleSentence(rule);
+  sub.title = `Priority ${rule.priority ?? 0}. Up to ${ruleRunLimit(rule)} a run.${
+    rule.stopProcessing ? " Stops later rules." : ""
+  }${gmailFilterFor(rule) ? " Also a Gmail filter, so it runs with Chrome closed." : ""}`;
 
   const editBtn = document.createElement("button");
   editBtn.className = "btn btn-sm";
@@ -138,9 +186,7 @@ function buildRuleRow(rule: ClusterRule): HTMLElement {
   del.className = "btn btn-sm danger";
   del.textContent = "Delete";
   del.onclick = async () => {
-    ctx.settings = await updateSettings({
-      rules: ctx.settings.rules.filter((r) => r.id !== rule.id),
-    });
+    await saveRules(ctx.settings.rules.filter((r) => r.id !== rule.id));
     renderRulesTab();
   };
 
@@ -153,9 +199,7 @@ function buildRuleRow(rule: ClusterRule): HTMLElement {
   sw.onclick = async () => {
     const next = sw.getAttribute("aria-checked") !== "true";
     sw.setAttribute("aria-checked", String(next));
-    ctx.settings = await updateSettings({
-      rules: ctx.settings.rules.map((r) => (r.id === rule.id ? { ...r, enabled: next } : r)),
-    });
+    await saveRules(ctx.settings.rules.map((r) => (r.id === rule.id ? { ...r, enabled: next } : r)));
     renderRulesTab();
   };
 
@@ -297,7 +341,6 @@ const RULE_EXAMPLES = [
 ];
 
 export function wireRulesTab() {
-  document.getElementById("rule-new-btn")!.onclick = openRuleSheet;
   document.getElementById("rule-sheet-close")!.onclick = closeRuleSheet;
 
   const chipHost = document.getElementById("rule-example-chips");
@@ -373,7 +416,7 @@ export function wireRulesTab() {
       ruleFormError.textContent = broad;
       return;
     }
-    ctx.settings = await updateSettings({ rules: [...ctx.settings.rules, rule] });
+    await saveRules([...ctx.settings.rules, rule]);
     ruleForm.reset();
     rulePriorityInput.value = "0";
     ruleLimitInput.value = String(DEFAULT_RULE_MAX_MESSAGES_PER_RUN);
@@ -412,9 +455,7 @@ export function wireRulesTab() {
       ruleDraftStatus.textContent = broad;
       return;
     }
-    ctx.settings = await updateSettings({
-      rules: [...ctx.settings.rules, { ...pendingRuleDraft, enabled: true, appliesFrom: appliesFrom() }],
-    });
+    await saveRules([...ctx.settings.rules, { ...pendingRuleDraft, enabled: true, appliesFrom: appliesFrom() }]);
     pendingRuleDraft = undefined;
     ruleSaveDraftBtn.disabled = true;
     ruleNaturalLanguageInput.value = "";
