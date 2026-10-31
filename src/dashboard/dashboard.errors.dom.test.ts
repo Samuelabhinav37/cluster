@@ -78,14 +78,12 @@ describe("offline handling", () => {
     expect(dash.status()).toContain("You're offline");
     expect((dash.el("bulk-delete-domains-btn") as HTMLButtonElement).disabled).toBe(true);
     expect((dash.el("expiry-cleanup-btn") as HTMLButtonElement).disabled).toBe(true);
-    expect((dash.el("fast-delete-toggle") as HTMLInputElement).disabled).toBe(true);
+    expect((dash.el("apply-scan-settings-btn") as HTMLButtonElement).disabled).toBe(true);
 
     window.dispatchEvent(new Event("online"));
     expect(dash.el("status").hidden).toBe(true);
-    // fast-delete-toggle isn't re-derived from any selection state afterward
-    // (unlike bulk-delete-domains-btn, which updateDomainBulkBar() immediately
-    // re-disables since nothing is selected) — a clean signal that "online"
-    // actually re-enabled actions rather than leaving them stuck.
-    expect((dash.el("fast-delete-toggle") as HTMLInputElement).disabled).toBe(false);
+    // Rescan isn't re-derived from any selection state afterward, so it
+    // being enabled means "online" actually re-enabled actions.
+    expect((dash.el("apply-scan-settings-btn") as HTMLButtonElement).disabled).toBe(false);
   });
 });

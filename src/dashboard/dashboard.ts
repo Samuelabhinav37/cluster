@@ -26,7 +26,7 @@ import { buildProtectionContext, idsSafeToMoveOut } from "../lib/protectionPolic
 import { clusterLabelName } from "../lib/clusterLabels";
 import { runReplyReminders } from "../lib/replyReminders";
 import { markRepliesToYou } from "../lib/correspondents";
-import { getElevatedAuthToken, getProfileEmail, GmailApiError } from "../lib/gmailApi";
+import { getProfileEmail, GmailApiError } from "../lib/gmailApi";
 import { clearMetadataCache } from "../lib/metadataCache";
 import { MAIL_INDEX_CAP, openMailIndex } from "../lib/mailIndex";
 import {
@@ -173,7 +173,6 @@ const bulkDeleteDomainsBtn = document.getElementById("bulk-delete-domains-btn") 
 const expiryCleanupSlot = document.getElementById("expiry-cleanup-slot") as HTMLSpanElement;
 const expiryCleanupBtn = document.getElementById("expiry-cleanup-btn") as HTMLButtonElement;
 
-const fastDeleteToggle = document.getElementById("fast-delete-toggle") as HTMLInputElement;
 const themeSelect = document.getElementById("theme-select") as HTMLSelectElement;
 const autoQuarantineToggle = document.getElementById("auto-quarantine-toggle") as HTMLInputElement;
 
@@ -623,8 +622,6 @@ async function main() {
     },
   );
   wireAllSendersControls();
-  fastDeleteToggle.checked = ctx.settings.fastPermanentDeleteEnabled;
-  wireFastDeleteToggle();
   autoQuarantineToggle.checked = ctx.settings.autoQuarantineHighRisk;
   autoQuarantineToggle.onchange = async () => {
     ctx.settings = await updateSettings({ autoQuarantineHighRisk: autoQuarantineToggle.checked });
@@ -715,7 +712,6 @@ function wireOfflineHandling() {
     bulkSnoozeBtn.disabled = disabled;
     bulkDeleteDomainsBtn.disabled = disabled;
     expiryCleanupBtn.disabled = disabled;
-    fastDeleteToggle.disabled = disabled;
     applyScanSettingsBtn.disabled = disabled;
   };
 
@@ -1849,9 +1845,7 @@ function wireDetails() {
         const total = [...merged.values()].reduce((n, ids) => n + ids.length, 0);
         const skip = messages.length - total;
         const plural = (n: number) => `${n} email${n === 1 ? "" : "s"}`;
-        const summaryText =
-          describePermanentDelete(merged) ||
-          `Move ${plural(total)} to Trash?${skip > 0 ? ` ${skip} protected stay.` : ""}`;
+        const summaryText = `Move ${plural(total)} to Trash?${skip > 0 ? ` ${skip} protected stay.` : ""}`;
         renderConfirmStep(slot, reset, summaryText, true, async () => {
           const { message, undoableGmailIds } = await executeSmartDelete(merged);
           // Protected mail skipped by the live re-check simply reappears on the next scan.
@@ -2596,30 +2590,6 @@ function resetExpiryCleanupSlot() {
   expiryCleanupSlot.appendChild(expiryCleanupBtn);
 }
 
-// ── Opt-in fast permanent delete (Gmail only) ────────────────────────────
-// Applies only to the two bulk multi-item flows below (bulk domain delete,
-// expiry cleanup) — the quota-efficiency argument for batchDelete is about
-// large batches; the single per-row domain delete stays trash-only, where
-// reversibility matters more than the negligible quota difference.
-function wireFastDeleteToggle() {
-  fastDeleteToggle.onchange = async () => {
-    if (fastDeleteToggle.checked) {
-      fastDeleteToggle.disabled = true;
-      try {
-        await getElevatedAuthToken(true);
-        ctx.settings = await updateSettings({ fastPermanentDeleteEnabled: true });
-      } catch (err) {
-        fastDeleteToggle.checked = false;
-        log.error(err);
-      } finally {
-        fastDeleteToggle.disabled = false;
-      }
-    } else {
-      ctx.settings = await updateSettings({ fastPermanentDeleteEnabled: false });
-    }
-  };
-}
-
 function wireScanSettings() {
   // Settings' Rescan row runs the account menu's Rescan.
   applyScanSettingsBtn.onclick = async () => {
@@ -2642,27 +2612,6 @@ function wireScanSettings() {
   };
 }
 
-function planDelete(merged: Map<ProviderId, string[]>) {
-  const gmailCount = merged.get("gmail")?.length ?? 0;
-  const otherCount = [...merged.entries()]
-    .filter(([provider]) => provider !== "gmail")
-    .reduce((sum, [, ids]) => sum + ids.length, 0);
-  const willUsePermanent =
-    ctx.settings.fastPermanentDeleteEnabled &&
-    gmailCount > 0 &&
-    Boolean(gmailProvider.permanentlyDeleteMessages);
-  return { gmailCount, otherCount, willUsePermanent };
-}
-
-// Returns "" when the normal trash-only wording should be used instead.
-function describePermanentDelete(merged: Map<ProviderId, string[]>): string {
-  const { gmailCount, otherCount, willUsePermanent } = planDelete(merged);
-  if (!willUsePermanent) return "";
-  return otherCount > 0
-    ? `Permanently delete ${gmailCount} from Gmail (cannot be undone) and move ${otherCount} to Trash?`
-    : `Permanently delete ${gmailCount} from Gmail? This cannot be undone.`;
-}
-
 interface SmartDeleteResult {
   message: string;
   // Gmail ids that were moved to Trash (never permanently deleted) — the
@@ -2674,46 +2623,14 @@ function skippedNote(skipped: number): string {
   return skipped > 0 ? ` (skipped ${skipped} you starred since the scan)` : "";
 }
 
+// Always Trash: every bulk delete stays undoable (Gmail empties Trash after 30 days).
 async function executeSmartDelete(merged: Map<ProviderId, string[]>): Promise<SmartDeleteResult> {
-  const { gmailCount, otherCount, willUsePermanent } = planDelete(merged);
-  if (!willUsePermanent) {
-    const { skipped } = await executeBulkDeleteDomains(merged, providerById);
-    return {
-      message: `Moved ${gmailCount + otherCount - skipped} to Trash ✓${skippedNote(skipped)}`,
-      undoableGmailIds: (merged.get("gmail") ?? []).filter(Boolean),
-    };
-  }
-
-  try {
-    const elevatedToken = await getElevatedAuthToken(false);
-    // Permanent delete has no undo — re-check protection before it, not just
-    // before the Trash paths.
-    const { safe, skipped } = await filterOutProtected(
-      new Map([["gmail", merged.get("gmail") ?? []]]),
-      providerById,
-    );
-    const gmailSafe = safe.get("gmail") ?? [];
-    if (gmailSafe.length > 0) {
-      await gmailProvider.permanentlyDeleteMessages!(elevatedToken, gmailSafe);
-    }
-    const rest = new Map(merged);
-    rest.delete("gmail");
-    let otherSkipped = 0;
-    if (rest.size > 0) ({ skipped: otherSkipped } = await executeBulkDeleteDomains(rest, providerById));
-    const totalSkipped = skipped + otherSkipped;
-    const message =
-      (otherCount > 0
-        ? `Permanently deleted ${gmailSafe.length} from Gmail, moved ${otherCount - otherSkipped} to Trash ✓`
-        : `Permanently deleted ${gmailSafe.length} from Gmail ✓`) + skippedNote(totalSkipped);
-    return { message, undoableGmailIds: [] };
-  } catch (err) {
-    log.error("Elevated permanent-delete failed, falling back to Trash", err);
-    await executeBulkDeleteDomains(merged, providerById);
-    return {
-      message: `Fast delete wasn't available, so ${gmailCount + otherCount} moved to Trash instead ✓`,
-      undoableGmailIds: merged.get("gmail") ?? [],
-    };
-  }
+  const total = [...merged.values()].reduce((n, ids) => n + ids.length, 0);
+  const { skipped } = await executeBulkDeleteDomains(merged, providerById);
+  return {
+    message: `Moved ${total - skipped} to Trash ✓${skippedNote(skipped)}`,
+    undoableGmailIds: (merged.get("gmail") ?? []).filter(Boolean),
+  };
 }
 
 // sortInbox.ts and the extracted tab modules trigger a rescan through this
@@ -3192,11 +3109,8 @@ function wireBulkHandlers() {
     const merged = mergeDeletableIdsByProvider(selected);
     const deletable = totalDeletableAcrossGroups(selected);
     const protectedTotal = selected.reduce((sum, g) => sum + g.protectedCount, 0);
-    const permanentSummary = describePermanentDelete(merged);
-    const skipNote = protectedTotal > 0 ? ` (skips ${protectedTotal} protected)` : "";
-    const summaryText = permanentSummary
-      ? `${permanentSummary}${skipNote}`
-      : protectedTotal > 0
+    const summaryText =
+      protectedTotal > 0
         ? `Move ${deletable} to Trash across ${selected.length} domains, skip ${protectedTotal} protected?`
         : `Move ${deletable} to Trash across ${selected.length} domains?`;
 
@@ -3217,7 +3131,7 @@ function wireBulkHandlers() {
   expiryCleanupBtn.onclick = () => {
     const merged = mergeExpiryBuckets(currentExpiryBuckets);
     const total = totalExpiryCount(currentExpiryBuckets);
-    const summaryText = describePermanentDelete(merged) || `Move ${total} to Trash?`;
+    const summaryText = `Move ${total} to Trash?`;
 
     renderConfirmStep(expiryCleanupSlot, resetExpiryCleanupSlot, summaryText, true, async () => {
       const { message, undoableGmailIds } = await executeSmartDelete(merged);

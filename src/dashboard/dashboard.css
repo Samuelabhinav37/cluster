@@ -2794,18 +2794,6 @@ body {
   overflow-y: auto;
 }
 
-/* Settings (stage 5): rarely changed options tucked under Advanced */
-.settings-advanced > summary {
-  padding: 14px 4px;
-  font: 600 17px/1.3 var(--font);
-  letter-spacing: -0.015em;
-  cursor: pointer;
-}
-
-.settings-advanced[open] > summary {
-  margin-bottom: 8px;
-}
-
 /* Sidebar icons: plain line icons (no tile), blue when selected, and one small
    motion each on hover or keyboard focus. Off with reduced motion. */
 .nav-item svg.nav-icon {
