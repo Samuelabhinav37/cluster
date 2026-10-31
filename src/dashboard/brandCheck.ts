@@ -1,7 +1,6 @@
 // Protect's brand check: senders that use a company's name from an address the
 // brand registry doesn't list ("Doesn't match"), what the user or a mark
-// certificate settled ("Checked"), and the certified companies in this
-// mailbox ("Verified senders"). Check reads the one domain's BIMI certificate
+// certificate settled ("Checked"). Check reads the one domain's BIMI certificate
 // (markCheck.ts); Trust and Block are the user's call when there is none.
 import { applyBrandVerdicts } from "../lib/brandRegistry";
 import { checkMark, type MarkCheckResult } from "../lib/markCheck";
@@ -10,7 +9,7 @@ import type { SenderSummary } from "../lib/senderModel";
 import { clusterLabelName } from "../lib/clusterLabels";
 import { log } from "../lib/log";
 import { brandName as title } from "../lib/verdict";
-import { certifiedCompany, senderTile } from "./senderTile";
+import { senderTile } from "./senderTile";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
 import { infoButton, renderConfirmStep } from "./ui";
@@ -216,37 +215,5 @@ export function renderBrandCheck(senders: SenderSummary[]): void {
     parts.push(el("h2", "section-label", "Checked"), card);
   }
 
-  // One cell per certified company that writes to you, busiest first.
-  const seen = new Map<string, { name: string; legal: string; address: string; n: number }>();
-  for (const s of senders) {
-    const company = certifiedCompany(s.address);
-    if (!company) continue;
-    const cur = seen.get(company.id);
-    if (cur) cur.n += s.messageIds.length;
-    // The name the mail shows ("LinkedIn"), not the certificate's legal one.
-    else
-      seen.set(company.id, {
-        name: s.displayName || company.name,
-        legal: company.name,
-        address: s.address,
-        n: s.messageIds.length,
-      });
-  }
-  if (seen.size > 0) {
-    const h = el("h2", "section-label", "Verified senders");
-    const [info, pop] = infoButton(
-      "A certificate authority checked each company's trademark before tying its name and logo to these addresses.",
-      "About Verified senders",
-    );
-    h.append(info);
-    const grid = el("div", "verified-grid");
-    for (const c of [...seen.values()].sort((a, b) => b.n - a.n).slice(0, 18)) {
-      const cell = el("div", "glass-card vcell");
-      cell.title = `Certified to ${c.legal}`;
-      cell.append(senderTile(c.address, c.name, "sz-26"), el("span", "", c.name));
-      grid.append(cell);
-    }
-    parts.push(h, pop, grid);
-  }
   root.replaceChildren(...parts);
 }

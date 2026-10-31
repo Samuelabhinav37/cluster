@@ -3828,9 +3828,6 @@ body[data-screen="overview"] .kai-guide:not(.open) .kg-launch { visibility: hidd
 .mm-addr { display: block; font-size: 12px; color: var(--label-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mm-num { text-align: right; color: var(--label-2); font-variant-numeric: tabular-nums; }
 .mm-acts { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
-.verified-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-.vcell { display: flex; flex-direction: row; flex-direction: row; align-items: center; gap: 10px; padding: 10px 12px; font-weight: 500; white-space: nowrap; overflow: hidden; }
-.vcell span:last-child { overflow: hidden; text-overflow: ellipsis; }
 /* One Kai (round 2): no corner figure. The chat opens beside the sidebar
    with Kai in its header; nudges show on the sidebar's Ask Kai. */
 .kai-guide.docked { right: auto; left: 264px; bottom: 16px; }
