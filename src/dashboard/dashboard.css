@@ -2107,7 +2107,7 @@ input.switch:disabled {
 #sort-inbox-bar { margin-top: 14px; }
 /* Its tools need on-device AI; with neither shown, the disclosure goes too. */
 
-/* ══ v4 Settings, simple mode, setup (stage 4) ════════════════════════════ */
+/* ══ v4 Settings, setup (stage 4) ════════════════════════════ */
 
 .lead-sm {
   margin: 2px 0 0;
@@ -2324,54 +2324,6 @@ body[data-screen="setup"] .index-status {
 
 .trust-list li::before {
   background: var(--accent);
-}
-
-.big-card {
-  display: grid;
-  gap: 8px;
-  padding: 22px 24px;
-  border: 1px solid var(--hairline);
-  border-radius: 16px;
-  background: var(--glass);
-  font: 400 17px/1.5 var(--font);
-  color: var(--label-3);
-}
-
-.big-card b {
-  font: 650 20px/1.35 var(--font);
-  color: var(--label);
-}
-
-.big-card .btn {
-  justify-self: start;
-}
-
-body.simple {
-  font-size: 17px;
-}
-
-body.simple .nav-simple-home {
-  order: -1;
-}
-
-body.simple .nav-item {
-  font-size: 16px;
-  min-height: 46px;
-}
-
-body.simple .page-title {
-  font-size: 36px;
-}
-
-body.simple .lead,
-body.simple .reasons li,
-body.simple .scam-subj {
-  font-size: 17px;
-}
-
-body.simple .btn {
-  min-height: 44px;
-  font-size: 16px;
 }
 
 /* ══ v4 Scam report (stage 4c): single-series charts in one hue ═══════════ */

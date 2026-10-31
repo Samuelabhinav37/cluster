@@ -120,13 +120,6 @@
             </div>
 
             <span class="sidebar-spacer"></span>
-            <button type="button" class="nav-item nav-simple-home" data-screen="simple" hidden>
-              <svg class="nav-icon ni-home" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"></path>
-                <path class="ni-door" d="M10 20v-5.2h4V20"></path>
-              </svg>
-              Home
-            </button>
           </nav>
           <div class="account-wrap">
             <button
@@ -746,22 +739,6 @@
 
             <div class="settings-list">
               <div class="set-sec">
-                <h2>You</h2>
-                <div class="set-rows">
-                  <div class="set-row">
-                    <span class="set-ic set-ic-gray"
-                      ><svg viewBox="0 0 24 24" aria-hidden="true">
-                        <circle cx="12" cy="8" r="4"></circle>
-                        <path d="M5 21a7 7 0 0 1 14 0"></path></svg
-                    ></span>
-                    <span class="grow"
-                      >Setup<span class="sub" id="settings-persona">Not set up yet</span></span
-                    >
-                    <button type="button" class="btn" id="settings-change-setup">Change</button>
-                  </div>
-                </div>
-              </div>
-              <div class="set-sec">
                 <h2>Mail</h2>
                 <div class="set-rows">
                   <label class="set-row">
@@ -816,14 +793,6 @@
                 <h2>Appearance</h2>
                 <div class="set-rows">
                   <label class="set-row">
-                    <span class="set-ic set-ic-green"
-                      ><svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M4 7V5h16v2M9 19h6M12 5v14"></path></svg
-                    ></span>
-                    <span class="grow">Simple mode<span class="sub">Bigger text, fewer screens.</span></span>
-                    <input type="checkbox" class="switch" role="switch" id="simple-mode-toggle" />
-                  </label>
-                  <label class="set-row">
                     <span class="set-ic set-ic-indigo"
                       ><svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg
@@ -876,32 +845,6 @@
                   <div class="set-row plain"><span class="grow">Go to Home, Senders, Clean up, Organize, Protect</span><span><kbd>G</kbd> then <kbd>H S C O P</kbd></span></div>
                 </div>
               </div>
-            </div>
-          </section>
-
-          <!-- ══ Simple mode home ══════════════════════════════════════ -->
-          <section class="screen" data-screen="simple" role="tabpanel" hidden>
-            <div class="page-head">
-              <div class="page-titles">
-                <h1 class="page-title">Hello</h1>
-                <p class="lead">Here's your email today.</p>
-              </div>
-            </div>
-            <div class="big-card">
-              <b id="simple-status">You're protected</b>
-              <span id="simple-status-sub"></span>
-            </div>
-            <div class="big-card">
-              <b id="simple-held"></b>
-              <span id="simple-held-sub"></span>
-              <button type="button" class="btn btn-accent-solid" id="simple-see-scams">See them</button>
-            </div>
-            <div class="big-card">
-              <b>Before you pay anyone or share a code</b>
-              <span>Call them on a number you already have, not one in the email.</span>
-            </div>
-            <div>
-              <button type="button" class="btn btn-ghost" id="simple-off">Turn off Simple mode</button>
             </div>
           </section>
 

@@ -105,7 +105,7 @@ import { renderLearned, SIGNED_OUT_KEY, wireSettingsMore } from "./settingsMore"
 import { initBodyChecks, renderSecuritySection } from "./securityTab";
 import { renderScamReport } from "./reportTab";
 import { heldByWeek } from "../lib/scamHistory";
-import { applySimpleMode, renderSettingsSetup, renderSimpleHome, screenForMode, wireSetup } from "./setupTab";
+import { wireSetup } from "./setupTab";
 import { renderScreenerTab, wireScreenerTab } from "./screenerTab";
 import { recordUnsubscribeRequests, renderSubscriptionsTab, wireSubscriptionsTab } from "./subscriptionsTab";
 import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib/inboxHealth";
@@ -200,9 +200,9 @@ const SCREEN_ALIASES: Record<string, string> = {
   rules: "organize",
 };
 function resolveScreen(name: string): string {
-  const target = screenForMode(SCREEN_ALIASES[name] ?? name);
+  const target = SCREEN_ALIASES[name] ?? name;
   // Setup, Activity and Settings have no sidebar item; any screen with a panel is fine.
-  return screenPanels.some((p) => p.dataset.screen === target) ? target : screenForMode("overview");
+  return screenPanels.some((p) => p.dataset.screen === target) ? target : "overview";
 }
 
 const neverReadSectionEl = document.getElementById("never-read-section") as HTMLElement;
@@ -352,7 +352,7 @@ function wireNav() {
           ? -1
           : 0;
     let next: number | undefined;
-    // Simple mode hides most items; arrow keys skip what isn't shown.
+    // Arrow keys skip nav items that aren't shown.
     const shown = navButtons.filter(navItemShown);
     if (delta !== 0) {
       const current = shown.findIndex((b) => b.getAttribute("aria-selected") === "true");
@@ -591,9 +591,7 @@ async function main() {
   ctx.settings = settings;
   applyBrandVerdicts(settings.brandVerdicts);
   applyTheme(ctx.settings.theme);
-  applySimpleMode(ctx.settings.simpleMode);
   wireSetup(selectScreen);
-  renderSettingsSetup();
   wireThemeSelect();
   wireSettingsMore(showScreen);
   wireNav();
@@ -1130,7 +1128,6 @@ async function scanAndRender({
   safeRender("delete", () => renderDomainGroups(senders));
   safeRender("delete", () => renderExpirySection(senders));
   safeRender("impersonation", () => renderSecuritySection(securitySenders));
-  safeRender("simple", () => renderSimpleHome(securitySenders));
   safeRender("report", () => renderScamReport(securitySenders));
   safeRender("subscriptions", () => renderSubscriptionsTab(senders));
   safeRender("delete", () => renderNeverReadSection(senders));

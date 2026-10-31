@@ -29,10 +29,9 @@ describe("buildOnboardingPlan", () => {
     expect(buildOnboardingPlan({ who: "me", sorted: { bank: "trash" }, keep: [] }).hours.finance).toBeUndefined();
   });
 
-  it("people you write to always stay, and Keep me safe turns on Simple mode", () => {
+  it("people you write to always stay", () => {
     const plan = buildOnboardingPlan({ who: "safe", sorted: {}, keep: [], hands: "tidy" });
     expect(plan.lines.some((l) => l.text.includes("people you write to"))).toBe(true);
-    expect(plan.simpleMode).toBe(true);
     expect(plan.tidy).toBe(true);
   });
 });

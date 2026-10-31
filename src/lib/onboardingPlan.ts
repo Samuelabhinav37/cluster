@@ -21,7 +21,6 @@ export interface OnboardingPlan {
   /** Organize's "where it goes and when" menus, in hours; null stays in the inbox. */
   hours: Partial<Record<SortBucket, number | null>>;
   holdScams: boolean;
-  simpleMode: boolean;
   /** Turn every Organize label on (Gmail filters for new mail) on Start. */
   tidy: boolean;
   persona: "calm" | "business" | "safe" | "busy";
@@ -126,13 +125,5 @@ export function buildOnboardingPlan(a: OnboardingAnswers): OnboardingPlan {
       : { icon: "eye", text: "Nothing moves until you press Sort my inbox" },
   );
 
-  const simpleMode = a.who === "safe";
-  if (simpleMode)
-    lines.push({
-      icon: "user",
-      text: "Simple mode: bigger text, fewer screens",
-      sub: "Turn it off in Settings",
-    });
-
-  return { lines, hours, holdScams, simpleMode, tidy, persona: PERSONA_OF[a.who ?? "me"] };
+  return { lines, hours, holdScams, tidy, persona: PERSONA_OF[a.who ?? "me"] };
 }

@@ -1,8 +1,5 @@
-// Settings page, simple mode and first-run setup.
+// First-run setup: opens for a new user or after sign-out.
 //
-// - Simple mode: bigger text, and the nav shows only Home, Scams and
-//   Settings. Home (data-screen="simple") says whether you're protected,
-//   how much was held, and one safety tip.
 // - Setup (research/2026-10-29-onboarding.md): four questions and a plan,
 //   one per screen. On the right, Kai and a card that fills in as you answer
 //   (research/2026-10-29-onboarding-audit.md). Round 2 (2026-10-30): three
@@ -13,7 +10,6 @@ import "./kai/kaiLife.js";
 import type { KaiInstance, KaiMood } from "./kai/kaiLife";
 import type { ClusterSettings } from "../lib/settingsStore";
 import { updateSettings } from "../lib/settingsStore";
-import type { SenderSummary } from "../lib/senderModel";
 import { log } from "../lib/log";
 import {
   buildOnboardingPlan,
@@ -26,80 +22,7 @@ import { ctx } from "./state";
 import { icon } from "./homeDashboard";
 import { renderTimeLimits, turnOnTimeLimits } from "./timeLimitsTab";
 
-const PERSONA_LABELS: Record<Exclude<ClusterSettings["persona"], "">, string> = {
-  calm: "Just me",
-  business: "I run a business",
-  safe: "Keep me safe",
-  busy: "Lots of people email me",
-};
-
-const SIMPLE_SCREENS = new Set(["simple", "impersonation", "settings"]);
-
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
-
-/** Applies simple mode to the page: body class and which nav items show.
- * Hidden nav items get the `hidden` attribute so arrow keys skip them. */
-export function applySimpleMode(on: boolean): void {
-  document.body.classList.toggle("simple", on);
-  for (const btn of Array.from(
-    document.querySelectorAll<HTMLButtonElement>("#sidebar button[data-screen]"),
-  )) {
-    const screen = btn.dataset.screen!;
-    btn.hidden = on ? !SIMPLE_SCREENS.has(screen) : screen === "simple";
-  }
-  const sw = $<HTMLInputElement>("simple-mode-toggle");
-  if (sw) sw.checked = on;
-}
-
-/** Overview and Home stand in for each other depending on the mode. */
-export function screenForMode(target: string): string {
-  const simple = document.body.classList.contains("simple");
-  if (simple && target === "overview") return "simple";
-  if (!simple && target === "simple") return "overview";
-  return target;
-}
-
-function personaLabel(persona: ClusterSettings["persona"]): string {
-  return persona ? PERSONA_LABELS[persona] : "Not set up yet";
-}
-
-export function renderSettingsSetup(): void {
-  const label = $("settings-persona");
-  if (label) label.textContent = personaLabel(ctx.settings.persona);
-}
-
-/** Simple-mode home: protection status, what was held, one safety tip. */
-export function renderSimpleHome(securitySenders: SenderSummary[]): void {
-  const status = $("simple-status");
-  const statusSub = $("simple-status-sub");
-  const held = Object.values(ctx.settings.quarantinedSenders).reduce((n, r) => n + r.messageIds.length, 0);
-  const warned = securitySenders.filter((s) => s.threatSignals.length > 0).length;
-  if (status && statusSub) {
-    const on = ctx.settings.autoQuarantineHighRisk;
-    status.textContent = on ? "You're protected" : "Scam protection is off";
-    statusSub.textContent = on ? "Cluster is checking your email for scams." : "Turn it on in Protect.";
-  }
-  const heldSub = $("simple-held-sub");
-  if (heldSub) {
-    heldSub.textContent =
-      held > 0
-        ? "You don't need to do anything. Look only if you were expecting something."
-        : warned > 0
-          ? "Look before you reply, click a link or pay anyone."
-          : "Cluster keeps checking. You don't need to do anything.";
-  }
-  const see = $("simple-see-scams");
-  if (see) see.hidden = held === 0 && warned === 0;
-  const heldText = $("simple-held");
-  if (heldText) {
-    heldText.textContent =
-      held > 0
-        ? `${held} email${held === 1 ? "" : "s"} looked like scams. Cluster moved ${held === 1 ? "it" : "them"} away from your inbox.`
-        : warned > 0
-          ? `${warned} sender${warned === 1 ? "" : "s"} might not be who they say. Have a look before you reply or pay.`
-          : "Nothing looks like a scam right now.";
-  }
-}
 
 // ── Setup flow ───────────────────────────────────────────────────────────
 
@@ -236,7 +159,7 @@ function freshAnswers(): OnboardingAnswers {
 }
 
 /** Saves the answers and applies the plan. Gmail filters only for "Tidy for me". */
-async function startPlan(answers: OnboardingAnswers): Promise<{ simple: boolean; tidyFailed: boolean }> {
+async function startPlan(answers: OnboardingAnswers): Promise<{ tidyFailed: boolean }> {
   const plan = buildOnboardingPlan(answers);
   const patch: Partial<ClusterSettings> = {
     persona: plan.persona,
@@ -248,12 +171,9 @@ async function startPlan(answers: OnboardingAnswers): Promise<{ simple: boolean;
     },
   };
   if (plan.holdScams) patch.autoQuarantineHighRisk = true;
-  if (plan.simpleMode) patch.simpleMode = true;
   ctx.settings = await updateSettings(patch);
   const quarantine = $<HTMLInputElement>("auto-quarantine-toggle");
   if (quarantine && plan.holdScams) quarantine.checked = true;
-  if (plan.simpleMode) applySimpleMode(true);
-  renderSettingsSetup();
   renderTimeLimits();
   let tidyFailed = false;
   if (plan.tidy) {
@@ -262,7 +182,7 @@ async function startPlan(answers: OnboardingAnswers): Promise<{ simple: boolean;
       return false;
     }));
   }
-  return { simple: plan.simpleMode, tidyFailed };
+  return { tidyFailed };
 }
 
 const WHO_LABEL: Record<Who, string> = {
@@ -468,7 +388,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
         go.textContent = "Setting up…";
       }
       try {
-        const { simple, tidyFailed } = await startPlan(answers);
+        const { tidyFailed } = await startPlan(answers);
         if (go) {
           go.textContent = "All set";
           go.classList.add("done");
@@ -476,7 +396,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
         kai.say(tidyFailed ? "Saved. Turn on the filters in Organize." : KAI_LINES.done, "happy");
         // Let Kai's line land before Home opens.
         await new Promise((r) => window.setTimeout(r, 1100));
-        await select(simple ? "simple" : "overview");
+        await select("overview");
       } catch (err) {
         log.error("Setup could not be saved", err);
         if (go) {
@@ -535,35 +455,9 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   skip.onclick = async () => {
     kai.stop();
     ctx.settings = await updateSettings({ setupDone: true });
-    renderSettingsSetup();
     await select("overview");
   };
 
-  const change = $<HTMLButtonElement>("settings-change-setup");
-  if (change)
-    change.onclick = () => {
-      answers = freshAnswers();
-      at = 0;
-      render(true);
-      void select("setup");
-    };
   render(true);
 
-  const simpleToggle = $<HTMLInputElement>("simple-mode-toggle");
-  if (simpleToggle) {
-    simpleToggle.onchange = async () => {
-      ctx.settings = await updateSettings({ simpleMode: simpleToggle.checked });
-      applySimpleMode(simpleToggle.checked);
-    };
-  }
-  const simpleOff = $<HTMLButtonElement>("simple-off");
-  if (simpleOff) {
-    simpleOff.onclick = async () => {
-      ctx.settings = await updateSettings({ simpleMode: false });
-      applySimpleMode(false);
-      await select("overview");
-    };
-  }
-  const seeHeld = $<HTMLButtonElement>("simple-see-scams");
-  if (seeHeld) seeHeld.onclick = () => void select("impersonation");
 }

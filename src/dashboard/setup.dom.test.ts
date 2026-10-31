@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /// <reference types="vite/client" />
 //
-// First-run setup, simple mode and the Settings page.
+// First-run setup and the Settings page.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { bootDashboard } from "./testHarness";
 
@@ -45,19 +45,13 @@ describe("first-run setup", () => {
     await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toContain("never move"));
   });
 
-  it("Keep me safe turns on scam holding and simple mode", async () => {
+  it("Keep me safe turns on scam holding and lands on Home", async () => {
     const dash = await bootDashboard();
     await runSetup(dash, "safe");
-    await vi.waitFor(() => expect(dash.storedSettings().simpleMode).toBe(true));
-    expect(dash.storedSettings().autoQuarantineHighRisk).toBe(true);
+    await vi.waitFor(() => expect(dash.storedSettings().autoQuarantineHighRisk).toBe(true));
     expect(dash.storedSettings().persona).toBe("safe");
     expect(dash.storedSettings().onboarding?.answers.who).toBe("safe");
-    expect(document.body.classList.contains("simple")).toBe(true);
-    const shown = Array.from(document.querySelectorAll<HTMLButtonElement>("#sidebar button[data-screen]"))
-      .filter((b) => !b.hidden)
-      .map((b) => b.dataset.screen);
-    expect(shown.sort()).toEqual(["impersonation", "simple"]);
-    expect(dash.el("settings-persona").textContent).toBe("Keep me safe");
+    expect(document.getElementById("settings-change-setup")).toBeNull();
   });
 
   it("Ask me first saves the answers but never turns on Gmail filters", async () => {
@@ -66,20 +60,5 @@ describe("first-run setup", () => {
     await vi.waitFor(() => expect(dash.storedSettings().persona).toBe("calm"));
     expect(dash.storedSettings().setupDone).toBe(true);
     expect(dash.storedSettings().autoSort.timeLimitsEnabled).toBe(false);
-  });
-});
-
-describe("simple mode", () => {
-  it("can be switched on from Settings and off from Home", async () => {
-    const dash = await bootDashboard();
-    const toggle = dash.el("simple-mode-toggle") as HTMLInputElement;
-    toggle.checked = true;
-    toggle.dispatchEvent(new Event("change"));
-    await vi.waitFor(() => expect(dash.storedSettings().simpleMode).toBe(true));
-    expect(document.body.classList.contains("simple")).toBe(true);
-
-    (dash.el("simple-off") as HTMLButtonElement).click();
-    await vi.waitFor(() => expect(dash.storedSettings().simpleMode).toBe(false));
-    expect(document.body.classList.contains("simple")).toBe(false);
   });
 });
