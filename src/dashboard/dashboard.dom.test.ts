@@ -141,13 +141,6 @@ describe("dashboard boot smoke", () => {
     expect(document.getElementById("overview-headline")!.textContent).toMatch(/Scanned \d+ sender/);
   });
 
-  it("builds the 'senders worth a decision' list with rows", () => {
-    const groups = document.getElementById("sender-groups") as HTMLElement;
-    expect(groups.hidden).toBe(false);
-    // header row + at least one sender row
-    expect(groups.querySelectorAll(".list-row").length).toBeGreaterThan(1);
-  });
-
   it("flags the free-mail brand claim in the Security tab", () => {
     const items = document.querySelectorAll("#security-sender-list li");
     expect(items.length).toBeGreaterThan(0);
@@ -220,25 +213,4 @@ describe("dashboard boot smoke", () => {
     expect(document.documentElement.dataset.theme).toBeUndefined();
   });
 
-  it("gives the by-domain table a screen-reader caption", () => {
-    document.querySelector<HTMLButtonElement>('#sidebar button[data-screen="delete"]')!.click();
-    const caption = document.querySelector("#domain-group-list table caption");
-    expect(caption?.classList.contains("sr-only")).toBe(true);
-    expect(caption?.textContent).toMatch(/\d+ domains?, \d+ messages/);
-  });
-
-  it("opens a confirm step from a sender-row action", () => {
-    document.querySelector<HTMLButtonElement>('#sidebar button[data-screen="subscriptions"]')!.click();
-    const trashBtn = Array.from(
-      document.querySelectorAll<HTMLButtonElement>("#sender-groups .list-row button"),
-    ).find((b) => b.textContent === "Trash");
-    expect(trashBtn, "no Trash button rendered in the decision list").toBeTruthy();
-    trashBtn!.click();
-    // The row's one button opens its Trash confirm.
-    const groups = document.getElementById("sender-groups") as HTMLElement;
-    expect(groups.textContent).toMatch(/Move \d+ emails? from .* to Trash\?/);
-    expect(
-      Array.from(groups.querySelectorAll("button")).map((b) => b.textContent),
-    ).toEqual(expect.arrayContaining(["Confirm", "Cancel"]));
-  });
 });

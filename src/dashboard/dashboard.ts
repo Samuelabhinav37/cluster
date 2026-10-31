@@ -1,21 +1,7 @@
-import {
-  executeBulkDeleteDomains,
-  executeBulkKeepSorted,
-  executeBulkSnooze,
-  executeBulkUnsubscribe,
-  filterOutProtected,
-  mergeDeletableIdsByProvider,
-  partitionForKeepSorted,
-  partitionForSnooze,
-  partitionForUnsubscribe,
-  safeDomainGroupKeys,
-  safeSenderKeys,
-  totalDeletableAcrossGroups,
-} from "../lib/bulkActions";
+import { executeBulkDeleteDomains, filterOutProtected } from "../lib/bulkActions";
 import { loadPublicSuffixList } from "../lib/publicSuffix";
 import { applyBrandVerdicts, loadBrandRegistry } from "../lib/brandRegistry";
 import { applySenderLedger } from "../lib/senderLedgerStore";
-import { buildDomainGroups, type DomainGroup } from "../lib/domainGrouping";
 import {
   buildExpiryBuckets,
   mergeExpiryBuckets,
@@ -76,27 +62,25 @@ import {
 } from "./timeLimitsTab";
 import { excludeSnoozedMessages } from "../lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "../lib/snoozeResurface";
-import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
+import { fireOneClickUnsubscribe } from "../lib/unsubscribe";
 import { athenaOriginPatterns, getAthenaConfig } from "../lib/athenaIntegration";
 import { recordEngagementFeedback, type EngagementFeedback } from "../lib/engagementModel";
 import { openUnsubscribeSheet } from "./unsubscribeSheet";
 import { readUnsubscribeReplies, unsubscribeOutcomeFor } from "./unsubscribeRecord";
 import {
   buildSuggestions,
-  SUGGESTION_ACTION_LABELS,
   unopenedSuggestions,
   type Suggestion,
 } from "../lib/suggestions";
 import { markFirstContact } from "../lib/firstContact";
 import { log } from "../lib/log";
 import { initSuggestionModel, learnFromFeedback, suggestionModel } from "./suggestionLearning";
-import { answerKind, initKindModel, kindModel } from "./kindLearning";
-import { markLearnedTransactional, sendersToAsk } from "../lib/kindModel";
+import { initKindModel, kindModel } from "./kindLearning";
+import { markLearnedTransactional } from "../lib/kindModel";
 import { isAuthCancelled } from "../lib/chromeError";
-import { formatRelativeTime, headerRow, infoButton, pruneSelection, renderConfirmStep, runNow } from "./ui";
-import { reasonLabel, suggestSpamSenders, type SpamSuggestion } from "../lib/spamSuggestions";
+import { formatRelativeTime, infoButton, pruneSelection, renderConfirmStep, runNow } from "./ui";
+import { suggestSpamSenders } from "../lib/spamSuggestions";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
-import { spamListSize } from "../lib/spamList";
 import { keepNewestExcess } from "../lib/keepNewest";
 import { deliveredUpdates } from "../lib/orderEvents";
 import { appendUndoButton, logAction, renderRecentTab, undoEntry } from "./recentTab";
@@ -129,13 +113,10 @@ import {
 } from "./detailsPanel";
 import { listGroup, listRow } from "./listRow";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
-import { rowMenu } from "./rowMenu";
 import type { ClusterRule } from "../lib/rules";
 import { CLUSTER_FIRST_ON, CLUSTER_QUESTIONS, initKaiGuide, type KaiGuide } from "./kaiGuide";
 
 const selectedSenderKeys = new Set<string>();
-const selectedDomainKeys = new Set<string>();
-let currentDomainGroups: DomainGroup[] = [];
 let currentExpiryBuckets: ExpiryBucket[] = [];
 // True when the cleanup scan filled its per-account candidate cap — every
 // derived count is then a sample of the most-recent N, not an inbox total.
@@ -148,27 +129,9 @@ const SECURITY_SCAN_MAX_MESSAGES = 250;
 const statusEl = document.getElementById("status") as HTMLParagraphElement;
 const overviewContentEl = document.getElementById("overview-content") as HTMLDivElement;
 const overviewHeadlineEl = document.getElementById("overview-headline") as HTMLParagraphElement;
-const senderGroupsEl = document.getElementById("sender-groups") as HTMLDivElement;
-const domainSectionEl = document.getElementById("domain-groups") as HTMLElement;
-const domainGroupListEl = document.getElementById("domain-group-list") as HTMLDivElement;
 const connectOutlookBtn = document.getElementById("connect-outlook") as HTMLButtonElement;
 
-const senderBulkBar = document.getElementById("sender-bulk-bar") as HTMLDivElement;
-const senderSelectedCountEl = document.getElementById("sender-selected-count") as HTMLSpanElement;
-const selectSafeSendersBtn = document.getElementById("select-safe-senders") as HTMLButtonElement;
-const unsubscribeBulkSlot = document.getElementById("unsubscribe-bulk-slot") as HTMLSpanElement;
-const bulkUnsubscribeBtn = document.getElementById("bulk-unsubscribe-btn") as HTMLButtonElement;
-const keepSortedBulkSlot = document.getElementById("keep-sorted-bulk-slot") as HTMLSpanElement;
-const bulkKeepSortedBtn = document.getElementById("bulk-keep-sorted-btn") as HTMLButtonElement;
-const snoozeDurationSelect = document.getElementById("snooze-duration-select") as HTMLSelectElement;
-const snoozeBulkSlot = document.getElementById("snooze-bulk-slot") as HTMLSpanElement;
-const bulkSnoozeBtn = document.getElementById("bulk-snooze-btn") as HTMLButtonElement;
 
-const domainBulkBar = document.getElementById("domain-bulk-bar") as HTMLDivElement;
-const domainSelectedCountEl = document.getElementById("domain-selected-count") as HTMLSpanElement;
-const selectSafeDomainsBtn = document.getElementById("select-safe-domains") as HTMLButtonElement;
-const deleteDomainsBulkSlot = document.getElementById("delete-domains-bulk-slot") as HTMLSpanElement;
-const bulkDeleteDomainsBtn = document.getElementById("bulk-delete-domains-btn") as HTMLButtonElement;
 
 const expiryCleanupSlot = document.getElementById("expiry-cleanup-slot") as HTMLSpanElement;
 const expiryCleanupBtn = document.getElementById("expiry-cleanup-btn") as HTMLButtonElement;
@@ -188,7 +151,6 @@ const athenaStatusEl = document.getElementById("athena-status") as HTMLSpanEleme
 
 const navButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("#sidebar button[data-screen]"));
 const screenPanels = Array.from(document.querySelectorAll<HTMLElement>("section.screen[data-screen]"));
-const seeAllSendersLink = document.getElementById("see-all-senders-link") as HTMLAnchorElement | null;
 const allSendersListEl = document.getElementById("all-senders-list") as HTMLDivElement | null;
 
 // Old stored activeTab values → the new screen ids they map to.
@@ -205,22 +167,10 @@ function resolveScreen(name: string): string {
   return screenPanels.some((p) => p.dataset.screen === target) ? target : "overview";
 }
 
-const neverReadSectionEl = document.getElementById("never-read-section") as HTMLElement;
-const neverReadCountEl = document.getElementById("never-read-count") as HTMLSpanElement;
 const neverReadTrashSlot = document.getElementById("never-read-trash-slot") as HTMLSpanElement;
 const neverReadTrashBtn = document.getElementById("never-read-trash-btn") as HTMLButtonElement;
-const neverReadListEl = document.getElementById("never-read-list") as HTMLDivElement;
 
-const spamSectionEl = document.getElementById("spam-section") as HTMLElement;
-const spamCountEl = document.getElementById("spam-count") as HTMLSpanElement;
-const spamSelectAllEl = document.getElementById("spam-select-all") as HTMLInputElement;
-const spamTrashSlot = document.getElementById("spam-trash-slot") as HTMLSpanElement;
-const spamTrashBtn = document.getElementById("spam-trash-btn") as HTMLButtonElement;
-const spamListEl = document.getElementById("spam-list") as HTMLDivElement;
 
-const keepNewestNInput = document.getElementById("keep-newest-n") as HTMLInputElement;
-const keepNewestSlot = document.getElementById("keep-newest-slot") as HTMLSpanElement;
-const keepNewestBtn = document.getElementById("keep-newest-btn") as HTMLButtonElement;
 
 // ── Sidebar navigation (WAI-ARIA tabs pattern, vertical) ────────────────
 
@@ -372,10 +322,6 @@ function wireNav() {
   document.getElementById("never-opened-pick")?.addEventListener("click", (event) => {
     event.preventDefault();
     details?.open({ view: "senders", never: true });
-  });
-  seeAllSendersLink?.addEventListener("click", (event) => {
-    event.preventDefault();
-    details?.open({ view: "senders" });
   });
 
   // First run opens on setup; skipping or answering it sets setupDone.
@@ -678,7 +624,6 @@ async function main() {
 
   wireBulkHandlers();
   wireSubscriptionsTab();
-  wireKeepNewest();
   wireSortInbox();
   wireTimeLimits();
   setPresetActions(() =>
@@ -703,12 +648,6 @@ async function main() {
 function wireOfflineHandling() {
   const setActionsDisabled = (disabled: boolean) => {
     connectOutlookBtn.disabled = disabled;
-    selectSafeSendersBtn.disabled = disabled;
-    selectSafeDomainsBtn.disabled = disabled;
-    bulkUnsubscribeBtn.disabled = disabled;
-    bulkKeepSortedBtn.disabled = disabled;
-    bulkSnoozeBtn.disabled = disabled;
-    bulkDeleteDomainsBtn.disabled = disabled;
     expiryCleanupBtn.disabled = disabled;
     applyScanSettingsBtn.disabled = disabled;
   };
@@ -722,8 +661,6 @@ function wireOfflineHandling() {
   window.addEventListener("online", () => {
     statusEl.hidden = true;
     setActionsDisabled(false);
-    updateSenderBulkBar();
-    updateDomainBulkBar();
   });
 }
 
@@ -929,12 +866,10 @@ async function refreshView() {
     return;
   }
   refreshing = true;
-  const reviews = [neverReadSectionEl, spamSectionEl].map((el) => el.hidden);
   const scroll = window.scrollY;
   try {
     viewDone = [...indexRuns.values()].reduce((sum, run) => sum + (run.progress?.done ?? 0), 0);
     await scanAndRender({ quiet: true });
-    [neverReadSectionEl, spamSectionEl].forEach((el, i) => (el.hidden = reviews[i]));
     window.scrollTo(0, scroll);
   } finally {
     refreshing = false;
@@ -967,8 +902,6 @@ async function scanAndRender({
   if (!quiet) {
     statusEl.hidden = false;
     indexStatusEl.hidden = true;
-    senderGroupsEl.hidden = true;
-    domainSectionEl.hidden = true;
     statusEl.textContent = "Getting your mailbox ready…";
   }
 
@@ -1100,8 +1033,6 @@ async function scanAndRender({
   }
 
   statusEl.hidden = true;
-  senderGroupsEl.hidden = false;
-  domainSectionEl.hidden = false;
 
   // Record this week's inbox-health score for the Overview trend chart (once
   // per ISO week; a same-week rescan overwrites it).
@@ -1122,20 +1053,13 @@ async function scanAndRender({
   safeRender("overview", () => renderOverview(senders, securitySenders, allSenders));
   safeRender("details", () => details?.update(allSenders));
   safeRender("delete", () => renderDeleteScreen(senders));
-  safeRender("subscriptions", () => renderOrganizeScreen(senders));
   safeRender("senders", () => renderAllSenders(senders));
   safeRender("rules", () => renderRulesTab());
-  safeRender("delete", () => renderDomainGroups(senders));
   safeRender("delete", () => renderExpirySection(senders));
   safeRender("impersonation", () => renderSecuritySection(securitySenders));
   safeRender("report", () => renderScamReport(securitySenders));
   safeRender("subscriptions", () => renderSubscriptionsTab(senders));
   safeRender("delete", () => renderNeverReadSection(senders));
-  safeRender("delete", () => renderSpamSection(senders));
-  // Clean up's cards are the primary surface for these three; their detailed
-  // sections stay collapsed in "More ways to clean up".
-  neverReadSectionEl.hidden = true;
-  spamSectionEl.hidden = true;
   safeRender("organize", () => renderSortInbox(senders));
   safeRender("organize", () => renderTimeLimits());
   safeRender("organize", () => renderPresets(securitySenders));
@@ -1411,9 +1335,6 @@ function showScanError(err: unknown) {
   statusEl.append(text, retryBtn);
 }
 
-/** Rows a long list shows before "Show all". */
-const LIST_PREVIEW = 10;
-
 // ── Sender table ─────────────────────────────────────────────────────────
 /** Clean-up suggestions for these senders, from their profiles. */
 function currentSuggestions(senders: SenderSummary[]): Suggestion[] {
@@ -1452,54 +1373,6 @@ function clearOutPlan(senders: SenderSummary[]) {
   };
 }
 
-// ── Suggested cleanup: "Senders worth a decision" ──────────────────────
-/** How much of their mail gets opened; the count itself sits on the right. */
-function decisionReason(sender: SenderSummary): string {
-  const total = senderVolume(sender);
-  const opened = total - senderUnread(sender);
-  return opened === 0 ? "Never opened" : `${Math.round((opened / Math.max(1, total)) * 100)}% opened`;
-}
-
-/** The four working per-sender action groups, each a live element whose inner
- * button opens its own confirm (reused from the pre-redesign row). */
-function buildActionGroups(sender: SenderSummary): Array<{ act: string; label: string; el: HTMLDivElement }> {
-  return [
-    { act: "trash", label: "Trash", el: buildTrashCell(sender) },
-    { act: "unsubscribe", label: "Unsubscribe", el: buildUnsubscribeCell(sender) },
-    { act: "keepSorted", label: "Move to a label", el: buildKeepSortedCell(sender) },
-    { act: "mute", label: "Mute", el: buildMuteCell(sender) },
-    { act: "snooze", label: "Snooze", el: buildSnoozeCell(sender) },
-  ];
-}
-
-/** Unprotected senders folded into one entry per company (detailRowKey),
- * biggest first. */
-function decisionRows(senders: SenderSummary[]): SenderSummary[][] {
-  const rows = new Map<string, SenderSummary[]>();
-  for (const s of senders) {
-    if (s.protectedMessageIds.length > 0) continue;
-    const key = detailRowKey(s);
-    rows.set(key, [...(rows.get(key) ?? []), s]);
-  }
-  const volume = (row: SenderSummary[]) => row.reduce((n, s) => n + senderVolume(s), 0);
-  return [...rows.values()].sort((a, b) => volume(b) - volume(a));
-}
-
-/** Clean up's list: the ten unprotected companies or senders with the most
- * mail, plus the biggest protected sender shown dimmed. */
-function pickDecisionSenders(senders: SenderSummary[]): {
-  decide: SenderSummary[][];
-  total: number;
-  protectedOne?: SenderSummary;
-} {
-  const rows = decisionRows(senders);
-  const decide = rows.slice(0, 10);
-  const protectedOne = senders
-    .filter((s) => s.protectedMessageIds.length > 0)
-    .sort((a, b) => b.count - a.count)[0];
-  return { decide, total: rows.length, protectedOne };
-}
-
 function updateSenderState(senders: SenderSummary[]) {
   ctx.senders = senders;
   pruneSelection(
@@ -1535,53 +1408,14 @@ function renderDeleteScreen(senders: SenderSummary[]) {
   list("past-date-top", plan.expiry.filter((b) => b.count > 0).map((b) => [b.label, b.count]));
 }
 
-function renderOrganizeScreen(senders: SenderSummary[]) {
-  renderDecisionSenders(senders);
-  updateSenderBulkBar();
-}
-
-function renderDecisionSenders(senders: SenderSummary[]) {
-  const { decide, total, protectedOne } = pickDecisionSenders(senders);
-  const countEl = document.getElementById("worth-decision-count");
-  if (countEl) countEl.textContent = `${decide.length} of ${total}`;
-
-  senderGroupsEl.innerHTML = "";
-  const list = document.createElement("div");
-  list.className = "grouped-list";
-
-  // Each row's bar is its share of the biggest row, like Details' Emails column.
-  const top = Math.max(1, ...decide.map((row) => row.reduce((n, s) => n + senderVolume(s), 0)));
-  for (const row of decide) {
-    const sep = document.createElement("div");
-    sep.className = "row-sep";
-    sep.style.marginLeft = "16px";
-    list.appendChild(sep);
-    list.appendChild(
-      row.length === 1 ? buildDecisionRow(row[0], senders, top) : buildCompanyDecisionRow(row, top),
-    );
-  }
-
-  if (protectedOne) {
-    const sep = document.createElement("div");
-    sep.className = "row-sep";
-    sep.style.marginLeft = "16px";
-    list.appendChild(sep);
-    const tile = makeLogoTile(protectedOne, "sz-34");
-    tile.classList.add("dim");
-    const chip = document.createElement("span");
-    chip.className = "pill dashed";
-    chip.textContent = "Protected";
-    const row = listRow({
-      lead: tile,
-      title: senderName(protectedOne),
-      sub: `${protectedOne.protectedMessageIds.length} starred of ${protectedOne.count} · excluded entirely`,
-      actions: [chip],
-    });
-    row.classList.add("protected-row");
-    list.appendChild(row);
-  }
-
-  senderGroupsEl.appendChild(list);
+function buildActionGroups(sender: SenderSummary): Array<{ act: string; label: string; el: HTMLDivElement }> {
+  return [
+    { act: "trash", label: "Trash", el: buildTrashCell(sender) },
+    { act: "unsubscribe", label: "Unsubscribe", el: buildUnsubscribeCell(sender) },
+    { act: "keepSorted", label: "Move to a label", el: buildKeepSortedCell(sender) },
+    { act: "mute", label: "Mute", el: buildMuteCell(sender) },
+    { act: "snooze", label: "Snooze", el: buildSnoozeCell(sender) },
+  ];
 }
 
 /** A confirm area for one sender's actions: a chosen action's two-step
@@ -1605,103 +1439,6 @@ function actionArea(sender: SenderSummary) {
     target?.el.scrollIntoView?.({ block: "nearest" });
   };
   return { area, groups, run };
-}
-
-function buildDecisionRow(sender: SenderSummary, allSenders: SenderSummary[], top: number): HTMLElement {
-  const primary = document.createElement("button");
-  primary.className = "btn";
-  primary.textContent = "Trash";
-
-  const { area: disclosure, run } = actionArea(sender);
-  primary.onclick = () => run("trash");
-
-  const notUseful = async () => {
-    await saveEngagementFeedback([sender.key], "dismiss");
-    renderDecisionSenders(allSenders);
-  };
-  // Clean up only deletes; stopping or sorting this sender is a link to its own place.
-  const menu = rowMenu([
-    { label: "Show emails", run: () => details?.open({ view: "emails", senderKey: sender.key }) },
-    ...(hasAnyUnsubscribe(sender.unsubscribe)
-      ? [{ label: "Stop this mail in Stop mail", run: () => void selectScreen("subscriptions") }]
-      : []),
-    "sep",
-    { label: "Not useful", run: () => void notUseful() },
-  ]);
-
-  return listRow({
-    lead: makeLogoTile(sender, "sz-34"),
-    title: senderName(sender),
-    sub: decisionReason(sender),
-    meta: volumeMeta(senderVolume(sender), top),
-    actions: [primary, menu],
-    disclosure,
-    href: () => details?.open({ view: "emails", senderKey: sender.key }),
-  });
-}
-
-/** "59 emails" with a short bar for its share of the biggest row. */
-function volumeMeta(n: number, top: number): HTMLElement {
-  const meta = Object.assign(document.createElement("span"), { className: "ios-value" });
-  const bar = Object.assign(document.createElement("span"), { className: "cellbar" });
-  const fill = document.createElement("i");
-  fill.style.width = `${Math.min(100, (n / top) * 100)}%`;
-  bar.append(fill);
-  meta.append(bar, `${n.toLocaleString()} ${n === 1 ? "email" : "emails"}`);
-  return meta;
-}
-
-/** One company's addresses as one Clean up row: Trash takes all of them. */
-function buildCompanyDecisionRow(members: SenderSummary[], biggest: number): HTMLElement {
-  const top = [...members].sort((a, b) => senderVolume(b) - senderVolume(a))[0];
-  const total = members.reduce((n, s) => n + senderVolume(s), 0);
-  const opened = total - members.reduce((n, s) => n + senderUnread(s), 0);
-  const reason = opened === 0 ? "Never opened" : `${Math.round((opened / Math.max(1, total)) * 100)}% opened`;
-  const name = companyName({ key: detailRowKey(top), senders: members });
-
-  const cell = document.createElement("div");
-  const btn = Object.assign(document.createElement("button"), { className: "btn", textContent: "Trash" });
-  const byProvider = new Map<ProviderId, string[]>();
-  for (const s of members)
-    byProvider.set(s.provider, [...(byProvider.get(s.provider) ?? []), ...idsSafeToMoveOut(s)]);
-  const ids = [...byProvider.values()].flat();
-  btn.disabled = ids.length === 0;
-  const reset = () => cell.replaceChildren(btn);
-  btn.onclick = () => {
-    const kept = total - ids.length;
-    renderConfirmStep(
-      cell,
-      reset,
-      `Move ${ids.length} email${ids.length === 1 ? "" : "s"} from ${name} (${members.length} addresses) to Trash?${kept > 0 ? ` ${kept} protected stay.` : ""}`,
-      true,
-      async () => {
-        const { message, undoableGmailIds } = await executeSmartDelete(byProvider);
-        appendUndoButton(cell, undoableGmailIds);
-        await logAction(
-          "trash",
-          `Moved ${ids.length} from ${name} to Trash`,
-          undoableGmailIds.length > 0
-            ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" }
-            : undefined,
-        );
-        void refreshView();
-        return message;
-      },
-    );
-  };
-  reset();
-
-  const menu = rowMenu([
-    { label: "Show emails", run: () => details?.open({ view: "emails", senderKey: top.key }) },
-  ]);
-  return listRow({
-    lead: makeLogoTile(top, "sz-34"),
-    title: name,
-    sub: `${members.length} addresses · ${reason}`,
-    meta: volumeMeta(total, biggest),
-    actions: [cell, menu],
-    href: () => details?.open({ view: "emails", senderKey: top.key }),
-  });
 }
 
 /** "Always do this": a rule that trashes this sender's new mail from now on. */
@@ -1936,23 +1673,6 @@ function wireDetails() {
   for (const btn of Array.from(document.querySelectorAll<HTMLButtonElement>("[data-details]"))) {
     btn.onclick = () => (details!.isOpen() ? details!.close() : details!.open());
   }
-}
-
-function refreshSenderCheckboxes() {
-  senderGroupsEl.querySelectorAll<HTMLInputElement>("input[data-sender-key]").forEach((cb) => {
-    cb.checked = selectedSenderKeys.has(cb.dataset.senderKey!);
-  });
-}
-
-function updateSenderBulkBar() {
-  // No row draws a checkbox any more, so "Select safe" would pick senders the
-  // user can't see. shortcut: the bar and its bulk handlers stay in the code
-  // hidden; delete them when Clean up gets its own row selection (backlog 5.4).
-  senderBulkBar.hidden = true;
-  senderSelectedCountEl.textContent = `${selectedSenderKeys.size} selected`;
-  bulkUnsubscribeBtn.disabled = selectedSenderKeys.size === 0;
-  bulkKeepSortedBtn.disabled = selectedSenderKeys.size === 0;
-  bulkSnoozeBtn.disabled = selectedSenderKeys.size === 0;
 }
 
 // ── All senders screen ──────────────────────────────────────────────────
@@ -2438,141 +2158,6 @@ function buildSnoozeCell(sender: SenderSummary): HTMLDivElement {
   return cell;
 }
 
-// ── Domain-group table ───────────────────────────────────────────────────
-function renderDomainGroups(senders: SenderSummary[]) {
-  const groups = buildDomainGroups(senders, buildProtectionContext(ctx.settings)).filter(
-    (g) => g.totalCount > 0,
-  );
-  currentDomainGroups = groups;
-  pruneSelection(
-    selectedDomainKeys,
-    groups.map((g) => g.key),
-  );
-
-  // One flat table, most mail first: no category folds inside "More".
-  const headers = ["", "Domain", `Count (${ctx.settings.scanWindowDays}d)`, "Protected", "Action"];
-  domainGroupListEl.innerHTML = "";
-  const table = document.createElement("table");
-  const caption = document.createElement("caption");
-  caption.className = "sr-only";
-  caption.textContent = `${groups.length} domains, ${groups.reduce((n, g) => n + g.totalCount, 0)} messages`;
-  const thead = document.createElement("thead");
-  thead.appendChild(headerRow(headers));
-  const tbody = document.createElement("tbody");
-  table.append(caption, thead, tbody);
-  const sorted = [...groups].sort((x, y) => y.totalCount - x.totalCount);
-  for (const group of sorted.slice(0, LIST_PREVIEW)) tbody.appendChild(buildDomainRow(group));
-  if (sorted.length > LIST_PREVIEW) {
-    const moreRow = document.createElement("tr");
-    const cell = document.createElement("td");
-    cell.colSpan = headers.length;
-    const more = document.createElement("button");
-    more.className = "btn-link";
-    more.textContent = `Show all ${sorted.length}`;
-    more.onclick = () => {
-      moreRow.remove();
-      for (const group of sorted.slice(LIST_PREVIEW)) tbody.appendChild(buildDomainRow(group));
-    };
-    cell.appendChild(more);
-    moreRow.appendChild(cell);
-    tbody.appendChild(moreRow);
-  }
-  domainGroupListEl.appendChild(table);
-
-  updateDomainBulkBar();
-}
-
-function buildDomainRow(group: DomainGroup): HTMLTableRowElement {
-  const row = document.createElement("tr");
-
-  const checkboxCell = document.createElement("td");
-  const checkbox = document.createElement("input");
-  checkbox.type = "checkbox";
-  checkbox.dataset.domainKey = group.key;
-  checkbox.setAttribute(
-    "aria-label",
-    `Select ${group.isFreeMailException ? (group.senders[0]?.address ?? group.domain) : group.domain}`,
-  );
-  checkbox.checked = selectedDomainKeys.has(group.key);
-  checkbox.onchange = () => {
-    if (checkbox.checked) selectedDomainKeys.add(group.key);
-    else selectedDomainKeys.delete(group.key);
-    updateDomainBulkBar();
-  };
-  checkboxCell.appendChild(checkbox);
-  row.appendChild(checkboxCell);
-
-  const domainCell = document.createElement("td");
-  domainCell.textContent = group.isFreeMailException
-    ? `${group.senders[0]?.address ?? group.domain} (individual sender)`
-    : group.domain;
-  row.appendChild(domainCell);
-
-  const countCell = document.createElement("td");
-  countCell.textContent = String(group.totalCount);
-  row.appendChild(countCell);
-
-  const protectedCell = document.createElement("td");
-  protectedCell.textContent = group.protectedCount > 0 ? `${group.protectedCount} protected` : "None";
-  row.appendChild(protectedCell);
-
-  row.appendChild(buildDeleteDomainCell(group));
-
-  return row;
-}
-
-function refreshDomainCheckboxes() {
-  domainGroupListEl.querySelectorAll<HTMLInputElement>("input[data-domain-key]").forEach((cb) => {
-    cb.checked = selectedDomainKeys.has(cb.dataset.domainKey!);
-  });
-}
-
-function updateDomainBulkBar() {
-  domainBulkBar.hidden = currentDomainGroups.length === 0;
-  domainSelectedCountEl.textContent = `${selectedDomainKeys.size} selected`;
-  bulkDeleteDomainsBtn.disabled = selectedDomainKeys.size === 0;
-}
-
-// Always trash-only, even when fast permanent delete is on — see the note
-// above executeSmartDelete for why that's scoped to the bulk flows only.
-function buildDeleteDomainCell(group: DomainGroup): HTMLTableCellElement {
-  const cell = document.createElement("td");
-  const deletable = totalDeletableAcrossGroups([group]);
-
-  const btn = document.createElement("button");
-  btn.className = "danger";
-  btn.textContent = "Delete domain";
-  btn.disabled = deletable === 0;
-
-  const resetCell = () => {
-    cell.innerHTML = "";
-    cell.appendChild(btn);
-  };
-
-  btn.onclick = () => {
-    const summaryText =
-      group.protectedCount > 0
-        ? `Move ${deletable} to Trash, skip ${group.protectedCount} protected?`
-        : `Move ${deletable} to Trash?`;
-
-    renderConfirmStep(cell, resetCell, summaryText, true, async () => {
-      const merged = mergeDeletableIdsByProvider([group]);
-      await executeBulkDeleteDomains(merged, providerById);
-      const gmailIds = merged.get("gmail") ?? [];
-      appendUndoButton(cell, gmailIds);
-      await logAction(
-        "trash",
-        `Moved ${deletable} from ${group.domain} to Trash`,
-        gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "untrash" } : undefined,
-      );
-      return `Moved ${deletable} to Trash ✓`;
-    });
-  };
-
-  cell.appendChild(btn);
-  return cell;
-}
-
 // ── Ready-to-clean-up (retention expiry) section ────────────────────────
 function renderExpirySection(senders: SenderSummary[]) {
   currentExpiryBuckets = buildExpiryBuckets(senders, buildProtectionContext(ctx.settings));
@@ -2642,146 +2227,13 @@ function resetNeverReadSlots() {
 
 function renderNeverReadSection(senders: SenderSummary[]) {
   engagementSuggestions = unopenedSuggestions(currentSuggestions(senders));
-  neverReadSectionEl.hidden = engagementSuggestions.length === 0;
   neverReadTrashSlot.hidden = engagementSuggestions.length === 0;
   if (engagementSuggestions.length === 0) return;
-
-  const totalMsgs = engagementSuggestions.reduce((count, item) => count + item.safeMessageIds.length, 0);
-  neverReadCountEl.textContent = `${engagementSuggestions.length} suggestion${engagementSuggestions.length === 1 ? "" : "s"}, ${totalMsgs} message${totalMsgs === 1 ? "" : "s"}`;
-
-  neverReadListEl.innerHTML = "";
-  const table = document.createElement("table");
-  const thead = document.createElement("thead");
-  thead.appendChild(headerRow(["Sender", "Why", "Suggested", "Feedback"]));
-  table.appendChild(thead);
-  const tbody = document.createElement("tbody");
-  // Ask about at most three rows, the ones the kind model is least sure of.
-  // Mailing lists are never receipts, so they're never asked about.
-  const ask = new Set(
-    sendersToAsk(
-      kindModel(),
-      engagementSuggestions.filter((s) => !s.profile.listId).map((s) => s.sender),
-    ).map((s) => s.key),
-  );
-  for (const suggestion of engagementSuggestions) {
-    const { sender } = suggestion;
-    const row = document.createElement("tr");
-    const nameCell = document.createElement("td");
-    nameCell.textContent = sender.displayName ? `${sender.displayName} <${sender.address}>` : sender.address;
-    const reasonCell = document.createElement("td");
-    reasonCell.textContent = suggestion.reasons.join(" ");
-    const actionCell = document.createElement("td");
-    actionCell.textContent = SUGGESTION_ACTION_LABELS[suggestion.action];
-    const feedbackCell = document.createElement("td");
-    const dismissBtn = document.createElement("button");
-    dismissBtn.textContent = "Not useful";
-    dismissBtn.title = "Hide this suggestion for 30 days";
-    dismissBtn.onclick = async () => {
-      dismissBtn.disabled = true;
-      await saveEngagementFeedback([sender.key], "dismiss");
-      renderNeverReadSection(ctx.senders);
-    };
-    if (ask.has(sender.key)) {
-      const keepBtn = document.createElement("button");
-      keepBtn.textContent = "Receipts? Keep them";
-      keepBtn.title = "Keep this sender's mail and learn what your receipts look like";
-      const noBtn = document.createElement("button");
-      noBtn.textContent = "No";
-      noBtn.title = "Not receipts";
-      const reply = (value: "yes" | "no") => async () => {
-        keepBtn.disabled = noBtn.disabled = true;
-        await answerKind(sender, value).catch((err) => log.error("Could not save your answer", err));
-        renderDeleteScreen(ctx.senders);
-        renderNeverReadSection(ctx.senders);
-      };
-      keepBtn.onclick = reply("yes");
-      noBtn.onclick = reply("no");
-      feedbackCell.append(keepBtn, noBtn);
-    }
-    feedbackCell.appendChild(dismissBtn);
-    row.append(nameCell, reasonCell, actionCell, feedbackCell);
-    tbody.appendChild(row);
-  }
-  table.appendChild(tbody);
-  neverReadListEl.appendChild(table);
 
   resetNeverReadSlots();
   neverReadTrashBtn.disabled = !engagementSuggestions.some(
     ({ sender, safeMessageIds }) => sender.provider === "gmail" && safeMessageIds.length > 0,
   );
-}
-
-// ── "Suggested spam" (Clean up tab) ─────────────────────────────────────
-let spamSuggestions: SpamSuggestion[] = [];
-
-function resetSpamSlot() {
-  spamTrashSlot.innerHTML = "";
-  spamTrashSlot.appendChild(spamTrashBtn);
-}
-
-function spamCheckboxes(): HTMLInputElement[] {
-  return Array.from(spamListEl.querySelectorAll<HTMLInputElement>("input[type=checkbox][data-key]"));
-}
-
-function updateSpamCount() {
-  const selectedKeys = new Set(
-    spamCheckboxes()
-      .filter((c) => c.checked)
-      .map((c) => c.dataset.key),
-  );
-  const chosen = spamSuggestions.filter((s) => selectedKeys.has(s.sender.key));
-  const msgs = chosen.reduce((n, s) => n + s.messageCount, 0);
-  spamCountEl.textContent = `${chosen.length} of ${spamSuggestions.length} sender${
-    spamSuggestions.length === 1 ? "" : "s"
-  } selected · ${msgs} message${msgs === 1 ? "" : "s"}`;
-  spamTrashBtn.disabled = chosen.length === 0;
-  const boxes = spamCheckboxes();
-  spamSelectAllEl.checked = boxes.length > 0 && boxes.every((b) => b.checked);
-}
-
-function renderSpamSection(senders: SenderSummary[]) {
-  const sizeEl = document.getElementById("spam-list-size");
-  if (sizeEl) sizeEl.textContent = `Matched against ${spamListSize().toLocaleString()} known domains.`;
-  spamSuggestions = suggestSpamSenders(senders, undefined, buildProtectionContext(ctx.settings));
-  spamSectionEl.hidden = spamSuggestions.length === 0;
-  resetSpamSlot();
-  if (spamSuggestions.length === 0) return;
-
-  spamListEl.innerHTML = "";
-  const table = document.createElement("table");
-  const tbody = document.createElement("tbody");
-  for (const sug of spamSuggestions) {
-    const row = document.createElement("tr");
-
-    const pickCell = document.createElement("td");
-    const box = document.createElement("input");
-    box.type = "checkbox";
-    // Delete-adjacent -- requires an explicit look before it's trashed,
-    // rather than everything pre-selected for a one-click confirm.
-    box.checked = false;
-    box.dataset.key = sug.sender.key;
-    box.setAttribute("aria-label", `Select ${sug.sender.displayName || sug.sender.address}`);
-    box.onchange = updateSpamCount;
-    pickCell.appendChild(box);
-
-    const nameCell = document.createElement("td");
-    nameCell.textContent = sug.sender.displayName
-      ? `${sug.sender.displayName} <${sug.sender.address}>`
-      : sug.sender.address;
-
-    const countCell = document.createElement("td");
-    countCell.textContent = `${sug.messageCount} message${sug.messageCount === 1 ? "" : "s"}`;
-
-    const reasonCell = document.createElement("td");
-    reasonCell.className = "hint";
-    reasonCell.textContent = `${reasonLabel(sug.reason)} · ${sug.sender.provider}`;
-
-    row.append(pickCell, nameCell, countCell, reasonCell);
-    tbody.appendChild(row);
-  }
-  table.appendChild(tbody);
-  spamListEl.appendChild(table);
-  updateSpamCount();
 }
 
 // ── Organize: one-time action cards beside the time-limit presets ──────
@@ -2956,175 +2408,8 @@ function replyReminderCard(): HTMLElement {
   return card;
 }
 
-function resetKeepNewestSlot() {
-  keepNewestSlot.innerHTML = "";
-  keepNewestSlot.appendChild(keepNewestBtn);
-}
-
-function wireKeepNewest() {
-  keepNewestBtn.onclick = () => {
-    const n = Math.max(1, Number(keepNewestNInput.value) || 3);
-    const merged = keepNewestExcess(ctx.senders, n, buildProtectionContext(ctx.settings));
-    const gmailIds = merged.get("gmail") ?? [];
-    const total = [...merged.values()].reduce((a, b) => a + b.length, 0);
-    if (total === 0) {
-      renderConfirmStep(
-        keepNewestSlot,
-        resetKeepNewestSlot,
-        `Nothing to trim. No sender has more than ${n}.`,
-        false,
-        async () => "",
-      );
-      return;
-    }
-    renderConfirmStep(
-      keepNewestSlot,
-      resetKeepNewestSlot,
-      `Move ${total} older message${total === 1 ? "" : "s"} to Trash, keeping the newest ${n} per sender?`,
-      true,
-      async () => {
-        const { safe } = await filterOutProtected(merged, providerById);
-        for (const [pid, ids] of safe) {
-          const provider = providerById.get(pid);
-          if (!provider || ids.length === 0) continue;
-          const token = await provider.getAuthToken(false);
-          await provider.trashMessages(token, ids);
-        }
-        await logAction(
-          "trash",
-          `Trimmed to the newest ${n} per sender: ${total} message${total === 1 ? "" : "s"}`,
-          gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "untrash" } : undefined,
-        );
-        await scanAndRender();
-        return `Trimmed ${total}`;
-      },
-    );
-  };
-}
-
 // ── Bulk action bars ─────────────────────────────────────────────────────
 function wireBulkHandlers() {
-  selectSafeSendersBtn.onclick = () => {
-    const safe = safeSenderKeys(ctx.senders);
-    selectedSenderKeys.clear();
-    for (const key of safe) selectedSenderKeys.add(key);
-    refreshSenderCheckboxes();
-    updateSenderBulkBar();
-  };
-
-  selectSafeDomainsBtn.onclick = () => {
-    const safe = safeDomainGroupKeys(currentDomainGroups);
-    selectedDomainKeys.clear();
-    for (const key of safe) selectedDomainKeys.add(key);
-    refreshDomainCheckboxes();
-    updateDomainBulkBar();
-  };
-
-  const resetUnsubscribeBulkSlot = () => {
-    unsubscribeBulkSlot.innerHTML = "";
-    unsubscribeBulkSlot.appendChild(bulkUnsubscribeBtn);
-  };
-
-  bulkUnsubscribeBtn.onclick = () => {
-    const selected = ctx.senders.filter((s) => selectedSenderKeys.has(s.key));
-    const { automatable, manual } = partitionForUnsubscribe(selected);
-    const byEmail = manual.filter((s) => s.unsubscribe.mailto);
-    const summaryText = `${automatable.length} will be unsubscribed with one click. ${byEmail.length} need an email you check first. ${manual.length - byEmail.length} need a manual look.`;
-
-    renderConfirmStep(unsubscribeBulkSlot, resetUnsubscribeBulkSlot, summaryText, false, async (summary) => {
-      if (byEmail.length > 0) void openUnsubscribeSheet(byEmail, () => renderDeleteScreen(ctx.senders));
-      if (automatable.length === 0)
-        return `Nothing to send with one click. ${manual.length - byEmail.length} need a manual look`;
-      summary.textContent = "Requesting permission…";
-      const granted = await ensureOriginsPermission(automatable.map((s) => s.unsubscribe.postUrl!));
-      if (!granted) return "Permission denied, so nothing was unsubscribed";
-      summary.textContent = "Unsubscribing…";
-      const { succeeded, failed } = await executeBulkUnsubscribe(automatable, fireOneClickUnsubscribe);
-      await recordUnsubscribeRequests(succeeded);
-      if (succeeded.length > 0)
-        await logAction("unsubscribe", `Bulk unsubscribed from ${succeeded.length} senders`);
-      renderDeleteScreen(ctx.senders);
-      renderOrganizeScreen(ctx.senders);
-      return `Unsubscribed ${succeeded.length}, failed ${failed.length}, skipped ${manual.length - byEmail.length} (no verified link)`;
-    });
-  };
-
-  const resetKeepSortedBulkSlot = () => {
-    keepSortedBulkSlot.innerHTML = "";
-    keepSortedBulkSlot.appendChild(bulkKeepSortedBtn);
-  };
-
-  bulkKeepSortedBtn.onclick = () => {
-    const selected = ctx.senders.filter((s) => selectedSenderKeys.has(s.key));
-    const { eligible, unsupported } = partitionForKeepSorted(selected, providerById);
-    const skipped =
-      unsupported.length > 0 ? ` (${unsupported.length} skipped: not supported for this provider)` : "";
-    const summaryText = `From now on, new mail from ${eligible.length} sender${eligible.length === 1 ? "" : "s"} will skip your inbox and go to a label named after each sender${skipped}.`;
-
-    renderConfirmStep(keepSortedBulkSlot, resetKeepSortedBulkSlot, summaryText, false, async () => {
-      const { succeeded, failed } = await executeBulkKeepSorted(eligible, providerById);
-      if (succeeded > 0)
-        await logAction("keepSorted", `Kept ${succeeded} sender${succeeded === 1 ? "" : "s"} sorted`);
-      return `Sorted ${succeeded}, failed ${failed}, skipped ${unsupported.length}`;
-    });
-  };
-
-  const resetSnoozeBulkSlot = () => {
-    snoozeBulkSlot.innerHTML = "";
-    snoozeBulkSlot.appendChild(bulkSnoozeBtn);
-  };
-
-  bulkSnoozeBtn.onclick = () => {
-    const selected = ctx.senders.filter((s) => selectedSenderKeys.has(s.key));
-    const { eligible, unsupported } = partitionForSnooze(selected, providerById);
-    const days = Number(snoozeDurationSelect.value);
-    const resurfaceAt = Date.now() + days * 24 * 60 * 60 * 1000;
-    const summaryText = `${eligible.length} will be snoozed for ${snoozeDurationSelect.options[snoozeDurationSelect.selectedIndex].textContent}, ${unsupported.length} skipped because they're not supported for this provider`;
-
-    renderConfirmStep(snoozeBulkSlot, resetSnoozeBulkSlot, summaryText, false, async () => {
-      const { succeeded, failed } = await executeBulkSnooze(eligible, providerById);
-      for (const s of succeeded) await recordSnoozedMessages(s.messageIds, s.provider, resurfaceAt);
-      if (succeeded.length > 0) {
-        await logAction(
-          "snooze",
-          `Snoozed ${succeeded.length} sender${succeeded.length === 1 ? "" : "s"} until ${new Date(resurfaceAt).toLocaleDateString()}`,
-        );
-      }
-      const message = `Snoozed ${succeeded.length}, failed ${failed.length}, skipped ${unsupported.length}`;
-      await scanAndRender();
-      return message;
-    });
-  };
-
-  const resetDeleteDomainsBulkSlot = () => {
-    deleteDomainsBulkSlot.innerHTML = "";
-    deleteDomainsBulkSlot.appendChild(bulkDeleteDomainsBtn);
-  };
-
-  bulkDeleteDomainsBtn.onclick = () => {
-    const selected = currentDomainGroups.filter((g) => selectedDomainKeys.has(g.key));
-    const merged = mergeDeletableIdsByProvider(selected);
-    const deletable = totalDeletableAcrossGroups(selected);
-    const protectedTotal = selected.reduce((sum, g) => sum + g.protectedCount, 0);
-    const summaryText =
-      protectedTotal > 0
-        ? `Move ${deletable} to Trash across ${selected.length} domains, skip ${protectedTotal} protected?`
-        : `Move ${deletable} to Trash across ${selected.length} domains?`;
-
-    renderConfirmStep(deleteDomainsBulkSlot, resetDeleteDomainsBulkSlot, summaryText, true, async () => {
-      const { message, undoableGmailIds } = await executeSmartDelete(merged);
-      appendUndoButton(deleteDomainsBulkSlot, undoableGmailIds);
-      await logAction(
-        "trash",
-        `Cleared ${deletable} across ${selected.length} domain${selected.length === 1 ? "" : "s"}`,
-        undoableGmailIds.length > 0
-          ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" }
-          : undefined,
-      );
-      return message;
-    });
-  };
-
   expiryCleanupBtn.onclick = () => {
     const merged = mergeExpiryBuckets(currentExpiryBuckets);
     const total = totalExpiryCount(currentExpiryBuckets);
@@ -3182,48 +2467,6 @@ function wireBulkHandlers() {
   };
 
   // ── "Suggested spam": select-all + trash selected ──
-  spamSelectAllEl.onchange = () => {
-    for (const box of spamCheckboxes()) box.checked = spamSelectAllEl.checked;
-    updateSpamCount();
-  };
-
-  spamTrashBtn.onclick = () => {
-    const selectedKeys = new Set(
-      spamCheckboxes()
-        .filter((c) => c.checked)
-        .map((c) => c.dataset.key),
-    );
-    const chosen = spamSuggestions.filter((s) => selectedKeys.has(s.sender.key));
-    if (chosen.length === 0) return;
-
-    const idsByProvider = new Map<ProviderId, string[]>();
-    for (const { sender } of chosen) {
-      const list = idsByProvider.get(sender.provider) ?? [];
-      list.push(...sender.messageIds);
-      idsByProvider.set(sender.provider, list);
-    }
-    const total = [...idsByProvider.values()].reduce((n, ids) => n + ids.length, 0);
-    const gmailIds = idsByProvider.get("gmail") ?? [];
-
-    renderConfirmStep(
-      spamTrashSlot,
-      resetSpamSlot,
-      `Move ${total} message${total === 1 ? "" : "s"} from ${chosen.length} suggested-spam sender${
-        chosen.length === 1 ? "" : "s"
-      } to Trash?`,
-      true,
-      async () => {
-        await executeBulkDeleteDomains(idsByProvider, providerById);
-        await logAction(
-          "trash",
-          `Trashed ${total} from ${chosen.length} suggested-spam sender${chosen.length === 1 ? "" : "s"}`,
-          gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "untrash" } : undefined,
-        );
-        await scanAndRender();
-        return `Moved ${total} to Trash`;
-      },
-    );
-  };
 }
 
 main().catch((err) => {

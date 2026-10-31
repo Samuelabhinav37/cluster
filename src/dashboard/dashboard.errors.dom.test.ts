@@ -76,7 +76,6 @@ describe("offline handling", () => {
     window.dispatchEvent(new Event("offline"));
     expect(dash.el("status").hidden).toBe(false);
     expect(dash.status()).toContain("You're offline");
-    expect((dash.el("bulk-delete-domains-btn") as HTMLButtonElement).disabled).toBe(true);
     expect((dash.el("expiry-cleanup-btn") as HTMLButtonElement).disabled).toBe(true);
     expect((dash.el("apply-scan-settings-btn") as HTMLButtonElement).disabled).toBe(true);
 

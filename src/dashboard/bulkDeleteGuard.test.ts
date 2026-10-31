@@ -94,6 +94,6 @@ describe("every dashboard trash call site is protection-guarded", () => {
         n + TRASH_CALL_PATTERNS.reduce((m, p) => m + [...source.matchAll(p)].length, 0),
       0,
     );
-    expect(total).toBeGreaterThanOrEqual(4);
+    expect(total).toBeGreaterThanOrEqual(3);
   });
 });
