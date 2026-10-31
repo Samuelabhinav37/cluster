@@ -1,5 +1,6 @@
-// Ask Kai: a box that understands what you type and takes you there, like
+// The search at the top: it understands what you type and takes you there, like
 // Windows search (approved mockup research/2026-10-27-home-cleanup-mockup.html).
+// Results come grouped: suggestions, Companies, People, Emails, then Gmail.
 // Nothing runs from here directly: every hit opens a place, Details, or a
 // place's own confirm step, so protection checks and Undo stay where they are.
 // shortcut: keyword intents only; Chrome's on-device Prompt API could read free
@@ -13,6 +14,8 @@ export interface AskHit {
   sub: string;
   verb: string;
   run: () => void;
+  /** Set on a plain sender hit, which the Companies and People groups already show. */
+  plainSender?: boolean;
 }
 
 export interface AskActions {
@@ -22,6 +25,8 @@ export interface AskActions {
 
 export interface AskFacts {
   senders: readonly DetailSender[];
+  /** Keys of the senders that are people, not companies. */
+  people?: ReadonlySet<string>;
   kinds: Record<HomeKind, number>;
   scams: number;
   waiting: number;
@@ -37,10 +42,10 @@ const KIND_WORDS: Record<HomeKind, RegExp> = {
 const PLACES: ReadonlyArray<[screen: string, label: string]> = [
   ["overview", "Home"],
   ["delete", "Clean up"],
-  ["subscriptions", "Stop mail"],
+  ["subscriptions", "Lists you can leave"],
   ["organize", "Organize"],
   ["impersonation", "Protect"],
-  ["senders", "Senders"],
+  ["senders", "Contacts"],
   ["recent", "Activity"],
   ["settings", "Settings"],
 ];
@@ -77,6 +82,7 @@ export function askIntents(raw: string, f: AskFacts, act: AskActions): AskHit[] 
       sub: `${plural(sender.emails, "email")}, ${sender.opened === 0 ? "none" : sender.opened} opened`,
       verb: "Show",
       run: () => act.details({ view: "emails", senderKey: sender.key, week }),
+      plainSender: week === null,
     });
   for (const k of HOME_KINDS) {
     if (!has(KIND_WORDS[k.key])) continue;
@@ -98,7 +104,7 @@ export function askIntents(raw: string, f: AskFacts, act: AskActions): AskHit[] 
   if (has(/new sender|stranger|unknown|screen|first time|let in|allow/))
     add(91, { title: `${plural(f.waiting, "new sender")} waiting`, sub: "Protect", verb: "Review", run: () => act.go("screener") });
   if (has(/unsub|stop|no more|newsletter/))
-    add(sender ? 60 : 89, { title: "Stop mail", sub: "Unsubscribe from lists", verb: "Open", run: () => act.go("subscriptions") });
+    add(sender ? 60 : 89, { title: "Lists you can leave", sub: "Unsubscribe", verb: "Open", run: () => act.go("subscriptions") });
   if (week !== null && out.length === 0)
     add(88, { title: `Everything from ${week === 7 ? "this" : "last"} week`, sub: "Open in Details", verb: "Show", run: () => act.details({ view: "emails", week }) });
   for (const [screen, label] of PLACES) {
@@ -108,7 +114,51 @@ export function askIntents(raw: string, f: AskFacts, act: AskActions): AskHit[] 
   return out.sort((a, b) => b.score - a.score).slice(0, 6);
 }
 
-/** The box itself: opened by the sidebar's Ask Kai, "/" or Ctrl+K. */
+export interface AskGroup {
+  heading: string;
+  hits: AskHit[];
+}
+
+/** Gmail's own search, for mail older than what Cluster has read. */
+export function gmailSearchUrl(q: string): string {
+  return `https://mail.google.com/mail/u/0/#search/${encodeURIComponent(q)}`;
+}
+
+/** Everything the top search shows for `raw`, in groups, best first. */
+export function searchGroups(raw: string, f: AskFacts, act: AskActions, openUrl: (url: string) => void): AskGroup[] {
+  const q = raw.toLowerCase().trim();
+  if (!q) return [];
+  const words = q.split(/\s+/).filter(Boolean);
+  const matches = (s: DetailSender) => {
+    const hay = `${s.name} ${s.address}`.toLowerCase();
+    return words.every((w) => hay.includes(w));
+  };
+  const senderHit = (s: DetailSender): AskHit => ({
+    title: s.name,
+    sub: plural(s.emails, "email"),
+    verb: "Show",
+    run: () => act.details({ view: "emails", senderKey: s.key }),
+  });
+  const found = f.senders.filter(matches);
+  const people = found.filter((s) => f.people?.has(s.key));
+  const companies = found.filter((s) => !f.people?.has(s.key));
+  const groups: AskGroup[] = [
+    { heading: "Suggestions", hits: askIntents(raw, f, act).filter((h) => !h.plainSender) },
+    { heading: "Companies", hits: companies.slice(0, 3).map(senderHit) },
+    { heading: "People", hits: people.slice(0, 3).map(senderHit) },
+    {
+      heading: "Emails",
+      hits: [{ title: `Emails with “${raw.trim()}”`, sub: "Show in Details", verb: "Show", run: () => act.details({ view: "emails", q: raw.trim() }) }],
+    },
+    {
+      heading: "Gmail",
+      hits: [{ title: "Search all of Gmail", sub: "Older mail too", verb: "Open", run: () => openUrl(gmailSearchUrl(raw.trim())) }],
+    },
+  ];
+  return groups.filter((g) => g.hits.length > 0);
+}
+
+/** The box itself: opened by the top search bar or "/". */
 export interface AskQuestion {
   label: string;
   run: () => void;
@@ -120,6 +170,7 @@ export function initAskKai(
   facts: () => AskFacts,
   act: AskActions,
   questions: () => AskQuestion[] = () => [],
+  openUrl: (url: string) => void = (url) => void window.open(url, "_blank", "noopener"),
 ): { open(): void; close(): void } {
   const backdrop = document.createElement("div");
   backdrop.className = "ask";
@@ -127,12 +178,12 @@ export function initAskKai(
   const box = document.createElement("div");
   box.className = "ask-box";
   box.setAttribute("role", "dialog");
-  box.setAttribute("aria-label", "Ask Kai");
+  box.setAttribute("aria-label", "Search");
   const input = document.createElement("input");
   input.className = "ask-input";
-  input.placeholder = "Ask Kai or say what to do";
+  input.placeholder = "Search senders, emails or what to do";
   input.autocomplete = "off";
-  input.setAttribute("aria-label", "Ask Kai");
+  input.setAttribute("aria-label", "Search");
   const results = document.createElement("div");
   results.className = "ask-results";
   results.setAttribute("role", "listbox");
@@ -161,7 +212,8 @@ export function initAskKai(
   }
 
   function render() {
-    hits = askIntents(input.value, facts(), act);
+    const groups = searchGroups(input.value, facts(), act, openUrl);
+    hits = groups.flatMap((g) => g.hits);
     sel = Math.min(sel, Math.max(0, hits.length - 1));
     const q = input.value.trim().toLowerCase();
     const asks = questions()
@@ -187,16 +239,17 @@ export function initAskKai(
       results.replaceChildren(...askBlock);
       return;
     }
-    if (hits.length === 0) {
-      results.replaceChildren(heading("Kai didn't get that. Try a sender's name or “old codes”."));
-      return;
-    }
+    let i = 0;
     results.replaceChildren(
-      ...hits.flatMap((h, i) => {
-        const r = row(h.title, h.sub, i === sel, () => runHit(i));
-        r.append(Object.assign(document.createElement("em"), { textContent: h.verb }));
-        return i === 0 ? [heading("Best match"), r] : i === 1 ? [heading("More"), r] : [r];
-      }),
+      ...groups.flatMap((g) => [
+        heading(g.heading),
+        ...g.hits.map((h) => {
+          const at = i++;
+          const r = row(h.title, h.sub, at === sel, () => runHit(at));
+          r.append(Object.assign(document.createElement("em"), { textContent: h.verb }));
+          return r;
+        }),
+      ]),
       ...askBlock,
     );
   }
@@ -240,7 +293,7 @@ export function initAskKai(
     }
     const active = document.activeElement as HTMLElement | null;
     const typing = active && (active.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName));
-    if ((e.key === "/" && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) || (e.key === "k" && (e.ctrlKey || e.metaKey))) {
+    if (e.key === "/" && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault();
       open();
     }

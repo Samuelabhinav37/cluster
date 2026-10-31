@@ -264,15 +264,9 @@ export function initDetailsPanel(
   const tab = button("details-tab", "Details", () => panel.open());
   head.append(tabs, spacer, wideBtn, closeBtn);
 
-  const search = h("input", "details-search");
-  search.type = "search";
-  search.placeholder = "Search";
-  search.setAttribute("aria-label", "Search details");
-  search.oninput = () => {
-    st.q = search.value;
-    limit = PAGE;
-    render();
-  };
+  // What the panel shows now, e.g. "Groupon · 14 emails". Search lives in the top bar.
+  const title = h("div", "details-title");
+  title.setAttribute("aria-live", "polite");
   const chips = h("div", "chips");
   const chart = h("div", "details-chart");
   const wrap = h("div", "sheet-wrap");
@@ -280,7 +274,7 @@ export function initDetailsPanel(
   wrap.append(table);
   const bar = h("div", "selbar");
   bar.hidden = true;
-  root.append(tab, head, search, chips, chart, wrap, bar);
+  root.append(tab, head, title, chips, chart, wrap, bar);
   root.hidden = false;
   root.classList.add("min");
 
@@ -347,6 +341,7 @@ export function initDetailsPanel(
 
   function renderChips() {
     const on: Array<[string, Partial<State>]> = [];
+    if (st.q) on.push([`“${st.q}”`, { q: "" }]);
     if (st.kind) on.push([kindLabel(st.kind), { kind: null }]);
     if (st.senderKey)
       on.push([senders.find((s) => s.key === st.senderKey)?.name ?? "Sender", { senderKey: null }]);
@@ -523,6 +518,13 @@ export function initDetailsPanel(
       from.append(senderTile(m.address, m.name, "sz-26"), who);
       const subj = h("td", "subj", m.subject || "(no subject)");
       subj.title = m.subject;
+      if (m.provider === "gmail") {
+        const open = Object.assign(h("a", "gm-open"), { href: gmailMessageUrl(m.id), target: "_blank", rel: "noopener" });
+        open.setAttribute("aria-label", "Open in Gmail");
+        open.title = "Open in Gmail";
+        open.onclick = (e) => e.stopPropagation();
+        subj.append(open);
+      }
       tr.append(c, from, subj);
       if (wide)
         tr.append(
@@ -698,8 +700,17 @@ export function initDetailsPanel(
     bar.replaceChildren(label, clear, h("span", "spacer"), ...acts);
   }
 
+  function renderTitle() {
+    const n = st.view === "emails" ? baseMessages().filter(inWeek).length : senderRows().length;
+    const who = st.senderKey ? senders.find((s) => s.key === st.senderKey)?.name : undefined;
+    const what = who ?? (st.q ? `“${st.q}”` : st.kind ? kindLabel(st.kind) : st.never ? "Never opened" : "All mail");
+    const unit = st.view === "emails" ? (n === 1 ? "email" : "emails") : n === 1 ? "sender" : "senders";
+    title.textContent = `${what} · ${n.toLocaleString()} ${unit}`;
+  }
+
   function render(fromScan = false) {
     root.dataset.view = st.view;
+    renderTitle();
     renderTabs();
     renderChips();
     if (st.view === "emails") {
@@ -726,7 +737,6 @@ export function initDetailsPanel(
       selected = new Set();
       expanded = null;
       limit = PAGE;
-      search.value = st.q;
       root.classList.remove("min");
       document.body.classList.add("details-open");
       remember("open");
@@ -763,6 +773,12 @@ export function initDetailsPanel(
 }
 
 /** Which providers' mail is in a selection, for the confirm text. */
+/** A message in Gmail's web view; Gmail's API ids work in its URLs.
+ * shortcut: always account u/0, the first signed-in Google account; pass authuser if a second account is supported. */
+export function gmailMessageUrl(id: string): string {
+  return `https://mail.google.com/mail/u/0/#all/${encodeURIComponent(id)}`;
+}
+
 export function idsByProvider(messages: readonly DetailMessage[]): Map<ProviderId, string[]> {
   const out = new Map<ProviderId, string[]>();
   for (const m of messages) {

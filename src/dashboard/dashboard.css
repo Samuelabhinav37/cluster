@@ -3106,17 +3106,6 @@ body {
   border-right: 1px solid var(--hairline);
 }
 
-.panel-search {
-  margin: 14px 12px 4px;
-  min-height: 38px;
-  border-radius: 10px;
-}
-
-.panel-search input,
-.panel-search kbd {
-  font-family: var(--mono);
-  font-size: 13px;
-}
 
 .side-panel .sidebar {
   position: static;
@@ -3340,8 +3329,6 @@ body[data-state="connect"] .crumbs {
 .details .seg [aria-pressed="true"] { background: var(--glass-bar); color: var(--label); font-weight: 600; box-shadow: var(--shadow-card); }
 .details .icon-btn { width: 30px; height: 30px; border: 0; border-radius: 8px; background: none; color: var(--label-4); }
 .details .icon-btn:hover, .chip:hover { background: var(--neutral-fill-hover); color: var(--label); }
-.details-search { margin: 0 12px 8px; padding: 7px 10px; border: 1px solid var(--control-border); border-radius: 8px; background: none;
-  color: var(--label); font: inherit; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 8px; }
 .chip { padding: 3px 10px; border: 1px solid var(--separator); border-radius: 980px; background: none; color: var(--label-2); font: inherit; font-size: 12px; }
 .chip.on { border-color: transparent; background: var(--accent-fill); color: var(--accent-fill-text); font-weight: 600; }
@@ -3450,7 +3437,6 @@ section.screen { max-width: 1120px; margin: 0 auto; padding: 32px 48px 180px; }
 .tool .i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; }
 /* Details as dense as the mockup's sheet. */
 .details { background: var(--glass); font-size: 13px; }
-.details-search { padding: 6px 10px; font-size: 13px; }
 .chip { padding: 3px 10px; font-size: 12px; }
 table.sheet { font-size: 12px; }
 .sheet th { padding: 7px 10px; font-size: 12px; text-transform: none; letter-spacing: 0; }
@@ -3468,7 +3454,6 @@ table.sheet { font-size: 12px; }
 /* The base button/input/checkbox rules size for touch; the sheet is a dense table. */
 .details button { min-height: 0; }
 .details .icon-btn { padding: 0; }
-.details input.details-search { padding: 6px 10px 6px 30px; border-color: transparent; background: var(--neutral-fill) no-repeat 10px 50% / 14px url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%238e8e93%27 stroke-width=%272%27 stroke-linecap=%27round%27%3E%3Ccircle cx=%2711%27 cy=%2711%27 r=%278%27/%3E%3Cpath d=%27m21 21-4.3-4.3%27/%3E%3C/svg%3E"); }
 .details-chart .track { width: 80%; }
 .details .sheet input.tick { width: 14px; height: 14px; min-width: 0; min-height: 0; margin: 0; }
 /* Clean up's list: name, a wide volume bar, then actions (mockup). */
@@ -3629,8 +3614,7 @@ button.ios-row .tile-chev { margin-left: 10px; color: var(--label-4); }
   .side-panel { width: 60px; }
   .panel-brand, .side-panel .account-pill { font-size: 0; justify-content: center; gap: 0; }
   .panel-brand { padding-inline: 0; }
-  .panel-search { justify-content: center; margin-inline: 8px; padding: 0; }
-  .panel-search span, .panel-search kbd, .side-panel .email, .nav-count { display: none; }
+  .side-panel .email, .nav-count { display: none; }
   .side-panel .sidebar { padding-inline: 8px; }
   .sidebar :is(.nav-item, .nav-item.nav-child) { justify-content: center; gap: 0; padding: 8px 0; font-size: 0; }
   .side-panel .account-wrap { padding-inline: 8px; }
@@ -3926,3 +3910,15 @@ body[data-screen="overview"] #ask-kai-open > svg { display: block; }
   color: var(--label-2);
   font-size: 13px;
 }
+
+.details-title { margin: 0 14px 8px; font-weight: 600; font-size: 13px; color: var(--label); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.details.min .details-title { display: none; }
+.sheet .subj .gm-open::after { content: "↗"; }
+.sheet .subj .gm-open { margin-left: 6px; color: var(--label-4); text-decoration: none; opacity: 0; }
+.sheet tr:hover .gm-open, .sheet .gm-open:focus-visible { opacity: 1; }
+.sheet .gm-open:hover { color: var(--accent-text); }
+
+/* One search, centered at the top of the main column (like Moat). */
+.top-bar { display: flex; justify-content: center; padding: 14px 40px 0; }
+.top-bar .top-search { width: min(560px, 100%); min-height: 38px; border-radius: 10px; }
+body[data-state="connect"] .top-bar { display: none; }

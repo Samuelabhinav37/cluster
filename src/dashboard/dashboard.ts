@@ -495,8 +495,6 @@ async function main() {
     firstOn: CLUSTER_FIRST_ON,
     currentScreen: () =>
       document.querySelector<HTMLElement>("#sidebar .nav-item.active")?.dataset.screen ?? "overview",
-    // One Kai: no corner figure; the chat opens beside Ask Kai, which carries the nudges.
-    dock: document.getElementById("ask-kai-open")!,
   });
   statusEl.textContent = "Connecting…";
   // Domain matching needs the Public Suffix List and the brand registry (local files, quick to load).
@@ -530,13 +528,6 @@ async function main() {
     document.getElementById("ask-kai-open")!,
     () => askFacts,
     { details: (filter) => details?.open(filter), go: goAndAct },
-    () => {
-      const screen = document.querySelector<HTMLElement>("#sidebar .nav-item.active")?.dataset.screen ?? "overview";
-      const first = CLUSTER_FIRST_ON[screen] ?? [];
-      return [...CLUSTER_QUESTIONS]
-        .sort((a, b) => (first.indexOf(a.id) + 1 || 99) - (first.indexOf(b.id) + 1 || 99))
-        .map((q) => ({ label: q.ask, run: () => kaiGuide?.ask(q.id) }));
-    },
   );
   wireAllSendersControls();
   autoQuarantineToggle.checked = ctx.settings.autoQuarantineHighRisk;
@@ -1084,8 +1075,12 @@ function updateNavCounts(
   setNavCount("subscriptions", byId.get("unsubscribe-capable") ?? 0, true);
   setNavCount("impersonation", byId.get("flagged-senders") ?? 0);
   setPhishingNavSeverity(securitySenders);
+  const people = new Set(
+    allSenders.filter((s) => isPerson(ctx.profiles.get(s.key))).map((s) => detailRowKey(s)),
+  );
   askFacts = {
     senders: detailSenders(allSenders, detailRowKey),
+    people,
     kinds: mailByKind(allSenders, Date.now()).kinds,
     scams: byId.get("flagged-senders") ?? 0,
     waiting: byId.get("screener-queue") ?? 0,
