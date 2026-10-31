@@ -1205,8 +1205,7 @@ function updateNavCounts(
   renderProtectTiles(byId.get("flagged-senders") ?? 0, byId.get("screener-queue") ?? 0, held);
 }
 
-// Protect's head line, shared by its three screens, and the rows on Protect
-// that open the other two.
+// Protect's head line, shared by its three screens.
 let protectTileArgs: [scams: number, waiting: number, held: number] = [0, 0, 0];
 function renderProtectTiles(scams: number, waiting: number, held: number) {
   protectTileArgs = [scams, waiting, held];
@@ -1218,44 +1217,6 @@ function renderProtectTiles(scams: number, waiting: number, held: number) {
         : "All clear.";
   for (const el of Array.from(document.querySelectorAll<HTMLElement>("[data-protect-sub]")))
     el.textContent = sub;
-  const host = document.querySelector<HTMLElement>("[data-protect-links]");
-  if (!host) return;
-  // Nothing can be held while holding is off, so no count there.
-  const heldText = held === 0 && !ctx.settings.autoQuarantineHighRisk ? "Off" : `${held.toLocaleString()} held`;
-  const rows: Array<[screen: string, label: string, value: string]> = [
-    ["screener", "New senders", `${waiting.toLocaleString()} waiting`],
-    ["report", "Scam report", heldText],
-  ];
-  host.replaceChildren(
-    ...rows.map(([screen, label, value]) => {
-      const row = document.createElement("button");
-      row.type = "button";
-      row.className = "ios-row";
-      row.onclick = () => void selectScreen(screen);
-      const icon = document.querySelector(`#sidebar button[data-screen="${screen}"] svg`)?.cloneNode(true) as
-        | SVGElement
-        | undefined;
-      const ic = document.createElement("span");
-      ic.className = "app-ic app-gray";
-      if (icon) {
-        icon.setAttribute("class", "i");
-        ic.append(icon);
-      }
-      const name = document.createElement("span");
-      name.className = "grow";
-      name.textContent = label;
-      const meta = document.createElement("span");
-      meta.className = "ios-value";
-      meta.textContent = value;
-      const chev = document.createElement("span");
-      chev.className = "tile-chev";
-      chev.setAttribute("aria-hidden", "true");
-      chev.textContent = "›";
-      meta.append(chev);
-      row.append(ic, name, meta);
-      return row;
-    }),
-  );
 }
 
 // Quiet by default (no badge at zero, per the phishing-UX research this
