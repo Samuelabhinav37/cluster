@@ -340,6 +340,24 @@ describe("auto-quarantine (opt-in)", () => {
     expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"], false);
   });
 
+  it("the 5-minute alarm holds a high-risk sender from the mail index", async () => {
+    const spy = await labelSuspiciousSpy();
+    spy.mockClear();
+    const { gmailProvider } = await import("./lib/providers/gmailProvider");
+    const saved = { ...SETTINGS };
+    Object.assign(SETTINGS, { autoQuarantineHighRisk: true, quarantineReview: {}, quarantinedSenders: {} });
+    refreshIndexForBackground.mockResolvedValue([gmailProvider]);
+    readIndexedSenders.mockResolvedValueOnce({ cleanup: [], security: [highRiskSender("stranger@gmail.com")] });
+    try {
+      alarmListener!({ name: "cluster-inbox-limits" });
+      await vi.waitFor(() => expect(spy).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"], false), { timeout: 2000 });
+    } finally {
+      refreshIndexForBackground.mockResolvedValue([]);
+      for (const k of Object.keys(SETTINGS)) delete (SETTINGS as Record<string, unknown>)[k];
+      Object.assign(SETTINGS, saved);
+    }
+  });
+
   it("also sends held mail to Spam when that rule is on", async () => {
     await triageWith(highRiskSender("stranger@gmail.com"), [], { securityRules: { toSpam: true, holdAuthFails: false } });
     expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"], true);

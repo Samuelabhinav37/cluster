@@ -119,6 +119,7 @@ function handleAlarm(alarm: chrome.alarms.Alarm): void {
   if (alarm.name === DATASET_ALARM) void refreshPublicDatasets();
   if (alarm.name === INBOX_LIMITS_ALARM) {
     void runInboxTimeLimitsIfQuota()
+      .then(() => holdScamsFromIndex().catch((err) => log.error("Scam hold failed", err)))
       .then(() => runUnsubscribedSweep().catch((err) => log.error("Unsubscribed sweep failed", err)))
       .then(() => deliverNewsletters().catch((err) => log.error("Newsletter delivery failed", err)));
   }
@@ -328,6 +329,32 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
   if (totalQuarantined > 0 && settings.notifyScamHeld)
     void notify("cluster-held", `Cluster held ${totalQuarantined} likely scam${totalQuarantined === 1 ? "" : "s"}.`);
   return totalQuarantined;
+}
+
+/**
+ * Scam holds every 5 minutes instead of waiting for the 6-hour triage. Reads
+ * only the mail index (its change feed was just refreshed by the time-limits
+ * run), so it costs no message reads; providers without an index wait for
+ * triage, which also persists first-contact state.
+ */
+async function holdScamsFromIndex(): Promise<void> {
+  const settings = await getSettings();
+  if (!settings.autoQuarantineHighRisk && !settings.securityRules.holdAuthFails) return;
+  const candidates = [gmailProvider, outlookProvider];
+  const flags = await Promise.all(candidates.map((p) => p.isConnected()));
+  const connected = candidates.filter((_, i) => flags[i]);
+  if (connected.length === 0) return;
+  const indexed = await refreshIndexForBackground(connected, settings.scanWindowDays);
+  if (indexed.length === 0) return;
+  const { security } = await readIndexedSenders(indexed, {
+    scanWindowDays: settings.scanWindowDays,
+    securityWindowDays: Math.min(settings.scanWindowDays, SECURITY_SCAN_WINDOW_DAYS),
+    securityMax: SECURITY_SCAN_MAX_MESSAGES,
+  });
+  markFirstContact(security, settings.knownSenders, Date.now(), settings.knownSendersInitialized);
+  markNameMatches(security, knownSenderSet(settings));
+  await applySenderLedger(security);
+  await runQuarantine(settings, security);
 }
 
 async function sendWeeklySummary() {
