@@ -27,6 +27,7 @@ export const LIMIT_CHOICES: { label: string; hours: number | null }[] = [
   { label: "Skip the inbox", hours: 0 },
   { label: "Move after 10 minutes", hours: 1 / 6 },
   { label: "Move after 1 hour", hours: 1 },
+  { label: "Move after 3 hours", hours: 3 },
   { label: "Move after 1 day", hours: 24 },
   { label: "Move after 2 days", hours: 48 },
   { label: "Move after 3 days", hours: 72 },
@@ -34,6 +35,14 @@ export const LIMIT_CHOICES: { label: string; hours: number | null }[] = [
   { label: "Move after 2 weeks", hours: 336 },
   { label: "Move after 30 days", hours: 720 },
 ];
+
+/** "Keep in inbox": one menu that sets every label's time at once. */
+const WINDOW_CHOICES = [
+  { label: "1 hour", value: "1" },
+  { label: "3 hours", value: "3" },
+  { label: "1 day", value: "24" },
+];
+const PER_LABEL = "per";
 
 /** Off: no label, no Gmail filter, never moved. */
 const OFF = "off";
@@ -199,6 +208,7 @@ export function renderTimeLimits(): void {
   group.append(...rows);
   wrap.append(Object.assign(document.createElement("h2"), { className: "ios-head", textContent: "Labels" }), group);
   rowsEl.replaceChildren(wrap);
+  renderWindow();
   renderKindSubs();
   void refreshGmailCounts();
   // One status line: a save in progress or just done, else the last check.
@@ -219,6 +229,51 @@ export async function turnOnTimeLimits(): Promise<boolean> {
     if (select?.value === OFF) select.value = choiceValue(ctx.settings.autoSort.inboxHoursByBucket[bucket] ?? null);
   }
   return queueSave();
+}
+
+/** Menus the window sets: every label that is on (all of them when none
+ * is), except Promotions while it skips the inbox. */
+function windowTargets(): HTMLSelectElement[] {
+  const menus = ALL_SORT_BUCKETS.map(selectFor).filter(
+    (m): m is HTMLSelectElement => m !== null && !(m.id === "time-limit-promotions" && m.value === "0"),
+  );
+  const on = menus.filter((m) => m.value !== OFF);
+  return on.length > 0 ? on : menus;
+}
+
+/** The window shows the shared time when every label it sets agrees. */
+export function windowValue(values: string[]): string {
+  const unique = new Set(values);
+  const only = unique.size === 1 ? [...unique][0] : "";
+  return WINDOW_CHOICES.some((c) => c.value === only) ? only : PER_LABEL;
+}
+
+function renderWindow(): void {
+  let select = document.getElementById("time-limits-window") as HTMLSelectElement | null;
+  if (!select && rowsEl) {
+    select = document.createElement("select");
+    select.id = "time-limits-window";
+    select.className = "kind-pick";
+    select.setAttribute("aria-label", "Keep in inbox");
+    for (const c of WINDOW_CHOICES) select.add(new Option(c.label, c.value));
+    select.add(new Option("Per label", PER_LABEL));
+    select.onchange = () => {
+      if (select!.value === PER_LABEL) return;
+      for (const menu of windowTargets()) menu.value = select!.value;
+      void queueSave();
+    };
+    const row = document.createElement("div");
+    row.className = "ios-row org-row";
+    row.append(Object.assign(document.createElement("span"), { className: "grow", textContent: "Keep in inbox" }), select);
+    const group = Object.assign(document.createElement("div"), { className: "ios-group" });
+    group.append(row);
+    const wrap = Object.assign(document.createElement("section"), { className: "ios-section" });
+    wrap.append(group);
+    rowsEl.before(wrap);
+  }
+  if (!select) return;
+  const on = windowTargets().filter((m) => m.value !== OFF);
+  select.value = windowValue(on.map((m) => m.value));
 }
 
 function limitsFromMenus(): Record<string, number | null> {

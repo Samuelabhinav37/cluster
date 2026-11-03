@@ -82,6 +82,25 @@ describe("Where each kind of mail goes", () => {
     expect(otp?.[2].removeLabelIds).toEqual([]);
   });
 
+  it("Keep in inbox sets every label's time at once, Promotions' skip stays", async () => {
+    const dash = await bootDashboard();
+    await openOrganize(dash);
+    expect((dash.el("time-limits-window") as HTMLSelectElement).value).toBe("per");
+    pick("time-limit-promotions", "0");
+    await vi.waitFor(() => expect(dash.storedSettings().autoSort.inboxHoursByBucket.promotions).toBe(0));
+    pick("time-limits-window", "3");
+    await vi.waitFor(() => expect(dash.storedSettings().autoSort.labelsOff).toEqual([]));
+    const hours = dash.storedSettings().autoSort.inboxHoursByBucket;
+    expect(hours.productivity).toBe(3);
+    expect(hours.receipt).toBe(3);
+    expect(hours.promotions).toBe(0);
+    expect((dash.el("time-limits-window") as HTMLSelectElement).value).toBe("3");
+
+    pick("time-limit-receipt", "24");
+    await vi.waitFor(() => expect(dash.storedSettings().autoSort.inboxHoursByBucket.receipt).toBe(24));
+    expect((dash.el("time-limits-window") as HTMLSelectElement).value).toBe("per");
+  });
+
   it("Sort my inbox counts what moves now from the menus", async () => {
     const dash = await bootDashboard();
     await openOrganize(dash);
