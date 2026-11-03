@@ -82,6 +82,10 @@ export const DEFAULT_INBOX_HOURS: Record<SortBucket, number | null> = {
 
 export const ALL_SORT_BUCKETS: SortBucket[] = Object.keys(SORT_BUCKET_LABELS) as SortBucket[];
 
+/** Kinds that may skip the inbox on arrival ("Skip the inbox", 0 hours):
+ * missing one costs nothing, and the Gmail filter works on phones too. */
+export const SKIP_INBOX_BUCKETS: readonly SortBucket[] = ["promotions", "newsletter"];
+
 const KIND_BUCKET: Partial<Record<MessageKind, SortBucket>> = {
   otp: "otp",
   receipt: "receipt",

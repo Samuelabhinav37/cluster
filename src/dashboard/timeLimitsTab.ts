@@ -14,7 +14,7 @@ import { getSettings, updateSettings } from "../lib/settingsStore";
 import { domainOf } from "../lib/domainGrouping";
 import { deliverNewsletters, HOLD_HOURS, newsletterDayOn } from "../lib/newsletterDay";
 import type { SenderSummary } from "../lib/senderModel";
-import { ALL_SORT_BUCKETS, effectiveBucket, type SortBucket } from "../lib/sortTaxonomy";
+import { ALL_SORT_BUCKETS, SKIP_INBOX_BUCKETS, effectiveBucket, type SortBucket } from "../lib/sortTaxonomy";
 import { icon } from "./homeDashboard";
 import { ctx } from "./state";
 
@@ -47,10 +47,10 @@ const PER_LABEL = "per";
 /** Off: no label, no Gmail filter, never moved. */
 const OFF = "off";
 
-/** "Skip the inbox" means never seeing it, so it's offered only for
- * Promotions, where missing one ad costs nothing. */
+/** "Skip the inbox" means never seeing it, so it's offered only where
+ * missing one costs nothing (SKIP_INBOX_BUCKETS). */
 export function limitChoicesFor(bucket: SortBucket) {
-  return bucket === "promotions" ? LIMIT_CHOICES : LIMIT_CHOICES.filter((c) => c.hours !== 0);
+  return SKIP_INBOX_BUCKETS.includes(bucket) ? LIMIT_CHOICES : LIMIT_CHOICES.filter((c) => c.hours !== 0);
 }
 
 /** What each kind of mail is, shown on hover over its name. */
@@ -232,10 +232,10 @@ export async function turnOnTimeLimits(): Promise<boolean> {
 }
 
 /** Menus the window sets: every label that is on (all of them when none
- * is), except Promotions while it skips the inbox. */
+ * is), except those set to skip the inbox. */
 function windowTargets(): HTMLSelectElement[] {
   const menus = ALL_SORT_BUCKETS.map(selectFor).filter(
-    (m): m is HTMLSelectElement => m !== null && !(m.id === "time-limit-promotions" && m.value === "0"),
+    (m): m is HTMLSelectElement => m !== null && m.value !== "0",
   );
   const on = menus.filter((m) => m.value !== OFF);
   return on.length > 0 ? on : menus;

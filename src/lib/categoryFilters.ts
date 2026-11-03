@@ -10,7 +10,7 @@
 import { categoryQuery } from "./categoryQueries";
 import type { GmailFilterAction, GmailFilterCriteria, GmailFilterResource } from "./gmailApi";
 import type { ClusterSettings } from "./settingsStore";
-import { ALL_SORT_BUCKETS, DEFAULT_FILE_OUT_OF_INBOX, bucketLabelName, type SortBucket } from "./sortTaxonomy";
+import { ALL_SORT_BUCKETS, DEFAULT_FILE_OUT_OF_INBOX, SKIP_INBOX_BUCKETS, bucketLabelName, type SortBucket } from "./sortTaxonomy";
 import { createFilter, deleteFilter, getOrCreateLabel, listFilters } from "./gmailApi";
 
 export interface CategoryFilterSpec {
@@ -42,8 +42,7 @@ export function filteredCategories(settings: ClusterSettings): SortBucket[] {
  * plain "keep sorting" keeps its per-category file-out choice. */
 function fileOutOnArrival(settings: ClusterSettings, bucket: SortBucket): boolean {
   const { autoSort } = settings;
-  // Only Promotions may skip the inbox on arrival (see timeLimitsTab).
-  if (autoSort.timeLimitsEnabled) return bucket === "promotions" && autoSort.inboxHoursByBucket[bucket] === 0;
+  if (autoSort.timeLimitsEnabled) return SKIP_INBOX_BUCKETS.includes(bucket) && autoSort.inboxHoursByBucket[bucket] === 0;
   return autoSort.fileOutByBucket[bucket] ?? DEFAULT_FILE_OUT_OF_INBOX[bucket];
 }
 
