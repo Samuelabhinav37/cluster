@@ -23,6 +23,7 @@ import {
   bucketMatchTerms,
   isServerSortBucket,
 } from "../lib/serverSort";
+import { domainOf } from "../lib/domainGrouping";
 import { listLabelNames } from "../lib/gmailApi";
 import {
   createInboxRule,
@@ -229,11 +230,15 @@ async function startSortFlow() {
   rebuildSortPreview();
 }
 
-async function changeSortOverride(address: string, value: "" | SortOverride) {
+/** Saves a correction for this address, or for its whole domain ("@host"),
+ * clearing the other so only one of them speaks for this sender. */
+async function changeSortOverride(address: string, value: "" | SortOverride, wholeDomain = false) {
   const key = address.toLowerCase();
+  const domainKey = `@${domainOf(key)}`;
   const next = { ...ctx.settings.sortOverrides };
-  if (value === "") delete next[key];
-  else next[key] = value;
+  delete next[key];
+  delete next[domainKey];
+  if (value !== "") next[wholeDomain ? domainKey : key] = value;
   ctx.settings = await updateSettings({ sortOverrides: next });
   rebuildSortPreview();
 }
@@ -291,11 +296,22 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
         if (b !== entry.bucket) select.add(new Option(`move to ${SORT_BUCKET_LABELS[b]}`, b));
       }
       select.add(new Option("never sort this sender", "never"));
-      select.value = ctx.settings.sortOverrides[address.toLowerCase()] ?? "";
-      select.onchange = () => void changeSortOverride(address, select.value as "" | SortOverride);
-      // A <select> inside a <summary> would also toggle the <details>; don't.
+      const overrides = ctx.settings.sortOverrides;
+      const domainKey = `@${domainOf(address.toLowerCase())}`;
+      select.value = overrides[address.toLowerCase()] ?? overrides[domainKey] ?? "";
+      // "All @host": the correction covers every sender at this domain.
+      const wide = document.createElement("input");
+      wide.type = "checkbox";
+      wide.checked = !(address.toLowerCase() in overrides) && domainKey in overrides;
+      const wideLabel = document.createElement("label");
+      wideLabel.append(wide, ` All ${domainKey}`);
+      const save = () => void changeSortOverride(address, select.value as "" | SortOverride, wide.checked);
+      select.onchange = save;
+      wide.onchange = save;
+      // A control inside a <summary> would also toggle the <details>; don't.
       select.onclick = (e) => e.stopPropagation();
-      sSummary.appendChild(select);
+      wideLabel.onclick = (e) => e.stopPropagation();
+      sSummary.append(select, wideLabel);
       senderEl.appendChild(sSummary);
 
       for (const m of msgs) {

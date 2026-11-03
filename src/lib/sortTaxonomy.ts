@@ -134,7 +134,8 @@ export function effectiveBucket(
   overrides: Record<string, SortOverride>,
   promotion = false,
 ): SortBucket | null {
-  const override = overrides[senderAddress.toLowerCase()];
+  // A correction for this address wins over one for its whole domain ("@host").
+  const override = overrides[senderAddress.toLowerCase()] ?? overrides[`@${senderDomain.toLowerCase()}`];
   if (override === "never") return null;
   if (override) return override;
   return classifySortBucket(kind, senderDomain, promotion);

@@ -53,6 +53,13 @@ describe("effectiveBucket", () => {
     expect(effectiveBucket("other", "nowhere.example", "hi@nowhere.example", {})).toBeNull();
   });
 
+  it("a whole-domain correction covers every sender there; an address one wins", () => {
+    const overrides = { "@flipkart.com": "finance", "deals@flipkart.com": "promotions" } as const;
+    expect(effectiveBucket("other", "flipkart.com", "noreply@flipkart.com", overrides)).toBe("finance");
+    expect(effectiveBucket("other", "flipkart.com", "deals@flipkart.com", overrides)).toBe("promotions");
+    expect(effectiveBucket("other", "mail.flipkart.com", "x@mail.flipkart.com", overrides)).toBe("shopping");
+  });
+
   it("a 'never' override drops the sender", () => {
     expect(effectiveBucket("shipping", "amazon.com", "orders@amazon.com", { "orders@amazon.com": "never" })).toBeNull();
   });
