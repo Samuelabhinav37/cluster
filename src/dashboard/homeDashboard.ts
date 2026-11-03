@@ -5,6 +5,8 @@
 
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 import { clearedCount, type ActionLogEntry } from "../lib/actionLog";
+import type { TodayItem } from "../lib/today";
+import { gmailMessageUrl } from "./detailsPanel";
 import { infoButton } from "./ui";
 
 export type HomeKind = "primary" | "trans" | "updates" | "promo";
@@ -88,6 +90,8 @@ export interface HomeFacts {
   people?: number;
   /** Gmail's inbox unread count, once it has answered. */
   inboxUnread?: number;
+  /** Today's few emails that matter (lib/today.ts pickToday). */
+  today?: TodayItem[];
   /** Unread on each of the last seven days, oldest first; null where not recorded. */
   unreadByDay?: (number | null)[];
   /** Unread a week ago, when recorded. */
@@ -473,6 +477,44 @@ function homeTiles(f: HomeFacts, go: Go, openKind?: (kind: HomeKind) => void): H
   return row;
 }
 
+/** Today: one row per email that matters, linking to it in Gmail. The
+ * preview line is filled in later by fillTodaySnippets. */
+function todayList(items: readonly TodayItem[]): HTMLElement {
+  const wrap = el("section", "home-today");
+  wrap.append(el("h2", "section-label", "Today"));
+  if (items.length === 0) {
+    wrap.append(el("p", "hint", "Nothing needs you today."));
+    return wrap;
+  }
+  const group = el("div", "ios-group");
+  for (const t of items) {
+    const row = t.provider === "gmail" ? el("a", "ios-row today-row") : el("div", "ios-row today-row");
+    if (row instanceof HTMLAnchorElement) {
+      row.href = gmailMessageUrl(t.id);
+      row.target = "_blank";
+      row.rel = "noopener";
+    }
+    const words = el("span", "today-words");
+    const snippet = el("small", "today-snippet");
+    snippet.dataset.snippetId = t.id;
+    words.append(el("b", "", t.name), el("span", "", t.subject), snippet);
+    const when = el("span", "ios-value", new Date(t.receivedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }));
+    row.append(words, when);
+    group.append(row);
+  }
+  wrap.append(group);
+  return wrap;
+}
+
+/** Puts Gmail's preview line under each Today row. Snippets arrive with
+ * HTML entities ("&#39;"); DOMParser decodes them without running anything. */
+export function fillTodaySnippets(root: ParentNode, snippets: ReadonlyMap<string, string>): void {
+  for (const node of Array.from(root.querySelectorAll<HTMLElement>("[data-snippet-id]"))) {
+    const raw = snippets.get(node.dataset.snippetId ?? "");
+    if (raw) node.textContent = new DOMParser().parseFromString(raw, "text/html").documentElement.textContent ?? "";
+  }
+}
+
 /** Home: Kai's verdict, what Cluster did this week, up to three next steps,
  * and the inbox by kind (approved mockup research/2026-10-29-home-mockup.html).
  * `openKind` opens those emails in Details. */
@@ -493,6 +535,8 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
   }
   if (f.reading) root.append(readHero(f.reading));
   else if (f.suspicious > 0) root.append(hero);
+
+  if (f.today) root.append(todayList(f.today));
 
   // 2. Three tiles: Inbox, Clean up, Security. Each opens its place.
   if (f.reading) root.append(el("h2", "section-label", "Found so far"), foundSoFar(f));

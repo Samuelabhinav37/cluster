@@ -17,7 +17,14 @@ By default, Cluster only ever looks at message **metadata**: who a message is fr
 line, when it arrived, its size, and whether it's read or starred. It never reads the body of
 your email — the part with the actual content — with the narrow exceptions below.
 
-## The exceptions: links in mail that looks like a scam
+## The exception for Today
+
+Home's Today list shows up to 10 emails from the last day that matter. For those only, Cluster
+asks Gmail for its one-line preview (the same "snippet" Gmail shows in your inbox list). The
+preview is shown on screen and held in memory while the dashboard is open. It's never saved and
+never sent anywhere.
+
+## The other exception: links in mail that looks like a scam
 
 When a sender is already flagged as a possible scam, Cluster reads the newest flagged message's
 full body to check its links. It checks two things. Does a link's visible text match where it

@@ -12,7 +12,8 @@ import { buildProtectionContext, idsSafeToMoveOut } from "../lib/protectionPolic
 import { clusterLabelName } from "../lib/clusterLabels";
 import { runReplyReminders } from "../lib/replyReminders";
 import { markRepliesToYou } from "../lib/correspondents";
-import { getLabel, getProfileEmail, GmailApiError } from "../lib/gmailApi";
+import { getLabel, getProfileEmail, getSnippets, GmailApiError } from "../lib/gmailApi";
+import { pickToday, type TodayItem } from "../lib/today";
 import { clearMetadataCache } from "../lib/metadataCache";
 import { MAIL_INDEX_CAP, openMailIndex } from "../lib/mailIndex";
 import {
@@ -107,6 +108,7 @@ import {
   clearedByDay,
   mailByKind,
   paintHomeRead,
+  fillTodaySnippets,
   renderHomeDashboard,
   type HomeAct,
   type HomeFacts,
@@ -1237,6 +1239,22 @@ async function refreshInboxUnread(): Promise<void> {
   }
 }
 
+// Today's preview lines, kept in memory only (never written to storage).
+const todaySnippets = new Map<string, string>();
+
+async function loadTodaySnippets(items: readonly TodayItem[]): Promise<void> {
+  const missing = items.filter((t) => t.provider === "gmail" && !todaySnippets.has(t.id)).map((t) => t.id);
+  try {
+    if (missing.length > 0) {
+      const token = await gmailProvider.getAuthToken(false);
+      for (const [id, text] of await getSnippets(token, missing)) todaySnippets.set(id, text);
+    }
+    fillTodaySnippets(overviewContentEl, todaySnippets);
+  } catch (err) {
+    log.error("Today: preview lines failed", err);
+  }
+}
+
 // ── Overview screen (v3) ────────────────────────────────────────────────
 // Home: the total, the kind bar and up to three next steps (homeDashboard.ts).
 function renderOverview(
@@ -1289,7 +1307,9 @@ function renderOverview(
   // Day one: the census has counted senders' mail before it is all read.
   const counted = allSenders.reduce((n, s) => n + senderVolume(s), 0);
   if (counted > facts.total) Object.assign(facts, { total: counted, since: undefined });
+  facts.today = pickToday(allSenders, knownSenderSet(ctx.settings), Date.now());
   overviewContentEl.appendChild(renderHomeDashboard(facts, goAndAct, (kind) => details?.open({ kind })));
+  void loadTodaySnippets(facts.today);
   lastOverview = [senders, securitySenders, allSenders];
   void refreshInboxUnread();
   const moved = movedTodayCard();

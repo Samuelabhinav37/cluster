@@ -198,6 +198,7 @@ export interface BootedDashboard {
     renameLabel: ReturnType<typeof vi.fn>;
     deleteLabel: ReturnType<typeof vi.fn>;
     listMessageIdsInLabel: ReturnType<typeof vi.fn>;
+    getSnippets: ReturnType<typeof vi.fn>;
     batchModify: ReturnType<typeof vi.fn>;
     findLabelIds: ReturnType<typeof vi.fn>;
     listMessageIds: ReturnType<typeof vi.fn>;
@@ -288,6 +289,7 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
     deleteLabel: vi.fn(async () => {}),
     listMessageIdsInLabel: vi.fn(async (_t: string, id: string) => opts.labelMessages?.[id] ?? []),
     batchModify: vi.fn(async () => {}),
+    getSnippets: vi.fn(async (_t: string, ids: string[]) => new Map(ids.map((id) => [id, `Preview of ${id} &amp; more`]))),
     listMessageIds: vi.fn(async (_t: string, query: string, _max?: number, labelIds: string[] = []) =>
       (opts.search?.(query, labelIds) ?? []).map((id) => ({ id, threadId: id })),
     ),

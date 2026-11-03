@@ -413,6 +413,19 @@ const METADATA_FIELDS = "id,threadId,labelIds,internalDate,sizeEstimate,payload/
 /** Extra headers read only when the user unsubscribes (see getUnsubscribeDetails). */
 export const UNSUBSCRIBE_DETAIL_HEADERS = ["Delivered-To", "X-Original-To"];
 
+/** Gmail's one-line preview for each id, for Home's Today list only. The
+ * caller keeps them in memory and never stores them (docs/privacy.md). */
+export async function getSnippets(token: string, ids: readonly string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  await Promise.all(
+    ids.map(async (id) => {
+      const data = await gmailFetch<{ snippet?: string }>(`/users/me/messages/${id}?format=minimal&fields=snippet`, token);
+      if (data.snippet) out.set(id, data.snippet);
+    }),
+  );
+  return out;
+}
+
 export async function getMessageMetadata(
   token: string,
   id: string,
