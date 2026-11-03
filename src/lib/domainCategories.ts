@@ -39,12 +39,15 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "expedia.com", "booking.com", "airbnb.com", "uber.com", "lyft.com", "delta.com",
     "united.com", "southwest.com", "aa.com", "marriott.com", "hilton.com", "kayak.com",
     "tripadvisor.com", "hotels.com", "priceline.com", "jetblue.com", "airbnb.co.uk",
+    "irctc.co.in", "makemytrip.com", "goibibo.com", "goindigo.in", "airindia.com",
   ],
   finance: [
     "paypal.com", "chase.com", "bankofamerica.com", "wellsfargo.com", "americanexpress.com",
     "capitalone.com", "venmo.com", "robinhood.com", "fidelity.com", "schwab.com",
     "coinbase.com", "stripe.com", "intuit.com", "turbotax.com", "discover.com",
     "citibank.com", "usbank.com", "ally.com", "sofi.com", "amazonpay.in", "paytm.com",
+    "hdfcbank.com", "hdfcbank.net", "icicibank.com", "sbi.co.in", "axisbank.com", "kotak.com",
+    "phonepe.com", "zerodha.com", "groww.in",
   ],
   social: [
     "facebook.com", "facebookmail.com", "instagram.com", "twitter.com", "x.com",

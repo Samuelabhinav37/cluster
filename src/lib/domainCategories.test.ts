@@ -5,6 +5,9 @@ describe("categorizeDomain", () => {
   it("maps an exact curated domain", () => {
     expect(categorizeDomain("amazon.com")).toBe("shopping");
     expect(categorizeDomain("chase.com")).toBe("finance");
+    expect(categorizeDomain("alerts.hdfcbank.net")).toBe("finance");
+    expect(categorizeDomain("sbi.co.in")).toBe("finance");
+    expect(categorizeDomain("irctc.co.in")).toBe("travel");
   });
 
   it("falls back to the registrable domain for a sending subdomain", () => {
