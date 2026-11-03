@@ -24,6 +24,10 @@ asks Gmail for its one-line preview (the same "snippet" Gmail shows in your inbo
 preview is shown on screen and held in memory while the dashboard is open. It's never saved and
 never sent anywhere.
 
+If you turn on "Today by email", Cluster puts one email with that list (senders, subjects and
+links, no previews) into your own inbox each morning. It's added straight to your mailbox, so it
+isn't sent to anyone, not even you.
+
 ## The other exception: links in mail that looks like a scam
 
 When a sender is already flagged as a possible scam, Cluster reads the newest flagged message's

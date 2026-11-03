@@ -63,3 +63,42 @@ export function pickToday(senders: readonly SenderSummary[], known: Set<string>,
   }
   return items.sort((a, b) => RANK[a.reason] - RANK[b.reason] || b.receivedAt - a.receivedAt).slice(0, max);
 }
+
+const REASON_WORD: Record<TodayReason, string> = {
+  starred: "Starred",
+  reply: "Reply",
+  person: "From a person",
+  alert: "Account",
+  delivery: "Delivery",
+};
+
+/** Once a day, from 7 in the morning local time. */
+export function todayEmailDue(s: { todayEmail: boolean; lastTodayEmail: number }, now: number): boolean {
+  if (!s.todayEmail || new Date(now).getHours() < 7) return false;
+  return new Date(s.lastTodayEmail).toDateString() !== new Date(now).toDateString();
+}
+
+function encodeHeader(text: string): string {
+  return /^[\x20-\x7e]*$/.test(text) ? text : `=?UTF-8?B?${btoa(String.fromCharCode(...new TextEncoder().encode(text)))}?=`;
+}
+
+/** The morning email as an RFC 2822 message, put into the user's own inbox
+ * (messages.insert): one line per email, each with its Gmail link. */
+export function todayEmailMessage(items: readonly TodayItem[], to: string, now: number): string {
+  const day = new Date(now).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  const lines = items.map(
+    (t) => `${REASON_WORD[t.reason]}: ${t.name}\n${t.subject}\nhttps://mail.google.com/mail/u/0/#all/${t.id}\n`,
+  );
+  const body = [`${items.length} email${items.length === 1 ? "" : "s"} need you today.`, "", ...lines].join("\n").replace(/\n/g, "\r\n");
+  return [
+    `From: Cluster <${to}>`,
+    `To: ${to}`,
+    `Subject: ${encodeHeader(`Today: ${day}`)}`,
+    `Date: ${new Date(now).toUTCString()}`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/plain; charset=UTF-8",
+    "Content-Transfer-Encoding: 8bit",
+    "",
+    body,
+  ].join("\r\n");
+}

@@ -24,7 +24,8 @@ const KB = 1024;
 // ~25% above the 2026-10-05 sizes.
 const BUDGETS = {
   // 2026-10-30: 340 -> 345 KB for the brand registry (shared with the dashboard).
-  "service worker JS": 345 * KB,
+  // 2026-11-03: 345 -> 350 KB for 5-minute scam holds and the Today email.
+  "service worker JS": 350 * KB,
   // 2026-10-16: 500 → 540 KB for the mail index, sender profiles,
   // suggestions v2 and the unsubscribe work that follows (~174 KB gzip at
   // the raise). Lazy-loading the tabs is the next lever if it grows again.

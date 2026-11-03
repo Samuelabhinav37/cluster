@@ -28,6 +28,8 @@ import { gmailQuotaHeadroom } from "./lib/gmailQuotaLedger";
 import { runInboxTimeLimits } from "./lib/inboxTimeLimitsRunner";
 import { loadMetadataCache, saveMetadataCache } from "./lib/metadataCache";
 import { applyIndexedCorrespondents, readIndexedSenders, refreshIndexForBackground } from "./lib/indexTriage";
+import { getProfileEmail, insertMessage } from "./lib/gmailApi";
+import { pickToday, todayEmailDue, todayEmailMessage } from "./lib/today";
 import { resumeInterruptedJobs } from "./lib/durableJobs";
 import { resumeUnsubscribeQueue } from "./lib/unsubscribeGmail";
 import { runUnsubscribedSweep } from "./lib/unsubscribedSweep";
@@ -120,6 +122,7 @@ function handleAlarm(alarm: chrome.alarms.Alarm): void {
   if (alarm.name === INBOX_LIMITS_ALARM) {
     void runInboxTimeLimitsIfQuota()
       .then(() => holdScamsFromIndex().catch((err) => log.error("Scam hold failed", err)))
+      .then(() => sendTodayEmail().catch((err) => log.error("Today email failed", err)))
       .then(() => runUnsubscribedSweep().catch((err) => log.error("Unsubscribed sweep failed", err)))
       .then(() => deliverNewsletters().catch((err) => log.error("Newsletter delivery failed", err)));
   }
@@ -355,6 +358,26 @@ async function holdScamsFromIndex(): Promise<void> {
   markNameMatches(security, knownSenderSet(settings));
   await applySenderLedger(security);
   await runQuarantine(settings, security);
+}
+
+/** The opt-in morning email: Home's Today list, put into the user's own
+ * inbox so it's there on their phone. Skipped on days with nothing in it. */
+async function sendTodayEmail(): Promise<void> {
+  const settings = await getSettings();
+  const now = Date.now();
+  if (!todayEmailDue(settings, now) || !(await gmailProvider.isConnected())) return;
+  const indexed = await refreshIndexForBackground([gmailProvider], settings.scanWindowDays);
+  if (indexed.length === 0) return;
+  const { cleanup } = await readIndexedSenders(indexed, {
+    scanWindowDays: settings.scanWindowDays,
+    securityWindowDays: Math.min(settings.scanWindowDays, SECURITY_SCAN_WINDOW_DAYS),
+    securityMax: SECURITY_SCAN_MAX_MESSAGES,
+  });
+  const items = pickToday(cleanup, knownSenderSet(settings), now);
+  await updateSettings({ lastTodayEmail: now });
+  if (items.length === 0) return;
+  const token = await gmailProvider.getAuthToken(false);
+  await insertMessage(token, todayEmailMessage(items, await getProfileEmail(token), now), ["INBOX", "UNREAD"]);
 }
 
 async function sendWeeklySummary() {

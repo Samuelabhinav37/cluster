@@ -111,6 +111,9 @@ export interface ClusterSettings {
   notifyWeekly: boolean;
   /** When the last weekly summary went out, so it goes once a week. */
   lastWeeklyNotice: number;
+  /** Put Home's Today list in the inbox as one email each morning (today.ts). */
+  todayEmail: boolean;
+  lastTodayEmail: number;
   /** Weekly counts of what auto-quarantine held, for the Scam report (scamHistory.ts). */
   scamHistory: ScamWeek[];
 
@@ -264,6 +267,8 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   notifyScamHeld: false,
   notifyWeekly: false,
   lastWeeklyNotice: 0,
+  todayEmail: false,
+  lastTodayEmail: 0,
   scamHistory: [],
   knownSenders: {},
   knownSendersInitialized: false,

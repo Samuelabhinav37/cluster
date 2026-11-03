@@ -367,6 +367,14 @@ export function wireSettingsMore(showScreen: (name: string) => void, act?: KeyAc
   wireSignOut();
   wireNotifySwitch("notify-scam-toggle", "notifyScamHeld");
   wireNotifySwitch("notify-weekly-toggle", "notifyWeekly");
+  // An email into the user's own inbox needs no Chrome permission.
+  const todayEmail = $<HTMLInputElement>("today-email-toggle");
+  if (todayEmail) {
+    todayEmail.checked = ctx.settings.todayEmail;
+    todayEmail.onchange = async () => {
+      ctx.settings = await updateSettings({ todayEmail: todayEmail.checked });
+    };
+  }
 
   const kai = $<HTMLInputElement>("show-kai-toggle");
   applyShowKai(ctx.settings.showKai);

@@ -36,6 +36,8 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
     notifyScamHeld: false,
     notifyWeekly: false,
     lastWeeklyNotice: 0,
+    todayEmail: false,
+    lastTodayEmail: 0,
     scamHistory: [],
     knownSenders: {},
     knownSendersInitialized: false,

@@ -426,6 +426,20 @@ export async function getSnippets(token: string, ids: readonly string[]): Promis
   return out;
 }
 
+/** Puts a message straight into the user's own mailbox (no sending, no
+ * filters). Used only for the opt-in Today email. */
+export async function insertMessage(token: string, raw: string, labelIds: string[]): Promise<void> {
+  const bytes = new TextEncoder().encode(raw);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  const encoded = btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  await gmailFetch("/users/me/messages", token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ raw: encoded, labelIds }),
+  });
+}
+
 export async function getMessageMetadata(
   token: string,
   id: string,

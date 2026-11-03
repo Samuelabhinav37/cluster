@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { MessageKind } from "./messageKind";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import type { ThreatSignal } from "./threatSignals";
-import { pickToday } from "./today";
+import { pickToday, todayEmailDue, todayEmailMessage } from "./today";
 
 const NOW = Date.UTC(2026, 10, 3, 12);
 const HOUR = 3600_000;
@@ -62,5 +62,26 @@ describe("pickToday", () => {
     ]);
     expect(pickToday([fake], new Set(), NOW).map((t) => t.id)).not.toContain("fake");
     expect(pickToday(senders, new Set(), NOW, 2)).toHaveLength(2);
+  });
+});
+
+describe("Today by email", () => {
+  const morning = new Date(2026, 10, 3, 8).getTime();
+  it("is due once a day from 7 in the morning, only when on", () => {
+    expect(todayEmailDue({ todayEmail: true, lastTodayEmail: 0 }, morning)).toBe(true);
+    expect(todayEmailDue({ todayEmail: false, lastTodayEmail: 0 }, morning)).toBe(false);
+    expect(todayEmailDue({ todayEmail: true, lastTodayEmail: morning - HOUR }, morning)).toBe(false);
+    expect(todayEmailDue({ todayEmail: true, lastTodayEmail: 0 }, new Date(2026, 10, 3, 6).getTime())).toBe(false);
+  });
+
+  it("builds a plain email to yourself with one Gmail link per item", () => {
+    const raw = todayEmailMessage(
+      [{ id: "abc", provider: "gmail", address: "mom@gmail.com", name: "Mom", subject: "Dinner?", receivedAt: morning, reason: "person" }],
+      "me@gmail.com",
+      morning,
+    );
+    expect(raw).toMatch(/^From: Cluster <me@gmail.com>\r\nTo: me@gmail.com\r\n/);
+    expect(raw).toContain("From a person: Mom\r\nDinner?\r\nhttps://mail.google.com/mail/u/0/#all/abc");
+    expect(raw).not.toMatch(/[^\r]\n/);
   });
 });
