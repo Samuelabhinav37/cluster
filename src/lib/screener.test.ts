@@ -58,6 +58,7 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
       inboxHoursByBucket: {},
       lastSweep: { at: 0, moved: 0 },
       keptInInboxIds: [],
+      tagBackBefore: 0,
     },
     sortOverrides: {},
     seededFromExisting: false,

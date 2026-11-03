@@ -4,6 +4,8 @@ import type { MessageRecord, SenderSummary } from "./senderModel";
 import {
   dueForMove,
   sweepExpiredInbox,
+  TAG_BACK_DONE,
+  tagOlderInbox,
   tagUntaggedInbox,
   type CategoryLimit,
   type InboxLimitsApi,
@@ -150,7 +152,7 @@ describe("tagUntaggedInbox", () => {
     const res = await tagUntaggedInbox(ctx({ known: new Set(["friend@mail.example"]) }), api);
     expect(api.batchModify).toHaveBeenCalledWith(["n1"], ["L:🔑 One-time codes"], []);
     expect(api.batchModify).toHaveBeenCalledWith(["s1"], ["L:🛍 Shopping"], []);
-    expect(res).toEqual({ tagged: 2, byBucket: { otp: 1, shopping: 1 } });
+    expect(res).toEqual({ tagged: 2, byBucket: { otp: 1, shopping: 1 }, oldestAt: NOW });
   });
 
   it("tags Gmail Promotions-tab mail with no other category as 🏷 Promotions", async () => {
@@ -160,5 +162,24 @@ describe("tagUntaggedInbox", () => {
     );
     await tagUntaggedInbox(ctx(), api);
     expect(api.batchModify).toHaveBeenCalledWith(["a1"], ["L:🏷 Promotions"], []);
+  });
+});
+
+describe("tagOlderInbox", () => {
+  const twoDaysAgo = Math.floor((NOW - 48 * 3600_000) / 1000);
+  it("starts two days back and walks back to the oldest mail it read", async () => {
+    const old = NOW - 10 * 24 * 3600_000;
+    const api = fakeApi(
+      { [`INBOX|before:${twoDaysAgo} has:nouserlabels`]: ["o1", "o2"] },
+      [sender("code@auth.example", [msg("o1", "otp", { receivedAt: old }), msg("o2", "otp", { receivedAt: old + 5000 })])],
+    );
+    const res = await tagOlderInbox(ctx(), api, 0);
+    expect(api.batchModify).toHaveBeenCalledWith(["o1", "o2"], ["L:🔑 One-time codes"], []);
+    expect(res).toEqual({ tagged: 2, nextBefore: old });
+  });
+
+  it("is done when nothing older is left", async () => {
+    const api = fakeApi({}, []);
+    expect(await tagOlderInbox(ctx(), api, NOW - 1000)).toEqual({ tagged: 0, nextBefore: TAG_BACK_DONE });
   });
 });

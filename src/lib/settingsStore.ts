@@ -171,6 +171,9 @@ export interface ClusterSettings {
     /** Messages past their limit that a sweep kept in the inbox (starred, a
      * known person, or risky), so later sweeps don't re-read them. Capped. */
     keptInInboxIds: string[];
+    /** Catch-up labelling of older inbox mail (inboxTimeLimits.tagOlderInbox):
+     * 0 = not started, -1 = done, else the next page ends at this time (ms). */
+    tagBackBefore: number;
   };
   /** Per-sender "wrong bucket?" corrections from the sort preview, keyed by
    * lowercased from-address → a bucket to force, or "never" to skip. Consulted
@@ -283,6 +286,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
     labelsOff: [],
     lastSweep: { at: 0, moved: 0 },
     keptInInboxIds: [],
+    tagBackBefore: 0,
   },
   sortOverrides: {},
   seededFromExisting: false,

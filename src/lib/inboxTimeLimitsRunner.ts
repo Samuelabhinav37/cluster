@@ -8,6 +8,8 @@ import { batchModify, colorClusterLabels, findLabelIds, getOrCreateLabel, listMe
 import {
   pinInInbox,
   sweepExpiredInbox,
+  TAG_BACK_DONE,
+  tagOlderInbox,
   tagUntaggedInbox,
   type CategoryLimit,
   type InboxLimitsApi,
@@ -80,6 +82,8 @@ export async function runInboxTimeLimits(now = Date.now()): Promise<TimeLimitRun
   };
 
   const tag = await tagUntaggedInbox(ctx, api);
+  // Then one page of older unlabelled inbox mail, until the whole inbox is seen.
+  const back = settings.autoSort.tagBackBefore === TAG_BACK_DONE ? null : await tagOlderInbox(ctx, api, settings.autoSort.tagBackBefore);
   const sweep = await sweepExpiredInbox(ctx, api);
   if (legacyCache) void saveMetadataCache(legacyCache);
 
@@ -88,6 +92,7 @@ export async function runInboxTimeLimits(now = Date.now()): Promise<TimeLimitRun
     autoSort: {
       ...current.autoSort,
       lastSweep: { at: now, moved: sweep.movedIds.length },
+      tagBackBefore: back ? back.nextBefore : current.autoSort.tagBackBefore,
       keptInInboxIds: pinInInbox(current.autoSort.keptInInboxIds, sweep.keptIds),
     },
   }));
@@ -105,5 +110,5 @@ export async function runInboxTimeLimits(now = Date.now()): Promise<TimeLimitRun
       },
     ]);
   }
-  return { tagged: tag.tagged, moved: sweep.movedIds.length, more: sweep.more };
+  return { tagged: tag.tagged + (back?.tagged ?? 0), moved: sweep.movedIds.length, more: sweep.more };
 }

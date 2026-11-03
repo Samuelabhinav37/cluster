@@ -75,14 +75,22 @@ export function pinInInbox(keptIds: string[], ids: string[]): string[] {
 export interface TagResult {
   tagged: number;
   byBucket: Partial<Record<SortBucket, number>>;
+  /** Oldest message read, or null when there was nothing to read. */
+  oldestAt: number | null;
 }
 
-export async function tagUntaggedInbox(ctx: LimitContext, api: InboxLimitsApi): Promise<TagResult> {
-  const ids = await api.listIds(["INBOX"], `${TAG_WINDOW} has:nouserlabels`, TAG_MAX);
-  if (ids.length === 0) return { tagged: 0, byBucket: {} };
+export async function tagUntaggedInbox(
+  ctx: LimitContext,
+  api: InboxLimitsApi,
+  query = `${TAG_WINDOW} has:nouserlabels`,
+): Promise<TagResult> {
+  const ids = await api.listIds(["INBOX"], query, TAG_MAX);
+  if (ids.length === 0) return { tagged: 0, byBucket: {}, oldestAt: null };
   const wanted = new Map(ctx.limits.map((l) => [l.bucket, l]));
   const groups = new Map<SortBucket, string[]>();
+  let oldestAt: number | null = null;
   for (const sender of await api.readSenders(ids)) {
+    for (const msg of sender.messages) oldestAt = Math.min(oldestAt ?? msg.receivedAt, msg.receivedAt);
     if (skipSender(sender, ctx.known)) continue;
     const domain = domainOf(sender.address);
     for (const msg of sender.messages) {
@@ -102,7 +110,28 @@ export async function tagUntaggedInbox(ctx: LimitContext, api: InboxLimitsApi): 
     byBucket[bucket] = msgIds.length;
     tagged += msgIds.length;
   }
-  return { tagged, byBucket };
+  return { tagged, byBucket, oldestAt };
+}
+
+/** Where the catch-up pass stands: 0 = not started, -1 = done, else it
+ * reads inbox mail received before this time (ms) next. */
+export const TAG_BACK_DONE = -1;
+
+/**
+ * Labels older inbox mail no filter or tagger saw, one page per run, newest
+ * first, walking back by date. Returns where the next run starts.
+ * shortcut: mail sharing the page's oldest second is skipped; fine for a
+ * one-time catch-up.
+ */
+export async function tagOlderInbox(
+  ctx: LimitContext,
+  api: InboxLimitsApi,
+  before: number,
+): Promise<{ tagged: number; nextBefore: number }> {
+  const from = before > 0 ? before : ctx.now - 2 * 24 * HOUR_MS;
+  const res = await tagUntaggedInbox(ctx, api, `before:${epochSeconds(from)} has:nouserlabels`);
+  const done = res.oldestAt === null || res.oldestAt >= from;
+  return { tagged: res.tagged, nextBefore: done ? TAG_BACK_DONE : res.oldestAt! };
 }
 
 export interface SweepResult {
