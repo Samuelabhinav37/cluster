@@ -43,3 +43,9 @@ export function recordQuarantineVerdict(
 ): QuarantineReviewMap {
   return { ...existing, [senderKey]: { verdict, at: now } };
 }
+
+/** "Of 12 holds, you confirmed 11": how often the user agreed with a hold. */
+export function holdAccuracy(map: QuarantineReviewMap): { reviewed: number; confirmed: number } {
+  const verdicts = Object.values(map);
+  return { reviewed: verdicts.length, confirmed: verdicts.filter((v) => v.verdict === "confirmed").length };
+}

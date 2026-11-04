@@ -12,7 +12,7 @@ import { MAX_REASONS, senderVerdict, type Verdict, type VerdictTier } from "../l
 import { knownSenderSet } from "../lib/screener";
 import { queueAthenaSecurityEvent } from "../lib/athenaIntegration";
 import { mutateSettings } from "../lib/settingsStore";
-import { recordQuarantineVerdict } from "../lib/quarantineReview";
+import { holdAccuracy, recordQuarantineVerdict } from "../lib/quarantineReview";
 import type { SenderSummary } from "../lib/senderModel";
 import type { ProviderId } from "../lib/providers/emailProvider";
 import { renderConfirmStep } from "./ui";
@@ -134,6 +134,12 @@ function parseSenderKey(key: string): { providerId: string; address: string } {
 // sender is still in this scan, its plain reasons are shown too.
 export function renderQuarantineReview(senders: SenderSummary[] = []) {
   const entries = Object.entries(ctx.settings.quarantinedSenders);
+  const accuracyEl = document.getElementById("quarantine-review-accuracy");
+  const { reviewed, confirmed } = holdAccuracy(ctx.settings.quarantineReview);
+  if (accuracyEl) {
+    accuracyEl.hidden = reviewed === 0;
+    accuracyEl.textContent = `Of ${reviewed} hold${reviewed === 1 ? "" : "s"}, you confirmed ${confirmed}.`;
+  }
   quarantineReviewSectionEl.hidden = entries.length === 0;
   const heldCount = entries.reduce((n, [, r]) => n + r.messageIds.length, 0);
   if (quarantineReviewCountEl) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { quarantineScoreAdjustment, recordQuarantineVerdict } from "./quarantineReview";
+import { holdAccuracy, quarantineScoreAdjustment, recordQuarantineVerdict } from "./quarantineReview";
 
 describe("recordQuarantineVerdict", () => {
   it("adds a verdict without mutating the input map", () => {
@@ -36,5 +36,15 @@ describe("quarantineScoreAdjustment", () => {
     const blocklistedAloneScore = 7;
     const adjustment = quarantineScoreAdjustment({ verdict: "released", at: 1000 });
     expect(blocklistedAloneScore + adjustment).toBeGreaterThanOrEqual(6);
+  });
+});
+
+describe("holdAccuracy", () => {
+  it("counts reviewed holds and the confirmed ones", () => {
+    let map = recordQuarantineVerdict({}, "gmail:a@x.com", "confirmed");
+    map = recordQuarantineVerdict(map, "gmail:b@x.com", "confirmed");
+    map = recordQuarantineVerdict(map, "gmail:c@x.com", "released");
+    expect(holdAccuracy(map)).toEqual({ reviewed: 3, confirmed: 2 });
+    expect(holdAccuracy({})).toEqual({ reviewed: 0, confirmed: 0 });
   });
 });
