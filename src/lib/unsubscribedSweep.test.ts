@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { NormalizedMessageMetadata } from "./providers/emailProvider";
-import { unsubscribedToFile } from "./unsubscribedSweep";
+import { stillSendingToMute, unsubscribedToFile } from "./unsubscribedSweep";
 
 const row = (id: string, from: string, receivedAt: number, extra: Partial<NormalizedMessageMetadata> = {}) =>
   ({
@@ -34,5 +34,27 @@ describe("unsubscribedToFile", () => {
 
   it("leaves senders a filter already covers", () => {
     expect(unsubscribedToFile([row("f", "filtered@shop.example", 200)], requests)).toEqual([]);
+  });
+});
+
+describe("stillSendingToMute", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const reqs = {
+    "gmail:late@x.example": { requestedAt: 0, provider: "gmail" as const },
+    "gmail:quiet@x.example": { requestedAt: 0, provider: "gmail" as const },
+    "gmail:recent@x.example": { requestedAt: 10 * DAY, provider: "gmail" as const },
+    "gmail:muted@x.example": { requestedAt: 0, provider: "gmail" as const },
+  };
+  it("mutes only senders still sending list mail after the grace, 14 days on", () => {
+    const rows = [
+      row("a", "late@x.example", 5 * DAY),
+      row("b", "quiet@x.example", 1 * DAY),
+      row("c", "recent@x.example", 14 * DAY),
+      row("d", "muted@x.example", 5 * DAY),
+      row("e", "late@x.example", 6 * DAY, { labelIds: [] }),
+    ];
+    expect(stillSendingToMute(rows, reqs, ["muted@x.example"], 15 * DAY)).toEqual([
+      { key: "gmail:late@x.example", address: "late@x.example", inboxIds: ["a"] },
+    ]);
   });
 });

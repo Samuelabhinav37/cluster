@@ -1088,6 +1088,7 @@ function goAndAct(screen: string, act?: HomeAct) {
   void selectScreen(screen).then(() => {
     if (act === "trash-never-opened") neverReadTrashBtn.click();
     if (act === "trash-past-date") expiryCleanupBtn.click();
+    if (act === "stop-never-opened") preselectLists(stopListKeys);
   });
 }
 
@@ -1166,12 +1167,20 @@ function fakedBrands(senders: SenderSummary[]): string[] {
 
 let movedTodayDismissed = false;
 
-/** "Moved today": what the sweeps filed out of the inbox today, with a way back. */
-function movedTodayCard(): HTMLElement | null {
+/** Today's sweep entries: what Cluster filed out of the inbox since midnight. */
+function movedTodayEntries() {
   const today = new Date().setHours(0, 0, 0, 0);
-  const entries = ctx.settings.actionLog.filter(
+  return ctx.settings.actionLog.filter(
     (e) => e.kind === "sort" && !e.undone && e.undo?.via === "unarchive" && e.at >= today,
   );
+}
+
+// Never-opened lists Today's line hands to Stop mail's Unsubscribe confirm.
+let stopListKeys: string[] = [];
+
+/** "Moved today": what the sweeps filed out of the inbox today, with a way back. */
+function movedTodayCard(): HTMLElement | null {
+  const entries = movedTodayEntries();
   const n = entries.reduce((sum, e) => sum + (e.undo?.ids.length ?? 0), 0);
   if (n === 0 || movedTodayDismissed) return null;
   const card = Object.assign(document.createElement("div"), { className: "banner moved-today" });
@@ -1269,6 +1278,10 @@ function renderOverview(
   } · ${health.scannedMessages} message${health.scannedMessages === 1 ? "" : "s"}`;
 
   const plan = clearOutPlan(senders);
+  const unopened = unopenedSuggestions(currentSuggestions(senders));
+  stopListKeys = unopened
+    .filter((x) => x.sender.unsubscribe.postUrl && !ctx.settings.unsubscribeRequests[x.sender.key])
+    .map((x) => x.sender.key);
 
   overviewContentEl.innerHTML = "";
   const facts: HomeFacts = {
@@ -1277,7 +1290,7 @@ function renderOverview(
     suspicious: byId.get("flagged-senders") ?? 0,
     waiting: byId.get("screener-queue") ?? 0,
     neverOpened: {
-      senders: unopenedSuggestions(currentSuggestions(senders)).length,
+      senders: unopened.length,
       emails: plan.neverReadMsgs,
     },
     pastDate: plan.expiryTotal,
@@ -1299,6 +1312,8 @@ function renderOverview(
     unreadByDay: unreadDays(ctx.settings.unreadSnapshots ?? {}, Date.now()),
     unreadWeekAgo: unreadWeekAgo(ctx.settings.unreadSnapshots ?? {}, Date.now()),
     heldThisWeek: heldByWeek(ctx.settings.scamHistory, 1)[0]?.held ?? 0,
+    movedToday: movedTodayEntries().reduce((sum, e) => sum + (e.undo?.ids.length ?? 0), 0),
+    stopLists: stopListKeys.length,
     // Until reading is done the total covers only recent mail, so say how far back.
     since: [...indexRuns.values()].some((r) => r.progress?.phase === "reading")
       ? oldestRead(allSenders)

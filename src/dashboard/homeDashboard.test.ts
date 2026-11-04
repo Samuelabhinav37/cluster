@@ -262,3 +262,14 @@ describe("renderHomeDashboard", () => {
     expect(card.querySelector<HTMLElement>(".read-track")!.hidden).toBe(true);
   });
 });
+
+describe("Today line", () => {
+  it("links moved, held and never-opened to their places", () => {
+    const go = vi.fn();
+    const el = renderHomeDashboard({ ...calm, today: [], movedToday: 4, heldThisWeek: 2, stopLists: 7 }, go);
+    const buttons = Array.from(el.querySelectorAll<HTMLButtonElement>(".today-line button"));
+    expect(buttons.map((b) => b.textContent)).toEqual(["Moved away 4", "Scams held 2", "7 senders you never open"]);
+    buttons[2].click();
+    expect(go).toHaveBeenCalledWith("subscriptions", "stop-never-opened");
+  });
+});

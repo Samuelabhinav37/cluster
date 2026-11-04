@@ -32,7 +32,7 @@ import { getProfileEmail, insertMessage } from "./lib/gmailApi";
 import { pickToday, todayEmailDue, todayEmailMessage } from "./lib/today";
 import { resumeInterruptedJobs } from "./lib/durableJobs";
 import { resumeUnsubscribeQueue } from "./lib/unsubscribeGmail";
-import { runUnsubscribedSweep } from "./lib/unsubscribedSweep";
+import { runAutoMute, runUnsubscribedSweep } from "./lib/unsubscribedSweep";
 import { getRuleCompletionKeys, recordRuleCompletions } from "./lib/ruleCompletionLedger";
 import { loadPublicSuffixList } from "./lib/publicSuffix";
 import { applyBrandVerdicts, loadBrandRegistry } from "./lib/brandRegistry";
@@ -124,6 +124,7 @@ function handleAlarm(alarm: chrome.alarms.Alarm): void {
       .then(() => holdScamsFromIndex().catch((err) => log.error("Scam hold failed", err)))
       .then(() => sendTodayEmail().catch((err) => log.error("Today email failed", err)))
       .then(() => runUnsubscribedSweep().catch((err) => log.error("Unsubscribed sweep failed", err)))
+      .then(() => runAutoMute().catch((err) => log.error("Auto-mute failed", err)))
       .then(() => deliverNewsletters().catch((err) => log.error("Newsletter delivery failed", err)));
   }
 }

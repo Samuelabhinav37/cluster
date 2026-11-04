@@ -625,7 +625,7 @@ export function wireSubscriptionsTab() {
     renderConfirmStep(
       subsUnsubAllSlot,
       resetSubsUnsubAllSlot,
-      `Unsubscribe from ${oneClick.length} sender${oneClick.length === 1 ? "" : "s"}? ${names}. Only future mail stops.`,
+      `Unsubscribe from ${oneClick.length} sender${oneClick.length === 1 ? "" : "s"}? ${names}. Only future mail stops. Anyone still sending in 14 days gets muted.`,
       false,
       async (summary) => {
         summary.textContent = "Requesting permission…";

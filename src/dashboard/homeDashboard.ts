@@ -98,10 +98,14 @@ export interface HomeFacts {
   unreadWeekAgo?: number;
   /** Emails held as scams this week. */
   heldThisWeek?: number;
+  /** Emails Cluster moved out of the inbox today. */
+  movedToday?: number;
+  /** Never-opened lists Unsubscribe can stop in one click. */
+  stopLists?: number;
 }
 
 /** Open a place; `act` also starts that place's own confirm step. */
-export type HomeAct = "trash-never-opened" | "trash-past-date";
+export type HomeAct = "trash-never-opened" | "trash-past-date" | "stop-never-opened";
 export type Go = (screen: string, act?: HomeAct) => void;
 
 // Lucide 0.460 (ISC), drawn at 24 with a 1.75 stroke. Built with DOM calls,
@@ -479,11 +483,13 @@ function homeTiles(f: HomeFacts, go: Go, openKind?: (kind: HomeKind) => void): H
 
 /** Today: one row per email that matters, linking to it in Gmail. The
  * preview line is filled in later by fillTodaySnippets. */
-function todayList(items: readonly TodayItem[]): HTMLElement {
+function todayList(items: readonly TodayItem[], f: HomeFacts, go: Go): HTMLElement {
   const wrap = el("section", "home-today");
   wrap.append(el("h2", "section-label", "Today"));
+  const line = todayLine(f, go);
   if (items.length === 0) {
     wrap.append(el("p", "hint", "Nothing needs you today."));
+    if (line) wrap.append(line);
     return wrap;
   }
   const group = el("div", "ios-group");
@@ -503,7 +509,26 @@ function todayList(items: readonly TodayItem[]): HTMLElement {
     group.append(row);
   }
   wrap.append(group);
+  if (line) wrap.append(line);
   return wrap;
+}
+
+/** "Moved away N · Scams held N · N senders you never open", each part a link to its place. */
+function todayLine(f: HomeFacts, go: Go): HTMLElement | null {
+  const parts: [string, () => void][] = [];
+  if (f.movedToday) parts.push([`Moved away ${n(f.movedToday)}`, () => go("recent")]);
+  if (f.heldThisWeek) parts.push([`Scams held ${n(f.heldThisWeek)}`, () => go("impersonation")]);
+  if (f.stopLists) parts.push([plural(f.stopLists, "sender you never open", "senders you never open"), () => go("subscriptions", "stop-never-opened")]);
+  if (parts.length === 0) return null;
+  const p = el("p", "today-line");
+  parts.forEach(([label, open], i) => {
+    if (i > 0) p.append(" · ");
+    const b = el("button", "btn-link", label);
+    b.type = "button";
+    b.onclick = open;
+    p.append(b);
+  });
+  return p;
 }
 
 /** Puts Gmail's preview line under each Today row. Snippets arrive with
@@ -536,7 +561,7 @@ export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: Home
   if (f.reading) root.append(readHero(f.reading));
   else if (f.suspicious > 0) root.append(hero);
 
-  if (f.today) root.append(todayList(f.today));
+  if (f.today) root.append(todayList(f.today, f, go));
 
   // 2. Three tiles: Inbox, Clean up, Security. Each opens its place.
   if (f.reading) root.append(el("h2", "section-label", "Found so far"), foundSoFar(f));
