@@ -25,10 +25,10 @@
                   <path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"></path>
                   <path class="ni-door" d="M10 20v-5.2h4V20"></path>
                 </svg>
-                Home
+                Today
               </button>
             </div>
-            <button type="button" class="nav-item" data-screen="senders">
+            <button type="button" class="nav-item" data-screen="senders" hidden>
               <svg class="nav-icon ni-people" viewBox="0 0 24 24" aria-hidden="true">
                 <circle cx="9" cy="9" r="3.2"></circle>
                 <path d="M3.5 19c.9-3 3-4.5 5.5-4.5s4.6 1.5 5.5 4.5"></path>
@@ -50,12 +50,12 @@
                 <span class="nav-count" id="nav-count-delete"></span>
               </button>
               <div class="nav-children">
-                <button type="button" class="nav-item nav-child" data-screen="subscriptions" hidden>
+                <button type="button" class="nav-item nav-child" data-screen="subscriptions">
                   <svg class="nav-icon ni-stop" viewBox="0 0 24 24" aria-hidden="true">
                     <circle cx="12" cy="12" r="8"></circle>
                     <path d="M6.4 6.4l11.2 11.2"></path>
                   </svg>
-                  Lists you can leave
+                  Stop mail
                 </button>
               </div>
             </div>
@@ -79,7 +79,7 @@
                 <span class="nav-count" id="nav-count-impersonation"></span>
               </button>
               <div class="nav-children">
-                <button type="button" class="nav-item nav-child" data-screen="screener">
+                <button type="button" class="nav-item nav-child" data-screen="screener" hidden>
                   <svg class="nav-icon ni-new" viewBox="0 0 24 24" aria-hidden="true">
                     <circle cx="10" cy="9" r="3.4"></circle>
                     <path d="M4 19c.9-3.1 3.2-4.6 6-4.6 1.3 0 2.5.3 3.5 1"></path>
@@ -89,7 +89,7 @@
                   New senders
                   <span class="nav-count accent" id="nav-count-screener"></span>
                 </button>
-                <button type="button" class="nav-item nav-child" data-screen="report">
+                <button type="button" class="nav-item nav-child" data-screen="report" hidden>
                   <svg class="nav-icon ni-chart" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M5 19V5"></path>
                     <path d="M5 19h14"></path>
@@ -197,7 +197,7 @@
           <section class="screen" data-screen="overview" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Home</h1>
+                <h1 class="page-title">Today</h1>
               </div>
               <button type="button" class="tool" data-details aria-controls="details">
                 <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
@@ -298,92 +298,7 @@
               <p id="time-limits-status" class="hint" role="status"></p>
             </section>
 
-            <section id="your-rules">
-              <div class="section-head">
-                <h3 class="section-label">Your rules</h3>
-              </div>
-            <div id="rules-list"></div>
-            <div id="rule-preview"></div>
-            <dialog id="rule-sheet" class="unsub-sheet" aria-labelledby="rule-sheet-title">
-            <h2 class="unsub-title" id="rule-sheet-title">New rule</h2>
-            <div id="rule-composer">
-              <label class="section-label" for="rule-natural-language">New rule</label>
-              <input
-                type="text"
-                id="rule-natural-language"
-                class="composer-input"
-                placeholder="e.g. Archive unread newsletters older than 14 days"
-              />
-              <div class="chip-row">
-                <span class="hint">Try</span>
-                <span id="rule-example-chips" class="chip-row"></span>
-                <span style="flex: 1"></span>
-                <button type="button" id="rule-draft-btn" class="btn btn-accent">Draft a rule</button>
-                <button type="button" id="rule-save-draft-btn" class="btn" disabled>
-                  Save rule
-                </button>
-              </div>
-              <span id="rule-draft-status" class="hint"></span>
-              <p class="hint">On-device AI drafts it, and nothing runs until you save.</p>
-            </div>
-            <details id="rule-form-details" class="disclosure">
-              <summary>Or set each part</summary>
-              <form id="rule-form" class="form-grid">
-                <input type="text" id="rule-name" placeholder="Rule name" />
-                <input type="text" id="rule-from-domain" placeholder="from domain, e.g. news.example.com" />
-                <input type="text" id="rule-from-address" placeholder="from address (exact)" />
-                <input type="text" id="rule-except-domain" placeholder="except domain" />
-                <input type="text" id="rule-except-address" placeholder="except address" />
-                <label>older than <input type="number" id="rule-older-days" min="1" max="3650" /> days</label>
-                <select id="rule-kind">
-                  <option value="">any kind</option>
-                  <option value="otp">otp</option>
-                  <option value="shipping">shipping</option>
-                  <option value="receipt">receipt</option>
-                  <option value="newsletter">newsletter</option>
-                  <option value="social">social</option>
-                  <option value="other">other</option>
-                </select>
-                <select id="rule-unsub">
-                  <option value="">unsubscribe: any</option>
-                  <option value="yes">has unsubscribe</option>
-                  <option value="no">no unsubscribe</option>
-                </select>
-                <select id="rule-unread">
-                  <option value="">read state: any</option>
-                  <option value="yes">unread</option>
-                  <option value="no">already read</option>
-                </select>
-                <select id="rule-action">
-                  <option value="archive">archive</option>
-                  <option value="trash">move to Trash</option>
-                  <option value="markRead">mark read</option>
-                  <option value="label">label</option>
-                </select>
-                <input type="text" id="rule-label" placeholder="Label name" hidden />
-                <label
-                  >order <input type="number" id="rule-priority" min="-100" max="100" value="0"
-                /></label>
-                <label
-                  >at most, each run <input type="number" id="rule-limit" min="1" max="500" value="100"
-                /></label>
-                <label class="check-label"
-                  ><input type="checkbox" id="rule-stop-processing" /> <span>skip rules after this one</span></label
-                >
-                <button type="submit" id="rule-add-btn" class="btn btn-accent">Add rule</button>
-                <span id="rule-form-error" class="field-error"></span>
-              </form>
-            </details>
-            <label class="check-label"
-              ><input type="checkbox" id="rule-existing" /> <span id="rule-existing-text">Also do this to mail you have now</span></label
-            >
-            <div class="unsub-footer"><button type="button" id="rule-sheet-close" class="btn btn-ghost">Done</button></div>
-            </dialog>
-            <div id="rule-apply-slot">
-              <button id="rule-apply-btn" class="btn">Run rules now</button>
-            </div>
-            <span id="rule-apply-status" class="field-error"></span>
-            </section>
+
 
 
 
@@ -465,7 +380,7 @@
           <section class="screen" data-screen="subscriptions" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Lists you can leave</h1>
+                <h1 class="page-title">Stop mail</h1>
               </div>
             </div>
 
@@ -668,7 +583,6 @@
                     <span class="set-ic set-ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6"></path></svg></span>
                     <span class="grow" id="settings-account">Gmail</span>
                     <span class="row-actions">
-                      <button type="button" class="btn" id="connect-outlook">Add Outlook</button>
                       <span id="settings-signout-slot"><button type="button" class="btn" id="settings-signout">Sign out</button></span>
                     </span>
                   </div>
@@ -771,8 +685,113 @@
                 <p class="hint">Questions Kai couldn't answer. They stay on this computer.</p>
                 <div class="set-rows" id="settings-kai-missed"></div>
               </div>
-              <div class="set-sec">
-                <h2>Keyboard</h2>
+              <div class="set-sec" id="settings-advanced">
+                <h2>Advanced</h2>
+                <div class="set-rows">
+                  <div class="set-row">
+                    <span class="grow">Contacts</span>
+                    <button type="button" class="btn" data-open-screen="senders">Open</button>
+                  </div>
+                  <div class="set-row">
+                    <span class="grow">New senders</span>
+                    <button type="button" class="btn" data-open-screen="screener">Open</button>
+                  </div>
+                  <div class="set-row">
+                    <span class="grow">Scam report</span>
+                    <button type="button" class="btn" data-open-screen="report">Open</button>
+                  </div>
+                  <div class="set-row">
+                    <span class="grow">Outlook</span>
+                    <button type="button" class="btn" id="connect-outlook">Add Outlook</button>
+                  </div>
+                </div>
+            <section id="your-rules">
+              <div class="section-head">
+                <h3 class="section-label">Your rules</h3>
+              </div>
+            <div id="rules-list"></div>
+            <div id="rule-preview"></div>
+            <dialog id="rule-sheet" class="unsub-sheet" aria-labelledby="rule-sheet-title">
+            <h2 class="unsub-title" id="rule-sheet-title">New rule</h2>
+            <div id="rule-composer">
+              <label class="section-label" for="rule-natural-language">New rule</label>
+              <input
+                type="text"
+                id="rule-natural-language"
+                class="composer-input"
+                placeholder="e.g. Archive unread newsletters older than 14 days"
+              />
+              <div class="chip-row">
+                <span class="hint">Try</span>
+                <span id="rule-example-chips" class="chip-row"></span>
+                <span style="flex: 1"></span>
+                <button type="button" id="rule-draft-btn" class="btn btn-accent">Draft a rule</button>
+                <button type="button" id="rule-save-draft-btn" class="btn" disabled>
+                  Save rule
+                </button>
+              </div>
+              <span id="rule-draft-status" class="hint"></span>
+              <p class="hint">On-device AI drafts it, and nothing runs until you save.</p>
+            </div>
+            <details id="rule-form-details" class="disclosure">
+              <summary>Or set each part</summary>
+              <form id="rule-form" class="form-grid">
+                <input type="text" id="rule-name" placeholder="Rule name" />
+                <input type="text" id="rule-from-domain" placeholder="from domain, e.g. news.example.com" />
+                <input type="text" id="rule-from-address" placeholder="from address (exact)" />
+                <input type="text" id="rule-except-domain" placeholder="except domain" />
+                <input type="text" id="rule-except-address" placeholder="except address" />
+                <label>older than <input type="number" id="rule-older-days" min="1" max="3650" /> days</label>
+                <select id="rule-kind">
+                  <option value="">any kind</option>
+                  <option value="otp">otp</option>
+                  <option value="shipping">shipping</option>
+                  <option value="receipt">receipt</option>
+                  <option value="newsletter">newsletter</option>
+                  <option value="social">social</option>
+                  <option value="other">other</option>
+                </select>
+                <select id="rule-unsub">
+                  <option value="">unsubscribe: any</option>
+                  <option value="yes">has unsubscribe</option>
+                  <option value="no">no unsubscribe</option>
+                </select>
+                <select id="rule-unread">
+                  <option value="">read state: any</option>
+                  <option value="yes">unread</option>
+                  <option value="no">already read</option>
+                </select>
+                <select id="rule-action">
+                  <option value="archive">archive</option>
+                  <option value="trash">move to Trash</option>
+                  <option value="markRead">mark read</option>
+                  <option value="label">label</option>
+                </select>
+                <input type="text" id="rule-label" placeholder="Label name" hidden />
+                <label
+                  >order <input type="number" id="rule-priority" min="-100" max="100" value="0"
+                /></label>
+                <label
+                  >at most, each run <input type="number" id="rule-limit" min="1" max="500" value="100"
+                /></label>
+                <label class="check-label"
+                  ><input type="checkbox" id="rule-stop-processing" /> <span>skip rules after this one</span></label
+                >
+                <button type="submit" id="rule-add-btn" class="btn btn-accent">Add rule</button>
+                <span id="rule-form-error" class="field-error"></span>
+              </form>
+            </details>
+            <label class="check-label"
+              ><input type="checkbox" id="rule-existing" /> <span id="rule-existing-text">Also do this to mail you have now</span></label
+            >
+            <div class="unsub-footer"><button type="button" id="rule-sheet-close" class="btn btn-ghost">Done</button></div>
+            </dialog>
+            <div id="rule-apply-slot">
+              <button id="rule-apply-btn" class="btn">Run rules now</button>
+            </div>
+            <span id="rule-apply-status" class="field-error"></span>
+            </section>
+                <h3 class="section-label">Keyboard</h3>
                 <div class="set-rows">
                   <label class="set-row">
                     <span class="grow">Single-key shortcuts<span class="sub">Off leaves Ctrl K for Kai</span></span>

@@ -40,9 +40,9 @@ const KIND_WORDS: Record<HomeKind, RegExp> = {
 };
 
 const PLACES: ReadonlyArray<[screen: string, label: string]> = [
-  ["overview", "Home"],
+  ["overview", "Today"],
   ["delete", "Clean up"],
-  ["subscriptions", "Lists you can leave"],
+  ["subscriptions", "Stop mail"],
   ["organize", "Organize"],
   ["impersonation", "Protect"],
   ["senders", "Contacts"],
@@ -104,7 +104,7 @@ export function askIntents(raw: string, f: AskFacts, act: AskActions): AskHit[] 
   if (has(/new sender|stranger|unknown|screen|first time|let in|allow/))
     add(91, { title: `${plural(f.waiting, "new sender")} waiting`, sub: "Protect", verb: "Review", run: () => act.go("screener") });
   if (has(/unsub|stop|no more|newsletter/))
-    add(sender ? 60 : 89, { title: "Lists you can leave", sub: "Unsubscribe", verb: "Open", run: () => act.go("subscriptions") });
+    add(sender ? 60 : 89, { title: "Stop mail", sub: "Unsubscribe", verb: "Open", run: () => act.go("subscriptions") });
   if (week !== null && out.length === 0)
     add(88, { title: `Everything from ${week === 7 ? "this" : "last"} week`, sub: "Open in Details", verb: "Show", run: () => act.details({ view: "emails", week }) });
   for (const [screen, label] of PLACES) {

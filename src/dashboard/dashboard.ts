@@ -276,6 +276,9 @@ async function selectScreen(name: string) {
 }
 
 function wireNav() {
+  // Settings > Advanced opens places that left the sidebar.
+  for (const b of Array.from(document.querySelectorAll<HTMLButtonElement>("[data-open-screen]")))
+    b.onclick = () => void selectScreen(b.dataset.openScreen!);
   const list = document.getElementById("sidebar");
   list?.setAttribute("role", "tablist");
   list?.setAttribute("aria-orientation", "vertical");

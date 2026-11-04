@@ -159,10 +159,9 @@ describe("dashboard boot smoke", () => {
     const buttons = Array.from(
       document.querySelectorAll<HTMLButtonElement>("#sidebar button[data-screen]"),
     );
-    // Five places and their sub-pages; Activity and Settings live in the account menu.
-    // Lists you can leave opens from its Clean up card, so its item stays hidden.
+    // Four places plus Stop mail; Contacts, New senders and Scam report open from Settings > Advanced.
     expect(buttons.length).toBe(8);
-    expect(buttons.filter((b) => b.hidden).map((b) => b.dataset.screen)).toEqual(["subscriptions"]);
+    expect(buttons.filter((b) => b.hidden).map((b) => b.dataset.screen)).toEqual(["senders", "screener", "report"]);
     for (const button of buttons.filter((b) => !b.hidden)) {
       button.click();
       const shown = Array.from(
@@ -190,14 +189,22 @@ describe("dashboard boot smoke", () => {
       "overview",
     ]);
     expect(buttons.filter((b) => b.tabIndex === -1)).toHaveLength(buttons.length - 1);
-    // ArrowDown from the first item activates the second
+    // ArrowDown from the first item activates the next visible one
+    const visible = buttons.filter((b) => !b.hidden);
     document
       .getElementById("sidebar")!
       .dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
-    expect(buttons[1].getAttribute("aria-selected")).toBe("true");
+    expect(visible[1].getAttribute("aria-selected")).toBe("true");
     expect(
-      document.querySelector<HTMLElement>(`section.screen[data-screen='${buttons[1].dataset.screen}']`)!.hidden,
+      document.querySelector<HTMLElement>(`section.screen[data-screen='${visible[1].dataset.screen}']`)!.hidden,
     ).toBe(false);
+  });
+
+  it("opens Contacts, New senders and Scam report from Settings > Advanced", () => {
+    for (const screen of ["senders", "screener", "report"]) {
+      document.querySelector<HTMLButtonElement>(`[data-open-screen='${screen}']`)!.click();
+      expect(document.querySelector<HTMLElement>(`section.screen[data-screen='${screen}']`)!.hidden).toBe(false);
+    }
   });
 
   it("applies and clears the forced theme from the Settings select", () => {
