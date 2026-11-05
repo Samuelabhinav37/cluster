@@ -37,11 +37,12 @@
   .tools button.dot::after { content:""; position:absolute; top:7px; right:8px; width:7px; height:7px; border-radius:50%; background:var(--accent); border:2px solid var(--bg); }
   .tools button.plus { background:var(--accent); color:#fff; border-radius:50%; width:30px; height:30px; margin-left:4px; }
   .tools button.plus svg.ic { stroke-width:2.4; }
-  main { flex:1; padding:20px 28px 120px 40px; min-width:0; }
-  main > :not(.topbar) { max-width:1160px; }
+  main { flex:1; padding:20px 48px 120px; min-width:0; }
+  main > :not(.topbar) { max-width:1120px; margin-inline:auto; }
+  .topbar { max-width:1120px; margin-inline:auto; }
   .search { height:38px; border-radius:9px; background:var(--fill); color:var(--l4); display:flex; align-items:center; padding:0 14px; width:100%; }
-  .head { margin:40px 0 0; padding-bottom:22px; border-bottom:1px solid var(--hair); }
-  .head h1 { margin:0; font-size:30px; }
+  .head { margin:48px 0 0; padding-bottom:24px; }
+  .head h1 { margin:0; font-size:32px; letter-spacing:-.025em; }
   .head p { margin:0; font-size:18px; color:var(--l2); }
   .head p a { color:var(--accent-t); text-decoration:none; }
   .details { height:32px; padding:0 12px; border:0; border-radius:8px; background:var(--fill); color:var(--l); font:600 13px var(--font); display:inline-flex; align-items:center; gap:7px; }
@@ -55,10 +56,10 @@
   .grow { flex:1; }
 
   /* Today: the list people liked, kept first, in the same flat style. */
-  .today { padding:8px 0 8px; border-bottom:1px solid var(--hair); }
-  .w-title { display:flex; align-items:center; gap:6px; font-weight:650; font-size:15px; margin:0 0 6px; }
+  .today { border-top:1px solid var(--hair); border-bottom:1px solid var(--hair); margin-bottom:16px; }
+  .w-title { display:flex; align-items:center; gap:8px; font-weight:650; font-size:15px; margin:0 0 16px; }
   .info { width:14px; height:14px; border:1.3px solid var(--l4); border-radius:3px; display:inline-grid; place-items:center; font-size:9px; color:var(--l4); font-weight:700; }
-  .row { display:grid; grid-template-columns:28px minmax(0,1fr) auto; gap:12px; align-items:center; padding:10px 0; border-bottom:1px solid var(--hair); }
+  .row { display:grid; grid-template-columns:32px minmax(0,1fr) auto; gap:16px; align-items:center; padding:14px 0; border-bottom:1px solid var(--hair); }
   .row:last-of-type { border-bottom:0; }
   .row img, .list img, .mono { flex:none; width:28px; height:28px; border-radius:7px; background:#fff; padding:3px; border:1px solid var(--hair); }
   .mono { display:grid; place-items:center; background:var(--accent); color:#fff; font:700 11px var(--font); padding:0; border:0; }
@@ -67,8 +68,8 @@
   .row .t { color:var(--l3); font-size:13px; font-variant-numeric:tabular-nums; }
 
   /* The grid: three widgets a row, separated by hairlines only. */
-  .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); column-gap:48px; }
-  .w { padding:26px 0 24px; border-bottom:1px solid var(--hair); display:flex; flex-direction:column; min-height:290px; }
+  .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); column-gap:64px; }
+  .w { padding:32px 0; border-bottom:1px solid var(--hair); display:flex; flex-direction:column; min-height:340px; }
   .badge { font:700 11px var(--font); padding:2px 6px; border-radius:5px; background:var(--fill); color:var(--l3); }
   .badge.good { background:var(--good-bg); color:var(--good); }
   .num { font-size:22px; font-variant-numeric:tabular-nums; }
@@ -87,13 +88,14 @@
   .dot { width:10px; height:10px; border-radius:3px; }
   .legend .v { margin-left:auto; font-weight:600; font-variant-numeric:tabular-nums; }
   .pill { font:600 12px var(--font); padding:2px 8px; border-radius:6px; background:var(--bad-bg); color:var(--bad); }
-  .list .li { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--hair); }
+  .list .li { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--hair); }
   .list .li:last-child { border-bottom:0; }
   .list .who { min-width:0; flex:1; }
   .list .who b { display:block; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .list .who span { color:var(--l3); font-size:12px; }
   .list .v { font-weight:600; font-variant-numeric:tabular-nums; }
-  .note { margin:40px 0 0; padding:14px 16px; border:1px dashed var(--hair); border-radius:12px; color:var(--l3); font-size:13px; max-width:900px; }
+  .grid > .w:nth-last-child(-n+3) { border-bottom:0; }
+  .note { margin:56px auto 0; padding:14px 16px; border:1px dashed var(--hair); border-radius:12px; color:var(--l3); font-size:13px; max-width:900px; }
   .note b { color:var(--l2); }
   /* Details: the sheet beside the page, as in the app (Emails / Senders, chips, sender table). */
   .details-pane { width:360px; flex:none; border-left:1px solid var(--hair); background:var(--side); position:sticky; top:0; height:100vh; display:flex; flex-direction:column; }
@@ -157,7 +159,7 @@
   .bars .b.on .pillv, .bars .b:hover .pillv { visibility:visible; }
   .bars .b:hover i { outline:1.5px solid var(--accent); }
   .tlist { margin-top:10px; }
-  .tr { padding:9px 0; border-bottom:1px solid var(--hair); }
+  .tr { padding:11px 0; border-bottom:1px solid var(--hair); }
   .tr:last-child { border-bottom:0; }
   .th { display:flex; align-items:center; gap:10px; }
   .th b { flex:1; min-width:0; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -171,14 +173,53 @@
   a.w { color:inherit; text-decoration:none; border-radius:0; transition:background .15s; }
   a.w:hover { background:linear-gradient(var(--fill), var(--fill)) padding-box; box-shadow:0 0 0 12px var(--fill); }
   a.w:focus-visible { outline:2px solid var(--accent); outline-offset:8px; }
-  .w-title .go { margin-left:auto; color:var(--l4); font-size:18px; opacity:0; transition:opacity .15s; }
+  .w-title .go { margin-left:auto; line-height:1; color:var(--l4); font-size:18px; opacity:0; transition:opacity .15s; }
   a.w:hover .go { opacity:1; }
+  /* Details, full page: one table (Stripe rule 8), shown from the Details icon. */
+  #dview[hidden], #oview[hidden] { display:none; }
+  .dv-head { display:flex; align-items:center; gap:16px; margin:48px 0 24px; }
+  .dv-head h1 { margin:0; font-size:32px; letter-spacing:-.025em; flex:1; }
+  .dv-head .cnt { font-size:15px; font-weight:500; color:var(--l3); letter-spacing:0; margin-left:8px; }
+  .dv-tools { display:flex; align-items:center; gap:8px; }
+  .btn { height:36px; padding:0 14px; border:1px solid var(--hair); border-radius:9px; background:var(--bg); color:var(--l); font:600 13px var(--font); display:inline-flex; align-items:center; gap:8px; cursor:pointer; }
+  .btn:hover { background:var(--fill); }
+  .btn svg.ic { width:16px; height:16px; color:var(--l3); }
+  .dv-head .seg { margin-right:8px; }
+  .dv-chips { display:flex; gap:8px; margin-bottom:16px; }
+  .dv-chips span { padding:6px 12px; border-radius:999px; border:1px dashed var(--hair); color:var(--l2); font-size:13px; font-weight:600; cursor:pointer; }
+  .dv-chips span::before { content:"+ "; color:var(--l4); }
+  .dt { width:100%; border-collapse:collapse; font-size:13px; }
+  .dt th { height:44px; padding:0 12px; text-align:left; background:var(--side); color:var(--l3); font-weight:600; font-size:12px; border-block:1px solid var(--hair); white-space:nowrap; }
+  .dt td { height:56px; padding:0 12px; border-bottom:1px solid var(--hair); white-space:nowrap; }
+  .dt tbody tr:hover { background:var(--side); }
+  .dt .cb { width:44px; padding-left:16px; }
+  .dt input { width:15px; height:15px; margin:0; accent-color:var(--accent); vertical-align:middle; }
+  .dt .r { text-align:right; }
+  .dt .mut { color:var(--l3); }
+  .dt .nn { font-variant-numeric:tabular-nums; font-weight:600; }
+  .dt .mut.nn { font-weight:400; }
+  .sort { color:var(--l4); font-size:11px; margin-left:4px; }
+  .snd { display:flex; align-items:center; gap:12px; }
+  .snd b { font-weight:600; }
+  .snd img { width:28px; height:28px; border-radius:7px; background:#fff; padding:3px; border:1px solid var(--hair); }
+  .cat { padding:3px 10px; border-radius:6px; background:var(--fill); color:var(--l2); font-size:12px; font-weight:600; }
+  .st { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:6px; font-size:12px; font-weight:600; border:1px solid var(--hair); color:var(--l2); }
+  .st i { width:6px; height:6px; border-radius:50%; background:var(--accent); }
+  .st-unsubscribed i, .st-muted i { background:var(--l4); }
+  .st-unsubscribed, .st-muted { color:var(--l3); }
+  .more { width:32px; height:32px; border:0; border-radius:8px; background:none; color:var(--l3); font-size:18px; cursor:pointer; }
+  .more:hover { background:var(--fill); color:var(--l); }
+  .dv-foot { display:flex; align-items:center; justify-content:space-between; margin-top:24px; }
+  .pages { display:flex; gap:8px; }
+  .pg { width:36px; height:36px; border:1px solid var(--hair); border-radius:9px; background:var(--bg); color:var(--l2); font:600 13px var(--font); cursor:pointer; }
+  .pg.on { background:var(--l); border-color:var(--l); color:var(--bg); }
+  .pg:disabled { color:var(--l4); cursor:default; }
 </style>
 </head>
 <body>
 <nav>
   <div class="brand"><svg class="brand-mark" viewBox="0 0 32 32" width="36" height="36" aria-hidden="true" shape-rendering="geometricPrecision"><rect width="32" height="32" rx="7" fill="#030307"/><line x1="17.5" y1="15" x2="8" y2="8.5" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round"/><line x1="17.5" y1="15" x2="8.5" y2="23.5" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round"/><line x1="17.5" y1="15" x2="25" y2="25" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round"/><polygon points="8,6.1 10.08,7.3 10.08,9.7 8,10.9 5.92,9.7 5.92,7.3" fill="#cdcdcd" stroke="#cdcdcd" stroke-width="0.67" stroke-linejoin="round"/><polygon points="8.5,21.5 10.23,22.5 10.23,24.5 8.5,25.5 6.77,24.5 6.77,22.5" fill="#a9a9ab" stroke="#a9a9ab" stroke-width="0.56" stroke-linejoin="round"/><polygon points="25,22.8 26.91,23.9 26.91,26.1 25,27.2 23.09,26.1 23.09,23.9" fill="#b8b8ba" stroke="#b8b8ba" stroke-width="0.62" stroke-linejoin="round"/><polygon points="17.5,8.8 22.87,11.9 22.87,18.1 17.5,21.2 12.13,18.1 12.13,11.9" fill="#fff" stroke="#fff" stroke-width="1.74" stroke-linejoin="round"/><rect x="14.3" y="13.02" width="6.4" height="4.35" rx="0.64" fill="#030307"/><path d="M14.81,13.55 L17.5,15.72 L20.19,13.55" fill="none" stroke="#fff" stroke-width="0.77" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Cluster</b></div>
-  <a href="#" class="on"><svg class="ic" viewBox="0 0 24 24"><path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M10 20v-5.2h4V20"/></svg>Overview</a>
+  <a href="#" class="on" id="nav-ov"><svg class="ic" viewBox="0 0 24 24"><path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M10 20v-5.2h4V20"/></svg>Overview</a>
   <a href="2026-11-05-cleanup-stop-mockup.html#cleanup"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg>Clean up</a>
   <a href="2026-11-05-cleanup-stop-mockup.html#stop" class="sub"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="m6.5 6.5 11 11"/></svg>Stop mail</a>
   <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>Organize</a>
@@ -193,13 +234,14 @@
     <span></span>
     <div class="search"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Search</div>
     <div class="tools">
-      <button title="Details" id="details-btn" class="on" onclick="toggleDetails()"><svg class="ic" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 9v12M15 9v12"/></svg></button>
+      <button title="Details" id="details-btn" onclick="location.hash = location.hash === '#details' ? '' : 'details'"><svg class="ic" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 9v12M15 9v12"/></svg></button>
       <button title="Ask Kai"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg></button>
       <button title="Activity" class="dot"><svg class="ic" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button>
       <button title="Settings"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 5.2l2.1 2.1M17.7 16.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 18.8l2.1-2.1M17.7 7.3l2.1-2.1"/></svg></button>
       <button title="New rule" class="plus"><svg class="ic" viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></button>
     </div>
   </div>
+  <div id="oview">
   <div class="head">
     <h1>Welcome back, Samuel!</h1>
   </div>
@@ -207,18 +249,31 @@
   <section class="today"><div id="today"></div></section>
 
   <div class="grid" id="grid"></div>
-
-  <p class="note"><b>Round 11.</b> Automatically filed is back to the thin line chart. Names follow how Stripe, Microsoft 365 and Google Workspace name reports: plain noun phrases (Inbox by category, Emails received, Automatically filed, Suspicious emails, Emails cleared, Top senders). The footer links are gone: each widget is one link to its page, with a › on hover. "22% opened" and "3 of 3 results" are gone.</p>
-</main>
-<aside class="details-pane" id="details">
-  <div class="dp-head">
-    <div class="seg"><button>Emails</button><button class="on">Senders</button></div>
-    <button class="x" title="Close Details" onclick="toggleDetails()"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   </div>
-  <div class="dp-title">All mail · 42 senders</div>
-  <div class="dp-chips"><span>+ Never opened</span><span>+ Promotions</span><span>+ This week</span><span>+ Older than 1 year</span><span>+ Large: over 2 MB</span></div>
-  <div class="dp-table" id="dp-rows"></div>
-</aside>
+
+  <section id="dview" hidden>
+    <div class="dv-head">
+      <h1>All mail <span class="cnt">42 senders</span></h1>
+      <div class="dv-tools">
+        <div class="seg"><button>Emails</button><button class="on">Senders</button></div>
+        <button class="btn"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg>Filter</button>
+        <button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>Columns</button>
+        <button class="btn"><svg class="ic" viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Export</button>
+      </div>
+    </div>
+    <div class="dv-chips"><span>Never opened</span><span>Promotions</span><span>This week</span><span>Older than 1 year</span><span>Over 2 MB</span></div>
+    <table class="dt"><thead><tr>
+      <th class="cb"><input type="checkbox" aria-label="Select all"></th><th>Sender <span class="sort">⇅</span></th><th>Address</th><th>Category</th><th>Last email</th>
+      <th class="r">Emails <span class="sort">⇅</span></th><th class="r">Opened</th><th>Status</th><th class="r">Action</th>
+    </tr></thead><tbody id="dt-rows"></tbody></table>
+    <div class="dv-foot">
+      <button class="btn">Show: 10 <span class="sort">⇅</span></button>
+      <div class="pages"><button class="pg" disabled>←</button><button class="pg on">1</button><button class="pg">2</button><button class="pg">3</button><button class="pg">…</button><button class="pg">5</button><button class="pg">→</button></div>
+    </div>
+  </section>
+
+  <p class="note"><b>Round 12.</b> More air: content is one centered 1120 px column, widgets have 32 px above and below, 64 px between columns, and the last row has no bottom rule. Overview has no Details pane. The Details icon (top right) opens Details as its own full page: one table with logo, address, category, last email, emails, opened, status and a ⋯ menu, plus Filter, Columns, Export and pages. On Clean up, Stop mail, Organize and Protect the pane stays beside the page as now.</p>
+</main>
 
 <script>
 const fav = (d) => `<img src="https://www.google.com/s2/favicons?domain=${d}&sz=64" alt="">`;
@@ -314,10 +369,32 @@ document.getElementById("grid").innerHTML = [
   W("Top senders", "", "", "", topList, "Stop mail"),
 ].join("");
 
-const DP = [["linkedin.com","LinkedIn",59,"22%"],["amazon.com","Amazon.com",25,"36%"],["medium.com","Medium Daily D…",20,"None"],["morningbrew.com","Morning Brew",18,"17%"],["quora.com","Quora Digest",15,"None"],["groupon.com","Groupon",14,"None"],["oldnavy.com","Old Navy",12,"None"],["nike.com","Nike",11,"None"],["facebook.com","Facebook",10,"None"],["theverge.com","The Verge",9,"22%"],["target.com","Target",9,"22%"],["wayfair.com","Wayfair",9,"None"],["reddit.com","Reddit",9,"33%"],["uber.com","Uber Receipts",8,"25%"],["uniqlo.com","UNIQLO",8,"None"],["doordash.com","DoorDash",7,"29%"],["github.com","GitHub",7,"100%"],[null,"Mom",6,"100%"]];
-document.getElementById("dp-rows").innerHTML = `<div class="dp-row h"><input type="checkbox" aria-label="Select all"><span></span><span>Sender</span><span></span><span class="n">Emails</span><span class="o">Opened</span></div>` +
-  DP.map(([d, n, c, o]) => `<div class="dp-row"><input type="checkbox">${d ? fav(d) : `<span class="m">${n.slice(0, 2).toUpperCase()}</span>`}<b>${n}</b><span class="bar" style="width:${Math.round(c / 59 * 48)}px"></span><span class="n">${c}</span><span class="o">${o}</span></div>`).join("");
-function toggleDetails() { const d = document.getElementById("details"); d.hidden = !d.hidden; document.getElementById("details-btn").classList.toggle("on", !d.hidden); }
+const DP = [
+  ["linkedin.com", "LinkedIn", "messages-noreply@linkedin.com", "Updates", "Today", 59, "22%", "Subscribed"],
+  ["amazon.com", "Amazon.com", "shipment-tracking@amazon.com", "Receipts", "Today", 25, "36%", "Subscribed"],
+  ["medium.com", "Medium Daily Digest", "noreply@medium.com", "Newsletters", "Yesterday", 20, "None", "Unsubscribed"],
+  ["morningbrew.com", "Morning Brew", "crew@morningbrew.com", "Newsletters", "Today", 18, "17%", "Subscribed"],
+  ["quora.com", "Quora Digest", "digest-noreply@quora.com", "Newsletters", "Mon", 15, "None", "Muted"],
+  ["groupon.com", "Groupon", "noreply@r.groupon.com", "Promotions", "Tue", 14, "None", "Unsubscribed"],
+  ["oldnavy.com", "Old Navy", "oldnavy@email.oldnavy.com", "Promotions", "Sun", 12, "None", "Subscribed"],
+  ["nike.com", "Nike", "nike@official.nike.com", "Promotions", "Sat", 11, "None", "Muted"],
+  ["facebook.com", "Facebook", "notification@facebookmail.com", "Updates", "Today", 10, "None", "Subscribed"],
+  ["theverge.com", "The Verge", "newsletter@theverge.com", "Newsletters", "Mon", 9, "22%", "Subscribed"],
+];
+const status = (t) => `<span class="st st-${t.toLowerCase()}"><i></i>${t}</span>`;
+document.getElementById("dt-rows").innerHTML = DP.map(([d, n, a, c, l, e, o, st]) => `<tr>
+  <td class="cb"><input type="checkbox" aria-label="Select ${n}"></td><td><span class="snd">${fav(d)}<b>${n}</b></span></td>
+  <td class="mut">${a}</td><td><span class="cat">${c}</span></td><td class="mut">${l}</td>
+  <td class="r nn">${e}</td><td class="r mut nn">${o}</td><td>${status(st)}</td>
+  <td class="r"><button class="more" title="More">⋯</button></td></tr>`).join("");
+// Overview has no side pane; the Details icon opens the full Details page.
+function route() {
+  const d = location.hash === "#details";
+  document.getElementById("oview").hidden = d; document.getElementById("dview").hidden = !d;
+  document.getElementById("details-btn").classList.toggle("on", d);
+  document.getElementById("nav-ov").classList.toggle("on", !d);
+}
+addEventListener("hashchange", route); route();
 
 // Hover: dashed guide, knob and a tooltip pill at the nearest day.
 for (const a of document.querySelectorAll(".area")) {
