@@ -85,7 +85,7 @@ describe("desiredCategoryFilters", () => {
 const otpSpec: CategoryFilterSpec = {
   bucket: "otp",
   labelName: "🔑 One-time codes",
-  criteria: { query: "subject:(code)" },
+  criteria: [{ query: "subject:(code)" }],
   fileOut: false,
 };
 

@@ -79,3 +79,19 @@ describe("classifySortBucket with Promotions", () => {
     expect(classifySortBucket("other", "deals.example", false)).toBeNull();
   });
 });
+
+describe("filter length", () => {
+  it("splits a long domain list across filters, each under Gmail's limit, missing none", async () => {
+    const { ALL_SORT_BUCKETS } = await import("./sortTaxonomy");
+    const { MAX_FILTER_QUERY, categoryQueries } = await import("./categoryQueries");
+    const { domainsForCategory } = await import("./domainCategories");
+    for (const b of ALL_SORT_BUCKETS) {
+      const qs = categoryQueries(b);
+      for (const q of qs) expect(q.length, b).toBeLessThanOrEqual(MAX_FILTER_QUERY);
+      const joined = qs.join(" ");
+      for (const d of domainsForCategory(b as never)) expect(joined, `${b}: ${d}`).toContain(d);
+    }
+    expect(categoryQueries("shopping").length).toBeGreaterThan(1);
+    expect(categoryQuery("shopping")).toContain("amazon.com");
+  });
+});

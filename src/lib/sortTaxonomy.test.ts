@@ -126,6 +126,17 @@ describe("Accounts and Jobs", () => {
     for (const subject of ["New Opportunity-Cyber Security Systems Administrator", "Exploring New Career Opportunities in Ohio?"]) {
       expect(classifyMessageKind(subject, false), subject).toBe("jobs");
     }
+    for (const subject of ["Remote :: Direct client :: Cybersecurity Engineer :: Contract", "CyberArk IAM Consultant - Frisco, TX (Onsite)", "Looking for Security Administrator | Boston MA", "Complete your interview to stay in consideration", "Hi Samuel, almost there! Complete your Service Desk Analyst application"]) {
+      expect(classifyMessageKind(subject, false), subject).toBe("jobs");
+    }
+    expect(classifyMessageKind("Remote work is here to stay for engineers", true)).toBe("newsletter");
+    expect(classifyMessageKind("Verify your candidate account", false)).toBe("accounts");
+    expect(classifyMessageKind("New trusted browser added", false)).toBe("accounts");
+    expect(classifyMessageKind("Yaswanth, your order is on the way, #401005748.", false)).toBe("shipping");
+    expect(classifyMessageKind("Renewal Premium Reciept", false)).toBe("receipt");
+    expect(classifySortBucket("newsletter", "hackerrankmail.com")).toBe("education");
+    expect(classifySortBucket("other", "otp.workday.com")).toBe("jobs");
+    expect(classifySortBucket("other", "wazirx.com")).toBe("finance");
     expect(classifyMessageKind("Thank you for your interest in Ford", true, { address: "recruitingnoreply@ford.com", displayName: "" })).toBe("jobs");
   });
 });

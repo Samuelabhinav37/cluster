@@ -110,30 +110,61 @@ function overrideTerms(bucket: SortBucket, overrides: Record<string, SortOverrid
   return { include, exclude };
 }
 
+/** Gmail refuses a filter whose criteria run much past 1,500 characters. */
+export const MAX_FILTER_QUERY = 1400;
+
 /**
- * The Gmail search query for one category, or null when there's nothing to
- * match. Used both as a filter's criteria (Gmail runs it on every new
- * message) and as a search over mail already in the mailbox.
+ * The Gmail filter queries for one category, empty when there's nothing to
+ * match. Gmail runs each on every new message. A long curated domain list is
+ * split across several queries so each stays under MAX_FILTER_QUERY; the
+ * subject phrases and the user's own redirects ride in the first.
  */
+export function categoryQueries(bucket: SortBucket, overrides: Record<string, SortOverride> = {}): string[] {
+  const all = domainsForCategory(bucket as DomainCategory);
+  const out: string[] = [];
+  let start = 0;
+  do {
+    const first = out.length === 0;
+    let end = start;
+    while (end < all.length && (buildQuery(bucket, overrides, all.slice(start, end + 1), first)?.length ?? 0) <= MAX_FILTER_QUERY) end++;
+    // A single domain never overflows on its own; this only guards the loop.
+    if (end === start && end < all.length) end++;
+    const q = buildQuery(bucket, overrides, all.slice(start, end), first);
+    if (q) out.push(q);
+    start = end;
+  } while (start < all.length);
+  return out;
+}
+
+/** The first of categoryQueries: the subject phrases and the first domains. */
 export function categoryQuery(bucket: SortBucket, overrides: Record<string, SortOverride> = {}): string | null {
-  const { include, exclude } = overrideTerms(bucket, overrides);
+  return categoryQueries(bucket, overrides)[0] ?? null;
+}
+
+function buildQuery(
+  bucket: SortBucket,
+  overrides: Record<string, SortOverride>,
+  domains: string[],
+  first: boolean,
+): string | null {
+  const { include: redirected, exclude } = overrideTerms(bucket, overrides);
+  const include = first ? redirected : [];
   const matchAny: string[] = [];
   const not: string[] = [];
 
   if (isSubjectKind(bucket)) {
-    matchAny.push(subjectAny(KIND_PHRASES[bucket]));
-    if (bucket === "social" || bucket === "jobs") matchAny.push(fromAny(domainsForCategory(bucket)));
+    if (first) matchAny.push(subjectAny(KIND_PHRASES[bucket]));
+    if ((bucket === "social" || bucket === "jobs") && domains.length > 0) matchAny.push(fromAny(domains));
     const earlier = KIND_ORDER.slice(0, KIND_ORDER.indexOf(bucket)).flatMap((k) => KIND_PHRASES[k]);
     if (earlier.length > 0) not.push(subjectAny(earlier));
     if (bucket === "otp") not.push(subjectAny(OTP_EXCLUDED_PHRASES));
     if (bucket === "accounts") not.push("subject:CVE");
   } else if (bucket === "promotions") {
-    matchAny.push("category:promotions");
+    if (first) matchAny.push("category:promotions");
     not.push(subjectAny(ALL_KIND_PHRASES));
   } else if (DOMAIN_BUCKETS.includes(bucket)) {
     // Newsletters are mostly found by their List-Unsubscribe header, which a
     // filter can't see; the background tagger covers the rest.
-    const domains = domainsForCategory(bucket as DomainCategory);
     if (domains.length > 0) matchAny.push(fromAny(domains));
     not.push(subjectAny(ALL_KIND_PHRASES));
     // Mirrors classifySortBucket: the Promotions tab wins over the domain.

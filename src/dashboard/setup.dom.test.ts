@@ -71,7 +71,8 @@ describe("first-run setup", () => {
     expect(stored.autoQuarantineHighRisk).toBe(true);
     const calls = dash.gmailApi.createFilter.mock.calls as [string, { query?: string }, { removeLabelIds: string[] }][];
     const skipping = calls.filter((c) => c[2].removeLabelIds.includes("INBOX")).length;
-    expect(skipping).toBe(2);
+    const ids = stored.autoSort.filterIdsByBucket;
+    expect(skipping).toBe(ids.promotions.length + ids.newsletter.length);
   });
 
   it("Ask me first saves the answers but never turns on Gmail filters", async () => {

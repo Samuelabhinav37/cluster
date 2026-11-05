@@ -20,19 +20,24 @@ const OTP_EXCLUDE_RE = /\b(alert|disabled|changed|new sign[- ]?in|suspicious)\b/
 // Checked right after codes so a Google "Security alert" with an unsubscribe
 // footer is never filed as a newsletter.
 const ACCOUNT_RE =
-  /\b(security alert|new sign[- ]?in|sign[- ]?in (attempt|alert)|new (login|device)|password (reset|changed|was changed|updated)|changed (your )?password|reset your( \w+)? password|signed in (from|on|to)|new account linked|authentication added|found your info|suspicious (activity|sign[- ]?in|login)|account (recovery|activity|alert|locked|suspended)|recovery (email|phone)|2-step verification|two-factor authentication (was )?(disabled|turned off|enabled|turned on)|app password)\b/i;
+  /\b(security alert|new sign[- ]?in|sign[- ]?in (attempt|alert)|new (login|device)|password (reset|changed|was changed|updated)|changed (your )?password|reset your( \w+)? password|signed in (from|on|to)|new account linked|verify your( \w+)? account|(new )?trusted (browser|device)|authentication added|found your info|suspicious (activity|sign[- ]?in|login)|account (recovery|activity|alert|locked|suspended)|recovery (email|phone)|2-step verification|two-factor authentication (was )?(disabled|turned off|enabled|turned on)|app password)\b/i;
 // Phrases, not lone words: "Free delivery this weekend" and "Tracking your
 // fitness goals" are promotions, "Our statement on the outage" is news.
 const SHIPPING_RE =
-  /\b(shipped|out for delivery|delivery (update|attempt|scheduled|exception|confirmation)|delivered|tracking (number|info|information|update|details)|track your (order|package|parcel|shipment)|order (confirm|confirmed|confirmation)|order #|order (is |has been )?(confirmed|placed|received)|has shipped|arriving|on its way)\b|^ordered:/i;
+  /\b(shipped|out for delivery|delivery (update|attempt|scheduled|exception|confirmation)|delivered|tracking (number|info|information|update|details)|track your (order|package|parcel|shipment)|order (confirm|confirmed|confirmation)|order #|order (is |has been )?(confirmed|placed|received)|has shipped|arriving|on its way|on the way|received your order|package (has )?arrived|delivery order)\b|^ordered:/i;
 const RECEIPT_RE =
-  /\b(receipt|invoice|payment (received|confirmation)|received your payment|purchase (confirmation|confirmed)|refund (confirmation|issued|processed)|your refund|booking confirm(ation|ed)|your tickets?|your bill|e-?statement|statement (is )?(ready|available)|your( \w+){0,3} statement|paid|will renew|renews on|is renewing|renewal (notice|reminder|confirmation)|auto-?renew)\b/i;
+  /\b(receipt|reciept|has been renewed|subscription (has been )?(canceled|cancelled)|invoice|payment (received|confirmation)|received your payment|purchase (confirmation|confirmed)|refund (confirmation|issued|processed)|your refund|booking confirm(ation|ed)|your tickets?|your bill|e-?statement|statement (is )?(ready|available)|your( \w+){0,3} statement|paid|will renew|renews on|is renewing|renewal (notice|reminder|confirmation)|auto-?renew)\b/i;
 // Oracle's "Security Alert for CVE-2026-1234" is an advisory, not your account.
 const ACCOUNT_EXCLUDE_RE = /\bcve-\d/i;
 // No bare "application": PayPal's "Pay in 4 application" is not a job.
 const JOBS_RE =
-  /\b(thanks?( you)? for (applying|your application)|your (job )?application|job application|application (update|status|received|confirmation)|received your application|job alerts?|jobs for you|new jobs?|job opening|new opportunity|career opportunit(y|ies))\b/i;
+  /\b(thanks?( you)? for (applying|your application)|your (job )?application|job application|application (update|status|received|confirmation)|received your application|job alerts?|jobs for you|new jobs?|job opening|new opportunity|career opportunit(y|ies)|(urgent|immediate) (hiring|opportunity|requirement)|complete your( [\w-]+){0,4} application|(complete )?your( \w+)? interview|interview (questionnaire|invitation|request|scheduled))\b/i;
 // recruiting@dupaco.com, recruitingnoreply@ford.com, talentacquisition@hr.questdiagnostics.com.
+// A staffing agency's one-to-one post: a job title next to a work mode
+// ("Cybersecurity Engineer :: Remote", "IAM Consultant - Frisco, TX (Onsite)").
+// Only without an unsubscribe link, so newsletters about remote work stay news.
+const JOB_POST_RE =
+  /\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b.*\b(remote|hybrid|on-?site|contract|w2|c2c)\b|\b(remote|hybrid|on-?site|contract)\b.*\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b|^looking for\b/i;
 const JOBS_SENDER_RE = /\b(recruit\w*|talent ?acquisition|careers?)\b/i;
 const SOCIAL_RE = /\b(mentioned you|tagged you|new follower|friend request|liked your|commented on)\b/i;
 // When the subject says nothing ("Your Thursday evening trip with Uber"), a
@@ -58,7 +63,7 @@ export function classifyMessageKind(
   if (SHIPPING_RE.test(s)) return "shipping";
   if (RECEIPT_RE.test(s)) return "receipt";
   if (SOCIAL_RE.test(s)) return "social";
-  if (JOBS_RE.test(s)) return "jobs";
+  if (JOBS_RE.test(s) || (!hasListUnsubscribe && JOB_POST_RE.test(s))) return "jobs";
   if (sender) {
     const who = `${sender.address.split("@")[0].replace(/[._+-]/g, " ")} ${cleanText(sender.displayName)}`;
     if (SHIPPING_SENDER_RE.test(who)) return "shipping";

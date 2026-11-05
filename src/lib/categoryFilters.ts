@@ -7,7 +7,7 @@
 // of the inbox only when that category's time limit is 0 ("straight to the
 // label"); otherwise mail stays in the inbox and the time sweep
 // (inboxTimeLimits.ts) moves it out once the limit passes.
-import { categoryQuery } from "./categoryQueries";
+import { categoryQueries } from "./categoryQueries";
 import type { GmailFilterAction, GmailFilterCriteria, GmailFilterResource } from "./gmailApi";
 import type { ClusterSettings } from "./settingsStore";
 import { ALL_SORT_BUCKETS, DEFAULT_FILE_OUT_OF_INBOX, SKIP_INBOX_BUCKETS, bucketLabelName, type SortBucket } from "./sortTaxonomy";
@@ -16,7 +16,8 @@ import { createFilter, deleteFilter, getOrCreateLabel, listFilters } from "./gma
 export interface CategoryFilterSpec {
   bucket: SortBucket;
   labelName: string;
-  criteria: GmailFilterCriteria;
+  /** One Gmail filter each: a long domain list is split across several. */
+  criteria: GmailFilterCriteria[];
   fileOut: boolean;
 }
 
@@ -49,12 +50,12 @@ function fileOutOnArrival(settings: ClusterSettings, bucket: SortBucket): boolea
 export function desiredCategoryFilters(settings: ClusterSettings): CategoryFilterSpec[] {
   const specs: CategoryFilterSpec[] = [];
   for (const bucket of filteredCategories(settings)) {
-    const query = categoryQuery(bucket, settings.sortOverrides);
-    if (!query) continue;
+    const queries = categoryQueries(bucket, settings.sortOverrides);
+    if (queries.length === 0) continue;
     specs.push({
       bucket,
       labelName: categoryLabelName(bucket, settings.labelChoices),
-      criteria: { query },
+      criteria: queries.map((query) => ({ query })),
       fileOut: fileOutOnArrival(settings, bucket),
     });
   }
@@ -64,7 +65,7 @@ export function desiredCategoryFilters(settings: ClusterSettings): CategoryFilte
 /** A stable fingerprint of what a filter does, to tell whether the stored
  * one is still right. Includes the label name: a rename means a new id. */
 export function specKey(spec: CategoryFilterSpec): string {
-  return JSON.stringify([spec.labelName, spec.criteria.query ?? "", spec.fileOut]);
+  return JSON.stringify([spec.labelName, spec.criteria.map((c) => c.query ?? ""), spec.fileOut]);
 }
 
 export interface CategoryFilterApi {
@@ -129,19 +130,21 @@ export async function syncCategoryFilters(
       addLabelIds: [labelId],
       removeLabelIds: spec.fileOut ? ["INBOX"] : [],
     };
-    let id: string;
-    try {
-      id = await api.createFilter(spec.criteria, action);
-    } catch (err) {
-      if (!/exist/i.test(String(err))) throw err;
-      // Gmail refuses an exact duplicate: adopt the one already there.
-      const same = (await api.listFilters()).find(
-        (f) => f.criteria?.query === spec.criteria.query && (f.action?.addLabelIds ?? []).includes(labelId),
-      );
-      if (!same) throw err;
-      id = same.id;
+    const ids: string[] = [];
+    for (const criteria of spec.criteria) {
+      try {
+        ids.push(await api.createFilter(criteria, action));
+      } catch (err) {
+        if (!/exist/i.test(String(err))) throw err;
+        // Gmail refuses an exact duplicate: adopt the one already there.
+        const same = (await api.listFilters()).find(
+          (f) => f.criteria?.query === criteria.query && (f.action?.addLabelIds ?? []).includes(labelId),
+        );
+        if (!same) throw err;
+        ids.push(same.id);
+      }
     }
-    filterIdsByBucket[spec.bucket] = [id];
+    filterIdsByBucket[spec.bucket] = ids;
     filterSpecByBucket[spec.bucket] = key;
     created++;
   }
