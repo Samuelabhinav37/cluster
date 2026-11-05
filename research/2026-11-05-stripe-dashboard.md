@@ -31,6 +31,31 @@ Date: 2026-11-05. Asked for after Clean up and Stop mail "look like a glitch".
 9. **Home is a few numbers, chosen for you.** Users can add, remove and
    reorder widgets, but the defaults are a handful of decision metrics. [3][4]
 
+## Seen live (user's Stripe Express account, 2026-11-05)
+
+The account opened on Stripe Express, the payout dashboard Stripe gives
+contractors, not the full merchant Dashboard. It was empty ($0, no
+transactions), so this shows layout and states, not real charts.
+
+- **Flat page, no cards.** Sections are a bold 18 px heading with a small gray
+  "See all" button at the right, then content separated by hairlines only.
+- **Two columns, 2/3 + 1/3.** The main column holds Recent earnings with a
+  chart, then Recent transactions. The side column holds Total balance and
+  Activity.
+- **Number above chart, period picker beside it.** "$0.00" sits under the
+  heading, with "Past 12 months" as a small select on the right.
+- **Empty chart keeps its shape.** Gray ghost bars at full chart height, with
+  one icon and "View trends in your earnings over time" on top. The page
+  doesn't collapse when there's no data.
+- **Skeletons, not spinners, for tables.** While loading, each row shows gray
+  pills in the real column positions, of varying widths. The final rows land
+  in the same place.
+- **Tables:** header row in small bold gray, amounts right-aligned, filter
+  buttons above the table (Date, Transfer date, Type) with Export on the
+  right, and underline tabs (All / Payouts) above those.
+- **Empty table:** a bold line ("No transactions yet") and one gray sentence,
+  centered in a fixed-height area.
+
 ## What this means for Cluster
 
 | Screen | Now | Stripe rule it breaks | Change |

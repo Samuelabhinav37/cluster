@@ -16,10 +16,13 @@
   main { flex:1; padding:32px 40px 120px; max-width:1100px; }
   h1 { font-size:30px; letter-spacing:-.02em; margin:16px 0 22px; }
   .crumb { font-size:13px; color:var(--l3); }
-  .module { background:var(--card); border:1px solid var(--hair); border-radius:14px; }
+  /* Stripe Express look: flat sections on the page, hairlines only, no cards. */
+  .module { border-top:1px solid var(--hair); border-bottom:1px solid var(--hair); }
+  .kpis.module { border:0; }
   .kpis { display:grid; grid-template-columns:repeat(3,1fr); }
-  .kpi { padding:18px 20px; height:124px; display:flex; flex-direction:column; gap:4px; cursor:pointer; border-right:1px solid var(--hair); }
+  .kpi { padding:4px 24px 14px 0; height:112px; display:flex; flex-direction:column; gap:4px; cursor:pointer; border-right:1px solid var(--hair); }
   .kpi:last-child { border-right:0; }
+  .kpi + .kpi { padding-left:24px; }
   .kpi.on { box-shadow: inset 0 -2px 0 var(--accent); }
   .kpi .cap { color:var(--l3); font-size:13px; }
   .kpi .row { display:flex; align-items:flex-end; justify-content:space-between; }
@@ -30,14 +33,19 @@
   svg.spark path { fill:none; stroke:var(--l3); stroke-width:1.5; }
   .bar { display:flex; align-items:center; gap:12px; margin:22px 0 10px; }
   .chips { display:flex; gap:6px; }
-  .chip { padding:6px 12px; border-radius:8px; background:none; border:1px solid var(--hair); color:var(--l2); font:inherit; font-size:13px; cursor:pointer; }
-  .chip.on { background:var(--fill); color:var(--l); border-color:transparent; font-weight:600; }
+  .chips { gap:22px; border-bottom:1px solid var(--hair); }
+  .chip { padding:8px 0 10px; background:none; border:0; border-bottom:2px solid transparent; margin-bottom:-1px; color:var(--l3); font:600 14px var(--font); cursor:pointer; }
+  .chip.on { color:var(--l); border-bottom-color:var(--accent); }
+  .skel { display:inline-block; height:12px; border-radius:6px; background:#2a2a2f; animation:pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity:.5; } }
+  .sec { display:flex; align-items:center; justify-content:space-between; margin:30px 0 10px; }
+  .sec h3 { margin:0; font-size:18px; }
   .grow { flex:1; }
   .btn { height:32px; padding:0 14px; border-radius:8px; border:0; font:600 13px var(--font); cursor:pointer; background:var(--fill); color:var(--l); }
   .btn.solid { background:var(--accent); color:#fff; }
   .btn.danger { background:none; color:var(--red); }
   table { width:100%; border-collapse:collapse; }
-  th { text-align:left; font-weight:500; font-size:12px; color:var(--l4); padding:10px 14px; border-bottom:1px solid var(--hair); }
+  th { text-align:left; font-weight:600; font-size:12px; color:var(--l3); padding:10px 14px; border-bottom:1px solid var(--hair); }
   th.r, td.r { text-align:right; }
   td { height:52px; padding:0 14px; border-bottom:1px solid var(--hair); font-variant-numeric:tabular-nums; }
   tr:last-child td { border-bottom:0; }
@@ -90,7 +98,7 @@
     <div class="foot" id="clean-foot"></div>
   </div>
   <div class="sel" id="clean-sel"><b id="clean-sel-n"></b><span class="grow"></span><button class="btn danger">Trash</button></div>
-  <p class="note"><b>What changed.</b> The three cards are now one row of three numbers, all the same height. Each number has its trend and last week under it. Click a number to filter the one table below. There's one action per row and one button for all. This follows Stripe's rules: answer above the chart, at most three charts in a row, one filterable list.</p>
+  <p class="note"><b>What changed.</b> The three cards are now one row of three numbers, all the same height. Each number has its trend and last week under it. Click a number to filter the one table below. There's one action per row and one button for all. This follows Stripe's rules: answer above the chart, at most three charts in a row, one filterable list. Flat like Stripe Express: no cards, only hairlines. Skeleton rows of the final height show while loading, so nothing jumps.</p>
 </section>
 
 <!-- ═══ STOP MAIL ═══ -->
@@ -98,8 +106,7 @@
   <div class="crumb">Clean up ›</div>
   <h1>Stop mail</h1>
   <div class="bar" style="margin-top:0">
-    <div class="chips" id="stop-chips"></div>
-    <span class="grow"></span>
+    <div class="chips grow" id="stop-chips"></div>
     <button class="btn solid">Unsubscribe from 22</button>
   </div>
   <div class="module">
@@ -110,7 +117,7 @@
     <div class="foot">Show all 29</div>
   </div>
 
-  <h2>Paid subscriptions and trials</h2>
+  <div class="sec"><h3>Paid subscriptions and trials</h3></div>
   <div class="module paid">
     <table><tbody>
       <tr><td><div class="who"><img src="https://www.google.com/s2/favicons?domain=spotify.com&sz=64" alt="">Spotify</div></td><td class="r"><span class="tag warn">Trial ends Nov 12</span></td><td class="act"><button class="btn">How to cancel</button></td></tr>
@@ -155,7 +162,9 @@ function renderStop() {
   document.getElementById("stop-rows").innerHTML = STOP.map(([name, dom, wk, pct, pts]) => `<tr><td class="chk"><input type="checkbox"></td><td><div class="who">${fav(dom)}${name}</div></td><td>${spark(pts)}</td><td class="r">${wk}</td><td class="r pct">${pct}</td><td class="act"><button class="btn">Unsubscribe</button></td></tr>`).join("");
 }
 function route() { const stop = location.hash === "#stop"; document.getElementById("stop").hidden = !stop; document.getElementById("cleanup").hidden = stop; document.getElementById("n-stop").className = stop ? "sub on" : "sub"; document.getElementById("n-clean").className = stop ? "" : "on"; }
-renderClean(); renderStop(); route(); addEventListener("hashchange", route);
+const skel = (cols) => Array.from({ length: 6 }, () => `<tr><td class="chk"></td><td><span class="skel" style="width:${120 + Math.random() * 80 | 0}px"></span></td><td><span class="skel" style="width:96px"></span></td><td class="r"><span class="skel" style="width:28px"></span></td><td class="r"><span class="skel" style="width:32px"></span></td><td class="act"></td></tr>`).join("");
+document.getElementById("clean-rows").innerHTML = skel(); document.getElementById("stop-rows").innerHTML = skel();
+route(); setTimeout(() => { renderClean(); renderStop(); }, 900); addEventListener("hashchange", route);
 </script>
 </body>
 </html>
