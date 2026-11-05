@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Clean up + Stop mail, Stripe-style mockup</title>
+<style>
+  :root { --bg:#0b0b0d; --panel:#141417; --card:#18181b; --hair:#26262a; --l:#f5f5f7; --l2:#dcdce0; --l3:#a1a1a8; --l4:#7c7c84;
+    --accent:#3f6fd1; --accent-t:#6f9be0; --fill:#232327; --red:#ff6b6b; --font:"Inter Tight","Inter",system-ui,sans-serif; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--l); font:14px/1.4 var(--font); display:flex; min-height:100vh; }
+  nav { width:220px; flex:none; background:var(--panel); border-right:1px solid var(--hair); padding:16px 12px; }
+  nav b { display:block; font-size:17px; margin:4px 10px 18px; }
+  nav a { display:block; padding:9px 12px; border-radius:9px; color:var(--l2); text-decoration:none; }
+  nav a.on { background:var(--fill); color:var(--l); font-weight:600; }
+  nav a.sub { padding-left:30px; font-size:13px; }
+  main { flex:1; padding:32px 40px 120px; max-width:1100px; }
+  h1 { font-size:30px; letter-spacing:-.02em; margin:16px 0 22px; }
+  .crumb { font-size:13px; color:var(--l3); }
+  .module { background:var(--card); border:1px solid var(--hair); border-radius:14px; }
+  .kpis { display:grid; grid-template-columns:repeat(3,1fr); }
+  .kpi { padding:18px 20px; height:124px; display:flex; flex-direction:column; gap:4px; cursor:pointer; border-right:1px solid var(--hair); }
+  .kpi:last-child { border-right:0; }
+  .kpi.on { box-shadow: inset 0 -2px 0 var(--accent); }
+  .kpi .cap { color:var(--l3); font-size:13px; }
+  .kpi .row { display:flex; align-items:flex-end; justify-content:space-between; }
+  .kpi .num { font-size:28px; font-weight:650; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+  .kpi .num small { font-size:14px; font-weight:500; color:var(--l3); margin-left:4px; }
+  .kpi .cmp { color:var(--l4); font-size:12px; }
+  svg.spark { width:96px; height:28px; }
+  svg.spark path { fill:none; stroke:var(--l3); stroke-width:1.5; }
+  .bar { display:flex; align-items:center; gap:12px; margin:22px 0 10px; }
+  .chips { display:flex; gap:6px; }
+  .chip { padding:6px 12px; border-radius:8px; background:none; border:1px solid var(--hair); color:var(--l2); font:inherit; font-size:13px; cursor:pointer; }
+  .chip.on { background:var(--fill); color:var(--l); border-color:transparent; font-weight:600; }
+  .grow { flex:1; }
+  .btn { height:32px; padding:0 14px; border-radius:8px; border:0; font:600 13px var(--font); cursor:pointer; background:var(--fill); color:var(--l); }
+  .btn.solid { background:var(--accent); color:#fff; }
+  .btn.danger { background:none; color:var(--red); }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; font-weight:500; font-size:12px; color:var(--l4); padding:10px 14px; border-bottom:1px solid var(--hair); }
+  th.r, td.r { text-align:right; }
+  td { height:52px; padding:0 14px; border-bottom:1px solid var(--hair); font-variant-numeric:tabular-nums; }
+  tr:last-child td { border-bottom:0; }
+  tbody tr:hover td { background:#1c1c20; }
+  .who { display:flex; align-items:center; gap:12px; font-weight:600; }
+  .who img, .who .mono { width:28px; height:28px; border-radius:7px; background:#fff; padding:3px; flex:none; }
+  .who small { display:block; font-weight:400; color:var(--l4); font-size:12px; }
+  td.act { width:132px; text-align:right; }
+  td.act .btn { width:118px; }
+  td.chk, th.chk { width:36px; padding-right:0; }
+  input[type=checkbox] { accent-color:var(--accent); width:15px; height:15px; }
+  .pct { color:var(--l3); }
+  .foot { padding:12px 14px; color:var(--accent-t); font-size:13px; border-top:1px solid var(--hair); cursor:pointer; }
+  .sel { position:sticky; bottom:16px; margin-top:14px; display:none; align-items:center; gap:10px; padding:10px 14px; background:#202024; border:1px solid var(--hair); border-radius:12px; }
+  .sel.show { display:flex; }
+  h2 { font-size:13px; color:var(--l3); font-weight:600; margin:30px 0 10px; }
+  .paid td { height:48px; }
+  .tag { font-size:12px; color:var(--l3); }
+  .tag.warn { color:#f0b44c; }
+  [hidden] { display:none !important; }
+  .note { margin:40px 0 0; padding:14px 16px; border:1px dashed #3a3a40; border-radius:12px; color:var(--l3); font-size:13px; }
+  .note b { color:var(--l2); }
+</style>
+</head>
+<body>
+<nav>
+  <b>Cluster</b>
+  <a href="#">Overview</a>
+  <a href="#cleanup" id="n-clean">Clean up</a>
+  <a href="#stop" class="sub" id="n-stop">Stop mail</a>
+  <a href="#">Organize</a>
+  <a href="#">Protect</a>
+</nav>
+
+<main>
+<!-- ═══ CLEAN UP ═══ -->
+<section id="cleanup">
+  <h1>Clean up</h1>
+  <div class="module kpis" id="kpis"></div>
+  <div class="bar">
+    <span class="tag" id="clean-count"></span>
+    <span class="grow"></span>
+    <button class="btn danger" id="trash-all">Trash all 111</button>
+  </div>
+  <div class="module">
+    <table>
+      <thead><tr><th class="chk"><input type="checkbox" aria-label="Select all"></th><th>Sender</th><th>Last 8 weeks</th><th class="r">Emails</th><th class="r">Opened</th><th></th></tr></thead>
+      <tbody id="clean-rows"></tbody>
+    </table>
+    <div class="foot" id="clean-foot"></div>
+  </div>
+  <div class="sel" id="clean-sel"><b id="clean-sel-n"></b><span class="grow"></span><button class="btn danger">Trash</button></div>
+  <p class="note"><b>What changed.</b> The three cards are now one row of three numbers, all the same height. Each number has its trend and last week under it. Click a number to filter the one table below. There's one action per row and one button for all. This follows Stripe's rules: answer above the chart, at most three charts in a row, one filterable list.</p>
+</section>
+
+<!-- ═══ STOP MAIL ═══ -->
+<section id="stop" hidden>
+  <div class="crumb">Clean up ›</div>
+  <h1>Stop mail</h1>
+  <div class="bar" style="margin-top:0">
+    <div class="chips" id="stop-chips"></div>
+    <span class="grow"></span>
+    <button class="btn solid">Unsubscribe from 22</button>
+  </div>
+  <div class="module">
+    <table>
+      <thead><tr><th class="chk"><input type="checkbox" aria-label="Select all"></th><th>List</th><th>Last 8 weeks</th><th class="r">Per week</th><th class="r">Opened</th><th></th></tr></thead>
+      <tbody id="stop-rows"></tbody>
+    </table>
+    <div class="foot">Show all 29</div>
+  </div>
+
+  <h2>Paid subscriptions and trials</h2>
+  <div class="module paid">
+    <table><tbody>
+      <tr><td><div class="who"><img src="https://www.google.com/s2/favicons?domain=spotify.com&sz=64" alt="">Spotify</div></td><td class="r"><span class="tag warn">Trial ends Nov 12</span></td><td class="act"><button class="btn">How to cancel</button></td></tr>
+      <tr><td><div class="who"><img src="https://www.google.com/s2/favicons?domain=netflix.com&sz=64" alt="">Netflix</div></td><td class="r"><span class="tag">Renews Nov 20</span></td><td class="act"><button class="btn">How to cancel</button></td></tr>
+      <tr><td><div class="who"><img src="https://www.google.com/s2/favicons?domain=apple.com&sz=64" alt="">Apple</div></td><td class="r"><span class="tag">Renews Dec 1</span></td><td class="act"><button class="btn">How to cancel</button></td></tr>
+    </tbody></table>
+  </div>
+  <p class="note"><b>What changed.</b> One column instead of two, so names, numbers and buttons line up. Every button has the same width ("By email" goes in the ··· menu). The filter sits on the left and the one filled button on the right. "Show all" is the table's footer. Paid subscriptions are a small list with dates instead of chips of different widths.</p>
+</section>
+</main>
+
+<script>
+const spark = (pts) => { const max = Math.max(...pts, 1); const d = pts.map((v, i) => `${i ? "L" : "M"}${(i * 96 / (pts.length - 1)).toFixed(1)},${(26 - v / max * 24).toFixed(1)}`).join(""); return `<svg class="spark" viewBox="0 0 96 28"><path d="${d}"/></svg>`; };
+const fav = (d) => `<img src="https://www.google.com/s2/favicons?domain=${d}&sz=64" alt="">`;
+const KPIS = [
+  { id: "never", cap: "You never open these", n: 111, unit: "emails", cmp: "+14 vs last week", pts: [9,11,10,14,12,15,13,17] },
+  { id: "old", cap: "Old codes and news", n: 80, unit: "emails", cmp: "+6 vs last week", pts: [6,8,9,7,10,9,11,12] },
+  { id: "lists", cap: "Lists you can leave", n: 17, unit: "lists", cmp: "Same as last week", pts: [15,15,16,16,17,17,17,17] },
+];
+const SENDERS = {
+  never: [["Medium Daily Digest","medium.com",20,"0%",[2,3,2,3,2,3,2,3]],["Quora Digest","quora.com",15,"0%",[1,2,2,2,2,2,2,2]],["Groupon","groupon.com",14,"0%",[2,1,2,2,1,2,2,2]],["Old Navy","oldnavy.com",12,"0%",[1,2,1,2,1,2,1,2]],["Nike","nike.com",11,"0%",[1,1,2,1,2,1,2,1]],["Facebook","facebook.com",10,"0%",[1,1,1,2,1,1,2,1]]],
+  old: [["Newsletters","",78,"",[8,9,10,9,10,11,10,11]],["One-time codes","",2,"",[0,0,1,0,0,0,1,0]]],
+  lists: [["LinkedIn","linkedin.com",22,"14%",[3,2,3,3,2,3,3,3]],["Medium Daily Digest","medium.com",20,"0%",[2,3,2,3,2,3,2,3]],["Morning Brew","morningbrew.com",18,"17%",[2,2,2,3,2,2,3,2]],["Amazon.com","amazon.com",16,"13%",[2,2,2,2,2,2,2,2]]],
+};
+let active = "never";
+function renderClean() {
+  document.getElementById("kpis").innerHTML = KPIS.map((k) => `<div class="kpi ${k.id === active ? "on" : ""}" data-k="${k.id}"><span class="cap">${k.cap}</span><div class="row"><span class="num">${k.n}<small>${k.unit}</small></span>${spark(k.pts)}</div><span class="cmp">${k.cmp}</span></div>`).join("");
+  for (const el of document.querySelectorAll(".kpi")) el.onclick = () => { active = el.dataset.k; renderClean(); };
+  const k = KPIS.find((x) => x.id === active);
+  document.getElementById("trash-all").textContent = active === "lists" ? `Unsubscribe from ${k.n}` : `Trash all ${k.n}`;
+  document.getElementById("trash-all").className = active === "lists" ? "btn solid" : "btn danger";
+  document.getElementById("clean-count").textContent = k.cap;
+  const rows = SENDERS[active];
+  document.getElementById("clean-rows").innerHTML = rows.map(([name, dom, n, pct, pts]) => `<tr><td class="chk"><input type="checkbox"></td><td><div class="who">${dom ? fav(dom) : '<span class="mono"></span>'}${name}</div></td><td>${spark(pts)}</td><td class="r">${n}</td><td class="r pct">${pct || "–"}</td><td class="act"><button class="btn ${active === "lists" ? "" : "danger"}">${active === "lists" ? "Unsubscribe" : "Trash"}</button></td></tr>`).join("");
+  document.getElementById("clean-foot").textContent = active === "never" ? "Show all 10 senders" : active === "lists" ? "Show all 17 lists" : "";
+  document.getElementById("clean-foot").hidden = active === "old";
+  for (const c of document.querySelectorAll("#clean-rows input")) c.onchange = () => { const n = document.querySelectorAll("#clean-rows input:checked").length; document.getElementById("clean-sel").classList.toggle("show", n > 0); document.getElementById("clean-sel-n").textContent = `${n} selected`; };
+}
+const STOP = [["LinkedIn","linkedin.com","5.5","14%",[5,6,5,6,5,6,5,6]],["Medium Daily Digest","medium.com","5","0%",[5,5,5,5,5,5,5,5]],["Morning Brew","morningbrew.com","4.5","17%",[4,5,4,5,4,5,4,5]],["Amazon.com","amazon.com","4","13%",[3,4,4,4,5,4,4,4]],["Quora Digest","quora.com","3.8","0%",[3,4,4,3,4,4,4,4]],["Groupon","groupon.com","3.5","0%",[3,3,4,3,4,3,4,3]],["LinkedIn Job Alerts","linkedin.com","3","21%",[2,3,3,3,3,4,3,3]],["Old Navy","oldnavy.com","3","0%",[3,3,3,3,3,3,3,3]]];
+function renderStop() {
+  document.getElementById("stop-chips").innerHTML = ["All 29", "Still sending 3", "Stopped 4"].map((t, i) => `<button class="chip ${i ? "" : "on"}">${t}</button>`).join("");
+  document.getElementById("stop-rows").innerHTML = STOP.map(([name, dom, wk, pct, pts]) => `<tr><td class="chk"><input type="checkbox"></td><td><div class="who">${fav(dom)}${name}</div></td><td>${spark(pts)}</td><td class="r">${wk}</td><td class="r pct">${pct}</td><td class="act"><button class="btn">Unsubscribe</button></td></tr>`).join("");
+}
+function route() { const stop = location.hash === "#stop"; document.getElementById("stop").hidden = !stop; document.getElementById("cleanup").hidden = stop; document.getElementById("n-stop").className = stop ? "sub on" : "sub"; document.getElementById("n-clean").className = stop ? "" : "on"; }
+renderClean(); renderStop(); route(); addEventListener("hashchange", route);
+</script>
+</body>
+</html>
