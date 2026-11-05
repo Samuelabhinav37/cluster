@@ -4,6 +4,7 @@ import type { MessageRecord, SenderSummary } from "./senderModel";
 import {
   dueForMove,
   holdUnsortedInbox,
+  labelFromIndex,
   sweepExpiredInbox,
   TAG_BACK_DONE,
   tagOlderInbox,
@@ -154,7 +155,7 @@ describe("tagUntaggedInbox", () => {
     const res = await tagUntaggedInbox(ctx({ known: new Set(["friend@mail.example"]) }), api);
     expect(api.batchModify).toHaveBeenCalledWith(["n1"], ["L:🔑 One-time codes"], []);
     expect(api.batchModify).toHaveBeenCalledWith(["s1"], ["L:🛍 Shopping"], []);
-    expect(res).toEqual({ tagged: 2, byBucket: { otp: 1, shopping: 1 }, oldestAt: NOW });
+    expect(res).toEqual({ tagged: 2, byBucket: { otp: 1, shopping: 1 }, oldestAt: NOW, listed: 4 });
   });
 
   it("tags Gmail Promotions-tab mail with no other category as 🏷 Promotions", async () => {
@@ -183,6 +184,52 @@ describe("tagOlderInbox", () => {
   it("is done when nothing older is left", async () => {
     const api = fakeApi({}, []);
     expect(await tagOlderInbox(ctx(), api, NOW - 1000)).toEqual({ tagged: 0, nextBefore: TAG_BACK_DONE });
+  });
+
+  it("is not done when Gmail listed mail it couldn't read; it retries from the same place", async () => {
+    const api = fakeApi({ [`INBOX|before:${twoDaysAgo} ${withoutClusterLabels(ctx().limits)}`]: ["gone"] }, []);
+    expect(await tagOlderInbox(ctx(), api, 0)).toEqual({ tagged: 0, nextBefore: 0 });
+  });
+});
+
+describe("labelFromIndex", () => {
+  const senders = [
+    sender("code@auth.example", [msg("a", "otp"), msg("b", "otp")]),
+    sender("deals@shop.example", [msg("w", "otp")]),
+    sender("friend@gmail.com", [msg("p")]),
+    sender("risky@x.example", [msg("r", "otp")], [
+      { kind: "brand-impersonation", brand: "paypal", confidence: "high" },
+      { kind: "failed-authentication", brand: "paypal", confidence: "high" },
+    ]),
+  ];
+
+  it("adds missing labels, swaps a wrong Cluster label, and leaves mail that fits no label", async () => {
+    const api = fakeApi({}, senders);
+    const res = await labelFromIndex(ctx(), api, [
+      { id: "a", labelIds: ["INBOX"] },
+      { id: "b", labelIds: ["INBOX", "L:🔑 One-time codes"] },
+      { id: "w", labelIds: ["INBOX", "L:🛍 Shopping"] },
+      { id: "p", labelIds: ["INBOX", "L:🛍 Shopping"] },
+      { id: "r", labelIds: ["INBOX"] },
+    ]);
+    expect(api.batchModify).toHaveBeenCalledWith(["a", "w"], ["L:🔑 One-time codes"], []);
+    expect(api.batchModify).toHaveBeenCalledWith(["w"], [], ["L:🛍 Shopping"]);
+    expect(api.batchModify).toHaveBeenCalledTimes(2);
+    expect(res).toMatchObject({ labelled: 2, fixed: 1, byBucket: { otp: 3 } });
+    expect(res.changes.get("w")).toEqual({ add: ["L:🔑 One-time codes"], remove: ["L:🛍 Shopping"] });
+  });
+
+  it("lets a sender correction win over the classifier", async () => {
+    const api = fakeApi({}, senders);
+    await labelFromIndex(ctx({ overrides: { "deals@shop.example": "shopping" } }), api, [{ id: "w", labelIds: ["INBOX", "L:🔑 One-time codes"] }]);
+    expect(api.batchModify).toHaveBeenCalledWith(["w"], ["L:🛍 Shopping"], []);
+    expect(api.batchModify).toHaveBeenCalledWith(["w"], [], ["L:🔑 One-time codes"]);
+  });
+
+  it("does nothing on an empty inbox", async () => {
+    const api = fakeApi({}, senders);
+    expect((await labelFromIndex(ctx(), api, [])).labelled).toBe(0);
+    expect(api.readSenders).not.toHaveBeenCalled();
   });
 });
 

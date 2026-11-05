@@ -180,6 +180,9 @@ export interface ClusterSettings {
     /** Inbox mail that fits no label goes to the Screener after a few hours
      * (inboxTimeLimits.holdUnsortedInbox). */
     holdUnsorted: boolean;
+    /** LABEL_RULES_VERSION the inbox was last relabelled from the mail index
+     * under; a newer version relabels it once (inboxTimeLimitsRunner). */
+    labelledVersion: number;
   };
   /** Per-sender "wrong bucket?" corrections from the sort preview, keyed by
    * lowercased from-address → a bucket to force, or "never" to skip. Consulted
@@ -296,6 +299,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
     keptInInboxIds: [],
     tagBackBefore: 0,
     holdUnsorted: true,
+    labelledVersion: 0,
   },
   sortOverrides: {},
   seededFromExisting: false,
