@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Overview, Stripe Home style mockup</title>
+<style>
+  :root { --bg:#ffffff; --side:#fbfbfd; --hair:#e6e6eb; --l:#1d1d1f; --l2:#3a3a3c; --l3:#6b6b72; --l4:#8e8e95;
+    --accent:#3563c7; --accent-t:#2f5fc4; --fill:#f2f2f5; --good-bg:#dff5e3; --good:#1e7a34; --bad-bg:#fde7ea; --bad:#c4213a;
+    --s1:#3563c7; --s2:#6f9be0; --s3:#a9c2ee; --s4:#d4e0f6; --font:"Inter Tight","Inter",system-ui,sans-serif; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0b0b0d; --side:#111114; --hair:#26262a; --l:#f5f5f7; --l2:#dcdce0; --l3:#a1a1a8; --l4:#7c7c84;
+    --accent:#3f6fd1; --accent-t:#6f9be0; --fill:#1d1d21; --good-bg:#16351f; --good:#7fd796; --bad-bg:#3a1a20; --bad:#ff8a9b;
+    --s1:#6f9be0; --s2:#4a74c4; --s3:#33508a; --s4:#243759; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--l); font:14px/1.4 var(--font); display:flex; min-height:100vh; }
+  nav { width:220px; flex:none; background:var(--side); border-right:1px solid var(--hair); padding:16px 12px; }
+  nav { display:flex; flex-direction:column; position:sticky; top:0; height:100vh; }
+  .brand { display:flex; align-items:center; gap:10px; padding:2px 10px 0; }
+  /* First nav row lines up with the page title (topbar + head margin). */
+  .brand + a { margin-top:50px; }
+  .brand b { font-size:20px; letter-spacing:-.01em; }
+  .acct { display:flex; align-items:center; gap:10px; padding:12px 10px 4px; margin-top:auto; border-top:1px solid var(--hair); }
+  .gm { width:32px; height:32px; border-radius:8px; background:#fff; display:grid; place-items:center; border:1px solid var(--hair); }
+  .gm svg { width:22px; height:22px; }
+  .acct .who b { display:block; font-size:14px; }
+  .acct .who small { color:var(--l4); font-size:12px; }
+  svg.ic { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+  nav a { display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:8px; color:var(--l2); text-decoration:none; }
+  nav a svg.ic { color:var(--l3); }
+  nav a.on, nav a.on svg.ic { color:var(--accent-t); font-weight:600; }
+  nav a.sub { padding-left:42px; font-size:13px; }
+  nav a.sub svg.ic { display:none; }
+  .topbar { display:grid; grid-template-columns:minmax(200px,1fr) minmax(0,560px) minmax(200px,1fr); align-items:center; gap:16px; }
+  .search { gap:8px; }
+  .tools { display:flex; justify-content:flex-end; gap:6px; }
+  .tools button { width:34px; height:34px; border:0; border-radius:8px; background:none; color:var(--l3); display:grid; place-items:center; cursor:pointer; position:relative; }
+  .tools button:hover { background:var(--fill); color:var(--l); }
+  .tools button.dot::after { content:""; position:absolute; top:7px; right:8px; width:7px; height:7px; border-radius:50%; background:var(--accent); border:2px solid var(--bg); }
+  .tools button.plus { background:var(--accent); color:#fff; border-radius:50%; width:30px; height:30px; margin-left:4px; }
+  .tools button.plus svg.ic { stroke-width:2.4; }
+  main { flex:1; padding:20px 28px 120px 40px; min-width:0; }
+  main > :not(.topbar) { max-width:1160px; }
+  .search { height:38px; border-radius:9px; background:var(--fill); color:var(--l4); display:flex; align-items:center; padding:0 14px; width:100%; }
+  .head { margin:40px 0 0; padding-bottom:22px; border-bottom:1px solid var(--hair); }
+  .head h1 { margin:0; font-size:30px; }
+  .head p { margin:0; font-size:18px; color:var(--l2); }
+  .head p a { color:var(--accent-t); text-decoration:none; }
+  .details { height:32px; padding:0 12px; border:0; border-radius:8px; background:var(--fill); color:var(--l); font:600 13px var(--font); display:inline-flex; align-items:center; gap:7px; }
+  .details svg { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; }
+  .w-title a { margin-left:10px; font-size:13px; font-weight:600; color:var(--accent-t); text-decoration:none; }
+  h1 { font-size:28px; letter-spacing:-.02em; margin:26px 0 12px; }
+  .controls { display:flex; align-items:center; gap:8px; padding-bottom:16px; border-bottom:1px solid var(--hair); }
+  .sel { height:30px; padding:0 10px; border:1px solid var(--hair); border-radius:7px; background:var(--bg); color:var(--l); font:600 13px var(--font); display:inline-flex; align-items:center; gap:6px; }
+  .sel::after { content:"⌄"; color:var(--l4); font-weight:400; transform:translateY(-3px); }
+  .controls .muted { color:var(--l3); font-size:13px; }
+  .grow { flex:1; }
+
+  /* Today: the list people liked, kept first, in the same flat style. */
+  .today { padding:8px 0 8px; border-bottom:1px solid var(--hair); }
+  .w-title { display:flex; align-items:center; gap:6px; font-weight:650; font-size:15px; margin:0 0 6px; }
+  .info { width:14px; height:14px; border:1.3px solid var(--l4); border-radius:3px; display:inline-grid; place-items:center; font-size:9px; color:var(--l4); font-weight:700; }
+  .row { display:grid; grid-template-columns:28px minmax(0,1fr) auto; gap:12px; align-items:center; padding:10px 0; border-bottom:1px solid var(--hair); }
+  .row:last-of-type { border-bottom:0; }
+  .row img, .list img, .mono { flex:none; width:28px; height:28px; border-radius:7px; background:#fff; padding:3px; border:1px solid var(--hair); }
+  .mono { display:grid; place-items:center; background:var(--accent); color:#fff; font:700 11px var(--font); padding:0; border:0; }
+  .row b { display:block; font-weight:600; }
+  .row span.s { color:var(--l3); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
+  .row .t { color:var(--l3); font-size:13px; font-variant-numeric:tabular-nums; }
+
+  /* The grid: three widgets a row, separated by hairlines only. */
+  .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); column-gap:48px; }
+  .w { padding:26px 0 24px; border-bottom:1px solid var(--hair); display:flex; flex-direction:column; min-height:290px; }
+  .badge { font:700 11px var(--font); padding:2px 6px; border-radius:5px; background:var(--fill); color:var(--l3); }
+  .badge.good { background:var(--good-bg); color:var(--good); }
+  .num { font-size:22px; font-variant-numeric:tabular-nums; }
+  .num small { font-size:14px; color:var(--l3); margin-left:6px; }
+  .chart { height:180px; margin-top:14px; position:relative; }
+  .chart svg { width:100%; height:150px; overflow:visible; }
+  .chart .ax { display:flex; justify-content:space-between; font-size:12px; color:var(--l4); padding-left:0; }
+  .chart .ymax, .chart .ymin { position:absolute; left:0; font-size:12px; color:var(--l4); }
+  .chart .ymax { top:-2px; } .chart .ymin { top:128px; }
+  .foot { margin-top:auto; padding-top:12px; display:flex; justify-content:space-between; font-size:13px; }
+  .foot a { color:var(--accent-t); font-weight:600; text-decoration:none; }
+  .foot span { color:var(--l4); }
+  .stack { display:flex; height:12px; border-radius:4px; overflow:hidden; gap:2px; margin:12px 0 6px; }
+  .legend .li { display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid var(--hair); }
+  .legend .li:last-child { border-bottom:0; }
+  .dot { width:10px; height:10px; border-radius:3px; }
+  .legend .v { margin-left:auto; font-weight:600; font-variant-numeric:tabular-nums; }
+  .pill { font:600 12px var(--font); padding:2px 8px; border-radius:6px; background:var(--bad-bg); color:var(--bad); }
+  .list .li { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--hair); }
+  .list .li:last-child { border-bottom:0; }
+  .list .who { min-width:0; flex:1; }
+  .list .who b { display:block; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .list .who span { color:var(--l3); font-size:12px; }
+  .list .v { font-weight:600; font-variant-numeric:tabular-nums; }
+  .note { margin:40px 0 0; padding:14px 16px; border:1px dashed var(--hair); border-radius:12px; color:var(--l3); font-size:13px; max-width:900px; }
+  .note b { color:var(--l2); }
+  /* Details: the sheet beside the page, as in the app (Emails / Senders, chips, sender table). */
+  .details-pane { width:360px; flex:none; border-left:1px solid var(--hair); background:var(--side); position:sticky; top:0; height:100vh; display:flex; flex-direction:column; }
+  .details-pane[hidden] { display:none; }
+  .dp-head { display:flex; align-items:center; gap:6px; padding:14px 12px 8px 14px; }
+  .seg { display:inline-flex; padding:3px; border-radius:9px; background:var(--fill); }
+  .seg button { padding:4px 12px; border:0; border-radius:7px; background:none; color:var(--l3); font:600 13px var(--font); }
+  .seg button.on { background:var(--bg); color:var(--l); box-shadow:0 1px 2px rgba(0,0,0,.15); }
+  .dp-head .x { margin-left:auto; width:30px; height:30px; border:0; border-radius:8px; background:none; color:var(--l4); display:grid; place-items:center; cursor:pointer; }
+  .dp-head .x:hover { background:var(--fill); color:var(--l); }
+  .dp-title { padding:4px 14px 8px; font-weight:650; font-size:14px; }
+  .dp-chips { display:flex; flex-wrap:wrap; gap:6px; padding:0 14px 12px; border-bottom:1px solid var(--hair); }
+  .dp-chips span { padding:4px 9px; border-radius:7px; background:var(--fill); color:var(--l2); font-size:12px; font-weight:600; }
+  .dp-table { overflow:auto; flex:1; }
+  .dp-row { display:grid; grid-template-columns:18px 22px minmax(0,1fr) 44px 44px 46px; gap:8px; align-items:center; padding:0 14px; height:38px; border-bottom:1px solid var(--hair); font-size:13px; }
+  .dp-row.h { height:32px; color:var(--l4); font-size:12px; font-weight:600; }
+  .dp-row img, .dp-row .m { width:22px; height:22px; border-radius:5px; background:#fff; padding:2px; }
+  .dp-row .m { display:grid; place-items:center; background:var(--accent); color:#fff; font:700 9px var(--font); padding:0; }
+  .dp-row b { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .dp-row .bar { height:3px; border-radius:2px; background:var(--accent); justify-self:end; }
+  .dp-row .n, .dp-row .o { text-align:right; font-variant-numeric:tabular-nums; }
+  .dp-row .o { color:var(--l3); }
+  .dp-row input { width:14px; height:14px; accent-color:var(--accent); margin:0; }
+  .tools button.on { background:var(--fill); color:var(--l); }
+</style>
+</head>
+<body>
+<nav>
+  <div class="brand"><svg class="brand-mark" viewBox="0 0 32 32" width="36" height="36" aria-hidden="true" shape-rendering="geometricPrecision"><rect width="32" height="32" rx="7" fill="#030307"/><line x1="17.5" y1="15" x2="8" y2="8.5" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round"/><line x1="17.5" y1="15" x2="8.5" y2="23.5" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round"/><line x1="17.5" y1="15" x2="25" y2="25" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round"/><polygon points="8,6.1 10.08,7.3 10.08,9.7 8,10.9 5.92,9.7 5.92,7.3" fill="#cdcdcd" stroke="#cdcdcd" stroke-width="0.67" stroke-linejoin="round"/><polygon points="8.5,21.5 10.23,22.5 10.23,24.5 8.5,25.5 6.77,24.5 6.77,22.5" fill="#a9a9ab" stroke="#a9a9ab" stroke-width="0.56" stroke-linejoin="round"/><polygon points="25,22.8 26.91,23.9 26.91,26.1 25,27.2 23.09,26.1 23.09,23.9" fill="#b8b8ba" stroke="#b8b8ba" stroke-width="0.62" stroke-linejoin="round"/><polygon points="17.5,8.8 22.87,11.9 22.87,18.1 17.5,21.2 12.13,18.1 12.13,11.9" fill="#fff" stroke="#fff" stroke-width="1.74" stroke-linejoin="round"/><rect x="14.3" y="13.02" width="6.4" height="4.35" rx="0.64" fill="#030307"/><path d="M14.81,13.55 L17.5,15.72 L20.19,13.55" fill="none" stroke="#fff" stroke-width="0.77" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Cluster</b></div>
+  <a href="#" class="on"><svg class="ic" viewBox="0 0 24 24"><path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M10 20v-5.2h4V20"/></svg>Overview</a>
+  <a href="2026-11-05-cleanup-stop-mockup.html#cleanup"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg>Clean up</a>
+  <a href="2026-11-05-cleanup-stop-mockup.html#stop" class="sub"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="m6.5 6.5 11 11"/></svg>Stop mail</a>
+  <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>Organize</a>
+  <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6z"/></svg>Protect</a>
+  <div class="acct bottom" title="Signed in with Gmail">
+    <span class="gm"><svg viewBox="0 0 48 48"><path fill="#4caf50" d="M45 16.2l-5 2.75-5 4.75V40h7a3 3 0 0 0 3-3z"/><path fill="#1e88e5" d="M3 16.2l3.6 1.7L13 23.7V40H6a3 3 0 0 1-3-3z"/><path fill="#e53935" d="M35 11.2L24 19.45 13 11.2 12 17l1 6.7 11 8.25 11-8.25 1-6.7z"/><path fill="#c62828" d="M3 12.3v3.9l10 7.5V11.2L9.9 8.88A4.3 4.3 0 0 0 3 12.3z"/><path fill="#fbc02d" d="M45 12.3v3.9l-10 7.5V11.2l3.1-2.32A4.3 4.3 0 0 1 45 12.3z"/></svg></span>
+    <span class="who"><b>Samuel Abhinav</b><small>Gmail</small></span>
+  </div>
+</nav>
+<main>
+  <div class="topbar">
+    <span></span>
+    <div class="search"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Search</div>
+    <div class="tools">
+      <button title="Details" id="details-btn" class="on" onclick="toggleDetails()"><svg class="ic" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 9v12M15 9v12"/></svg></button>
+      <button title="Ask Kai"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg></button>
+      <button title="Activity" class="dot"><svg class="ic" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button>
+      <button title="Settings"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 5.2l2.1 2.1M17.7 16.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 18.8l2.1-2.1M17.7 7.3l2.1-2.1"/></svg></button>
+      <button title="New rule" class="plus"><svg class="ic" viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></button>
+    </div>
+  </div>
+  <div class="head">
+    <h1>Welcome back, Samuel!</h1>
+  </div>
+
+  <section class="today"><div id="today"></div></section>
+
+  <div class="grid" id="grid"></div>
+
+  <p class="note"><b>Before the graph round (round 9).</b> Details is back on the right, as in the app: Emails / Senders, "All mail · 42 senders", filter chips, and the sender table with logo, bar, count and opened. The table icon in the top bar (or ✕) opens and closes it.</p>
+</main>
+<aside class="details-pane" id="details">
+  <div class="dp-head">
+    <div class="seg"><button>Emails</button><button class="on">Senders</button></div>
+    <button class="x" title="Close Details" onclick="toggleDetails()"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <div class="dp-title">All mail · 42 senders</div>
+  <div class="dp-chips"><span>+ Never opened</span><span>+ Promotions</span><span>+ This week</span><span>+ Older than 1 year</span><span>+ Large: over 2 MB</span></div>
+  <div class="dp-table" id="dp-rows"></div>
+</aside>
+
+<script>
+const fav = (d) => `<img src="https://www.google.com/s2/favicons?domain=${d}&sz=64" alt="">`;
+const TODAY = [["Mom", null, "Dinner on Sunday?", "7:45 PM"], ["Amazon.com", "amazon.com", "Out for delivery today", "9:53 AM"], ["Chase", "chase.com", "Your statement is ready", "8:10 AM"]];
+document.getElementById("today").innerHTML = TODAY.map(([n, d, s, t]) => `<div class="row">${d ? fav(d) : `<span class="mono">${n.slice(0, 2).toUpperCase()}</span>`}<div><b>${n}</b><span class="s">${s}</span></div><span class="t">${t}</span></div>`).join("");
+
+const days = ["Oct 30", "", "", "", "", "", "Today"];
+function line(pts, prev) {
+  const max = Math.max(...pts, ...prev, 1), W = 300, H = 128;
+  const path = (a) => a.map((v, i) => `${i ? "L" : "M"}${(i * W / (a.length - 1)).toFixed(1)},${(H - v / max * (H - 8)).toFixed(1)}`).join("");
+  return `<div class="chart"><span class="ymax">${max}</span><span class="ymin">0</span>
+    <svg viewBox="0 0 ${W} ${H + 2}" preserveAspectRatio="none"><line x1="0" x2="${W}" y1="${H}" y2="${H}" stroke="var(--hair)" stroke-width="1.5"/>
+    <path d="${path(prev)}" fill="none" stroke="var(--l4)" stroke-width="1.2" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>
+    <path d="${path(pts)}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
+    <div class="ax"><span>${days[0]}</span><span>${days[6]}</span></div></div>`;
+}
+const W = (title, badge, num, prev, body, more, upd = "Updated 06:23") => `<section class="w"><h2 class="w-title">${title} <span class="info">i</span>${badge}</h2>${body}<div class="foot"><a href="#">${more}</a></div></section>`;
+const badge = (t, good) => `<span class="badge ${good ? "good" : ""}">${t}</span>`;
+
+const inbox = [["People", 24, "var(--s1)"], ["Receipts", 39, "var(--s2)"], ["Updates", 202, "var(--s3)"], ["Promotions", 91, "var(--s4)"]];
+const total = inbox.reduce((a, [, n]) => a + n, 0);
+const stack = `<div class="stack">${inbox.map(([, n, c]) => `<span style="flex:${n};background:${c}"></span>`).join("")}</div>
+  <div class="legend">${inbox.map(([k, n, c]) => `<div class="li"><span class="dot" style="background:${c}"></span>${k}<span class="v">${n}</span></div>`).join("")}</div>`;
+
+const scams = [["netflix.com", "Payment declined - update your billing details", "Pretends to be Netflix"], ["paypal.com", "Action required: verify your identity", "Pretends to be PayPal"], ["apple.com", "Your Apple ID was used to sign in on a new device", "Pretends to be Apple"]];
+const scamList = `<div class="list" style="margin-top:8px">${scams.map(([d, s, w]) => `<div class="li">${fav(d)}<div class="who"><b>${s}</b><span>${w}</span></div><span class="pill">High risk</span></div>`).join("")}</div>`;
+
+const topSenders = [["linkedin.com", "LinkedIn", "22% opened", 59], ["amazon.com", "Amazon.com", "36% opened", 25], ["medium.com", "Medium Daily Digest", "Never opened", 20], ["morningbrew.com", "Morning Brew", "17% opened", 18]];
+const topList = `<div class="list" style="margin-top:8px">${topSenders.map(([d, n, s, v]) => `<div class="li">${fav(d)}<div class="who"><b>${n}</b><span>${s}</span></div><span class="v">${v}</span></div>`).join("")}</div>`;
+
+document.getElementById("grid").innerHTML = [
+  W("Your inbox", "", `${total}`, "emails waiting", stack, "Organize"),
+  W("Mail received", badge("−8%"), "412", "448 last week", line([52, 61, 70, 58, 66, 49, 56], [60, 66, 72, 61, 70, 58, 61]), "View more"),
+  W("Moved out by Cluster", badge("+31%", true), "296", "226 last week", line([30, 42, 48, 39, 51, 40, 46], [28, 30, 36, 33, 35, 31, 33]), "Activity"),
+  W("Look at these", "", "", "", scamList + `<div style="font-size:13px;color:var(--l3);margin-top:10px">3 of <a href="#" style="color:var(--accent-t);font-weight:600;text-decoration:none">3 results</a></div>`, "Protect"),
+  W("Cleared", badge("+∞", true), "191", "0 last week", line([0, 0, 0, 120, 30, 25, 16], [0, 0, 0, 0, 0, 0, 0]), "Clean up"),
+  W("Top senders this week", "", "", "", topList, "Stop mail"),
+].join("");
+
+const DP = [["linkedin.com","LinkedIn",59,"22%"],["amazon.com","Amazon.com",25,"36%"],["medium.com","Medium Daily D…",20,"None"],["morningbrew.com","Morning Brew",18,"17%"],["quora.com","Quora Digest",15,"None"],["groupon.com","Groupon",14,"None"],["oldnavy.com","Old Navy",12,"None"],["nike.com","Nike",11,"None"],["facebook.com","Facebook",10,"None"],["theverge.com","The Verge",9,"22%"],["target.com","Target",9,"22%"],["wayfair.com","Wayfair",9,"None"],["reddit.com","Reddit",9,"33%"],["uber.com","Uber Receipts",8,"25%"],["uniqlo.com","UNIQLO",8,"None"],["doordash.com","DoorDash",7,"29%"],["github.com","GitHub",7,"100%"],[null,"Mom",6,"100%"]];
+document.getElementById("dp-rows").innerHTML = `<div class="dp-row h"><input type="checkbox" aria-label="Select all"><span></span><span>Sender</span><span></span><span class="n">Emails</span><span class="o">Opened</span></div>` +
+  DP.map(([d, n, c, o]) => `<div class="dp-row"><input type="checkbox">${d ? fav(d) : `<span class="m">${n.slice(0, 2).toUpperCase()}</span>`}<b>${n}</b><span class="bar" style="width:${Math.round(c / 59 * 48)}px"></span><span class="n">${c}</span><span class="o">${o}</span></div>`).join("");
+function toggleDetails() { const d = document.getElementById("details"); d.hidden = !d.hidden; document.getElementById("details-btn").classList.toggle("on", !d.hidden); }
+</script>
+</body>
+</html>
