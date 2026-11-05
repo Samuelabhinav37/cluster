@@ -3,6 +3,7 @@
 // Facts are computed here from the scan; the dashboard supplies the counts it
 // already has.
 
+import { senderTile } from "./senderTile";
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 import { clearedCount, type ActionLogEntry } from "../lib/actionLog";
 import type { TodayItem } from "../lib/today";
@@ -505,7 +506,7 @@ function todayList(items: readonly TodayItem[], f: HomeFacts, go: Go): HTMLEleme
     snippet.dataset.snippetId = t.id;
     words.append(el("b", "", t.name), el("span", "", t.subject), snippet);
     const when = el("span", "ios-value", new Date(t.receivedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }));
-    row.append(words, when);
+    row.append(senderTile(t.address, t.name, "sz-34"), words, when);
     group.append(row);
   }
   wrap.append(group);

@@ -211,12 +211,8 @@ export function renderTimeLimits(): void {
   renderWindow();
   renderKindSubs();
   void refreshGmailCounts();
-  // One status line: a save in progress or just done, else the last check.
-  if (statusEl && !saveNote)
-    statusEl.textContent =
-      cfg.timeLimitsEnabled && cfg.lastSweep.at > 0
-        ? `Last checked ${ago(cfg.lastSweep.at)}. Moved ${plural(cfg.lastSweep.moved, "email")}.`
-        : "";
+  // No standing "Last checked / Moved N" line: meta lines are clutter.
+  if (statusEl && !saveNote) statusEl.textContent = "";
   renderPresets();
 }
 
@@ -264,10 +260,12 @@ function renderWindow(): void {
     };
     const row = document.createElement("div");
     row.className = "ios-row org-row";
-    row.append(Object.assign(document.createElement("span"), { className: "grow", textContent: "Keep in inbox" }), select);
+    const mark = Object.assign(document.createElement("span"), { className: "app-ic label-ic" });
+    mark.append(icon("clock"));
+    row.append(mark, Object.assign(document.createElement("span"), { className: "grow", textContent: "Keep in inbox" }), select);
     const group = Object.assign(document.createElement("div"), { className: "ios-group" });
     group.append(row);
-    const wrap = Object.assign(document.createElement("section"), { className: "ios-section" });
+    const wrap = Object.assign(document.createElement("section"), { className: "ios-section org-window" });
     wrap.append(group);
     rowsEl.before(wrap);
   }

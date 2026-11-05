@@ -40,7 +40,7 @@ const KIND_WORDS: Record<HomeKind, RegExp> = {
 };
 
 const PLACES: ReadonlyArray<[screen: string, label: string]> = [
-  ["overview", "Today"],
+  ["overview", "Overview"],
   ["delete", "Clean up"],
   ["subscriptions", "Stop mail"],
   ["organize", "Organize"],

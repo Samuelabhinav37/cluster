@@ -3936,8 +3936,12 @@ section.screen.paged > :not(.page-head):not(#protect-page) { display: none !impo
 /* Home: Today's emails that matter */
 .home-today { margin-bottom: 24px; }
 .today-line { margin: 10px 4px 0; color: var(--label-4); font: 400 13px/1.5 var(--font); }
-.today-row { grid-template-columns: minmax(0, 1fr) auto; color: inherit; text-decoration: none; }
+.today-row { grid-template-columns: 34px minmax(0, 1fr) auto; column-gap: 12px; color: inherit; text-decoration: none; }
 .today-row:hover { background: var(--neutral-fill); }
 .today-words { display: flex; flex-direction: column; min-width: 0; }
 .today-words > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .today-snippet { color: var(--label-3); font-size: 13px; }
+.org-window { margin-bottom: 22px; }
+/* Room under the last row so it can scroll clear of Kai. */
+.screen { padding-bottom: 120px; }
+.details-open .kai-guide:not(.docked) { display: none; }

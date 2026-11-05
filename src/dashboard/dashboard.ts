@@ -1803,6 +1803,15 @@ function wireDetails() {
   }
   if (window.innerWidth >= 1200 && pref !== "min") details.open({ view: "senders" });
   fitDetailsTo(ctx.settings.setupDone ? resolveScreen(ctx.settings.activeTab) : "setup");
+  // Kai sits left of Details (CSS --details-w), open or minimized to its strip.
+  const pane = document.getElementById("details");
+  if (pane && typeof ResizeObserver !== "undefined")
+    new ResizeObserver(([e]) => {
+      const w = Math.round(e.borderBoxSize?.[0]?.inlineSize ?? 0);
+      document.documentElement.style.setProperty("--details-w", `${w}px`);
+      // Open Details leaves Kai no free corner, so Kai steps out until it closes.
+      document.documentElement.classList.toggle("details-open", w > 80);
+    }).observe(pane);
   for (const btn of Array.from(document.querySelectorAll<HTMLButtonElement>("[data-details]"))) {
     btn.onclick = () => (details!.isOpen() ? details!.close() : details!.open());
   }
