@@ -68,7 +68,8 @@ const KEEP_BUCKETS: Record<KeepKind, SortBucket[]> = {
  */
 export function buildOnboardingPlan(a: OnboardingAnswers): OnboardingPlan {
   const keep = new Set<KeepKind>(["people", ...a.keep]);
-  const stays = new Set([...keep].flatMap((k) => KEEP_BUCKETS[k]));
+  // Sign-in and password notices always stay: they may need action now.
+  const stays = new Set<SortBucket>(["accounts", ...[...keep].flatMap((k) => KEEP_BUCKETS[k])]);
   const hours: OnboardingPlan["hours"] = {};
   for (const b of ALL_SORT_BUCKETS) hours[b] = stays.has(b) ? null : SKIP_INBOX_BUCKETS.includes(b) ? 0 : FOCUS_HOURS;
 

@@ -119,10 +119,11 @@ export async function tagUntaggedInbox(
   return { tagged, byBucket, oldestAt };
 }
 
-/** Where the catch-up pass stands: 0 or -1 = not started, -2 = done, else it
- * reads inbox mail received before this time (ms) next. -1 was the old "done",
- * written while has:nouserlabels found nothing, so those accounts start over. */
-export const TAG_BACK_DONE = -2;
+/** Where the catch-up pass stands: -3 = done, else it reads inbox mail
+ * received before this time (ms) next. -1 and -2 were older "done" values
+ * (the has:nouserlabels bug, then before Accounts and Jobs), so those
+ * accounts start over. */
+export const TAG_BACK_DONE = -3;
 
 /**
  * Labels older inbox mail no filter or tagger saw, one page per run, newest

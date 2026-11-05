@@ -94,3 +94,30 @@ describe("bucketLabelName / defaults", () => {
     expect(DEFAULT_FILE_OUT_OF_INBOX.finance).toBe(false);
   });
 });
+
+describe("Accounts and Jobs", () => {
+  it("files sign-in and password notices under Accounts, even with an unsubscribe footer", () => {
+    for (const subject of ["Security alert", "Critical security alert", "New sign-in to your account", "Reset your password", "Your password was changed"]) {
+      const kind = classifyMessageKind(subject, true);
+      expect(kind, subject).toBe("accounts");
+      expect(classifySortBucket(kind, "accounts.google.com")).toBe("accounts");
+    }
+    // A code is still a code.
+    expect(classifyMessageKind("Your verification code is 482913", false)).toBe("otp");
+  });
+
+  it("files job boards and LinkedIn job alerts under Jobs, but not other LinkedIn mail", () => {
+    expect(classifySortBucket("newsletter", "indeed.com")).toBe("jobs");
+    expect(classifySortBucket("other", "us.greenhouse-mail.io")).toBe("jobs");
+    expect(effectiveBucket("newsletter", "linkedin.com", "jobalerts-noreply@linkedin.com", {})).toBe("jobs");
+    expect(effectiveBucket("newsletter", "linkedin.com", "messages-noreply@linkedin.com", {})).toBe("social");
+    // Employers' own domains, from subjects and sender names seen in a real inbox.
+    for (const subject of ["Thank you for applying to Deloitte!", "Update on Your Application - Engineer", "Your job alert for: Cybersecurity", "CrowdStrike Job Application Confirmation"]) {
+      expect(classifyMessageKind(subject, true), subject).toBe("jobs");
+    }
+    expect(classifyMessageKind("Information Security Representative", false, { address: "recruiting@dupaco.com", displayName: "" })).toBe("jobs");
+    expect(classifyMessageKind("A decision on your Pay in 4 application is ready", false)).toBe("other");
+    expect(classifyMessageKind("Oracle Security Alert for CVE-2026-114820", true)).toBe("newsletter");
+    expect(classifyMessageKind("Changed Password", false)).toBe("accounts");
+  });
+});

@@ -7,7 +7,8 @@ describe("buildOnboardingPlan", () => {
     expect(plan.tidy).toBe(true);
     expect(plan.holdScams).toBe(true);
     expect(plan.hours).toMatchObject({ promotions: 0, newsletter: 0, social: FOCUS_HOURS, otp: FOCUS_HOURS, finance: FOCUS_HOURS });
-    expect(Object.keys(plan.hours)).toHaveLength(11);
+    expect(Object.keys(plan.hours)).toHaveLength(13);
+    expect(plan.hours.accounts).toBeNull();
     expect(plan.persona).toBe("calm");
   });
 

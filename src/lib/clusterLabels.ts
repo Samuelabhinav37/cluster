@@ -20,6 +20,8 @@ export type ClusterLabelKey =
   | "finance"
   | "productivity"
   | "education"
+  | "accounts"
+  | "jobs"
   | "muted"
   | "screener"
   | "snoozed"
@@ -57,6 +59,8 @@ export const CLUSTER_LABELS: Record<ClusterLabelKey, ClusterLabelSpec> = {
   finance: spec("💳 Finance", "Finance"),
   productivity: spec("💼 Work", "Productivity"),
   education: spec("🎓 Education", "Education"),
+  accounts: spec("🔐 Accounts"),
+  jobs: spec("📋 Jobs"),
   muted: spec("🔇 Muted", "Muted"),
   screener: spec("✋ Screener", "Screener"),
   snoozed: spec("💤 Snoozed", "Snoozed"),
@@ -85,6 +89,8 @@ export const CLUSTER_LABEL_COLORS: Partial<Record<ClusterLabelKey, LabelColor>> 
   finance: { backgroundColor: "#a479e2", textColor: "#ffffff" },
   productivity: { backgroundColor: "#666666", textColor: "#ffffff" },
   education: { backgroundColor: "#285bac", textColor: "#ffffff" },
+  accounts: { backgroundColor: "#cc3a21", textColor: "#ffffff" },
+  jobs: { backgroundColor: "#8e63ce", textColor: "#ffffff" },
 };
 
 /** The color a label of this name gets, when it is one of Cluster's. */

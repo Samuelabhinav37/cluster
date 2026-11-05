@@ -14,9 +14,11 @@ export const RETENTION_DAYS: Partial<Record<MessageKind, number>> = {
 
 export const RETENTION_LABELS: Record<MessageKind, string> = {
   otp: "One-time codes",
+  accounts: "Account and security notices",
   shipping: "Order & shipping updates",
   receipt: "Receipts & invoices",
   newsletter: "Newsletters",
   social: "Social notifications",
+  jobs: "Jobs and applications",
   other: "Other",
 };

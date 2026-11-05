@@ -87,7 +87,7 @@ export function protectionDecision(
   // otp is deliberately excluded here -- one-time codes are meant to expire
   // quickly (see retentionPolicy.ts) rather than being permanently exempt
   // like receipt/shipping records.
-  if (["receipt", "shipping"].includes(message.kind)) {
+  if (["receipt", "shipping", "accounts"].includes(message.kind)) {
     return { protected: true, reason: "transactional" };
   }
   if (message.learnedTransactional === "model") return { protected: true, reason: "learned-transactional" };

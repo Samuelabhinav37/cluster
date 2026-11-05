@@ -63,7 +63,7 @@ describe("first-run setup", () => {
   it("by default turns everything on: filters for every label, promotions and newsletters skip the inbox, scams held", async () => {
     const dash = await bootDashboard();
     await runSetup(dash, "me");
-    await vi.waitFor(() => expect(Object.keys(dash.storedSettings().autoSort.filterIdsByBucket)).toHaveLength(11));
+    await vi.waitFor(() => expect(Object.keys(dash.storedSettings().autoSort.filterIdsByBucket)).toHaveLength(13));
     const stored = dash.storedSettings();
     expect(stored.autoSort.timeLimitsEnabled).toBe(true);
     expect(stored.autoSort.labelsOff).toEqual([]);

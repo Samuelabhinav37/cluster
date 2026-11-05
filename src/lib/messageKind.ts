@@ -4,7 +4,7 @@
 // "other", which carries no default retention policy (see retentionPolicy.ts).
 import { cleanText } from "./normalize";
 
-export type MessageKind = "otp" | "receipt" | "shipping" | "newsletter" | "social" | "other";
+export type MessageKind = "otp" | "accounts" | "receipt" | "shipping" | "newsletter" | "social" | "jobs" | "other";
 
 // "Your code is" and "is your code" only count next to an actual code, so a
 // colleague's "Your code is in the repo now" stays mail from a person. The
@@ -16,12 +16,24 @@ const OTP_RE =
 // disabled", "Security alert") are not disposable codes. Mirrors
 // OTP_EXCLUDED_PHRASES in categoryQueries.ts.
 const OTP_EXCLUDE_RE = /\b(alert|disabled|changed|new sign[- ]?in|suspicious)\b/i;
+// Notices about the account itself: sign-ins, password and recovery changes.
+// Checked right after codes so a Google "Security alert" with an unsubscribe
+// footer is never filed as a newsletter.
+const ACCOUNT_RE =
+  /\b(security alert|new sign[- ]?in|sign[- ]?in (attempt|alert)|new (login|device)|password (reset|changed|was changed|updated)|changed (your )?password|reset your password|suspicious (activity|sign[- ]?in|login)|account (recovery|activity|alert|locked|suspended)|recovery (email|phone)|2-step verification|two-factor authentication (was )?(disabled|turned off|enabled|turned on)|app password)\b/i;
 // Phrases, not lone words: "Free delivery this weekend" and "Tracking your
 // fitness goals" are promotions, "Our statement on the outage" is news.
 const SHIPPING_RE =
   /\b(shipped|out for delivery|delivery (update|attempt|scheduled|exception|confirmation)|delivered|tracking (number|info|information|update|details)|track your (order|package|parcel|shipment)|order (confirm|confirmed|confirmation)|order #|order (is |has been )?(confirmed|placed|received)|has shipped|arriving|on its way)\b|^ordered:/i;
 const RECEIPT_RE =
   /\b(receipt|invoice|payment (received|confirmation)|received your payment|purchase (confirmation|confirmed)|refund (confirmation|issued|processed)|your refund|booking confirm(ation|ed)|your tickets?|your bill|e-?statement|statement (is )?(ready|available)|your( \w+){0,3} statement|paid|will renew|renews on|is renewing|renewal (notice|reminder|confirmation)|auto-?renew)\b/i;
+// Oracle's "Security Alert for CVE-2026-1234" is an advisory, not your account.
+const ACCOUNT_EXCLUDE_RE = /\bcve-\d/i;
+// No bare "application": PayPal's "Pay in 4 application" is not a job.
+const JOBS_RE =
+  /\b(thanks?( you)? for (applying|your application)|your (job )?application|job application|application (update|status|received|confirmation)|received your application|job alerts?|jobs for you|new jobs?|job opening)\b/i;
+// recruiting@dupaco.com, talentacquisition@hr.questdiagnostics.com.
+const JOBS_SENDER_RE = /\b(recruit(ing|ment|ers?)?|talent ?acquisition|careers?)\b/i;
 const SOCIAL_RE = /\b(mentioned you|tagged you|new follower|friend request|liked your|commented on)\b/i;
 // When the subject says nothing ("Your Thursday evening trip with Uber"), a
 // sender named for receipts or orders still does: "Uber Receipts",
@@ -42,13 +54,16 @@ export function classifyMessageKind(
 ): MessageKind {
   const s = cleanText(subject || "");
   if (OTP_RE.test(s) && !OTP_EXCLUDE_RE.test(s)) return "otp";
+  if (ACCOUNT_RE.test(s) && !ACCOUNT_EXCLUDE_RE.test(s)) return "accounts";
   if (SHIPPING_RE.test(s)) return "shipping";
   if (RECEIPT_RE.test(s)) return "receipt";
   if (SOCIAL_RE.test(s)) return "social";
+  if (JOBS_RE.test(s)) return "jobs";
   if (sender) {
     const who = `${sender.address.split("@")[0].replace(/[._+-]/g, " ")} ${cleanText(sender.displayName)}`;
     if (SHIPPING_SENDER_RE.test(who)) return "shipping";
     if (RECEIPT_SENDER_RE.test(who)) return "receipt";
+    if (JOBS_SENDER_RE.test(who)) return "jobs";
   }
   if (hasListUnsubscribe) return "newsletter";
   return "other";

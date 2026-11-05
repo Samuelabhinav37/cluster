@@ -3,7 +3,7 @@
 // categories (domainCategories.ts, judged from the sender domain). When both
 // apply, the kind wins -- "your order shipped" from amazon.com is an
 // order-update, not just "Shopping".
-import { categorizeDomain, type DomainCategory } from "./domainCategories";
+import { categorizeDomain, isJobAddress, type DomainCategory } from "./domainCategories";
 import type { MessageKind } from "./messageKind";
 import { clusterLabelName } from "./clusterLabels";
 
@@ -18,7 +18,9 @@ export type SortBucket =
   | "travel"
   | "finance"
   | "productivity"
-  | "education";
+  | "education"
+  | "accounts"
+  | "jobs";
 
 export const SORT_BUCKET_LABELS: Record<SortBucket, string> = {
   otp: clusterLabelName("otp"),
@@ -32,6 +34,8 @@ export const SORT_BUCKET_LABELS: Record<SortBucket, string> = {
   finance: clusterLabelName("finance"),
   productivity: clusterLabelName("productivity"),
   education: clusterLabelName("education"),
+  accounts: clusterLabelName("accounts"),
+  jobs: clusterLabelName("jobs"),
 };
 
 /**
@@ -58,6 +62,8 @@ export const DEFAULT_FILE_OUT_OF_INBOX: Record<SortBucket, boolean> = {
   finance: false,
   productivity: false,
   education: false,
+  accounts: false,
+  jobs: false,
 };
 
 const HOUR = 1;
@@ -78,6 +84,8 @@ export const DEFAULT_INBOX_HOURS: Record<SortBucket, number | null> = {
   finance: null,
   productivity: null,
   education: null,
+  accounts: null,
+  jobs: null,
 };
 
 export const ALL_SORT_BUCKETS: SortBucket[] = Object.keys(SORT_BUCKET_LABELS) as SortBucket[];
@@ -88,10 +96,12 @@ export const SKIP_INBOX_BUCKETS: readonly SortBucket[] = ["promotions", "newslet
 
 const KIND_BUCKET: Partial<Record<MessageKind, SortBucket>> = {
   otp: "otp",
+  accounts: "accounts",
   receipt: "receipt",
   shipping: "shipping",
   newsletter: "newsletter",
   social: "social",
+  jobs: "jobs",
 };
 
 const CATEGORY_BUCKET: Partial<Record<DomainCategory, SortBucket>> = {
@@ -102,6 +112,7 @@ const CATEGORY_BUCKET: Partial<Record<DomainCategory, SortBucket>> = {
   newsletter: "newsletter",
   productivity: "productivity",
   education: "education",
+  jobs: "jobs",
 };
 
 /**
@@ -110,13 +121,18 @@ const CATEGORY_BUCKET: Partial<Record<DomainCategory, SortBucket>> = {
  * Kind takes priority, then Gmail's Promotions tab (an ad is an ad whoever
  * sends it), then the sender's category.
  */
-export function classifySortBucket(kind: MessageKind, senderDomain: string, promotion = false): SortBucket | null {
+export function classifySortBucket(
+  kind: MessageKind,
+  senderDomain: string,
+  promotion = false,
+  senderAddress = "",
+): SortBucket | null {
   // Any list mail has an unsubscribe link, so "newsletter" alone can't tell
   // an ad from news; Gmail's Promotions tab can.
   // The tab also beats the sender's domain: Microsoft 365's Copilot ad is an
   // ad, not Work, and Amazon's deals are not an order.
   if (promotion && (kind === "newsletter" || kind === "other")) return "promotions";
-  const byCategory = CATEGORY_BUCKET[categorizeDomain(senderDomain)];
+  const byCategory = isJobAddress(senderAddress) ? "jobs" : CATEGORY_BUCKET[categorizeDomain(senderDomain)];
   // An unsubscribe link only says "list mail"; a sender we know (a bank, a
   // school, an airline) says more. LIC's premium reminder is Finance, not news.
   if (kind === "newsletter" && byCategory) return byCategory;
@@ -143,5 +159,5 @@ export function effectiveBucket(
   const override = overrides[senderAddress.toLowerCase()] ?? overrides[`@${senderDomain.toLowerCase()}`];
   if (override === "never") return null;
   if (override) return override;
-  return classifySortBucket(kind, senderDomain, promotion);
+  return classifySortBucket(kind, senderDomain, promotion, senderAddress);
 }

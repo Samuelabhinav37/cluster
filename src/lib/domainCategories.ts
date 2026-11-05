@@ -8,6 +8,7 @@ export type DomainCategory =
   | "productivity"
   | "newsletter"
   | "education"
+  | "jobs"
   | "other";
 
 export const DOMAIN_CATEGORY_LABELS: Record<DomainCategory, string> = {
@@ -18,6 +19,7 @@ export const DOMAIN_CATEGORY_LABELS: Record<DomainCategory, string> = {
   productivity: "Productivity & tools",
   newsletter: "Newsletters & media",
   education: "Education",
+  jobs: "Jobs",
   other: "Other",
 };
 
@@ -75,7 +77,27 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "skillshare.com", "instructure.com", "blackboard.com", "brilliant.org", "udacity.com",
     "udemymail.com", "netacad.com", "mygreatlearning.com", "codecademy.com", "datacamp.com",
   ],
+  // Job boards and the applicant-tracking systems employers write from.
+  jobs: [
+    "indeed.com", "indeedemail.com", "glassdoor.com", "ziprecruiter.com", "monster.com", "dice.com",
+    "wellfound.com", "joinhandshake.com", "jobright.ai", "simplify.jobs", "builtin.com",
+    "naukri.com", "foundit.in", "instahyre.com", "internshala.com", "cutshort.io", "hirist.tech",
+    "greenhouse.io", "greenhouse-mail.io", "lever.co", "myworkday.com", "myworkdayjobs.com",
+    "smartrecruiters.com", "ashbyhq.com", "icims.com", "workablemail.com",
+  ],
 };
+
+/** Senders whose domain says nothing but whose address does: LinkedIn sends
+ * job alerts and social notices from the same domain. */
+const JOB_ADDRESSES = new Set([
+  "jobalerts-noreply@linkedin.com",
+  "jobs-noreply@linkedin.com",
+  "jobs-listings@linkedin.com",
+]);
+
+export function isJobAddress(address: string): boolean {
+  return JOB_ADDRESSES.has(address.toLowerCase());
+}
 
 const DOMAIN_TO_CATEGORY = new Map<string, DomainCategory>();
 for (const [category, domains] of Object.entries(CATEGORY_DOMAINS) as [DomainCategory, string[]][]) {
@@ -92,5 +114,7 @@ export function categorizeDomain(domain: string): DomainCategory {
 /** The curated domains that map to a category — the source list for the
  * server-side "keep sorting" Gmail filter (`from:(d1 OR d2 …)`). */
 export function domainsForCategory(category: DomainCategory): string[] {
-  return category === "other" ? [] : [...CATEGORY_DOMAINS[category]];
+  if (category === "other") return [];
+  const domains = [...CATEGORY_DOMAINS[category]];
+  return category === "jobs" ? [...domains, ...JOB_ADDRESSES] : domains;
 }

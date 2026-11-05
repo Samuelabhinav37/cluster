@@ -66,6 +66,8 @@ const BUCKET_HINT: Record<SortBucket, string> = {
   finance: "Banks, cards, statements",
   productivity: "Slack, GitHub, Notion and similar",
   education: "Courses and school",
+  accounts: "Sign-in alerts and password changes",
+  jobs: "Job alerts and applications",
 };
 
 const BUCKET_ICON: Record<SortBucket, string> = {
@@ -80,6 +82,8 @@ const BUCKET_ICON: Record<SortBucket, string> = {
   finance: "card",
   productivity: "briefcase",
   education: "cap",
+  accounts: "shield-check",
+  jobs: "user",
 };
 
 function choiceValue(hours: number | null): string {

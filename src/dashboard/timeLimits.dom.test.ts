@@ -28,7 +28,7 @@ describe("Where each kind of mail goes", () => {
     const dash = await bootDashboard();
     await openOrganize(dash);
     const kinds = Array.from(document.querySelectorAll<HTMLSelectElement>("#time-limits-rows select"));
-    expect(kinds).toHaveLength(11);
+    expect(kinds).toHaveLength(13);
     expect(kinds.every((k) => k.value === "off")).toBe(true);
     expect(document.querySelectorAll("#time-limits-rows .ios-group")).toHaveLength(1);
     expect(document.getElementById("time-limits-toggle")).toBeNull();
@@ -60,7 +60,7 @@ describe("Where each kind of mail goes", () => {
     expect(stored.timeLimitsEnabled).toBe(true);
     expect(stored.keepSorting).toBe(true);
     expect(stored.inboxHoursByBucket.promotions).toBe(0);
-    expect(stored.labelsOff).toHaveLength(10);
+    expect(stored.labelsOff).toHaveLength(12);
     expect(stored.labelsOff).not.toContain("promotions");
 
     pick("time-limit-promotions", "off");
@@ -75,7 +75,7 @@ describe("Where each kind of mail goes", () => {
     await vi.waitFor(() => {
       const stored = dash.storedSettings().autoSort;
       expect(stored.labelsOff).toEqual([]);
-      expect(Object.keys(stored.filterIdsByBucket)).toHaveLength(11);
+      expect(Object.keys(stored.filterIdsByBucket)).toHaveLength(13);
     });
     const calls = dash.gmailApi.createFilter.mock.calls as [string, { query?: string }, { removeLabelIds: string[] }][];
     const otp = calls.find(([, c]) => c.query?.startsWith('subject:("verification code"'));

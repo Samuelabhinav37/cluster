@@ -11,7 +11,7 @@
 import { domainsForCategory, type DomainCategory } from "./domainCategories";
 import type { SortBucket, SortOverride } from "./sortTaxonomy";
 
-type SubjectKind = "otp" | "shipping" | "receipt" | "social";
+type SubjectKind = "otp" | "accounts" | "shipping" | "receipt" | "social" | "jobs";
 
 export const KIND_PHRASES: Record<SubjectKind, string[]> = {
   otp: [
@@ -24,6 +24,17 @@ export const KIND_PHRASES: Record<SubjectKind, string[]> = {
     "passcode",
     "2FA",
     "two-factor",
+  ],
+  accounts: [
+    "security alert",
+    "new sign-in",
+    "sign-in attempt",
+    "password reset",
+    "reset your password",
+    "password changed",
+    "suspicious activity",
+    "account recovery",
+    "2-Step Verification",
   ],
   // No bare "delivery" or "tracking": promo copy ("Free delivery") uses them.
   shipping: [
@@ -47,6 +58,7 @@ export const KIND_PHRASES: Record<SubjectKind, string[]> = {
     "your bill",
   ],
   social: ["mentioned you", "tagged you", "new follower", "friend request", "liked your", "commented on"],
+  jobs: ["thank you for applying", "thanks for applying", "your application", "job application", "application update", "application status", "job alert", "jobs for you", "job opening"],
 };
 
 /** Security notices that mention codes or 2FA but must never be filed away
@@ -54,7 +66,7 @@ export const KIND_PHRASES: Record<SubjectKind, string[]> = {
  * by OTP_EXCLUDE_RE in messageKind.ts. */
 export const OTP_EXCLUDED_PHRASES = ["alert", "disabled", "changed", "new sign-in", "suspicious"];
 
-const KIND_ORDER: SubjectKind[] = ["otp", "shipping", "receipt", "social"];
+const KIND_ORDER: SubjectKind[] = ["otp", "accounts", "shipping", "receipt", "social", "jobs"];
 
 function term(phrase: string): string {
   return /[\s-]/.test(phrase) ? `"${phrase}"` : phrase;
@@ -110,10 +122,11 @@ export function categoryQuery(bucket: SortBucket, overrides: Record<string, Sort
 
   if (isSubjectKind(bucket)) {
     matchAny.push(subjectAny(KIND_PHRASES[bucket]));
-    if (bucket === "social") matchAny.push(fromAny(domainsForCategory("social")));
+    if (bucket === "social" || bucket === "jobs") matchAny.push(fromAny(domainsForCategory(bucket)));
     const earlier = KIND_ORDER.slice(0, KIND_ORDER.indexOf(bucket)).flatMap((k) => KIND_PHRASES[k]);
     if (earlier.length > 0) not.push(subjectAny(earlier));
     if (bucket === "otp") not.push(subjectAny(OTP_EXCLUDED_PHRASES));
+    if (bucket === "accounts") not.push("subject:CVE");
   } else if (bucket === "promotions") {
     matchAny.push("category:promotions");
     not.push(subjectAny(ALL_KIND_PHRASES));

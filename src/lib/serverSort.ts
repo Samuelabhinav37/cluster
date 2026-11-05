@@ -19,6 +19,7 @@ export const SERVER_SORT_BUCKETS: SortBucket[] = [
   "newsletter",
   "productivity",
   "education",
+  "jobs",
 ];
 
 export function isServerSortBucket(bucket: SortBucket): boolean {
