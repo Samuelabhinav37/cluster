@@ -322,6 +322,9 @@
   .dp-who img { width:28px; height:28px; border-radius:7px; background:#fff; padding:3px; border:1px solid var(--hair); }
   .dp-who small { display:block; color:var(--l3); font-weight:500; font-size:12px; }
   .dp-bar { display:flex; gap:8px; padding:0 14px 12px; border-bottom:1px solid var(--hair); }
+  .cu-filter span::before { content:none; }
+  .cu-filter span { border-style:solid; }
+  .cu-filter span.on { background:var(--l); color:var(--bg); border-color:var(--l); }
 </style>
 </head>
 <body>
@@ -329,7 +332,6 @@
   <div class="brand"><svg class="brand-mark" viewBox="0 0 32 32" width="36" height="36" aria-hidden="true" shape-rendering="geometricPrecision"><rect width="32" height="32" rx="7" fill="#030307"/><line x1="17.5" y1="15" x2="8" y2="8.5" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round"/><line x1="17.5" y1="15" x2="8.5" y2="23.5" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round"/><line x1="17.5" y1="15" x2="25" y2="25" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round"/><polygon points="8,6.1 10.08,7.3 10.08,9.7 8,10.9 5.92,9.7 5.92,7.3" fill="#cdcdcd" stroke="#cdcdcd" stroke-width="0.67" stroke-linejoin="round"/><polygon points="8.5,21.5 10.23,22.5 10.23,24.5 8.5,25.5 6.77,24.5 6.77,22.5" fill="#a9a9ab" stroke="#a9a9ab" stroke-width="0.56" stroke-linejoin="round"/><polygon points="25,22.8 26.91,23.9 26.91,26.1 25,27.2 23.09,26.1 23.09,23.9" fill="#b8b8ba" stroke="#b8b8ba" stroke-width="0.62" stroke-linejoin="round"/><polygon points="17.5,8.8 22.87,11.9 22.87,18.1 17.5,21.2 12.13,18.1 12.13,11.9" fill="#fff" stroke="#fff" stroke-width="1.74" stroke-linejoin="round"/><rect x="14.3" y="13.02" width="6.4" height="4.35" rx="0.64" fill="#030307"/><path d="M14.81,13.55 L17.5,15.72 L20.19,13.55" fill="none" stroke="#fff" stroke-width="0.77" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Cluster</b></div>
   <a href="#" id="nav-overview"><svg class="ic" viewBox="0 0 24 24"><path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M10 20v-5.2h4V20"/></svg>Overview</a>
   <a href="#clean-up" id="nav-clean-up"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg>Clean up</a>
-  <a href="#stop-mail" class="sub" id="nav-stop-mail"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="m6.5 6.5 11 11"/></svg>Stop mail</a>
   <a href="#organize" id="nav-organize"><svg class="ic" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>Organize</a>
   <a href="#protect" id="nav-protect"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6z"/></svg>Protect</a>
   <div class="acct bottom" title="Signed in with Gmail">
@@ -380,12 +382,11 @@
   </section>
 
   <section id="p-clean-up" class="page" hidden></section>
-  <section id="p-stop-mail" class="page" hidden></section>
   <section id="p-organize" class="page" hidden></section>
   <section id="p-protect" class="page" hidden></section>
   <section id="p-activity" class="page" hidden></section>
   <section id="p-settings" class="page" hidden></section>
-  <p class="note"><b>Redesign, round 2.</b> Organize is back to the app's current style (Keep in inbox, then Labels with app icons). Details is closed on every page. Click a sender, an email or a label to open Details on its emails (Trash all, Open in Gmail); the Details icon opens all senders.</p>
+  <p class="note"><b>Redesign, round 3.</b> Stop mail is now the Subscriptions tab inside Clean up (Emails | Subscriptions). "Lists you can leave" and the Overview Top senders widget open it. Organize is the app's current style. Details stays closed until you click a sender, email or label.</p>
 </main>
 <aside class="details-pane" id="dpane" hidden>
   <div class="dp-head">
@@ -500,7 +501,7 @@ document.getElementById("grid").innerHTML = [
   W("Automatically filed", badge("+31%", true), "296", "226 last week", line([30, 42, 48, 39, 51, 40, 46], [28, 30, 36, 33, 35, 31, 33]), "Activity"),
   W("Suspicious emails", "", "", "", scamList, "Protect"),
   W("Emails cleared", badge("+∞", true), "191", "0 last week", bars([0, 0, 0, 120, 30, 25, 16]), "Clean up"),
-  W("Top senders", "", "", "", topList, "Stop mail"),
+  W("Top senders", "", "", "", topList, "Subscriptions"),
 ].join("");
 
 const DP = [
@@ -541,28 +542,28 @@ const info = `<span class="info">i</span>`;
 // ---------- Clean up ----------
 const CLEAN = [["medium.com", "Medium Daily Digest", "Never opened", 20, "Yesterday", "None", 1], ["quora.com", "Quora Digest", "Never opened", 15, "Mon", "None", 1], ["groupon.com", "Groupon", "Never opened", 14, "Tue", "None", 1],
   ["github.com", "GitHub", "Old codes", 31, "Oct 2", "100%"], ["uber.com", "Uber", "Old codes", 12, "Sep 28", "100%"], ["oldnavy.com", "Old Navy", "List", 12, "Sun", "None"], ["nike.com", "Nike", "List", 11, "Sat", "None"], ["theverge.com", "The Verge", "List", 9, "Mon", "22%"]];
-document.getElementById("p-clean-up").innerHTML = head("Clean up") +
-  kpis([["Never opened", 214, "emails", [12, 18, 15, 22, 26, 24, 31, 30]], ["Old codes and news", 96, "emails", [8, 9, 12, 10, 14, 13, 15, 15]], ["Lists you can leave", 22, "lists", [14, 15, 17, 18, 18, 20, 21, 22]]]) +
-  `<div class="abar"><span>3 selected<small>49 emails</small></span><button class="btn sm clear">Clear</button><button class="btn sm">Trash</button></div>` +
-  table([["Sender"], ["Why"], ["Emails", "r"], ["Last email"], ["Opened", "r"], ["", "r"]],
-    CLEAN.map(([d, n, why, e, last, o, ck]) => tr([[sender(d, n)], [`<span class="cat">${why}</span>`], [e, "r nn"], [last, "mut"], [o, "r mut nn"], [more, "r"]], true, ck))) +
-  foot(4) +
-  `<div class="sec-h">Do this automatically ${info}</div>` +
-  slist([["Move mail you never open to Read later", sw(true)], ["Keep only the newest 3 codes from each sender", sw(true)], ["Show newsletters on Saturday only", sw(false)]]);
-
-// ---------- Stop mail ----------
 const STOP = [["linkedin.com", "LinkedIn", "Daily", [9, 8, 7, 9, 8, 6, 7, 5], "22%", "Subscribed"], ["morningbrew.com", "Morning Brew", "Daily", [5, 5, 6, 5, 5, 5, 4, 5], "17%", "Subscribed"],
   ["groupon.com", "Groupon", "Weekly", [3, 3, 2, 4, 3, 3, 2, 3], "None", "Still sending"], ["oldnavy.com", "Old Navy", "Weekly", [3, 2, 3, 4, 2, 3, 3, 2], "None", "Subscribed"],
   ["nike.com", "Nike", "Weekly", [2, 3, 2, 2, 3, 2, 2, 3], "None", "Muted"], ["quora.com", "Quora Digest", "Weekly", [2, 2, 2, 2, 2, 2, 2, 1], "None", "Muted"],
   ["theverge.com", "The Verge", "Weekly", [2, 1, 2, 2, 1, 2, 2, 1], "22%", "Subscribed"], ["medium.com", "Medium Daily Digest", "Daily", [6, 6, 5, 6, 4, 2, 0, 0], "None", "Unsubscribed"]];
 const stopAct = (st) => st === "Unsubscribed" ? `<span class="mut">Done</span>` : st === "Still sending" ? `<button class="btn sm">Mute</button>` : `<button class="btn sm">Unsubscribe</button>`;
-document.getElementById("p-stop-mail").innerHTML = head("Stop mail", "", `<button class="btn primary">Unsubscribe from 22</button>`) +
-  tabs([["All", 29, 1], ["Still sending", 3], ["Stopped", 4]]) +
+const cuTabs = (on) => `<div class="tabs"><a href="#clean-up" class="${on === "e" ? "on" : ""}">Emails <i>310</i></a><a href="#clean-up/subscriptions" class="${on === "s" ? "on" : ""}">Subscriptions <i>29</i></a><span class="grow"></span>${on === "s" ? `<button class="btn primary sm">Unsubscribe from 22</button>` : ""}</div>`;
+document.getElementById("p-clean-up").innerHTML = head("Clean up") +
+  kpis([["Never opened", 214, "emails", [12, 18, 15, 22, 26, 24, 31, 30]], ["Old codes and news", 96, "emails", [8, 9, 12, 10, 14, 13, 15, 15]], ["Lists you can leave", 22, "lists", [14, 15, 17, 18, 18, 20, 21, 22]]]).replace(/<button class="kpi /g, (m, i) => m).replace(/(<button class="kpi [^"]*")((?:(?!<button class="kpi).)*?Lists you can leave)/s, '$1 onclick="location.hash=\'clean-up/subscriptions\'"$2') +
+  `<div id="cu-e">${cuTabs("e")}` +
+  `<div class="abar"><span>3 selected<small>49 emails</small></span><button class="btn sm clear">Clear</button><button class="btn sm">Trash</button></div>` +
+  table([["Sender"], ["Why"], ["Emails", "r"], ["Last email"], ["Opened", "r"], ["", "r"]],
+    CLEAN.map(([d, n, why, e, last, o, ck]) => tr([[sender(d, n)], [`<span class="cat">${why}</span>`], [e, "r nn"], [last, "mut"], [o, "r mut nn"], [more, "r"]], true, ck))) +
+  foot(4) + `</div>` +
+  `<div id="cu-s" hidden>${cuTabs("s")}` +
+  `<div class="dv-chips cu-filter"><span class="on">All 29</span><span>Still sending 3</span><span>Stopped 4</span></div>` +
   table([["Sender"], ["Sends"], ["Last 8 weeks"], ["Opened", "r"], ["Status"], ["", "r"]],
     STOP.map(([d, n, f, w, o, st]) => tr([[sender(d, n)], [f, "mut"], [spark8(w)], [o, "r mut nn"], [status(st)], [stopAct(st), "r"]]))) +
   foot(3) +
   `<div class="sec-h">You pay for these ${info}</div>` +
-  table([["Service"], ["Renews"], ["", "r"]], [["netflix.com", "Netflix", "Nov 12"], ["spotify.com", "Spotify", "Nov 18"], ["apple.com", "iCloud+", "Dec 1"]].map(([d, n, r]) => tr([[sender(d, n)], [r, "mut"], [more, "r"]], false)), false);
+  table([["Service"], ["Renews"], ["", "r"]], [["netflix.com", "Netflix", "Nov 12"], ["spotify.com", "Spotify", "Nov 18"], ["apple.com", "iCloud+", "Dec 1"]].map(([d, n, r]) => tr([[sender(d, n)], [r, "mut"], [more, "r"]], false)), false) + `</div>` +
+  `<div class="sec-h">Do this automatically ${info}</div>` +
+  slist([["Move mail you never open to Read later", sw(true)], ["Keep only the newest 3 codes from each sender", sw(true)], ["Show newsletters on Saturday only", sw(false)]]);
 
 // ---------- Organize ----------
 const IC = {
@@ -589,7 +590,7 @@ document.getElementById("p-protect").innerHTML = head("Protect") +
 
 // ---------- Activity ----------
 const ACT = [["Today", [["9:41 AM", "Filed 12 emails to Promotions", "Promotions", "Undo"], ["9:12 AM", "Held 1 email as a scam", "Protect", "Release"], ["8:30 AM", "Trashed 49 emails from 3 senders", "Clean up", "Undo"]]],
-  ["Yesterday", [["6:02 PM", "Unsubscribed from Medium Daily Digest", "Stop mail", ""], ["11:20 AM", "Filed 34 emails to Updates", "Updates", "Undo"], ["7:05 AM", "Filed 18 emails to Newsletters", "Newsletters", ""]]]];
+  ["Yesterday", [["6:02 PM", "Unsubscribed from Medium Daily Digest", "Clean up", ""], ["11:20 AM", "Filed 34 emails to Updates", "Updates", "Undo"], ["7:05 AM", "Filed 18 emails to Newsletters", "Newsletters", ""]]]];
 document.getElementById("p-activity").innerHTML = head("Activity") +
   kpis([["Filed today", 46, "emails", [30, 42, 48, 39, 51, 40, 46]], ["This week", 296, "emails", [180, 210, 226, 240, 262, 280, 296]], ["Undone", 2, "", null]]) +
   `<table class="dt"><thead><tr><th>Time</th><th>What happened</th><th>Where</th><th class="r"></th></tr></thead><tbody>${ACT.map(([day, rows]) => `<tr class="grp"><td colspan="4">${day}</td></tr>` + rows.map(([t, w, where, a]) => tr([[t, "mut"], [`<b style="font-weight:600">${w}</b>`], [`<span class="cat">${where}</span>`], [a ? `<button class="btn sm">${a}</button>` : "", "r"]], false)).join("")).join("")}</tbody></table>` + foot(2);
@@ -653,7 +654,10 @@ function detailsClick() {
   else { if (paneClosed || kaiOpen) senderView(); paneClosed = !(paneClosed || kaiOpen); kaiOpen = false; render(); }
 }
 function render() {
+  if (page() === "subscriptions") { location.replace("#clean-up/subscriptions"); return; }
   const p = page();
+  const subs = location.hash.endsWith("/subscriptions");
+  document.getElementById("cu-e").hidden = subs; document.getElementById("cu-s").hidden = !subs;
   for (const el of document.querySelectorAll(".page")) el.hidden = el.id !== "p-" + p;
   for (const a of document.querySelectorAll("nav a")) a.classList.toggle("on", a.id === "nav-" + p);
   const full = p === "overview" || p === "details";
