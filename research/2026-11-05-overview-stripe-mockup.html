@@ -14,7 +14,9 @@
   body { margin:0; background:var(--bg); color:var(--l); font:14px/1.4 var(--font); display:flex; min-height:100vh; }
   nav { width:220px; flex:none; background:var(--side); border-right:1px solid var(--hair); padding:16px 12px; }
   nav { display:flex; flex-direction:column; position:sticky; top:0; height:100vh; }
-  .brand { display:flex; align-items:center; gap:10px; padding:2px 10px 22px; }
+  .brand { display:flex; align-items:center; gap:10px; padding:2px 10px 0; }
+  /* First nav row lines up with the page title (topbar + head margin). */
+  .brand + a { margin-top:54px; }
   .brand b { font-size:17px; }
   .acct { display:flex; align-items:center; gap:10px; padding:12px 10px 4px; margin-top:auto; border-top:1px solid var(--hair); }
   .gm { width:32px; height:32px; border-radius:8px; background:#fff; display:grid; place-items:center; border:1px solid var(--hair); }
@@ -128,7 +130,7 @@
 
   <div class="grid" id="grid"></div>
 
-  <p class="note"><b>Round 6.</b> The line under the greeting is gone. Cluster's logo and name are back top left, and the Gmail account (logo, name) sits at the bottom left. The top bar spans the whole window, so the icons sit at its right edge.</p>
+  <p class="note"><b>Round 7.</b> The sidebar list starts level with the greeting. Before that: the line under the greeting is gone. Cluster's logo and name are back top left, and the Gmail account (logo, name) sits at the bottom left. The top bar spans the whole window, so the icons sit at its right edge.</p>
 </main>
 <script>
 const fav = (d) => `<img src="https://www.google.com/s2/favicons?domain=${d}&sz=64" alt="">`;
