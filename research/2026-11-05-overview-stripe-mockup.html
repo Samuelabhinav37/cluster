@@ -18,7 +18,7 @@
   nav a.on { color:var(--accent-t); font-weight:600; }
   main { flex:1; padding:28px 40px 120px; max-width:1240px; }
   .search { height:38px; border-radius:9px; background:var(--fill); color:var(--l4); display:flex; align-items:center; padding:0 14px; max-width:560px; margin:0 auto; }
-  .head { display:flex; align-items:center; justify-content:space-between; margin:26px 0 4px; padding-bottom:16px; border-bottom:1px solid var(--hair); }
+  .head { display:flex; align-items:center; justify-content:space-between; margin:26px 0 0; padding-bottom:16px; border-bottom:1px solid var(--hair); }
   .head h1 { margin:0; }
   .details { height:32px; padding:0 12px; border:0; border-radius:8px; background:var(--fill); color:var(--l); font:600 13px var(--font); display:inline-flex; align-items:center; gap:7px; }
   .details svg { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; }
@@ -44,7 +44,7 @@
 
   /* The grid: three widgets a row, separated by hairlines only. */
   .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); column-gap:48px; }
-  .w { padding:26px 0 24px; border-bottom:1px solid var(--hair); display:flex; flex-direction:column; min-height:340px; }
+  .w { padding:26px 0 24px; border-bottom:1px solid var(--hair); display:flex; flex-direction:column; min-height:290px; }
   .badge { font:700 11px var(--font); padding:2px 6px; border-radius:5px; background:var(--fill); color:var(--l3); }
   .badge.good { background:var(--good-bg); color:var(--good); }
   .num { font-size:22px; font-variant-numeric:tabular-nums; }
@@ -89,19 +89,12 @@
     <button class="details"><svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 9v12M15 9v12"/></svg>Details</button>
   </div>
 
-  <section class="today">
-    <h2 class="w-title">Today <span class="info">i</span><a href="#">Open in Gmail</a></h2>
-    <div id="today"></div>
-  </section>
-
   <div class="grid" id="grid"></div>
 
-  <p class="note"><b>Round 2.</b> "Updated" times are gone. Open in Gmail sits beside the Today title. The period controls are gone, so each widget compares with last week. The title is just Overview, Details is top right as before, and search is centered.</p>
+  <p class="note"><b>Round 3.</b> Today and Open in Gmail are gone, and so are the big numbers with "last week". Each widget is now a title, its change badge and the chart or list.</p>
 </main>
 <script>
 const fav = (d) => `<img src="https://www.google.com/s2/favicons?domain=${d}&sz=64" alt="">`;
-const TODAY = [["Mom", null, "Dinner on Sunday?", "7:45 PM"], ["Amazon.com", "amazon.com", "Out for delivery today", "9:53 AM"], ["Chase", "chase.com", "Your statement is ready", "8:10 AM"]];
-document.getElementById("today").innerHTML = TODAY.map(([n, d, s, t]) => `<div class="row">${d ? fav(d) : `<span class="mono">${n.slice(0, 2).toUpperCase()}</span>`}<div><b>${n}</b><span class="s">${s}</span></div><span class="t">${t}</span></div>`).join("");
 
 const days = ["Oct 30", "", "", "", "", "", "Today"];
 function line(pts, prev) {
@@ -113,7 +106,7 @@ function line(pts, prev) {
     <path d="${path(pts)}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
     <div class="ax"><span>${days[0]}</span><span>${days[6]}</span></div></div>`;
 }
-const W = (title, badge, num, prev, body, more, upd = "Updated 06:23") => `<section class="w"><h2 class="w-title">${title} <span class="info">i</span>${badge}</h2>${num ? `<div class="num">${num}<small>${prev}</small></div>` : ""}${body}<div class="foot"><a href="#">${more}</a></div></section>`;
+const W = (title, badge, num, prev, body, more, upd = "Updated 06:23") => `<section class="w"><h2 class="w-title">${title} <span class="info">i</span>${badge}</h2>${body}<div class="foot"><a href="#">${more}</a></div></section>`;
 const badge = (t, good) => `<span class="badge ${good ? "good" : ""}">${t}</span>`;
 
 const inbox = [["People", 24, "var(--s1)"], ["Receipts", 39, "var(--s2)"], ["Updates", 202, "var(--s3)"], ["Promotions", 91, "var(--s4)"]];
