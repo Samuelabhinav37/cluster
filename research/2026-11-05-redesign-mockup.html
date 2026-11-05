@@ -298,6 +298,30 @@
   .kp-input kbd { font:600 11px var(--font); padding:2px 6px; border-radius:5px; background:var(--fill); color:var(--l3); }
   .tools button.kai-btn.on { box-shadow:0 0 0 3px var(--s4); }
   main { min-width:0; }
+
+  /* Organize, as the app has it today: grouped iOS lists with app icons. */
+  .igroup { border:1px solid var(--hair); border-radius:14px; overflow:hidden; background:var(--bg); margin-bottom:24px; }
+  .irow { display:grid; grid-template-columns:36px minmax(0,1fr) 48px 170px; gap:14px; align-items:center; min-height:56px; padding:0 16px; border-bottom:1px solid var(--hair); cursor:pointer; }
+  .irow:last-child { border-bottom:0; }
+  .irow:hover { background:var(--side); }
+  .irow b { font-weight:500; font-size:15px; }
+  .icnt { text-align:right; color:var(--l3); font-variant-numeric:tabular-nums; }
+  .iselect { height:34px; border-radius:8px; background:var(--fill); display:flex; align-items:center; justify-content:space-between; padding:0 12px; font-weight:600; font-size:13px; }
+  .iselect::after { content:"⌄"; color:var(--l3); transform:translateY(-3px); }
+  .ihead { margin:8px 0 8px 16px; font-size:13px; color:var(--l3); font-weight:600; }
+  .app-ic { width:36px; height:36px; border-radius:22.5%; display:grid; place-items:center; color:#fff; }
+  .app-ic svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  /* Rows open Details with that sender's emails. */
+  .page .dt tbody tr:has(.snd) { cursor:pointer; }
+  .em-row { display:grid; grid-template-columns:18px minmax(0,1fr) auto; gap:10px; align-items:center; padding:10px 14px; border-bottom:1px solid var(--hair); font-size:13px; }
+  .em-row b { display:block; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .em-row small { color:var(--l3); font-size:12px; }
+  .em-row .t { color:var(--l3); font-size:12px; white-space:nowrap; }
+  .em-row input { width:14px; height:14px; accent-color:var(--accent); margin:0; }
+  .dp-who { display:flex; align-items:center; gap:10px; padding:4px 14px 10px; font-weight:650; font-size:15px; }
+  .dp-who img { width:28px; height:28px; border-radius:7px; background:#fff; padding:3px; border:1px solid var(--hair); }
+  .dp-who small { display:block; color:var(--l3); font-weight:500; font-size:12px; }
+  .dp-bar { display:flex; gap:8px; padding:0 14px 12px; border-bottom:1px solid var(--hair); }
 </style>
 </head>
 <body>
@@ -361,16 +385,15 @@
   <section id="p-protect" class="page" hidden></section>
   <section id="p-activity" class="page" hidden></section>
   <section id="p-settings" class="page" hidden></section>
-  <p class="note"><b>Redesign, every section.</b> One frame and the same parts everywhere: number row, one table, tabs, switch list. Details: full page on Overview, a pane beside every other section. Kai: the round button top right opens a panel in the same slot. Click the sidebar, the bell, the gear and Kai to move around.</p>
+  <p class="note"><b>Redesign, round 2.</b> Organize is back to the app's current style (Keep in inbox, then Labels with app icons). Details is closed on every page. Click a sender, an email or a label to open Details on its emails (Trash all, Open in Gmail); the Details icon opens all senders.</p>
 </main>
 <aside class="details-pane" id="dpane" hidden>
   <div class="dp-head">
-    <div class="seg"><button>Emails</button><button class="on">Senders</button></div>
+    <div class="seg" id="dp-seg"><button>Emails</button><button class="on">Senders</button></div>
     <button class="x" title="Close Details" onclick="paneClosed=true; render()"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   </div>
-  <div class="dp-title">All mail · 42 senders</div>
-  <div class="dp-chips"><span>+ Never opened</span><span>+ Promotions</span><span>+ This week</span><span>+ Older than 1 year</span></div>
-  <div class="dp-table" id="dp-rows"></div>
+  <div id="dp-top"></div>
+    <div class="dp-table" id="dp-rows"></div>
 </aside>
 <aside class="details-pane kai-pane" id="kpane" hidden>
   <div class="dp-head"><span class="kai-mini"></span><b class="kp-name">Kai</b>
@@ -542,14 +565,17 @@ document.getElementById("p-stop-mail").innerHTML = head("Stop mail", "", `<butto
   table([["Service"], ["Renews"], ["", "r"]], [["netflix.com", "Netflix", "Nov 12"], ["spotify.com", "Spotify", "Nov 18"], ["apple.com", "iCloud+", "Dec 1"]].map(([d, n, r]) => tr([[sender(d, n)], [r, "mut"], [more, "r"]], false)), false);
 
 // ---------- Organize ----------
-const LABELS = [["var(--s1)", "People", 24, 6, "Always"], ["var(--s2)", "Receipts", 39, 11, "1 day"], ["var(--s3)", "Updates", 202, 58, "3 hours"], ["var(--s4)", "Promotions", 91, 40, "1 hour"], ["var(--s2)", "Newsletters", 64, 21, "1 hour"], ["var(--s3)", "Read later", 18, 4, "Always"]];
-const RULES = [["From <span class='tok'>linkedin.com</span> → label <span class='tok'>Updates</span>, skip inbox", 58, 1], ["Subject has <span class='tok'>receipt</span> or <span class='tok'>order</span> → label <span class='tok'>Receipts</span>", 39, 1], ["From <span class='tok'>morningbrew.com</span> → label <span class='tok'>Newsletters</span>, mark read", 18, 1], ["From <span class='tok'>github.com</span>, older than 7 days → Trash", 31, 0]];
-document.getElementById("p-organize").innerHTML = head("Organize", "", `<button class="btn">Sort inbox</button><button class="btn primary">New rule</button>`) +
-  `<div class="grid2">${W("Inbox by category", "", "", "", donut(inbox), "Details").replace("<a ", "<a style='padding-right:0' ")}${W("Automatically filed", badge("+31%", true), "", "", line([30, 42, 48, 39, 51, 40, 46], [28, 30, 36, 33, 35, 31, 33]), "Activity")}</div>` +
-  `<div class="sec-h">Labels</div>` +
-  table([["Label"], ["Emails", "r"], ["This week", "r"], ["Keep in inbox"], ["", "r"]], LABELS.map(([c, n, e, w, k]) => tr([[`<span class="ldot" style="background:${c}"></span><b>${n}</b>`], [e, "r nn"], [w, "r mut nn"], [`<span class="selpill">${k}</span>`], [more, "r"]], false)), false) +
-  `<div class="sec-h">Rules</div>` +
-  table([["Rule"], ["Caught", "r"], ["On"], ["", "r"]], RULES.map(([r, n, on]) => tr([[r], [n, "r nn"], [sw(on)], [more, "r"]], false)), false);
+const IC = {
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', cap: '<path d="m2 9 10-5 10 5-10 5z"/><path d="M6 11v5c3 2 9 2 12 0v-5"/>', tag: '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>',
+  people: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-4 3-6 6.5-6s6 2 6.5 6M16 4.5a3.5 3.5 0 0 1 0 7M18 14c2 .6 3.3 2.6 3.5 6"/>', card: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/>', bag: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a3 3 0 0 1 6 0v2M3 12h18"/>',
+  box: '<path d="M12 3 3 7.5v9L12 21l9-4.5v-9z"/><path d="m3 7.5 9 4.5 9-4.5M12 12v9"/>', news: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/>', key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 8-8M16 7l2 2"/>',
+  cart: '<path d="M5 7h14l-1.5 12h-11z"/><path d="M9 7a3 3 0 0 1 6 0"/>', plane: '<path d="M3 13l18-8-6 16-3-6z"/><path d="m12 15 3-3"/>', receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>' };
+const appIc = (k, c) => `<span class="app-ic" style="background:${c}"><svg viewBox="0 0 24 24">${IC[k]}</svg></span>`;
+const LABELS = [["cap", "#2f6fdc", "Education", 0], ["tag", "#ef6fa3", "Promotions", 91], ["people", "#22a9c4", "Social", 93], ["card", "#a46ee6", "Finance", 0], ["bag", "#7c7c84", "Work", 1], ["box", "#f2a12a", "Orders & shipping", 17],
+  ["news", "#4f86f7", "Newsletters", 86], ["key", "#f2c230", "One-time codes", 8], ["cart", "#f2564b", "Shopping", 0], ["plane", "#37c27a", "Travel", 0], ["receipt", "#1fae6a", "Receipts", 26]];
+document.getElementById("p-organize").innerHTML = head("Organize", "", `<button class="btn">Sort my inbox</button>`) +
+  `<div class="igroup"><div class="irow">${appIc("clock", "#8e8e95")}<b>Keep in inbox</b><span></span><span class="iselect">Per label</span></div></div>` +
+  `<h3 class="ihead">Labels</h3><div class="igroup">${LABELS.map(([k, c, n, cnt]) => `<div class="irow" data-label="${n}">${appIc(k, c)}<b>${n}</b><span class="icnt">${cnt}</span><span class="iselect">Off</span></div>`).join("")}</div>`;
 
 // ---------- Protect ----------
 const SUS = [["netflix.com", "Payment declined - update your billing details", "Pretends to be Netflix", "High", "Today"], ["paypal.com", "Action required: verify your identity", "Pretends to be PayPal", "High", "Today"], ["apple.com", "Your Apple ID was used to sign in on a new device", "Pretends to be Apple", "High", "Yesterday"], ["dhl.com", "Your parcel is waiting: pay the customs fee", "Pretends to be DHL", "Medium", "Mon"], ["microsoft.com", "Your password expires today", "Pretends to be Microsoft", "Medium", "Sun"]];
@@ -581,19 +607,50 @@ document.getElementById("p-settings").innerHTML = head("Settings") +
   `<div class="search ssearch"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Search settings</div>` +
   SET.map(([g, rows]) => `<div class="sgroup"><h3>${g}</h3>${slist(rows)}</div>`).join("");
 
-// ---------- Details pane rows (beside every section except Overview) ----------
-document.getElementById("dp-rows").innerHTML = `<div class="dp-row h"><input type="checkbox" aria-label="Select all"><span></span><span>Sender</span><span></span><span class="n">Emails</span><span class="o">Opened</span></div>` +
-  DP.map(([d, n, , , , c, o]) => `<div class="dp-row"><input type="checkbox">${fav(d)}<b>${n}</b><span class="bar" style="width:${Math.round(c / 59 * 44)}px"></span><span class="n">${c}</span><span class="o">${o}</span></div>`).join("");
+// ---------- Details pane: all senders, or one sender's / label's emails ----------
+const SUBJ = { "medium.com": ["The one habit that changed my writing", "5 stories picked for you", "Your weekly digest", "Why most dashboards fail"], "quora.com": ["What is the best way to learn Rust?", "Your Quora digest", "Top answers this week"],
+  "groupon.com": ["Up to 70% off spa days", "Last chance: weekend deals", "Your deals near you"], "linkedin.com": ["You appeared in 12 searches", "New jobs for you", "Samuel, see who viewed your profile"],
+  "netflix.com": ["Payment declined - update your billing details"], "paypal.com": ["Action required: verify your identity"] };
+const WHEN = ["Today", "Yesterday", "Mon", "Sun", "Sat", "Oct 31", "Oct 30", "Oct 28"];
+function senderView() {
+  document.getElementById("dp-seg").innerHTML = `<button>Emails</button><button class="on">Senders</button>`;
+  document.getElementById("dp-top").innerHTML = `<div class="dp-title">All mail · 42 senders</div><div class="dp-chips"><span>+ Never opened</span><span>+ Promotions</span><span>+ This week</span><span>+ Older than 1 year</span></div>`;
+  document.getElementById("dp-rows").innerHTML = `<div class="dp-row h"><input type="checkbox" aria-label="Select all"><span></span><span>Sender</span><span></span><span class="n">Emails</span><span class="o">Opened</span></div>` +
+    DP.map(([d, n, , , , c, o]) => `<div class="dp-row"><input type="checkbox">${fav(d)}<b>${n}</b><span class="bar" style="width:${Math.round(c / 59 * 44)}px"></span><span class="n">${c}</span><span class="o">${o}</span></div>`).join("");
+}
+function emailsView(name, domain, count) {
+  const subs = SUBJ[domain] || [`${name}: this week`, `${name}: new for you`, `${name} update`];
+  const n = Math.min(count, subs.length);
+  document.getElementById("dp-seg").innerHTML = `<button class="on">Emails</button><button>Senders</button>`;
+  document.getElementById("dp-top").innerHTML = `<div class="dp-who">${domain ? fav(domain) : appIc("tag", "#8e8e95")}<span>${name}<small>${count} emails${domain ? " · " + domain : ""}</small></span></div>
+    <div class="dp-bar"><button class="btn sm">Open in Gmail</button><button class="btn sm">Trash all</button></div>`;
+  document.getElementById("dp-rows").innerHTML = Array.from({ length: n }, (_, i) => `<div class="em-row"><input type="checkbox"><span><b>${subs[i % subs.length]}</b><small>${name}</small></span><span class="t">${WHEN[i % WHEN.length]}</span></div>`).join("") + (count > n ? `<div style="padding:12px 14px"><button class="btn sm">Show all ${count}</button></div>` : "");
+}
+// Clicking a sender row, a label, or a sender in the Overview lists opens Details on it.
+document.addEventListener("click", (e) => {
+  if (e.target.closest("input, button, .more, .iselect, a.btn")) return;
+  const row = e.target.closest(".page .dt tbody tr, .irow[data-label]");
+  if (!row) return;
+  let name, domain = "", count = 0;
+  if (row.dataset.label) { name = row.dataset.label; count = +row.querySelector(".icnt").textContent; }
+  else {
+    const b = row.querySelector(".snd b, .two b"); if (!b) return;
+    const img = row.querySelector("img"); domain = img ? new URL(img.src).searchParams.get("domain") : "";
+    name = row.querySelector(".two small") ? row.querySelector(".two small").textContent.replace("Pretends to be ", "") : b.textContent;
+    count = +(row.querySelector(".nn") || { textContent: "4" }).textContent || 4;
+  }
+  emailsView(name, domain, count); kaiOpen = false; paneClosed = false; render();
+});
 
 // ---------- Router ----------
 // #page, or #page/kai to open Kai on that page (also for screenshots).
-let paneClosed = false, kaiOpen = false;
+let paneClosed = true, kaiOpen = false;
 function page() { return (location.hash.slice(1).split("/")[0]) || "overview"; }
 function detailsClick() {
   const p = page();
   if (p === "overview") location.hash = "details";
   else if (p === "details") location.hash = "";
-  else { paneClosed = !paneClosed || kaiOpen ? false : true; kaiOpen = false; render(); }
+  else { if (paneClosed || kaiOpen) senderView(); paneClosed = !(paneClosed || kaiOpen); kaiOpen = false; render(); }
 }
 function render() {
   const p = page();
@@ -607,8 +664,12 @@ function render() {
   document.getElementById("settings-btn").classList.toggle("on", p === "settings");
   document.getElementById("kai-btn").classList.toggle("on", kaiOpen);
 }
-addEventListener("hashchange", () => { kaiOpen = location.hash.endsWith("/kai"); paneClosed = false; render(); scrollTo(0, 0); });
+addEventListener("hashchange", () => { kaiOpen = location.hash.endsWith("/kai"); paneClosed = !location.hash.endsWith("/details"); if (!paneClosed) senderView(); render(); scrollTo(0, 0); });
 kaiOpen = location.hash.endsWith("/kai");
+senderView();
+// #clean-up/medium.com style links open Details on that sender (also for screenshots).
+const pre = location.hash.split("/")[1];
+if (pre && pre.includes(".")) { const r = DP.find((x) => x[0] === pre); emailsView(r ? r[1] : pre, pre, r ? r[5] : 6); paneClosed = false; }
 addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key === "k") { e.preventDefault(); kaiOpen = !kaiOpen; render(); } if (e.key === "Escape" && kaiOpen) { kaiOpen = false; render(); } });
 render();
 
