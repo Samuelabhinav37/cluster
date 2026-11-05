@@ -119,5 +119,13 @@ describe("Accounts and Jobs", () => {
     expect(classifyMessageKind("A decision on your Pay in 4 application is ready", false)).toBe("other");
     expect(classifyMessageKind("Oracle Security Alert for CVE-2026-114820", true)).toBe("newsletter");
     expect(classifyMessageKind("Changed Password", false)).toBe("accounts");
+    // Seen unlabelled in a real inbox, 2026-11-05.
+    for (const subject of ["Reset your Olympus password", "You signed in from a new location", "New account linked to your Mozilla account", "Social Authentication Added", "Mozilla Monitor found your info in these breaches"]) {
+      expect(classifyMessageKind(subject, true), subject).toBe("accounts");
+    }
+    for (const subject of ["New Opportunity-Cyber Security Systems Administrator", "Exploring New Career Opportunities in Ohio?"]) {
+      expect(classifyMessageKind(subject, false), subject).toBe("jobs");
+    }
+    expect(classifyMessageKind("Thank you for your interest in Ford", true, { address: "recruitingnoreply@ford.com", displayName: "" })).toBe("jobs");
   });
 });

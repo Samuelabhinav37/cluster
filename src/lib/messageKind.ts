@@ -20,7 +20,7 @@ const OTP_EXCLUDE_RE = /\b(alert|disabled|changed|new sign[- ]?in|suspicious)\b/
 // Checked right after codes so a Google "Security alert" with an unsubscribe
 // footer is never filed as a newsletter.
 const ACCOUNT_RE =
-  /\b(security alert|new sign[- ]?in|sign[- ]?in (attempt|alert)|new (login|device)|password (reset|changed|was changed|updated)|changed (your )?password|reset your password|suspicious (activity|sign[- ]?in|login)|account (recovery|activity|alert|locked|suspended)|recovery (email|phone)|2-step verification|two-factor authentication (was )?(disabled|turned off|enabled|turned on)|app password)\b/i;
+  /\b(security alert|new sign[- ]?in|sign[- ]?in (attempt|alert)|new (login|device)|password (reset|changed|was changed|updated)|changed (your )?password|reset your( \w+)? password|signed in (from|on|to)|new account linked|authentication added|found your info|suspicious (activity|sign[- ]?in|login)|account (recovery|activity|alert|locked|suspended)|recovery (email|phone)|2-step verification|two-factor authentication (was )?(disabled|turned off|enabled|turned on)|app password)\b/i;
 // Phrases, not lone words: "Free delivery this weekend" and "Tracking your
 // fitness goals" are promotions, "Our statement on the outage" is news.
 const SHIPPING_RE =
@@ -31,9 +31,9 @@ const RECEIPT_RE =
 const ACCOUNT_EXCLUDE_RE = /\bcve-\d/i;
 // No bare "application": PayPal's "Pay in 4 application" is not a job.
 const JOBS_RE =
-  /\b(thanks?( you)? for (applying|your application)|your (job )?application|job application|application (update|status|received|confirmation)|received your application|job alerts?|jobs for you|new jobs?|job opening)\b/i;
-// recruiting@dupaco.com, talentacquisition@hr.questdiagnostics.com.
-const JOBS_SENDER_RE = /\b(recruit(ing|ment|ers?)?|talent ?acquisition|careers?)\b/i;
+  /\b(thanks?( you)? for (applying|your application)|your (job )?application|job application|application (update|status|received|confirmation)|received your application|job alerts?|jobs for you|new jobs?|job opening|new opportunity|career opportunit(y|ies))\b/i;
+// recruiting@dupaco.com, recruitingnoreply@ford.com, talentacquisition@hr.questdiagnostics.com.
+const JOBS_SENDER_RE = /\b(recruit\w*|talent ?acquisition|careers?)\b/i;
 const SOCIAL_RE = /\b(mentioned you|tagged you|new follower|friend request|liked your|commented on)\b/i;
 // When the subject says nothing ("Your Thursday evening trip with Uber"), a
 // sender named for receipts or orders still does: "Uber Receipts",
