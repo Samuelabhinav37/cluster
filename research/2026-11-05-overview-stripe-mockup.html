@@ -214,6 +214,10 @@
   .pg { width:36px; height:36px; border:1px solid var(--hair); border-radius:9px; background:var(--bg); color:var(--l2); font:600 13px var(--font); cursor:pointer; }
   .pg.on { background:var(--l); border-color:var(--l); color:var(--bg); }
   .pg:disabled { color:var(--l4); cursor:default; }
+  /* Kai takes the + slot: the one filled button, top right (Gemini/Stripe/Copilot place it there too). */
+  .tools button.kai-btn { padding:0; width:34px; height:34px; border-radius:50%; background:#16171c; margin-left:6px; box-shadow:0 0 0 1px var(--hair); }
+  .tools button.kai-btn:hover { background:#24252c; }
+  .tools button.kai-btn svg { width:34px; height:34px; }
 </style>
 </head>
 <body>
@@ -235,10 +239,9 @@
     <div class="search"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Search</div>
     <div class="tools">
       <button title="Details" id="details-btn" onclick="location.hash = location.hash === '#details' ? '' : 'details'"><svg class="ic" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 9v12M15 9v12"/></svg></button>
-      <button title="Ask Kai"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg></button>
       <button title="Activity" class="dot"><svg class="ic" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button>
       <button title="Settings"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 5.2l2.1 2.1M17.7 16.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 18.8l2.1-2.1M17.7 7.3l2.1-2.1"/></svg></button>
-      <button title="New rule" class="plus"><svg class="ic" viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></button>
+      <button title="Ask Kai (Ctrl+K)" class="kai-btn" aria-label="Ask Kai"><svg viewBox="0 0 34 34" aria-hidden="true"><rect x="10.5" y="11" width="4.4" height="7.5" rx="2.2" fill="#f1f2f6"/><rect x="19.1" y="11" width="4.4" height="7.5" rx="2.2" fill="#f1f2f6"/><rect x="12.6" y="22.4" width="2.4" height="1.6" rx=".8" fill="#8a8f99"/><rect x="15.8" y="22.4" width="2.4" height="1.6" rx=".8" fill="#8a8f99"/><rect x="19" y="22.4" width="2.4" height="1.6" rx=".8" fill="#8a8f99"/></svg></button>
     </div>
   </div>
   <div id="oview">
@@ -272,7 +275,7 @@
     </div>
   </section>
 
-  <p class="note"><b>Round 12.</b> More air: content is one centered 1120 px column, widgets have 32 px above and below, 64 px between columns, and the last row has no bottom rule. Overview has no Details pane. The Details icon (top right) opens Details as its own full page: one table with logo, address, category, last email, emails, opened, status and a ⋯ menu, plus Filter, Columns, Export and pages. On Clean up, Stop mail, Organize and Protect the pane stays beside the page as now.</p>
+  <p class="note"><b>Round 13.</b> Kai replaces the + as the one filled button at the top right (the "?" icon is gone). Round 12: More air: content is one centered 1120 px column, widgets have 32 px above and below, 64 px between columns, and the last row has no bottom rule. Overview has no Details pane. The Details icon (top right) opens Details as its own full page: one table with logo, address, category, last email, emails, opened, status and a ⋯ menu, plus Filter, Columns, Export and pages. On Clean up, Stop mail, Organize and Protect the pane stays beside the page as now.</p>
 </main>
 
 <script>
