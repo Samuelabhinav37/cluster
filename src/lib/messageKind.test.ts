@@ -97,4 +97,8 @@ describe("looksAutomated", () => {
     expect(looksAutomated(false)).toBe(false);
     expect(looksAutomated(false, "normal", "no")).toBe(false);
   });
+
+  it("reads a statement with a card or month named before it as a receipt", () => {
+    expect(classifyMessageKind("Your October Affirm Card statement is here", true)).toBe("receipt");
+  });
 });

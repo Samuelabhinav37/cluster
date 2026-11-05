@@ -40,6 +40,7 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "united.com", "southwest.com", "aa.com", "marriott.com", "hilton.com", "kayak.com",
     "tripadvisor.com", "hotels.com", "priceline.com", "jetblue.com", "airbnb.co.uk",
     "irctc.co.in", "makemytrip.com", "goibibo.com", "goindigo.in", "airindia.com",
+    "travelguard.com", "avis.com", "hertz.com", "enterprise.com", "vrbo.com", "amtrak.com",
   ],
   finance: [
     "paypal.com", "chase.com", "bankofamerica.com", "wellsfargo.com", "americanexpress.com",
@@ -48,6 +49,8 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "citibank.com", "usbank.com", "ally.com", "sofi.com", "amazonpay.in", "paytm.com",
     "hdfcbank.com", "hdfcbank.net", "icicibank.com", "sbi.co.in", "axisbank.com", "kotak.com",
     "phonepe.com", "zerodha.com", "groww.in",
+    "klarna.com", "affirm.com", "chime.com", "experian.com", "equifax.com", "transunion.com",
+    "creditkarma.com", "afterpay.com", "licindia.in",
   ],
   social: [
     "facebook.com", "facebookmail.com", "instagram.com", "twitter.com", "x.com",
@@ -70,6 +73,7 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
   education: [
     "coursera.org", "udemy.com", "edx.org", "khanacademy.org", "duolingo.com",
     "skillshare.com", "instructure.com", "blackboard.com", "brilliant.org", "udacity.com",
+    "udemymail.com", "netacad.com", "mygreatlearning.com", "codecademy.com", "datacamp.com",
   ],
 };
 

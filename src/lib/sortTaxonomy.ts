@@ -116,10 +116,11 @@ export function classifySortBucket(kind: MessageKind, senderDomain: string, prom
   // The tab also beats the sender's domain: Microsoft 365's Copilot ad is an
   // ad, not Work, and Amazon's deals are not an order.
   if (promotion && (kind === "newsletter" || kind === "other")) return "promotions";
-  const byKind = KIND_BUCKET[kind];
-  if (byKind) return byKind;
   const byCategory = CATEGORY_BUCKET[categorizeDomain(senderDomain)];
-  return byCategory ?? null;
+  // An unsubscribe link only says "list mail"; a sender we know (a bank, a
+  // school, an airline) says more. LIC's premium reminder is Finance, not news.
+  if (kind === "newsletter" && byCategory) return byCategory;
+  return KIND_BUCKET[kind] ?? byCategory ?? null;
 }
 
 /** A user's correction for one sender: force a bucket, or never sort them. */

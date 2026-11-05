@@ -25,6 +25,16 @@ describe("classifySortBucket", () => {
     expect(classifySortBucket("other", "booking.com")).toBe("travel");
   });
 
+  it("a known sender beats the plain newsletter fallback, but not a list from an unknown sender", () => {
+    // LIC's premium reminder and Udemy's notices carry an unsubscribe link.
+    expect(classifySortBucket("newsletter", "licindia.in")).toBe("finance");
+    expect(classifySortBucket("newsletter", "e.udemymail.com")).toBe("education");
+    expect(classifySortBucket("newsletter", "substack.com")).toBe("newsletter");
+    expect(classifySortBucket("newsletter", "some-random-domain.example")).toBe("newsletter");
+    // The Promotions tab still wins.
+    expect(classifySortBucket("newsletter", "avis.com", true)).toBe("promotions");
+  });
+
   it("returns null when neither the kind nor the domain is specific", () => {
     expect(classifySortBucket("other", "some-random-domain.example")).toBeNull();
   });
