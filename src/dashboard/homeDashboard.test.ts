@@ -9,8 +9,10 @@ import {
   mailByKind,
   paintHomeRead,
   renderHomeDashboard,
+  renderScanCard,
   type HomeFacts,
 } from "./homeDashboard";
+import { newScan } from "../lib/scanState";
 
 const NOW = Date.UTC(2026, 9, 17);
 const DAY = 24 * 60 * 60 * 1000;
@@ -236,5 +238,34 @@ describe("renderHomeDashboard", () => {
     expect(text(card.querySelector(".home-verdict"))).toBe("Reading your sent mail.");
     expect(text(card.querySelector(".read-nums"))).toBe("");
     expect(card.querySelector<HTMLElement>(".read-track")!.hidden).toBe(true);
+  });
+});
+
+describe("renderScanCard", () => {
+  const rows = [
+    { name: "Receipts", icon: "receipt", count: 12, href: "https://mail.google.com/r" },
+    { name: "Shopping", icon: "bag", count: 40, href: "https://mail.google.com/s" },
+    { name: "Travel", icon: "plane", count: 0, href: "https://mail.google.com/t" },
+  ];
+  const on = () => ({ rescan: vi.fn(), dismiss: vi.fn(), unsortedHref: "https://mail.google.com/u" });
+
+  it("while labelling: Read mail ticked, Label on, a bar, no Rescan", () => {
+    const card = renderScanCard({ ...newScan(NOW), phase: "labelling", done: 30, total: 120 }, rows, on());
+    expect([...card.querySelectorAll(".scan-steps li")].map((li) => li.className)).toEqual(["is-done", "is-on"]);
+    expect(card.querySelector(".read-track")!.getAttribute("aria-valuenow")).toBe("30");
+    expect(card.querySelector("button")).toBeNull();
+  });
+
+  it("when done: the total, label rows biggest first linking to Gmail, No label, Rescan and close", () => {
+    const actions = on();
+    const card = renderScanCard({ ...newScan(NOW), phase: "done", unsorted: 7 }, rows, actions);
+    expect(card.querySelector(".scan-head b")!.textContent).toBe("52 labelled");
+    const names = [...card.querySelectorAll(".scan-rows .grow")].map((x) => x.textContent);
+    expect(names).toEqual(["Shopping", "Receipts", "No label"]);
+    expect(card.querySelector<HTMLAnchorElement>(".scan-rows a")!.href).toBe("https://mail.google.com/s");
+    card.querySelector<HTMLButtonElement>(".scan-head .btn")!.click();
+    card.querySelector<HTMLButtonElement>(".scan-close")!.click();
+    expect(actions.rescan).toHaveBeenCalled();
+    expect(actions.dismiss).toHaveBeenCalled();
   });
 });

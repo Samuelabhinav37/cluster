@@ -7,6 +7,7 @@ import { senderTile } from "./senderTile";
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 import { clearedCount, type ActionLogEntry } from "../lib/actionLog";
 import type { TodayItem } from "../lib/today";
+import type { ScanState } from "../lib/scanState";
 import { gmailMessageUrl } from "./detailsPanel";
 import { infoButton } from "./ui";
 import { areaChart, barChart, dayLabels, donutChart, lineChart, ticks } from "./overviewCharts";
@@ -404,6 +405,7 @@ function readHero(r: { done: number; total: number }): HTMLElement {
   track.setAttribute("aria-label", "Emails read");
   track.append(el("i", ""));
   words.append(
+    scanSteps(0),
     el("p", "home-verdict", "Reading your mail."),
     el("p", "home-sub", "Nothing changes in Gmail until you choose."),
     nums,
@@ -434,6 +436,86 @@ export function paintHomeRead(
   track.setAttribute("aria-valuemax", String(Math.max(done, total)));
   track.querySelector<HTMLElement>("i")!.style.width =
     `${total > 0 ? Math.min(100, (done / total) * 100) : 0}%`;
+}
+
+/** The scan's two steps, ticked off as they finish (Malwarebytes-style milestones). */
+export function scanSteps(active: number): HTMLElement {
+  const steps = el("ol", "scan-steps");
+  ["Read mail", "Label"].forEach((label, i) => {
+    const step = el("li", i < active ? "is-done" : i === active ? "is-on" : "", label);
+    step.prepend(el("i", ""));
+    steps.append(step);
+  });
+  return steps;
+}
+
+export interface ScanRow {
+  name: string;
+  icon: string;
+  color?: { backgroundColor: string; textColor: string };
+  count: number;
+  /** The label's inbox mail in Gmail, to check what landed there. */
+  href: string;
+}
+
+/** Labelling after a read: live counts per label, then what landed where. */
+export function renderScanCard(
+  scan: ScanState,
+  rows: readonly ScanRow[],
+  on: { rescan(): void; dismiss(): void; unsortedHref: string },
+): HTMLElement {
+  const card = el("section", "scan-card");
+  card.id = "scan-card";
+  const done = scan.phase === "done";
+  const sorted = rows.reduce((sum, r) => sum + r.count, 0);
+  const head = el("div", "scan-head");
+  head.append(el("b", "", done ? `${n(sorted)} labelled` : "Labelling your inbox"));
+  if (done) {
+    const again = el("button", "btn", "Rescan");
+    again.type = "button";
+    again.onclick = on.rescan;
+    const close = el("button", "scan-close", "×");
+    close.type = "button";
+    close.setAttribute("aria-label", "Close");
+    close.onclick = on.dismiss;
+    head.append(again, close);
+  }
+  card.append(head, scanSteps(done ? 2 : 1));
+  if (!done) {
+    const track = el("div", "read-track");
+    track.setAttribute("role", "progressbar");
+    track.setAttribute("aria-label", "Emails labelled");
+    track.setAttribute("aria-valuenow", String(scan.done));
+    track.setAttribute("aria-valuemax", String(Math.max(scan.done, scan.total)));
+    const fill = el("i", "");
+    fill.style.width = `${scan.total > 0 ? Math.min(100, (scan.done / scan.total) * 100) : 0}%`;
+    track.append(fill);
+    card.append(track);
+  }
+  const list = el("div", "ios-group scan-rows");
+  for (const r of [...rows].filter((x) => x.count > 0).sort((a, b) => b.count - a.count)) {
+    const row = el("a", "ios-row");
+    row.href = r.href;
+    row.target = "_blank";
+    row.rel = "noopener";
+    const mark = el("span", "app-ic label-ic");
+    if (r.color) Object.assign(mark.style, { background: r.color.backgroundColor, color: r.color.textColor });
+    mark.append(icon(r.icon));
+    row.append(mark, el("span", "grow", r.name), el("span", "ios-value", n(r.count)));
+    list.append(row);
+  }
+  if (done && scan.unsorted > 0) {
+    const row = el("a", "ios-row");
+    row.href = on.unsortedHref;
+    row.target = "_blank";
+    row.rel = "noopener";
+    const mark = el("span", "app-ic");
+    mark.append(icon("inbox"));
+    row.append(mark, el("span", "grow", "No label"), el("span", "ios-value", n(scan.unsorted)));
+    list.append(row);
+  }
+  if (list.childElementCount > 0) card.append(list);
+  return card;
 }
 
 /** Found so far: one row of three, each a place's icon, a number and a label. */

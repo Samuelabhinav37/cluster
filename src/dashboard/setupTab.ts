@@ -382,6 +382,8 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       list.append(li);
     });
     const start = async () => {
+      // Asked on this click (a user gesture) so the scan can say when it's done.
+      chrome.permissions?.request({ permissions: ["notifications"] }).catch(() => {});
       const go = $<HTMLButtonElement>("setup-go");
       if (go) {
         go.disabled = true;

@@ -71,7 +71,7 @@ const BUCKET_HINT: Record<SortBucket, string> = {
   jobs: "Job alerts and applications",
 };
 
-const BUCKET_ICON: Record<SortBucket, string> = {
+export const BUCKET_ICON: Record<SortBucket, string> = {
   otp: "key",
   receipt: "receipt",
   shipping: "package",

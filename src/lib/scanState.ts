@@ -39,7 +39,7 @@ export async function setScan(patch: Partial<ScanState>): Promise<ScanState> {
 }
 
 export function onScanChange(fn: (scan: ScanState) => void): void {
-  chrome.storage.onChanged.addListener((changes, area) => {
+  chrome.storage.onChanged?.addListener((changes, area) => {
     if (area === "local" && changes[KEY]?.newValue) fn(changes[KEY].newValue as ScanState);
   });
 }

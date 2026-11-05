@@ -9,7 +9,11 @@ import {
   type ExpiryBucket,
 } from "../lib/expiryTriage";
 import { buildProtectionContext, idsSafeToMoveOut } from "../lib/protectionPolicy";
-import { clusterLabelName } from "../lib/clusterLabels";
+import { CLUSTER_LABEL_COLORS, clusterLabelName } from "../lib/clusterLabels";
+import { categoryLabelName } from "../lib/categoryFilters";
+import { runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
+import { getScan, newScan, onScanChange, setScan, type ScanState } from "../lib/scanState";
+import { ALL_SORT_BUCKETS } from "../lib/sortTaxonomy";
 import { runReplyReminders } from "../lib/replyReminders";
 import { markRepliesToYou } from "../lib/correspondents";
 import { getLabel, getProfileEmail, getSnippets, GmailApiError, listSendAs } from "../lib/gmailApi";
@@ -56,6 +60,7 @@ import { activeProviders, ctx, providerById, setBridge } from "./state";
 import { renderSortInbox, wireSortInbox } from "./sortInbox";
 import { maybeShowLabelTidyCard } from "./labelTidy";
 import {
+  BUCKET_ICON,
   presetSwitch,
   renderPresets,
   renderTimeLimits,
@@ -111,6 +116,7 @@ import {
   paintHomeRead,
   fillTodaySnippets,
   renderHomeDashboard,
+  renderScanCard,
   filedByDay,
   topSendersThisWeek,
   type HomeAct,
@@ -696,6 +702,8 @@ interface IndexRun {
   settled?: boolean;
   /** Read mail this run, not just checked for changes. */
   didRead?: boolean;
+  /** A full build, not a catch-up on changes. */
+  built?: boolean;
 }
 const indexRuns = new Map<ProviderId, IndexRun>();
 const indexStatusEl = document.getElementById("index-status") as HTMLParagraphElement;
@@ -763,6 +771,7 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
       await updateCorrespondentsFromIndex(provider).catch((err) =>
         log.error("Could not update people you write to", err),
       );
+      run.built = result?.mode === "build";
       return result;
     } catch (err) {
       run.error = err;
@@ -775,11 +784,69 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
       updateIndexStatus();
       // Only a real read (not a quick check for changes) earns "done".
       if (!run.error && run.didRead && indexRuns.size === 0) showReadDone();
+      // Reading done: put the labels it worked out on the mail.
+      if (!run.error && run.built && provider.id === "gmail") void startLabelScan();
     }
   })();
   indexRuns.set(provider.id, run);
   updateIndexStatus();
   return run;
+}
+
+// ── Scan card (Overview): labelling after a read, then what landed where ──
+let scan: ScanState | null = null;
+void getScan().then((s) => {
+  scan = s;
+  paintScanCard();
+});
+onScanChange((s) => {
+  scan = s;
+  paintScanCard();
+});
+
+/** Labels the whole inbox from the mail index; the card follows along. */
+async function startLabelScan() {
+  if (!ctx.settings.autoSort.timeLimitsEnabled) return;
+  await setScan({ ...newScan(), phase: "labelling" });
+  try {
+    await runInboxTimeLimits(Date.now(), { relabel: true });
+  } catch (err) {
+    log.error("Scan: labelling failed", err);
+  }
+  // No index yet, or nothing to do: don't leave the card spinning.
+  if ((await getScan())?.phase !== "done") await setScan({ phase: "done", finishedAt: Date.now() });
+}
+
+function gmailSearchUrl(q: string): string {
+  return `https://mail.google.com/mail/u/0/#search/${encodeURIComponent(q)}`;
+}
+
+function paintScanCard() {
+  const old = document.getElementById("scan-card");
+  if (!scan || scan.dismissed || scan.phase === "reading" || !overviewContentEl.isConnected) {
+    old?.remove();
+    return;
+  }
+  const names = ALL_SORT_BUCKETS.filter((b) => !ctx.settings.autoSort.labelsOff.includes(b)).map(
+    (b) => [b, categoryLabelName(b, ctx.settings.labelChoices)] as const,
+  );
+  const rows = names.map(([bucket, label]) => ({
+    name: label.replace(/^\S+\s/, ""),
+    icon: BUCKET_ICON[bucket],
+    color: CLUSTER_LABEL_COLORS[bucket],
+    count: scan!.byBucket[bucket] ?? 0,
+    href: gmailSearchUrl(`in:inbox label:"${label.replace(/"/g, "")}"`),
+  }));
+  const card = renderScanCard(scan, rows, {
+    rescan: () => {
+      chrome.permissions?.request({ permissions: ["notifications"] }).catch(() => {});
+      void startLabelScan();
+    },
+    dismiss: () => void setScan({ dismissed: true }),
+    unsortedHref: gmailSearchUrl(`in:inbox ${names.map(([, l]) => `-label:"${l.replace(/"/g, "")}"`).join(" ")}`),
+  });
+  if (old) old.replaceWith(card);
+  else overviewContentEl.prepend(card);
 }
 
 /** Says reading finished, and marks the tab with a dot until you look at it. */
@@ -1366,6 +1433,7 @@ function renderOverview(
   if (counted > facts.total) Object.assign(facts, { total: counted, since: undefined });
   facts.today = pickToday(allSenders, knownSenderSet(ctx.settings), Date.now());
   overviewContentEl.appendChild(renderHomeDashboard(facts, goAndAct, (kind) => details?.open({ kind })));
+  paintScanCard();
   void loadTodaySnippets(facts.today);
   lastOverview = [senders, securitySenders, allSenders];
   void refreshInboxUnread();

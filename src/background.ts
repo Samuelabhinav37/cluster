@@ -50,6 +50,10 @@ async function openDashboard() {
 }
 
 chrome.action.onClicked.addListener(() => void openDashboard());
+// Only there once the optional notifications permission is granted.
+chrome.notifications?.onClicked.addListener((id) => {
+  if (id === "scan-done" || id === "cluster-weekly") void openDashboard();
+});
 
 // Background pre-triage: periodically counts mail that's aged past its
 // retention window (see retentionPolicy.ts) and surfaces the count as a
