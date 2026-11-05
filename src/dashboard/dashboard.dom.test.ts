@@ -159,9 +159,9 @@ describe("dashboard boot smoke", () => {
     const buttons = Array.from(
       document.querySelectorAll<HTMLButtonElement>("#sidebar button[data-screen]"),
     );
-    // Four places plus Stop mail; Contacts, New senders and Scam report open from Settings > Advanced.
+    // Four places; Subscriptions is a Cleanup tab, and Contacts, New senders and Scam report open from Settings > Advanced.
     expect(buttons.length).toBe(8);
-    expect(buttons.filter((b) => b.hidden).map((b) => b.dataset.screen)).toEqual(["senders", "screener", "report"]);
+    expect(buttons.filter((b) => b.hidden).map((b) => b.dataset.screen)).toEqual(["senders", "subscriptions", "screener", "report"]);
     for (const button of buttons.filter((b) => !b.hidden)) {
       button.click();
       const shown = Array.from(

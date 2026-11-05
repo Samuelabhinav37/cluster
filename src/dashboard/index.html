@@ -46,11 +46,11 @@
                     <path d="M9.5 6.5V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5"></path>
                   </g>
                 </svg>
-                Clean up
+                Cleanup
                 <span class="nav-count" id="nav-count-delete"></span>
               </button>
               <div class="nav-children">
-                <button type="button" class="nav-item nav-child" data-screen="subscriptions">
+                <button type="button" class="nav-item nav-child" data-screen="subscriptions" hidden>
                   <svg class="nav-icon ni-stop" viewBox="0 0 24 24" aria-hidden="true">
                     <circle cx="12" cy="12" r="8"></circle>
                     <path d="M6.4 6.4l11.2 11.2"></path>
@@ -66,7 +66,7 @@
                   <path d="M4 12.5 12 17l8-4.5"></path>
                   <path class="ni-l3" d="M4 16.5 12 21l8-4.5"></path>
                 </svg>
-                Organize
+                Labels
               </button>
             </div>
             <div class="nav-area" data-area="safety">
@@ -75,7 +75,7 @@
                   <path d="M12 3.5 5 6v5.4c0 4 2.8 7.3 7 9.1 4.2-1.8 7-5.1 7-9.1V6z"></path>
                   <path class="ni-tick" d="M9 12.2l2.1 2.1L15.2 10"></path>
                 </svg>
-                Protect
+                Security
                 <span class="nav-count" id="nav-count-impersonation"></span>
               </button>
               <div class="nav-children">
@@ -141,6 +141,7 @@
         <!-- ── Main ──────────────────────────────────────────────────── -->
         <main class="app-main">
           <div class="top-bar">
+              <span aria-hidden="true"></span>
               <button type="button" class="header-search top-search ask-open" id="ask-kai-open">
                 <svg
                   viewBox="0 0 20 20"
@@ -158,6 +159,17 @@
                 <span>Search</span>
                 <kbd aria-hidden="true">/</kbd>
               </button>
+              <div class="top-tools">
+                <button type="button" class="top-tool" data-details aria-controls="details" title="Details" aria-label="Details">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18M3 15h18M9 9v12M15 9v12"></path></svg>
+                </button>
+                <button type="button" class="top-tool" id="top-settings" data-open-screen="settings" title="Settings" aria-label="Settings">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+                <button type="button" class="top-kai" id="top-kai" title="Ask Kai (Ctrl K)" aria-label="Ask Kai">
+                  <svg viewBox="0 0 34 34" aria-hidden="true"><rect x="10.5" y="11" width="4.4" height="7.5" rx="2.2" fill="#f1f2f6"></rect><rect x="19.1" y="11" width="4.4" height="7.5" rx="2.2" fill="#f1f2f6"></rect><rect x="12.6" y="22.4" width="2.4" height="1.6" rx=".8" fill="#8a8f99"></rect><rect x="15.8" y="22.4" width="2.4" height="1.6" rx=".8" fill="#8a8f99"></rect><rect x="19" y="22.4" width="2.4" height="1.6" rx=".8" fill="#8a8f99"></rect></svg>
+                </button>
+              </div>
           </div>
           <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
           <!-- ══ Connect gate (first run / expired sign-in) ══════════════ -->
@@ -197,14 +209,8 @@
           <section class="screen" data-screen="overview" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Overview</h1>
+                <h1 class="page-title" id="overview-greeting">Welcome back!</h1>
               </div>
-              <button type="button" class="tool" data-details aria-controls="details">
-                <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
-                  <rect width="18" height="18" x="3" y="3" rx="2"></rect>
-                  <path d="M3 9h18M3 15h18M9 9v12M15 9v12"></path></svg
-                >Details
-              </button>
             </div>
 
             <p class="sr-only" id="overview-headline"></p>
@@ -215,17 +221,11 @@
           <section class="screen" data-screen="delete" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Clean up</h1>
+                <h1 class="page-title">Cleanup</h1>
               </div>
-              <button type="button" class="tool" data-details aria-controls="details">
-                <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
-                  <rect width="18" height="18" x="3" y="3" rx="2"></rect>
-                  <path d="M3 9h18M3 15h18M9 9v12M15 9v12"></path></svg
-                >Details
-              </button>
             </div>
 
-            <!-- A card per kind of win. -->
+            <div id="cu-head">
             <div class="cu-cards">
               <div class="glass-card cu-card" id="never-opened-card" data-page="never" hidden>
                 <h3 class="cu-head">
@@ -234,11 +234,11 @@
                     <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
                     <path d="m17 17 4 4"></path>
                     <path d="m21 17-4 4"></path></svg
-                  >You never open these
+                  >Unopened
                 </h3>
                 <p class="cu-num"><b id="never-opened-fact"></b> emails</p>
                 <ul class="cu-list" id="never-opened-top"></ul>
-                <div class="cu-acts">
+                <div class="cu-acts" hidden>
                   <span id="never-read-trash-slot"><button id="never-read-trash-btn" class="btn btn-accent-solid">Trash</button></span>
                 </div>
               </div>
@@ -247,11 +247,11 @@
                   <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
                     <circle cx="12" cy="12" r="10"></circle>
                     <polyline points="12 6 12 12 16 14"></polyline></svg
-                  >Old codes and news
+                  >Expired
                 </h3>
                 <p class="cu-num"><b id="past-date-fact"></b> emails</p>
                 <ul class="cu-list" id="past-date-top"></ul>
-                <div class="cu-acts">
+                <div class="cu-acts" hidden>
                   <span id="expiry-cleanup-slot"><button id="expiry-cleanup-btn" class="btn btn-accent-solid">Trash</button></span>
                 </div>
               </div>
@@ -260,34 +260,42 @@
                   <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
                     <circle cx="12" cy="12" r="9"></circle>
                     <path d="M5.6 5.6l12.8 12.8"></path></svg
-                  >Lists you can leave
+                  >Unused subscriptions
                 </h3>
                 <p class="cu-num"><b id="lists-fact"></b> lists</p>
                 <ul class="cu-list" id="lists-top"></ul>
-                <div class="cu-acts">
+                <div class="cu-acts" hidden>
                   <button type="button" id="lists-unsub-btn" class="btn btn-accent-solid">Unsubscribe</button>
                 </div>
               </div>
             </div>
+            <div class="tabs" role="tablist" aria-label="Cleanup">
+              <button type="button" role="tab" class="tab" data-open-screen="delete" data-tab-for="delete">Senders<span class="tab-count" id="tab-count-senders"></span></button>
+              <button type="button" role="tab" class="tab" data-open-screen="subscriptions" data-tab-for="subscriptions">Subscriptions<span class="tab-count" id="tab-count-subs"></span></button>
+            </div>
+            </div>
+
+            <div id="cu-senders-table" class="cu-table"></div>
+            <section class="ios-section cu-auto">
+              <h2 class="ios-head">Automation</h2>
+              <div id="presets-never" class="ios-group"></div>
+              <div id="presets-old" class="ios-group"></div>
+            </section>
 
             <!-- A card's own page; its switches move in from the holder below. -->
             <div id="cu-page" class="cu-page" hidden></div>
-            <div hidden>
-              <div id="presets-never" class="ios-group"></div>
-              <div id="presets-old" class="ios-group"></div>
-            </div>
           </section>
 
           <!-- ══ Organize ══════════════════════════════════════════════ -->
           <section class="screen" data-screen="organize" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Organize</h1>
+                <h1 class="page-title">Labels</h1>
               </div>
               <div id="sort-inbox-bar" class="confirm-slot" hidden>
                 <span id="sort-inbox-count" class="hint"></span>
                 <span id="sort-inbox-slot"
-                  ><button id="sort-inbox-btn" class="btn">Sort my inbox</button></span
+                  ><button id="sort-inbox-btn" class="btn">Sort inbox</button></span
                 >
               </div>
             </div>
@@ -380,39 +388,39 @@
           <section class="screen" data-screen="subscriptions" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Stop mail</h1>
+                <h1 class="page-title">Cleanup</h1>
               </div>
             </div>
 
             <section id="paid-subscriptions-section" hidden>
               <div class="section-head">
-                <h2 class="section-label">Paid subscriptions &amp; trials</h2>
+                <h2 class="section-label">Paid subscriptions</h2>
               </div>
               <div id="paid-subscriptions-list" class="scroll-x"></div>
             </section>
 
             <section>
               <div class="section-head">
-                <h2 class="section-label">Newsletters</h2>
+                <h2 class="section-label">Mailing lists</h2>
               </div>
               <div id="subscriptions-bulk-bar" class="toolbar" hidden>
                 <span id="subs-count">0 senders</span>
                 <span id="subs-unsub-all-slot"
-                  ><button id="subs-unsub-all-btn" class="btn-accent-solid">Unsubscribe all</button></span
+                  ><button id="subs-unsub-all-btn" class="btn-accent-solid">Unsubscribe</button></span
                 >
                 <label>
                   Show
                   <select id="subs-outcome-filter">
                     <option value="all">All</option>
-                    <option value="still-sending">Still sending</option>
-                    <option value="quiet">Stopped</option>
+                    <option value="still-sending">Active</option>
+                    <option value="quiet">Unsubscribed</option>
                   </select>
                 </label>
               </div>
               <div id="subscriptions-list" class="scroll-x"></div>
             </section>
             <section class="ios-section cu-auto">
-              <h2 class="ios-head">Do this automatically</h2>
+              <h2 class="ios-head">Automation</h2>
               <div id="presets-lists" class="ios-group"></div>
             </section>
           </section>
@@ -421,11 +429,20 @@
           <section class="screen" data-screen="impersonation" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Protect</h1>
+                <h1 class="page-title">Security</h1>
                 <p class="lead" data-protect-sub></p>
               </div>
             </div>
-            <section class="ios-section">
+            <div class="kpis" id="sec-kpis">
+              <button type="button" class="kpi" data-sec-tab="quarantine"><span>Quarantined</span><b id="kpi-held">0</b><em>emails</em></button>
+              <button type="button" class="kpi" data-sec-tab="suspicious"><span>Threats detected</span><b id="kpi-threats">0</b></button>
+              <button type="button" class="kpi" data-open-screen="screener"><span>New senders</span><b id="kpi-waiting">0</b></button>
+            </div>
+            <div class="tabs" role="tablist" aria-label="Security">
+              <button type="button" role="tab" class="tab active" aria-selected="true" data-sec-tab="suspicious">Suspicious<span class="tab-count" id="tab-count-threats"></span></button>
+              <button type="button" role="tab" class="tab" aria-selected="false" data-sec-tab="quarantine">Quarantine<span class="tab-count" id="tab-count-held"></span></button>
+            </div>
+            <section class="ios-section" hidden>
               <h2 class="ios-head">This scan</h2>
               <div class="bento protect-bento">
                 <div class="glass-card chart-card tile-wide" id="report-held-card" hidden>
@@ -451,22 +468,23 @@
             <p class="muted" id="quarantine-review-accuracy" hidden></p>
             <section id="quarantine-review-section" hidden>
               <div class="section-head">
-                <h2 class="section-label">Held for you</h2>
+                <h2 class="section-label">Quarantine</h2>
                 <span class="muted" id="quarantine-review-count"></span>
               </div>
               <ul id="quarantine-review-list" class="stack"></ul>
             </section>
+            <p class="empty-state" id="quarantine-empty">Nothing in quarantine.</p>
 
             <section id="security-section" hidden>
               <div id="security-high" class="tier">
-                <div class="section-head"><h2 class="section-label">Look at these</h2></div>
+                <div class="section-head"><h2 class="section-label">Suspicious</h2></div>
                 <div id="security-sender-list" class="stack"></div>
               </div>
             </section>
             <section id="brand-check"></section>
             <p id="security-empty" class="empty-state">Nothing looks wrong.</p>
             <section class="ios-section">
-              <h2 class="ios-head">Holding</h2>
+              <h2 class="ios-head">Quarantine settings</h2>
               <div class="ios-group">
                 <label class="ios-row" id="auto-quarantine-row">
                   <span class="app-ic app-protect"
@@ -477,7 +495,7 @@
                       <path d="M12 8v4M12 16h.01"></path></svg
                   ></span>
                   <span class="grow"
-                    >Hold likely scams<span class="sub">Moves them out of your inbox</span></span
+                    >Quarantine suspected phishing</span
                   >
                   <input type="checkbox" class="switch" role="switch" id="auto-quarantine-toggle" />
                 </label>
@@ -488,7 +506,7 @@
                       <path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg
                   ></span>
                   <span class="grow"
-                    >Hold forged mail<span class="sub">Fails the checks that prove who sent it</span></span
+                    >Quarantine unverified senders</span
                   >
                   <input type="checkbox" class="switch" role="switch" id="rule-auth-fails" />
                 </label>
@@ -499,7 +517,7 @@
                       <path d="m4.9 4.9 14.2 14.2"></path></svg
                   ></span>
                   <span class="grow"
-                    >Send held mail to Spam<span class="sub">Also teaches Gmail's filter</span></span
+                    >Move quarantined mail to Spam</span
                   >
                   <input type="checkbox" class="switch" role="switch" id="rule-to-spam" />
                 </label>
@@ -513,7 +531,7 @@
           <section class="screen" data-screen="screener" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Protect</h1>
+                <h1 class="page-title">Security</h1>
                 <p class="lead" data-protect-sub></p>
               </div>
             </div>
@@ -550,7 +568,6 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Settings</h1>
-                <p class="lead">Changes apply right away.</p>
               </div>
             </div>
 
@@ -577,7 +594,7 @@
             <input type="search" id="settings-search" class="settings-search" placeholder="Search settings" aria-label="Search settings" />
             <div class="settings-list">
               <div class="set-sec">
-                <h2>Accounts</h2>
+                <h2>Account</h2>
                 <div class="set-rows">
                   <div class="set-row">
                     <span class="set-ic set-ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6"></path></svg></span>
@@ -597,7 +614,7 @@
                         <rect width="18" height="18" x="3" y="4" rx="2"></rect>
                         <path d="M16 2v4M8 2v4M3 10h18"></path></svg
                     ></span>
-                    <span class="grow">Days to look back</span>
+                    <span class="grow">Scan range<span class="sub">Days of mail Cluster reads</span></span>
                     <input type="number" id="scan-window-input" min="1" max="3650" />
                   </label>
                   <div class="set-row">
@@ -606,7 +623,7 @@
                         <path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path>
                         <path d="M21 3v5h-5"></path></svg
                     ></span>
-                    <span class="grow">Read my mail again</span>
+                    <span class="grow">Rescan mailbox</span>
                     <button type="button" class="btn" id="apply-scan-settings-btn">Rescan</button>
                   </div>
                 </div>
@@ -616,30 +633,30 @@
                 <div class="set-rows">
                   <label class="set-row">
                     <span class="set-ic set-ic-red"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20h4"></path></svg></span>
-                    <span class="grow">Tell me when a scam is held</span>
+                    <span class="grow">Quarantine alerts<span class="sub">When suspected phishing is quarantined</span></span>
                     <input type="checkbox" class="switch" role="switch" id="notify-scam-toggle" />
                   </label>
                   <label class="set-row">
                     <span class="set-ic set-ic-indigo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v15H4zM4 10h16M9 3v4M15 3v4"></path></svg></span>
-                    <span class="grow">Weekly summary<span class="sub">Monday morning, in Chrome</span></span>
+                    <span class="grow">Weekly summary<span class="sub">Monday morning in Chrome</span></span>
                     <input type="checkbox" class="switch" role="switch" id="notify-weekly-toggle" />
                   </label>
                   <label class="set-row">
                     <span class="set-ic set-ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6"></path></svg></span>
-                    <span class="grow">Today by email<span class="sub">Each morning, in your inbox</span></span>
+                    <span class="grow">Daily summary email<span class="sub">Each morning in the inbox</span></span>
                     <input type="checkbox" class="switch" role="switch" id="today-email-toggle" />
                   </label>
                 </div>
               </div>
               <div class="set-sec">
-                <h2>Appearance</h2>
+                <h2>General</h2>
                 <div class="set-rows">
                   <label class="set-row">
                     <span class="set-ic set-ic-indigo"
                       ><svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg
                     ></span>
-                    <span class="grow">Theme</span>
+                    <span class="grow">Appearance</span>
                     <select id="theme-select">
                       <option value="system">System</option>
                       <option value="light">Light</option>
@@ -648,41 +665,36 @@
                   </label>
                   <label class="set-row">
                     <span class="set-ic set-ic-gray"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM9 10h.01M15 10h.01M9 15c1.5 1.3 4.5 1.3 6 0"></path></svg></span>
-                    <span class="grow">Show Kai</span>
+                    <span class="grow">Show Kai<span class="sub">Assistant button in the top bar</span></span>
                     <input type="checkbox" class="switch" role="switch" id="show-kai-toggle" />
                   </label>
                 </div>
               </div>
               <div class="set-sec">
-                <h2>What Cluster learned</h2>
+                <h2>Learned preferences</h2>
                 <div class="set-rows" id="settings-learned"></div>
               </div>
               <div class="set-sec">
-                <h2>Privacy</h2>
+                <h2>Privacy &amp; data</h2>
                 <div class="set-rows">
                   <details class="set-row-details">
                     <summary class="set-row">
                       <span class="set-ic set-ic-gray"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path></svg></span>
-                      <span class="grow">What Cluster keeps on this computer</span>
+                      <span class="grow">Data stored on this device</span>
                       <span class="tile-chev" aria-hidden="true">›</span>
                     </summary>
                     <p class="hint">Your settings, rules and activity, an index of senders, subjects and dates, and what it learned from your choices. Today's preview lines are shown, never saved. Mail stays in Gmail.</p>
                   </details>
                   <div class="set-row">
                     <span class="set-ic set-ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg></span>
-                    <span class="grow">Export my settings and rules</span>
+                    <span class="grow">Export data<span class="sub">Settings and rules as JSON</span></span>
                     <button type="button" class="btn" id="settings-export">Export</button>
-                  </div>
-                  <div class="set-row" id="settings-erase-row">
-                    <span class="set-ic set-ic-red"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M19 6v14H5V6M8 6V4h8v2"></path></svg></span>
-                    <span class="grow">Erase everything Cluster stored</span>
-                    <span id="settings-erase-slot"><button type="button" class="btn danger" id="settings-erase">Erase</button></span>
                   </div>
                 </div>
               </div>
               <div class="set-sec">
                 <h2>Kai</h2>
-                <p class="hint">Questions Kai couldn't answer. They stay on this computer.</p>
+                <p class="hint">Unanswered questions, stored on this device.</p>
                 <div class="set-rows" id="settings-kai-missed"></div>
               </div>
               <div class="set-sec" id="settings-advanced">
@@ -794,7 +806,7 @@
                 <h3 class="section-label">Keyboard</h3>
                 <div class="set-rows">
                   <label class="set-row">
-                    <span class="grow">Single-key shortcuts<span class="sub">Off leaves Ctrl K for Kai</span></span>
+                    <span class="grow">Single-key shortcuts</span>
                     <input type="checkbox" class="switch" role="switch" id="single-keys-toggle" />
                   </label>
                 </div>
@@ -804,8 +816,17 @@
                     <span class="grow">Kai</span><span><kbd>Ctrl</kbd> <kbd>K</kbd></span>
                   </div>
                   <div class="set-row">
-                    <span class="grow">Back to the usual keys</span>
+                    <span class="grow">Reset shortcuts</span>
                     <button type="button" class="btn" id="keys-reset">Reset</button>
+                  </div>
+                </div>
+              </div>
+              <div class="set-sec set-danger">
+                <h2>Danger zone</h2>
+                <div class="set-rows">
+                  <div class="set-row" id="settings-erase-row">
+                                        <span class="grow">Erase all Cluster data<span class="sub">Settings, rules and history, for good</span></span>
+                    <span id="settings-erase-slot"><button type="button" class="btn danger" id="settings-erase">Erase</button></span>
                   </div>
                 </div>
               </div>
@@ -821,7 +842,7 @@
           <section class="screen" data-screen="report" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Protect</h1>
+                <h1 class="page-title">Security</h1>
                 <p class="lead" data-protect-sub></p>
               </div>
             </div>

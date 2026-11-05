@@ -9,6 +9,7 @@ import { clearedCount, type ActionLogEntry } from "../lib/actionLog";
 import type { TodayItem } from "../lib/today";
 import { gmailMessageUrl } from "./detailsPanel";
 import { infoButton } from "./ui";
+import { areaChart, barChart, dayLabels, donutChart, lineChart, ticks } from "./overviewCharts";
 
 export type HomeKind = "primary" | "trans" | "updates" | "promo";
 
@@ -36,14 +37,27 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 export function mailByKind(
   senders: readonly SenderSummary[],
   now: number,
-): { kinds: Record<HomeKind, number>; total: number; thisWeek: number; lastWeek: number; peopleWeek: number } {
+): {
+  kinds: Record<HomeKind, number>;
+  total: number;
+  thisWeek: number;
+  lastWeek: number;
+  peopleWeek: number;
+  receivedByDay: number[];
+  receivedPrevByDay: number[];
+} {
   const kinds: Record<HomeKind, number> = { primary: 0, trans: 0, updates: 0, promo: 0 };
   let total = 0;
   let thisWeek = 0;
   let lastWeek = 0;
   let peopleWeek = 0;
+  const receivedByDay = [0, 0, 0, 0, 0, 0, 0];
+  const receivedPrevByDay = [0, 0, 0, 0, 0, 0, 0];
   for (const s of senders) {
     for (const m of s.messages) {
+      const ago = daysAgo(m.receivedAt, now);
+      if (ago >= 0 && ago < 7) receivedByDay[6 - ago] += 1;
+      else if (ago >= 7 && ago < 14) receivedPrevByDay[13 - ago] += 1;
       const kind = kindOf(m);
       kinds[kind] += 1;
       total += 1;
@@ -54,7 +68,44 @@ export function mailByKind(
       else if (now - m.receivedAt < 2 * WEEK_MS) lastWeek += 1;
     }
   }
-  return { kinds, total, thisWeek, lastWeek, peopleWeek };
+  return { kinds, total, thisWeek, lastWeek, peopleWeek, receivedByDay, receivedPrevByDay };
+}
+
+/** Whole calendar days between `at` and `now` (0 = today). Round, not floor:
+ * a day across a clock change is 23 or 25 hours. */
+function daysAgo(at: number, now: number): number {
+  return Math.round((new Date(now).setHours(0, 0, 0, 0) - new Date(at).setHours(0, 0, 0, 0)) / (24 * 60 * 60 * 1000));
+}
+
+/** Senders with the most mail in the last seven days, most first. */
+export function topSendersThisWeek(
+  senders: readonly SenderSummary[],
+  now: number,
+  count = 4,
+): Array<{ address: string; name: string; count: number }> {
+  return senders
+    .map((s) => ({
+      address: s.address,
+      name: s.displayName || s.address,
+      count: s.messages.filter((m) => daysAgo(m.receivedAt, now) < 7).length,
+    }))
+    .filter((s) => s.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, count);
+}
+
+/** Emails Cluster filed out of the inbox each day: this week and the week before, oldest first. */
+export function filedByDay(log: readonly ActionLogEntry[], now: number): { cur: number[]; prev: number[] } {
+  const cur = [0, 0, 0, 0, 0, 0, 0];
+  const prev = [0, 0, 0, 0, 0, 0, 0];
+  for (const e of log) {
+    if (e.kind !== "sort" || e.undone || e.undo?.via !== "unarchive") continue;
+    const ago = daysAgo(e.at, now);
+    const n = e.undo.ids.length;
+    if (ago >= 0 && ago < 7) cur[6 - ago] += n;
+    else if (ago >= 7 && ago < 14) prev[13 - ago] += n;
+  }
+  return { cur, prev };
 }
 
 export interface HomeFacts {
@@ -103,6 +154,15 @@ export interface HomeFacts {
   movedToday?: number;
   /** Never-opened lists Unsubscribe can stop in one click. */
   stopLists?: number;
+  /** Arrivals per day, this week and the week before, oldest first. */
+  receivedByDay?: number[];
+  receivedPrevByDay?: number[];
+  /** Emails Cluster filed out of the inbox per day. */
+  filed?: { cur: number[]; prev: number[] };
+  /** Up to three flagged senders: their latest subject and the brand they fake. */
+  suspects?: Array<{ address: string; name?: string; subject: string; brand?: string }>;
+  /** Senders with the most mail this week. */
+  topSenders?: Array<{ address: string; name: string; count: number }>;
 }
 
 /** Open a place; `act` also starts that place's own confirm step. */
@@ -327,16 +387,6 @@ export function clearedByDay(log: readonly ActionLogEntry[], now: number): numbe
 }
 
 const n = (x: number) => x.toLocaleString();
-const plural = (x: number, one: string, many: string) => `${n(x)} ${x === 1 ? one : many}`;
-
-/** "↓ 18% vs last week"; green only when the change is the good way. */
-function deltaChip(now: number, before: number, fewerIsGood: boolean): HTMLElement | null {
-  if (before <= 0) return null;
-  const pct = Math.round(((now - before) / before) * 100);
-  if (pct === 0) return el("small", "chip-delta", "Same as last week");
-  const good = pct < 0 === fewerIsGood;
-  return el("small", `chip-delta${good ? " good" : ""}`, `${Math.abs(pct)}% ${pct < 0 ? "fewer" : "more"}`);
-}
 
 /** The first read: Kai beside a live counter. The dashboard moves the numbers
  * with `paintHomeRead` as reading goes on. */
@@ -406,91 +456,12 @@ function foundSoFar(f: HomeFacts): HTMLElement {
   return strip;
 }
 
-/** A tile: a place's icon and name, a big number, a line under it. */
-function tile(o: { app: string; ic: string; name: string; value: string; label: string; open: () => void }): HTMLElement {
-  const card = el("div", "week-card home-tile row-link");
-  card.tabIndex = 0;
-  card.setAttribute("role", "button");
-  card.setAttribute("aria-label", `${o.name}: ${o.value} ${o.label}`);
-  card.onclick = (e) => {
-    if (!(e.target instanceof HTMLElement && e.target.closest("button"))) o.open();
-  };
-  card.onkeydown = (e) => {
-    if (e.target === card && (e.key === "Enter" || e.key === " ")) {
-      e.preventDefault();
-      o.open();
-    }
-  };
-  const head = el("span", "tile-name");
-  const mark = el("span", `app-ic app-${o.app}`);
-  mark.append(icon(o.ic));
-  head.append(mark, o.name);
-  card.append(head, el("b", "", o.value), el("span", "", o.label));
-  return card;
-}
-
-function homeTiles(f: HomeFacts, go: Go, openKind?: (kind: HomeKind) => void): HTMLElement {
-  const unread = f.inboxUnread;
-  const inbox = tile({
-    app: "inbox",
-    ic: "users",
-    name: "Inbox",
-    value: unread === undefined ? "–" : n(unread),
-    label: "unread",
-    open: () => openKind?.("primary"),
-  });
-  const days = f.unreadByDay ?? [];
-  if (days.some((d) => d !== null)) {
-    const spark = el("div", "spark");
-    spark.setAttribute("role", "img");
-    spark.setAttribute("aria-label", `Unread each day: ${days.map((d) => d ?? "none").join(", ")}`);
-    const top = Math.max(1, ...days.map((d) => d ?? 0));
-    days.forEach((d, i) => {
-      const bar = el("i", i === 6 ? "now" : "");
-      bar.style.height = `${d === null ? 0 : Math.max(6, (d / top) * 100)}%`;
-      spark.append(bar);
-    });
-    inbox.append(spark);
-  }
-  const change = unread !== undefined && f.unreadWeekAgo !== undefined ? deltaChip(unread, f.unreadWeekAgo, true) : null;
-  if (change) inbox.append(change);
-
-  const clean = tile({ app: "clean", ic: "mail-x", name: "Clean up", value: n(f.clearable), label: "can go", open: () => go("delete") });
-  // The bigger card's own button, so one click starts its confirm.
-  const top: [number, HomeAct] | null =
-    f.neverOpened.emails >= f.pastDate && f.neverOpened.emails > 0
-      ? [f.neverOpened.emails, "trash-never-opened"]
-      : f.pastDate > 0
-        ? [f.pastDate, "trash-past-date"]
-        : null;
-  if (top) {
-    const btn = el("button", "btn btn-sm", "Trash");
-    btn.type = "button";
-    btn.title = `Trash ${n(top[0])}`;
-    btn.onclick = () => go("delete", top[1]);
-    clean.append(btn);
-  }
-
-  // What needs a look comes first; then what was held; else all clear.
-  const held = f.heldThisWeek ?? 0;
-  const [value, label] =
-    f.suspicious > 0 ? [n(f.suspicious), "to look at"] : held > 0 ? [n(held), "held this week"] : ["All clear", ""];
-  const security = tile({ app: "protect", ic: "shield-alert", name: "Security", value, label, open: () => go("impersonation") });
-
-  const row = el("div", "home-week");
-  row.append(inbox, clean, security);
-  return row;
-}
-
 /** Today: one row per email that matters, linking to it in Gmail. The
  * preview line is filled in later by fillTodaySnippets. */
-function todayList(items: readonly TodayItem[], f: HomeFacts, go: Go): HTMLElement {
+function todayList(items: readonly TodayItem[]): HTMLElement {
   const wrap = el("section", "home-today");
-  wrap.append(el("h2", "section-label", "Today"));
-  const line = todayLine(f, go);
   if (items.length === 0) {
     wrap.append(el("p", "hint", "Nothing needs you today."));
-    if (line) wrap.append(line);
     return wrap;
   }
   const group = el("div", "ios-group");
@@ -510,26 +481,7 @@ function todayList(items: readonly TodayItem[], f: HomeFacts, go: Go): HTMLEleme
     group.append(row);
   }
   wrap.append(group);
-  if (line) wrap.append(line);
   return wrap;
-}
-
-/** "Moved away N · Scams held N · N senders you never open", each part a link to its place. */
-function todayLine(f: HomeFacts, go: Go): HTMLElement | null {
-  const parts: [string, () => void][] = [];
-  if (f.movedToday) parts.push([`Moved away ${n(f.movedToday)}`, () => go("recent")]);
-  if (f.heldThisWeek) parts.push([`Scams held ${n(f.heldThisWeek)}`, () => go("impersonation")]);
-  if (f.stopLists) parts.push([plural(f.stopLists, "sender you never open", "senders you never open"), () => go("subscriptions", "stop-never-opened")]);
-  if (parts.length === 0) return null;
-  const p = el("p", "today-line");
-  parts.forEach(([label, open], i) => {
-    if (i > 0) p.append(" · ");
-    const b = el("button", "btn-link", label);
-    b.type = "button";
-    b.onclick = open;
-    p.append(b);
-  });
-  return p;
 }
 
 /** Puts Gmail's preview line under each Today row. Snippets arrive with
@@ -541,65 +493,146 @@ export function fillTodaySnippets(root: ParentNode, snippets: ReadonlyMap<string
   }
 }
 
-/** Home: Kai's verdict, what Cluster did this week, up to three next steps,
- * and the inbox by kind (approved mockup research/2026-10-29-home-mockup.html).
- * `openKind` opens those emails in Details. */
-export function renderHomeDashboard(f: HomeFacts, go: Go, openKind?: (kind: HomeKind) => void): HTMLElement {
+/** "+31%" against the week before; nothing when there is no week before. */
+function change(cur: number[], prev: number[], moreIsGood: boolean): HTMLElement | null {
+  const a = cur.reduce((x, y) => x + y, 0);
+  const b = prev.reduce((x, y) => x + y, 0);
+  if (b <= 0) return null;
+  const pct = Math.round(((a - b) / b) * 100);
+  const sign = pct > 0 ? "+" : pct < 0 ? "−" : "";
+  const badge = el("span", `ov-badge${pct !== 0 && pct > 0 === moreIsGood ? " good" : ""}`, `${sign}${Math.abs(pct)}%`);
+  badge.title = "Compared with the week before";
+  return badge;
+}
+
+/** One widget: title, (i), optional badge, then its chart; the whole widget opens its page. */
+function widget(
+  title: string,
+  about: string,
+  badge: HTMLElement | null,
+  body: HTMLElement,
+  open: () => void,
+  place: string,
+): HTMLElement {
+  const w = el("section", "ov-w");
+  w.tabIndex = 0;
+  w.setAttribute("role", "link");
+  w.setAttribute("aria-label", `${title}. Open ${place}`);
+  const head = el("h2", "ov-w-title", title);
+  const [info, pop] = infoButton(about, `About ${title}`);
+  head.append(info);
+  if (badge) head.append(badge);
+  head.append(el("span", "ov-go", "›"));
+  w.append(head, pop, body);
+  w.onclick = (e) => {
+    if (!(e.target instanceof Element && e.target.closest("button, a, [role=tooltip], .info-pop"))) open();
+  };
+  w.onkeydown = (e) => {
+    if (e.target === w && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      open();
+    }
+  };
+  return w;
+}
+
+const KIND_COLORS: Record<HomeKind, string> = {
+  primary: "var(--k1)",
+  trans: "var(--k2)",
+  updates: "var(--k3)",
+  promo: "var(--k4)",
+};
+const WEEK0 = [0, 0, 0, 0, 0, 0, 0];
+
+/** Overview: today's emails, then six widgets that each open their page
+ * (research/2026-11-05-redesign-mockup.html). The greeting is the page title. */
+export function renderHomeDashboard(
+  f: HomeFacts,
+  go: Go,
+  openKind?: (kind: HomeKind) => void,
+  now = Date.now(),
+): HTMLElement {
   const root = el("div", "home");
-
-  // 1. The verdict: one sentence in large type.
-  const hero = el("section", "home-hero home-card");
-  const words = el("div", "home-words");
-  const verdict = el("p", "home-verdict");
-  if (f.suspicious > 0) {
-    verdict.append(`${plural(f.suspicious, "email looks", "emails look")} like a scam.`);
-    const review = el("button", "btn btn-accent-solid", "Review");
-    review.type = "button";
-    review.onclick = () => go("impersonation");
-    words.append(verdict);
-    hero.append(words, review);
-  }
   if (f.reading) root.append(readHero(f.reading));
-  else if (f.suspicious > 0) root.append(hero);
-
-  if (f.today) root.append(todayList(f.today, f, go));
-
-  // 2. Three tiles: Inbox, Clean up, Security. Each opens its place.
-  if (f.reading) root.append(el("h2", "section-label", "Found so far"), foundSoFar(f));
-  else root.append(homeTiles(f, go, openKind));
-
-  // 4. Your inbox: the bar, with one sentence that says what it means.
-  const inbox = el("section", "home-inbox");
-  const bar = el("div", "kind-bar");
-  bar.setAttribute("role", "img");
-  bar.setAttribute("aria-label", HOME_KINDS.map((k) => `${k.label} ${f.kinds[k.key]}`).join(", "));
-  const legend = el("ul", "kind-legend");
-  for (const k of HOME_KINDS) {
-    const count = f.kinds[k.key];
-    if (count > 0) {
-      const seg = el("span", `kind-${k.key}`);
-      seg.style.flexGrow = String(count);
-      seg.title = `${k.label}: ${n(count)}`;
-      if (openKind) seg.onclick = () => openKind(k.key);
-      bar.append(seg);
-    }
-    const item = openKind ? el("button", "") : el("span", "");
-    if (item instanceof HTMLButtonElement) {
-      item.type = "button";
-      item.onclick = () => openKind!(k.key);
-    }
-    item.append(el("i", `kind-${k.key}`), k.label, el("em", "", n(count)));
-    const li = el("li", "");
-    li.append(item);
-    legend.append(li);
+  if (f.today) root.append(todayList(f.today));
+  if (f.reading) {
+    root.append(el("h2", "section-label", "Found so far"), foundSoFar(f));
+    return root;
   }
-  inbox.append(bar, legend);
-  const head = el("h2", "section-label", "Your inbox");
+  const days = dayLabels(now);
   const since = f.since
     ? ` Read back to ${new Date(f.since).toLocaleDateString(undefined, { month: "short", day: "numeric" })} so far.`
     : "";
-  const [info, pop] = infoButton(`Every email Cluster has read, by kind. Tap a kind to see them.${since}`, "About Your inbox");
-  head.append(info);
-  root.append(head, pop, inbox);
+  const grid = el("div", "ov-grid");
+
+  const donutBox = el("div", "ov-donut-box");
+  donutBox.append(donutChart(HOME_KINDS.map((k) => [k.label, f.kinds[k.key], KIND_COLORS[k.key]]), "in inbox"));
+  const legend = el("div", "ov-legend");
+  for (const k of HOME_KINDS) {
+    const item = el("button", "", k.label);
+    item.type = "button";
+    item.prepend(el("i", `kind-${k.key}`));
+    item.append(el("b", "", n(f.kinds[k.key])));
+    item.onclick = () => openKind?.(k.key);
+    legend.append(item);
+  }
+  donutBox.append(legend);
+  grid.append(
+    widget("Inbox by category", `Every email Cluster has read, by kind. Pick a kind to see its emails.${since}`, null, donutBox, () => go("organize"), "Labels"),
+  );
+
+  const rec = f.receivedByDay ?? WEEK0;
+  const recPrev = f.receivedPrevByDay ?? WEEK0;
+  grid.append(
+    widget(
+      "Emails received",
+      "Emails that arrived each day this week. The pale area is the week before.",
+      change(rec, recPrev, false),
+      areaChart(rec, recPrev, days, "emails"),
+      () => openKind?.("primary"),
+      "Details",
+    ),
+  );
+
+  const filed = f.filed ?? { cur: WEEK0, prev: WEEK0 };
+  grid.append(
+    widget(
+      "Automatically filed",
+      "Emails Cluster moved out of the inbox each day. The dashed line is the week before.",
+      change(filed.cur, filed.prev, true),
+      lineChart(filed.cur, filed.prev, days),
+      () => go("recent"),
+      "Activity",
+    ),
+  );
+
+  const sus = el("div", "ov-list");
+  for (const x of f.suspects ?? []) {
+    const row = el("div", "ov-li");
+    const words = el("div", "ov-who");
+    words.append(el("b", "", x.subject || x.name || x.address), el("span", "", x.brand ? `Impersonating ${x.brand}` : x.address));
+    row.append(senderTile(x.address, x.name, "sz-30"), words, el("span", "ov-pill-bad", "High"));
+    sus.append(row);
+  }
+  if (!f.suspects?.length) sus.append(el("p", "ov-empty", "Nothing suspicious."));
+  grid.append(widget("Suspicious emails", "Emails that pretend to be a company you know.", null, sus, () => go("impersonation"), "Security"));
+
+  grid.append(
+    widget("Emails cleared", "Emails sent to Trash or unsubscribed from, each day.", null, barChart(f.cleared?.byDay ?? WEEK0, days), () => go("delete"), "Cleanup"),
+  );
+
+  const top = el("div", "ov-list");
+  const most = f.topSenders?.[0]?.count ?? 1;
+  for (const t of f.topSenders ?? []) {
+    const row = el("div", "ov-tr");
+    const head = el("div", "ov-th");
+    head.append(senderTile(t.address, t.name, "sz-26"), el("b", "", t.name), el("span", "ov-v", n(t.count)));
+    row.append(head, ticks(t.count, most));
+    top.append(row);
+  }
+  if (!f.topSenders?.length) top.append(el("p", "ov-empty", "No mail this week."));
+  grid.append(widget("Top senders", "Senders with the most email in the last seven days.", null, top, () => go("subscriptions"), "Subscriptions"));
+
+  root.append(grid);
   return root;
 }

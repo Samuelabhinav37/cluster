@@ -26,7 +26,7 @@ describe("Phishing screen — flagged senders", () => {
 
     const card = findThreatCard(dash.el("security-sender-list"), "paypal-help@gmail.com");
     // The risk reads on the row itself, as a word.
-    expect(card.querySelector(".scam-head .risk-chip")!.textContent).toMatch(/^(High|Medium) risk$/);
+    expect(card.querySelector(".scam-head .risk-chip")!.textContent).toMatch(/^(High|Medium)$/);
     const blockBtn = Array.from(card.querySelectorAll("button")).find(
       (b) => b.textContent === "Block sender",
     )!;

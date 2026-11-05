@@ -31,7 +31,7 @@ describe("askIntents", () => {
   });
 
   it("names places and says nothing for gibberish", () => {
-    expect(askIntents("protect", facts, act()).map((h) => h.title)).toContain("Protect");
+    expect(askIntents("security", facts, act()).map((h) => h.title)).toContain("Security");
     expect(askIntents("zzzz", facts, act())).toEqual([]);
   });
 });

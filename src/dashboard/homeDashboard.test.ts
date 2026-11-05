@@ -93,6 +93,8 @@ describe("mailByKind", () => {
       thisWeek: 2,
       lastWeek: 1,
       peopleWeek: 1,
+      receivedByDay: [0, 0, 0, 0, 0, 2, 0],
+      receivedPrevByDay: [0, 0, 0, 0, 1, 0, 0],
     });
   });
 });
@@ -142,82 +144,56 @@ const text = (el: Element | null) => el?.textContent ?? "";
 const sections = (el: HTMLElement) => Array.from(el.querySelectorAll("h2.section-label")).map((h) => h.firstChild?.textContent ?? "");
 
 describe("renderHomeDashboard", () => {
-  it("with nothing to review shows no banner, just the three tiles and the inbox", () => {
-    const el = renderHomeDashboard({ ...calm, cleared: { byDay: [0, 0, 0, 0, 0, 0, 0], total: 1240 } }, vi.fn());
+  it("shows no banner, then six widgets that each open their place", () => {
+    const go = vi.fn();
+    const openKind = vi.fn();
+    const el = renderHomeDashboard({ ...calm, suspicious: 3 }, go, openKind, NOW);
     expect(el.querySelector(".home-hero")).toBeNull();
-    expect(Array.from(el.querySelectorAll(".home-tile .tile-name")).map(text)).toEqual(["Inbox", "Clean up", "Security"]);
-    expect(sections(el)).toEqual(["Your inbox"]);
-  });
-
-  it("leads with the scams and opens Protect from the one button", () => {
-    const go = vi.fn();
-    const el = renderHomeDashboard({ ...calm, suspicious: 3, fakedBrands: ["paypal", "netflix"] }, go);
-    expect(text(el.querySelector(".home-verdict"))).toBe("3 emails look like a scam.");
-    const review = el.querySelector<HTMLButtonElement>(".home-hero .btn")!;
-    expect(text(review)).toBe("Review");
-    review.click();
-    expect(go).toHaveBeenCalledWith("impersonation");
-  });
-
-  it("Inbox shows Gmail's unread, seven days and the change; each tile opens its place", () => {
-    const go = vi.fn();
-    const openKind = vi.fn();
-    const el = renderHomeDashboard(
-      {
-        ...calm,
-        inboxUnread: 80,
-        unreadByDay: [null, 120, 110, 100, 95, 90, 80],
-        unreadWeekAgo: 100,
-        heldThisWeek: 2,
-      },
-      go,
-      openKind,
-    );
-    const [inbox, clean, security] = Array.from(el.querySelectorAll<HTMLElement>(".home-tile"));
-    expect(text(inbox.querySelector("b"))).toBe("80");
-    expect(inbox.querySelectorAll(".spark i")).toHaveLength(7);
-    expect(text(inbox.querySelector(".chip-delta"))).toBe("20% fewer");
-    expect(text(security.querySelector("b"))).toBe("2");
-    inbox.click();
+    const widgets = Array.from(el.querySelectorAll<HTMLElement>(".ov-w"));
+    expect(widgets.map((w) => w.querySelector(".ov-w-title")?.firstChild?.textContent)).toEqual([
+      "Inbox by category",
+      "Emails received",
+      "Automatically filed",
+      "Suspicious emails",
+      "Emails cleared",
+      "Top senders",
+    ]);
+    widgets[1].click();
     expect(openKind).toHaveBeenCalledWith("primary");
-    clean.click();
-    expect(go).toHaveBeenLastCalledWith("delete");
-    security.click();
-    expect(go).toHaveBeenLastCalledWith("impersonation");
+    for (const [i, place] of [[0, "organize"], [2, "recent"], [3, "impersonation"], [4, "delete"], [5, "subscriptions"]] as const) {
+      widgets[i].click();
+      expect(go).toHaveBeenLastCalledWith(place);
+    }
   });
 
-  it("Clean up shows the same total as the page, and Trash starts the bigger card", () => {
-    const go = vi.fn();
-    const el = renderHomeDashboard(
-      { ...calm, neverOpened: { senders: 2, emails: 30 }, pastDate: 40, clearable: 70 },
-      go,
-    );
-    const clean = el.querySelectorAll<HTMLElement>(".home-tile")[1];
-    expect(text(clean.querySelector("b"))).toBe("70");
-    clean.querySelector("button")!.click();
-    expect(go).toHaveBeenCalledWith("delete", "trash-past-date");
-    expect(go).toHaveBeenCalledTimes(1);
-    expect(text(el.querySelectorAll(".home-tile")[2].querySelector("b"))).toBe("All clear");
-    const scams = renderHomeDashboard({ ...calm, suspicious: 3, heldThisWeek: 1 }, go);
-    expect(text(scams.querySelectorAll(".home-tile")[2])).toContain("3to look at");
-  });
-
-  it("gives each kind its count", () => {
+  it("gives each kind its count, and a kind opens its emails", () => {
     const openKind = vi.fn();
-    const el = renderHomeDashboard(
-      { ...calm, kinds: { ...calm.kinds, trans: 0 }, total: 60 },
-      vi.fn(),
-      openKind,
-    );
-    expect(el.querySelectorAll(".kind-bar span")).toHaveLength(3);
-    expect(Array.from(el.querySelectorAll(".kind-legend li")).map(text)).toEqual([
+    const el = renderHomeDashboard({ ...calm, kinds: { ...calm.kinds, trans: 0 }, total: 60 }, vi.fn(), openKind, NOW);
+    expect(Array.from(el.querySelectorAll(".ov-legend button")).map(text)).toEqual([
       "People10",
       "Receipts0",
       "Updates20",
       "Promotions30",
     ]);
-    el.querySelector<HTMLButtonElement>(".kind-legend button")!.click();
+    expect(text(el.querySelector(".ov-mid b"))).toBe("60");
+    el.querySelector<HTMLButtonElement>(".ov-legend button")!.click();
     expect(openKind).toHaveBeenCalledWith("primary");
+  });
+
+  it("lists suspects by subject with the brand they fake, and senders by mail this week", () => {
+    const el = renderHomeDashboard(
+      {
+        ...calm,
+        suspects: [{ address: "x@evil.test", subject: "Payment declined", brand: "Netflix" }],
+        topSenders: [{ address: "a@shop.test", name: "Shop", count: 4 }],
+      },
+      vi.fn(),
+      undefined,
+      NOW,
+    );
+    expect(text(el.querySelector(".ov-li"))).toContain("Payment declined");
+    expect(text(el.querySelector(".ov-li"))).toContain("Impersonating Netflix");
+    expect(text(el.querySelector(".ov-tr"))).toContain("Shop4");
   });
 
   it("names how far back it has read while mail is still being read", () => {
@@ -238,7 +214,7 @@ describe("renderHomeDashboard", () => {
     );
     expect(text(el.querySelector(".home-verdict"))).toBe("Reading your mail.");
     expect(text(el.querySelector(".read-nums"))).toBe("40of 184 emails");
-    expect(sections(el)).toEqual(["Found so far", "Your inbox"]);
+    expect(sections(el)).toEqual(["Found so far"]);
     expect(Array.from(el.querySelectorAll(".found-tile")).map(text)).toEqual([
       "1look like scams",
       "14you never open",
@@ -260,16 +236,5 @@ describe("renderHomeDashboard", () => {
     expect(text(card.querySelector(".home-verdict"))).toBe("Reading your sent mail.");
     expect(text(card.querySelector(".read-nums"))).toBe("");
     expect(card.querySelector<HTMLElement>(".read-track")!.hidden).toBe(true);
-  });
-});
-
-describe("Today line", () => {
-  it("links moved, held and never-opened to their places", () => {
-    const go = vi.fn();
-    const el = renderHomeDashboard({ ...calm, today: [], movedToday: 4, heldThisWeek: 2, stopLists: 7 }, go);
-    const buttons = Array.from(el.querySelectorAll<HTMLButtonElement>(".today-line button"));
-    expect(buttons.map((b) => b.textContent)).toEqual(["Moved away 4", "Scams held 2", "7 senders you never open"]);
-    buttons[2].click();
-    expect(go).toHaveBeenCalledWith("subscriptions", "stop-never-opened");
   });
 });

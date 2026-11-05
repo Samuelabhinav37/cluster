@@ -12,7 +12,8 @@ import { buildProtectionContext, idsSafeToMoveOut } from "../lib/protectionPolic
 import { clusterLabelName } from "../lib/clusterLabels";
 import { runReplyReminders } from "../lib/replyReminders";
 import { markRepliesToYou } from "../lib/correspondents";
-import { getLabel, getProfileEmail, getSnippets, GmailApiError } from "../lib/gmailApi";
+import { getLabel, getProfileEmail, getSnippets, GmailApiError, listSendAs } from "../lib/gmailApi";
+import { brandName } from "../lib/verdict";
 import { pickToday, type TodayItem } from "../lib/today";
 import { clearMetadataCache } from "../lib/metadataCache";
 import { MAIL_INDEX_CAP, openMailIndex } from "../lib/mailIndex";
@@ -87,7 +88,7 @@ import { markLearnedTransactional } from "../lib/kindModel";
 import { isAuthCancelled } from "../lib/chromeError";
 import { formatRelativeTime, infoButton, pruneSelection, renderConfirmStep, runNow } from "./ui";
 import { buildCleanupCards } from "../lib/cleanupCards";
-import { renderCleanupPage, type PageItem } from "./cleanupPage";
+import { renderCleanupPage, renderSenderTable, type PageItem } from "./cleanupPage";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { keepNewestExcess } from "../lib/keepNewest";
 import { deliveredUpdates } from "../lib/orderEvents";
@@ -110,11 +111,12 @@ import {
   paintHomeRead,
   fillTodaySnippets,
   renderHomeDashboard,
+  filedByDay,
+  topSendersThisWeek,
   type HomeAct,
   type HomeFacts,
 } from "./homeDashboard";
 import {
-  DETAILS_PREF,
   detailSenders,
   idsByProvider,
   initDetailsPanel,
@@ -194,8 +196,19 @@ function showScreen(name: string) {
     panel.hidden = !active;
     panel.tabIndex = active ? 0 : -1;
   }
+  // Subscriptions is Cleanup's second tab: Cleanup stays lit, and the KPI row and tabs move with it.
+  const place = target === "subscriptions" ? "delete" : target;
+  if (place === "delete") {
+    const head = document.getElementById("cu-head");
+    const panel = screenPanels.find((p) => p.dataset.screen === target);
+    if (head && panel) panel.querySelector(".page-head")?.after(head);
+    for (const t of Array.from(document.querySelectorAll<HTMLElement>("#cu-head [data-tab-for]"))) {
+      t.classList.toggle("active", t.dataset.tabFor === target);
+      t.setAttribute("aria-selected", String(t.dataset.tabFor === target));
+    }
+  }
   for (const btn of navButtons) {
-    const active = btn.dataset.screen === target;
+    const active = btn.dataset.screen === place;
     btn.classList.toggle("active", active);
     btn.setAttribute("aria-selected", String(active));
     // Roving tabindex: only the selected item is in the Tab order; arrows
@@ -250,22 +263,9 @@ function navItemShown(btn: HTMLButtonElement): boolean {
   return !btn.hidden && !btn.closest(".nav-area:not(.open) .nav-children");
 }
 
-// Screens that don't list mail start with Details minimized, and so does Clean up:
-// its rows open Details when you pick one.
-const DETAILS_RESTS_ON = new Set(["settings", "impersonation", "screener", "report", "setup", "delete", "subscriptions"]);
-
-/** Minimizes Details on those screens and brings it back elsewhere, unless you minimized it. */
-function fitDetailsTo(screen: string) {
-  if (!details) return;
-  let pref: string | null = null;
-  try {
-    pref = localStorage.getItem(DETAILS_PREF);
-  } catch {
-    // Storage blocked: treat as never minimized.
-  }
-  const resting = DETAILS_RESTS_ON.has(screen);
-  if (resting && details.isOpen()) details.rest(true);
-  else if (!resting && !details.isOpen() && pref === "open" && window.innerWidth >= 1200) details.rest(false);
+/** Details starts closed on every screen; a row, a number or the top-bar button opens it. */
+function fitDetailsTo(_screen: string) {
+  if (details?.isOpen()) details.rest(true);
 }
 
 async function selectScreen(name: string) {
@@ -275,7 +275,23 @@ async function selectScreen(name: string) {
   ctx.settings = await updateSettings({ activeTab: target });
 }
 
+/** Security's tabs: Suspicious or Quarantine. */
+function wireSecurityTabs() {
+  const screen = document.querySelector<HTMLElement>('section[data-screen="impersonation"]');
+  if (!screen) return;
+  screen.dataset.tab = "suspicious";
+  for (const b of Array.from(screen.querySelectorAll<HTMLButtonElement>("[data-sec-tab]")))
+    b.addEventListener("click", () => {
+      screen.dataset.tab = b.dataset.secTab!;
+      for (const t of Array.from(screen.querySelectorAll<HTMLElement>(".tab[data-sec-tab]"))) {
+        t.classList.toggle("active", t.dataset.secTab === b.dataset.secTab);
+        t.setAttribute("aria-selected", String(t.dataset.secTab === b.dataset.secTab));
+      }
+    });
+}
+
 function wireNav() {
+  wireSecurityTabs();
   // Settings > Advanced opens places that left the sidebar.
   for (const b of Array.from(document.querySelectorAll<HTMLButtonElement>("[data-open-screen]")))
     b.onclick = () => void selectScreen(b.dataset.openScreen!);
@@ -459,6 +475,14 @@ async function showAccountPill(token: string) {
     emailEl.textContent = email;
     avatarEl.textContent = email.slice(0, 2).toUpperCase();
     pill.hidden = false;
+    // Overview greets by first name, from the name Gmail sends under.
+    const name = (await listSendAs(token).catch(() => [])).find((i) => i.isPrimary)?.displayName;
+    if (name) {
+      emailEl.textContent = name;
+      pill.title = email;
+    }
+    const greeting = document.getElementById("overview-greeting");
+    if (greeting) greeting.textContent = name ? `Welcome back, ${name.split(/\s+/)[0]}!` : "Welcome back!";
   } catch (err) {
     log.error("Could not load the account email", err);
   }
@@ -542,15 +566,6 @@ async function main() {
     kai: () => kaiGuide?.open(),
   });
   wireNav();
-  // Each page title wears its place's app icon, like iCloud Drive's headers.
-  for (const icon of Array.from(
-    document.querySelectorAll<SVGElement>(".sidebar .nav-item[data-screen] svg.nav-icon"),
-  )) {
-    const screen = (icon.closest(".nav-item") as HTMLElement).dataset.screen;
-    const title = document.querySelector(`section.screen[data-screen="${screen}"] .page-title`);
-    if (screen !== "overview" && title && !title.querySelector(".nav-icon"))
-      title.prepend(icon.cloneNode(true));
-  }
   wireDetails();
   wireAccountMenu();
   search = initAskKai(
@@ -558,6 +573,13 @@ async function main() {
     () => askFacts,
     { details: (filter) => details?.open(filter), go: goAndAct },
   );
+  // Kai's round button in the top bar opens the same box as Ctrl K.
+  // The top-bar Kai opens Kai's chat; the floating launcher is hidden (CSS).
+  document.getElementById("top-kai")?.addEventListener("click", () => {
+    // After this click, so the guide's outside-click rule doesn't close it again.
+    if (kaiGuide?.isOpen()) kaiGuide.close();
+    else setTimeout(() => kaiGuide?.open(), 0);
+  });
   wireAllSendersControls();
   wireProtectPages((key) => details?.open({ view: "emails", senderKey: key }));
   autoQuarantineToggle.checked = ctx.settings.autoQuarantineHighRisk;
@@ -1086,11 +1108,11 @@ let askFacts: AskFacts = {
   waiting: 0,
 };
 
-/** Open a place and, for a card or Ask Kai hit, start that place's own confirm. */
+/** Open a place and, for an Ask Kai hit, the page that does it: its senders ticked, Trash ready. */
 function goAndAct(screen: string, act?: HomeAct) {
   void selectScreen(screen).then(() => {
-    if (act === "trash-never-opened") neverReadTrashBtn.click();
-    if (act === "trash-past-date") expiryCleanupBtn.click();
+    if (act === "trash-never-opened") showCleanupPage("never");
+    if (act === "trash-past-date") showCleanupPage("old");
     if (act === "stop-never-opened") preselectLists(stopListKeys);
   });
 }
@@ -1126,6 +1148,15 @@ function updateNavCounts(
 let protectTileArgs: [scams: number, waiting: number, held: number] = [0, 0, 0];
 function renderProtectTiles(scams: number, waiting: number, held: number) {
   protectTileArgs = [scams, waiting, held];
+  const put = (id: string, v: number, blank = false) => {
+    const node = document.getElementById(id);
+    if (node) node.textContent = blank && v === 0 ? "" : v.toLocaleString();
+  };
+  put("kpi-held", held);
+  put("kpi-threats", scams);
+  put("kpi-waiting", waiting);
+  put("tab-count-threats", scams, true);
+  put("tab-count-held", held, true);
   const sub =
     scams > 0
       ? `${scams} ${scams === 1 ? "sender needs" : "senders need"} a look.`
@@ -1317,6 +1348,14 @@ function renderOverview(
     heldThisWeek: heldByWeek(ctx.settings.scamHistory, 1)[0]?.held ?? 0,
     movedToday: movedTodayEntries().reduce((sum, e) => sum + (e.undo?.ids.length ?? 0), 0),
     stopLists: stopListKeys.length,
+    filed: filedByDay(ctx.settings.actionLog, Date.now()),
+    topSenders: topSendersThisWeek(allSenders, Date.now()),
+    suspects: securitySenders.slice(0, 3).map((s) => ({
+      address: s.address,
+      name: s.displayName,
+      subject: [...s.messages].sort((a, b) => b.receivedAt - a.receivedAt)[0]?.subject ?? "",
+      brand: ((k) => (k ? brandName(k) : undefined))(s.threatSignals.find((x) => x.brand)?.brand),
+    })),
     // Until reading is done the total covers only recent mail, so say how far back.
     since: [...indexRuns.values()].some((r) => r.progress?.phase === "reading")
       ? oldestRead(allSenders)
@@ -1465,6 +1504,16 @@ function renderDeleteScreen(senders: SenderSummary[]) {
   document.getElementById("lists-fact")!.textContent = n(plan.lists.length);
   list("lists-top", plan.lists.map((s) => [senderName(s), senderVolume(s)]));
   lastPlan = plan;
+  document.getElementById("tab-count-subs")!.textContent = plan.lists.length ? n(plan.lists.length) : "";
+  renderSenderTable(document.getElementById("cu-senders-table")!, {
+    items: [
+      ...pageItems("never").map((it) => ({ ...it, reason: "Unopened" })),
+      ...pageItems("old").map((it) => ({ ...it, reason: "Expired" })),
+    ],
+    rowKeyOf: detailRowKey,
+    openRow: (key) => details?.open({ view: "emails", senderKey: key }),
+    trash: (merged, picked, slot, reset) => trashFromPage("table", merged, picked, slot, reset),
+  });
   if (openPage) showCleanupPage(openPage);
 }
 
@@ -1484,9 +1533,9 @@ function pageItems(page: "never" | "old"): PageItem[] {
 function showCleanupPage(page: "never" | "old" | null) {
   openPage = page;
   const root = document.getElementById("cu-page")!;
-  const cards = document.querySelector<HTMLElement>('section[data-screen="delete"] .cu-cards')!;
+  const screen = document.querySelector<HTMLElement>('section[data-screen="delete"]')!;
   root.hidden = page === null;
-  cards.hidden = page !== null;
+  screen.classList.toggle("cu-paged", page !== null);
   if (page === null) {
     root.replaceChildren();
     return;
@@ -1498,7 +1547,6 @@ function showCleanupPage(page: "never" | "old" | null) {
     openRow: (key) => details?.open({ view: "emails", senderKey: key }),
     trash: (merged, senders, slot, reset) => trashFromPage(page, merged, senders, slot, reset),
     back: () => showCleanupPage(null),
-    auto: document.getElementById(page === "never" ? "presets-never" : "presets-old"),
   });
 }
 
@@ -1520,7 +1568,7 @@ function wireCleanupCards() {
 }
 
 function trashFromPage(
-  page: "never" | "old",
+  page: "never" | "old" | "table",
   merged: Map<ProviderId, string[]>,
   senders: SenderSummary[],
   slot: HTMLElement,
@@ -1530,10 +1578,10 @@ function trashFromPage(
   renderConfirmStep(slot, reset, `Move ${total.toLocaleString()} to Trash?`, true, async () => {
     const { message, undoableGmailIds } = await executeSmartDelete(merged);
     appendUndoButton(slot, undoableGmailIds);
-    if (page === "never") await saveEngagementFeedback(senders.map((s) => s.key), "accept");
+    if (page !== "old") await saveEngagementFeedback(senders.map((s) => s.key), "accept");
     await logAction(
       "trash",
-      `Moved ${total} to Trash from ${page === "never" ? "You never open these" : "Old codes and news"}`,
+      `Moved ${total} to Trash from ${page === "never" ? "Unopened" : page === "old" ? "Expired" : "Cleanup"}`,
       undoableGmailIds.length > 0 ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" } : undefined,
     );
     await scanAndRender();
@@ -1794,14 +1842,6 @@ function wireDetails() {
     undefined,
     detailRowKey,
   );
-  // Always there: open beside the page on wide windows unless minimized last time.
-  let pref: string | null = null;
-  try {
-    pref = localStorage.getItem(DETAILS_PREF);
-  } catch {
-    // Storage blocked: fall back to the width.
-  }
-  if (window.innerWidth >= 1200 && pref !== "min") details.open({ view: "senders" });
   fitDetailsTo(ctx.settings.setupDone ? resolveScreen(ctx.settings.activeTab) : "setup");
   // Kai sits left of Details (CSS --details-w), open or minimized to its strip.
   const pane = document.getElementById("details");

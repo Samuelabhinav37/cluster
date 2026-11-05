@@ -121,7 +121,7 @@ function showProtectPage(page: "held" | "signs" | null): void {
   // The held list lives on the Scams page while it's open.
   if (page !== "held" && held.parentElement === root) $("security-section")?.before(held);
   if (page === null) return root.replaceChildren();
-  const back = el("button", "cu-back", "‹ Protect");
+  const back = el("button", "cu-back", "‹ Security");
   (back as HTMLButtonElement).type = "button";
   back.onclick = () => showProtectPage(null);
   if (page === "held") {

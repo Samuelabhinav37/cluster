@@ -439,7 +439,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
   const counts = `${oneClick.length} can stop in one click`;
   subsCountEl.textContent = tally ? `${counts} · ${tally}` : counts;
   subsUnsubAllBtn.disabled = oneClick.length === 0;
-  subsUnsubAllBtn.textContent = selectedSubKeys.size > 0 ? `Unsubscribe ${selectedSubKeys.size} selected` : "Unsubscribe all";
+  subsUnsubAllBtn.textContent = selectedSubKeys.size > 0 ? `Unsubscribe (${selectedSubKeys.size})` : "Unsubscribe";
 
   if (available.length === 0 && trackedCount === 0) {
     const empty = document.createElement("p");

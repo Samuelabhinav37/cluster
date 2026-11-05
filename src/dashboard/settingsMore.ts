@@ -167,7 +167,7 @@ function wireSignOut() {
   };
 }
 
-/** Round 2: Settings as a left list of its sections, one pane at a time. */
+/** Settings: a left list of its sections over one scrolling page. */
 function wireSettingsNav(): (inside: Element | null) => void {
   const list = document.querySelector<HTMLElement>(".settings-list");
   const secs = Array.from(document.querySelectorAll<HTMLElement>(".settings-list > .set-sec"));
@@ -175,9 +175,12 @@ function wireSettingsNav(): (inside: Element | null) => void {
   const nav = document.createElement("nav");
   nav.className = "settings-nav";
   nav.setAttribute("aria-label", "Settings sections");
-  const show = (sec: HTMLElement) => {
-    for (const s of secs) s.hidden = s !== sec;
+  const mark = (sec: HTMLElement) => {
     for (const b of Array.from(nav.children)) b.setAttribute("aria-current", String(b === buttons.get(sec)));
+  };
+  const show = (sec: HTMLElement) => {
+    mark(sec);
+    sec.scrollIntoView?.({ behavior: "smooth", block: "start" });
   };
   const buttons = new Map<HTMLElement, HTMLButtonElement>();
   for (const sec of secs) {
@@ -191,22 +194,20 @@ function wireSettingsNav(): (inside: Element | null) => void {
   split.className = "settings-split";
   list.before(split);
   split.append(nav, list);
-  show(secs[0]);
+  mark(secs[0]);
   return (inside) => {
     const sec = inside?.closest<HTMLElement>(".settings-list > .set-sec");
     if (sec) show(sec);
   };
 }
 
-/** Settings' search: matching rows from every section; empty, the chosen section again. */
+/** Settings' search: matching rows from every section; empty, every section. */
 function wireSettingsSearch(): void {
   const input = $<HTMLInputElement>("settings-search");
   if (!input) return;
   const secs = () => Array.from(document.querySelectorAll<HTMLElement>(".settings-list > .set-sec"));
-  let shownBefore: HTMLElement | undefined;
   input.oninput = () => {
     const q = input.value.trim().toLowerCase();
-    if (q && !shownBefore) shownBefore = secs().find((sec) => !sec.hidden);
     for (const sec of secs()) {
       const heading = sec.querySelector("h2")?.textContent?.toLowerCase() ?? "";
       let any = false;
@@ -216,9 +217,8 @@ function wireSettingsSearch(): void {
         row.hidden = !hit;
         any ||= hit;
       }
-      sec.hidden = q ? !any : sec !== shownBefore;
+      sec.hidden = q ? !any : false;
     }
-    if (!q) shownBefore = undefined;
   };
 }
 

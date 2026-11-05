@@ -293,9 +293,9 @@ function reportSteps(): { button: HTMLButtonElement; steps: HTMLOListElement } {
 
 // On the row itself, so the risk reads at a glance (a word, not color alone).
 const TIER_CHIP: Record<VerdictTier, [string, string]> = {
-  hold: ["hold", "High risk"],
-  warn: ["warn", "Medium risk"],
-  none: ["none", "Low risk"],
+  hold: ["hold", "High"],
+  warn: ["warn", "Medium"],
+  none: ["none", "Low"],
 };
 
 export function renderSecuritySection(senders: SenderSummary[], autoCheck = true) {

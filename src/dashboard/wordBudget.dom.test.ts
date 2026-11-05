@@ -14,14 +14,17 @@ const BUDGET: Record<string, { words: number; controls: number }> = {
   // Raised for Home v2 (verdict, this week, next up, inbox), approved 2026-10-29.
   overview: { words: 96, controls: 10 },
   delete: { words: 80, controls: 16 },
-  subscriptions: { words: 50, controls: 8 },
+  // Redesign 2026-11: Cleanup's Senders and Subscriptions tabs.
+  subscriptions: { words: 50, controls: 10 },
   // Round 2 (approved 2026-10-30): a five-step picker on each kind card.
   organize: { words: 300, controls: 75 },
-  impersonation: { words: 80, controls: 10 },
+  // Redesign 2026-11: KPI row and Suspicious and Quarantine tabs.
+  impersonation: { words: 80, controls: 12 },
   screener: { words: 60, controls: 6 },
   report: { words: 45, controls: 5 },
   senders: { words: 92, controls: 15 },
-  settings: { words: 125, controls: 16 },
+  // Redesign 2026-11 (approved): every section on one scrolling page, not one at a time.
+  settings: { words: 280, controls: 60 },
   recent: { words: 15, controls: 1 },
 };
 

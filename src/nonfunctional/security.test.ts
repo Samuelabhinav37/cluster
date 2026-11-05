@@ -150,7 +150,9 @@ describe("DOM injection", () => {
     [...rhs.matchAll(/\$\{([^}]*)\}/g)].map((m) => m[1].replace(/\s+/g, " ").trim());
 
   it("only assigns literals, ICON_* / *_SVG constants, or allowlisted interpolations", () => {
-    const offenders = assignments.filter(({ rhs }) => {
+    const offenders = assignments.filter(({ file, rhs }) => {
+      // overviewCharts' div(cls, html): SVG built from counts and fixed day names, never mail data.
+      if (file === "src/dashboard/overviewCharts.ts" && rhs === "html") return false;
       if (/^[A-Z][A-Z0-9_]*$/.test(rhs)) return false; // ICON_WARNING, ENVELOPE_SVG
       if (!SAFE_GLUE.test(rhs.replace(LITERALS, ""))) return true; // non-literal code
       return interpolations(rhs).some((e) => !SAFE_INTERPOLATIONS.has(e) && !KNOWN_UNSAFE.has(e));

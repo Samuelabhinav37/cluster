@@ -393,7 +393,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
           go.textContent = "All set";
           go.classList.add("done");
         }
-        kai.say(tidyFailed ? "Saved. Turn on the filters in Organize." : KAI_LINES.done, "happy");
+        kai.say(tidyFailed ? "Saved. Turn on the filters in Labels." : KAI_LINES.done, "happy");
         // Let Kai's line land before Home opens.
         await new Promise((r) => window.setTimeout(r, 1100));
         await select("overview");

@@ -960,17 +960,23 @@ export async function getMessageLinks(token: string, id: string): Promise<Extrac
 export interface SendAsIdentity {
   address: string;
   isPrimary: boolean;
+  /** The name Gmail sends under, when set. */
+  displayName?: string;
 }
 
 /** The addresses this Gmail account can send as (settings.sendAs.list).
  * Only verified aliases are returned; the primary address always is. */
 export async function listSendAs(token: string): Promise<SendAsIdentity[]> {
   const data = await gmailFetch<{
-    sendAs?: { sendAsEmail?: string; isPrimary?: boolean; verificationStatus?: string }[];
+    sendAs?: { sendAsEmail?: string; isPrimary?: boolean; verificationStatus?: string; displayName?: string }[];
   }>("/users/me/settings/sendAs", token);
   return (data.sendAs ?? [])
     .filter((s) => s.sendAsEmail && (s.isPrimary || s.verificationStatus === "accepted"))
-    .map((s) => ({ address: s.sendAsEmail!.toLowerCase(), isPrimary: Boolean(s.isPrimary) }));
+    .map((s) => ({
+      address: s.sendAsEmail!.toLowerCase(),
+      isPrimary: Boolean(s.isPrimary),
+      ...(s.displayName?.trim() ? { displayName: s.displayName.trim() } : {}),
+    }));
 }
 
 /** Sends one message (users.messages.send, 100 units). `raw` is base64url

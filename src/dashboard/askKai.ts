@@ -41,10 +41,10 @@ const KIND_WORDS: Record<HomeKind, RegExp> = {
 
 const PLACES: ReadonlyArray<[screen: string, label: string]> = [
   ["overview", "Overview"],
-  ["delete", "Clean up"],
-  ["subscriptions", "Stop mail"],
-  ["organize", "Organize"],
-  ["impersonation", "Protect"],
+  ["delete", "Cleanup"],
+  ["subscriptions", "Subscriptions"],
+  ["organize", "Labels"],
+  ["impersonation", "Security"],
   ["senders", "Contacts"],
   ["recent", "Activity"],
   ["settings", "Settings"],
@@ -94,17 +94,17 @@ export function askIntents(raw: string, f: AskFacts, act: AskActions): AskHit[] 
     });
   }
   if (has(/never open|don'?t open|unread|ignore/)) {
-    add(96, { title: "Trash mail from senders you never open", sub: "Clean up", verb: "Trash", run: () => act.go("delete", "trash-never-opened") });
+    add(96, { title: "Trash mail from senders you never open", sub: "Cleanup", verb: "Trash", run: () => act.go("delete", "trash-never-opened") });
     add(80, { title: "Senders you never open", sub: "Open them in Details", verb: "Show", run: () => act.details({ view: "senders", never: true }) });
   }
   if (has(/code|otp|verif|expired|old mail|past its date/))
-    add(94, { title: "Trash old codes and mail past its date", sub: "Clean up", verb: "Trash", run: () => act.go("delete", "trash-past-date") });
+    add(94, { title: "Trash old codes and mail past its date", sub: "Cleanup", verb: "Trash", run: () => act.go("delete", "trash-past-date") });
   if (has(/scam|phish|fraud|fake|suspicious|danger|hack/))
-    add(93, { title: `${plural(f.scams, "sender")} that look like scams`, sub: "Protect", verb: "Review", run: () => act.go("impersonation") });
+    add(93, { title: `${plural(f.scams, "sender")} that look like scams`, sub: "Security", verb: "Review", run: () => act.go("impersonation") });
   if (has(/new sender|stranger|unknown|screen|first time|let in|allow/))
-    add(91, { title: `${plural(f.waiting, "new sender")} waiting`, sub: "Protect", verb: "Review", run: () => act.go("screener") });
+    add(91, { title: `${plural(f.waiting, "new sender")} waiting`, sub: "Security", verb: "Review", run: () => act.go("screener") });
   if (has(/unsub|stop|no more|newsletter/))
-    add(sender ? 60 : 89, { title: "Stop mail", sub: "Unsubscribe", verb: "Open", run: () => act.go("subscriptions") });
+    add(sender ? 60 : 89, { title: "Subscriptions", sub: "Unsubscribe", verb: "Open", run: () => act.go("subscriptions") });
   if (week !== null && out.length === 0)
     add(88, { title: `Everything from ${week === 7 ? "this" : "last"} week`, sub: "Open in Details", verb: "Show", run: () => act.details({ view: "emails", week }) });
   for (const [screen, label] of PLACES) {

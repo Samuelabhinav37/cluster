@@ -13,11 +13,11 @@ export interface Shortcut {
 export const SHORTCUTS: readonly Shortcut[] = [
   { id: "search", label: "Search", key: "/" },
   { id: "help", label: "Show all shortcuts", key: "?" },
-  { id: "go-home", label: "Go to Home", key: "h", afterG: true },
+  { id: "go-home", label: "Go to Overview", key: "h", afterG: true },
   { id: "go-contacts", label: "Go to Contacts", key: "s", afterG: true },
-  { id: "go-cleanup", label: "Go to Clean up", key: "c", afterG: true },
-  { id: "go-organize", label: "Go to Organize", key: "o", afterG: true },
-  { id: "go-protect", label: "Go to Protect", key: "p", afterG: true },
+  { id: "go-cleanup", label: "Go to Cleanup", key: "c", afterG: true },
+  { id: "go-organize", label: "Go to Labels", key: "o", afterG: true },
+  { id: "go-protect", label: "Go to Security", key: "p", afterG: true },
 ];
 
 /** The screen each "go" shortcut opens. */

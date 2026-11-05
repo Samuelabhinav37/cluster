@@ -250,7 +250,7 @@ function renderWindow(): void {
     select = document.createElement("select");
     select.id = "time-limits-window";
     select.className = "kind-pick";
-    select.setAttribute("aria-label", "Keep in inbox");
+    select.setAttribute("aria-label", "Time in inbox");
     for (const c of WINDOW_CHOICES) select.add(new Option(c.label, c.value));
     select.add(new Option("Per label", PER_LABEL));
     select.onchange = () => {
@@ -262,7 +262,7 @@ function renderWindow(): void {
     row.className = "ios-row org-row";
     const mark = Object.assign(document.createElement("span"), { className: "app-ic label-ic" });
     mark.append(icon("clock"));
-    row.append(mark, Object.assign(document.createElement("span"), { className: "grow", textContent: "Keep in inbox" }), select);
+    row.append(mark, Object.assign(document.createElement("span"), { className: "grow", textContent: "Time in inbox" }), select);
     const group = Object.assign(document.createElement("div"), { className: "ios-group" });
     group.append(row);
     const wrap = Object.assign(document.createElement("section"), { className: "ios-section org-window" });

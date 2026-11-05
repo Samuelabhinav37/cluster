@@ -11,16 +11,19 @@ beforeEach(() => {
 });
 
 describe("Clean up cards", () => {
-  it("the past-date card's Trash opens its confirm inside the visible card", async () => {
+  it("the Expired card opens its page, where Trash asks first in plain view", async () => {
     // The default fixture has a one-time code aged past its 2-day expiry.
     const dash = await bootDashboard();
     dash.showScreen("delete");
     const card = dash.el("past-date-card");
     expect(card.hidden).toBe(false);
 
-    card.querySelector<HTMLButtonElement>("button")!.click();
+    card.click();
+    const page = dash.el("cu-page");
+    expect(page.hidden).toBe(false);
+    Array.from(page.querySelectorAll<HTMLButtonElement>("button")).find((b) => b.textContent?.startsWith("Trash"))!.click();
     await vi.waitFor(() => {
-      const confirm = Array.from(card.querySelectorAll("button")).find((b) => b.textContent === "Confirm");
+      const confirm = Array.from(page.querySelectorAll("button")).find((b) => b.textContent === "Confirm");
       if (!confirm) throw new Error("no visible confirm yet");
       expect(confirm.closest("[hidden]")).toBeNull();
     });
