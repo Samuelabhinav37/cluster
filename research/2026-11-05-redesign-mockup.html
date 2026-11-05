@@ -325,6 +325,26 @@
   .cu-filter span::before { content:none; }
   .cu-filter span { border-style:solid; }
   .cu-filter span.on { background:var(--l); color:var(--bg); border-color:var(--l); }
+
+  /* Settings: category nav + one scrolling page */
+  .set-wrap { display:grid; grid-template-columns:180px minmax(0,1fr); gap:56px; align-items:start; }
+  .set-nav { position:sticky; top:24px; display:flex; flex-direction:column; gap:2px; }
+  .set-nav a { padding:8px 12px; border-radius:8px; color:var(--l2); text-decoration:none; font-weight:500; }
+  .set-nav a:hover { background:var(--side); }
+  .set-nav a.on { background:var(--fill); color:var(--l); font-weight:600; }
+  .set-main .ssearch { max-width:none; margin-bottom:40px; }
+  .set-sec { margin-bottom:48px; scroll-margin-top:24px; }
+  .set-sec h2 { font-size:18px; font-weight:650; margin:0 0 8px; letter-spacing:-.01em; }
+  .set-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:24px; align-items:center; min-height:64px; padding:12px 0; border-bottom:1px solid var(--hair); }
+  .set-sec h2 + .set-row { border-top:1px solid var(--hair); }
+  .set-row b { display:block; font-weight:500; font-size:15px; }
+  .set-row small { display:block; color:var(--l3); font-size:13px; margin-top:2px; }
+  .set-acct { display:flex; align-items:center; gap:12px; }
+  .set-acct .gm { width:40px; height:40px; }
+  .danger { border:1px solid color-mix(in srgb, var(--bad) 35%, transparent); border-radius:12px; padding:0 16px; }
+  .danger .set-row:last-child { border-bottom:0; }
+  .btn.bad { color:var(--bad); border-color:color-mix(in srgb, var(--bad) 35%, transparent); }
+  .btn.bad:hover { background:var(--bad-bg); }
 </style>
 </head>
 <body>
@@ -385,7 +405,7 @@
   <section id="p-protect" class="page" hidden></section>
   <section id="p-activity" class="page" hidden></section>
   <section id="p-settings" class="page" hidden></section>
-  <p class="note"><b>Redesign, round 4: wording.</b> Sections are nouns (Cleanup, Labels, Security), tabs and columns are nouns, buttons are verbs, all in sentence case with no "you" phrasing. Terms match Gmail and Google Workspace: Quarantine, Suspicious, Impersonating, Open rate, Unsubscribed. See research/2026-11-05-ui-wording.md.</p>
+  <p class="note"><b>Redesign, round 5: Settings.</b> Laid out like GitHub, Linear, Vercel and macOS: section list on the left, one scrolling page, label with one short line and the control on the right, changes save as you go, and a Danger zone last. See research/2026-11-05-settings-patterns.md.</p>
 </main>
 <aside class="details-pane" id="dpane" hidden>
   <div class="dp-head">
@@ -594,17 +614,55 @@ document.getElementById("p-activity").innerHTML = head("Activity") +
   `<table class="dt"><thead><tr><th>Time</th><th>Action</th><th>Source</th><th class="r"></th></tr></thead><tbody>${ACT.map(([day, rows]) => `<tr class="grp"><td colspan="4">${day}</td></tr>` + rows.map(([t, w, where, a]) => tr([[t, "mut"], [`<b style="font-weight:600">${w}</b>`], [`<span class="cat">${where}</span>`], [a ? `<button class="btn sm">${a}</button>` : "", "r"]], false)).join("")).join("")}</tbody></table>` + foot(2);
 
 // ---------- Settings ----------
+// Pattern from GitHub / Linear / Vercel / macOS: in-page category nav on the left,
+// one scrolling page, each row = label + one short line + control on the right,
+// changes save as you go (no Save button), destructive actions last in a Danger zone.
 const sel = (v) => `<span class="selpill">${v}</span>`;
-const SET = [["Account", [[`<span class="snd"><span class="gm" style="width:28px;height:28px">${document.querySelector(".gm").innerHTML}</span><b>Samuel Abhinav</b></span>`, `<button class="btn sm">Sign out</button>`]]],
-  ["Mail", [["Scan range", sel("90 days")], ["Rescan mailbox", `<button class="btn sm">Rescan</button>`]]],
-  ["Labels", [["Auto-label incoming mail", sw(true)], ["Default time in inbox", sel("3 hours")]]],
-  ["Security", [["Quarantine suspected phishing", sw(true)], ["Move quarantined mail to Spam", sw(false)]]],
-  ["Kai", [["Show Kai", sw(true)], ["Learn from undo actions", sw(true)]]],
-  ["Keyboard", [["Single-key shortcuts", sw(true)], ["View shortcuts", `<span class="val">?</span>`]]],
-  ["Privacy", [[`<span class="danger">Delete all Cluster data</span>`, ""]]]];
+const btn = (t, cls = "") => `<button class="btn sm ${cls}">${t}</button>`;
+const SET = [
+  ["account", "Account", [
+    [`<span class="set-acct"><span class="gm">${document.querySelector(".gm").innerHTML}</span><span><b>Samuel Abhinav</b><small>Gmail account</small></span></span>`, "", btn("Sign out")]]],
+  ["general", "General", [
+    ["Appearance", "", sel("System")],
+    ["Show Kai", "Assistant button in the top bar.", sw(true)]]],
+  ["mail", "Mail", [
+    ["Scan range", "How far back Cluster reads your mail.", sel("90 days")],
+    ["Rescan mailbox", "Last scanned today at 9:41 AM.", btn("Rescan")]]],
+  ["labels", "Labels", [
+    ["Auto-label incoming mail", "", sw(true)],
+    ["Default time in inbox", "Labelled mail leaves the inbox after this.", sel("3 hours")],
+    ["Sync rules to Gmail filters", "Rules keep working when Chrome is closed.", sw(true)]]],
+  ["security", "Security", [
+    ["Quarantine suspected phishing", "", sw(true)],
+    ["Quarantine unverified senders", "Mail that fails SPF, DKIM or DMARC.", sw(true)],
+    ["Move quarantined mail to Spam", "Also trains Gmail's spam filter.", sw(false)],
+    ["Blocked senders", "4 senders", btn("Manage")]]],
+  ["notifications", "Notifications", [
+    ["Daily summary email", "", sw(true)],
+    ["Delivery time", "", sel("8:00 AM")]]],
+  ["kai", "Kai", [
+    ["Learn from undo actions", "", sw(true)],
+    ["Suggestions", "", sel("Weekly")]]],
+  ["keyboard", "Keyboard", [
+    ["Single-key shortcuts", "", sw(true)],
+    ["Keyboard shortcuts", "Press ? anywhere.", btn("View")]]],
+  ["data", "Privacy & data", [
+    ["Export data", "Labels, rules and activity as JSON.", btn("Export")],
+    ["Privacy policy", "", btn("Open")]]],
+];
+const DANGER = [["Disconnect Gmail", "Stops all scans. Your mail stays as it is.", btn("Disconnect", "bad")],
+  ["Delete all Cluster data", "Removes labels, rules and history. Can't be undone.", btn("Delete data", "bad")]];
+const setRow = ([label, sub, ctl]) => `<div class="set-row"><div>${label.startsWith("<") ? label : `<b>${label}</b>`}${sub ? `<small>${sub}</small>` : ""}</div>${ctl}</div>`;
 document.getElementById("p-settings").innerHTML = head("Settings") +
-  `<div class="search ssearch"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Search settings</div>` +
-  SET.map(([g, rows]) => `<div class="sgroup"><h3>${g}</h3>${slist(rows)}</div>`).join("");
+  `<div class="set-wrap"><div class="set-nav" role="navigation" aria-label="Settings sections">${SET.map(([id, t], i) => `<a href="#settings" data-to="set-${id}" class="${i ? "" : "on"}">${t}</a>`).join("")}<a href="#settings" data-to="set-danger">Danger zone</a></div>
+  <div class="set-main"><div class="search ssearch"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Search settings</div>
+  ${SET.map(([id, t, rows]) => `<section class="set-sec" id="set-${id}"><h2>${t}</h2>${rows.map(setRow).join("")}</section>`).join("")}
+  <section class="set-sec" id="set-danger"><h2>Danger zone</h2><div class="danger">${DANGER.map(setRow).join("")}</div></section></div></div>`;
+document.querySelector(".set-nav").addEventListener("click", (e) => {
+  const a = e.target.closest("a[data-to]"); if (!a) return; e.preventDefault();
+  document.getElementById(a.dataset.to).scrollIntoView({ behavior: "smooth", block: "start" });
+  for (const x of document.querySelectorAll(".set-nav a")) x.classList.toggle("on", x === a);
+});
 
 // ---------- Details pane: all senders, or one sender's / label's emails ----------
 const SUBJ = { "medium.com": ["The one habit that changed my writing", "5 stories picked for you", "Your weekly digest", "Why most dashboards fail"], "quora.com": ["What is the best way to learn Rust?", "Your Quora digest", "Top answers this week"],
