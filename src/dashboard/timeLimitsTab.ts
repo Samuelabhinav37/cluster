@@ -6,6 +6,7 @@
 // the same menus for mail already here.
 import { categoryLabelName, syncGmailCategoryFilters } from "../lib/categoryFilters";
 import { runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
+import { HOLD_UNSORTED_HOURS } from "../lib/inboxTimeLimits";
 import { log } from "../lib/log";
 import { CLUSTER_LABEL_COLORS } from "../lib/clusterLabels";
 import { colorClusterLabels, getLabel, listLabels } from "../lib/gmailApi";
@@ -268,7 +269,7 @@ function renderWindow(): void {
     mark.append(icon("clock"));
     row.append(mark, Object.assign(document.createElement("span"), { className: "grow", textContent: "Time in inbox" }), select);
     const group = Object.assign(document.createElement("div"), { className: "ios-group" });
-    group.append(row);
+    group.append(row, holdRow());
     const wrap = Object.assign(document.createElement("section"), { className: "ios-section org-window" });
     wrap.append(group);
     rowsEl.before(wrap);
@@ -276,6 +277,22 @@ function renderWindow(): void {
   if (!select) return;
   const on = windowTargets().filter((m) => m.value !== OFF);
   select.value = windowValue(on.map((m) => m.value));
+}
+
+/** "Hold mail with no label": unsorted inbox mail goes to the Screener. */
+function holdRow(): HTMLElement {
+  const row = Object.assign(document.createElement("label"), { className: "ios-row org-row" });
+  const mark = Object.assign(document.createElement("span"), { className: "app-ic label-ic" });
+  mark.append(icon("inbox"));
+  const toggle = Object.assign(document.createElement("input"), { type: "checkbox", className: "switch", id: "hold-unsorted" });
+  toggle.setAttribute("role", "switch");
+  toggle.checked = ctx.settings.autoSort.holdUnsorted;
+  toggle.onchange = async () => {
+    ctx.settings = await updateSettings({ autoSort: { ...ctx.settings.autoSort, holdUnsorted: toggle.checked } });
+  };
+  row.title = `After ${HOLD_UNSORTED_HOURS} hours, mail that fits no label waits in the Screener for you`;
+  row.append(mark, Object.assign(document.createElement("span"), { className: "grow", textContent: "Hold mail with no label" }), toggle);
+  return row;
 }
 
 function limitsFromMenus(): Record<string, number | null> {

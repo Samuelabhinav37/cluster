@@ -142,6 +142,48 @@ export async function tagOlderInbox(
   return { tagged: res.tagged, nextBefore: done ? TAG_BACK_DONE : res.oldestAt! };
 }
 
+/** Hours unsorted mail stays in the inbox before it's held for review. */
+export const HOLD_UNSORTED_HOURS = 3;
+const HOLD_MAX = 100;
+// Calendar invites and replies to them are people arranging something.
+const CALENDAR_RE = /^(updated )?invitation:|^(accepted|declined|tentatively accepted|new event|canceled event|cancelled event):/i;
+
+/**
+ * Moves inbox mail that fits no label into `holdLabelName` (the Screener) for
+ * the user to review: nothing is deleted, and Gmail's spam filter learns
+ * nothing. Starred, important or Primary-tab mail, mail from anyone known,
+ * replies, personal addresses, calendar invites and risky senders (the scam
+ * hold's job) all stay.
+ * shortcut: only the last 14 days are looked at, so an older unsorted
+ * backlog stays put; widen once the catch-up tagger has finished.
+ */
+export async function holdUnsortedInbox(
+  ctx: LimitContext,
+  api: InboxLimitsApi,
+  holdLabelName: string,
+): Promise<{ heldIds: string[]; senders: string[] }> {
+  const cutoff = epochSeconds(ctx.now - HOLD_UNSORTED_HOURS * HOUR_MS);
+  const query = `before:${cutoff} newer_than:14d -is:starred -is:important -category:primary -label:"${holdLabelName}" ${withoutClusterLabels(ctx.limits)}`;
+  const ids = await api.listIds(["INBOX"], query, HOLD_MAX);
+  if (ids.length === 0) return { heldIds: [], senders: [] };
+  const heldIds: string[] = [];
+  const senders = new Set<string>();
+  for (const sender of await api.readSenders(ids)) {
+    if (skipSender(sender, ctx.known)) continue;
+    const domain = domainOf(sender.address);
+    for (const msg of sender.messages) {
+      if (msg.isProtected || msg.providerMarkedPersonal || msg.repliesToYou || neverMove(msg, sender.address)) continue;
+      if (CALENDAR_RE.test(msg.subject ?? "")) continue;
+      // The tagger will label it; it just hasn't yet.
+      if (effectiveBucket(msg.kind, domain, sender.address, ctx.overrides, msg.promotion)) continue;
+      heldIds.push(msg.id);
+      senders.add(sender.address.toLowerCase());
+    }
+  }
+  if (heldIds.length > 0) await api.batchModify(heldIds, [await api.ensureLabelId(holdLabelName)], ["INBOX"]);
+  return { heldIds, senders: [...senders] };
+}
+
 export interface SweepResult {
   movedIds: string[];
   /** Past their limit but kept: starred since, a known person, or risky.

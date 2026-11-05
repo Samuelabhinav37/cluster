@@ -17,6 +17,9 @@ import { clusterLabelName } from "../lib/clusterLabels";
 import { renderConfirmStep } from "./ui";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
 import { recordUnsubscribeRequests } from "./unsubscribeRecord";
+import { batchModify, findLabelIds, getOrCreateLabel } from "../lib/gmailApi";
+import { categoryLabelName } from "../lib/categoryFilters";
+import { ALL_SORT_BUCKETS, type SortBucket } from "../lib/sortTaxonomy";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -149,7 +152,9 @@ export function renderScreenerTab(senders: SenderSummary[]) {
 
   screenerQueueEl.innerHTML = "";
   if (screenerQueueCountEl) screenerQueueCountEl.textContent = "";
-  if (!ctx.settings.screenerEnabled) {
+  const held = new Set(ctx.settings.screenedSenders.map((a) => a.toLowerCase()));
+  const showHeldOnly = !ctx.settings.screenerEnabled && ctx.settings.autoSort.holdUnsorted && held.size > 0;
+  if (!ctx.settings.screenerEnabled && !showHeldOnly) {
     const p = document.createElement("p");
     p.className = "empty-state";
     p.textContent =
@@ -160,7 +165,9 @@ export function renderScreenerTab(senders: SenderSummary[]) {
   } else {
     const known = knownSenderSet(ctx.settings);
     const muted = new Set(ctx.settings.mutedSenders.map((a) => a.toLowerCase()));
-    const queue = pendingScreenerSenders(senders, known, muted, ctx.settings.screenerHoldPeople);
+    const queue = pendingScreenerSenders(senders, known, muted, ctx.settings.screenerHoldPeople).filter(
+      (s) => !showHeldOnly || held.has(s.address.toLowerCase()),
+    );
 
     if (queue.length === 0) {
       const p = document.createElement("p");
@@ -277,8 +284,45 @@ function buildScreenerRow(s: SenderSummary): HTMLDivElement {
       log.error(err);
     }
   };
-  row.append(senderTile(s.address, s.displayName, "sz-30"), text, block, allow);
+  const label = s.provider === "gmail" ? labelPicker(s) : null;
+  row.append(senderTile(s.address, s.displayName, "sz-30"), text, ...(label ? [label] : []), block, allow);
   return row;
+}
+
+/** "Label": file this sender's mail under a label, now and from now on. Their
+ * mail leaves the Screener into that label (not the inbox: it's already been
+ * waiting), and the choice is saved as a correction for the sender. */
+function labelPicker(s: SenderSummary): HTMLSelectElement {
+  const select = document.createElement("select");
+  select.className = "kind-pick";
+  select.setAttribute("aria-label", `Label for ${s.address}`);
+  select.add(new Option("Label", ""));
+  for (const b of ALL_SORT_BUCKETS) select.add(new Option(categoryLabelName(b, ctx.settings.labelChoices), b));
+  select.onchange = async () => {
+    const bucket = select.value as SortBucket;
+    if (!bucket) return;
+    select.disabled = true;
+    try {
+      const provider = providerById.get(s.provider)!;
+      const token = await provider.getAuthToken(false);
+      // Drops the per-sender hold filter if the Screener made one; moves nothing.
+      await provider.allowSenderThrough!(token, s.address, []);
+      const labelId = await getOrCreateLabel(token, categoryLabelName(bucket, ctx.settings.labelChoices));
+      await batchModify(token, s.messageIds, [labelId], await findLabelIds(token, clusterLabelName("screener")));
+      const address = s.address.toLowerCase();
+      ctx.settings = await updateSettings({
+        sortOverrides: { ...ctx.settings.sortOverrides, [address]: bucket },
+        screenedSenders: ctx.settings.screenedSenders.filter((a) => a.toLowerCase() !== address),
+      });
+      await logAction("screener", `Filed ${s.address} under ${categoryLabelName(bucket, ctx.settings.labelChoices)}`);
+      await rescan();
+    } catch (err) {
+      select.disabled = false;
+      select.value = "";
+      log.error("Screener: failed to label", s.address, err);
+    }
+  };
+  return select;
 }
 
 export function wireScreenerTab() {

@@ -3,6 +3,7 @@ import type { MessageKind } from "./messageKind";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import {
   dueForMove,
+  holdUnsortedInbox,
   sweepExpiredInbox,
   TAG_BACK_DONE,
   tagOlderInbox,
@@ -182,5 +183,36 @@ describe("tagOlderInbox", () => {
   it("is done when nothing older is left", async () => {
     const api = fakeApi({}, []);
     expect(await tagOlderInbox(ctx(), api, NOW - 1000)).toEqual({ tagged: 0, nextBefore: TAG_BACK_DONE });
+  });
+});
+
+describe("holdUnsortedInbox", () => {
+  it("holds mail that fits no label in the Screener, and leaves people, invites and sortable mail", async () => {
+    const senders = [
+      sender("hello@unknown-co.example", [msg("u1", "other", { looksAutomated: true })]),
+      sender("deals@amazon.com", [msg("s1", "newsletter", { looksAutomated: true })]),
+      sender("friend@gmail.com", [msg("p1")]),
+      sender("boss@work.example", [msg("k1", "other", { looksAutomated: true })]),
+      sender("cal@corp.example", [msg("c1", "other", { subject: "Invitation: Sync @ Wed", looksAutomated: true })]),
+      sender("star@x.example", [msg("st", "other", { isProtected: true, looksAutomated: true })]),
+      sender("imp@x.example", [msg("im", "other", { providerMarkedPersonal: true })]),
+    ];
+    const all = senders.flatMap((s) => s.messages.map((m) => m.id));
+    const api = fakeApi({}, senders);
+    api.listIds.mockResolvedValue(all);
+    const res = await holdUnsortedInbox(ctx({ known: new Set(["boss@work.example"]) }), api, "✋ Screener");
+    expect(res.heldIds).toEqual(["u1"]);
+    expect(res.senders).toEqual(["hello@unknown-co.example"]);
+    expect(api.batchModify).toHaveBeenCalledWith(["u1"], ["L:✋ Screener"], ["INBOX"]);
+    const query = api.listIds.mock.calls[0][1];
+    expect(query).toContain(`before:${cutoff(3)}`);
+    expect(query).toContain('-label:"✋ Screener"');
+    expect(query).toContain('-label:"🛍 Shopping"');
+  });
+
+  it("does nothing when nothing is unsorted", async () => {
+    const api = fakeApi({});
+    expect((await holdUnsortedInbox(ctx(), api, "✋ Screener")).heldIds).toEqual([]);
+    expect(api.batchModify).not.toHaveBeenCalled();
   });
 });

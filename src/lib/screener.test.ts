@@ -61,6 +61,7 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
       lastSweep: { at: 0, moved: 0 },
       keptInInboxIds: [],
       tagBackBefore: 0,
+      holdUnsorted: false,
     },
     sortOverrides: {},
     seededFromExisting: false,

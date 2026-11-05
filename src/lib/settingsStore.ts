@@ -177,6 +177,9 @@ export interface ClusterSettings {
     /** Catch-up labelling of older inbox mail (inboxTimeLimits.tagOlderInbox):
      * 0 or -1 = not started, -2 = done, else the next page ends at this time (ms). */
     tagBackBefore: number;
+    /** Inbox mail that fits no label goes to the Screener after a few hours
+     * (inboxTimeLimits.holdUnsortedInbox). */
+    holdUnsorted: boolean;
   };
   /** Per-sender "wrong bucket?" corrections from the sort preview, keyed by
    * lowercased from-address → a bucket to force, or "never" to skip. Consulted
@@ -292,6 +295,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
     lastSweep: { at: 0, moved: 0 },
     keptInInboxIds: [],
     tagBackBefore: 0,
+    holdUnsorted: true,
   },
   sortOverrides: {},
   seededFromExisting: false,

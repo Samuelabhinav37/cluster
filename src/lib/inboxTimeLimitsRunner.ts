@@ -6,6 +6,7 @@ import { appendActionLog, makeLogId } from "./actionLog";
 import { categoryLabelName, syncGmailCategoryFilters } from "./categoryFilters";
 import { batchModify, colorClusterLabels, findLabelIds, getOrCreateLabel, listMessageIds } from "./gmailApi";
 import {
+  holdUnsortedInbox,
   pinInInbox,
   sweepExpiredInbox,
   TAG_BACK_DONE,
@@ -21,6 +22,7 @@ import { knownSenderSet } from "./screener";
 import { buildSenderSummariesFromStubs } from "./senderModel";
 import { getSettings, mutateSettings } from "./settingsStore";
 import { ALL_SORT_BUCKETS } from "./sortTaxonomy";
+import { clusterLabelName } from "./clusterLabels";
 
 export interface TimeLimitRun {
   tagged: number;
@@ -109,6 +111,26 @@ export async function runInboxTimeLimits(now = Date.now()): Promise<TimeLimitRun
         undo: { provider: "gmail", ids: sweep.movedIds, via: "unarchive" },
       },
     ]);
+  }
+  if (settings.autoSort.holdUnsorted) {
+    const held = await holdUnsortedInbox(ctx, api, clusterLabelName("screener"));
+    if (held.heldIds.length > 0) {
+      // Listed as screened so the Screener page shows them waiting.
+      await mutateSettings((current) => ({
+        ...current,
+        screenedSenders: [...new Set([...current.screenedSenders, ...held.senders])],
+      }));
+      const n = held.heldIds.length;
+      await appendActionLog([
+        {
+          id: makeLogId("sort"),
+          at: now,
+          kind: "sort",
+          summary: `Held ${n} message${n === 1 ? "" : "s"} with no label in the Screener`,
+          undo: { provider: "gmail", ids: held.heldIds, via: "unarchive" },
+        },
+      ]);
+    }
   }
   return { tagged: tag.tagged + (back?.tagged ?? 0), moved: sweep.movedIds.length, more: sweep.more };
 }
