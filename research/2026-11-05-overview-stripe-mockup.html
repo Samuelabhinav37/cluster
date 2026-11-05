@@ -118,6 +118,55 @@
   .dp-row .o { color:var(--l3); }
   .dp-row input { width:14px; height:14px; accent-color:var(--accent); margin:0; }
   .tools button.on { background:var(--fill); color:var(--l); }
+  /* Charts, from the inspiration set. */
+  .area { display:grid; grid-template-columns:28px 1fr; grid-template-rows:150px auto; column-gap:6px; margin-top:22px; }
+  .yax { display:flex; flex-direction:column; justify-content:space-between; font-size:11px; color:var(--l4); text-align:right; }
+  .plot { position:relative; }
+  .plot svg { width:100%; height:150px; display:block; overflow:visible; }
+  .xax { grid-column:2; display:flex; justify-content:space-between; font-size:11px; color:var(--l4); padding-top:8px; }
+  .guide { position:absolute; top:0; bottom:0; border-left:1.5px dashed var(--accent); opacity:0; }
+  .knob { position:absolute; width:12px; height:12px; margin:-6px 0 0 -6px; border-radius:50%; background:var(--bg); border:3px solid var(--accent); opacity:0; }
+  .tip { position:absolute; transform:translate(-50%, calc(-100% - 14px)); background:var(--accent); color:#fff; font:600 13px var(--font); padding:5px 10px; border-radius:8px; white-space:nowrap; opacity:0; box-shadow:0 6px 16px rgba(53,99,199,.35); pointer-events:none; }
+  .tip small { display:block; font-size:10px; font-weight:500; opacity:.8; }
+  .area.hov .guide, .area.hov .knob, .area.hov .tip { opacity:1; }
+  .donut { position:relative; width:170px; height:170px; margin:12px auto 10px; }
+  .donut svg { width:100%; height:100%; }
+  .donut .mid, .gauge .mid { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .donut .mid b { font-size:26px; }
+  .donut .mid span, .gauge .mid span { font-size:12px; color:var(--l3); }
+  .legend.row { display:flex; flex-wrap:wrap; justify-content:center; gap:6px 16px; font-size:13px; color:var(--l2); }
+  .legend.row span { display:inline-flex; align-items:center; gap:6px; }
+  .legend.row b { font-variant-numeric:tabular-nums; }
+  .legend.row .dot { width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .gauge { position:relative; width:230px; margin:22px auto 0; }
+  .gauge svg { width:100%; display:block; }
+  .gauge .mid { justify-content:flex-end; }
+  .gauge .mid b { font-size:26px; line-height:1.1; }
+  .minis { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:20px; }
+  .minis b { font-size:15px; font-variant-numeric:tabular-nums; }
+  .mb { display:block; height:4px; border-radius:2px; background:var(--fill); margin:6px 0 4px; }
+  .mb i { display:block; height:100%; border-radius:2px; }
+  .minis small { color:var(--l3); font-size:12px; }
+  .bars { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; height:190px; margin-top:18px; align-items:end; }
+  .bars .b { height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:6px; }
+  .bars i { width:100%; border-radius:8px; background:repeating-linear-gradient(135deg, var(--fill) 0 5px, var(--l4) 5px 6px); opacity:.55; }
+  .bars .b.on i { opacity:1; }
+  .bars .b.on i { background:repeating-linear-gradient(135deg, var(--accent) 0 5px, rgba(255,255,255,.18) 5px 6px); }
+  .bars small { font-size:11px; color:var(--l4); }
+  .pillv { font:600 11px var(--font); padding:2px 8px; border-radius:20px; background:var(--accent); color:#fff; visibility:hidden; }
+  .bars .b.on .pillv, .bars .b:hover .pillv { visibility:visible; }
+  .bars .b:hover i { outline:1.5px solid var(--accent); }
+  .tlist { margin-top:10px; }
+  .tr { padding:9px 0; border-bottom:1px solid var(--hair); }
+  .tr:last-child { border-bottom:0; }
+  .th { display:flex; align-items:center; gap:10px; }
+  .th b { flex:1; min-width:0; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .th .v { font-weight:650; font-variant-numeric:tabular-nums; }
+  .th img { width:22px !important; height:22px !important; }
+  .ticks { display:flex; gap:2px; margin:7px 0 0; }
+  .ticks i { flex:1; height:9px; border-radius:2px; background:var(--fill); }
+  .ticks i.on { background:var(--accent); }
+  .th small { color:var(--l3); font-size:12px; }
 </style>
 </head>
 <body>
@@ -153,7 +202,7 @@
 
   <div class="grid" id="grid"></div>
 
-  <p class="note"><b>Round 9.</b> Details is back on the right, as in the app: Emails / Senders, "All mail · 42 senders", filter chips, and the sender table with logo, bar, count and opened. The table icon in the top bar (or ✕) opens and closes it.</p>
+  <p class="note"><b>Round 10, graphs.</b> Mail received is a smooth area with a fade, last week as a pale area behind it, dashed grid, and a tooltip pill on hover. Your inbox is a donut with gaps and the total inside. Moved out is a half gauge by label with small bars under it. Cleared is hatched day bars with today in solid blue. Top senders get tick bars. One blue throughout, red only for scams.</p>
 </main>
 <aside class="details-pane" id="details">
   <div class="dp-head">
@@ -170,36 +219,82 @@ const fav = (d) => `<img src="https://www.google.com/s2/favicons?domain=${d}&sz=
 const TODAY = [["Mom", null, "Dinner on Sunday?", "7:45 PM"], ["Amazon.com", "amazon.com", "Out for delivery today", "9:53 AM"], ["Chase", "chase.com", "Your statement is ready", "8:10 AM"]];
 document.getElementById("today").innerHTML = TODAY.map(([n, d, s, t]) => `<div class="row">${d ? fav(d) : `<span class="mono">${n.slice(0, 2).toUpperCase()}</span>`}<div><b>${n}</b><span class="s">${s}</span></div><span class="t">${t}</span></div>`).join("");
 
-const days = ["Oct 30", "", "", "", "", "", "Today"];
-function line(pts, prev) {
-  const max = Math.max(...pts, ...prev, 1), W = 300, H = 128;
-  const path = (a) => a.map((v, i) => `${i ? "L" : "M"}${(i * W / (a.length - 1)).toFixed(1)},${(H - v / max * (H - 8)).toFixed(1)}`).join("");
-  return `<div class="chart"><span class="ymax">${max}</span><span class="ymin">0</span>
-    <svg viewBox="0 0 ${W} ${H + 2}" preserveAspectRatio="none"><line x1="0" x2="${W}" y1="${H}" y2="${H}" stroke="var(--hair)" stroke-width="1.5"/>
-    <path d="${path(prev)}" fill="none" stroke="var(--l4)" stroke-width="1.2" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>
-    <path d="${path(pts)}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
-    <div class="ax"><span>${days[0]}</span><span>${days[6]}</span></div></div>`;
+const DAYS = ["Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"];
+// Smooth curve through points (Catmull-Rom to cubic Bezier).
+function smooth(pts) {
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    d += `C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)},${(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)},${(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0]},${p2[1]}`;
+  }
+  return d;
+}
+let gid = 0;
+// Area: this week as a blue curve over a soft fade, last week as a pale area behind,
+// dashed grid, and a tooltip pill with a dashed guide on hover (inspiration 1 + 2).
+function area(pts, prev, unit) {
+  const id = ++gid, W = 300, H = 150, max = Math.ceil(Math.max(...pts, ...prev) / 20) * 20;
+  const xy = (a) => a.map((v, i) => [+(i * W / (a.length - 1)).toFixed(1), +(H - v / max * (H - 10)).toFixed(1)]);
+  const cur = xy(pts), old = xy(prev);
+  const fill = (c) => `${smooth(c)}L${W},${H}L0,${H}Z`;
+  const grid = [0, .5, 1].map((f) => `<line x1="0" x2="${W}" y1="${H - f * (H - 10)}" y2="${H - f * (H - 10)}" stroke="var(--hair)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/>`).join("");
+  return `<div class="area" data-pts="${pts}" data-max="${max}" data-unit="${unit}">
+    <div class="yax"><span>${max}</span><span>${max / 2}</span><span>0</span></div>
+    <div class="plot"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <defs><linearGradient id="g${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".28"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+      ${grid}
+      <path d="${fill(old)}" fill="var(--accent)" fill-opacity=".08"/>
+      <path d="${fill(cur)}" fill="url(#g${id})"/>
+      <path d="${smooth(cur)}" fill="none" stroke="var(--accent)" stroke-width="2.2" vector-effect="non-scaling-stroke"/>
+    </svg><span class="guide"></span><span class="knob"></span><span class="tip"></span></div>
+    <div class="xax">${DAYS.map((d, i) => `<span>${i === 6 ? "Today" : d}</span>`).join("")}</div></div>`;
+}
+// Donut with gaps, total in the middle, legend below (inspiration 3).
+function donut(parts) {
+  const total = parts.reduce((a, [, n]) => a + n, 0), R = 52, C = 2 * Math.PI * R, gap = 4;
+  let off = 0;
+  const arcs = parts.map(([, n, c]) => { const len = n / total * C; const a = `<circle r="${R}" cx="70" cy="70" fill="none" stroke="${c}" stroke-width="20" stroke-dasharray="${Math.max(len - gap, 1)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"/>`; off += len; return a; }).join("");
+  return `<div class="donut"><svg viewBox="0 0 140 140">${arcs}</svg><div class="mid"><b>${total}</b><span>in your inbox</span></div></div>
+    <div class="legend row">${parts.map(([k, n, c]) => `<span><i class="dot" style="background:${c}"></i>${k} <b>${n}</b></span>`).join("")}</div>`;
+}
+// Half-ring gauge in segments with mini bars below (inspiration 8).
+function gauge(parts) {
+  const total = parts.reduce((a, [, n]) => a + n, 0), R = 70, L = Math.PI * R, gap = 3;
+  let off = 0;
+  const arcs = parts.map(([, n, c]) => { const len = n / total * L; const a = `<path d="M10,80 A${R},${R} 0 0 1 150,80" fill="none" stroke="${c}" stroke-width="22" stroke-dasharray="0 ${off} ${Math.max(len - gap, 1)} ${L}"/>`; off += len; return a; }).join("");
+  const top = Math.max(...parts.map((p) => p[1]));
+  return `<div class="gauge"><svg viewBox="0 0 160 86">${arcs}</svg><div class="mid"><span>Moved this week</span><b>${total}</b></div></div>
+    <div class="minis">${parts.map(([k, n, c]) => `<div><b>${n}</b><span class="mb"><i style="width:${n / top * 100}%;background:${c}"></i></span><small>${k}</small></div>`).join("")}</div>`;
+}
+// Rounded hatched bars, today solid blue with a value pill (inspiration 5).
+function bars(vals) {
+  const max = Math.max(...vals, 1), hi = vals.length - 1;
+  return `<div class="bars">${vals.map((v, i) => `<div class="b ${i === hi ? "on" : ""}"><span class="pillv">${v}</span><i style="height:${Math.max(v / max * 100, 4)}%"></i><small>${i === 6 ? "Today" : DAYS[i]}</small></div>`).join("")}</div>`;
+}
+// Tick-segment bars per sender (inspiration 6).
+function ticks(n, max) {
+  const N = 28, on = Math.round(n / max * N);
+  return `<span class="ticks">${Array.from({ length: N }, (_, i) => `<i class="${i < on ? "on" : ""}"></i>`).join("")}</span>`;
 }
 const W = (title, badge, num, prev, body, more, upd = "Updated 06:23") => `<section class="w"><h2 class="w-title">${title} <span class="info">i</span>${badge}</h2>${body}<div class="foot"><a href="#">${more}</a></div></section>`;
 const badge = (t, good) => `<span class="badge ${good ? "good" : ""}">${t}</span>`;
 
 const inbox = [["People", 24, "var(--s1)"], ["Receipts", 39, "var(--s2)"], ["Updates", 202, "var(--s3)"], ["Promotions", 91, "var(--s4)"]];
 const total = inbox.reduce((a, [, n]) => a + n, 0);
-const stack = `<div class="stack">${inbox.map(([, n, c]) => `<span style="flex:${n};background:${c}"></span>`).join("")}</div>
-  <div class="legend">${inbox.map(([k, n, c]) => `<div class="li"><span class="dot" style="background:${c}"></span>${k}<span class="v">${n}</span></div>`).join("")}</div>`;
+const stack = donut(inbox);
 
 const scams = [["netflix.com", "Payment declined - update your billing details", "Pretends to be Netflix"], ["paypal.com", "Action required: verify your identity", "Pretends to be PayPal"], ["apple.com", "Your Apple ID was used to sign in on a new device", "Pretends to be Apple"]];
 const scamList = `<div class="list" style="margin-top:8px">${scams.map(([d, s, w]) => `<div class="li">${fav(d)}<div class="who"><b>${s}</b><span>${w}</span></div><span class="pill">High risk</span></div>`).join("")}</div>`;
 
 const topSenders = [["linkedin.com", "LinkedIn", "22% opened", 59], ["amazon.com", "Amazon.com", "36% opened", 25], ["medium.com", "Medium Daily Digest", "Never opened", 20], ["morningbrew.com", "Morning Brew", "17% opened", 18]];
-const topList = `<div class="list" style="margin-top:8px">${topSenders.map(([d, n, s, v]) => `<div class="li">${fav(d)}<div class="who"><b>${n}</b><span>${s}</span></div><span class="v">${v}</span></div>`).join("")}</div>`;
+const topList = `<div class="tlist">${topSenders.map(([d, n, s, v]) => `<div class="tr"><div class="th">${fav(d)}<b>${n}</b><small>${s}</small><span class="v">${v}</span></div>${ticks(v, 59)}</div>`).join("")}</div>`;
 
 document.getElementById("grid").innerHTML = [
   W("Your inbox", "", `${total}`, "emails waiting", stack, "Organize"),
-  W("Mail received", badge("−8%"), "412", "448 last week", line([52, 61, 70, 58, 66, 49, 56], [60, 66, 72, 61, 70, 58, 61]), "View more"),
-  W("Moved out by Cluster", badge("+31%", true), "296", "226 last week", line([30, 42, 48, 39, 51, 40, 46], [28, 30, 36, 33, 35, 31, 33]), "Activity"),
+  W("Mail received", badge("−8%"), "412", "448 last week", area([52, 61, 70, 58, 66, 49, 56], [60, 66, 72, 61, 70, 58, 61], "emails"), "View more"),
+  W("Moved out by Cluster", badge("+31%", true), "296", "226 last week", gauge([["Promotions", 132, "var(--s1)"], ["Newsletters", 104, "var(--s2)"], ["Updates", 60, "var(--s3)"]]), "Activity"),
   W("Look at these", "", "", "", scamList + `<div style="font-size:13px;color:var(--l3);margin-top:10px">3 of <a href="#" style="color:var(--accent-t);font-weight:600;text-decoration:none">3 results</a></div>`, "Protect"),
-  W("Cleared", badge("+∞", true), "191", "0 last week", line([0, 0, 0, 120, 30, 25, 16], [0, 0, 0, 0, 0, 0, 0]), "Clean up"),
+  W("Cleared", badge("+∞", true), "191", "0 last week", bars([0, 0, 0, 120, 30, 25, 16]), "Clean up"),
   W("Top senders this week", "", "", "", topList, "Stop mail"),
 ].join("");
 
@@ -207,6 +302,19 @@ const DP = [["linkedin.com","LinkedIn",59,"22%"],["amazon.com","Amazon.com",25,"
 document.getElementById("dp-rows").innerHTML = `<div class="dp-row h"><input type="checkbox" aria-label="Select all"><span></span><span>Sender</span><span></span><span class="n">Emails</span><span class="o">Opened</span></div>` +
   DP.map(([d, n, c, o]) => `<div class="dp-row"><input type="checkbox">${d ? fav(d) : `<span class="m">${n.slice(0, 2).toUpperCase()}</span>`}<b>${n}</b><span class="bar" style="width:${Math.round(c / 59 * 48)}px"></span><span class="n">${c}</span><span class="o">${o}</span></div>`).join("");
 function toggleDetails() { const d = document.getElementById("details"); d.hidden = !d.hidden; document.getElementById("details-btn").classList.toggle("on", !d.hidden); }
+
+// Hover: dashed guide, knob and a tooltip pill at the nearest day.
+for (const a of document.querySelectorAll(".area")) {
+  const pts = a.dataset.pts.split(",").map(Number), max = +a.dataset.max, plot = a.querySelector(".plot");
+  const show = (i) => { const x = i / (pts.length - 1) * 100, y = (1 - pts[i] / max * (140 / 150)) * 100;
+    a.classList.add("hov");
+    for (const sel of [".guide", ".knob", ".tip"]) a.querySelector(sel).style.left = x + "%";
+    a.querySelector(".knob").style.top = y + "%"; a.querySelector(".tip").style.top = y + "%";
+    a.querySelector(".tip").innerHTML = `<small>${i === 6 ? "Today" : DAYS[i]}</small>${pts[i]} ${a.dataset.unit}`; };
+  plot.onmousemove = (e) => { const r = plot.getBoundingClientRect(); show(Math.round((e.clientX - r.left) / r.width * (pts.length - 1))); };
+  plot.onmouseleave = () => a.classList.remove("hov");
+  show(2); // shown once so a still screenshot carries the tooltip
+}
 </script>
 </body>
 </html>
