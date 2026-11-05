@@ -7,6 +7,7 @@ import {
   TAG_BACK_DONE,
   tagOlderInbox,
   tagUntaggedInbox,
+  withoutClusterLabels,
   type CategoryLimit,
   type InboxLimitsApi,
   type LimitContext,
@@ -141,7 +142,7 @@ describe("sweepExpiredInbox", () => {
 describe("tagUntaggedInbox", () => {
   it("labels recent unlabelled inbox mail by category, leaving it in the inbox", async () => {
     const api = fakeApi(
-      { "INBOX|newer_than:2d has:nouserlabels": ["n1", "s1", "p1", "x1"] },
+      { [`INBOX|newer_than:2d ${withoutClusterLabels(ctx().limits)}`]: ["n1", "s1", "p1", "x1"] },
       [
         sender("code@auth.example", [msg("n1", "otp")]),
         sender("deals@amazon.com", [msg("s1")]),
@@ -157,7 +158,7 @@ describe("tagUntaggedInbox", () => {
 
   it("tags Gmail Promotions-tab mail with no other category as 🏷 Promotions", async () => {
     const api = fakeApi(
-      { "INBOX|newer_than:2d has:nouserlabels": ["a1"] },
+      { [`INBOX|newer_than:2d ${withoutClusterLabels(ctx().limits)}`]: ["a1"] },
       [sender("ads@brand.example", [msg("a1", "other", { promotion: true })])],
     );
     await tagUntaggedInbox(ctx(), api);
@@ -170,7 +171,7 @@ describe("tagOlderInbox", () => {
   it("starts two days back and walks back to the oldest mail it read", async () => {
     const old = NOW - 10 * 24 * 3600_000;
     const api = fakeApi(
-      { [`INBOX|before:${twoDaysAgo} has:nouserlabels`]: ["o1", "o2"] },
+      { [`INBOX|before:${twoDaysAgo} ${withoutClusterLabels(ctx().limits)}`]: ["o1", "o2"] },
       [sender("code@auth.example", [msg("o1", "otp", { receivedAt: old }), msg("o2", "otp", { receivedAt: old + 5000 })])],
     );
     const res = await tagOlderInbox(ctx(), api, 0);

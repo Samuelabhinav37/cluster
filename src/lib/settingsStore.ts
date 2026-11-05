@@ -175,7 +175,7 @@ export interface ClusterSettings {
      * known person, or risky), so later sweeps don't re-read them. Capped. */
     keptInInboxIds: string[];
     /** Catch-up labelling of older inbox mail (inboxTimeLimits.tagOlderInbox):
-     * 0 = not started, -1 = done, else the next page ends at this time (ms). */
+     * 0 or -1 = not started, -2 = done, else the next page ends at this time (ms). */
     tagBackBefore: number;
   };
   /** Per-sender "wrong bucket?" corrections from the sort preview, keyed by

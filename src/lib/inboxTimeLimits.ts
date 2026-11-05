@@ -21,6 +21,12 @@ const HOUR_MS = 60 * 60 * 1000;
 /** How far back the tagger looks for unlabelled inbox mail. */
 const TAG_WINDOW = "newer_than:2d";
 const TAG_MAX = 100;
+
+/** Mail carrying none of Cluster's labels. Gmail's has:nouserlabels matched
+ * nothing on a real account (Nov 2026), so the tagger silently stopped. */
+export function withoutClusterLabels(limits: CategoryLimit[]): string {
+  return limits.map((l) => `-label:"${l.labelName.replace(/"/g, "")}"`).join(" ");
+}
 /** Messages moved per sweep; the rest wait for the next run (each needs a
  * metadata read, 20 quota units). */
 export const SWEEP_MAX = 300;
@@ -82,7 +88,7 @@ export interface TagResult {
 export async function tagUntaggedInbox(
   ctx: LimitContext,
   api: InboxLimitsApi,
-  query = `${TAG_WINDOW} has:nouserlabels`,
+  query = `${TAG_WINDOW} ${withoutClusterLabels(ctx.limits)}`,
 ): Promise<TagResult> {
   const ids = await api.listIds(["INBOX"], query, TAG_MAX);
   if (ids.length === 0) return { tagged: 0, byBucket: {}, oldestAt: null };
@@ -113,9 +119,10 @@ export async function tagUntaggedInbox(
   return { tagged, byBucket, oldestAt };
 }
 
-/** Where the catch-up pass stands: 0 = not started, -1 = done, else it
- * reads inbox mail received before this time (ms) next. */
-export const TAG_BACK_DONE = -1;
+/** Where the catch-up pass stands: 0 or -1 = not started, -2 = done, else it
+ * reads inbox mail received before this time (ms) next. -1 was the old "done",
+ * written while has:nouserlabels found nothing, so those accounts start over. */
+export const TAG_BACK_DONE = -2;
 
 /**
  * Labels older inbox mail no filter or tagger saw, one page per run, newest
@@ -129,7 +136,7 @@ export async function tagOlderInbox(
   before: number,
 ): Promise<{ tagged: number; nextBefore: number }> {
   const from = before > 0 ? before : ctx.now - 2 * 24 * HOUR_MS;
-  const res = await tagUntaggedInbox(ctx, api, `before:${epochSeconds(from)} has:nouserlabels`);
+  const res = await tagUntaggedInbox(ctx, api, `before:${epochSeconds(from)} ${withoutClusterLabels(ctx.limits)}`);
   const done = res.oldestAt === null || res.oldestAt >= from;
   return { tagged: res.tagged, nextBefore: done ? TAG_BACK_DONE : res.oldestAt! };
 }
