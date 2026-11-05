@@ -2,6 +2,7 @@ import type { MessageRecord, SenderSummary } from "./senderModel";
 import { looksLikeDisposableCode } from "./messageKind";
 import { isFreeMailDomain } from "./freeMail";
 import { cleanText } from "./normalize";
+import { categorizeDomain } from "./domainCategories";
 import { knownSenderSet } from "./screener";
 import type { ClusterSettings } from "./settingsStore";
 
@@ -50,7 +51,7 @@ export interface ProtectionOptions {
 }
 
 const SENSITIVE_SUBJECT =
-  /\b(tax|w-?2|1099|(e-?)?tickets?|boarding pass(es)?|reservations?|bookings?|appointments?|itinerar(y|ies)|rental agreement|password reset|reset your password|password (was )?changed|security alert|new sign[- ]?in|account recovery|legal notice)\b/i;
+  /\b(tax|w-?2|1099|(e-?)?tickets?|boarding pass(es)?|reservations?|bookings?|appointments?|itinerar(y|ies)|rental agreement|password reset|reset your password|password (was )?changed|security alert|new sign[- ]?in|account recovery|legal notice|(upcoming|missed|overdue) payment|payment (is )?(due|overdue)|grace period|interview)\b/i;
 
 // Windows the user may still need. Sale deadlines ("ends tonight") aren't
 // one: they would make any promotion undeletable.
@@ -63,6 +64,22 @@ const ACTIVE_OFFER_OR_WINDOW_RE =
 export function neverMove(message: MessageRecord, senderAddress: string): boolean {
   const domain = senderAddress.split("@")[1] ?? "";
   return message.kind === "other" && !message.looksAutomated && !message.promotion && isFreeMailDomain(domain);
+}
+
+// Job alerts are list mail anyone can drop; an application update is not.
+const JOB_ALERT_RE = /\b(job alerts?|jobs for you|new jobs?)\b/i;
+
+/** Mail about a job application or money, which people read from the
+ * notification without opening: unread here doesn't mean unwanted. Bank and
+ * card mail is kept unless Gmail filed it as an ad; job mail unless it's an
+ * alert list. */
+function isLifeAdmin(message: MessageRecord, subject: string, senderAddress: string): boolean {
+  // A stale sign-in code is still disposable, whoever sent it.
+  if (message.promotion || message.kind === "otp") return false;
+  const category = categorizeDomain(senderAddress.split("@")[1] ?? "");
+  if (category === "finance") return true;
+  const jobs = message.kind === "jobs" || category === "jobs";
+  return jobs && message.kind !== "newsletter" && !JOB_ALERT_RE.test(subject);
 }
 
 /** Central guard used by every bulk-delete-adjacent surface. */
@@ -90,6 +107,7 @@ export function protectionDecision(
   if (["receipt", "shipping", "accounts"].includes(message.kind)) {
     return { protected: true, reason: "transactional" };
   }
+  if (senderAddress && isLifeAdmin(message, subject, senderAddress)) return { protected: true, reason: "transactional" };
   if (message.learnedTransactional === "model") return { protected: true, reason: "learned-transactional" };
   if (SENSITIVE_SUBJECT.test(subject)) {
     return { protected: true, reason: "sensitive-subject" };

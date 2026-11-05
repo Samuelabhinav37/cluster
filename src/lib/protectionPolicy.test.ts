@@ -168,3 +168,24 @@ describe("neverMove", () => {
     expect(neverMove(message({ ...personal, looksAutomated: true }), "pat@gmail.com")).toBe(false);
   });
 });
+
+describe("job and money mail read from the notification (real inbox, 2026-11-05)", () => {
+  const automated = { looksAutomated: true, providerMarkedPersonal: false };
+  it("keeps application updates and bank or card mail, opened or not", () => {
+    for (const [from, subject, kind] of [
+      ["crowdstrike@myworkday.com", "Update on Your Recent CrowdStrike Job Application", "jobs"],
+      ["walmart@myworkday.com", "Thank you for your interest", "other"],
+      ["noreply-us@klarna.com", "Upcoming payment", "newsletter"],
+      ["info@licindia.in", "Reminder: Premium payment within Grace Period", "newsletter"],
+      ["capitalone@notification.capitalone.com", "We've received your payment", "other"],
+    ] as const) {
+      const d = protectionDecision(message({ id: "m", subject, kind, ...automated }), from);
+      expect(d.protected, `${from}: ${subject}`).toBe(true);
+    }
+  });
+
+  it("still lets job alerts, bank ads and stale codes go", () => {
+    expect(protectionDecision(message({ id: "a", subject: "Your job alert for: Cybersecurity", kind: "jobs", ...automated }), "news@mg.monster.com").protected).toBe(false);
+    expect(protectionDecision(message({ id: "b", subject: "Earn 5% back this month", kind: "newsletter", promotion: true, ...automated }), "offers@chase.com").protected).toBe(false);
+  });
+});
