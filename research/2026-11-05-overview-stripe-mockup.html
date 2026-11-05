@@ -167,6 +167,12 @@
   .ticks i { flex:1; height:9px; border-radius:2px; background:var(--fill); }
   .ticks i.on { background:var(--accent); }
   .th small { color:var(--l3); font-size:12px; }
+  /* The whole widget opens its page. */
+  a.w { color:inherit; text-decoration:none; border-radius:0; transition:background .15s; }
+  a.w:hover { background:linear-gradient(var(--fill), var(--fill)) padding-box; box-shadow:0 0 0 12px var(--fill); }
+  a.w:focus-visible { outline:2px solid var(--accent); outline-offset:8px; }
+  .w-title .go { margin-left:auto; color:var(--l4); font-size:18px; opacity:0; transition:opacity .15s; }
+  a.w:hover .go { opacity:1; }
 </style>
 </head>
 <body>
@@ -202,7 +208,7 @@
 
   <div class="grid" id="grid"></div>
 
-  <p class="note"><b>Round 10, graphs.</b> Mail received is a smooth area with a fade, last week as a pale area behind it, dashed grid, and a tooltip pill on hover. Your inbox is a donut with gaps and the total inside. Moved out is a half gauge by label with small bars under it. Cleared is hatched day bars with today in solid blue. Top senders get tick bars. One blue throughout, red only for scams.</p>
+  <p class="note"><b>Round 11.</b> Automatically filed is back to the thin line chart. Names follow how Stripe, Microsoft 365 and Google Workspace name reports: plain noun phrases (Inbox by category, Emails received, Automatically filed, Suspicious emails, Emails cleared, Top senders). The footer links are gone: each widget is one link to its page, with a › on hover. "22% opened" and "3 of 3 results" are gone.</p>
 </main>
 <aside class="details-pane" id="details">
   <div class="dp-head">
@@ -266,6 +272,16 @@ function gauge(parts) {
   return `<div class="gauge"><svg viewBox="0 0 160 86">${arcs}</svg><div class="mid"><span>Moved this week</span><b>${total}</b></div></div>
     <div class="minis">${parts.map(([k, n, c]) => `<div><b>${n}</b><span class="mb"><i style="width:${n / top * 100}%;background:${c}"></i></span><small>${k}</small></div>`).join("")}</div>`;
 }
+// Thin line, last week dashed behind it (the earlier style, kept for Automatically filed).
+function line(pts, prev) {
+  const max = Math.max(...pts, ...prev, 1), W = 300, H = 128;
+  const path = (a) => a.map((v, i) => `${i ? "L" : "M"}${(i * W / (a.length - 1)).toFixed(1)},${(H - v / max * (H - 8)).toFixed(1)}`).join("");
+  return `<div class="chart"><span class="ymax">${max}</span><span class="ymin">0</span>
+    <svg viewBox="0 0 ${W} ${H + 2}" preserveAspectRatio="none"><line x1="0" x2="${W}" y1="${H}" y2="${H}" stroke="var(--hair)" stroke-width="1.5"/>
+    <path d="${path(prev)}" fill="none" stroke="var(--l4)" stroke-width="1.2" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>
+    <path d="${path(pts)}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
+    <div class="ax"><span>Thu</span><span>Today</span></div></div>`;
+}
 // Rounded hatched bars, today solid blue with a value pill (inspiration 5).
 function bars(vals) {
   const max = Math.max(...vals, 1), hi = vals.length - 1;
@@ -276,7 +292,7 @@ function ticks(n, max) {
   const N = 28, on = Math.round(n / max * N);
   return `<span class="ticks">${Array.from({ length: N }, (_, i) => `<i class="${i < on ? "on" : ""}"></i>`).join("")}</span>`;
 }
-const W = (title, badge, num, prev, body, more, upd = "Updated 06:23") => `<section class="w"><h2 class="w-title">${title} <span class="info">i</span>${badge}</h2>${body}<div class="foot"><a href="#">${more}</a></div></section>`;
+const W = (title, badge, num, prev, body, more) => `<a class="w" href="#${more.toLowerCase().replace(/ /g, "-")}" title="Open ${more}"><h2 class="w-title">${title} <span class="info">i</span>${badge}<span class="go">›</span></h2>${body}</a>`;
 const badge = (t, good) => `<span class="badge ${good ? "good" : ""}">${t}</span>`;
 
 const inbox = [["People", 24, "var(--s1)"], ["Receipts", 39, "var(--s2)"], ["Updates", 202, "var(--s3)"], ["Promotions", 91, "var(--s4)"]];
@@ -287,15 +303,15 @@ const scams = [["netflix.com", "Payment declined - update your billing details",
 const scamList = `<div class="list" style="margin-top:8px">${scams.map(([d, s, w]) => `<div class="li">${fav(d)}<div class="who"><b>${s}</b><span>${w}</span></div><span class="pill">High risk</span></div>`).join("")}</div>`;
 
 const topSenders = [["linkedin.com", "LinkedIn", "22% opened", 59], ["amazon.com", "Amazon.com", "36% opened", 25], ["medium.com", "Medium Daily Digest", "Never opened", 20], ["morningbrew.com", "Morning Brew", "17% opened", 18]];
-const topList = `<div class="tlist">${topSenders.map(([d, n, s, v]) => `<div class="tr"><div class="th">${fav(d)}<b>${n}</b><small>${s}</small><span class="v">${v}</span></div>${ticks(v, 59)}</div>`).join("")}</div>`;
+const topList = `<div class="tlist">${topSenders.map(([d, n, s, v]) => `<div class="tr"><div class="th">${fav(d)}<b>${n}</b><span class="v">${v}</span></div>${ticks(v, 59)}</div>`).join("")}</div>`;
 
 document.getElementById("grid").innerHTML = [
-  W("Your inbox", "", `${total}`, "emails waiting", stack, "Organize"),
-  W("Mail received", badge("−8%"), "412", "448 last week", area([52, 61, 70, 58, 66, 49, 56], [60, 66, 72, 61, 70, 58, 61], "emails"), "View more"),
-  W("Moved out by Cluster", badge("+31%", true), "296", "226 last week", gauge([["Promotions", 132, "var(--s1)"], ["Newsletters", 104, "var(--s2)"], ["Updates", 60, "var(--s3)"]]), "Activity"),
-  W("Look at these", "", "", "", scamList + `<div style="font-size:13px;color:var(--l3);margin-top:10px">3 of <a href="#" style="color:var(--accent-t);font-weight:600;text-decoration:none">3 results</a></div>`, "Protect"),
-  W("Cleared", badge("+∞", true), "191", "0 last week", bars([0, 0, 0, 120, 30, 25, 16]), "Clean up"),
-  W("Top senders this week", "", "", "", topList, "Stop mail"),
+  W("Inbox by category", "", `${total}`, "emails waiting", stack, "Organize"),
+  W("Emails received", badge("−8%"), "412", "448 last week", area([52, 61, 70, 58, 66, 49, 56], [60, 66, 72, 61, 70, 58, 61], "emails"), "Details"),
+  W("Automatically filed", badge("+31%", true), "296", "226 last week", line([30, 42, 48, 39, 51, 40, 46], [28, 30, 36, 33, 35, 31, 33]), "Activity"),
+  W("Suspicious emails", "", "", "", scamList, "Protect"),
+  W("Emails cleared", badge("+∞", true), "191", "0 last week", bars([0, 0, 0, 120, 30, 25, 16]), "Clean up"),
+  W("Top senders", "", "", "", topList, "Stop mail"),
 ].join("");
 
 const DP = [["linkedin.com","LinkedIn",59,"22%"],["amazon.com","Amazon.com",25,"36%"],["medium.com","Medium Daily D…",20,"None"],["morningbrew.com","Morning Brew",18,"17%"],["quora.com","Quora Digest",15,"None"],["groupon.com","Groupon",14,"None"],["oldnavy.com","Old Navy",12,"None"],["nike.com","Nike",11,"None"],["facebook.com","Facebook",10,"None"],["theverge.com","The Verge",9,"22%"],["target.com","Target",9,"22%"],["wayfair.com","Wayfair",9,"None"],["reddit.com","Reddit",9,"33%"],["uber.com","Uber Receipts",8,"25%"],["uniqlo.com","UNIQLO",8,"None"],["doordash.com","DoorDash",7,"29%"],["github.com","GitHub",7,"100%"],[null,"Mom",6,"100%"]];
