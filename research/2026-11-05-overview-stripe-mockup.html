@@ -29,7 +29,7 @@
   nav a.on, nav a.on svg.ic { color:var(--accent-t); font-weight:600; }
   nav a.sub { padding-left:42px; font-size:13px; }
   nav a.sub svg.ic { display:none; }
-  .topbar { display:grid; grid-template-columns:1fr minmax(0,560px) 1fr; align-items:center; gap:16px; }
+  .topbar { display:grid; grid-template-columns:minmax(200px,1fr) minmax(0,560px) minmax(200px,1fr); align-items:center; gap:16px; }
   .search { gap:8px; }
   .tools { display:flex; justify-content:flex-end; gap:6px; }
   .tools button { width:34px; height:34px; border:0; border-radius:8px; background:none; color:var(--l3); display:grid; place-items:center; cursor:pointer; position:relative; }
@@ -95,6 +95,29 @@
   .list .v { font-weight:600; font-variant-numeric:tabular-nums; }
   .note { margin:40px 0 0; padding:14px 16px; border:1px dashed var(--hair); border-radius:12px; color:var(--l3); font-size:13px; max-width:900px; }
   .note b { color:var(--l2); }
+  /* Details: the sheet beside the page, as in the app (Emails / Senders, chips, sender table). */
+  .details-pane { width:360px; flex:none; border-left:1px solid var(--hair); background:var(--side); position:sticky; top:0; height:100vh; display:flex; flex-direction:column; }
+  .details-pane[hidden] { display:none; }
+  .dp-head { display:flex; align-items:center; gap:6px; padding:14px 12px 8px 14px; }
+  .seg { display:inline-flex; padding:3px; border-radius:9px; background:var(--fill); }
+  .seg button { padding:4px 12px; border:0; border-radius:7px; background:none; color:var(--l3); font:600 13px var(--font); }
+  .seg button.on { background:var(--bg); color:var(--l); box-shadow:0 1px 2px rgba(0,0,0,.15); }
+  .dp-head .x { margin-left:auto; width:30px; height:30px; border:0; border-radius:8px; background:none; color:var(--l4); display:grid; place-items:center; cursor:pointer; }
+  .dp-head .x:hover { background:var(--fill); color:var(--l); }
+  .dp-title { padding:4px 14px 8px; font-weight:650; font-size:14px; }
+  .dp-chips { display:flex; flex-wrap:wrap; gap:6px; padding:0 14px 12px; border-bottom:1px solid var(--hair); }
+  .dp-chips span { padding:4px 9px; border-radius:7px; background:var(--fill); color:var(--l2); font-size:12px; font-weight:600; }
+  .dp-table { overflow:auto; flex:1; }
+  .dp-row { display:grid; grid-template-columns:18px 22px minmax(0,1fr) 44px 44px 46px; gap:8px; align-items:center; padding:0 14px; height:38px; border-bottom:1px solid var(--hair); font-size:13px; }
+  .dp-row.h { height:32px; color:var(--l4); font-size:12px; font-weight:600; }
+  .dp-row img, .dp-row .m { width:22px; height:22px; border-radius:5px; background:#fff; padding:2px; }
+  .dp-row .m { display:grid; place-items:center; background:var(--accent); color:#fff; font:700 9px var(--font); padding:0; }
+  .dp-row b { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .dp-row .bar { height:3px; border-radius:2px; background:var(--accent); justify-self:end; }
+  .dp-row .n, .dp-row .o { text-align:right; font-variant-numeric:tabular-nums; }
+  .dp-row .o { color:var(--l3); }
+  .dp-row input { width:14px; height:14px; accent-color:var(--accent); margin:0; }
+  .tools button.on { background:var(--fill); color:var(--l); }
 </style>
 </head>
 <body>
@@ -115,7 +138,7 @@
     <span></span>
     <div class="search"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Search</div>
     <div class="tools">
-      <button title="Details"><svg class="ic" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 9v12M15 9v12"/></svg></button>
+      <button title="Details" id="details-btn" class="on" onclick="toggleDetails()"><svg class="ic" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 9v12M15 9v12"/></svg></button>
       <button title="Ask Kai"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg></button>
       <button title="Activity" class="dot"><svg class="ic" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button>
       <button title="Settings"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 5.2l2.1 2.1M17.7 16.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 18.8l2.1-2.1M17.7 7.3l2.1-2.1"/></svg></button>
@@ -130,8 +153,18 @@
 
   <div class="grid" id="grid"></div>
 
-  <p class="note"><b>Round 7.</b> The sidebar list starts level with the greeting. Before that: the line under the greeting is gone. Cluster's logo and name are back top left, and the Gmail account (logo, name) sits at the bottom left. The top bar spans the whole window, so the icons sit at its right edge.</p>
+  <p class="note"><b>Round 9.</b> Details is back on the right, as in the app: Emails / Senders, "All mail · 42 senders", filter chips, and the sender table with logo, bar, count and opened. The table icon in the top bar (or ✕) opens and closes it.</p>
 </main>
+<aside class="details-pane" id="details">
+  <div class="dp-head">
+    <div class="seg"><button>Emails</button><button class="on">Senders</button></div>
+    <button class="x" title="Close Details" onclick="toggleDetails()"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <div class="dp-title">All mail · 42 senders</div>
+  <div class="dp-chips"><span>+ Never opened</span><span>+ Promotions</span><span>+ This week</span><span>+ Older than 1 year</span><span>+ Large: over 2 MB</span></div>
+  <div class="dp-table" id="dp-rows"></div>
+</aside>
+
 <script>
 const fav = (d) => `<img src="https://www.google.com/s2/favicons?domain=${d}&sz=64" alt="">`;
 const TODAY = [["Mom", null, "Dinner on Sunday?", "7:45 PM"], ["Amazon.com", "amazon.com", "Out for delivery today", "9:53 AM"], ["Chase", "chase.com", "Your statement is ready", "8:10 AM"]];
@@ -169,6 +202,11 @@ document.getElementById("grid").innerHTML = [
   W("Cleared", badge("+∞", true), "191", "0 last week", line([0, 0, 0, 120, 30, 25, 16], [0, 0, 0, 0, 0, 0, 0]), "Clean up"),
   W("Top senders this week", "", "", "", topList, "Stop mail"),
 ].join("");
+
+const DP = [["linkedin.com","LinkedIn",59,"22%"],["amazon.com","Amazon.com",25,"36%"],["medium.com","Medium Daily D…",20,"None"],["morningbrew.com","Morning Brew",18,"17%"],["quora.com","Quora Digest",15,"None"],["groupon.com","Groupon",14,"None"],["oldnavy.com","Old Navy",12,"None"],["nike.com","Nike",11,"None"],["facebook.com","Facebook",10,"None"],["theverge.com","The Verge",9,"22%"],["target.com","Target",9,"22%"],["wayfair.com","Wayfair",9,"None"],["reddit.com","Reddit",9,"33%"],["uber.com","Uber Receipts",8,"25%"],["uniqlo.com","UNIQLO",8,"None"],["doordash.com","DoorDash",7,"29%"],["github.com","GitHub",7,"100%"],[null,"Mom",6,"100%"]];
+document.getElementById("dp-rows").innerHTML = `<div class="dp-row h"><input type="checkbox" aria-label="Select all"><span></span><span>Sender</span><span></span><span class="n">Emails</span><span class="o">Opened</span></div>` +
+  DP.map(([d, n, c, o]) => `<div class="dp-row"><input type="checkbox">${d ? fav(d) : `<span class="m">${n.slice(0, 2).toUpperCase()}</span>`}<b>${n}</b><span class="bar" style="width:${Math.round(c / 59 * 48)}px"></span><span class="n">${c}</span><span class="o">${o}</span></div>`).join("");
+function toggleDetails() { const d = document.getElementById("details"); d.hidden = !d.hidden; document.getElementById("details-btn").classList.toggle("on", !d.hidden); }
 </script>
 </body>
 </html>
