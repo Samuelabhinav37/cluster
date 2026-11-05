@@ -338,11 +338,25 @@ function soundsOfficial(displayName: string, brand: string): boolean {
   return rest.split(/[^a-z0-9]+/).every((word) => word === "" || ROLE_WORDS.has(word));
 }
 
+// Platforms a company signs up for to mail people under its own name: hiring
+// systems ("PayPal" from paypal@myworkday.com is PayPal's real careers site),
+// survey and delivery-tracking services. The platform signs the mail, and an
+// account there is a business contract, not a free sign-up. Open help desks
+// (Zendesk, Freshdesk) are left out on purpose: anyone can make one called
+// "PayPal Support". Lookalike, authentication and lure checks still apply.
+const HOSTED_SENDER_DOMAINS = [
+  "myworkday.com", "workday.com", "smartrecruiters.com", "oracle.com", "oraclecloud.com", "taleo.net",
+  "successfactors.com", "successfactors.eu", "icims.com", "greenhouse.io", "greenhouse-mail.io", "lever.co",
+  "ashbyhq.com", "jobvite.com", "avature.net", "eightfold.ai", "phenompeople.com", "brassring.com",
+  "qemailserver.com", "qualtrics.com", "medallia.com", "narvar.com", "trustpilotmail.com",
+];
+
 function brandSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
   const brand = matchedBrand(message.fromDisplayName);
   if (!brand) return null;
 
   const senderDomain = domainOf(message.fromAddress);
+  if (HOSTED_SENDER_DOMAINS.some((d) => isSameOrSubdomain(senderDomain, d))) return null;
   const freemail = FREEMAIL_DOMAINS.has(senderDomain);
   const ownDomain = BRAND_DOMAINS[brand].some((d) => isSameOrSubdomain(senderDomain, d));
   // gmail.com is Google's and icloud.com Apple's, but anyone can open a

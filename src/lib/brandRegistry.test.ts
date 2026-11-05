@@ -50,9 +50,9 @@ describe("brand registry", () => {
   });
 
   it("a certified domain the hand list missed stops reading as a fake Amazon", () => {
-    expect(kinds("Amazon", "pedidos@amazon.com.br")).toContain("brand-impersonation");
+    expect(kinds("Amazon", "orders@amazon.co.za")).toContain("brand-impersonation");
     setBrandRegistry(registry);
-    expect(kinds("Amazon", "pedidos@amazon.com.br")).toEqual([]);
+    expect(kinds("Amazon", "orders@amazon.co.za")).toEqual([]);
     expect(kinds("Amazon", "pedidos@amazon-orders.example")).toContain("brand-impersonation");
   });
 

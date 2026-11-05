@@ -564,3 +564,27 @@ describe("provider-flagged", () => {
     expect(senderRiskScore(signals.filter((s) => s.kind === "provider-flagged"))).toBe(3);
   });
 });
+
+describe("real brand mail seen flagged in an inbox (2026-11-05)", () => {
+  it("passes the brands' own extra domains and their hiring and survey platforms", () => {
+    for (const [name, from] of [
+      ["Amazon Pay", "no-reply@amazonpay.in"],
+      ["Amazon Jobs", "noreply@mail.amazon.jobs"],
+      ["Amazon Store Card", "cardholder@emails.synchrony.com"],
+      ["Google User Research", "userresearch@withgoogle.com"],
+      ["PayPal", "paypal@myworkday.com"],
+      ["Walmart", "walmart@myworkday.com"],
+      ["Yahoo", "ouryahoo@otp.workday.com"],
+      ["Microsoft Careers", "notification@smartrecruiters.com"],
+      ["Uber Careers", "einofasender@workflow.mail.us2.cloud.oracle.com"],
+      ["Amazon Survey", "noreply@qemailserver.com"],
+    ]) {
+      expect(scoreMessageForThreats(message({ fromDisplayName: name, fromAddress: from })), `${name} <${from}>`).toEqual([]);
+    }
+  });
+
+  it("still flags a brand name on an open help desk or a free account", () => {
+    expect(scoreMessageForThreats(message({ fromDisplayName: "PayPal Support", fromAddress: "help@paypal-help.zendesk.com" })).map((s) => s.kind)).toContain("brand-impersonation");
+    expect(scoreMessageForThreats(message({ fromDisplayName: "PayPal Support", fromAddress: "paypal.support@gmail.com" })).map((s) => s.kind)).toContain("freemail-brand-claim");
+  });
+});
