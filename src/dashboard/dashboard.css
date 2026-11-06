@@ -4151,9 +4151,9 @@ section[data-screen="settings"] .set-row > :not(.grow):not(.set-ic) { grid-colum
    Panels: 12px caps tabs over a hairline, 32px column head, rows 4px apart, a faint
    bar layer under the text layer, bold count + gray share in fixed-width columns. */
 #cu-head .pl-card { margin: 0 0 24px; padding: 16px 20px 8px; border-radius: 8px; background: var(--glass); border: 1px solid var(--hairline); }
-#cu-head .pl-card .cu-cards { display: flex; flex-wrap: wrap; gap: 0; margin: 0; border: 0; }
-#cu-head .pl-card .cu-card { position: relative; flex: 0 1 220px; margin: 0 8px; padding: 8px; border-radius: 6px; }
-#cu-head .pl-card .cu-card:first-child { margin-left: -8px; padding-left: 8px; }
+#cu-head .pl-card .cu-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 17px; margin: 0 -8px; border: 0; }
+#cu-head .pl-card .cu-card { position: relative; min-width: 0; margin: 0; padding: 8px; border-radius: 6px; }
+#cu-head .pl-card .cu-card:first-child { padding-left: 8px; }
 #cu-head .pl-card .cu-card + .cu-card { border-left: 0; }
 #cu-head .pl-card .cu-card + .cu-card::before { content: ""; position: absolute; left: -9px; top: 0; bottom: 0; border-left: 1px solid var(--hairline); }
 #cu-head .pl-card .cu-card:hover { background: color-mix(in srgb, var(--neutral-fill) 70%, transparent); }
@@ -4253,3 +4253,14 @@ tr:hover .ct-name::before, #subscriptions-list .list-row:hover .row-media::befor
 .pl-body .paid-card { gap: 8px; padding: 6px 8px; border: 0; border-radius: 4px; background: none; box-shadow: none; font-size: 14px; }
 .pl-body .paid-card b { font-weight: 400; }
 .pl-body .paid-card .chip { padding: 0; border: 0; background: none; color: var(--label-3); font-size: 13px; }
+
+/* Cleanup and Mailing lists: the card sits 20px under the title, not 52. */
+.screen:is([data-screen="delete"], [data-screen="subscriptions"]) .page-head { margin-bottom: -8px; }
+/* Ticks in the Plausible panels: 16px rounded squares, not 22px dots. */
+:is(#cu-senders-table, #subscriptions-list) .check { width: 16px; height: 16px; border-radius: 4px; border-width: 1px; }
+:is(#cu-senders-table, #subscriptions-list) .check:checked::after { width: 4px; height: 8px; margin: 2px 0 0 5px; border-width: 0 1.5px 1.5px 0; }
+/* Kai's chat keeps the system font it was designed in (Moat), not the app's Inter Tight. */
+.kai-guide { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, "Segoe UI", sans-serif; font-size: 15px; letter-spacing: -0.008em; }
+.row-menu-spacer { display: inline-block; width: 28px; flex: none; }
+#subscriptions-list .pl-count { margin-left: 8px; font-size: 13px; white-space: nowrap; }
+#cu-senders-table th.ct-tick { padding-top: 10px !important; vertical-align: top !important; }

@@ -695,7 +695,7 @@ export function renderHomeDashboard(
     top.append(row);
   }
   if (!f.topSenders?.length) top.append(el("p", "ov-empty", "No mail this week."));
-  grid.append(widget("Top senders", "Senders with the most email in the last seven days.", null, top, () => go("subscriptions"), "Subscriptions"));
+  grid.append(widget("Top senders", "Senders with the most email in the last seven days.", null, top, () => go("subscriptions"), "Mailing lists"));
 
   root.append(grid);
   return root;

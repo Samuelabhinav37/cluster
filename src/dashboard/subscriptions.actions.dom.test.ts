@@ -99,8 +99,8 @@ describe("Subscriptions screen — one-click unsubscribe", () => {
   });
 });
 
-describe("Subscriptions screen — the same company's other addresses", () => {
-  it("offers to stop them after one unsubscribe", async () => {
+describe("Mailing lists — one row per domain", () => {
+  it("merges a domain's addresses; its Unsubscribe stops all of them after Confirm", async () => {
     const now = Date.now();
     const auth = "mx.google.com; dkim=pass header.d=shop.example; spf=pass; dmarc=pass";
     const mailbox = fixtureMailbox(now).map((m) =>
@@ -119,18 +119,17 @@ describe("Subscriptions screen — the same company's other addresses", () => {
     const dash = await bootDashboard({ grantOrigins: true, fetchImpl, mailbox: [...mailbox, ...news] });
     dash.showScreen("subscriptions");
     const list = dash.el("subscriptions-list");
-    Array.from(findSubRow(list, "Shop").querySelectorAll("button"))
-      .find((b) => b.textContent === "Unsubscribe")!
-      .click();
-    await vi.waitFor(() => expect(list.querySelector(".banner")?.textContent).toContain("1 other address"), {
-      timeout: 5000,
+    const shopRows = Array.from(list.querySelectorAll(".row-title")).filter((t) => /shop/i.test(t.textContent ?? ""));
+    expect(shopRows).toHaveLength(1);
+    const row = shopRows[0].closest<HTMLElement>(".list-row")!;
+    expect(row.textContent).toContain("2 lists");
+    Array.from(row.querySelectorAll("button")).find((b) => b.textContent === "Unsubscribe")!.click();
+    await confirmStep(dash.el("subs-unsub-all-slot"));
+    await vi.waitFor(() => {
+      const urls = unsubscribeCalls(fetchImpl).map((c) => c[0]);
+      expect(urls).toContain("https://shop.example/n");
+      expect(urls.length).toBeGreaterThanOrEqual(2);
     });
-    Array.from(list.querySelectorAll<HTMLButtonElement>(".banner button"))
-      .find((b) => b.textContent === "Stop those too")!
-      .click();
-    await vi.waitFor(() =>
-      expect(unsubscribeCalls(fetchImpl).map((c) => c[0])).toContain("https://shop.example/n"),
-    );
   });
 });
 

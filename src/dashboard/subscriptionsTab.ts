@@ -15,7 +15,8 @@ import { buildProtectionContext, buildSenderCleanupPlan } from "../lib/protectio
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import type { SenderSummary } from "../lib/senderModel";
 import { domainOf } from "../lib/domainGrouping";
-import { buildSubscriptionCandidates, SUBSCRIPTION_SIGNAL_LABELS } from "../lib/subscriptionSignals";
+import { registrableDomain } from "../lib/registrableDomain";
+import { companyName, senderName } from "../lib/senderListView";
 import { formatRelativeTime, headerRow, pruneSelection, renderConfirmStep, runNow } from "./ui";
 import { emailsCell } from "./cleanupPage";
 import { listGroup, listRow } from "./listRow";
@@ -47,33 +48,6 @@ const subsUnsubAllSlot = document.getElementById("subs-unsub-all-slot") as HTMLS
 const subsUnsubAllBtn = document.getElementById("subs-unsub-all-btn") as HTMLButtonElement;
 const subsOutcomeFilter = document.getElementById("subs-outcome-filter") as HTMLSelectElement;
 const subscriptionsListEl = document.getElementById("subscriptions-list") as HTMLDivElement;
-const paidSubscriptionsListEl = document.getElementById("paid-subscriptions-list") as HTMLDivElement;
-
-function renderPaidSubscriptions(senders: SenderSummary[]) {
-  // A known domain alone ("Seen") gives nothing to do, so only trials and
-  // renewals are listed, each saying where to cancel.
-  const candidates = buildSubscriptionCandidates(senders).filter(({ signal }) => signal !== "domain-match");
-  paidSubscriptionsListEl.innerHTML = "";
-  paidSubscriptionsListEl.parentElement!.hidden = candidates.length === 0;
-  if (candidates.length === 0) return;
-
-  // Round 2: a card each, name and what it's doing; you cancel with the company.
-  const grid = document.createElement("div");
-  grid.className = "paid-grid";
-  for (const { sender, signal } of candidates) {
-    const card = document.createElement("div");
-    card.className = "glass-card paid-card";
-    card.title = `Cancel with ${sender.displayName || domainOf(sender.address)}`;
-    const name = document.createElement("b");
-    name.textContent = sender.displayName || domainOf(sender.address);
-    const chip = document.createElement("span");
-    chip.className = "chip";
-    chip.textContent = SUBSCRIPTION_SIGNAL_LABELS[signal];
-    card.append(subTile(sender, "sz-30"), name, chip);
-    grid.append(card);
-  }
-  paidSubscriptionsListEl.appendChild(grid);
-}
 
 export { recordUnsubscribeRequests };
 
@@ -375,6 +349,54 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
   return cell;
 }
 
+/** A domain with several lists: one row whose tick and Unsubscribe cover all of
+ * them, through the same confirm as the bulk button. */
+function domainRow(domain: string, members: SenderSummary[], top: number, all: number): HTMLElement {
+  const total = members.reduce((n, s) => n + senderVolume(s), 0);
+  const unread = members.reduce((n, s) => n + senderUnread(s), 0);
+  const lead = members.reduce((a, b) => (senderVolume(b) > senderVolume(a) ? b : a));
+  const oneClick = members.filter((s) => s.unsubscribe.postUrl).map((s) => s.key);
+  const cols = document.createElement("span");
+  cols.className = "pl-cols";
+  const pct = Math.round(((total - unread) / Math.max(1, total)) * 100);
+  const opened = document.createElement("span");
+  opened.className = "ct-dim";
+  opened.textContent = pct === 0 ? "Never" : `${pct}%`;
+  opened.title = "Opened";
+  cols.append(emailsCell(total, all, "span"), opened);
+  const unsub = document.createElement("button");
+  unsub.className = "btn";
+  unsub.textContent = "Unsubscribe";
+  unsub.disabled = oneClick.length === 0;
+  unsub.onclick = () => {
+    preselectLists(oneClick);
+    subsBulkBar.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  };
+  const row = listRow({
+    selectable: {
+      checked: oneClick.length > 0 && oneClick.every((k) => selectedSubKeys.has(k)),
+      disabled: oneClick.length === 0,
+      label: `Select every list from ${domain}`,
+      onChange: (on) => {
+        for (const k of oneClick) {
+          if (on) selectedSubKeys.add(k);
+          else selectedSubKeys.delete(k);
+        }
+        renderSubscriptionsTab(ctx.senders);
+      },
+    },
+    lead: subTile(lead),
+    title: companyName({ key: domain, senders: members }),
+    titleBadges: [Object.assign(document.createElement("span"), { className: "ct-dim pl-count", textContent: `${members.length} lists` })],
+    meta: cols,
+    // A spacer where single rows have ⋯, so every Unsubscribe lines up.
+    actions: [unsub, Object.assign(document.createElement("span"), { className: "row-menu-spacer" })],
+  });
+  row.title = members.map((s) => s.address).join(", ");
+  row.style.setProperty("--share", `${(total / top) * 100}%`);
+  return row;
+}
+
 function selectedUnsubscribeOutcome(): "all" | UnsubscribeOutcomeState {
   const value = subsOutcomeFilter.value;
   return value === "quiet" || value === "still-sending" ? value : "all";
@@ -390,8 +412,6 @@ const LIST_PREVIEW = 10;
 let showAllSubscriptions = false;
 
 export function renderSubscriptionsTab(senders: SenderSummary[]) {
-  renderPaidSubscriptions(senders);
-
   const senderByKey = new Map(senders.map((sender) => [sender.key, sender]));
   const available = senders.filter(
     (sender) => sender.unsubscribe.postUrl || sender.unsubscribe.httpUrl || sender.unsubscribe.mailto,
@@ -480,8 +500,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
     selAllLabel.appendChild(selAll);
     const selCount = document.createElement("span");
     selCount.className = "row-sub";
-    selCount.style.color = "var(--label-2)";
-    selCount.textContent = `${oneClickKeys.filter((k) => selectedSubKeys.has(k)).length} of ${oneClickKeys.length} selected`;
+    selCount.textContent = "Domain";
     const heads = document.createElement("span");
     heads.className = "pl-cols";
     for (const t of ["Emails", "Opened"]) {
@@ -492,9 +511,19 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
     hdr.classList.add("pl-head");
     hdr.append(selAllLabel, selCount, heads);
 
-    const listTop = Math.max(1, ...visibleCurrentRows.map(({ sender }) => senderVolume(sender)));
+    // One row per domain: "Suhas via LinkedIn" and LinkedIn's own lists are one LinkedIn row.
+    const byDomain = new Map<string, typeof visibleCurrentRows>();
+    for (const r of visibleCurrentRows) {
+      const d = registrableDomain(domainOf(r.sender.address));
+      byDomain.set(d, [...(byDomain.get(d) ?? []), r]);
+    }
+    const groupVolume = (g: typeof visibleCurrentRows) => g.reduce((n, { sender }) => n + senderVolume(sender), 0);
+    const listTop = Math.max(1, ...[...byDomain.values()].map(groupVolume));
     const listTotal = visibleCurrentRows.reduce((n, { sender }) => n + senderVolume(sender), 0);
-    const rows = visibleCurrentRows.map(({ sender, outcome }) => {
+    const rows = [...byDomain].map(([domain, group]) =>
+      group.length > 1 ? domainRow(domain, group.map((g) => g.sender), listTop, listTotal) : singleRow(group[0]),
+    );
+    function singleRow({ sender, outcome }: (typeof visibleCurrentRows)[number]): HTMLElement {
       // Round 2: name and how much gets opened; only a sent request earns a line.
       const subLine = outcome.requestAt ? outcome.label : "";
       const total = senderVolume(sender);
@@ -548,7 +577,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
               onChange: () => {},
             },
         lead: subTile(sender),
-        title: sender.displayName || sender.address,
+        title: senderName(sender),
         sub: subLine || undefined,
         meta: opened,
         actions: primary ? [primary, menu] : [menu],
@@ -564,7 +593,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
         if (sep instanceof HTMLElement && sep.classList.contains("row-sep")) sep.hidden = true;
       };
       return row;
-    });
+    }
 
     subscriptionsListEl.appendChild(hdr);
     const shown = showAllSubscriptions ? rows : rows.slice(0, LIST_PREVIEW);

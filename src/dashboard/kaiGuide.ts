@@ -566,7 +566,7 @@ export const CLUSTER_QUESTIONS: KaiQuestion[] = [
     phrases: ["why is this a scam", "is this email phishing", "why does protect warn me", "what are warning signs"] },
   { id: "undo", ask: "How do I undo something?", answer: "Activity lists everything Cluster did, newest first, with Undo wherever Gmail allows it. Trashed mail also stays in Gmail's Trash for 30 days.", screen: "recent", follow: ["starred"],
     phrases: ["i deleted something by mistake", "get my emails back", "restore trashed mail", "where did my mail go"] },
-  { id: "unsub", ask: "How do I unsubscribe from lots at once?", answer: "Open Cleanup, then Subscriptions. Tick the lists and press Unsubscribe.", screen: "delete", target: "#lists-card", follow: ["undo"],
+  { id: "unsub", ask: "How do I unsubscribe from lots at once?", answer: "Open Cleanup, then Mailing lists. Tick the lists and press Unsubscribe.", screen: "delete", target: "#lists-card", follow: ["undo"],
     phrases: ["stop newsletters", "get off mailing lists", "too many marketing emails", "unsubscribe all"] },
   { id: "keep", ask: "Can Cluster keep new mail sorted?", answer: "Yes. Any label on Labels that isn't Off keeps sorting new mail. Sender rules become Gmail filters, so they work with Chrome closed.", screen: "organize", target: "#time-limits-rows", follow: ["rules", "undo"],
     phrases: ["sort new mail automatically", "does it work when chrome is closed", "keep my inbox tidy"] },
