@@ -146,23 +146,17 @@ const text = (el: Element | null) => el?.textContent ?? "";
 const sections = (el: HTMLElement) => Array.from(el.querySelectorAll("h2.section-label")).map((h) => h.firstChild?.textContent ?? "");
 
 describe("renderHomeDashboard", () => {
-  it("shows no banner, then six widgets that each open their place", () => {
+  it("shows no banner, then three widgets that each open their place", () => {
     const go = vi.fn();
-    const openKind = vi.fn();
-    const el = renderHomeDashboard({ ...calm, suspicious: 3 }, go, openKind, NOW);
+    const el = renderHomeDashboard({ ...calm, suspicious: 3 }, go);
     expect(el.querySelector(".home-hero")).toBeNull();
     const widgets = Array.from(el.querySelectorAll<HTMLElement>(".ov-w"));
     expect(widgets.map((w) => w.querySelector(".ov-w-title")?.firstChild?.textContent)).toEqual([
       "Inbox by category",
-      "Emails received",
-      "Automatically filed",
       "Suspicious emails",
-      "Emails cleared",
       "Top senders",
     ]);
-    widgets[1].click();
-    expect(openKind).toHaveBeenCalledWith("primary");
-    for (const [i, place] of [[0, "organize"], [2, "recent"], [3, "impersonation"], [4, "delete"], [5, "subscriptions"]] as const) {
+    for (const [i, place] of [[0, "organize"], [1, "impersonation"], [2, "subscriptions"]] as const) {
       widgets[i].click();
       expect(go).toHaveBeenLastCalledWith(place);
     }
@@ -170,7 +164,7 @@ describe("renderHomeDashboard", () => {
 
   it("gives each kind its count, and a kind opens its emails", () => {
     const openKind = vi.fn();
-    const el = renderHomeDashboard({ ...calm, kinds: { ...calm.kinds, trans: 0 }, total: 60 }, vi.fn(), openKind, NOW);
+    const el = renderHomeDashboard({ ...calm, kinds: { ...calm.kinds, trans: 0 }, total: 60 }, vi.fn(), openKind);
     expect(Array.from(el.querySelectorAll(".ov-legend button")).map(text)).toEqual([
       "People10",
       "Receipts0",
@@ -190,8 +184,6 @@ describe("renderHomeDashboard", () => {
         topSenders: [{ address: "a@shop.test", name: "Shop", count: 4 }],
       },
       vi.fn(),
-      undefined,
-      NOW,
     );
     expect(text(el.querySelector(".ov-li"))).toContain("Payment declined");
     expect(text(el.querySelector(".ov-li"))).toContain("Impersonating Netflix");

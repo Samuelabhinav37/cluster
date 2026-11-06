@@ -11,7 +11,7 @@ import type { ScanState } from "../lib/scanState";
 import type { SortBucket } from "../lib/sortTaxonomy";
 import { gmailMessageUrl } from "./detailsPanel";
 import { infoButton } from "./ui";
-import { areaChart, barChart, dayLabels, donutChart, lineChart, ticks } from "./overviewCharts";
+import { donutChart, ticks } from "./overviewCharts";
 
 export type HomeKind = "primary" | "trans" | "updates" | "promo";
 
@@ -596,18 +596,6 @@ export function fillTodaySnippets(root: ParentNode, snippets: ReadonlyMap<string
   }
 }
 
-/** "+31%" against the week before; nothing when there is no week before. */
-function change(cur: number[], prev: number[], moreIsGood: boolean): HTMLElement | null {
-  const a = cur.reduce((x, y) => x + y, 0);
-  const b = prev.reduce((x, y) => x + y, 0);
-  if (b <= 0) return null;
-  const pct = Math.round(((a - b) / b) * 100);
-  const sign = pct > 0 ? "+" : pct < 0 ? "−" : "";
-  const badge = el("span", `ov-badge${pct !== 0 && pct > 0 === moreIsGood ? " good" : ""}`, `${sign}${Math.abs(pct)}%`);
-  badge.title = "Compared with the week before";
-  return badge;
-}
-
 /** One widget: title, (i), optional badge, then its chart; the whole widget opens its page. */
 function widget(
   title: string,
@@ -645,15 +633,13 @@ const KIND_COLORS: Record<HomeKind, string> = {
   updates: "var(--k3)",
   promo: "var(--k4)",
 };
-const WEEK0 = [0, 0, 0, 0, 0, 0, 0];
 
-/** Overview: today's emails, then six widgets that each open their page
+/** Overview: today's emails, then three widgets that each open their page
  * (research/2026-11-05-redesign-mockup.html). The greeting is the page title. */
 export function renderHomeDashboard(
   f: HomeFacts,
   go: Go,
   openKind?: (kind: HomeKind) => void,
-  now = Date.now(),
 ): HTMLElement {
   const root = el("div", "home");
   if (f.reading) root.append(readHero(f.reading));
@@ -662,7 +648,6 @@ export function renderHomeDashboard(
     root.append(el("h2", "section-label", "Found so far"), foundSoFar(f));
     return root;
   }
-  const days = dayLabels(now);
   const since = f.since
     ? ` Read back to ${new Date(f.since).toLocaleDateString(undefined, { month: "short", day: "numeric" })} so far.`
     : "";
@@ -684,31 +669,6 @@ export function renderHomeDashboard(
     widget("Inbox by category", `Every email Cluster has read, by kind. Pick a kind to see its emails.${since}`, null, donutBox, () => go("organize"), "Labels"),
   );
 
-  const rec = f.receivedByDay ?? WEEK0;
-  const recPrev = f.receivedPrevByDay ?? WEEK0;
-  grid.append(
-    widget(
-      "Emails received",
-      "Emails that arrived each day this week. The pale area is the week before.",
-      change(rec, recPrev, false),
-      areaChart(rec, recPrev, days, "emails"),
-      () => openKind?.("primary"),
-      "Details",
-    ),
-  );
-
-  const filed = f.filed ?? { cur: WEEK0, prev: WEEK0 };
-  grid.append(
-    widget(
-      "Automatically filed",
-      "Emails Cluster moved out of the inbox each day. The dashed line is the week before.",
-      change(filed.cur, filed.prev, true),
-      lineChart(filed.cur, filed.prev, days),
-      () => go("recent"),
-      "Activity",
-    ),
-  );
-
   const sus = el("div", "ov-list");
   for (const x of f.suspects ?? []) {
     const row = el("div", "ov-li");
@@ -719,10 +679,6 @@ export function renderHomeDashboard(
   }
   if (!f.suspects?.length) sus.append(el("p", "ov-empty", "Nothing suspicious."));
   grid.append(widget("Suspicious emails", "Emails that pretend to be a company you know.", null, sus, () => go("impersonation"), "Security"));
-
-  grid.append(
-    widget("Emails cleared", "Emails sent to Trash or unsubscribed from, each day.", null, barChart(f.cleared?.byDay ?? WEEK0, days), () => go("delete"), "Cleanup"),
-  );
 
   const top = el("div", "ov-list");
   const most = f.topSenders?.[0]?.count ?? 1;
