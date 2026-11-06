@@ -188,7 +188,7 @@ describe("renderHomeDashboard", () => {
     );
     expect(text(el.querySelector(".ov-li"))).toContain("Payment declined");
     expect(text(el.querySelector(".ov-li"))).toContain("Impersonating Netflix");
-    expect(text(el.querySelector(".ov-tr"))).toContain("Shop4");
+    expect(text(el.querySelector(".ov-tr:not(.ov-tr-head)"))).toContain("Shop4");
   });
 
   it("names how far back it has read while mail is still being read", () => {

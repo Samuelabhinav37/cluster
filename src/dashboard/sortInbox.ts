@@ -43,18 +43,41 @@ import { updateSettings } from "../lib/settingsStore";
 import { activeProviders, ctx, logAction, providerById, rescan } from "./state";
 import { setNowCounts } from "./timeLimitsTab";
 import { formatRelativeTime, pruneSelection } from "./ui";
+import { gmailLabelIcon } from "./homeDashboard";
+import { undoEntry } from "./recentTab";
+import { CLUSTER_LABEL_COLORS, type ClusterLabelKey } from "../lib/clusterLabels";
+import type { ActionLogEntry } from "../lib/actionLog";
 
 const sortInboxBtn = document.getElementById("sort-inbox-btn") as HTMLButtonElement;
 const sortInboxSlot = document.getElementById("sort-inbox-slot") as HTMLSpanElement;
 const sortInboxCountEl = document.getElementById("sort-inbox-count") as HTMLSpanElement;
 const sortInboxPreviewEl = document.getElementById("sort-inbox-preview") as HTMLDivElement;
-// The top bar's Sort inbox opens Labels (data-open-screen) and starts the same confirm there.
+// The top bar's Sort inbox opens its page (data-open-screen) and builds the plan there.
 const topSortBtn = document.getElementById("top-sort") as HTMLButtonElement | null;
 topSortBtn?.addEventListener("click", () =>
   setTimeout(() => {
-    if (sortInboxSlotIdle() && !sortInboxBtn.disabled) sortInboxBtn.click();
+    if (sortInboxPreviewEl.classList.contains("sorting")) return;
+    if (!sortInboxBtn.disabled) sortInboxBtn.click();
+    else showNothingToSort();
   }, 0),
 );
+
+const num = (n: number) => n.toLocaleString();
+/** "📦 Orders & shipping" → "Orders & shipping"; names without an emoji stay whole. */
+const plainLabel = (name: string) => name.replace(/^[^\p{L}\p{N}]+\s/u, "");
+
+function showNothingToSort() {
+  const empty = document.createElement("div");
+  empty.className = "sort-empty";
+  const go = document.createElement("button");
+  go.className = "btn";
+  go.textContent = "Open Labels";
+  go.onclick = () => document.querySelector<HTMLButtonElement>('#sidebar .nav-item[data-screen="organize"]')?.click();
+  const p = document.createElement("p");
+  p.textContent = "Nothing to sort. Choose where each label goes in Labels.";
+  empty.append(p, go);
+  sortInboxPreviewEl.replaceChildren(empty);
+}
 
 // ── "Sort my inbox" (Clean up tab) ──────────────────────────────────────
 // Buckets that come from the message kind (subject) rather than the sender's
@@ -74,6 +97,7 @@ function resetSortInboxSlot() {
 
 function clearSortPreview() {
   sortInboxPreviewEl.innerHTML = "";
+  sortInboxPreviewEl.classList.remove("sorting");
 }
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -122,7 +146,6 @@ function updateSortInboxCount() {
   sortInboxCountEl.textContent =
     moving > 0 ? `${emails(moving)} move now` : labelled > 0 ? `${emails(labelled)} get labels` : "";
   sortInboxBtn.disabled = chosen.length === 0;
-  if (topSortBtn) topSortBtn.disabled = chosen.length === 0;
   // Nothing to sort: no button at all, rather than a disabled one.
   const bar = document.getElementById("sort-inbox-bar");
   if (bar) bar.hidden = chosen.length === 0 && sortInboxSlotIdle();
@@ -155,33 +178,45 @@ function renderSortInbox(senders: SenderSummary[]) {
 // user made themselves is surfaced here so they can choose to reuse it or keep
 // Cluster's separate as "<name> · sorted". The choice persists
 // (settings.labelChoices) so this only asks once.
+/** Labels Gmail already has: one row each, use the user's own or keep Cluster's separate. */
 function renderSortLabelConflicts(conflicts: PlanLabelConflict[], retry: () => void) {
-  sortInboxSlot.innerHTML = "";
-
-  const intro = document.createElement("span");
-  intro.textContent =
-    conflicts.length === 1
-      ? "You already have a label with this name. Use yours, or keep Cluster's separate? "
-      : "You already have labels with these names. Use yours, or keep Cluster's separate? ";
-  sortInboxSlot.appendChild(intro);
-
+  resetSortInboxSlot();
+  const wrap = document.createElement("div");
+  wrap.className = "sort-conflicts";
+  const intro = document.createElement("p");
+  intro.className = "sort-sub";
+  intro.textContent = "You already have labels with these names. Use yours, or keep Cluster's separate.";
+  const all = document.createElement("button");
+  all.className = "btn btn-accent-solid";
+  all.textContent = "Use mine for all";
+  all.onclick = async () => {
+    const choices = { ...ctx.settings.labelChoices };
+    for (const c of conflicts) choices[c.desired] = applyLabelChoice(c.desired, "reuse");
+    ctx.settings = await updateSettings({ labelChoices: choices });
+    retry();
+  };
+  const rows = document.createElement("div");
+  rows.className = "sort-report-rows";
   for (const c of conflicts) {
-    const reuseBtn = document.createElement("button");
-    reuseBtn.textContent = `Use my "${c.existingUserLabel}"`;
-    reuseBtn.onclick = () => resolveSortLabelConflict(c.desired, "reuse", retry);
-
-    const suffixBtn = document.createElement("button");
-    suffixBtn.textContent = `Keep separate: "${applyLabelChoice(c.desired, "suffix")}"`;
-    suffixBtn.onclick = () => resolveSortLabelConflict(c.desired, "suffix", retry);
-
-    sortInboxSlot.append(reuseBtn, suffixBtn);
+    const row = document.createElement("div");
+    row.className = "sort-report-row";
+    const name = document.createElement("span");
+    name.className = "sort-name";
+    name.append(gmailLabelIcon(), plainLabel(c.existingUserLabel));
+    const reuse = document.createElement("button");
+    reuse.className = "sort-undo";
+    reuse.textContent = "Use mine";
+    reuse.onclick = () => resolveSortLabelConflict(c.desired, "reuse", retry);
+    const suffix = document.createElement("button");
+    suffix.className = "sort-undo";
+    suffix.textContent = "Keep separate";
+    suffix.title = `Cluster makes "${applyLabelChoice(c.desired, "suffix")}"`;
+    suffix.onclick = () => resolveSortLabelConflict(c.desired, "suffix", retry);
+    row.append(name, document.createElement("span"), reuse, suffix);
+    rows.append(row);
   }
-
-  const cancelBtn = document.createElement("button");
-  cancelBtn.className = "btn btn-ghost";
-  cancelBtn.textContent = "Cancel";
-  cancelBtn.onclick = resetSortInboxSlot;
-  sortInboxSlot.appendChild(cancelBtn);
+  wrap.append(intro, rows, all);
+  sortInboxPreviewEl.replaceChildren(wrap);
 }
 
 async function resolveSortLabelConflict(desired: string, choice: LabelChoice, retry: () => void) {
@@ -269,19 +304,28 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
     chosen.flatMap((e) => e.messages).filter((m) => !excludedSortIds.has(m.id)).length;
   const refreshApplyLabel = () => {
     const n = includedCount();
-    applyBtn.textContent = `Apply to ${n} message${n === 1 ? "" : "s"}`;
+    applyBtn.textContent = `Sort ${num(n)} email${n === 1 ? "" : "s"}`;
     applyBtn.disabled = n === 0;
+    big.textContent = `${num(n)} email${n === 1 ? "" : "s"}`;
+    sub.textContent = `into ${chosen.length} label${chosen.length === 1 ? "" : "s"}`;
   };
 
+  const most = Math.max(1, ...chosen.map((e) => e.count));
+  const head = document.createElement("div");
+  head.className = "sort-head";
+  const big = document.createElement("b");
+  big.className = "sort-big";
+  const sub = document.createElement("span");
+  sub.className = "sort-sub";
+  head.append(big, sub);
   for (const entry of chosen) {
     const bucketEl = document.createElement("details");
     bucketEl.className = "sort-preview-bucket";
     // Closed by default: the label and its count are the summary.
+    bucketEl.dataset.key = `${entry.bucket}:${entry.fileOut}`;
+    bucketEl.style.setProperty("--share", `${Math.max(3, (entry.count / most) * 100)}%`);
     const summary = document.createElement("summary");
-    const where = document.createElement("span");
-    where.className = "hint";
-    where.textContent = entry.fileOut ? "files out" : "stays in inbox";
-    summary.append(`${entry.label} · ${entry.count} `, where);
+    summary.append(...labelCells(entry.label, entry.bucket, entry.count, entry.fileOut ? "Files out" : "Stays in inbox"));
     bucketEl.appendChild(summary);
 
     const bySender = new Map<string, SortPlanMessage[]>();
@@ -349,14 +393,28 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
   applyBtn.onclick = async () => {
     applyBtn.disabled = true;
     cancelBtn.disabled = true;
-    status.textContent = "Sorting…";
+    const total = includedCount();
+    const started = Date.now();
+    let sorted = 0;
+    status.textContent = `0 of ${num(total)}`;
+    // Each label's bar fills when its batch really finishes; no timers.
+    sortInboxPreviewEl.classList.add("sorting");
+    for (const d of Array.from(sortInboxPreviewEl.querySelectorAll("details"))) d.open = false;
+    const rowFor = (e: SortPlanEntry) => sortInboxPreviewEl.querySelector<HTMLElement>(`[data-key="${e.bucket}:${e.fileOut}"]`);
     try {
-      const done = await applySortPlan(chosen, knownLower);
-      status.textContent = `✓ ${done}`;
-      status.className = "sort-done";
-      bar.replaceChildren(status);
+      const done = await applySortPlan(chosen, knownLower, (e, phase) => {
+        const row = rowFor(e);
+        row?.classList.toggle("active", phase === "start");
+        if (phase === "done") {
+          row?.classList.add("done");
+          sorted += e.count;
+          status.textContent = `${num(sorted)} of ${num(total)}`;
+        }
+      });
+      renderSortReport(done, started);
     } catch (err) {
       log.error(err);
+      sortInboxPreviewEl.classList.remove("sorting");
       status.textContent = "Sort failed, try again";
       applyBtn.disabled = false;
       cancelBtn.disabled = false;
@@ -365,11 +423,83 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
 
   bar.className = "confirm-slot sort-apply-bar";
   bar.append(applyBtn, cancelBtn, status);
-  sortInboxPreviewEl.prepend(bar);
+  sortInboxPreviewEl.prepend(head, bar);
   refreshApplyLabel();
 }
 
-async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): Promise<string> {
+/** A label row's cells: Gmail tag + name, the count, where the mail goes. */
+function labelCells(label: string, bucket: string | undefined, count: number, where: string): HTMLElement[] {
+  const name = document.createElement("span");
+  name.className = "sort-name";
+  name.append(gmailLabelIcon(CLUSTER_LABEL_COLORS[bucket as ClusterLabelKey]?.backgroundColor), plainLabel(label));
+  const n = document.createElement("b");
+  n.className = "sort-count";
+  n.textContent = num(count);
+  const w = document.createElement("span");
+  w.className = "sort-where";
+  w.textContent = where;
+  return [name, n, w];
+}
+
+/** After a sort: the total, then one row per label with its own Undo (from the action log). */
+function renderSortReport(summary: string, started: number) {
+  sortInboxPreviewEl.classList.remove("sorting");
+  const logged = ctx.settings.actionLog.filter((e) => e.kind === "sort" && e.at >= started);
+  const countOf = (e: ActionLogEntry) => e.undo?.ids.length ?? Number(/Sorted (\d+)/.exec(e.summary)?.[1] ?? 0);
+  const total = logged.reduce((n, e) => n + countOf(e), 0);
+  const secs = Math.max(1, Math.round((Date.now() - started) / 1000));
+  const report = document.createElement("div");
+  report.className = "sort-report";
+  const big = document.createElement("b");
+  big.className = "sort-big";
+  big.textContent = `${num(total)} emails sorted`;
+  const sub = document.createElement("p");
+  sub.className = "sort-sub";
+  sub.textContent = `${summary} · ${secs} s`;
+  const list = document.createElement("div");
+  list.className = "sort-report-rows";
+  const byLabel = new Map(sortPlan.map((e) => [e.label, e.bucket]));
+  for (const e of logged) {
+    const label = e.undo?.labelName ?? /"(.+)"/.exec(e.summary)?.[1] ?? "";
+    const row = document.createElement("div");
+    row.className = "sort-report-row";
+    row.append(...labelCells(label, byLabel.get(label), countOf(e), e.undo?.wasFiledOut ? "Filed out" : "In inbox"));
+    if (e.undo) {
+      const undo = document.createElement("button");
+      undo.className = "sort-undo";
+      undo.textContent = "Undo";
+      undo.onclick = async () => {
+        undo.disabled = true;
+        undo.textContent = "Undoing…";
+        try {
+          await undoEntry(e);
+          undo.textContent = "Undone";
+        } catch (err) {
+          log.error(err);
+          undo.disabled = false;
+          undo.textContent = "Undo failed, try again";
+        }
+      };
+      row.append(undo);
+    }
+    list.append(row);
+  }
+  const doneBtn = document.createElement("button");
+  doneBtn.className = "btn";
+  doneBtn.textContent = "Done";
+  doneBtn.onclick = () => {
+    clearSortPreview();
+    document.querySelector<HTMLButtonElement>('#sidebar .nav-item[data-screen="organize"]')?.click();
+  };
+  report.append(big, sub, list, doneBtn);
+  sortInboxPreviewEl.replaceChildren(report);
+}
+
+async function applySortPlan(
+  chosen: SortPlanEntry[],
+  knownLower: Set<string>,
+  onStep?: (entry: SortPlanEntry, phase: "start" | "done") => void,
+): Promise<string> {
   // Drop unticked messages, then any bucket that's now empty.
   const effective = chosen
     .map((entry) => {
@@ -391,6 +521,7 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
 
   // Apply the one-time backlog.
   for (const entry of effective) {
+    onStep?.(entry, "start");
     for (const [pid, ids] of entry.idsByProvider) {
       const provider = providerById.get(pid);
       if (!provider?.labelMessages || ids.length === 0) continue;
@@ -411,6 +542,7 @@ async function applySortPlan(chosen: SortPlanEntry[], knownLower: Set<string>): 
           }
         : undefined,
     );
+    onStep?.(entry, "done");
   }
 
   // Record any label we just created so a later run reuses it without asking.

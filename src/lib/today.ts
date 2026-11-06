@@ -6,7 +6,7 @@ import { neverMove } from "./protectionPolicy";
 import type { SenderSummary } from "./senderModel";
 import { riskTier, senderRiskScore } from "./threatSignals";
 
-export type TodayReason = "starred" | "reply" | "person" | "alert" | "delivery";
+export type TodayReason = "starred" | "reply" | "person" | "alert" | "delivery" | "recent";
 
 export interface TodayItem {
   id: string;
@@ -20,7 +20,7 @@ export interface TodayItem {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const TODAY_MAX = 10;
-const RANK: Record<TodayReason, number> = { starred: 0, reply: 1, person: 2, alert: 3, delivery: 4 };
+const RANK: Record<TodayReason, number> = { starred: 0, reply: 1, person: 2, alert: 3, delivery: 4, recent: 5 };
 
 /** Account and money notices worth seeing the same day. */
 const ALERT_RE =
@@ -64,12 +64,30 @@ export function pickToday(senders: readonly SenderSummary[], known: Set<string>,
   return items.sort((a, b) => RANK[a.reason] - RANK[b.reason] || b.receivedAt - a.receivedAt).slice(0, max);
 }
 
+/** Tops `items` up to `max` with the newest other mail from the last day,
+ * leaving out promotions and senders that look like a scam. */
+export function fillToday(items: TodayItem[], senders: readonly SenderSummary[], now: number, max: number): TodayItem[] {
+  if (items.length >= max) return items.slice(0, max);
+  const have = new Set(items.map((t) => t.id));
+  const extra: TodayItem[] = [];
+  for (const s of senders) {
+    if (riskTier(senderRiskScore(s.threatSignals)) === "high") continue;
+    for (const m of s.messages) {
+      if (now - m.receivedAt > DAY_MS || m.promotion || have.has(m.id)) continue;
+      extra.push({ id: m.id, provider: s.provider, address: s.address, name: s.displayName || s.address, subject: m.subject || "(no subject)", receivedAt: m.receivedAt, reason: "recent" });
+    }
+  }
+  extra.sort((a, b) => b.receivedAt - a.receivedAt);
+  return [...items, ...extra].slice(0, max);
+}
+
 const REASON_WORD: Record<TodayReason, string> = {
   starred: "Starred",
   reply: "Reply",
   person: "From a person",
   alert: "Account",
   delivery: "Delivery",
+  recent: "New",
 };
 
 /** Once a day, from 7 in the morning local time. */

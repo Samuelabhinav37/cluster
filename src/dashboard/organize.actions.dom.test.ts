@@ -54,7 +54,7 @@ describe("Organize screen — Sort my inbox", () => {
 
     const applyBtn = Array.from(
       dash.el("sort-inbox-preview").querySelectorAll<HTMLButtonElement>("button"),
-    ).find((b) => b.textContent?.startsWith("Apply"))!;
+    ).find((b) => b.textContent?.startsWith("Sort "))!;
     expect(applyBtn.disabled).toBe(false);
     applyBtn.click();
 

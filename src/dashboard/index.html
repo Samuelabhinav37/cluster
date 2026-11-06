@@ -128,7 +128,7 @@
                 <kbd aria-hidden="true">/</kbd>
               </button>
               <div class="top-tools">
-                <button type="button" class="top-tool" id="top-sort" data-open-screen="organize" title="Sort inbox" aria-label="Sort inbox">
+                <button type="button" class="top-tool" id="top-sort" data-open-screen="sort" title="Sort inbox" aria-label="Sort inbox">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M7 12h10M10 18h4"></path></svg><span>Sort inbox</span>
                 </button>
                 <button type="button" class="top-tool" data-details aria-controls="details" title="Details" aria-label="Details">
@@ -290,11 +290,11 @@
             <div id="cu-page" class="cu-page" hidden></div>
           </section>
 
-          <!-- ══ Organize ══════════════════════════════════════════════ -->
-          <section class="screen" data-screen="organize" role="tabpanel" hidden>
+          <!-- ══ Sort inbox: the plan, progress per label, then the report (sortInbox.ts) ══ -->
+          <section class="screen" data-screen="sort" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Labels</h1>
+                <h1 class="page-title">Sort inbox</h1>
               </div>
               <div id="sort-inbox-bar" class="confirm-slot" hidden>
                 <span id="sort-inbox-count" class="hint"></span>
@@ -303,9 +303,18 @@
                 >
               </div>
             </div>
+            <div id="sort-inbox-preview"></div>
+          </section>
+
+          <!-- ══ Organize ══════════════════════════════════════════════ -->
+          <section class="screen" data-screen="organize" role="tabpanel" hidden>
+            <div class="page-head">
+              <div class="page-titles">
+                <h1 class="page-title">Labels</h1>
+              </div>
+            </div>
 
             <section id="sort-inbox-section">
-              <div id="sort-inbox-preview"></div>
               <div id="time-limits-rows" class="org-list"></div>
               <p id="time-limits-status" class="hint" role="status"></p>
             </section>

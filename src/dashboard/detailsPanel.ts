@@ -380,7 +380,7 @@ export function initDetailsPanel(
         b.setAttribute("aria-label", `Remove filter ${label}`);
         return b;
       }),
-      ...quick.map(([label, patch]) => button("chip", `+ ${label}`, () => set(patch))),
+      ...quick.map(([label, patch]) => button("chip", label, () => set(patch))),
     );
   }
 
@@ -494,26 +494,15 @@ export function initDetailsPanel(
   function renderEmails() {
     const rows = baseMessages().filter(inWeek);
     const shown = rows.slice(0, limit);
+    const span = 5;
     const pickable = shown.filter((m) => !m.isProtected).map((m) => m.id);
     table.className = "sheet emails";
     table.replaceChildren(
-      headRow([selectAll(pickable), "From", "Subject", ...(wide ? ["Kind", "When"] : [])]),
+      // Mercury's transactions table: the date is a column, not a group row.
+      headRow([selectAll(pickable), "Date", "From", "Subject", "Kind"]),
     );
     const body = h("tbody");
-    let lastDay = "";
-    const perDay = new Map<string, number>();
-    for (const m of rows) perDay.set(fmtDay(m.at), (perDay.get(fmtDay(m.at)) ?? 0) + 1);
     for (const m of shown) {
-      const day = fmtDay(m.at);
-      if (day !== lastDay) {
-        const tr = h("tr", "group");
-        const td = h("td", "", day);
-        td.colSpan = cols();
-        td.append(h("span", "", String(perDay.get(day))));
-        tr.append(td);
-        body.append(tr);
-        lastDay = day;
-      }
       const tr = h("tr", `${selected.has(m.id) ? "sel " : ""}${m.unread ? "unread" : ""}`);
       const c = h("td", "c");
       c.append(tick(m.id, `Select ${m.subject || "email"} from ${m.name}`, m.isProtected));
@@ -521,7 +510,7 @@ export function initDetailsPanel(
       const from = h("td", "from");
       const who = button("who", m.name, () => set({ senderKey: m.senderKey }));
       who.title = `Only ${m.address}`;
-      from.append(senderTile(m.address, m.name, "sz-26"), who);
+      from.append(senderTile(m.address, m.name, "sz-34"), who);
       const subj = h("td", "subj", m.subject || "(no subject)");
       subj.title = m.subject;
       if (m.provider === "gmail") {
@@ -531,12 +520,9 @@ export function initDetailsPanel(
         open.onclick = (e) => e.stopPropagation();
         subj.append(open);
       }
-      tr.append(c, from, subj);
-      if (wide)
-        tr.append(
-          h("td", "", kindLabel(m.kind)),
-          h("td", "", new Date(m.at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })),
-        );
+      const date = h("td", "date", new Date(m.at).toLocaleDateString(undefined, { month: "short", day: "numeric" }));
+      date.title = `${fmtDay(m.at)}, ${new Date(m.at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+      tr.append(c, date, from, subj, h("td", "kind", kindLabel(m.kind)));
       tr.onclick = () => {
         const box = c.querySelector("input")!;
         if (box.disabled) return;
@@ -551,7 +537,7 @@ export function initDetailsPanel(
       const foot = h("tfoot");
       const tr = h("tr");
       const td = h("td");
-      td.colSpan = cols();
+      td.colSpan = span;
       td.append(
         button(
           "link",

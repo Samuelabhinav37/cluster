@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { MessageKind } from "./messageKind";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import type { ThreatSignal } from "./threatSignals";
-import { pickToday, todayEmailDue, todayEmailMessage } from "./today";
+import { fillToday, pickToday, todayEmailDue, todayEmailMessage } from "./today";
 
 const NOW = Date.UTC(2026, 10, 3, 12);
 const HOUR = 3600_000;
@@ -83,5 +83,16 @@ describe("Today by email", () => {
     expect(raw).toMatch(/^From: Cluster <me@gmail.com>\r\nTo: me@gmail.com\r\n/);
     expect(raw).toContain("From a person: Mom\r\nDinner?\r\nhttps://mail.google.com/mail/u/0/#all/abc");
     expect(raw).not.toMatch(/[^\r]\n/);
+  });
+});
+
+describe("fillToday", () => {
+  it("tops up with the newest other mail from the last day, skipping promotions and old mail", () => {
+    const senders = [
+      sender("a@x.com", [msg("new", "other", { receivedAt: NOW - HOUR }), msg("promo", "other", { promotion: true }), msg("old", "other", { receivedAt: NOW - 30 * HOUR })]),
+      sender("b@x.com", [msg("newer", "other", { receivedAt: NOW - 60_000 })]),
+    ];
+    const got = fillToday([], senders, NOW, 5).map((t) => t.id);
+    expect(got).toEqual(["newer", "new"]);
   });
 });

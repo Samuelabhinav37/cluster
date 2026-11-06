@@ -30,7 +30,7 @@ import {
 } from "../lib/gmailApi";
 import { parseAddressList } from "../lib/headerFields";
 import { brandName } from "../lib/verdict";
-import { pickToday, type TodayItem } from "../lib/today";
+import { fillToday, pickToday, type TodayItem } from "../lib/today";
 import { clearMetadataCache } from "../lib/metadataCache";
 import { MAIL_INDEX_CAP, openMailIndex } from "../lib/mailIndex";
 import {
@@ -1401,7 +1401,7 @@ function renderOverview(
     movedToday: movedTodayEntries().reduce((sum, e) => sum + (e.undo?.ids.length ?? 0), 0),
     stopLists: stopListKeys.length,
     filed: filedByDay(ctx.settings.actionLog, Date.now()),
-    topSenders: topSendersThisWeek(allSenders, Date.now()),
+    topSenders: topSendersThisWeek(allSenders, Date.now(), 10),
     // Security's own rows, so Overview never lists a sender Security doesn't.
     suspects: rankFlagged(securitySenders).high.slice(0, 3).map(({ sender: s }) => ({
       address: s.address,
@@ -1417,7 +1417,7 @@ function renderOverview(
   // Day one: the census has counted senders' mail before it is all read.
   const counted = allSenders.reduce((n, s) => n + senderVolume(s), 0);
   if (counted > facts.total) Object.assign(facts, { total: counted, since: undefined });
-  facts.today = pickToday(allSenders, knownSenderSet(ctx.settings), Date.now());
+  facts.today = fillToday(pickToday(allSenders, knownSenderSet(ctx.settings), Date.now(), 5), allSenders, Date.now(), 5);
   overviewContentEl.appendChild(renderHomeDashboard(facts, goAndAct, (kind) => details?.open({ kind })));
   paintScanCard();
   void loadTodaySnippets(facts.today);

@@ -669,14 +669,14 @@ function flow(cls: string, value: number, label: string): HTMLElement {
   return span;
 }
 
-/** Mercury's balance card: the inbox now, mail in and cleared over 30 days, arrivals as an area. */
+/** Mercury's balance card: mail received over 30 days as an area, and how much was cleared. */
 function inboxCard(f: HomeFacts): HTMLElement {
   const card = el("section", "ov-card ov-inbox");
   const days = f.received30 ?? [];
-  card.append(el("h2", "ov-card-title", "Inbox"), el("b", "ov-big", n(f.total)));
+  card.append(el("h2", "ov-card-title", "Mail received"), el("b", "ov-big", n(days.reduce((a, b) => a + b, 0))));
   const meta = el("div", "ov-meta");
   const flows = el("span", "ov-flows");
-  flows.append(flow("in", days.reduce((a, b) => a + b, 0), "received"), flow("out", f.cleared30 ?? 0, "cleared"));
+  flows.append(flow("out", f.cleared30 ?? 0, "cleared"));
   meta.append(el("span", "", "Last 30 days"), flows);
   card.append(meta, lineChart(days, Date.now()));
   return card;
@@ -726,7 +726,8 @@ export function renderHomeDashboard(
     legend.append(item);
   }
   donutBox.append(legend);
-  grid.append(
+  const left = el("div", "ov-col");
+  left.append(
     widget("Inbox by category", `Every email Cluster has read, by kind. Pick a kind to see its emails.${since}`, null, donutBox, () => go("organize"), "Labels"),
   );
 
@@ -739,9 +740,12 @@ export function renderHomeDashboard(
     sus.append(row);
   }
   if (!f.suspects?.length) sus.append(el("p", "ov-empty", "Nothing suspicious."));
-  grid.append(widget("Suspicious emails", "Emails that pretend to be a company you know.", null, sus, () => go("impersonation"), "Security"));
+  left.append(widget("Suspicious emails", "Emails that pretend to be a company you know.", null, sus, () => go("impersonation"), "Security"));
 
   const top = el("div", "ov-list");
+  const cols = el("div", "ov-tr ov-tr-head");
+  cols.append(el("span", "", "Sender"), el("span", "ov-v", "Emails"));
+  if (f.topSenders?.length) top.append(cols);
   const most = f.topSenders?.[0]?.count ?? 1;
   for (const t of f.topSenders ?? []) {
     const row = el("div", "ov-tr");
@@ -752,7 +756,7 @@ export function renderHomeDashboard(
     top.append(row);
   }
   if (!f.topSenders?.length) top.append(el("p", "ov-empty", "No mail this week."));
-  grid.append(widget("Top senders", "Senders with the most email in the last seven days.", null, top, () => go("subscriptions"), "Mailing lists"));
+  grid.append(left, widget("Top senders", "Senders with the most email in the last seven days.", null, top, () => go("subscriptions"), "Mailing lists"));
 
   root.append(grid);
   return root;
