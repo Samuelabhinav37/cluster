@@ -85,6 +85,18 @@ describe("groupByCompany", () => {
     expect(isPerson(profiles.get("gmail:service@paypal.com"))).toBe(false);
     expect(groupByCompany(list, profiles).map((g) => [g.key, g.senders.length])).toEqual([["paypal.com", 2]]);
   });
+
+  it("folds the user's real PayPal addresses into one PayPal (Nov 2026 inbox)", async () => {
+    const rows = [
+      ...many(4, { fromAddress: "service@paypal.com", fromDisplayName: "PayPal", subject: "DoorDash, Inc.: $17.35 USD", authenticationResults: signed("paypal.com") }),
+      ...many(3, { fromAddress: "noreply@news.paypal.com", fromDisplayName: "PayPal", listId: "news", authenticationResults: signed("news.paypal.com") }),
+      ...many(2, { fromAddress: "noreply@service.paypal.com", fromDisplayName: "PayPal", authenticationResults: signed("service.paypal.com") }),
+    ];
+    const { list, profiles } = await setup(rows);
+    const groups = groupByCompany(list, profiles);
+    expect(groups.map((g) => [g.key, g.senders.length])).toEqual([["paypal.com", 3]]);
+    expect(companyName(groups[0])).toBe("PayPal");
+  });
 });
 
 describe("foldByCompany", () => {
