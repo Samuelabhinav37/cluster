@@ -512,6 +512,8 @@ export function renderScanCard(
     fill.style.width = `${scan.total > 0 ? Math.min(100, (scan.done / scan.total) * 100) : 0}%`;
     track.append(fill);
     card.append(track);
+    // Rows popping in and reordering mid-run looked messy: show them once, at the end.
+    return card;
   }
   const list = el("div", "ios-group scan-rows");
   for (const r of [...rows].filter((x) => x.count > 0).sort((a, b) => b.count - a.count)) {

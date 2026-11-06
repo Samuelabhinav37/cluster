@@ -246,6 +246,7 @@ describe("renderScanCard", () => {
     expect(Array.from(card.querySelectorAll(".scan-steps li")).map((li) => li.className)).toEqual(["is-done", "is-on"]);
     expect(card.querySelector(".read-track")!.getAttribute("aria-valuenow")).toBe("30");
     expect(card.querySelector("button")).toBeNull();
+    expect(card.querySelector(".scan-rows")).toBeNull();
   });
 
   it("when done: the total, label rows biggest first linking to Gmail, No label, Rescan and close", () => {
