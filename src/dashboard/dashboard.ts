@@ -16,7 +16,7 @@ import { getScan, newScan, onScanChange, setScan, type ScanState } from "../lib/
 import { ALL_SORT_BUCKETS } from "../lib/sortTaxonomy";
 import { runReplyReminders } from "../lib/replyReminders";
 import { markRepliesToYou } from "../lib/correspondents";
-import { getLabel, getProfileEmail, getSnippets, GmailApiError, listSendAs } from "../lib/gmailApi";
+import { batchModify, getLabel, getOrCreateLabel, getProfileEmail, getSnippets, GmailApiError, listLabels, listSendAs } from "../lib/gmailApi";
 import { brandName } from "../lib/verdict";
 import { pickToday, type TodayItem } from "../lib/today";
 import { clearMetadataCache } from "../lib/metadataCache";
@@ -1877,6 +1877,41 @@ function wireDetails() {
             });
           }
         : undefined,
+      labels: ctx.settings.autoSort.timeLimitsEnabled
+        ? ALL_SORT_BUCKETS.filter((b) => !ctx.settings.autoSort.labelsOff.includes(b)).map((bucket) => ({
+            bucket,
+            name: categoryLabelName(bucket, ctx.settings.labelChoices).replace(/^\S+\s/, ""),
+          }))
+        : undefined,
+      label: (messages, bucket, always, slot) =>
+        runNow(slot, async () => {
+          const gmail = messages.filter((m) => m.provider === "gmail");
+          const addresses = new Set(gmail.map((m) => m.address.toLowerCase()));
+          const ids = new Set(gmail.map((m) => m.id));
+          // "Always" fixes the senders' older mail too, not just what's ticked.
+          if (always) {
+            for (const s of lastOverview?.[2] ?? ctx.senders) {
+              if (s.provider === "gmail" && addresses.has(s.address.toLowerCase())) for (const m of s.messages) ids.add(m.id);
+            }
+          }
+          const token = await gmailProvider.getAuthToken(false);
+          const name = categoryLabelName(bucket, ctx.settings.labelChoices);
+          const others = new Set(ALL_SORT_BUCKETS.filter((b) => b !== bucket).map((b) => categoryLabelName(b, ctx.settings.labelChoices)));
+          const remove = (await listLabels(token)).filter((l) => others.has(l.name)).map((l) => l.id);
+          await batchModify(token, [...ids], [await getOrCreateLabel(token, name)], remove);
+          if (always) {
+            ctx.settings = await mutateSettings((cur) => ({
+              ...cur,
+              sortOverrides: { ...cur.sortOverrides, ...Object.fromEntries([...addresses].map((a) => [a, bucket])) },
+            }));
+            // Rewrites the Gmail filters so new mail from them lands there too.
+            void runInboxTimeLimits().catch((err) => log.error("Label as: filter update failed", err));
+          }
+          const short = name.replace(/^\S+\s/, "");
+          await logAction("sort", `Labelled ${ids.size} as ${short} from Details`);
+          void refreshView();
+          return `Labelled ${ids.size} as ${short} ✓`;
+        }),
       pin: [...providerById.values()].some((p) => p.pinMessages)
         ? async (messages, slot) => {
             let done = 0;

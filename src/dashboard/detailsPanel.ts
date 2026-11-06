@@ -9,6 +9,7 @@
 import { mismatchedSenders } from "./brandCheck";
 import type { ProviderId } from "../lib/providers/emailProvider";
 import type { SenderSummary } from "../lib/senderModel";
+import type { SortBucket } from "../lib/sortTaxonomy";
 import { SMART_VIEWS } from "../lib/smartViews";
 import { companyName, senderName } from "../lib/senderListView";
 import { HOME_KINDS, kindOf, type HomeKind } from "./homeDashboard";
@@ -83,6 +84,11 @@ export interface DetailsActions {
   pin?(messages: DetailMessage[], slot: HTMLElement): void;
   /** Ask, then mute these senders. Missing when no connected provider can. */
   mute?(senders: SenderSummary[], slot: HTMLElement, reset: () => void, settle: Settle): void;
+  /** Put these under one label instead of any other Cluster label; `always`
+   * also files the senders' other and future mail there. */
+  label?(messages: DetailMessage[], bucket: SortBucket, always: boolean, slot: HTMLElement): void;
+  /** The labels "Label as" offers. */
+  labels?: ReadonlyArray<{ bucket: SortBucket; name: string }>;
 }
 
 type State = Required<Omit<DetailsFilter, "senderKey" | "kind" | "week" | "day" | "smart">> & {
@@ -660,11 +666,28 @@ export function initDetailsPanel(
       render();
     });
     const acts: HTMLButtonElement[] = [];
+    const extras: HTMLElement[] = [];
     if (st.view === "emails") {
       const picked = messages.filter((m) => selected.has(m.id));
       if (actions.archive) {
         const archive = actions.archive;
         acts.push(button("btn btn-sm", "Archive", () => archive(picked, bar, reset, settle)));
+      }
+      if (actions.label && actions.labels?.length) {
+        const labelAs = actions.label;
+        const pick = h("select", "kind-pick");
+        pick.setAttribute("aria-label", "Label as");
+        pick.add(new Option("Label as", ""));
+        for (const l of actions.labels) pick.add(new Option(l.name, l.bucket));
+        const always = h("input");
+        always.type = "checkbox";
+        always.checked = true;
+        const alwaysWrap = h("label", "always-pick");
+        alwaysWrap.append(always, picked.every((m) => m.address === picked[0]?.address) ? "Always for this sender" : "Always for these senders");
+        pick.onchange = () => {
+          if (pick.value) labelAs(picked, pick.value as SortBucket, always.checked, bar);
+        };
+        extras.push(pick, alwaysWrap);
       }
       if (actions.pin) {
         const pin = actions.pin;
@@ -697,7 +720,7 @@ export function initDetailsPanel(
         ),
       );
     }
-    bar.replaceChildren(label, clear, h("span", "spacer"), ...acts);
+    bar.replaceChildren(label, clear, h("span", "spacer"), ...extras, ...acts);
   }
 
   function renderTitle() {

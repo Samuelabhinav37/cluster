@@ -150,6 +150,22 @@ describe("Details panel", () => {
     expect(pin.mock.calls[0][0].map((m) => m.subject)).toEqual(["Sale today"]);
   });
 
+  it("Label as files what was ticked, always for the sender unless unticked", () => {
+    const label = vi.fn<NonNullable<DetailsActions["label"]>>();
+    const labels = [{ bucket: "shopping" as const, name: "Shopping" }, { bucket: "promotions" as const, name: "Promotions" }];
+    const panel = initDetailsPanel(root, { trash, label, labels }, () => NOW);
+    panel.update(mailbox());
+    panel.open();
+    root.querySelector<HTMLInputElement>("tbody .tick:not(:disabled)")!.click();
+    const bar = root.querySelector<HTMLElement>(".selbar")!;
+    expect(bar.querySelector(".always-pick")!.textContent).toBe("Always for this sender");
+    const pick = bar.querySelector<HTMLSelectElement>('select[aria-label="Label as"]')!;
+    pick.value = "shopping";
+    pick.dispatchEvent(new Event("change"));
+    expect(label.mock.calls[0][0].map((m) => m.subject)).toEqual(["Sale today"]);
+    expect(label.mock.calls[0].slice(1, 3)).toEqual(["shopping", true]);
+  });
+
   it("hides what an action moved at once, and brings it back on Undo", () => {
     const panel = boot();
     panel.open();
