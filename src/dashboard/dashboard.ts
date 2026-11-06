@@ -109,7 +109,7 @@ import { renderCleanupPage, renderSenderTable, type PageItem } from "./cleanupPa
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { keepNewestExcess, olderReadExcess } from "../lib/keepNewest";
 import { deliveredUpdates } from "../lib/orderEvents";
-import { appendUndoButton, logAction, renderRecentTab, undoEntry } from "./recentTab";
+import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
 import { openRuleSheetFor, renderRulesTab, saveRules, wireRulesTab } from "./rulesTab";
 import { renderLearned, SIGNED_OUT_KEY, wireSettingsMore } from "./settingsMore";
 import { initBodyChecks, rankFlagged, renderSecuritySection } from "./securityTab";
