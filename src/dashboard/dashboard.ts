@@ -1,3 +1,4 @@
+import { SCAN_CHECKS, scanCheckCounts, scanFound } from "../lib/securityScan";
 import { executeBulkDeleteDomains, filterOutProtected } from "../lib/bulkActions";
 import { loadPublicSuffixList } from "../lib/publicSuffix";
 import { applyBrandVerdicts, loadBrandRegistry } from "../lib/brandRegistry";
@@ -615,15 +616,17 @@ async function main() {
   for (const [id, key] of [
     ["rule-auth-fails", "holdAuthFails"],
     ["rule-to-spam", "toSpam"],
+    ["rule-strict", "strict"],
   ] as const) {
     const sw = document.getElementById(id) as HTMLInputElement;
-    sw.checked = ctx.settings.securityRules[key];
+    sw.checked = ctx.settings.securityRules[key] === true;
     sw.onchange = async () => {
       ctx.settings = await updateSettings({
         securityRules: { ...ctx.settings.securityRules, [key]: sw.checked },
       });
     };
   }
+  wireScanNow();
   scanWindowInput.value = String(ctx.settings.scanWindowDays);
   wireScanSettings();
   await wireAthenaConnection();
@@ -1250,6 +1253,63 @@ function renderProtectTiles(scams: number, waiting: number, held: number) {
   if (scan) scan.dataset.state = scams > 0 ? "warn" : "clean";
   const title = document.getElementById("sec-title");
   if (title) title.textContent = scams > 0 ? `${scams.toLocaleString()} ${scams === 1 ? "scam" : "scams"} found` : "Nothing looks wrong";
+}
+
+function paintLastScan() {
+  const el = document.getElementById("sec-last");
+  const last = ctx.settings.lastSecurityScan;
+  if (!el || !last) return;
+  const when = new Date(last.at);
+  const day = when.toDateString() === new Date().toDateString() ? "today" : when.toLocaleDateString();
+  el.textContent = `Last scan ${day} at ${when.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+}
+
+/** Security's Scan now: reads new mail into the index, then walks each check
+ * over it in turn. The background runs the same scan once a day. */
+function wireScanNow() {
+  const btn = document.getElementById("sec-scan-now") as HTMLButtonElement | null;
+  const list = document.getElementById("sec-checks");
+  if (!btn || !list) return;
+  paintLastScan();
+  btn.onclick = async () => {
+    btn.disabled = true;
+    btn.textContent = "Scanning…";
+    list.hidden = false;
+    list.replaceChildren(
+      ...SCAN_CHECKS.map(({ label }) => {
+        const li = document.createElement("li");
+        li.append(label, Object.assign(document.createElement("span"), { textContent: "–" }));
+        return li;
+      }),
+    );
+    try {
+      const last = document.getElementById("sec-last");
+      if (last) last.textContent = "Reading new mail…";
+      await refreshView();
+      const senders = lastOverview?.[1] ?? [];
+      const known = knownSenderSet(ctx.settings);
+      const counts = scanCheckCounts(senders, known);
+      for (const [i, n] of counts.entries()) {
+        const li = list.children[i] as HTMLElement;
+        li.lastElementChild!.textContent = n === 0 ? "✓" : `${n} ${n === 1 ? "sender" : "senders"}`;
+        if (n > 0) li.dataset.found = "";
+        // Let each row paint before the next check runs.
+        await new Promise(requestAnimationFrame);
+      }
+      ctx.settings = await updateSettings({
+        lastSecurityScan: { at: Date.now(), found: scanFound(senders, known) },
+      });
+      paintLastScan();
+    } catch (err) {
+      log.error("Scan now failed", err);
+      list.hidden = true;
+      const last = document.getElementById("sec-last");
+      if (last) last.textContent = "Scan failed, try again.";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Scan now";
+    }
+  };
 }
 
 // Quiet by default (no badge at zero, per the phishing-UX research this

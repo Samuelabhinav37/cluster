@@ -20,7 +20,8 @@ const BUDGET: Record<string, { words: number; controls: number }> = {
   // Round 2 (approved 2026-10-30): a five-step picker on each kind card.
   organize: { words: 300, controls: 75 },
   // Redesign 2026-11: KPI row and Suspicious and Quarantine tabs.
-  impersonation: { words: 80, controls: 12 },
+  // +Scan now (2026-11-06).
+  impersonation: { words: 84, controls: 13 },
   screener: { words: 60, controls: 6 },
   report: { words: 45, controls: 5 },
   senders: { words: 92, controls: 15 },

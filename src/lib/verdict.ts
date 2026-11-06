@@ -57,6 +57,8 @@ export interface VerdictContext {
   /** The user has written to this address (screener.ts knownSenderSet). */
   knownCorrespondent: boolean;
   review?: QuarantineRecord;
+  /** Security's Strict switch: messages that only earn a warning are held too. */
+  strict?: boolean;
 }
 
 export const HOLD_SCORE = 6;
@@ -193,7 +195,8 @@ export function senderVerdict(sender: SenderSummary, context: VerdictContext): V
   // email from a supplier, not the supplier's whole history.
   const heldMessageIds = sender.messageIds.filter((id) => {
     const own = signals.filter((s) => !s.messageIds || s.messageIds.includes(id));
-    return judge(own, adjustment).tier === "hold";
+    const tier = judge(own, adjustment).tier;
+    return tier === "hold" || (context.strict === true && tier === "warn");
   });
 
   return { tier, score, reasons, trustReasons, signals, heldMessageIds };

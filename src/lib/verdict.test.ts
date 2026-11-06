@@ -165,4 +165,10 @@ describe("heldMessageIds", () => {
     expect(verdict.tier).toBe("hold");
     expect(verdict.heldMessageIds).toEqual([]);
   });
+
+  it("Strict also holds a message that only earns a warning", () => {
+    const signals: ThreatSignal[] = [{ ...identity, messageIds: ["a"] }];
+    expect(senderVerdict(withMessages(signals), stranger).heldMessageIds).toEqual([]);
+    expect(senderVerdict(withMessages(signals), { ...stranger, strict: true }).heldMessageIds).toEqual(["a"]);
+  });
 });

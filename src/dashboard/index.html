@@ -445,6 +445,11 @@
               <div class="sec-body">
                 <h2 class="sec-title" id="sec-title">Nothing looks wrong</h2>
                 <p class="sec-sub" data-protect-sub></p>
+                <div class="sec-run">
+                  <button type="button" class="btn" id="sec-scan-now">Scan now</button>
+                  <span class="sec-last" id="sec-last" aria-live="polite"></span>
+                </div>
+                <ol class="sec-checks" id="sec-checks" hidden></ol>
                 <div class="sec-items">
                   <div class="sec-item">
                     <span class="sec-item-words"><b>Look like scams</b><span><span id="kpi-threats">0</span> pretend to be a company you know</span></span>
@@ -543,6 +548,14 @@
                     >Move quarantined mail to Spam</span
                   >
                   <input type="checkbox" class="switch" role="switch" id="rule-to-spam" />
+                </label>
+                <label class="ios-row">
+                  <span class="app-ic app-gray"
+                    ><svg class="i" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg
+                  ></span>
+                  <span class="grow">Strict: also hold mail with one warning sign</span>
+                  <input type="checkbox" class="switch" role="switch" id="rule-strict" />
                 </label>
               </div>
             </section>

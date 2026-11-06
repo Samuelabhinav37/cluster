@@ -46,8 +46,11 @@ export interface ClusterSettings {
   replyReminders: { enabled: boolean; days: number; reminded: Record<string, string> };
   /** Protect's opt-in rules, run with auto-quarantine (background.ts runQuarantine):
    * held scams also go to Gmail's Spam, and mail failing DMARC (or both SPF
-   * and DKIM) from someone you don't write to is held on that alone. */
-  securityRules: { toSpam: boolean; holdAuthFails: boolean };
+   * and DKIM) from someone you don't write to is held on that alone.
+   * `strict` holds mail that only earns a warning too (verdict.ts). */
+  securityRules: { toSpam: boolean; holdAuthFails: boolean; strict?: boolean };
+  /** The newest security scan: Scan now on Security, or the background's daily one. */
+  lastSecurityScan?: { at: number; found: number };
   /** Newsletters held out of the inbox and delivered on Saturday morning,
    * or every morning with `daily` (newsletterDay.ts). */
   newsletterDay: { enabled: boolean; lastDelivered: number; daily?: boolean };

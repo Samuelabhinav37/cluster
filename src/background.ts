@@ -6,6 +6,7 @@ import { gmailProvider } from "./lib/providers/gmailProvider";
 import { outlookProvider } from "./lib/providers/outlookProvider";
 import type { EmailProvider, ProviderId } from "./lib/providers/emailProvider";
 import { applyRules } from "./lib/ruleRunner";
+import { scanFound } from "./lib/securityScan";
 import { knownSenderSet, pendingScreenerSenders, refreshSentCorrespondents } from "./lib/screener";
 import { markFirstContact } from "./lib/firstContact";
 import { markNameMatches } from "./lib/nameMatch";
@@ -264,7 +265,11 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
   for (const s of senders) {
     if (!providerById.get(s.provider)?.labelSuspicious) continue;
     const isKnown = known.has(s.address.toLowerCase());
-    const verdict = senderVerdict(s, { knownCorrespondent: isKnown, review: settings.quarantineReview[s.key] });
+    const verdict = senderVerdict(s, {
+      knownCorrespondent: isKnown,
+      review: settings.quarantineReview[s.key],
+      strict: rules.strict,
+    });
     const protectedSet = new Set(s.protectedMessageIds);
     const alreadyHeld = new Set(settings.quarantinedSenders[s.key]?.messageIds ?? []);
     const candidates = [
@@ -347,7 +352,9 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
  */
 async function holdScamsFromIndex(): Promise<void> {
   const settings = await getSettings();
-  if (!settings.autoQuarantineHighRisk && !settings.securityRules.holdAuthFails) return;
+  // With holds off, this still runs once a day so Security shows a fresh scan.
+  const scanDue = Date.now() - (settings.lastSecurityScan?.at ?? 0) >= 24 * 60 * 60 * 1000;
+  if (!settings.autoQuarantineHighRisk && !settings.securityRules.holdAuthFails && !scanDue) return;
   const candidates = [gmailProvider, outlookProvider];
   const flags = await Promise.all(candidates.map((p) => p.isConnected()));
   const connected = candidates.filter((_, i) => flags[i]);
@@ -363,6 +370,8 @@ async function holdScamsFromIndex(): Promise<void> {
   markNameMatches(security, knownSenderSet(settings));
   await applySenderLedger(security);
   await runQuarantine(settings, security);
+  if (scanDue)
+    await updateSettings({ lastSecurityScan: { at: Date.now(), found: scanFound(security, knownSenderSet(settings)) } });
 }
 
 /** The opt-in morning email: Home's Today list, put into the user's own

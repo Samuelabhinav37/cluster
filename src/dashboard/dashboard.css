@@ -4368,6 +4368,12 @@ body[data-screen="settings"] #sidebar .settings-nav { display: flex; flex-direct
 .sec-item-words { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .sec-item-words b { font: 600 16px var(--font); }
 .sec-item-words > span { font-size: 14px; color: var(--label-3); }
+.sec-run { display: flex; align-items: center; gap: 12px; margin: 0 0 8px; }
+.sec-last { font-size: 14px; color: var(--label-3); }
+.sec-checks { list-style: none; margin: 8px 0 0; padding: 0; }
+.sec-checks li { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; font-size: 14px; border-bottom: 1px solid var(--hairline); }
+.sec-checks li span { color: var(--label-3); }
+.sec-checks li[data-found] span { color: #f87171; }
 .sec-view { padding: 0; border: 0; background: none; color: var(--accent); font: 500 14px var(--font); cursor: pointer; }
 .sec-view:hover { text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 900px) { .ov-top, .sec-scan { grid-template-columns: 1fr; } .sec-ring { display: none; } }
