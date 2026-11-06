@@ -99,14 +99,6 @@ function plural(n: number, word: string): string {
   return `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`;
 }
 
-function ago(at: number): string {
-  const mins = Math.round((Date.now() - at) / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins} min ago`;
-  const hours = Math.round(mins / 60);
-  return hours < 24 ? `${hours} h ago` : new Date(at).toLocaleDateString();
-}
-
 function selectFor(bucket: SortBucket): HTMLSelectElement | null {
   return document.getElementById(`time-limit-${bucket}`) as HTMLSelectElement | null;
 }
@@ -189,7 +181,6 @@ function renderKindSubs(): void {
 
 export function renderTimeLimits(): void {
   if (!rowsEl) return;
-  const cfg = ctx.settings.autoSort;
   // One list of Cluster's labels, in Gmail's order (by name), each icon in
   // its Gmail label color. Anything but Off also sorts new mail.
   const labelName = (b: SortBucket) => categoryLabelName(b, ctx.settings.labelChoices);
