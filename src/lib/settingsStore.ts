@@ -7,7 +7,7 @@ import { DEFAULT_INBOX_HOURS, type SortBucket, type SortOverride } from "./sortT
 import type { QuarantineReviewMap } from "./quarantineReview";
 import { withStorageLock } from "./storageLock";
 import { migrateStoredLabelNames } from "./clusterLabels";
-import type { OnboardingAnswers } from "./onboardingPlan";
+import { buildOnboardingPlan, type OnboardingAnswers } from "./onboardingPlan";
 
 export type UnsubscribeMethod = "one-click" | "mailto";
 
@@ -425,6 +425,9 @@ function normalizeSettings(value: unknown): ClusterSettings {
   const stored = migrateSettings(value);
   const sentCorrespondents = isRecord(stored.sentCorrespondents) ? stored.sentCorrespondents : {};
   const autoSort = isRecord(stored.autoSort) ? stored.autoSort : {};
+  const answers = isRecord(stored.onboarding) && isRecord(stored.onboarding.answers) ? stored.onboarding.answers : null;
+  // A label added after setup takes the time setup's answers give it, not the bare default.
+  const setupHours = answers && Array.isArray(answers.keep) ? buildOnboardingPlan(answers as unknown as OnboardingAnswers).hours : {};
   return {
     ...DEFAULT_SETTINGS,
     ...stored,
@@ -452,6 +455,7 @@ function normalizeSettings(value: unknown): ClusterSettings {
       // Every category has a limit, including ones added after the user saved.
       inboxHoursByBucket: {
         ...DEFAULT_SETTINGS.autoSort.inboxHoursByBucket,
+        ...setupHours,
         ...(isRecord(autoSort.inboxHoursByBucket) ? autoSort.inboxHoursByBucket : {}),
       },
     } as ClusterSettings["autoSort"],

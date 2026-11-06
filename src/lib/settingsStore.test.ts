@@ -249,6 +249,22 @@ describe("settingsStore", () => {
     expect(settings.autoSort.inboxHoursByBucket).toMatchObject({ otp: 24, shipping: 168, travel: null });
   });
 
+  it("gives a label added after setup the time setup's answers give it", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: {
+        schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
+        onboarding: { version: 1, answers: { sorted: {}, keep: ["people"], hands: "tidy" }, answeredAt: 1 },
+        // saved before Jobs existed
+        autoSort: { inboxHoursByBucket: { otp: 3, travel: 3 } },
+      },
+    });
+
+    const hours = (await getSettings()).autoSort.inboxHoursByBucket;
+    expect(hours.jobs).toBe(3);
+    expect(hours.accounts).toBeNull();
+    expect(hours.travel).toBe(3);
+  });
+
   it("serializes concurrent partial updates so unrelated changes are preserved", async () => {
     await Promise.all([
       updateSettings({ scanWindowDays: 14 }),
