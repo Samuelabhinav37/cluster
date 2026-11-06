@@ -95,8 +95,8 @@ Each step:
 - passes the existing tests plus a screenshot check in light and dark;
 - stays inside the JS and CSS budgets.
 
-## Open questions
+## Open questions (settled by the build, 2026-11-06)
 
-1. With the + gone, is "New rule" only on Organize? It could also go in Kai ("Make a rule").
-2. Should Activity stay behind the bell, or get a sidebar item?
-3. Clean up and Stop mail: keep them as two sidebar items, or one page with two tabs?
+1. New rule: "Add rule" on a sender in Details, plus the rule sheet on Labels. Not in Kai.
+2. Activity: in the account menu (avatar, then Activity). No bell, no sidebar item.
+3. Clean up and Stop mail: one Cleanup page with Senders and Mailing lists tabs.
