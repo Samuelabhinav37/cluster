@@ -2840,7 +2840,7 @@ body {
 /* the dashboard's own button look (40px tall, filled) is not Kai's */
 .kai-guide button { min-height: 0; transition: none; }
 .kai-guide .kg-tag:hover { background: var(--glass-solid); }
-.kg-launch { --kg-kai: 72px; position: relative; width: var(--kg-kai); }
+.kg-launch { --kg-kai: 56px; position: relative; width: var(--kg-kai); }
 .kai-guide .kai-button { display: block; padding: 0; border: 0; background: none; box-shadow: none; min-width: 0; min-height: 0; cursor: pointer; border-radius: 16px; }
 .kai-guide .kai-button:hover, .kai-guide .kai-button:active { background: none; box-shadow: none; transform: none; }
 .kai-button:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 4px; }
@@ -2872,7 +2872,7 @@ body {
 
 /* the chat, above Kai */
 .kg-panel {
-  position: absolute; right: -4px; bottom: 124px;
+  position: absolute; right: -4px; bottom: 96px;
   width: min(360px, calc(100vw - 32px)); max-height: min(540px, calc(100vh - 170px));
   display: flex; flex-direction: column; overflow: hidden;
   border-radius: 24px; background: var(--glass-solid); border: 1px solid var(--hairline);
@@ -3768,8 +3768,6 @@ button.week-card:hover { background: var(--row-hover); }
 .found-tile b { display: block; font: 600 24px/1 var(--font-display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .found-label { display: block; margin-top: 4px; font-size: 13px; color: var(--label-2); }
 body[data-screen="overview"] #index-status.home-shows { display: none; }
-/* One Kai on Home: the hero is Kai, so the corner one shows only while the chat is open. */
-body[data-screen="overview"] .kai-guide:not(.open) .kg-launch { visibility: hidden; }
 @media (max-width: 760px) {
   .home-week, .found-strip { grid-template-columns: minmax(0, 1fr); }
   .found-tile + .found-tile { border-left: 0; border-top: 1px solid var(--separator); }
@@ -3982,10 +3980,6 @@ body { background: var(--glass); }
 @media (max-width: 700px) { .top-tool:has(span) { width: 36px; padding: 0; justify-content: center; } .top-tool span { display: none; } }
 .top-tool svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .top-tool:hover, body[data-screen="settings"] #top-settings, .details-open .top-tool[data-details] { background: var(--neutral-fill); color: var(--label); }
-.top-kai { width: 36px; height: 36px; margin-left: 6px; padding: 0; border: 0; border-radius: 50%; background: #16171c; cursor: pointer;
-  box-shadow: 0 0 0 1px var(--hairline); }
-.top-kai:hover { background: #24252c; }
-.top-kai svg { display: block; width: 36px; height: 36px; }
 .screen { max-width: 1216px; margin-inline: auto; padding: 0 48px 120px; }
 .page-head { margin: 40px 0 24px; }
 .page-title { font-size: 32px; font-weight: 700; letter-spacing: -0.025em; }
@@ -4000,7 +3994,11 @@ body[data-screen="overview"].details-open .screen[data-screen="overview"] { visi
 /* Overview: today's emails as flat rows, then a 3-column grid of widgets separated by hairlines. */
 .home-today { margin: 0 0 16px; }
 .home-today .ios-group { border: 0; border-block: 1px solid var(--hairline); border-radius: 0; background: none; box-shadow: none; }
-.home-today .today-row { padding: 14px 0; grid-template-columns: 34px minmax(0, 1fr) auto; column-gap: 16px; }
+.home-today .today-row { padding: 12px 0; grid-template-columns: 44px minmax(0, 1fr) auto; column-gap: 16px; }
+.home-today .today-words { gap: 2px; }
+.home-today .today-words b { font-size: 16px; font-weight: 600; }
+.today-sub { color: var(--label-3); font-size: 14px; }
+.today-sub .today-snippet { margin-left: 6px; color: var(--label-4); font-size: inherit; }
 .home-today .today-row:hover { background: none; }
 .home-today .today-row:hover b { color: var(--accent-text); }
 .ov-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 64px; }
@@ -4114,14 +4112,11 @@ body[data-screen="overview"].details-open .screen[data-screen="overview"] { visi
 .ct-pill { padding: 3px 8px; border-radius: 6px; background: var(--neutral-fill); color: var(--label-2); font-size: 12px; font-weight: 500; white-space: nowrap; }
 .ct-more { margin-top: 16px; }
 .cu-auto { margin-top: 48px; }
-.kai-guide .kg-launch { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.kai-guide .kg-panel { position: fixed; top: 70px; right: 24px; bottom: auto; }
 .ct-table th { text-transform: none; letter-spacing: 0; font: 500 12px/1.3 var(--font); color: var(--label-3); }
 .ct-who { display: table-cell; }
 .ct-who > * { vertical-align: middle; }
 .ct-who b { margin-left: 12px; }
 .ct-selbar:not([hidden]) + .scroll-x { margin-top: 0; }
-.kai-guide .kg-panel { transform-origin: calc(100% - 20px) 0; }
 /* Security: KPI row, then Suspicious or Quarantine. */
 .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0 0 32px; border-block: 1px solid var(--hairline); }
 .kpi { display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 6px; padding: 22px 24px; border: 0; background: none;

@@ -16,7 +16,19 @@ import { getScan, newScan, onScanChange, setScan, type ScanState } from "../lib/
 import { ALL_SORT_BUCKETS } from "../lib/sortTaxonomy";
 import { runReplyReminders } from "../lib/replyReminders";
 import { markRepliesToYou } from "../lib/correspondents";
-import { batchModify, getLabel, getOrCreateLabel, getProfileEmail, getSnippets, GmailApiError, listLabels, listSendAs } from "../lib/gmailApi";
+import {
+  batchModify,
+  getLabel,
+  getMessageMetadata,
+  getOrCreateLabel,
+  getProfileEmail,
+  getSnippets,
+  GmailApiError,
+  listLabels,
+  listMessageIds,
+  listSendAs,
+} from "../lib/gmailApi";
+import { parseAddressList } from "../lib/headerFields";
 import { brandName } from "../lib/verdict";
 import { pickToday, type TodayItem } from "../lib/today";
 import { clearMetadataCache } from "../lib/metadataCache";
@@ -482,7 +494,10 @@ async function showAccountPill(token: string) {
     avatarEl.textContent = email.slice(0, 2).toUpperCase();
     pill.hidden = false;
     // Overview greets by first name, from the name Gmail sends under.
-    const name = (await listSendAs(token).catch(() => [])).find((i) => i.isPrimary)?.displayName;
+    const name =
+      (await listSendAs(token).catch(() => [])).find((i) => i.isPrimary)?.displayName ??
+      // Gmail leaves the send-as name blank unless set: read it off the latest sent email.
+      (await sentFromName(token).catch(() => undefined));
     if (name) {
       emailEl.textContent = name;
       pill.title = email;
@@ -494,6 +509,13 @@ async function showAccountPill(token: string) {
   } catch (err) {
     log.error("Could not load the account email", err);
   }
+}
+
+async function sentFromName(token: string): Promise<string | undefined> {
+  const [last] = await listMessageIds(token, "in:sent", 1);
+  if (!last) return undefined;
+  const from = (await getMessageMetadata(token, last.id)).headers.From ?? "";
+  return parseAddressList(from)[0]?.name.replace(/^"|"$/g, "").trim() || undefined;
 }
 
 async function wireAthenaConnection() {
@@ -581,13 +603,6 @@ async function main() {
     () => askFacts,
     { details: (filter) => details?.open(filter), go: goAndAct },
   );
-  // Kai's round button in the top bar opens the same box as Ctrl K.
-  // The top-bar Kai opens Kai's chat; the floating launcher is hidden (CSS).
-  document.getElementById("top-kai")?.addEventListener("click", () => {
-    // After this click, so the guide's outside-click rule doesn't close it again.
-    if (kaiGuide?.isOpen()) kaiGuide.close();
-    else setTimeout(() => kaiGuide?.open(), 0);
-  });
   wireAllSendersControls();
   wireProtectPages((key) => details?.open({ view: "emails", senderKey: key }));
   autoQuarantineToggle.checked = ctx.settings.autoQuarantineHighRisk;
@@ -1265,8 +1280,6 @@ function fakedBrands(senders: SenderSummary[]): string[] {
   return [...counts].sort((a, b) => b[1] - a[1]).map(([brand]) => brand);
 }
 
-let movedTodayDismissed = false;
-
 /** Today's sweep entries: what Cluster filed out of the inbox since midnight. */
 function movedTodayEntries() {
   const today = new Date().setHours(0, 0, 0, 0);
@@ -1277,38 +1290,6 @@ function movedTodayEntries() {
 
 // Never-opened lists Today's line hands to Stop mail's Unsubscribe confirm.
 let stopListKeys: string[] = [];
-
-/** "Moved today": what the sweeps filed out of the inbox today, with a way back. */
-function movedTodayCard(): HTMLElement | null {
-  const entries = movedTodayEntries();
-  const n = entries.reduce((sum, e) => sum + (e.undo?.ids.length ?? 0), 0);
-  if (n === 0 || movedTodayDismissed) return null;
-  const card = Object.assign(document.createElement("div"), { className: "banner moved-today" });
-  const text = Object.assign(document.createElement("span"), {
-    textContent: `Cluster moved ${n} email${n === 1 ? "" : "s"} out of your inbox today.`,
-  });
-  const back = Object.assign(document.createElement("button"), {
-    type: "button",
-    className: "btn btn-sm",
-    textContent: "Back to inbox",
-  });
-  back.onclick = async () => {
-    back.disabled = true;
-    for (const e of entries) await undoEntry(e);
-    card.remove();
-  };
-  const fine = Object.assign(document.createElement("button"), {
-    type: "button",
-    className: "btn btn-sm",
-    textContent: "Keep doing this",
-  });
-  fine.onclick = () => {
-    movedTodayDismissed = true;
-    card.remove();
-  };
-  card.append(text, back, fine);
-  return card;
-}
 
 /** Messages read so far in the first read (not the slow detail pass), or undefined. */
 function firstReadProgress(): { done: number; total: number } | undefined {
@@ -1437,8 +1418,6 @@ function renderOverview(
   void loadTodaySnippets(facts.today);
   lastOverview = [senders, securitySenders, allSenders];
   void refreshInboxUnread();
-  const moved = movedTodayCard();
-  if (moved) overviewContentEl.appendChild(moved);
   if (lastScanCapHit) {
     const footNote = document.createElement("p");
     footNote.className = "text-meta";

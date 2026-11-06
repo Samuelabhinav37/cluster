@@ -580,9 +580,12 @@ function todayList(items: readonly TodayItem[]): HTMLElement {
     const words = el("span", "today-words");
     const snippet = el("small", "today-snippet");
     snippet.dataset.snippetId = t.id;
-    words.append(el("b", "", t.name), el("span", "", t.subject), snippet);
+    // Two lines, like Security's rows: who, then the subject with Gmail's preview after it.
+    const line = el("span", "today-sub", t.subject);
+    line.append(snippet);
+    words.append(el("b", "", t.name), line);
     const when = el("span", "ios-value", new Date(t.receivedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }));
-    row.append(senderTile(t.address, t.name, "sz-34"), words, when);
+    row.append(senderTile(t.address, t.name, "sz-44"), words, when);
     group.append(row);
   }
   wrap.append(group);
