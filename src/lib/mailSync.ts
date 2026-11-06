@@ -75,6 +75,12 @@ export interface SyncOptions {
   changesOnly?: boolean;
   /** Label changes made in the mail app to rows already indexed. */
   onLabelMoves?: (moves: LabelMove[]) => Promise<void> | void;
+  /** Each batch of received mail once it's stored (`tried` counts the
+   * batch, including messages that failed or left scope), so the caller can
+   * label mail while the build goes on. */
+  onRead?: (rows: NormalizedMessageMetadata[], tried: number) => Promise<void> | void;
+  /** How many received messages this build will read in all. */
+  onPlanned?: (total: number) => void;
   now?: () => number;
 }
 
@@ -326,6 +332,7 @@ async function buildFromListing(
   // then the counted mail in detail, and older-shape rows last.
   const fresh = stubs.filter((stub) => !known.has(stub.id) || stale.has(stub.id)).map((s) => s.id);
   const upgrade = stubs.filter((stub) => outdated.has(stub.id)).map((s) => s.id);
+  options.onPlanned?.(quickIds.length + fresh.length + upgrade.length);
   // The last 30 days in full first, so recent screens are complete early;
   // older mail then goes through the sender census.
   const recent =
@@ -455,7 +462,7 @@ async function readInto(
   let doneCount = 0;
   for (let start = 0; start < ids.length; start += WRITE_BATCH) {
     if (paced) await options.waitForHeadroom?.();
-    await readRows(provider, token, store, ids.slice(start, start + WRITE_BATCH));
+    await readRows(provider, token, store, ids.slice(start, start + WRITE_BATCH), options);
     doneCount += Math.min(WRITE_BATCH, ids.length - start);
     options.onProgress?.({ phase, done: doneCount, total: ids.length });
   }
@@ -468,6 +475,7 @@ async function readRows(
   token: string,
   store: MailIndexStore,
   batch: string[],
+  options: SyncOptions,
 ): Promise<NormalizedMessageMetadata[]> {
   const rows = await mapWithConcurrency(batch, FETCH_CONCURRENCY, async (id) => {
     try {
@@ -483,6 +491,7 @@ async function readRows(
       Boolean(row) && (!row?.labelIds || inScope(provider, row.labelIds)),
   );
   await store.put(found);
+  await options.onRead?.(found, batch.length);
   return found;
 }
 
@@ -569,7 +578,7 @@ async function discoverAndCount(
     }
     if (batch.length === 0) break;
     await options.waitForHeadroom?.();
-    const rows = await readRows(provider, token, store, batch);
+    const rows = await readRows(provider, token, store, batch, options);
     for (const id of batch) readIds.add(id);
     for (const row of rows) {
       const address = row.fromAddress;

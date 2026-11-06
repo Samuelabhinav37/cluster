@@ -81,6 +81,31 @@ describe("syncMailIndex: first build", () => {
     });
   });
 
+  it("hands each stored batch to onRead and plans the whole read up front", async () => {
+    const mailbox = Array.from({ length: 60 }, (_, i) => message(`m${i}`, ["INBOX"], i));
+    const { provider } = fakeGmail(mailbox);
+    const store = createMemoryMailIndex();
+    const seen: string[] = [];
+    let tried = 0;
+    const planned: number[] = [];
+
+    await syncMailIndex(provider, "t", store, {
+      ...options,
+      quickCount: 25,
+      onPlanned: (n) => planned.push(n),
+      onRead: async (rows, n) => {
+        // Already stored when handed over, so labelling can patch the row.
+        expect((await store.ids("gmail")).has(rows[0].id)).toBe(true);
+        seen.push(...rows.map((r) => r.id));
+        tried += n;
+      },
+    });
+
+    expect(new Set(seen).size).toBe(60);
+    expect(tried).toBe(60);
+    expect(planned).toEqual([60]);
+  });
+
   it("resumes an interrupted build without re-reading what it already has", async () => {
     const mailbox = Array.from({ length: 30 }, (_, i) => message(`m${i}`, ["INBOX"], i));
     const { provider } = fakeGmail(mailbox);

@@ -492,9 +492,10 @@ export function renderScanCard(
   const card = el("section", "scan-card");
   card.id = "scan-card";
   const done = scan.phase === "done";
+  const reading = scan.phase === "reading";
   const sorted = rows.reduce((sum, r) => sum + r.count, 0);
   const head = el("div", "scan-head");
-  head.append(el("b", "", done ? `${n(sorted)} labelled` : "Labelling your inbox"));
+  head.append(el("b", "", done ? `${n(sorted)} labelled` : reading ? "Reading your inbox" : "Labelling your inbox"));
   if (done) {
     const again = el("button", "btn", "Rescan");
     again.type = "button";
@@ -507,17 +508,22 @@ export function renderScanCard(
   }
   card.append(head);
   // Labelled by search while the read goes on: the steps would claim it finished.
-  if (!on.reading) card.append(scanSteps(done ? 2 : 1));
+  if (reading) card.append(scanSteps(0));
+  else if (!on.reading) card.append(scanSteps(done ? 2 : 1));
   if (!done) {
     const track = el("div", "read-track");
     track.setAttribute("role", "progressbar");
-    track.setAttribute("aria-label", "Emails labelled");
+    track.setAttribute("aria-label", reading ? "Emails read" : "Emails labelled");
     track.setAttribute("aria-valuenow", String(scan.done));
     track.setAttribute("aria-valuemax", String(Math.max(scan.done, scan.total)));
     const fill = el("i", "");
     fill.style.width = `${scan.total > 0 ? Math.min(100, (scan.done / scan.total) * 100) : 0}%`;
     track.append(fill);
     card.append(track);
+    if (reading) {
+      const of = scan.total > 0 ? `${n(scan.done)} of ${n(scan.total)} read` : `${n(scan.done)} read`;
+      card.append(el("p", "scan-line", `${of} · ${n(scan.labelled)} labelled so far`));
+    }
     // Rows popping in and reordering mid-run looked messy: show them once, at the end.
     return card;
   }

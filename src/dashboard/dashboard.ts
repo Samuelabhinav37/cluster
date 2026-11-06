@@ -12,7 +12,7 @@ import {
 import { buildProtectionContext, idsSafeToMoveOut } from "../lib/protectionPolicy";
 import { CLUSTER_LABEL_COLORS, clusterLabelName } from "../lib/clusterLabels";
 import { categoryLabelName } from "../lib/categoryFilters";
-import { learnFromLabelMoves, runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
+import { learnFromLabelMoves, readLabeller, runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
 import { getScan, newScan, onScanChange, setScan, type ScanState } from "../lib/scanState";
 import { ALL_SORT_BUCKETS } from "../lib/sortTaxonomy";
 import { runReplyReminders } from "../lib/replyReminders";
@@ -43,7 +43,7 @@ import {
   type SyncProgress,
   type SyncResult,
 } from "../lib/mailSync";
-import { GMAIL_QUOTA_BUDGET, gmailBuildPaceDelay } from "../lib/gmailQuotaLedger";
+import { BUILD_PACE, waitForGmailHeadroom } from "../lib/gmailQuotaLedger";
 import { applyIndexedCorrespondents, mailIndexLockKey } from "../lib/indexTriage";
 import { withStorageLock } from "../lib/storageLock";
 import type { EmailProvider, ProviderId } from "../lib/providers/emailProvider";
@@ -733,24 +733,6 @@ const QUICK_READY_COUNT = DEFAULT_QUICK_COUNT;
 const QUOTA_PAUSE_MS = 4000;
 const CHANGES_WAIT_MS = 4000;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-// Leave room in Gmail's per-minute quota for the person's own clicks.
-const BUILD_HEADROOM_UNITS = 1500;
-
-// Spend the build's share evenly: one batch (25 reads at 20 units) at least
-// every 7.5 s, slower after a burst, so progress keeps ticking instead of
-// bursting and then stalling each minute.
-const BUILD_PACE = {
-  share: GMAIL_QUOTA_BUDGET - BUILD_HEADROOM_UNITS,
-  batchUnits: 25 * 20,
-  minGapMs: 7_500,
-};
-async function waitForGmailHeadroom() {
-  for (;;) {
-    const wait = await gmailBuildPaceDelay(BUILD_PACE);
-    if (wait <= 0) break;
-    await delay(Math.min(wait, 1000));
-  }
-}
 
 function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
   const existing = indexRuns.get(provider.id);
@@ -764,6 +746,8 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
     try {
       const store = await openMailIndex();
       const authToken = token ?? (await provider.getAuthToken(false));
+      // Label inbox mail as it's read, not after the whole read.
+      const labeller = provider.id === "gmail" ? await readLabeller().catch(() => null) : null;
       const result = await withStorageLock(mailIndexLockKey(provider), () =>
         syncMailIndex(provider, authToken, store, {
           windowDays: ctx.settings.scanWindowDays,
@@ -778,12 +762,17 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
           },
           waitForHeadroom: provider.id === "gmail" ? waitForGmailHeadroom : undefined,
           onLabelMoves: provider.id === "gmail" ? (moves) => learnFromLabelMoves(authToken, moves) : undefined,
-          onSentReady: () =>
-            updateCorrespondentsFromIndex(provider).catch((err) =>
+          onSentReady: async () => {
+            await updateCorrespondentsFromIndex(provider).catch((err) =>
               log.error("Could not update people you write to", err),
-            ),
+            );
+            await labeller?.onSentReady();
+          },
+          onRead: labeller?.onRead,
+          onPlanned: labeller?.onPlanned,
         }),
       );
+      await labeller?.flush();
       await updateCorrespondentsFromIndex(provider).catch((err) =>
         log.error("Could not update people you write to", err),
       );
@@ -839,7 +828,7 @@ function gmailSearchUrl(q: string): string {
 
 function paintScanCard() {
   const old = document.getElementById("scan-card");
-  if (!scan || !ctx.settings || scan.dismissed || scan.phase === "reading" || !overviewContentEl.isConnected) {
+  if (!scan || !ctx.settings || scan.dismissed || !overviewContentEl.isConnected) {
     old?.remove();
     return;
   }

@@ -18,8 +18,13 @@ import {
   type CategoryLimit,
   type InboxLimitsApi,
 } from "./inboxTimeLimits";
-import { indexSeededCache, refreshIndexForBackground } from "./indexTriage";
-import { openMailIndex } from "./mailIndex";
+import { applyIndexedCorrespondents, indexSeededCache, mailIndexLockKey, refreshIndexForBackground } from "./indexTriage";
+import { MAIL_INDEX_CAP, openMailIndex } from "./mailIndex";
+import { syncMailIndex, type SyncOptions } from "./mailSync";
+import { waitForGmailHeadroom } from "./gmailQuotaLedger";
+import { log } from "./log";
+import type { NormalizedMessageMetadata } from "./providers/emailProvider";
+import { tryWithStorageLock } from "./storageLock";
 import { notify } from "./notices";
 import { getScan, newScan, setScan } from "./scanState";
 import { loadMetadataCache, saveMetadataCache } from "./metadataCache";
@@ -58,38 +63,20 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
     }));
   }
 
-  const limits: CategoryLimit[] = ALL_SORT_BUCKETS.filter((b) => !settings.autoSort.labelsOff.includes(b)).map((bucket) => ({
-    bucket,
-    labelName: categoryLabelName(bucket, settings.labelChoices),
-    hours: settings.autoSort.inboxHoursByBucket[bucket] ?? null,
-  }));
+  const limits = limitsFor(settings);
   // First, before any read: label the inbox by each filter's own query.
   if (options.relabel || settings.autoSort.searchedVersion !== LABEL_RULES_VERSION) {
     await searchLabelInbox(token, settings, limits, now);
   }
+  // A read the dashboard started and didn't finish goes on here, labelling as it reads.
+  const builtNow = await continueIndexBuild(token, settings.scanWindowDays);
   // Senders come from the mail index (kept current from Gmail's change feed);
   // only inbox mail it doesn't have yet is read, then saved to it. Without
   // a built index this falls back to the old warm cache.
   const indexReady =
     (await refreshIndexForBackground([gmailProvider], settings.scanWindowDays, undefined, (moves) => learnFromLabelMoves(token, moves))).length > 0;
   const legacyCache = indexReady ? undefined : await loadMetadataCache(now);
-  const api: InboxLimitsApi = {
-    findLabelId: async (name) => (await findLabelIds(token, name))[0] ?? null,
-    ensureLabelId: (name) => getOrCreateLabel(token, name),
-    listIds: async (labelIds, query, max) =>
-      (await listMessageIds(token, query, max, labelIds)).map((m) => m.id),
-    readSenders: async (ids) => {
-      const seeded = legacyCache ? undefined : await indexSeededCache(gmailProvider, ids);
-      const senders = await buildSenderSummariesFromStubs(
-        [{ provider: gmailProvider, token, stubs: ids.map((id) => ({ id, provider: "gmail" as const })) }],
-        undefined,
-        seeded?.cache ?? legacyCache,
-      );
-      await seeded?.saveFetched();
-      return senders;
-    },
-    batchModify: (ids, add, remove) => batchModify(token, ids, add, remove),
-  };
+  const api = limitsApi(token, legacyCache);
   const ctx = {
     limits,
     known: knownSenderSet(settings),
@@ -100,9 +87,11 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
 
   const tag = await tagUntaggedInbox(ctx, api);
   // Then one page of older unlabelled inbox mail, until the whole inbox is seen.
-  const back = settings.autoSort.tagBackBefore === TAG_BACK_DONE ? null : await tagOlderInbox(ctx, api, settings.autoSort.tagBackBefore);
+  const back = settings.autoSort.tagBackBefore === TAG_BACK_DONE ? null : await tagOlderPages(ctx, api, settings.autoSort.tagBackBefore);
   const relabelled =
-    indexReady && (options.relabel || settings.autoSort.labelledVersion !== LABEL_RULES_VERSION) ? await relabelInbox(ctx, api, now) : 0;
+    indexReady && (options.relabel || builtNow || settings.autoSort.labelledVersion !== LABEL_RULES_VERSION)
+      ? await relabelInbox(ctx, api, now)
+      : 0;
   const sweep = await sweepExpiredInbox(ctx, api);
   if (legacyCache) void saveMetadataCache(legacyCache);
 
@@ -152,6 +141,150 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
     }
   }
   return { tagged: tag.tagged + (back?.tagged ?? 0) + relabelled, moved: sweep.movedIds.length, more: sweep.more };
+}
+
+/** Pages of older inbox mail (100 each) labelled per run, paced like the read. */
+const OLDER_PAGES = 3;
+
+/** Works back through inbox mail older than the read covers, a few paced
+ * pages a run, until Gmail lists nothing older. */
+async function tagOlderPages(ctx: Parameters<typeof tagOlderInbox>[0], api: InboxLimitsApi, before: number) {
+  let tagged = 0;
+  let nextBefore = before;
+  for (let page = 0; page < OLDER_PAGES && nextBefore !== TAG_BACK_DONE; page++) {
+    if (page > 0) await waitForGmailHeadroom();
+    const res = await tagOlderInbox(ctx, api, nextBefore);
+    tagged += res.tagged;
+    // A failed read keeps its place; try again next run.
+    if (res.nextBefore === nextBefore) break;
+    nextBefore = res.nextBefore;
+  }
+  return { tagged, nextBefore };
+}
+
+function limitsFor(settings: ClusterSettings): CategoryLimit[] {
+  return ALL_SORT_BUCKETS.filter((b) => !settings.autoSort.labelsOff.includes(b)).map((bucket) => ({
+    bucket,
+    labelName: categoryLabelName(bucket, settings.labelChoices),
+    hours: settings.autoSort.inboxHoursByBucket[bucket] ?? null,
+  }));
+}
+
+function limitsApi(token: string, legacyCache?: Awaited<ReturnType<typeof loadMetadataCache>>): InboxLimitsApi {
+  return {
+    findLabelId: async (name) => (await findLabelIds(token, name))[0] ?? null,
+    ensureLabelId: (name) => getOrCreateLabel(token, name),
+    listIds: async (labelIds, query, max) =>
+      (await listMessageIds(token, query, max, labelIds)).map((m) => m.id),
+    readSenders: async (ids) => {
+      const seeded = legacyCache ? undefined : await indexSeededCache(gmailProvider, ids);
+      const senders = await buildSenderSummariesFromStubs(
+        [{ provider: gmailProvider, token, stubs: ids.map((id) => ({ id, provider: "gmail" as const })) }],
+        undefined,
+        seeded?.cache ?? legacyCache,
+      );
+      await seeded?.saveFetched();
+      return senders;
+    },
+    batchModify: (ids, add, remove) => batchModify(token, ids, add, remove),
+  };
+}
+
+/** Inbox mail read since the last flush is labelled in batches this big. */
+const LABEL_BATCH = 200;
+
+export type ReadLabeller = Required<Pick<SyncOptions, "onRead" | "onPlanned" | "onSentReady">> & { flush(): Promise<void> };
+
+/**
+ * Labels inbox mail as a mail-index build stores it, and shows the read on
+ * the Overview scan card ("reading", done of total). Labelling waits until
+ * some sent mail is in, so mail from people you write to is never labelled.
+ * Null when there is no build to follow (the index is complete) or time
+ * limits are off.
+ */
+export async function readLabeller(): Promise<ReadLabeller | null> {
+  const settings = await getSettings();
+  if (!settings.autoSort.timeLimitsEnabled || !(await gmailProvider.isConnected())) return null;
+  const index = await openMailIndex();
+  if ((await index.getState("gmail"))?.complete) return null;
+  const token = await gmailProvider.getAuthToken(false);
+  const ctx = { limits: limitsFor(settings), known: knownSenderSet(settings), overrides: settings.sortOverrides, now: Date.now() };
+  const api = limitsApi(token);
+  let peopleIn = (await index.sentIds("gmail")).size > 0;
+  // A resumed read keeps counting on the card where it stopped.
+  const before = await getScan();
+  const carry = before?.phase === "reading" ? before : null;
+  let read = carry?.done ?? 0;
+  let total = carry?.total ?? 0;
+  let labelled = carry?.labelled ?? 0;
+  const byBucket: Partial<Record<SortBucket, number>> = { ...carry?.byBucket };
+  let pending: NormalizedMessageMetadata[] = [];
+  if (!carry) await setScan({ ...newScan(), phase: "reading" });
+
+  const flush = async () => {
+    const batch = pending.filter((r) => r.labelIds?.includes("INBOX"));
+    pending = [];
+    if (batch.length === 0) return;
+    try {
+      const res = await labelFromIndex(ctx, api, batch.map((r) => ({ id: r.id, labelIds: r.labelIds! })));
+      const patched = batch.flatMap((r) => {
+        const change = res.changes.get(r.id);
+        return change ? [{ ...r, labelIds: [...r.labelIds!.filter((l) => !change.remove.includes(l)), ...change.add] }] : [];
+      });
+      await index.put(patched);
+      labelled += res.labelled;
+      for (const [bucket, count] of Object.entries(res.byBucket) as [SortBucket, number][])
+        byBucket[bucket] = (byBucket[bucket] ?? 0) + count;
+      await setScan({ labelled, byBucket: { ...byBucket } });
+    } catch (err) {
+      // The relabel after the read catches anything missed here.
+      log.error("Scan: labelling while reading failed", err);
+    }
+  };
+  return {
+    onPlanned: (planned) => {
+      total = read + planned;
+      void setScan({ phase: "reading", done: read, total });
+    },
+    onSentReady: async () => {
+      const written = await applyIndexedCorrespondents([gmailProvider], index);
+      if (written) ctx.known = knownSenderSet(written);
+      peopleIn = true;
+    },
+    onRead: async (rows, tried) => {
+      read += tried;
+      pending.push(...rows);
+      if (peopleIn && pending.length >= LABEL_BATCH) await flush();
+      await setScan({ phase: "reading", done: read, total: Math.max(total, read) });
+    },
+    flush: async () => {
+      if (peopleIn) await flush();
+    },
+  };
+}
+
+/**
+ * Carries on a mail-index build that isn't finished (the dashboard was closed
+ * mid-read), labelling as it reads. Skips when the dashboard is reading right
+ * now. True when this call finished the build.
+ */
+async function continueIndexBuild(token: string, windowDays: number): Promise<boolean> {
+  const index = await openMailIndex();
+  if ((await index.getState("gmail"))?.complete) return false;
+  const labeller = await readLabeller();
+  const ran = await tryWithStorageLock(mailIndexLockKey(gmailProvider), () =>
+    syncMailIndex(gmailProvider, token, index, {
+      windowDays,
+      cap: MAIL_INDEX_CAP,
+      waitForHeadroom: waitForGmailHeadroom,
+      onLabelMoves: (moves) => learnFromLabelMoves(token, moves),
+      ...labeller,
+    }),
+  );
+  if (!ran) return false;
+  await labeller?.flush();
+  await applyIndexedCorrespondents([gmailProvider], index);
+  return (await index.getState("gmail"))?.complete === true;
 }
 
 /** Labels (and fixes) every inbox message the mail index holds, with no

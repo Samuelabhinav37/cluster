@@ -215,3 +215,23 @@ export async function clearGmailQuotaLedger(): Promise<void> {
 }
 
 export const _internals = { BUDGET, WINDOW_MS };
+
+// Leave room in Gmail's per-minute quota for the person's own clicks.
+const BUILD_HEADROOM_UNITS = 1500;
+// Spend the build's share evenly: one batch (25 reads at 20 units) at least
+// every 7.5 s, slower after a burst, so progress keeps ticking instead of
+// bursting and then stalling each minute.
+export const BUILD_PACE: BuildPace = {
+  share: BUDGET - BUILD_HEADROOM_UNITS,
+  batchUnits: 25 * 20,
+  minGapMs: 7_500,
+};
+
+/** Waits until the mail-index build may spend its next batch of reads. */
+export async function waitForGmailHeadroom(): Promise<void> {
+  for (;;) {
+    const wait = await gmailBuildPaceDelay(BUILD_PACE);
+    if (wait <= 0) break;
+    await new Promise((resolve) => setTimeout(resolve, Math.min(wait, 1000)));
+  }
+}

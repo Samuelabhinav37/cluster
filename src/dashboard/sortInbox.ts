@@ -1,6 +1,7 @@
 // "Sort my inbox" — extracted from dashboard.ts (the first slice of the split).
 // Owns its own DOM refs and module state; reads the shared scan/settings via
 // `ctx` and triggers a rescan / writes the action log via the state bridge.
+import { openMailIndex } from "../lib/mailIndex";
 import { log } from "../lib/log";
 import {
   buildSortPlan,
@@ -482,17 +483,30 @@ async function resortEverything(stage: SortStage) {
   stage.look("Scanning", "Reading your inbox");
   let checked = 0;
   scanProgress = (scan) => {
-    if (scan.phase !== "labelling" || scan.total === 0) return;
+    if (scan.total === 0) return;
+    if (scan.phase === "reading") stage.progress(scan.done, scan.total, `Reading · ${num(scan.labelled)} labelled`);
+    if (scan.phase !== "labelling") return;
     checked = scan.total;
     stage.progress(scan.done, scan.total, "Sorting every email");
   };
-  await setScan({ ...newScan(), phase: "labelling" });
+  // A read still under way owns the card; it labels as it goes.
+  if ((await getScan())?.phase !== "reading") await setScan({ ...newScan(), phase: "labelling" });
   await runInboxTimeLimits(Date.now(), { relabel: true });
-  // No index yet, or nothing to do: don't leave the Overview card spinning.
   const scan = await getScan();
+  scanProgress = null;
+  // The read isn't finished (the dashboard is reading, or Gmail's quota ran
+  // out): say so, never "everything is sorted".
+  if (!(await openMailIndex().then((index) => index.getState("gmail")))?.complete) {
+    stage.finish(
+      "Still reading your inbox",
+      scan?.phase === "reading" && scan.total > 0
+        ? `${num(scan.done)} of ${num(scan.total)} read, ${num(scan.labelled)} labelled. The rest are labelled as they're read.`
+        : "Emails are labelled as they're read.",
+    );
+    return;
+  }
   if (scan?.phase !== "done") await setScan({ phase: "done", finishedAt: Date.now() });
   else checked = Math.max(checked, scan.total);
-  scanProgress = null;
   await rescan();
   stage.finish(
     "Everything is sorted",
