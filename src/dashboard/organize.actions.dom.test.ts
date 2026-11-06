@@ -24,7 +24,9 @@ describe("Details — smart views", () => {
     chip!.click();
     root.querySelector<HTMLInputElement>("tbody .tick:not(:disabled)")!.click();
     const bar = root.querySelector<HTMLElement>(".selbar")!;
-    Array.from(bar.querySelectorAll("button")).find((b) => b.textContent === "Archive")!.click();
+    Array.from(bar.querySelectorAll("button"))
+      .find((b) => b.textContent === "Archive")!
+      .click();
 
     await vi.waitFor(() => expect(dash.gmail.archiveMessages).toHaveBeenCalledTimes(1));
     const [, ids] = (dash.gmail.archiveMessages as ReturnType<typeof vi.fn>).mock.calls[0];
@@ -33,7 +35,7 @@ describe("Details — smart views", () => {
 });
 
 describe("Organize screen — Sort my inbox", () => {
-  it("previews then applies a sort plan, labelling messages via the provider", async () => {
+  it("sorts new mail from the New mail choice, labelling messages via the provider", async () => {
     const dash = await bootDashboard();
     dash.showScreen("organize");
     // Every label starts Off; turn them on so there is something to sort.
@@ -42,21 +44,14 @@ describe("Organize screen — Sort my inbox", () => {
       k.dispatchEvent(new Event("change", { bubbles: true }));
     }
 
-    const startBtn = dash.el("sort-inbox-btn") as HTMLButtonElement;
-    startBtn.click();
-
-    // startSortFlow() awaits listLabelNames() before building the preview.
-    await vi.waitFor(() => {
-      if (dash.el("sort-inbox-preview").querySelectorAll(".sort-preview-bucket").length === 0) {
-        throw new Error("preview not rendered yet");
-      }
-    });
-
-    const applyBtn = Array.from(
-      dash.el("sort-inbox-preview").querySelectorAll<HTMLButtonElement>("button"),
-    ).find((b) => b.textContent?.startsWith("Sort "))!;
-    expect(applyBtn.disabled).toBe(false);
-    applyBtn.click();
+    // Sort inbox opens on two choices; New mail starts straight away.
+    (dash.el("sort-inbox-btn") as HTMLButtonElement).click();
+    const choice = dash
+      .el("sort-inbox-preview")
+      .querySelector<HTMLButtonElement>('.sort-choice[data-mode="new"]');
+    expect(choice, "no New mail choice").toBeTruthy();
+    expect(dash.el("sort-inbox-preview").querySelector('.sort-choice[data-mode="all"]')).toBeTruthy();
+    choice!.click();
 
     await vi.waitFor(() => {
       if (dash.gmail.labelMessages === undefined) throw new Error("no labelMessages spy");
@@ -71,11 +66,22 @@ describe("Organize screen — Sort my inbox", () => {
       if (!big?.textContent?.endsWith("sorted")) throw new Error("report not shown yet");
     });
     expect(dash.el("sort-inbox-preview").querySelectorAll(".sort-report-row.done").length).toBeGreaterThan(0);
+  });
 
-    // Not covered here (scoped down — see plan P2.5 item 4 for the eventual
-    // listRow rebuild of this screen): label-name collision resolution, the
-    // per-sender "wrong bucket?" override menu, and the seed-from-existing
-    // card. Each is a materially separate flow from the base apply path
-    // asserted above.
+  it("Everything ends by saying it's all sorted, with no per-label list", async () => {
+    const dash = await bootDashboard();
+    dash.showScreen("organize");
+    for (const k of Array.from(document.querySelectorAll<HTMLSelectElement>("#time-limits-rows select"))) {
+      k.value = "24";
+      k.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    (dash.el("sort-inbox-btn") as HTMLButtonElement).click();
+    dash.el("sort-inbox-preview").querySelector<HTMLButtonElement>('.sort-choice[data-mode="all"]')!.click();
+    await vi.waitFor(() => {
+      const big = dash.el("sort-inbox-preview").querySelector(".sort-big");
+      if (big?.textContent !== "Everything is sorted") throw new Error("not done yet");
+    });
+    expect(dash.el("sort-inbox-preview").querySelector(".sort-check")).toBeTruthy();
+    expect(dash.el("sort-inbox-preview").querySelectorAll(".sort-report-row").length).toBe(0);
   });
 });

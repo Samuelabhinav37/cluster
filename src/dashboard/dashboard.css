@@ -4191,7 +4191,6 @@ section[data-screen="impersonation"] > .tabs .tab-count { margin-left: 6px; padd
 .sort-ring-mid span { font-size: 13px; color: var(--label-3); }
 .sort-ring-mid .gl-tag { width: 48px; height: 48px; color: var(--label-3); }
 .sort-ring-mid .gl-tag svg { width: 44px; height: 44px; }
-.sort-check { width: 20px; height: 38px; margin-top: -8px; border: solid var(--accent); border-width: 0 5px 5px 0; border-radius: 2px; transform: rotate(45deg); }
 .sort-words { min-width: 0; }
 .sort-big { display: block; font: 600 34px/1.15 var(--font); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .sort-sub { margin: 6px 0 20px; font-size: 15px; color: var(--label-3); }
@@ -4225,6 +4224,42 @@ section[data-screen="impersonation"] > .tabs .tab-count { margin-left: 6px; padd
 .top-tool:disabled { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .sort-ring { transition: none; } .sort-preview-bucket.active > summary > i { animation: none; } }
 @media (max-width: 760px) { .sort-hero { flex-direction: column; align-items: flex-start; gap: 20px; } .sort-preview-bucket > summary, .sort-report-row { grid-template-columns: 16px minmax(0, 1fr) 60px auto; } .sort-where { display: none; } }
+
+/* Sort motion: calm. One accent, one slow arc while looking, a smooth fill while
+   sorting, a check that draws once at the end. No glow, pings or flying dots. */
+.sort-ring.is-looking::after { content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(var(--accent) 0 .14turn, transparent .14turn);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px));
+  animation: sort-turn 1.6s linear infinite; }
+.sort-ring-mid { transition: opacity .25s ease; }
+.sort-check { width: 56px; height: 56px; }
+.sort-check path { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 1; stroke-dashoffset: 1; animation: sort-draw .5s ease-out .2s forwards; }
+.sort-preview-bucket { display: grid; grid-template-columns: 16px minmax(0, 1fr) 80px 140px auto; align-items: center; gap: 14px;
+  padding: 14px 8px; border-bottom: 1px solid var(--hairline); transition: color .3s ease; }
+.sort-preview-bucket > i { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--label-4); box-sizing: border-box; transition: border-color .3s ease, background-color .3s ease; }
+.sort-preview-bucket.active > i { border-color: color-mix(in srgb, var(--accent) 30%, transparent); border-top-color: var(--accent); animation: sort-turn .9s linear infinite; }
+.sort-preview-bucket.done > i { border: 0; background: var(--accent) no-repeat center / 10px
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6.5l2.5 2.5L10 3.5' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E"); }
+.sorting .sort-preview-bucket:not(.active):not(.done) { color: var(--label-3); }
+/* No rows (Everything, nothing new): no stray line. */
+.sort-plan:empty { display: none; }
+/* The two choices at the start. */
+.sort-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; max-width: 640px; margin-top: 8px; }
+.sort-choice { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 22px 22px 24px; text-align: left;
+  border: 1px solid var(--hairline); border-radius: 14px; background: var(--surface, transparent); color: var(--label-1); font: inherit; cursor: pointer;
+  transition: border-color .2s ease, background-color .2s ease; }
+.sort-choice:hover { border-color: color-mix(in srgb, var(--accent) 60%, transparent); background: var(--neutral-fill); }
+.sort-choice:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sort-choice b { font: 600 17px/1.2 var(--font); }
+.sort-choice span { font-size: 14px; color: var(--label-3); }
+@keyframes sort-turn { to { transform: rotate(1turn); } }
+@keyframes sort-draw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .sort-ring.is-looking::after, .sort-preview-bucket.active > i { animation: none; }
+  .sort-check path { animation: none; stroke-dashoffset: 0; }
+}
 
 /* Side panel (Cleanup, Security...): compact, like Gmail's compact density, since it shares the
    screen (research/2026-11-06-panels-and-scans.md). Title and panel buttons on one line, then
