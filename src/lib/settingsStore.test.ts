@@ -261,8 +261,21 @@ describe("settingsStore", () => {
 
     const hours = (await getSettings()).autoSort.inboxHoursByBucket;
     expect(hours.jobs).toBe(3);
-    expect(hours.accounts).toBeNull();
+    expect(hours.accounts).toBe(1);
     expect(hours.travel).toBe(3);
+  });
+
+  it("migrates schema 14: Accounts and Jobs saved as stays take setup's times; a real choice stays", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: {
+        schemaVersion: 14,
+        onboarding: { version: 1, answers: { sorted: {}, keep: ["people"], hands: "tidy" }, answeredAt: 1 },
+        autoSort: { inboxHoursByBucket: { accounts: null, jobs: null, travel: null, otp: 24 } },
+      },
+    });
+
+    const hours = (await getSettings()).autoSort.inboxHoursByBucket;
+    expect(hours).toMatchObject({ accounts: 1, jobs: 3, travel: null, otp: 24 });
   });
 
   it("serializes concurrent partial updates so unrelated changes are preserved", async () => {

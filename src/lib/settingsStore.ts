@@ -238,7 +238,7 @@ export interface HealthSnapshot {
 }
 
 const STORAGE_KEY = "clusterSettings";
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 14;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 15;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -416,6 +416,14 @@ function migrateSettings(value: unknown): Record<string, unknown> {
       }
       stored = { ...stored, schemaVersion: 14, senderEngagement: feedback };
       version = 14;
+    } else if (version === 14) {
+      // Accounts and Jobs were saved as "stays" before they had real times;
+      // drop that so normalisation gives them setup's time (or the default).
+      const autoSort = isRecord(stored.autoSort) ? stored.autoSort : {};
+      const hours = isRecord(autoSort.inboxHoursByBucket) ? { ...autoSort.inboxHoursByBucket } : {};
+      for (const b of ["accounts", "jobs"]) if (hours[b] == null) delete hours[b];
+      stored = { ...stored, schemaVersion: 15, autoSort: { ...autoSort, inboxHoursByBucket: hours } };
+      version = 15;
     }
   }
   return stored;

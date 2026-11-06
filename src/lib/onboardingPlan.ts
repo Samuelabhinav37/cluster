@@ -28,6 +28,7 @@ export interface OnboardingPlan {
 
 /** Hours mail stays in the inbox before it goes to its label, unless kept. */
 export const FOCUS_HOURS = 3;
+export const ACCOUNTS_HOURS = 1;
 
 /** Question 1 pre-ticks the later screens, like Apple Music's artists from your genres. */
 export const SEEDS: Record<Who, Pick<OnboardingAnswers, "keep" | "hands">> = {
@@ -68,10 +69,11 @@ const KEEP_BUCKETS: Record<KeepKind, SortBucket[]> = {
  */
 export function buildOnboardingPlan(a: OnboardingAnswers): OnboardingPlan {
   const keep = new Set<KeepKind>(["people", ...a.keep]);
-  // Sign-in and password notices always stay: they may need action now.
-  const stays = new Set<SortBucket>(["accounts", ...[...keep].flatMap((k) => KEEP_BUCKETS[k])]);
+  const stays = new Set<SortBucket>([...keep].flatMap((k) => KEEP_BUCKETS[k]));
   const hours: OnboardingPlan["hours"] = {};
   for (const b of ALL_SORT_BUCKETS) hours[b] = stays.has(b) ? null : SKIP_INBOX_BUCKETS.includes(b) ? 0 : FOCUS_HOURS;
+  // Sign-in and password notices get an hour to act on, then file away.
+  hours.accounts = ACCOUNTS_HOURS;
 
   const tidy = a.hands !== "ask";
   const lines: OnboardingPlan["lines"] = tidy

@@ -84,7 +84,7 @@ export const DEFAULT_INBOX_HOURS: Record<SortBucket, number | null> = {
   finance: null,
   productivity: null,
   education: null,
-  accounts: null,
+  accounts: 1 * HOUR,
   jobs: null,
 };
 
