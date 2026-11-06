@@ -67,25 +67,24 @@ export const DEFAULT_FILE_OUT_OF_INBOX: Record<SortBucket, boolean> = {
 };
 
 const HOUR = 1;
-const DAY = 24 * HOUR;
 
 /** How long each category's new mail stays in the inbox before the time
  * sweep moves it into its label. 0 = straight to the label on arrival;
  * null = stays in the inbox (labelled only). */
 export const DEFAULT_INBOX_HOURS: Record<SortBucket, number | null> = {
-  otp: 1 * DAY,
-  receipt: 7 * DAY,
-  shipping: 7 * DAY,
-  newsletter: 3 * DAY,
-  social: 2 * DAY,
-  promotions: 1 * DAY,
-  shopping: 3 * DAY,
-  travel: null,
-  finance: null,
-  productivity: null,
-  education: null,
-  accounts: 1 * HOUR,
-  jobs: null,
+  otp: HOUR,
+  receipt: HOUR,
+  shipping: HOUR,
+  newsletter: HOUR,
+  social: HOUR,
+  promotions: HOUR,
+  shopping: HOUR,
+  travel: HOUR,
+  finance: HOUR,
+  productivity: HOUR,
+  education: HOUR,
+  accounts: HOUR,
+  jobs: HOUR,
 };
 
 export const ALL_SORT_BUCKETS: SortBucket[] = Object.keys(SORT_BUCKET_LABELS) as SortBucket[];

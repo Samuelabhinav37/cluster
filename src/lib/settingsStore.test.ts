@@ -246,7 +246,7 @@ describe("settingsStore", () => {
     expect(settings.autoSort.keepSorting).toBe(true);
     expect(settings.autoSort.filterIdsByBucket).toEqual({ travel: ["F"] });
     expect(settings.autoSort.filterSpecByBucket).toEqual({});
-    expect(settings.autoSort.inboxHoursByBucket).toMatchObject({ otp: 24, shipping: 168, travel: null });
+    expect(settings.autoSort.inboxHoursByBucket).toMatchObject({ otp: 1, shipping: 1, travel: 1 });
   });
 
   it("gives a label added after setup the time setup's answers give it", async () => {
@@ -260,22 +260,22 @@ describe("settingsStore", () => {
     });
 
     const hours = (await getSettings()).autoSort.inboxHoursByBucket;
-    expect(hours.jobs).toBe(3);
+    expect(hours.jobs).toBe(1);
     expect(hours.accounts).toBe(1);
     expect(hours.travel).toBe(3);
   });
 
-  it("migrates schema 14: Accounts and Jobs saved as stays take setup's times; a real choice stays", async () => {
+  it("migrates schema 14: every label leaves after an hour; skip-the-inbox stays 0", async () => {
     await chrome.storage.local.set({
       clusterSettings: {
         schemaVersion: 14,
         onboarding: { version: 1, answers: { sorted: {}, keep: ["people"], hands: "tidy" }, answeredAt: 1 },
-        autoSort: { inboxHoursByBucket: { accounts: null, jobs: null, travel: null, otp: 24 } },
+        autoSort: { inboxHoursByBucket: { accounts: null, travel: null, otp: 24, promotions: 0 } },
       },
     });
 
     const hours = (await getSettings()).autoSort.inboxHoursByBucket;
-    expect(hours).toMatchObject({ accounts: 1, jobs: 3, travel: null, otp: 24 });
+    expect(hours).toMatchObject({ accounts: 1, jobs: 1, travel: 1, otp: 1, promotions: 0 });
   });
 
   it("serializes concurrent partial updates so unrelated changes are preserved", async () => {

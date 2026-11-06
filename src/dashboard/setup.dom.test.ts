@@ -67,7 +67,7 @@ describe("first-run setup", () => {
     const stored = dash.storedSettings();
     expect(stored.autoSort.timeLimitsEnabled).toBe(true);
     expect(stored.autoSort.labelsOff).toEqual([]);
-    expect(stored.autoSort.inboxHoursByBucket).toMatchObject({ promotions: 0, newsletter: 0, social: 3, finance: null });
+    expect(stored.autoSort.inboxHoursByBucket).toMatchObject({ promotions: 0, newsletter: 0, social: 1, finance: 1, jobs: 1 });
     expect(stored.autoQuarantineHighRisk).toBe(true);
     const calls = dash.gmailApi.createFilter.mock.calls as [string, { query?: string }, { removeLabelIds: string[] }][];
     const skipping = calls.filter((c) => c[2].removeLabelIds.includes("INBOX")).length;

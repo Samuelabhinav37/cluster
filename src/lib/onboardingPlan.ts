@@ -27,15 +27,15 @@ export interface OnboardingPlan {
 }
 
 /** Hours mail stays in the inbox before it goes to its label, unless kept. */
-export const FOCUS_HOURS = 3;
-export const ACCOUNTS_HOURS = 1;
+export const FOCUS_HOURS = 1;
 
 /** Question 1 pre-ticks the later screens, like Apple Music's artists from your genres. */
 export const SEEDS: Record<Who, Pick<OnboardingAnswers, "keep" | "hands">> = {
-  me: { keep: ["people", "bank", "receipts"], hands: "tidy" },
-  business: { keep: ["people", "bank", "work", "receipts"], hands: "tidy" },
-  safe: { keep: ["people", "bank"], hands: "tidy" },
-  busy: { keep: ["people", "work"], hands: "tidy" },
+  // Nothing pre-ticked: labelled mail leaves after an hour unless the user keeps it.
+  me: { keep: ["people"], hands: "tidy" },
+  business: { keep: ["people"], hands: "tidy" },
+  safe: { keep: ["people"], hands: "tidy" },
+  busy: { keep: ["people"], hands: "tidy" },
 };
 
 export const PERSONA_OF: Record<Who, OnboardingPlan["persona"]> = {
@@ -72,14 +72,12 @@ export function buildOnboardingPlan(a: OnboardingAnswers): OnboardingPlan {
   const stays = new Set<SortBucket>([...keep].flatMap((k) => KEEP_BUCKETS[k]));
   const hours: OnboardingPlan["hours"] = {};
   for (const b of ALL_SORT_BUCKETS) hours[b] = stays.has(b) ? null : SKIP_INBOX_BUCKETS.includes(b) ? 0 : FOCUS_HOURS;
-  // Sign-in and password notices get an hour to act on, then file away.
-  hours.accounts = ACCOUNTS_HOURS;
 
   const tidy = a.hands !== "ask";
   const lines: OnboardingPlan["lines"] = tidy
     ? [
         { icon: "tag", text: "Promotions and newsletters skip your inbox", sub: "They wait in their labels" },
-        { icon: "clock", text: `Other mail goes to its label after ${FOCUS_HOURS} hours` },
+        { icon: "clock", text: "Other mail goes to its label after an hour" },
         { icon: "shield-check", text: "Likely scams are held out of your inbox", sub: "Each one says why" },
       ]
     : [];

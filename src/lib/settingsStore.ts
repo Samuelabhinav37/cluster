@@ -417,11 +417,11 @@ function migrateSettings(value: unknown): Record<string, unknown> {
       stored = { ...stored, schemaVersion: 14, senderEngagement: feedback };
       version = 14;
     } else if (version === 14) {
-      // Accounts and Jobs were saved as "stays" before they had real times;
-      // drop that so normalisation gives them setup's time (or the default).
+      // Every label now leaves the inbox an hour after it's labelled; mail
+      // that already skips the inbox (0) keeps doing so.
       const autoSort = isRecord(stored.autoSort) ? stored.autoSort : {};
       const hours = isRecord(autoSort.inboxHoursByBucket) ? { ...autoSort.inboxHoursByBucket } : {};
-      for (const b of ["accounts", "jobs"]) if (hours[b] == null) delete hours[b];
+      for (const b of Object.keys(hours)) if (hours[b] !== 0) hours[b] = 1;
       stored = { ...stored, schemaVersion: 15, autoSort: { ...autoSort, inboxHoursByBucket: hours } };
       version = 15;
     }
