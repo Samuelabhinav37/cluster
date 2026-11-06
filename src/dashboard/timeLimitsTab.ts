@@ -202,7 +202,7 @@ export function renderTimeLimits(): void {
     const mark = gmailLabelIcon(CLUSTER_LABEL_COLORS[bucket]?.backgroundColor);
     const words = document.createElement("span");
     words.className = "grow";
-    words.append(name);
+    words.append(icon(BUCKET_ICON[bucket]), name);
     const count = Object.assign(document.createElement("span"), {
       className: "ios-value",
       id: `time-limit-count-${bucket}`,

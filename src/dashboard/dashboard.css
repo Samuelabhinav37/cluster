@@ -4293,3 +4293,83 @@ body[data-screen="settings"] #sidebar .settings-nav { display: flex; flex-direct
 .settings-list .set-sec + .set-sec { margin-top: 0; }
 .settings-list .set-sec .section-head { margin: 0; padding: 0; }
 .settings-list .set-sec .section-label { margin: 40px 0 12px; padding: 0; font: 600 13px var(--font); color: var(--label); }
+
+/* Top bar, 2026-11-06: more air between tools, a softer search, the account as an avatar at the end (Gmail). */
+.top-tools { gap: 12px; }
+.top-tool { color: var(--label-2); }
+.top-tool:has(span) { gap: 8px; padding: 0 12px; height: 36px; border-radius: 10px; font-weight: 500; }
+.top-tool svg { width: 18px; height: 18px; }
+.top-bar .top-search { min-height: 40px; padding: 0 12px 0 14px; border-radius: 12px; background: var(--neutral-fill); box-shadow: none; color: var(--label-3); font-size: 14px; }
+.top-bar .top-search:hover { box-shadow: inset 0 0 0 1px var(--hairline); }
+.top-bar .top-search kbd { margin-left: auto; }
+.top-tools .account-wrap { margin-left: 4px; padding-left: 16px; border-left: 1px solid var(--hairline); }
+.top-tools .account-pill { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border-radius: 50%; background: none; box-shadow: none; }
+.top-tools .account-pill .avatar { width: 32px; height: 32px; margin: 0; font-size: 12px; }
+.top-tools .account-pill:has(.avatar:not(:empty)) .account-glyph { display: none; }
+.top-tools .account-pill:hover { box-shadow: 0 0 0 3px var(--neutral-fill); }
+.account-menu .menu-head { display: block; padding: 10px 12px 12px; margin-bottom: 4px; border-bottom: 1px solid var(--hairline); color: var(--label-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Labels: each label's own icon after its Gmail tag, like the emoji in Gmail's label names. */
+.org-row > .grow { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 10px; text-align: left; }
+.org-row .grow > svg.i { width: 17px; height: 17px; flex: none; fill: none; stroke: var(--label-2); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Overview, Mercury-style top row: the inbox with an area chart, then today's emails. */
+.ov-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; margin: 0 0 40px; }
+.ov-card { min-width: 0; padding: 24px 28px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--glass); overflow: hidden; }
+.ov-card-title { margin: 0 0 6px; font: 500 15px var(--font); color: var(--label-2); }
+.ov-big { display: block; font: 600 34px/1.15 var(--font); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.ov-meta { display: flex; justify-content: space-between; align-items: center; margin: 10px 0 0; font-size: 14px; color: var(--label-2); }
+.ov-flows { display: inline-flex; gap: 16px; }
+.ov-flow { display: inline-flex; align-items: center; gap: 4px; color: var(--label); font-variant-numeric: tabular-nums; }
+.ov-flow svg { width: 14px; height: 14px; fill: currentColor; }
+.ov-flow.in svg { color: #22c55e; }
+.ov-flow.out svg { color: #ef4444; transform: rotate(90deg); }
+.ov-inbox { display: flex; flex-direction: column; padding-bottom: 0; }
+.ov-inbox .pl-chart { height: 220px; margin: 24px 0 34px; }
+.ov-inbox .pl-y, .ov-inbox .pl-grid, .ov-inbox .pl-tick { display: none; }
+.ov-inbox .pl-x { top: calc(100% + 10px); }
+.ov-today .home-today { margin: 8px 0 0; }
+.ov-today .ios-group { border: 0; background: none; box-shadow: none; }
+.ov-today .today-row { padding: 10px 0; border: 0; }
+.ov-today .today-row .logo-tile { width: 36px; height: 36px; font-size: 13px; }
+
+/* Top senders: Cleanup's bar behind the name, the count on the right. */
+.ov-tr { display: grid; grid-template-columns: minmax(0, 1fr) 48px; align-items: center; gap: 8px; margin-top: 4px; }
+.ov-tr .ct-name > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.ov-tr .ov-v { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ov-list .ov-tr { padding: 0; border: 0; }
+
+/* Activity, GitHub's pull-request list: day heading, one bordered list, icon + bold title + gray meta. */
+.act-day { margin: 28px 0 10px; font: 600 14px var(--font); color: var(--label-3); }
+.act-day:first-child { margin-top: 0; }
+.act-list { border: 1px solid var(--hairline); border-radius: 12px; overflow: hidden; }
+.act-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 14px 18px; }
+.act-row + .act-row { border-top: 1px solid var(--hairline); }
+.act-row:hover { background: color-mix(in srgb, var(--neutral-fill) 50%, transparent); }
+.act-ic { width: 18px; height: 18px; margin-top: 2px; fill: none; stroke: #22c55e; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.act-ic.undone { stroke: var(--label-4); }
+.act-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.act-text b { font: 600 15px/1.35 var(--font); color: var(--label); }
+.act-text span { font-size: 13px; color: var(--label-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.act-undo { align-self: center; padding: 4px 0; border: 0; background: none; color: var(--accent); font: 500 13px var(--font); cursor: pointer; }
+.act-undo:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* Security, a scan result (Bitdefender's "Ready" screen): a ring, the verdict, one row per check. */
+.sec-scan { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 48px; align-items: center; margin: 0 0 40px; }
+.sec-ring { display: grid; place-items: center; width: 200px; height: 200px; border-radius: 50%; border: 10px solid color-mix(in srgb, #22c55e 22%, transparent); }
+.sec-ring svg { width: 72px; height: 72px; fill: none; stroke: #22c55e; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.sec-scan[data-state="warn"] .sec-ring { border-color: color-mix(in srgb, #ef4444 22%, transparent); }
+.sec-scan[data-state="warn"] .sec-ring svg { stroke: #ef4444; }
+.sec-scan[data-state="warn"] .sec-ok, .sec-scan[data-state="clean"] .sec-warn { display: none; }
+.sec-title { margin: 0; font: 700 28px/1.2 var(--font); letter-spacing: -0.02em; }
+.sec-sub { margin: 6px 0 16px; font-size: 15px; color: #22c55e; }
+.sec-scan[data-state="warn"] .sec-sub { color: #f87171; }
+.sec-item { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--hairline); }
+.sec-item-words { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.sec-item-words b { font: 600 16px var(--font); }
+.sec-item-words > span { font-size: 14px; color: var(--label-3); }
+.sec-view { padding: 0; border: 0; background: none; color: var(--accent); font: 500 14px var(--font); cursor: pointer; }
+.sec-view:hover { text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 900px) { .ov-top, .sec-scan { grid-template-columns: 1fr; } .sec-ring { display: none; } }
+.top-bar { grid-template-columns: minmax(0, 1fr) minmax(0, 480px) minmax(max-content, 1fr); }
+.top-tools .account-pill .avatar { display: grid; place-items: center; line-height: 1; padding: 0; }

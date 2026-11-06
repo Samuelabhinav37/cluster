@@ -11,7 +11,8 @@ import type { ScanState } from "../lib/scanState";
 import type { SortBucket } from "../lib/sortTaxonomy";
 import { gmailMessageUrl } from "./detailsPanel";
 import { infoButton } from "./ui";
-import { donutChart, ticks } from "./overviewCharts";
+import { donutChart } from "./overviewCharts";
+import { lineChart } from "./cleanupPage";
 
 export type HomeKind = "primary" | "trans" | "updates" | "promo";
 
@@ -65,6 +66,7 @@ export function mailByKind(
   peopleWeek: number;
   receivedByDay: number[];
   receivedPrevByDay: number[];
+  received30: number[];
 } {
   const kinds: Record<HomeKind, number> = { primary: 0, trans: 0, updates: 0, promo: 0 };
   let total = 0;
@@ -73,9 +75,11 @@ export function mailByKind(
   let peopleWeek = 0;
   const receivedByDay = [0, 0, 0, 0, 0, 0, 0];
   const receivedPrevByDay = [0, 0, 0, 0, 0, 0, 0];
+  const received30 = new Array<number>(30).fill(0);
   for (const s of senders) {
     for (const m of s.messages) {
       const ago = daysAgo(m.receivedAt, now);
+      if (ago >= 0 && ago < 30) received30[29 - ago] += 1;
       if (ago >= 0 && ago < 7) receivedByDay[6 - ago] += 1;
       else if (ago >= 7 && ago < 14) receivedPrevByDay[13 - ago] += 1;
       const kind = kindOf(m);
@@ -88,7 +92,7 @@ export function mailByKind(
       else if (now - m.receivedAt < 2 * WEEK_MS) lastWeek += 1;
     }
   }
-  return { kinds, total, thisWeek, lastWeek, peopleWeek, receivedByDay, receivedPrevByDay };
+  return { kinds, total, thisWeek, lastWeek, peopleWeek, receivedByDay, receivedPrevByDay, received30 };
 }
 
 /** Whole calendar days between `at` and `now` (0 = today). Round, not floor:
@@ -177,6 +181,10 @@ export interface HomeFacts {
   /** Arrivals per day, this week and the week before, oldest first. */
   receivedByDay?: number[];
   receivedPrevByDay?: number[];
+  /** Arrivals on each of the last 30 days, oldest first. */
+  received30?: number[];
+  /** Emails cleared in the last 30 days. */
+  cleared30?: number;
   /** Emails Cluster filed out of the inbox per day. */
   filed?: { cur: number[]; prev: number[] };
   /** Up to three flagged senders: their latest subject and the brand they fake. */
@@ -395,13 +403,13 @@ const el = <K extends keyof HTMLElementTagNameMap>(
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Emails cleared on each of the last seven days, oldest first, today last. */
-export function clearedByDay(log: readonly ActionLogEntry[], now: number): number[] {
-  const days = [0, 0, 0, 0, 0, 0, 0];
+export function clearedByDay(log: readonly ActionLogEntry[], now: number, span = 7): number[] {
+  const days = new Array<number>(span).fill(0);
   const today = new Date(now).setHours(0, 0, 0, 0);
   for (const e of log) {
     // Round, not floor: a day across a clock change is 23 or 25 hours.
     const ago = Math.round((today - new Date(e.at).setHours(0, 0, 0, 0)) / DAY_MS);
-    if (ago >= 0 && ago < 7) days[6 - ago] += clearedCount(e);
+    if (ago >= 0 && ago < span) days[span - 1 - ago] += clearedCount(e);
   }
   return days;
 }
@@ -645,6 +653,35 @@ function widget(
   return w;
 }
 
+const ARROW = "M5.22 14.78a.75.75 0 0 0 1.06 0l7.22-7.22v5.69a.75.75 0 0 0 1.5 0v-7.5a.75.75 0 0 0-.75-.75h-7.5a.75.75 0 0 0 0 1.5h5.69l-7.22 7.22a.75.75 0 0 0 0 1.06Z";
+
+function flow(cls: string, value: number, label: string): HTMLElement {
+  const span = el("span", `ov-flow ${cls}`);
+  span.title = label;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 20 20");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", ARROW);
+  svg.append(path);
+  span.append(svg, `${cls === "out" && value > 0 ? "−" : ""}${n(value)}`);
+  span.setAttribute("aria-label", `${n(value)} ${label}`);
+  return span;
+}
+
+/** Mercury's balance card: the inbox now, mail in and cleared over 30 days, arrivals as an area. */
+function inboxCard(f: HomeFacts): HTMLElement {
+  const card = el("section", "ov-card ov-inbox");
+  const days = f.received30 ?? [];
+  card.append(el("h2", "ov-card-title", "Inbox"), el("b", "ov-big", n(f.total)));
+  const meta = el("div", "ov-meta");
+  const flows = el("span", "ov-flows");
+  flows.append(flow("in", days.reduce((a, b) => a + b, 0), "received"), flow("out", f.cleared30 ?? 0, "cleared"));
+  meta.append(el("span", "", "Last 30 days"), flows);
+  card.append(meta, lineChart(days, Date.now()));
+  return card;
+}
+
 const KIND_COLORS: Record<HomeKind, string> = {
   primary: "var(--k1)",
   trans: "var(--k2)",
@@ -660,12 +697,18 @@ export function renderHomeDashboard(
   openKind?: (kind: HomeKind) => void,
 ): HTMLElement {
   const root = el("div", "home");
-  if (f.reading) root.append(readHero(f.reading));
-  if (f.today) root.append(todayList(f.today));
   if (f.reading) {
+    root.append(readHero(f.reading));
+    if (f.today) root.append(todayList(f.today));
     root.append(el("h2", "section-label", "Found so far"), foundSoFar(f));
     return root;
   }
+  const head = el("div", "ov-top");
+  head.append(inboxCard(f));
+  const today = el("section", "ov-card ov-today");
+  today.append(el("h2", "ov-card-title", "Today"), todayList(f.today ?? []));
+  head.append(today);
+  root.append(head);
   const since = f.since
     ? ` Read back to ${new Date(f.since).toLocaleDateString(undefined, { month: "short", day: "numeric" })} so far.`
     : "";
@@ -702,9 +745,10 @@ export function renderHomeDashboard(
   const most = f.topSenders?.[0]?.count ?? 1;
   for (const t of f.topSenders ?? []) {
     const row = el("div", "ov-tr");
-    const head = el("div", "ov-th");
-    head.append(senderTile(t.address, t.name, "sz-26"), el("b", "", t.name), el("span", "ov-v", n(t.count)));
-    row.append(head, ticks(t.count, most));
+    const name = el("div", "ct-name");
+    name.style.setProperty("--share", `${Math.max(4, (t.count / most) * 100)}%`);
+    name.append(senderTile(t.address, t.name, "sz-26"), el("span", "", t.name));
+    row.append(name, el("b", "ov-v", n(t.count)));
     top.append(row);
   }
   if (!f.topSenders?.length) top.append(el("p", "ov-empty", "No mail this week."));

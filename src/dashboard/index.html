@@ -104,38 +104,6 @@
 
             <span class="sidebar-spacer"></span>
           </nav>
-          <div class="account-wrap">
-            <button
-              type="button"
-              class="account-pill"
-              id="account-pill"
-              aria-haspopup="menu"
-              aria-expanded="false"
-              aria-controls="account-menu"
-            >
-              <span class="avatar" id="account-avatar" aria-hidden="true"></span>
-              <span class="email" id="account-email">Account</span>
-              <svg
-                class="account-glyph"
-                viewBox="0 0 24 24"
-                width="20"
-                height="20"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.7"
-                stroke-linecap="round"
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="9" r="3.6"></circle>
-                <path d="M5.5 19.5c1.2-3.2 3.6-4.8 6.5-4.8s5.3 1.6 6.5 4.8"></path>
-              </svg>
-            </button>
-            <div class="account-menu" id="account-menu" role="menu" aria-label="Account" hidden>
-              <button type="button" class="menu-item" role="menuitem" data-open="recent">Activity</button>
-              <button type="button" class="menu-item" role="menuitem" data-open="settings">Settings</button>
-              <button type="button" class="menu-item" role="menuitem" id="menu-signout">Sign out</button>
-            </div>
-          </div>
         </div>
 
         <!-- ── Main ──────────────────────────────────────────────────── -->
@@ -169,6 +137,39 @@
                 <button type="button" class="top-tool" id="top-settings" data-open-screen="settings" title="Settings" aria-label="Settings">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg><span>Settings</span>
                 </button>
+          <div class="account-wrap">
+            <button
+              type="button"
+              class="account-pill"
+              id="account-pill"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-controls="account-menu"
+              aria-label="Account"
+            >
+              <span class="avatar" id="account-avatar" aria-hidden="true"></span>
+              <svg
+                class="account-glyph"
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="9" r="3.6"></circle>
+                <path d="M5.5 19.5c1.2-3.2 3.6-4.8 6.5-4.8s5.3 1.6 6.5 4.8"></path>
+              </svg>
+            </button>
+            <div class="account-menu" id="account-menu" role="menu" aria-label="Account" hidden>
+              <span class="email menu-head" id="account-email">Account</span>
+              <button type="button" class="menu-item" role="menuitem" data-open="recent">Activity</button>
+              <button type="button" class="menu-item" role="menuitem" data-open="settings">Settings</button>
+              <button type="button" class="menu-item" role="menuitem" id="menu-signout">Sign out</button>
+            </div>
+          </div>
               </div>
           </div>
           <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
@@ -426,13 +427,30 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Security</h1>
-                <p class="lead" data-protect-sub></p>
               </div>
             </div>
-            <div class="kpis" id="sec-kpis">
-              <button type="button" class="kpi" data-sec-tab="quarantine"><span>Held</span><b id="kpi-held">0</b><em>emails</em></button>
-              <button type="button" class="kpi" data-sec-tab="suspicious"><span>Look like scams</span><b id="kpi-threats">0</b></button>
-              <button type="button" class="kpi" data-open-screen="screener"><span>New senders</span><b id="kpi-waiting">0</b></button>
+            <div class="sec-scan" id="sec-kpis" data-state="clean">
+              <div class="sec-ring" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path class="sec-ok" d="m9 12 2 2 4-4"></path><path class="sec-warn" d="M12 8v4M12 16h.01"></path></svg>
+              </div>
+              <div class="sec-body">
+                <h2 class="sec-title" id="sec-title">Nothing looks wrong</h2>
+                <p class="sec-sub" data-protect-sub></p>
+                <div class="sec-items">
+                  <div class="sec-item">
+                    <span class="sec-item-words"><b>Look like scams</b><span><span id="kpi-threats">0</span> pretend to be a company you know</span></span>
+                    <button type="button" class="sec-view" data-sec-tab="suspicious">View details</button>
+                  </div>
+                  <div class="sec-item">
+                    <span class="sec-item-words"><b>Held</b><span><span id="kpi-held">0</span> emails held for review</span></span>
+                    <button type="button" class="sec-view" data-sec-tab="quarantine">View details</button>
+                  </div>
+                  <div class="sec-item">
+                    <span class="sec-item-words"><b>New senders</b><span><span id="kpi-waiting">0</span> waiting in the screener</span></span>
+                    <button type="button" class="sec-view" data-open-screen="screener">View details</button>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="tabs" role="tablist" aria-label="Security">
               <button type="button" role="tab" class="tab active" aria-selected="true" data-sec-tab="suspicious">Suspicious<span class="tab-count" id="tab-count-threats"></span></button>

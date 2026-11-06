@@ -1246,7 +1246,10 @@ function renderProtectTiles(scams: number, waiting: number, held: number) {
         ? `${waiting} new ${waiting === 1 ? "sender" : "senders"} waiting.`
         : "Nothing looks wrong.";
   for (const el of Array.from(document.querySelectorAll<HTMLElement>("[data-protect-sub]")))
-    el.textContent = sub;
+    el.textContent = sub;  const scan = document.getElementById("sec-kpis");
+  if (scan) scan.dataset.state = scams > 0 ? "warn" : "clean";
+  const title = document.getElementById("sec-title");
+  if (title) title.textContent = scams > 0 ? `${scams.toLocaleString()} ${scams === 1 ? "scam" : "scams"} found` : "Nothing looks wrong";
 }
 
 // Quiet by default (no badge at zero, per the phishing-UX research this
@@ -1384,6 +1387,7 @@ function renderOverview(
       : 0,
     couldLeaveWeekly: [...weeklyByBucket(senders, Date.now()).values()].reduce((n, c) => n + c, 0),
     fakedBrands: fakedBrands(securitySenders),
+    cleared30: clearedByDay(ctx.settings.actionLog, Date.now(), 30).reduce((a, b) => a + b, 0),
     cleared: {
       byDay: clearedByDay(ctx.settings.actionLog, Date.now()),
       total: ctx.settings.clearedTotal ?? 0,

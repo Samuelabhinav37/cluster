@@ -97,6 +97,7 @@ describe("mailByKind", () => {
       peopleWeek: 1,
       receivedByDay: [0, 0, 0, 0, 0, 2, 0],
       receivedPrevByDay: [0, 0, 0, 0, 1, 0, 0],
+      received30: [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0],
     });
   });
 });

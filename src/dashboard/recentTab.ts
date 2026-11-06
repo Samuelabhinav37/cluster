@@ -15,7 +15,6 @@ import {
 import { getSettings, mutateSettings } from "../lib/settingsStore";
 import { recordEngagementFeedback } from "../lib/engagementModel";
 import { gmailProvider } from "../lib/providers/gmailProvider";
-import { senderTile } from "./senderTile";
 import { ctx, providerById, rescan } from "./state";
 import { pinInInbox } from "../lib/inboxTimeLimits";
 
@@ -121,18 +120,32 @@ function dayLabel(at: number): string {
   return new Date(at).toLocaleDateString();
 }
 
-function makeTile(entry: ActionLogEntry): HTMLElement {
-  if (entry.undo?.fromAddress) {
-    return senderTile(entry.undo.fromAddress, undefined, "sz-30");
-  }
-  const tile = document.createElement("span");
-  tile.className = "logo-tile sz-30";
-  tile.setAttribute("aria-hidden", "true");
-  tile.style.background = "var(--neutral-fill-hover)";
-  tile.style.color = "var(--label-2)";
-  tile.innerHTML =
-    '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="6.6"></circle><path d="M10 6.4V10l2.6 1.6"></path></svg>';
-  return tile;
+// GitHub's pull-request list: a kind icon, the summary in bold, then a gray meta line.
+const KIND_ICON: Record<ActionLogEntry["kind"], string> = {
+  trash: "M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14",
+  archive: "M3 4h18v4H3zM5 8v12h14V8M10 12h4",
+  pin: "M12 17v5M9 3h6l-1 6 4 4H6l4-4z",
+  markRead: "M20 6 9 17l-5-5",
+  mute: "M6 8a6 6 0 0 1 9.3-5M18 8c0 7 3 9 3 9H9M3 3l18 18M10.3 21a1.9 1.9 0 0 0 3.4 0",
+  unsubscribe: "M3 5h18v14H3zM3 7l9 6 9-6M15 15l4 4M19 15l-4 4",
+  snooze: "M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z",
+  labelSuspicious: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM12 8v4M12 16h.01",
+  keepSorted: "M3 6h18M7 12h10M10 18h4",
+  sort: "M3 6h18M7 12h10M10 18h4",
+  screener: "M3 12h5l2 3h4l2-3h5M5 5h14l2 7v7H3v-7z",
+  rule: "M4 4h16l-6 8v6l-4 2v-8z",
+  labels: "M3 12V4h8l10 10-8 8z M7.5 7.5h.01",
+};
+
+function kindIcon(entry: ActionLogEntry): SVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("class", `act-ic${entry.undone ? " undone" : ""}`);
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", KIND_ICON[entry.kind] ?? KIND_ICON.labels);
+  svg.append(path);
+  return svg;
 }
 
 export function renderRecentTab() {
@@ -156,71 +169,38 @@ export function renderRecentTab() {
 
   const stack = document.createElement("div");
   stack.className = "stack";
-
   let currentLabel = "";
   let group: HTMLDivElement | null = null;
-  let rowInGroup = 0;
 
   for (const entry of entries) {
     const label = dayLabel(entry.at);
     if (label !== currentLabel) {
-      const wrap = document.createElement("div");
-      wrap.className = "day-group";
-      const h = document.createElement("div");
-      h.className = "section-label";
-      h.style.padding = "0 4px 10px";
+      const h = document.createElement("h2");
+      h.className = "act-day";
       h.textContent = label;
       group = document.createElement("div");
-      group.className = "grouped-list";
-      wrap.append(h, group);
-      stack.appendChild(wrap);
+      group.className = "act-list";
+      stack.append(h, group);
       currentLabel = label;
-      rowInGroup = 0;
     }
-
-    if (rowInGroup > 0) {
-      const sep = document.createElement("div");
-      sep.className = "row-sep";
-      sep.style.marginLeft = "61px";
-      group!.appendChild(sep);
-    }
-    rowInGroup += 1;
 
     const row = document.createElement("div");
-    row.className = "list-row";
-    row.style.gridTemplateColumns = "30px minmax(0,1fr) max-content";
-    row.appendChild(makeTile(entry));
-
+    row.className = "act-row";
     const text = document.createElement("div");
-    text.className = "row-title-wrap";
-    const line = document.createElement("div");
-    line.className = "recent-line";
-    const firstSpace = entry.summary.indexOf(" ");
-    if (firstSpace > 0) {
-      const verb = document.createElement("span");
-      verb.className = "recent-verb";
-      verb.textContent = entry.summary.slice(0, firstSpace);
-      line.append(verb, document.createTextNode(entry.summary.slice(firstSpace)));
-    } else {
-      line.textContent = entry.summary;
-    }
-    const detail = document.createElement("div");
-    detail.className = "recent-detail";
-    detail.textContent = new Date(entry.at).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    text.append(line, detail);
-    row.appendChild(text);
+    text.className = "act-text";
+    const title = document.createElement("b");
+    title.textContent = entry.summary;
+    const meta = document.createElement("span");
+    const time = new Date(entry.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    meta.textContent = [entry.undo?.fromAddress, entry.undo ? `${entry.undo.ids.length.toLocaleString()} emails` : "", entry.undone ? "Undone" : "", time]
+      .filter(Boolean)
+      .join(" · ");
+    text.append(title, meta);
+    row.append(kindIcon(entry), text);
 
-    if (entry.undone) {
-      const done = document.createElement("span");
-      done.className = "recent-detail";
-      done.textContent = "undone";
-      row.appendChild(done);
-    } else if (entry.undo) {
+    if (entry.undo && !entry.undone) {
       const undoBtn = document.createElement("button");
-      undoBtn.className = "btn btn-sm";
+      undoBtn.className = "act-undo";
       undoBtn.textContent = "Undo";
       undoBtn.onclick = async () => {
         undoBtn.disabled = true;
@@ -235,11 +215,7 @@ export function renderRecentTab() {
         }
       };
       row.appendChild(undoBtn);
-    } else {
-      const spacer = document.createElement("span");
-      row.appendChild(spacer);
     }
-
     group!.appendChild(row);
   }
 
