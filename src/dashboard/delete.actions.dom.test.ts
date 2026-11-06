@@ -30,7 +30,7 @@ describe("Delete screen — ready-to-clean-up (expiry)", () => {
 });
 
 describe("Clean up — KPIs pick what the table shows", () => {
-  const rowNames = () => Array.from(document.querySelectorAll("#cu-senders-table tbody .ct-pill")).map((p) => p.textContent);
+  const rowNames = () => Array.from(document.querySelectorAll("#cu-senders-table tbody .ct-reason")).map((p) => p.textContent);
 
   it("Expired filters the table; ticked rows go to Trash after Confirm", async () => {
     const dash = await bootDashboard();

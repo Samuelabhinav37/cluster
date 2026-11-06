@@ -4146,38 +4146,110 @@ section[data-screen="settings"] .set-row { grid-template-columns: minmax(0, 1fr)
 section[data-screen="settings"] .set-row > .grow { grid-column: 1; }
 section[data-screen="settings"] .set-row > :not(.grow):not(.set-ic) { grid-column: 2; grid-row: 1 / span 2; }
 
-/* Cleanup, Plausible-style: one card with a KPI strip and a 28-day line, then panels
-   with tabs in their header and a faint bar behind each name. */
-#cu-head .pl-card { margin: 0 0 24px; padding: 8px 8px 0; border-radius: 10px; background: var(--glass); border: 1px solid var(--hairline); }
-#cu-head .pl-card .cu-cards { margin: 0; border: 0; gap: 4px; }
-#cu-head .pl-card .cu-card { padding: 10px 14px; border-radius: 6px; }
+/* Cleanup, Plausible-style (research: plausible.io/plausible.io, measured 2026-11-06).
+   Card: KPI strip (12px caps label, 19px number, 10px arrow + %), then a 28-day line.
+   Panels: 12px caps tabs over a hairline, 32px column head, rows 4px apart, a faint
+   bar layer under the text layer, bold count + gray share in fixed-width columns. */
+#cu-head .pl-card { margin: 0 0 24px; padding: 16px 20px 8px; border-radius: 8px; background: var(--glass); border: 1px solid var(--hairline); }
+#cu-head .pl-card .cu-cards { display: flex; flex-wrap: wrap; gap: 0; margin: 0; border: 0; }
+#cu-head .pl-card .cu-card { position: relative; flex: 0 1 220px; margin: 0 8px; padding: 8px; border-radius: 6px; }
+#cu-head .pl-card .cu-card:first-child { margin-left: -8px; padding-left: 8px; }
 #cu-head .pl-card .cu-card + .cu-card { border-left: 0; }
-#cu-head .pl-card .cu-card:first-child { padding-left: 14px; }
+#cu-head .pl-card .cu-card + .cu-card::before { content: ""; position: absolute; left: -9px; top: 0; bottom: 0; border-left: 1px solid var(--hairline); }
+#cu-head .pl-card .cu-card:hover { background: color-mix(in srgb, var(--neutral-fill) 70%, transparent); }
 #cu-head .pl-card .cu-card.selected { background: var(--neutral-fill); }
-#cu-head .pl-card .cu-head { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
-#cu-head .pl-card .cu-num b { font-size: 20px; }
-.pl-chart { position: relative; height: 260px; margin: 16px 20px 40px 52px; }
+#cu-head .pl-card .cu-head { margin: 0 0 4px; font: 600 12px/16px var(--font); letter-spacing: .02em; text-transform: uppercase; color: var(--label-3); }
+#cu-head .pl-card .cu-card.selected .cu-head { color: var(--label); }
+#cu-head .pl-card .cu-num { display: flex; align-items: baseline; gap: 4px; margin: 0; font-size: 12px; color: var(--label-4); white-space: nowrap; }
+#cu-head .pl-card .cu-num b { margin: 0; font: 600 19px/1.4 var(--font); letter-spacing: 0; }
+.pl-change { display: inline-flex; align-items: center; gap: 2px; margin-left: 6px; color: var(--label); font: 500 12px var(--font); }
+.pl-change svg { width: 10px; height: 10px; fill: currentColor; }
+.pl-change.worse svg { color: #ef4444; }
+.pl-change.better svg { color: #22c55e; transform: rotate(90deg); }
+.pl-chart { position: relative; height: 300px; margin: 28px 4px 40px 40px; }
 .pl-chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .pl-grid { stroke: var(--hairline); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.pl-area { fill: color-mix(in srgb, var(--accent) 14%, transparent); }
-.pl-line { fill: none; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
-.pl-y, .pl-x { position: absolute; color: var(--label-4); font-size: 11px; font-variant-numeric: tabular-nums; }
-.pl-y { right: calc(100% + 12px); transform: translateY(-50%); }
-.pl-x { top: calc(100% + 10px); transform: translateX(-50%); white-space: nowrap; }
-section[data-screen="delete"] #cu-head .tabs { margin: 0; padding: 4px 20px 0; gap: 20px; border: 1px solid var(--hairline); border-bottom-color: var(--hairline);
-  border-radius: 10px 10px 0 0; background: var(--glass); }
-#cu-head .tab { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--label-3); }
-#cu-head .tab.active { color: var(--label); }
-section[data-screen="delete"] #cu-senders-table { padding: 8px 20px 16px; border: 1px solid var(--hairline); border-top: 0; border-radius: 0 0 10px 10px; background: var(--glass); }
-#cu-senders-table .ct-selbar { margin-top: 8px; }
-#cu-senders-table .ct-table th { padding: 10px 8px; background: none; border: 0; }
-#cu-senders-table .ct-table td { padding: 4px 8px; border: 0; }
-#cu-senders-table .ct-table tbody tr:hover { background: none; }
-#cu-senders-table .ct-table tbody tr:hover .ct-name::before { background: var(--neutral-fill-hover, #2a2a2e); }
-.ct-name { position: relative; display: flex; align-items: center; gap: 10px; padding: 6px 8px; }
-.ct-name::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--share, 0); border-radius: 4px; background: var(--neutral-fill); }
-.ct-name > * { position: relative; }
-#cu-senders-table .ct-who b { margin-left: 0; }
-#cu-senders-table .ct-more { margin-top: 12px; }
+.pl-base { stroke: color-mix(in srgb, var(--label-4) 45%, transparent); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.pl-fade-top { stop-color: var(--accent); stop-opacity: .22; }
+.pl-fade-end { stop-color: var(--accent); stop-opacity: 0; }
+.pl-area { fill: url(#pl-fade); }
+.pl-line { fill: none; stroke: var(--accent); stroke-width: 2.5; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+.pl-y, .pl-x { position: absolute; color: var(--label-3); font-size: 12px; font-variant-numeric: tabular-nums; pointer-events: none; }
+.pl-y { right: calc(100% + 10px); transform: translateY(-50%); }
+.pl-x { top: calc(100% + 12px); transform: translateX(-50%); white-space: nowrap; }
+.pl-tick { position: absolute; top: 100%; width: 1px; height: 5px; background: color-mix(in srgb, var(--label-4) 45%, transparent); }
+.pl-guide { position: absolute; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--label-4) 50%, transparent); pointer-events: none; }
+.pl-dot { position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--glass); pointer-events: none; }
+.pl-tip { position: absolute; top: 0; z-index: 2; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; transform: translateX(14px); border-radius: 6px;
+  background: var(--neutral-fill); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); font-size: 12px; color: var(--label-3); white-space: nowrap; pointer-events: none; }
+.pl-tip.flip { transform: translateX(calc(-100% - 14px)); }
+.pl-tip b { color: var(--label); font-size: 14px; font-weight: 600; }
+.pl-guide[hidden], .pl-dot[hidden], .pl-tip[hidden] { display: none; }
+
+/* The panel: tabs on top, the body under them, the same on Senders and Subscriptions. */
+#cu-head .tabs { margin: 0; padding: 20px 20px 0; gap: 14px; border: 1px solid var(--hairline); border-bottom: 0; border-radius: 8px 8px 0 0;
+  background: linear-gradient(var(--hairline), var(--hairline)) 20px 100% / calc(100% - 40px) 1px no-repeat, var(--glass); }
+#cu-head .tab { min-height: 0; padding: 0 0 16px; border-radius: 0; border-bottom-width: 2px; font: 600 12px/16px var(--font); letter-spacing: .02em; text-transform: uppercase; color: var(--label-3); }
+#cu-head .tab:hover { color: var(--label); }
+#cu-head .tab.active { color: var(--label); border-bottom-color: var(--label); }
+#cu-head .tab-count { padding: 0; background: none; color: var(--label-4); font-weight: 500; }
 /* The screen's flex gap would split the tabs header from its panel. */
-section[data-screen="delete"] #cu-head + #cu-senders-table { margin-top: -28px; }
+#cu-head + #cu-senders-table, #cu-head + .pl-body { margin-top: -28px; padding: 4px 20px 20px; border: 1px solid var(--hairline); border-top: 0;
+  border-radius: 0 0 8px 8px; background: var(--glass); }
+.pl-body > section + section { margin-top: 20px; }
+.pl-body .section-head { margin: 16px 0 4px; }
+.pl-body .section-label { margin: 0; font: 600 12px/16px var(--font); letter-spacing: .02em; text-transform: uppercase; color: var(--label-3); }
+
+/* Senders: a table with its own column widths. */
+#cu-senders-table .ct-selbar { margin: 12px 0 4px; }
+#cu-senders-table .ct-table { table-layout: fixed; }
+#cu-senders-table .ct-table th { height: 32px; padding: 12px 8px 0; background: none; border: 0; font: 500 12px/16px var(--font); color: var(--label-3); vertical-align: top; }
+#cu-senders-table .ct-tick { width: 36px; padding-left: 0; vertical-align: middle !important; padding-top: 0 !important; }
+#cu-senders-table .ct-c-reason { width: 112px; }
+#cu-senders-table .ct-c-emails { width: 128px; }
+#cu-senders-table .ct-c-last { width: 120px; }
+#cu-senders-table .ct-c-opened { width: 80px; }
+#cu-senders-table .ct-table td { padding: 2px 8px; border: 0; font-size: 14px; }
+#cu-senders-table .ct-table tbody tr:hover { background: color-mix(in srgb, var(--neutral-fill) 60%, transparent); }
+#cu-senders-table .ct-table tbody tr:hover .ct-name b { text-decoration: underline; text-underline-offset: 3px; }
+#cu-senders-table .ct-who b { margin-left: 0; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cu-senders-table .ct-more { margin-top: 12px; }
+.ct-name { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 8px; }
+.ct-name::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--share, 0); border-radius: 3px; background: color-mix(in srgb, var(--label-4) 12%, transparent); transition: background .15s; }
+tr:hover .ct-name::before, #subscriptions-list .list-row:hover .row-media::before { background: color-mix(in srgb, var(--label-4) 30%, transparent); }
+.ct-name > * { position: relative; }
+.ct-name .logo-tile, #subscriptions-list .row-media .logo-tile, .paid-card .logo-tile { width: 20px; height: 20px; border-radius: 5px; font-size: 9px; }
+.ct-emails b { font-weight: 600; }
+.ct-emails span { display: inline-block; width: 48px; margin-left: 8px; color: var(--label-3); text-align: right; }
+
+/* Subscriptions: one column, the same bar layer, Emails + Opened columns, actions last. */
+#subscriptions-bulk-bar { display: flex; align-items: center; gap: 12px; margin: 8px 0 0; padding: 0; background: none; border: 0; font-size: 13px; color: var(--label-3); }
+#subscriptions-bulk-bar[hidden] { display: none; }
+#subscriptions-bulk-bar #subs-unsub-all-slot { margin-left: auto; }
+#subscriptions-bulk-bar #subs-unsub-all-btn { min-height: 32px; padding: 0 12px; border-radius: 6px; background: var(--neutral-fill); border: 0; color: var(--label); font: 500 13px var(--font); }
+#subscriptions-bulk-bar select { min-height: 32px; border-radius: 6px; }
+#subscriptions-list .grouped-list { display: block; border: 0; background: none; box-shadow: none; }
+#subscriptions-list .grouped-list > * { border: 0 !important; }
+#subscriptions-list .grouped-list > .row-sep { display: none; }
+#subscriptions-list .list-row { grid-template-columns: 28px minmax(0, 1fr) 176px 190px; gap: 8px; min-height: 0; margin-top: 4px; padding: 0; border-radius: 4px; background: none; }
+#subscriptions-list .list-row:hover { background: color-mix(in srgb, var(--neutral-fill) 60%, transparent); }
+#subscriptions-list .list-row.pl-head { margin: 0; padding-top: 12px; font: 500 12px/16px var(--font); color: var(--label-3); }
+#subscriptions-list .list-row.pl-head:hover { background: none; }
+#subscriptions-list .list-row.pl-head .row-sub { color: var(--label-3) !important; font-size: 12px; }
+#subscriptions-list .row-media { position: relative; gap: 8px; padding: 6px 8px; }
+#subscriptions-list .row-media::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--share, 0); border-radius: 3px; background: color-mix(in srgb, var(--label-4) 12%, transparent); transition: background .15s; }
+#subscriptions-list .row-media > * { position: relative; }
+#subscriptions-list .row-title { font-size: 14px; font-weight: 400; }
+#subscriptions-list .list-row:hover .row-title { text-decoration: underline; text-underline-offset: 3px; }
+.pl-cols { display: grid; grid-template-columns: 112px 64px; text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; }
+.pl-head .pl-cols { font-size: 12px; }
+#subscriptions-list .row-actions { justify-content: flex-end; gap: 4px; }
+#subscriptions-list .row-actions .btn:not(.btn-icon) { min-height: 28px; padding: 0 10px; background: none; border: 0; box-shadow: none; color: var(--label-2); font-size: 13px; font-weight: 500; }
+#subscriptions-list .row-actions .btn:not(.btn-icon):hover { color: var(--label); text-decoration: underline; text-underline-offset: 3px; }
+#subscriptions-list .btn-link { margin-top: 12px; }
+
+/* Paid subscriptions: rows, the kind of renewal as gray text on the right. */
+.pl-body .paid-grid { display: flex; flex-direction: column; gap: 4px; }
+.pl-body .paid-card { gap: 8px; padding: 6px 8px; border: 0; border-radius: 4px; background: none; box-shadow: none; font-size: 14px; }
+.pl-body .paid-card b { font-weight: 400; }
+.pl-body .paid-card .chip { padding: 0; border: 0; background: none; color: var(--label-3); font-size: 13px; }

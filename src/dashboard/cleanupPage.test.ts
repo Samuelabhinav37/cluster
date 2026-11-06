@@ -1,6 +1,7 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import type { SenderSummary } from "../lib/senderModel";
-import { dailyCounts } from "./cleanupPage";
+import { changeChip, dailyCounts } from "./cleanupPage";
 
 const DAY = 86_400_000;
 const NOW = new Date(2026, 10, 5, 15).getTime();
@@ -23,5 +24,14 @@ describe("dailyCounts", () => {
     expect(out[24]).toBe(1);
     expect(out[26]).toBe(0);
     expect(out.reduce((s, n) => s + n, 0)).toBe(3);
+  });
+});
+
+describe("changeChip", () => {
+  it("more clutter is worse (up, red), less is better, no base means no chip", () => {
+    expect(changeChip(15, 10)!.className).toContain("worse");
+    expect(changeChip(15, 10)!.textContent).toBe("50%");
+    expect(changeChip(5, 10)!.className).toContain("better");
+    expect(changeChip(5, 0)).toBeNull();
   });
 });

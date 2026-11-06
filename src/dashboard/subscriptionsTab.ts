@@ -17,6 +17,7 @@ import type { SenderSummary } from "../lib/senderModel";
 import { domainOf } from "../lib/domainGrouping";
 import { buildSubscriptionCandidates, SUBSCRIPTION_SIGNAL_LABELS } from "../lib/subscriptionSignals";
 import { formatRelativeTime, headerRow, pruneSelection, renderConfirmStep, runNow } from "./ui";
+import { emailsCell } from "./cleanupPage";
 import { listGroup, listRow } from "./listRow";
 import { menuForControls } from "./rowMenu";
 import { senderTile } from "./senderTile";
@@ -458,7 +459,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
     // through listRow(), whose spec always expects a title.
     const hdr = document.createElement("div");
     hdr.className = "list-row list-row--check-media-actions";
-    hdr.style.background = "var(--row-hover)";
+
     const selAllLabel = document.createElement("label");
     selAllLabel.className = "check-label";
     const selAll = document.createElement("input");
@@ -481,19 +482,31 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
     selCount.className = "row-sub";
     selCount.style.color = "var(--label-2)";
     selCount.textContent = `${oneClickKeys.filter((k) => selectedSubKeys.has(k)).length} of ${oneClickKeys.length} selected`;
-    const sortedNote = document.createElement("span");
-    sortedNote.className = "recent-detail";
-    sortedNote.textContent = "Opened";
-    hdr.append(selAllLabel, selCount, sortedNote);
+    const heads = document.createElement("span");
+    heads.className = "pl-cols";
+    for (const t of ["Emails", "Opened"]) {
+      const h = document.createElement("span");
+      h.textContent = t;
+      heads.append(h);
+    }
+    hdr.classList.add("pl-head");
+    hdr.append(selAllLabel, selCount, heads);
 
+    const listTop = Math.max(1, ...visibleCurrentRows.map(({ sender }) => senderVolume(sender)));
+    const listTotal = visibleCurrentRows.reduce((n, { sender }) => n + senderVolume(sender), 0);
     const rows = visibleCurrentRows.map(({ sender, outcome }) => {
       // Round 2: name and how much gets opened; only a sent request earns a line.
       const subLine = outcome.requestAt ? outcome.label : "";
       const total = senderVolume(sender);
+      // Plausible's columns: emails (with share) and how much gets opened.
       const opened = document.createElement("span");
-      opened.className = "ios-value";
-      opened.textContent = `${Math.round(((total - senderUnread(sender)) / Math.max(1, total)) * 100)}%`;
-      opened.title = "Opened";
+      opened.className = "pl-cols";
+      const pct = Math.round(((total - senderUnread(sender)) / Math.max(1, total)) * 100);
+      const openedPct = document.createElement("span");
+      openedPct.className = "ct-dim";
+      openedPct.textContent = pct === 0 ? "Never" : `${pct}%`;
+      openedPct.title = "Opened";
+      opened.append(emailsCell(total, listTotal, "span"), openedPct);
 
       // One visible button (the way to stop the mail); the rest sit in ⋯.
       // A sender that already stopped gets "Clear out old mail" first.
@@ -541,6 +554,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
         actions: primary ? [primary, menu] : [menu],
         disclosure: strip,
       });
+      (row.matches(".list-row") ? row : row.querySelector<HTMLElement>(".list-row")!).style.setProperty("--share", `${(total / listTop) * 100}%`);
       keep.onclick = () => {
         row.hidden = true;
         strip.hidden = true;

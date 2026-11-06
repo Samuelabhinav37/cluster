@@ -95,8 +95,9 @@ export function dailyCounts(items: readonly PageItem[], now: number, days = 28):
 
 const SVG = "http://www.w3.org/2000/svg";
 
-/** Plausible-style area line: gridlines with counts on the left, a date under every week. */
-export function lineChart(counts: readonly number[], now: number): HTMLElement {
+/** Plausible-style area line: gridlines with counts on the left, a baseline with
+ * ticks under the dates, and a hover guide with the day's count. */
+export function lineChart(counts: readonly number[], now: number, noun = "emails"): HTMLElement {
   const wrap = el("div", "pl-chart");
   const last = counts.length - 1;
   const step = Math.max(1, Math.ceil(Math.max(...counts, 1) / 4));
@@ -107,32 +108,79 @@ export function lineChart(counts: readonly number[], now: number): HTMLElement {
   svg.setAttribute("viewBox", `0 0 ${Math.max(1, last)} 100`);
   svg.setAttribute("preserveAspectRatio", "none");
   const y = (n: number) => 100 - (n / top) * 100;
+  const node = (tag: string, attrs: Record<string, string | number>) => {
+    const n = document.createElementNS(SVG, tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, String(v));
+    return n;
+  };
+  const defs = node("defs", {});
+  const grad = node("linearGradient", { id: "pl-fade", x1: 0, x2: 0, y1: 0, y2: 1 });
+  grad.append(node("stop", { offset: "0%", class: "pl-fade-top" }), node("stop", { offset: "100%", class: "pl-fade-end" }));
+  defs.append(grad);
+  svg.append(defs);
+  for (let i = 1; i <= 4; i++) svg.append(node("line", { x1: 0, x2: last, y1: y(step * i), y2: y(step * i), class: "pl-grid" }));
+  svg.append(node("line", { x1: 0, x2: last, y1: 100, y2: 100, class: "pl-base" }));
   for (let i = 0; i <= 4; i++) {
-    const line = document.createElementNS(SVG, "line");
-    Object.entries({ x1: 0, x2: last, y1: y(step * i), y2: y(step * i), class: "pl-grid" }).forEach(([k, v]) => line.setAttribute(k, String(v)));
-    svg.append(line);
     const label = el("span", "pl-y", (step * i).toLocaleString());
     label.setAttribute("aria-hidden", "true");
     label.style.top = `${y(step * i)}%`;
     wrap.append(label);
   }
   const pts = counts.map((n, i) => `${i},${y(n)}`).join(" L");
-  const area = document.createElementNS(SVG, "path");
-  area.setAttribute("d", `M0,100 L${pts} L${last},100 Z`);
-  area.setAttribute("class", "pl-area");
-  const line = document.createElementNS(SVG, "path");
-  line.setAttribute("d", `M${pts}`);
-  line.setAttribute("class", "pl-line");
-  svg.append(area, line);
+  svg.append(node("path", { d: `M0,100 L${pts} L${last},100 Z`, class: "pl-area" }), node("path", { d: `M${pts}`, class: "pl-line" }));
   wrap.append(svg);
-  for (let i = last % 7; i <= last; i += 7) {
-    const d = new Date(now - (last - i) * DAY);
-    const label = el("span", "pl-x", d.toLocaleDateString(undefined, { day: "numeric", month: "short" }));
-    label.style.left = `${(i / Math.max(1, last)) * 100}%`;
+  const dayOf = (i: number) => new Date(now - (last - i) * DAY);
+  const fmt = (d: Date) => d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  // A date every five days from the first, like Plausible's 28-day view.
+  for (let i = 0; i <= last; i += 5) {
+    const x = `${(i / Math.max(1, last)) * 100}%`;
+    const label = el("span", "pl-x", fmt(dayOf(i)));
+    label.style.left = x;
     label.setAttribute("aria-hidden", "true");
-    wrap.append(label);
+    const tick = el("i", "pl-tick");
+    tick.style.left = x;
+    wrap.append(tick, label);
   }
+  const guide = el("i", "pl-guide");
+  const dot = el("i", "pl-dot");
+  const tip = el("div", "pl-tip");
+  guide.hidden = dot.hidden = tip.hidden = true;
+  wrap.append(guide, dot, tip);
+  wrap.onmousemove = (e) => {
+    const r = svg.getBoundingClientRect();
+    const i = Math.max(0, Math.min(last, Math.round(((e.clientX - r.left) / Math.max(1, r.width)) * last)));
+    const x = `${(i / Math.max(1, last)) * 100}%`;
+    guide.style.left = dot.style.left = tip.style.left = x;
+    dot.style.top = `${y(counts[i])}%`;
+    tip.classList.toggle("flip", i > last / 2);
+    tip.replaceChildren(el("span", "", fmt(dayOf(i))), el("b", "", `${counts[i].toLocaleString()} ${noun}`));
+    guide.hidden = dot.hidden = tip.hidden = false;
+  };
+  wrap.onmouseleave = () => {
+    guide.hidden = dot.hidden = tip.hidden = true;
+  };
   return wrap;
+}
+
+/** Plausible's change chip: a small arrow and the % against the period before.
+ * For clutter, more is worse, so up is red and down is green. */
+export function changeChip(now: number, before: number): HTMLElement | null {
+  if (before === 0) return null;
+  const pct = Math.round(((now - before) / before) * 100);
+  const chip = el("span", `pl-change ${pct > 0 ? "worse" : pct < 0 ? "better" : ""}`);
+  chip.title = "Against the 28 days before";
+  if (pct !== 0) {
+    const svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    const path = document.createElementNS(SVG, "path");
+    // Heroicons arrow-up-right (MIT); flipped vertically for down.
+    path.setAttribute("d", "M8.25 3.75H19.5a.75.75 0 0 1 .75.75v11.25a.75.75 0 0 1-1.5 0V6.31L5.03 20.03a.75.75 0 0 1-1.06-1.06L17.69 5.25H8.25a.75.75 0 0 1 0-1.5Z");
+    svg.append(path);
+    chip.append(svg);
+  }
+  chip.append(`${Math.abs(pct)}%`);
+  return chip;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = "", text?: string): HTMLElementTagNameMap[K] {
@@ -259,6 +307,14 @@ function lastReceived(ms: number, now: number): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+/** Plausible's two-part number: the count, then its share of the whole in gray. */
+export function emailsCell(count: number, total: number, tag: "td" | "span" = "td"): HTMLElement {
+  const cell = el(tag, "num ct-emails");
+  const pct = total > 0 ? (count / total) * 100 : 0;
+  cell.append(el("b", "", count.toLocaleString()), el("span", "", `${pct >= 1 || pct === 0 ? Math.round(pct) : pct.toFixed(1)}%`));
+  return cell;
+}
+
 /** Cleanup's Senders tab: one table of every sender worth clearing, with
  * the reason, a tick per row, and a selection bar that trashes what's ticked. */
 export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now = Date.now()): void {
@@ -270,6 +326,7 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
   }
   const selected = new Set<string>();
   const top = Math.max(1, ...rows.map((r) => r.count));
+  const total = rows.reduce((n, r) => n + r.count, 0);
   let shown = PAGE;
 
   const render = () => {
@@ -312,7 +369,7 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
     const th0 = el("th", "ct-tick");
     th0.append(all);
     head.append(th0);
-    for (const [t, c] of [["Sender", ""], ["Reason", ""], ["Emails", "num"], ["Last received", ""], ["Opened", "num"]])
+    for (const [t, c] of [["Sender", "ct-c-who"], ["Reason", "ct-c-reason"], ["Emails", "num ct-c-emails"], ["Last received", "ct-c-last"], ["Opened", "num ct-c-opened"]])
       head.append(el("th", c, t));
     const thead = el("thead");
     thead.append(head);
@@ -336,15 +393,14 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
       name.style.setProperty("--share", `${(r.count / top) * 100}%`);
       name.append(senderTile(r.lead.address, r.lead.displayName, "sz-26"), el("b", "", senderName(r.lead)));
       who.append(name);
-      const reason = el("td");
-      reason.append(el("span", "ct-pill", reasons.get(r.key) ?? ""));
+      const reason = el("td", "ct-dim ct-reason", reasons.get(r.key) ?? "");
       const latest = Math.max(0, ...r.senders.flatMap((s) => s.messages.map((m) => m.receivedAt)));
       const pct = Math.round(r.opened * 100);
       tr.append(
         td0,
         who,
         reason,
-        el("td", "num", r.count.toLocaleString()),
+        emailsCell(r.count, total),
         el("td", "ct-dim", latest ? lastReceived(latest, now) : ""),
         el("td", "num ct-dim", pct === 0 ? "Never" : `${pct}%`),
       );

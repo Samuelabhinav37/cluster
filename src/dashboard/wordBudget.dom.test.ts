@@ -15,7 +15,8 @@ const BUDGET: Record<string, { words: number; controls: number }> = {
   overview: { words: 96, controls: 10 },
   delete: { words: 80, controls: 16 },
   // Redesign 2026-11: Cleanup's Senders and Subscriptions tabs.
-  subscriptions: { words: 50, controls: 10 },
+  // 2026-11-06 Plausible panels: an Emails column head beside Opened.
+  subscriptions: { words: 54, controls: 10 },
   // Round 2 (approved 2026-10-30): a five-step picker on each kind card.
   organize: { words: 300, controls: 75 },
   // Redesign 2026-11: KPI row and Suspicious and Quarantine tabs.

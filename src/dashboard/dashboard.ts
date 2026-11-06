@@ -105,7 +105,7 @@ import { markLearnedTransactional } from "../lib/kindModel";
 import { isAuthCancelled } from "../lib/chromeError";
 import { formatRelativeTime, infoButton, pruneSelection, renderConfirmStep, runNow } from "./ui";
 import { buildCleanupCards } from "../lib/cleanupCards";
-import { dailyCounts, lineChart, renderCleanupPage, renderSenderTable, type PageItem } from "./cleanupPage";
+import { changeChip, dailyCounts, lineChart, renderCleanupPage, renderSenderTable, type PageItem } from "./cleanupPage";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { keepNewestExcess, olderReadExcess } from "../lib/keepNewest";
 import { deliveredUpdates } from "../lib/orderEvents";
@@ -1572,16 +1572,25 @@ let lastPlan: ReturnType<typeof clearOutPlan> | null = null;
 /** The Cleanup KPI picked (Plausible-style): it drives the chart and filters the table. */
 let cuKpi: "never" | "old" | null = null;
 
+function cleanupItems(kpi: "never" | "old" | "lists" | null): PageItem[] {
+  if (kpi === "lists") return (lastPlan?.lists ?? []).map((sender) => ({ sender, ids: sender.messages.map((m) => m.id) }));
+  return kpi ? pageItems(kpi) : [...pageItems("never"), ...pageItems("old")];
+}
+
 function paintCleanupChart(kpi: "never" | "old" | "lists" | null) {
-  for (const card of Array.from(document.querySelectorAll<HTMLElement>(".cu-card[data-page]")))
-    card.classList.toggle("selected", card.dataset.page === kpi);
-  const items =
-    kpi === "lists"
-      ? (lastPlan?.lists ?? []).map((sender) => ({ sender, ids: sender.messages.map((m) => m.id) }))
-      : kpi
-        ? pageItems(kpi)
-        : [...pageItems("never"), ...pageItems("old")];
-  document.getElementById("cu-chart")?.replaceChildren(lineChart(dailyCounts(items, Date.now()), Date.now()));
+  const now = Date.now();
+  for (const card of Array.from(document.querySelectorAll<HTMLElement>(".cu-card[data-page]"))) {
+    const page = card.dataset.page as "never" | "old" | "lists";
+    card.classList.toggle("selected", page === kpi);
+    // This 28 days against the 28 before, from the same mail the KPI counts.
+    const days = dailyCounts(cleanupItems(page), now, 56);
+    const sum = (a: number[]) => a.reduce((n, v) => n + v, 0);
+    const chip = changeChip(sum(days.slice(28)), sum(days.slice(0, 28)));
+    const num = card.querySelector(".cu-num")!;
+    num.querySelector(".pl-change")?.remove();
+    if (chip) num.append(chip);
+  }
+  document.getElementById("cu-chart")?.replaceChildren(lineChart(dailyCounts(cleanupItems(kpi), now), now));
 }
 let openPage: "never" | "old" | null = null;
 
