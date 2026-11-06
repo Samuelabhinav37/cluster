@@ -92,6 +92,8 @@ vi.mock("./lib/settingsStore", () => ({
   getSettings: async () => SETTINGS,
   updateSettings,
   mutateSettings,
+  followSyncedSettings: () => {},
+  pullSyncedSettings: async () => {},
 }));
 vi.mock("./lib/providers/gmailProvider", () => ({
   gmailProvider: {

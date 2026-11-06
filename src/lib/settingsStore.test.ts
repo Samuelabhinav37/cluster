@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { CURRENT_SETTINGS_SCHEMA_VERSION, getSettings, updateSettings } from "./settingsStore";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CURRENT_SETTINGS_SCHEMA_VERSION, getSettings, pullSyncedSettings, updateSettings } from "./settingsStore";
 
 function makeFakeChromeStorage() {
   let store: Record<string, unknown> = {};
@@ -286,5 +286,68 @@ describe("settingsStore", () => {
     const settings = await getSettings();
     expect(settings.scanWindowDays).toBe(14);
     expect(settings.collapsedDomainCategories).toEqual(["finance"]);
+  });
+});
+
+describe("settings sync across devices", () => {
+  function syncArea() {
+    let items: Record<string, unknown> = {};
+    const sets: Record<string, unknown>[] = [];
+    return {
+      sets,
+      items: () => items,
+      area: {
+        async get(keys: string[] | null) {
+          return keys === null ? { ...items } : Object.fromEntries(keys.filter((k) => k in items).map((k) => [k, items[k]]));
+        },
+        async set(next: Record<string, unknown>) {
+          sets.push(next);
+          items = { ...items, ...next };
+        },
+        async remove(keys: string[]) {
+          items = Object.fromEntries(Object.entries(items).filter(([k]) => !keys.includes(k)));
+        },
+      },
+    };
+  }
+
+  it("syncs the user's choices, not this device's bookkeeping, and skips unchanged ones", async () => {
+    const sync = syncArea();
+    (globalThis as any).chrome.storage.sync = sync.area;
+    await pullSyncedSettings();
+    await updateSettings({ theme: "dark", actionLog: [] });
+    await vi.waitFor(() => expect(sync.items()["settings:theme"]).toBe("dark"));
+    expect(Object.keys(sync.items()).some((k) => k.includes("actionLog"))).toBe(false);
+    expect(sync.items()["settings:autoSort"]).toHaveProperty("inboxHoursByBucket");
+    expect(sync.items()["settings:autoSort"]).not.toHaveProperty("filterIdsByBucket");
+
+    const writes = sync.sets.length;
+    await updateSettings({ scanWindowDays: (await getSettings()).scanWindowDays });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sync.sets.length).toBe(writes);
+  });
+
+  it("a new computer takes the synced choices and keeps its own bookkeeping", async () => {
+    const sync = syncArea();
+    await sync.area.set({
+      "settings:setupDone": true,
+      "settings:theme": "light",
+      "settings:autoSort": { timeLimitsEnabled: true, inboxHoursByBucket: { jobs: 1 } },
+    });
+    (globalThis as any).chrome.storage.sync = sync.area;
+    // A fresh computer: this context hasn't pulled yet.
+    vi.resetModules();
+    const fresh = await import("./settingsStore");
+    // A save before the first pull must not push this computer's defaults.
+    await fresh.updateSettings({ lastTriageSummary: "this device" });
+    expect(sync.items()["settings:theme"]).toBe("light");
+
+    await fresh.pullSyncedSettings();
+    const s = await fresh.getSettings();
+    expect(s).toMatchObject({ setupDone: true, theme: "light", lastTriageSummary: "this device" });
+    expect(s.autoSort.timeLimitsEnabled).toBe(true);
+    expect(s.autoSort.inboxHoursByBucket.jobs).toBe(1);
+    // Hours missing from the synced copy keep their default.
+    expect(s.autoSort.inboxHoursByBucket.otp).toBe(1);
   });
 });

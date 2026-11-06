@@ -6,7 +6,7 @@ import { forgetGmailSignIn, gmailRefreshToken } from "../lib/gmailWebAuth";
 import { log } from "../lib/log";
 import { clusterLabelIdSet } from "../lib/seedFromExisting";
 import { clashes, GO_SCREENS, keysOf, SHORTCUTS, usableKey } from "../lib/keymap";
-import { getSettings, updateSettings } from "../lib/settingsStore";
+import { clearSyncedSettings, getSettings, updateSettings } from "../lib/settingsStore";
 import { kindModel, resetKindModel } from "./kindLearning";
 import { ctx } from "./state";
 import { renderConfirmStep } from "./ui";
@@ -46,6 +46,7 @@ function exportSettings() {
 
 /** Everything Cluster keeps lives in these three places; mail itself stays in Gmail. */
 export async function eraseEverything(): Promise<void> {
+  await clearSyncedSettings();
   await chrome.storage.local.clear();
   await chrome.storage.session?.clear();
   try {

@@ -1,3 +1,4 @@
+import { log } from "./log";
 import type { ScamWeek } from "./scamHistory";
 import type { ProviderId } from "./providers/emailProvider";
 import type { ClusterRule } from "./rules";
@@ -499,10 +500,134 @@ export async function mutateSettings(
     const current = (await readSettings()).settings;
     const next = normalizeSettings(mutate(current));
     await chrome.storage.local.set({ [STORAGE_KEY]: next });
+    void pushSynced(next);
     return next;
   });
 }
 
 export function updateSettings(partial: Partial<ClusterSettings>): Promise<ClusterSettings> {
   return mutateSettings((current) => ({ ...current, ...partial }));
+}
+
+// ── Sync across devices ─────────────────────────────────────────────────────
+// The user's choices follow them through Chrome sync (chrome.storage.sync), so
+// a second computer or a reinstall skips setup and keeps what Cluster learned.
+// Per-device state (the mail index, activity, filter ids, sweep bookkeeping)
+// stays local. Each choice is its own item: Chrome caps one at 8 KB.
+// shortcut: a choice over 8 KB (a huge rule list) stays on this device; split it if that happens.
+
+/** Top-level choices that follow the user. */
+const SYNCED_KEYS = [
+  "scanWindowDays",
+  "theme",
+  "showKai",
+  "simpleMode",
+  "persona",
+  "setupDone",
+  "onboarding",
+  "onboardingDismissed",
+  "notifyScamHeld",
+  "notifyWeekly",
+  "todayEmail",
+  "autoQuarantineHighRisk",
+  "securityRules",
+  "screenerEnabled",
+  "screenerHoldPeople",
+  "screenerAllowlist",
+  "mutedSenders",
+  "personOverrides",
+  "sortOverrides",
+  "labelChoices",
+  "rules",
+  "keymap",
+  "singleKeys",
+  "brandVerdicts",
+] as const satisfies readonly (keyof ClusterSettings)[];
+
+/** The choices inside autoSort; the rest of it is bookkeeping. */
+const SYNCED_AUTOSORT = ["timeLimitsEnabled", "inboxHoursByBucket", "labelsOff", "holdUnsorted", "enabledBuckets", "keepSorting", "expireOtp"] as const;
+
+const SYNC_PREFIX = "settings:";
+const SYNC_ITEM_MAX = 8000;
+
+/** The synced items for these settings, keyed as stored in chrome.storage.sync. */
+export function syncedItems(settings: ClusterSettings): Record<string, unknown> {
+  const items: Record<string, unknown> = {};
+  for (const key of SYNCED_KEYS) if (settings[key] !== undefined) items[SYNC_PREFIX + key] = settings[key];
+  const autoSort: Record<string, unknown> = {};
+  for (const key of SYNCED_AUTOSORT) autoSort[key] = settings.autoSort[key];
+  items[`${SYNC_PREFIX}autoSort`] = autoSort;
+  return items;
+}
+
+/** Settings with the synced items laid over them. */
+export function applySyncedItems(settings: ClusterSettings, items: Record<string, unknown>): ClusterSettings {
+  const next: Record<string, unknown> = { ...settings };
+  for (const key of SYNCED_KEYS) if (SYNC_PREFIX + key in items) next[key] = items[SYNC_PREFIX + key];
+  const autoSort = items[`${SYNC_PREFIX}autoSort`];
+  if (isRecord(autoSort)) next.autoSort = { ...settings.autoSort, ...autoSort };
+  return next as unknown as ClusterSettings;
+}
+
+function syncArea(): chrome.storage.StorageArea | undefined {
+  return globalThis.chrome?.storage?.sync;
+}
+
+/** Set once this context has taken the synced choices. Until then it never
+ * pushes: a new computer's defaults would overwrite the user's choices. */
+let pulled = false;
+
+/** Writes the choices that changed; unchanged ones cost no sync write. */
+async function pushSynced(settings: ClusterSettings): Promise<void> {
+  const area = syncArea();
+  if (!area || !pulled) return;
+  try {
+    const items = syncedItems(settings);
+    const stored = await area.get(Object.keys(items));
+    const changed: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(items)) {
+      const json = JSON.stringify(value);
+      if (json.length > SYNC_ITEM_MAX || json === JSON.stringify(stored[key])) continue;
+      changed[key] = value;
+    }
+    if (Object.keys(changed).length > 0) await area.set(changed);
+  } catch (err) {
+    // Sync is a convenience: a full quota or an offline browser keeps working locally.
+    log.error("Settings sync push failed", err);
+  }
+}
+
+/** Lays the synced choices over this device's settings. Run at startup and
+ * when another device changes them. */
+export async function pullSyncedSettings(): Promise<void> {
+  const area = syncArea();
+  if (!area) return;
+  const all = await area.get(null);
+  const items = Object.fromEntries(Object.entries(all).filter(([key]) => key.startsWith(SYNC_PREFIX)));
+  if (Object.keys(items).length > 0) {
+    await withStorageLock(STORAGE_KEY, async () => {
+      const current = (await readSettings()).settings;
+      const next = normalizeSettings(applySyncedItems(current, items));
+      if (JSON.stringify(next) !== JSON.stringify(current)) await chrome.storage.local.set({ [STORAGE_KEY]: next });
+    });
+  }
+  // First pull on a computer that already had choices: share them.
+  const first = !pulled;
+  pulled = true;
+  if (first) await pushSynced((await readSettings()).settings);
+}
+
+/** Keeps this device in step while it runs. */
+export function followSyncedSettings(): void {
+  chrome.storage?.onChanged?.addListener((changes, area) => {
+    if (area === "sync" && Object.keys(changes).some((key) => key.startsWith(SYNC_PREFIX))) void pullSyncedSettings();
+  });
+}
+
+/** For "Erase all": the synced copy goes too, or it would come straight back. */
+export async function clearSyncedSettings(): Promise<void> {
+  const area = syncArea();
+  if (!area) return;
+  const all = await area.get(null);
+  await area.remove(Object.keys(all).filter((key) => key.startsWith(SYNC_PREFIX)));
 }

@@ -18,7 +18,7 @@ import { refreshSpamList } from "./lib/spamList";
 import { appendActionLog, makeLogId } from "./lib/actionLog";
 import { buildSenderSummaries, type SenderSummary } from "./lib/senderModel";
 import type { ClusterSettings } from "./lib/settingsStore";
-import { getSettings, mutateSettings, updateSettings } from "./lib/settingsStore";
+import { followSyncedSettings, getSettings, mutateSettings, pullSyncedSettings, updateSettings } from "./lib/settingsStore";
 import { excludeSnoozedMessages } from "./lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "./lib/snoozeResurface";
 import { runReplyReminders } from "./lib/replyReminders";
@@ -83,6 +83,9 @@ const providerById = new Map<ProviderId, EmailProvider>([
 // how to remove Cluster's filters and labels and end its Google access.
 const UNINSTALL_URL = "https://samuelabhinav.com/cluster/uninstalled.html";
 chrome.runtime.setUninstallURL?.(UNINSTALL_URL);
+// Choices made on another computer follow the user here.
+followSyncedSettings();
+void pullSyncedSettings().catch((err) => log.error("Settings sync pull failed", err));
 
 chrome.runtime.onInstalled.addListener((details) => {
   chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 5, periodInMinutes: 360 });

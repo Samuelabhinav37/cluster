@@ -68,7 +68,7 @@ import {
   type SenderGroup,
   type SenderSortId,
 } from "../lib/senderListView";
-import { getSettings, mutateSettings, updateSettings, type ClusterSettings } from "../lib/settingsStore";
+import { getSettings, mutateSettings, pullSyncedSettings, updateSettings, type ClusterSettings } from "../lib/settingsStore";
 import { activeProviders, ctx, providerById, setBridge } from "./state";
 import { renderSortInbox, wireSortInbox } from "./sortInbox";
 import { maybeShowLabelTidyCard } from "./labelTidy";
@@ -580,6 +580,8 @@ async function main() {
   });
   statusEl.textContent = "Connecting…";
   // Domain matching needs the Public Suffix List and the brand registry (local files, quick to load).
+  // Choices made on another computer (or before a reinstall) come first.
+  await pullSyncedSettings().catch((err) => log.error("Settings sync pull failed", err));
   const [settings] = await Promise.all([
     getSettings(),
     loadPublicSuffixList(),
