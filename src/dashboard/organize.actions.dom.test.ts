@@ -65,6 +65,12 @@ describe("Organize screen — Sort my inbox", () => {
       }
     });
     expect(dash.gmail.labelMessages).toHaveBeenCalled();
+    // The scan-style report replaces the plan: the total, then a ticked row per label.
+    await vi.waitFor(() => {
+      const big = dash.el("sort-inbox-preview").querySelector(".sort-report .sort-big");
+      if (!big?.textContent?.endsWith("sorted")) throw new Error("report not shown yet");
+    });
+    expect(dash.el("sort-inbox-preview").querySelectorAll(".sort-report-row.done").length).toBeGreaterThan(0);
 
     // Not covered here (scoped down — see plan P2.5 item 4 for the eventual
     // listRow rebuild of this screen): label-name collision resolution, the

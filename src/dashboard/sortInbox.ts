@@ -33,7 +33,7 @@ import {
 } from "../lib/providers/outlookProvider";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { recordRuleCompletions } from "../lib/ruleCompletionLedger";
-import { applyLabelChoice, type LabelChoice } from "../lib/labelResolver";
+import { applyLabelChoice } from "../lib/labelResolver";
 import { upsertRuleByName, type ClusterRule } from "../lib/rules";
 import type { MessageKind } from "../lib/messageKind";
 import type { DomainCategory } from "../lib/domainCategories";
@@ -173,56 +173,16 @@ function renderSortInbox(senders: SenderSummary[]) {
   planChanged();
 }
 
-// Cluster's sort-bucket labels are flat ("Shopping", …). Before applying, we
-// check them against the mailbox's existing labels: a clash with a label the
-// user made themselves is surfaced here so they can choose to reuse it or keep
-// Cluster's separate as "<name> · sorted". The choice persists
-// (settings.labelChoices) so this only asks once.
-/** Labels Gmail already has: one row each, use the user's own or keep Cluster's separate. */
-function renderSortLabelConflicts(conflicts: PlanLabelConflict[], retry: () => void) {
-  resetSortInboxSlot();
-  const wrap = document.createElement("div");
-  wrap.className = "sort-conflicts";
-  const intro = document.createElement("p");
-  intro.className = "sort-sub";
-  intro.textContent = "You already have labels with these names. Use yours, or keep Cluster's separate.";
-  const all = document.createElement("button");
-  all.className = "btn btn-accent-solid";
-  all.textContent = "Use mine for all";
-  all.onclick = async () => {
-    const choices = { ...ctx.settings.labelChoices };
-    for (const c of conflicts) choices[c.desired] = applyLabelChoice(c.desired, "reuse");
-    ctx.settings = await updateSettings({ labelChoices: choices });
-    retry();
-  };
-  const rows = document.createElement("div");
-  rows.className = "sort-report-rows";
-  for (const c of conflicts) {
-    const row = document.createElement("div");
-    row.className = "sort-report-row";
-    const name = document.createElement("span");
-    name.className = "sort-name";
-    name.append(gmailLabelIcon(), plainLabel(c.existingUserLabel));
-    const reuse = document.createElement("button");
-    reuse.className = "sort-undo";
-    reuse.textContent = "Use mine";
-    reuse.onclick = () => resolveSortLabelConflict(c.desired, "reuse", retry);
-    const suffix = document.createElement("button");
-    suffix.className = "sort-undo";
-    suffix.textContent = "Keep separate";
-    suffix.title = `Cluster makes "${applyLabelChoice(c.desired, "suffix")}"`;
-    suffix.onclick = () => resolveSortLabelConflict(c.desired, "suffix", retry);
-    row.append(name, document.createElement("span"), reuse, suffix);
-    rows.append(row);
-  }
-  wrap.append(intro, rows, all);
-  sortInboxPreviewEl.replaceChildren(wrap);
-}
+// Cluster's sort-bucket labels are flat ("Shopping", …). A name the user
+// already has is reused, which was the old prompt's main choice ("Use mine for
+// all"), so the page never stops to ask. Review first offers "Keep Cluster's
+// separate" for those names. Choices persist in settings.labelChoices.
+let reusedLabels: Array<{ desired: string; shown: string }> = [];
 
-async function resolveSortLabelConflict(desired: string, choice: LabelChoice, retry: () => void) {
-  ctx.settings = await updateSettings({
-    labelChoices: { ...ctx.settings.labelChoices, [desired]: applyLabelChoice(desired, choice) },
-  });
+async function reuseClashingLabels(conflicts: PlanLabelConflict[], retry: () => void) {
+  const choices = { ...ctx.settings.labelChoices };
+  for (const c of conflicts) choices[c.desired] = applyLabelChoice(c.desired, "reuse");
+  ctx.settings = await updateSettings({ labelChoices: choices });
   retry();
 }
 
@@ -254,12 +214,18 @@ function rebuildSortPreview() {
     ctx.settings.labelChoices,
   );
   if (conflicts.length > 0) {
-    clearSortPreview();
-    renderSortLabelConflicts(conflicts, rebuildSortPreview);
+    void reuseClashingLabels(conflicts, rebuildSortPreview);
     return;
   }
 
-  renderSortPreview(chosen, new Set(lastKnownLabelNames.map((n) => n.toLowerCase())));
+  // Names the user already had and Cluster now uses as they are (choice "reuse").
+  const known = new Set(lastKnownLabelNames.map((n) => n.toLowerCase()));
+  const owned = new Set(ctx.settings.clusterOwnedLabels.map((n) => n.toLowerCase()));
+  reusedLabels = Object.entries(ctx.settings.labelChoices)
+    .filter(([desired, name]) => name === desired && known.has(name.toLowerCase()) && !owned.has(name.toLowerCase()))
+    .filter(([desired]) => rawChosen.some((e) => e.label === desired))
+    .map(([desired]) => ({ desired, shown: plainLabel(desired) }));
+  renderSortPreview(chosen, known);
 }
 
 async function startSortFlow() {
@@ -286,53 +252,84 @@ async function changeSortOverride(address: string, value: "" | SortOverride, who
   rebuildSortPreview();
 }
 
-// The dry-run: bucket → sender → message. Each message ticks to include, each
-// sender carries a "wrong bucket?" menu. Nothing is touched until Apply.
+// Sort inbox, laid out like a scan (research/2026-11-06-panels-and-scans.md):
+// Ready (a ring, one number, Sort inbox, Review first), Sorting (the ring fills
+// as each label's batch finishes, rows go gray -> pulse -> tick, Stop), then Done.
+// Review first opens each label to its senders and emails: bucket -> sender ->
+// message, with a "wrong bucket?" menu per sender. Nothing moves until Sort.
+let reviewing = false;
+
+/** The scan ring: fills to `share` (0-1) around whatever sits in its middle. */
+function sortRing(): { ring: HTMLElement; middle: HTMLElement; set: (share: number) => void } {
+  const ring = document.createElement("div");
+  ring.className = "sort-ring";
+  const middle = document.createElement("div");
+  middle.className = "sort-ring-mid";
+  ring.append(middle);
+  return { ring, middle, set: (share) => ring.style.setProperty("--p", String(Math.min(1, Math.max(0, share)))) };
+}
+
 function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
   clearSortPreview();
   resetSortInboxSlot();
 
-  const applyBtn = document.createElement("button");
-  const cancelBtn = document.createElement("button");
-  applyBtn.className = "btn btn-accent-solid";
-  cancelBtn.className = "btn btn-ghost";
-  const status = document.createElement("span");
-  status.className = "hint";
-  const bar = document.createElement("div");
-
   const includedCount = () =>
     chosen.flatMap((e) => e.messages).filter((m) => !excludedSortIds.has(m.id)).length;
-  const refreshApplyLabel = () => {
-    const n = includedCount();
-    applyBtn.textContent = `Sort ${num(n)} email${n === 1 ? "" : "s"}`;
-    applyBtn.disabled = n === 0;
-    big.textContent = `${num(n)} email${n === 1 ? "" : "s"}`;
-    sub.textContent = `into ${chosen.length} label${chosen.length === 1 ? "" : "s"}`;
-  };
 
-  const most = Math.max(1, ...chosen.map((e) => e.count));
-  const head = document.createElement("div");
-  head.className = "sort-head";
+  const { ring, middle, set } = sortRing();
+  middle.append(gmailLabelIcon());
   const big = document.createElement("b");
   big.className = "sort-big";
-  const sub = document.createElement("span");
+  const sub = document.createElement("p");
   sub.className = "sort-sub";
-  head.append(big, sub);
+  sub.setAttribute("aria-live", "polite");
+  const applyBtn = document.createElement("button");
+  applyBtn.className = "btn btn-accent-solid";
+  applyBtn.textContent = "Sort inbox";
+  const reviewBtn = document.createElement("button");
+  reviewBtn.className = "link sort-review";
+  const actions = document.createElement("div");
+  actions.className = "sort-actions";
+  actions.append(applyBtn, reviewBtn);
+  const words = document.createElement("div");
+  words.className = "sort-words";
+  words.append(big, sub, actions);
+  const hero = document.createElement("div");
+  hero.className = "sort-hero";
+  hero.append(ring, words);
+
+  const refresh = () => {
+    const n = includedCount();
+    big.textContent = `${num(n)} email${n === 1 ? "" : "s"}`;
+    sub.textContent = `go into ${chosen.length} label${chosen.length === 1 ? "" : "s"}`;
+    applyBtn.disabled = n === 0;
+    reviewBtn.textContent = reviewing ? "Hide review" : "Review first";
+    reviewBtn.setAttribute("aria-expanded", String(reviewing));
+  };
+
+  // One row per label: a step marker, the label, its count, where it goes.
+  const list = document.createElement("div");
+  list.className = `sort-plan${reviewing ? " reviewing" : ""}`;
   for (const entry of chosen) {
     const bucketEl = document.createElement("details");
     bucketEl.className = "sort-preview-bucket";
-    // Closed by default: the label and its count are the summary.
     bucketEl.dataset.key = `${entry.bucket}:${entry.fileOut}`;
-    bucketEl.style.setProperty("--share", `${Math.max(3, (entry.count / most) * 100)}%`);
     const summary = document.createElement("summary");
-    summary.append(...labelCells(entry.label, entry.bucket, entry.count, entry.fileOut ? "Files out" : "Stays in inbox"));
+    summary.append(
+      document.createElement("i"),
+      ...labelCells(entry.label, entry.bucket, entry.count, entry.fileOut ? "Files out" : "Stays in inbox"),
+    );
+    // Closed and inert until Review first: the plan reads as a list of steps.
+    summary.onclick = (e) => {
+      if (!reviewing) e.preventDefault();
+    };
     bucketEl.appendChild(summary);
 
     const bySender = new Map<string, SortPlanMessage[]>();
     for (const m of entry.messages) {
-      const list = bySender.get(m.address) ?? [];
-      list.push(m);
-      bySender.set(m.address, list);
+      const group = bySender.get(m.address) ?? [];
+      group.push(m);
+      bySender.set(m.address, group);
     }
 
     for (const [address, msgs] of bySender) {
@@ -375,7 +372,7 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
         cb.onchange = () => {
           if (cb.checked) excludedSortIds.delete(m.id);
           else excludedSortIds.add(m.id);
-          refreshApplyLabel();
+          refresh();
         };
         const text = document.createElement("span");
         const sensitive = entry.fileOut && m.sensitiveWhenFiled ? " · sensitive?" : "";
@@ -385,46 +382,99 @@ function renderSortPreview(chosen: SortPlanEntry[], knownLower: Set<string>) {
       }
       bucketEl.appendChild(senderEl);
     }
-    sortInboxPreviewEl.appendChild(bucketEl);
+    list.appendChild(bucketEl);
   }
 
-  cancelBtn.textContent = "Cancel";
-  cancelBtn.onclick = clearSortPreview;
+  // Names the user already had are used as they are; one switch back, in review.
+  const reused = document.createElement("p");
+  reused.className = "sort-reused";
+  if (reusedLabels.length > 0) {
+    const keep = document.createElement("button");
+    keep.className = "link";
+    keep.textContent = "Keep Cluster's separate";
+    keep.onclick = async () => {
+      const choices = { ...ctx.settings.labelChoices };
+      for (const { desired } of reusedLabels) choices[desired] = applyLabelChoice(desired, "suffix");
+      ctx.settings = await updateSettings({ labelChoices: choices });
+      reusedLabels = [];
+      rebuildSortPreview();
+    };
+    reused.append(`Uses your labels: ${reusedLabels.map((r) => r.shown).join(", ")}. `, keep);
+  }
+  const showReused = () => (reused.hidden = !reviewing || reusedLabels.length === 0);
+  showReused();
+
+  reviewBtn.onclick = () => {
+    reviewing = !reviewing;
+    list.classList.toggle("reviewing", reviewing);
+    showReused();
+    if (!reviewing) for (const d of Array.from(list.querySelectorAll("details"))) d.open = false;
+    refresh();
+  };
+
+  let stop = false;
   applyBtn.onclick = async () => {
-    applyBtn.disabled = true;
-    cancelBtn.disabled = true;
     const total = includedCount();
     const started = Date.now();
     let sorted = 0;
-    status.textContent = `0 of ${num(total)}`;
-    // Each label's bar fills when its batch really finishes; no timers.
+    reviewing = false;
+    list.classList.remove("reviewing");
+    reused.hidden = true;
+    for (const d of Array.from(list.querySelectorAll("details"))) d.open = false;
     sortInboxPreviewEl.classList.add("sorting");
-    for (const d of Array.from(sortInboxPreviewEl.querySelectorAll("details"))) d.open = false;
-    const rowFor = (e: SortPlanEntry) => sortInboxPreviewEl.querySelector<HTMLElement>(`[data-key="${e.bucket}:${e.fileOut}"]`);
+    // Stop finishes the label in hand, then ends; what's done stays done.
+    const stopBtn = document.createElement("button");
+    stopBtn.className = "btn";
+    stopBtn.textContent = "Stop";
+    stopBtn.onclick = () => {
+      stop = true;
+      stopBtn.disabled = true;
+      stopBtn.textContent = "Stopping…";
+    };
+    actions.replaceChildren(stopBtn);
+    big.textContent = "Sorting…";
+    const count = document.createElement("b");
+    const of = document.createElement("span");
+    middle.replaceChildren(count, of);
+    const paint = () => {
+      count.textContent = num(sorted);
+      of.textContent = `of ${num(total)}`;
+      set(sorted / Math.max(1, total));
+    };
+    paint();
+    const rowFor = (e: SortPlanEntry) =>
+      list.querySelector<HTMLElement>(`[data-key="${e.bucket}:${e.fileOut}"]`);
     try {
-      const done = await applySortPlan(chosen, knownLower, (e, phase) => {
-        const row = rowFor(e);
-        row?.classList.toggle("active", phase === "start");
-        if (phase === "done") {
-          row?.classList.add("done");
-          sorted += e.count;
-          status.textContent = `${num(sorted)} of ${num(total)}`;
-        }
-      });
+      const done = await applySortPlan(
+        chosen,
+        knownLower,
+        (e, phase) => {
+          const row = rowFor(e);
+          row?.classList.toggle("active", phase === "start");
+          if (phase === "start") sub.textContent = `Filing ${plainLabel(e.label)}`;
+          if (phase === "done") {
+            row?.classList.add("done");
+            sorted += e.count;
+            paint();
+          }
+        },
+        () => stop,
+      );
       renderSortReport(done, started);
     } catch (err) {
       log.error(err);
       sortInboxPreviewEl.classList.remove("sorting");
-      status.textContent = "Sort failed, try again";
-      applyBtn.disabled = false;
-      cancelBtn.disabled = false;
+      big.textContent = "Sort stopped";
+      sub.textContent = "Something went wrong. What finished stays sorted.";
+      applyBtn.textContent = "Try again";
+      applyBtn.onclick = () => rebuildSortPreview();
+      actions.replaceChildren(applyBtn);
     }
   };
 
-  bar.className = "confirm-slot sort-apply-bar";
-  bar.append(applyBtn, cancelBtn, status);
-  sortInboxPreviewEl.prepend(head, bar);
-  refreshApplyLabel();
+  sortInboxPreviewEl.replaceChildren(hero, reused, list);
+  set(0);
+  refresh();
 }
 
 /** A label row's cells: Gmail tag + name, the count, where the mail goes. */
@@ -450,20 +500,30 @@ function renderSortReport(summary: string, started: number) {
   const secs = Math.max(1, Math.round((Date.now() - started) / 1000));
   const report = document.createElement("div");
   report.className = "sort-report";
+  const { ring, middle, set } = sortRing();
+  ring.classList.add("is-done");
+  set(1);
+  middle.append(Object.assign(document.createElement("i"), { className: "sort-check" }));
   const big = document.createElement("b");
   big.className = "sort-big";
-  big.textContent = `${num(total)} emails sorted`;
+  big.textContent = `${num(total)} email${total === 1 ? "" : "s"} sorted`;
   const sub = document.createElement("p");
   sub.className = "sort-sub";
-  sub.textContent = `${summary} · ${secs} s`;
+  sub.textContent = `${logged.length} label${logged.length === 1 ? "" : "s"} · ${secs} s`;
+  sub.title = summary;
+  const words = document.createElement("div");
+  words.className = "sort-words";
+  const hero = document.createElement("div");
+  hero.className = "sort-hero";
+  hero.append(ring, words);
   const list = document.createElement("div");
-  list.className = "sort-report-rows";
+  list.className = "sort-plan sort-report-rows";
   const byLabel = new Map(sortPlan.map((e) => [e.label, e.bucket]));
   for (const e of logged) {
     const label = e.undo?.labelName ?? /"(.+)"/.exec(e.summary)?.[1] ?? "";
     const row = document.createElement("div");
-    row.className = "sort-report-row";
-    row.append(...labelCells(label, byLabel.get(label), countOf(e), e.undo?.wasFiledOut ? "Filed out" : "In inbox"));
+    row.className = "sort-report-row done";
+    row.append(document.createElement("i"), ...labelCells(label, byLabel.get(label), countOf(e), e.undo?.wasFiledOut ? "Filed out" : "In inbox"));
     if (e.undo) {
       const undo = document.createElement("button");
       undo.className = "sort-undo";
@@ -485,13 +545,17 @@ function renderSortReport(summary: string, started: number) {
     list.append(row);
   }
   const doneBtn = document.createElement("button");
-  doneBtn.className = "btn";
+  doneBtn.className = "btn btn-accent-solid";
   doneBtn.textContent = "Done";
   doneBtn.onclick = () => {
     clearSortPreview();
     document.querySelector<HTMLButtonElement>('#sidebar .nav-item[data-screen="organize"]')?.click();
   };
-  report.append(big, sub, list, doneBtn);
+  const actions = document.createElement("div");
+  actions.className = "sort-actions";
+  actions.append(doneBtn);
+  words.append(big, sub, actions);
+  report.append(hero, list);
   sortInboxPreviewEl.replaceChildren(report);
 }
 
@@ -499,6 +563,7 @@ async function applySortPlan(
   chosen: SortPlanEntry[],
   knownLower: Set<string>,
   onStep?: (entry: SortPlanEntry, phase: "start" | "done") => void,
+  shouldStop?: () => boolean,
 ): Promise<string> {
   // Drop unticked messages, then any bucket that's now empty.
   const effective = chosen
@@ -521,6 +586,7 @@ async function applySortPlan(
 
   // Apply the one-time backlog.
   for (const entry of effective) {
+    if (shouldStop?.()) break;
     onStep?.(entry, "start");
     for (const [pid, ids] of entry.idsByProvider) {
       const provider = providerById.get(pid);

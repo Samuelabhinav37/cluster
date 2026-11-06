@@ -106,7 +106,7 @@ import { markLearnedTransactional } from "../lib/kindModel";
 import { isAuthCancelled } from "../lib/chromeError";
 import { formatRelativeTime, infoButton, pruneSelection, renderConfirmStep, runNow } from "./ui";
 import { buildCleanupCards } from "../lib/cleanupCards";
-import { changeChip, dailyCounts, lineChart, renderCleanupPage, renderSenderTable, type PageItem } from "./cleanupPage";
+import { changeChip, dailyCounts, lineChart, pageRows, renderCleanupPage, renderSenderTable, type PageItem } from "./cleanupPage";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { keepNewestExcess, olderReadExcess } from "../lib/keepNewest";
 import { deliveredUpdates } from "../lib/orderEvents";
@@ -131,7 +131,6 @@ import {
   renderHomeDashboard,
   renderScanCard,
   filedByDay,
-  topSendersThisWeek,
   type HomeAct,
   type HomeFacts,
 } from "./homeDashboard";
@@ -1344,6 +1343,18 @@ function fakedBrands(senders: SenderSummary[]): string[] {
   return [...counts].sort((a, b) => b[1] - a[1]).map(([brand]) => brand);
 }
 
+/** Home's Top senders: this week's mail, one row per company as in Cleanup. */
+function topSendersByCompany(all: readonly SenderSummary[], now: number) {
+  const since = now - 7 * 86_400_000;
+  const items = all.map((sender) => ({
+    sender,
+    ids: sender.messages.filter((m) => m.receivedAt >= since).map((m) => m.id),
+  }));
+  return pageRows(items, detailRowKey)
+    .slice(0, 10)
+    .map((r) => ({ key: r.key, address: r.lead.address, name: senderName(r.lead), count: r.count }));
+}
+
 /** Today's sweep entries: what Cluster filed out of the inbox since midnight. */
 function movedTodayEntries() {
   const today = new Date().setHours(0, 0, 0, 0);
@@ -1461,9 +1472,10 @@ function renderOverview(
     movedToday: movedTodayEntries().reduce((sum, e) => sum + (e.undo?.ids.length ?? 0), 0),
     stopLists: stopListKeys.length,
     filed: filedByDay(ctx.settings.actionLog, Date.now()),
-    topSenders: topSendersThisWeek(allSenders, Date.now(), 10),
+    topSenders: topSendersByCompany(allSenders, Date.now()),
     // Security's own rows, so Overview never lists a sender Security doesn't.
-    suspects: rankFlagged(securitySenders).high.slice(0, 3).map(({ sender: s }) => ({
+    suspects: rankFlagged(securitySenders).high.slice(0, 2).map(({ sender: s }) => ({
+      key: s.key,
       address: s.address,
       name: s.displayName,
       subject: [...s.messages].sort((a, b) => b.receivedAt - a.receivedAt)[0]?.subject ?? "",
@@ -1478,7 +1490,14 @@ function renderOverview(
   const counted = allSenders.reduce((n, s) => n + senderVolume(s), 0);
   if (counted > facts.total) Object.assign(facts, { total: counted, since: undefined });
   facts.today = fillToday(pickToday(allSenders, knownSenderSet(ctx.settings), Date.now(), 5), allSenders, Date.now(), 5);
-  overviewContentEl.appendChild(renderHomeDashboard(facts, goAndAct, (kind) => details?.open({ kind })));
+  overviewContentEl.appendChild(
+    renderHomeDashboard(
+      facts,
+      goAndAct,
+      (kind) => details?.open({ kind }),
+      (key) => details?.open({ view: "emails", senderKey: key }),
+    ),
+  );
   paintScanCard();
   void loadTodaySnippets(facts.today);
   lastOverview = [senders, securitySenders, allSenders];

@@ -188,7 +188,19 @@ describe("renderHomeDashboard", () => {
     );
     expect(text(el.querySelector(".ov-li"))).toContain("Payment declined");
     expect(text(el.querySelector(".ov-li"))).toContain("Impersonating Netflix");
-    expect(text(el.querySelector(".ov-tr:not(.ov-tr-head)"))).toContain("Shop4");
+    expect(text(el.querySelector(".ov-tr:not(.ov-tr-head)"))).toContain("Shop4100%");
+  });
+
+  it("a top sender opens that sender's emails, as in Cleanup", () => {
+    const openSender = vi.fn();
+    const el = renderHomeDashboard(
+      { ...calm, topSenders: [{ key: "co:shop", address: "a@shop.test", name: "Shop", count: 4 }] },
+      vi.fn(),
+      undefined,
+      openSender,
+    );
+    el.querySelector<HTMLButtonElement>("button.ov-tr")!.click();
+    expect(openSender).toHaveBeenCalledWith("co:shop");
   });
 
   it("names how far back it has read while mail is still being read", () => {

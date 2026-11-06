@@ -1565,20 +1565,6 @@ table td:first-child:has(input[type="checkbox"]) {
 }
 
 /* Sort-my-inbox preview tree */
-.sort-preview-bucket {
-  border: 0.5px solid var(--hairline);
-  border-radius: var(--r-ctl);
-  padding: 0 14px;
-  margin-bottom: 8px;
-  background: var(--neutral-fill);
-}
-
-.sort-preview-bucket > summary {
-  cursor: pointer;
-  padding: 12px 4px;
-  font: 590 14px/1.3 var(--font);
-}
-
 .sort-preview-sender {
   margin: 4px 0 4px 14px;
 }
@@ -3144,7 +3130,7 @@ body[data-state="connect"] .crumbs {
 /* Details (Track 3): a sheet in the right quarter where you work on the mail
    behind any number. Wider on request. */
 .page-head:has([data-details]) { display: flex; align-items: flex-end; justify-content: space-between; }
-.details { position: sticky; top: 0; flex: none; width: 25%; min-width: 320px; height: 100vh; display: flex; flex-direction: column;
+.details { position: sticky; top: 0; flex: none; width: clamp(460px, 34%, 620px); min-width: 320px; height: 100vh; display: flex; flex-direction: column;
   background: var(--glass); border-left: 1px solid var(--hairline); font-size: 13px; }
 .details.wide { width: 50%; }
 .details[hidden], .selbar[hidden] { display: none; }
@@ -3495,7 +3481,6 @@ select:not([multiple]):hover { background-color: var(--neutral-fill-hover); }
 .scam-chev[aria-expanded="true"] { transform: rotate(90deg); }
 
 /* Sort preview: Apply sits above the buckets; the done line replaces it. */
-.sort-apply-bar { margin-bottom: 12px; }
 
 .protect-bento .tile-wide { grid-column: span 2; }
 @media (max-width: 900px) { .protect-bento .tile-wide { grid-column: auto; } }
@@ -4184,61 +4169,85 @@ section[data-screen="impersonation"] > .tabs .tab-count { margin-left: 6px; padd
 .details .sheet tr.unread .subj { color: var(--label); font-weight: 500; }
 .details .sheet .tick { width: 16px; height: 16px; }
 .ov-col .ov-w { min-height: 0; padding: 16px 0; }
-.ov-list .ov-tr .ct-name::before { background: color-mix(in srgb, var(--accent) 16%, transparent); }
-.ov-list .ov-tr:hover .ct-name::before { background: color-mix(in srgb, var(--accent) 26%, transparent); }
+/* Home's Top senders and Suspicious rows open the sender in Details, like Cleanup's table. */
+.ov-list button.ov-tr, .ov-list button.ov-li { width: 100%; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ov-list button.ov-tr:hover .ct-name::before { background: color-mix(in srgb, var(--label-4) 30%, transparent); }
+.ov-list button.ov-li:hover b, .ov-list button.ov-tr:hover .ct-name > span { text-decoration: underline; text-underline-offset: 3px; }
+.ov-list .ov-tr { grid-template-columns: minmax(0, 1fr) auto; }
 
-/* Sort inbox page: a total, label rows with a share bar, each bar fills when its batch is done, then a report. */
-#sort-inbox-preview { max-width: 960px; }
-.sort-head { display: flex; align-items: baseline; gap: 10px; margin: 0 0 20px; }
-.sort-big { font: 600 34px/1.15 var(--font); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.sort-sub { margin: 0; font-size: 15px; color: var(--label-3); }
-#sort-inbox-preview .sort-apply-bar { display: flex; align-items: center; gap: 12px; margin: 0 0 24px; }
-#sort-inbox-preview .sort-apply-bar .hint { font-variant-numeric: tabular-nums; color: var(--label-2); }
-.sort-preview-bucket { position: relative; margin: 0 0 6px; border-radius: 8px; }
-.sort-preview-bucket > summary, .sort-report-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 80px 140px auto; align-items: center; gap: 12px;
-  padding: 12px 14px; border-radius: 8px; list-style: none; cursor: pointer; }
+/* Sort inbox, laid out like a scan (research/2026-11-06-panels-and-scans.md): a ring with one
+   number and one button; while sorting the ring fills per finished label and each row goes
+   gray, then pulses, then ticks (the scan-steps look); the report keeps the same frame. */
+#sort-inbox-preview { max-width: 860px; }
+@property --p { syntax: "<number>"; inherits: true; initial-value: 0; }
+.sort-hero { display: flex; align-items: center; gap: 40px; margin: 8px 0 32px; }
+.sort-ring { --p: 0; position: relative; flex: none; display: grid; place-items: center; width: 168px; height: 168px; transition: --p .6s cubic-bezier(.2, .7, .2, 1); }
+.sort-ring::before { content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--p) * 1turn), color-mix(in srgb, var(--label-4) 18%, transparent) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px)); }
+.sort-ring-mid { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; font-variant-numeric: tabular-nums; }
+.sort-ring-mid b { font: 600 30px/1 var(--font); letter-spacing: -0.02em; }
+.sort-ring-mid span { font-size: 13px; color: var(--label-3); }
+.sort-ring-mid .gl-tag { width: 48px; height: 48px; color: var(--label-3); }
+.sort-ring-mid .gl-tag svg { width: 44px; height: 44px; }
+.sort-check { width: 20px; height: 38px; margin-top: -8px; border: solid var(--accent); border-width: 0 5px 5px 0; border-radius: 2px; transform: rotate(45deg); }
+.sort-words { min-width: 0; }
+.sort-big { display: block; font: 600 34px/1.15 var(--font); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.sort-sub { margin: 6px 0 20px; font-size: 15px; color: var(--label-3); }
+.sort-actions { display: flex; align-items: center; gap: 20px; }
+.sort-review, .sort-reused .link { padding: 0; border: 0; background: none; color: var(--accent-text); font: 500 15px var(--font); cursor: pointer; }
+.sort-review:hover, .sort-reused .link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.sort-reused { margin: -12px 0 16px; font-size: 14px; color: var(--label-3); }
+
+/* The plan: one row per label, a step marker first. Inert until Review first. */
+.sort-plan { border-top: 1px solid var(--hairline); }
+.sort-preview-bucket > summary, .sort-report-row { display: grid; grid-template-columns: 16px minmax(0, 1fr) 80px 140px auto; align-items: center; gap: 14px;
+  padding: 14px 8px; border-bottom: 1px solid var(--hairline); list-style: none; cursor: default; }
 .sort-preview-bucket > summary::-webkit-details-marker { display: none; }
-.sort-preview-bucket > summary::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--share); border-radius: 8px;
-  background: color-mix(in srgb, var(--label-4) 14%, transparent); }
-.sort-preview-bucket > summary::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 30%, transparent); transition: width .7s cubic-bezier(.2, .7, .2, 1); }
-.sort-preview-bucket > summary > * { position: relative; z-index: 1; }
-.sort-preview-bucket > summary:hover::before { background: color-mix(in srgb, var(--label-4) 24%, transparent); }
-.sorting .sort-preview-bucket > summary { cursor: default; }
-.sorting .sort-preview-bucket.active > summary::after { width: calc(var(--share) * .5); animation: sort-pulse 1.2s ease-in-out infinite; }
-.sorting .sort-preview-bucket.done > summary::after { width: var(--share); animation: none; }
-.sort-preview-bucket.done .sort-where::after { content: " ✓"; color: #22c55e; }
-@keyframes sort-pulse { 50% { opacity: .5; } }
-@media (prefers-reduced-motion: reduce) { .sort-preview-bucket > summary::after { transition: none; animation: none !important; } }
+.sort-plan.reviewing .sort-preview-bucket > summary { cursor: pointer; }
+.sort-plan.reviewing .sort-preview-bucket > summary:hover { background: var(--neutral-fill); }
+.sort-preview-bucket > summary > i, .sort-report-row > i { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--label-4); box-sizing: border-box; }
+.sort-preview-bucket.active > summary > i { border-color: var(--accent); animation: scan-pulse 1.2s ease-in-out infinite; }
+.sort-preview-bucket.done > summary > i, .sort-report-row.done > i { border: 0; background: var(--accent) no-repeat center / 10px
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6.5l2.5 2.5L10 3.5' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E"); }
+.sorting .sort-preview-bucket:not(.active):not(.done) > summary { color: var(--label-3); }
 .sort-name { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 15px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .sort-name .gl-tag { width: 22px; height: 22px; flex: none; }
 .sort-name .gl-tag svg { width: 18px; height: 18px; }
 .sort-count { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
 .sort-where { color: var(--label-3); font-size: 14px; }
 .sort-preview-sender { margin: 4px 14px 8px 46px; }
-.sort-report .sort-big { display: block; }
-.sort-report .sort-sub { margin: 6px 0 24px; }
-.sort-report-rows { margin: 0 0 24px; border-top: 1px solid var(--hairline); }
-.sort-report-row { cursor: default; border-radius: 0; border-bottom: 1px solid var(--hairline); }
-.sort-undo { padding: 0; border: 0; background: none; color: var(--accent); font: 500 14px var(--font); cursor: pointer; }
+.sort-undo { padding: 0; border: 0; background: none; color: var(--accent-text); font: 500 14px var(--font); cursor: pointer; }
 .sort-undo:hover { text-decoration: underline; text-underline-offset: 3px; }
 .sort-undo:disabled { color: var(--label-3); text-decoration: none; cursor: default; }
 .sort-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; color: var(--label-2); font-size: 15px; }
 .top-tool:disabled { opacity: 1; }
-.sort-conflicts .sort-sub { margin: 0 0 16px; }
-.sort-conflicts .sort-report-row { grid-template-columns: minmax(0, 1fr) 0 auto auto; gap: 24px; }
+@media (prefers-reduced-motion: reduce) { .sort-ring { transition: none; } .sort-preview-bucket.active > summary > i { animation: none; } }
+@media (max-width: 760px) { .sort-hero { flex-direction: column; align-items: flex-start; gap: 20px; } .sort-preview-bucket > summary, .sort-report-row { grid-template-columns: 16px minmax(0, 1fr) 60px auto; } .sort-where { display: none; } }
 
-/* Side panel (Cleanup, Security...): no Kind column, tighter cells, so From and Subject fit. */
+/* Side panel (Cleanup, Security...): compact, like Gmail's compact density, since it shares the
+   screen (research/2026-11-06-panels-and-scans.md). Title and panel buttons on one line, then
+   Emails | Senders as one segmented control, then the pills; 13-14px text, 48px rows, no Kind column. */
 @container details (max-width: 640px) {
+  .details .details-head { padding: 12px 4px 12px; row-gap: 12px; }
+  .details .details-title { flex: 1 1 0; font-size: 20px; }
+  .details .details-count { margin-left: 8px; font-size: 13px; }
+  .details .details-head .spacer { display: none; }
+  .details .details-head .seg { order: 3; flex: 1 0 100%; margin: 0; padding: 2px; gap: 0; border-radius: 9px; background: var(--neutral-fill); }
+  .details .details-head .seg button { flex: 1; padding: 5px 0; border: 0; border-radius: 7px; font-size: 13px; }
+  .details .details-head .seg [aria-pressed="true"] { background: var(--glass-bar); box-shadow: var(--shadow-card); }
+  .details .chips { gap: 6px; padding: 0 4px 12px; }
+  .details .chip { padding: 5px 12px; border-radius: 8px; font-size: 13px; }
+  .details table.sheet { font-size: 13px; }
+  .details .sheet th { padding: 8px 6px; font-size: 12px; white-space: nowrap; }
+  .details .sheet td { padding: 12px 6px; }
   /* Zero width, not display: none, which leaves its width empty in a fixed-layout table. */
   .details .sheet.emails th:nth-child(5), .details .sheet.emails td:nth-child(5) { width: 0; padding: 0; font-size: 0; }
-  .details .sheet.emails th:nth-child(2) { width: 64px; }
+  .details .sheet.emails th:nth-child(2) { width: 56px; }
   .details .sheet.emails th:nth-child(3) { width: 38%; }
-  .details .sheet th:first-child, .details .sheet .c { width: 26px; }
-  .details .sheet th { white-space: nowrap; }
-  .details .sheet td { padding: 16px 8px; }
-  .details .details-title { flex-basis: 100%; }
-  .details .sheet .logo-tile { width: 28px; height: 28px; margin-right: 10px; }
-  /* Room for the 28px logo and its gap, or a long name drops to a hidden second line. */
-  .details .sheet .who { max-width: calc(100% - 40px); }
+  .details .sheet th:first-child, .details .sheet .c { width: 24px; }
+  .details .sheet .logo-tile { width: 22px; height: 22px; margin-right: 8px; font-size: 9px; }
+  /* Room for the logo and its gap, or a long name drops to a hidden second line. */
+  .details .sheet .who { max-width: calc(100% - 32px); }
 }

@@ -12,7 +12,7 @@ import type { SortBucket } from "../lib/sortTaxonomy";
 import { gmailMessageUrl } from "./detailsPanel";
 import { infoButton } from "./ui";
 import { donutChart } from "./overviewCharts";
-import { lineChart } from "./cleanupPage";
+import { emailsCell, lineChart } from "./cleanupPage";
 
 export type HomeKind = "primary" | "trans" | "updates" | "promo";
 
@@ -101,23 +101,6 @@ function daysAgo(at: number, now: number): number {
   return Math.round((new Date(now).setHours(0, 0, 0, 0) - new Date(at).setHours(0, 0, 0, 0)) / (24 * 60 * 60 * 1000));
 }
 
-/** Senders with the most mail in the last seven days, most first. */
-export function topSendersThisWeek(
-  senders: readonly SenderSummary[],
-  now: number,
-  count = 4,
-): Array<{ address: string; name: string; count: number }> {
-  return senders
-    .map((s) => ({
-      address: s.address,
-      name: s.displayName || s.address,
-      count: s.messages.filter((m) => daysAgo(m.receivedAt, now) < 7).length,
-    }))
-    .filter((s) => s.count > 0)
-    .sort((a, b) => b.count - a.count)
-    .slice(0, count);
-}
-
 /** Emails Cluster filed out of the inbox each day: this week and the week before, oldest first. */
 export function filedByDay(log: readonly ActionLogEntry[], now: number): { cur: number[]; prev: number[] } {
   const cur = [0, 0, 0, 0, 0, 0, 0];
@@ -187,10 +170,10 @@ export interface HomeFacts {
   cleared30?: number;
   /** Emails Cluster filed out of the inbox per day. */
   filed?: { cur: number[]; prev: number[] };
-  /** Up to three flagged senders: their latest subject and the brand they fake. */
-  suspects?: Array<{ address: string; name?: string; subject: string; brand?: string }>;
-  /** Senders with the most mail this week. */
-  topSenders?: Array<{ address: string; name: string; count: number }>;
+  /** The top two flagged senders: their latest subject and the brand they fake. */
+  suspects?: Array<{ key?: string; address: string; name?: string; subject: string; brand?: string }>;
+  /** Companies with the most mail this week, grouped like Cleanup's rows. */
+  topSenders?: Array<{ key?: string; address: string; name: string; count: number }>;
 }
 
 /** Open a place; `act` also starts that place's own confirm step. */
@@ -695,6 +678,8 @@ export function renderHomeDashboard(
   f: HomeFacts,
   go: Go,
   openKind?: (kind: HomeKind) => void,
+  /** Opens one sender's emails in Details, as Cleanup's rows do. */
+  openSender?: (key: string) => void,
 ): HTMLElement {
   const root = el("div", "home");
   if (f.reading) {
@@ -731,9 +716,17 @@ export function renderHomeDashboard(
     widget("Inbox by category", `Every email Cluster has read, by kind. Pick a kind to see its emails.${since}`, null, donutBox, () => go("organize"), "Labels"),
   );
 
+  const senderRow = (cls: string, key: string | undefined, name: string) => {
+    if (!key || !openSender) return el("div", cls);
+    const row = el("button", cls);
+    row.type = "button";
+    row.setAttribute("aria-label", `${name}: open their emails`);
+    row.onclick = () => openSender(key);
+    return row;
+  };
   const sus = el("div", "ov-list");
   for (const x of f.suspects ?? []) {
-    const row = el("div", "ov-li");
+    const row = senderRow("ov-li", x.key, x.name || x.address);
     const words = el("div", "ov-who");
     words.append(el("b", "", x.subject || x.name || x.address), el("span", "", x.brand ? `Impersonating ${x.brand}` : x.address));
     row.append(senderTile(x.address, x.name, "sz-30"), words, el("span", "ov-pill-bad", "High"));
@@ -747,12 +740,14 @@ export function renderHomeDashboard(
   cols.append(el("span", "", "Sender"), el("span", "ov-v", "Emails"));
   if (f.topSenders?.length) top.append(cols);
   const most = f.topSenders?.[0]?.count ?? 1;
+  const week = (f.topSenders ?? []).reduce((sum, t) => sum + t.count, 0);
   for (const t of f.topSenders ?? []) {
-    const row = el("div", "ov-tr");
+    const row = senderRow("ov-tr", t.key, t.name);
     const name = el("div", "ct-name");
     name.style.setProperty("--share", `${Math.max(4, (t.count / most) * 100)}%`);
     name.append(senderTile(t.address, t.name, "sz-26"), el("span", "", t.name));
-    row.append(name, el("b", "ov-v", n(t.count)));
+    // Cleanup's Emails cell: the count, then its share in gray.
+    row.append(name, emailsCell(t.count, week, "span"));
     top.append(row);
   }
   if (!f.topSenders?.length) top.append(el("p", "ov-empty", "No mail this week."));
