@@ -298,9 +298,10 @@ const TIER_CHIP: Record<VerdictTier, [string, string]> = {
   none: ["none", "Low"],
 };
 
-export function renderSecuritySection(senders: SenderSummary[], autoCheck = true) {
+/** Senders with any warning sign, riskiest first, and the warned or held
+ * ones that get a row. Overview and the badges count the same rows. */
+export function rankFlagged(senders: SenderSummary[]) {
   applyBodyChecks(senders, bodyChecks);
-  renderQuarantineReview(senders);
   // Rank by combined risk so a sender tripping several signals (or a
   // freemail brand claim) sorts above one with a lone medium signal.
   const known = knownSenderSet(ctx.settings);
@@ -318,6 +319,12 @@ export function renderSecuritySection(senders: SenderSummary[], autoCheck = true
     .sort((a, b) => b.verdict.score - a.verdict.score);
   // Only warned or held senders get a row; a lone weak sign isn't worth one.
   const high = flagged.filter(({ verdict }) => verdict.tier !== "none");
+  return { flagged, high };
+}
+
+export function renderSecuritySection(senders: SenderSummary[], autoCheck = true) {
+  renderQuarantineReview(senders);
+  const { flagged, high } = rankFlagged(senders);
   // One list: brand-name senders already above aren't listed again below.
   const more = renderBrandCheck(senders, new Set(high.map(({ sender }) => sender.key)));
   securitySectionEl.hidden = high.length === 0;

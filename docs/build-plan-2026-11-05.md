@@ -7,7 +7,7 @@ Branch: `feat/streamline-2026-11` (on top of `feat/scan-2026-11`). One commit pe
 |---|---|---|
 | 1 | Label by Gmail search first (filter queries + `in:inbox`, batchModify), before the read finishes | done |
 | 2 | Setup Start and sign-in never wait on Gmail; work shows on the scan card | done |
-| 3 | One number per fact: Cleanup badge = page, Overview Suspicious = Security | |
+| 3 | One number per fact: Cleanup badge = page, Overview Suspicious = Security | done |
 | 4 | "Label as" in Details rows, with "always for this sender", applied to old mail | |
 | 5 | Learn from Gmail moves (Cluster label removed or swapped twice for a sender → correction) | |
 | 6 | One category system, hide empty labels | |

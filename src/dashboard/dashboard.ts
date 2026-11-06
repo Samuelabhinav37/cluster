@@ -100,7 +100,7 @@ import { deliveredUpdates } from "../lib/orderEvents";
 import { appendUndoButton, logAction, renderRecentTab, undoEntry } from "./recentTab";
 import { openRuleSheetFor, renderRulesTab, saveRules, wireRulesTab } from "./rulesTab";
 import { renderLearned, SIGNED_OUT_KEY, wireSettingsMore } from "./settingsMore";
-import { initBodyChecks, renderSecuritySection } from "./securityTab";
+import { initBodyChecks, rankFlagged, renderSecuritySection } from "./securityTab";
 import { renderScamReport, wireProtectPages } from "./reportTab";
 import { heldByWeek } from "../lib/scamHistory";
 import { wireSetup } from "./setupTab";
@@ -1193,10 +1193,12 @@ function updateNavCounts(
 ) {
   const health = buildInboxHealth({ senders, securitySenders, settings: ctx.settings });
   const byId = new Map(health.metrics.map((m) => [m.id, m.value]));
+  // Security's own row count, so the badge, Ask Kai and the tile agree with its list.
+  const scams = rankFlagged(securitySenders).high.length;
   setNavCount("delete", clearOutPlan(senders).total, true, "emails to clear out");
   setNavCount("senders", senders.length);
   setNavCount("subscriptions", byId.get("unsubscribe-capable") ?? 0, true);
-  setNavCount("impersonation", byId.get("flagged-senders") ?? 0);
+  setNavCount("impersonation", scams);
   setPhishingNavSeverity(securitySenders);
   const people = new Set(
     allSenders.filter((s) => isPerson(ctx.profiles.get(s.key))).map((s) => detailRowKey(s)),
@@ -1205,12 +1207,12 @@ function updateNavCounts(
     senders: detailSenders(allSenders, detailRowKey),
     people,
     kinds: mailByKind(allSenders, Date.now()).kinds,
-    scams: byId.get("flagged-senders") ?? 0,
+    scams,
     waiting: byId.get("screener-queue") ?? 0,
   };
   setNavCount("screener", byId.get("screener-queue") ?? 0);
   const held = heldByWeek(ctx.settings.scamHistory, 8).reduce((n, w) => n + w.held, 0);
-  renderProtectTiles(byId.get("flagged-senders") ?? 0, byId.get("screener-queue") ?? 0, held);
+  renderProtectTiles(scams, byId.get("screener-queue") ?? 0, held);
 }
 
 // Protect's head line, shared by its three screens.
@@ -1390,7 +1392,7 @@ function renderOverview(
   const facts: HomeFacts = {
     // All mail read, so Clean up's part and the total share one population.
     ...mailByKind(allSenders, Date.now()),
-    suspicious: byId.get("flagged-senders") ?? 0,
+    suspicious: rankFlagged(securitySenders).high.length,
     waiting: byId.get("screener-queue") ?? 0,
     neverOpened: {
       senders: unopened.length,
@@ -1419,7 +1421,8 @@ function renderOverview(
     stopLists: stopListKeys.length,
     filed: filedByDay(ctx.settings.actionLog, Date.now()),
     topSenders: topSendersThisWeek(allSenders, Date.now()),
-    suspects: securitySenders.slice(0, 3).map((s) => ({
+    // Security's own rows, so Overview never lists a sender Security doesn't.
+    suspects: rankFlagged(securitySenders).high.slice(0, 3).map(({ sender: s }) => ({
       address: s.address,
       name: s.displayName,
       subject: [...s.messages].sort((a, b) => b.receivedAt - a.receivedAt)[0]?.subject ?? "",
@@ -1575,6 +1578,8 @@ function renderDeleteScreen(senders: SenderSummary[]) {
   list("lists-top", plan.lists.map((s) => [senderName(s), senderVolume(s)]));
   lastPlan = plan;
   document.getElementById("tab-count-subs")!.textContent = plan.lists.length ? n(plan.lists.length) : "";
+  // The same total as the sidebar badge, so the two always match.
+  document.getElementById("tab-count-senders")!.textContent = plan.total ? n(plan.total) : "";
   renderSenderTable(document.getElementById("cu-senders-table")!, {
     items: [
       ...pageItems("never").map((it) => ({ ...it, reason: "Unopened" })),
