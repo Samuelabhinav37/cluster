@@ -3978,6 +3978,8 @@ body { background: var(--glass); }
 .top-tools { display: flex; justify-content: flex-end; align-items: center; gap: 6px; }
 .top-tool { width: 36px; height: 36px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 9px; background: none;
   color: var(--label-3); cursor: pointer; }
+.top-tool:has(span) { width: auto; display: inline-flex; gap: 6px; padding: 0 10px; font-size: 13px; }
+@media (max-width: 700px) { .top-tool:has(span) { width: 36px; padding: 0; justify-content: center; } .top-tool span { display: none; } }
 .top-tool svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .top-tool:hover, body[data-screen="settings"] #top-settings, .details-open .top-tool[data-details] { background: var(--neutral-fill); color: var(--label); }
 .top-kai { width: 36px; height: 36px; margin-left: 6px; padding: 0; border: 0; border-radius: 50%; background: #16171c; cursor: pointer;
