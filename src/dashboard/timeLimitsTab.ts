@@ -11,7 +11,7 @@ import { log } from "../lib/log";
 import { CLUSTER_LABEL_COLORS } from "../lib/clusterLabels";
 import { colorClusterLabels, getLabel, listLabels } from "../lib/gmailApi";
 import { gmailProvider } from "../lib/providers/gmailProvider";
-import { getSettings, updateSettings } from "../lib/settingsStore";
+import { getSettings, mutateSettings, updateSettings } from "../lib/settingsStore";
 import { domainOf } from "../lib/domainGrouping";
 import { deliverNewsletters, HOLD_HOURS, newsletterDayOn } from "../lib/newsletterDay";
 import type { SenderSummary } from "../lib/senderModel";
@@ -328,27 +328,31 @@ async function save(): Promise<boolean> {
   const on = labelsOff.length < ALL_SORT_BUCKETS.length;
   note("Saving…");
   try {
-    ctx.settings = await updateSettings({
-      autoSort: { ...ctx.settings.autoSort, timeLimitsEnabled: on, keepSorting: on, inboxHoursByBucket, labelsOff },
-    });
+    // Merged into what's stored: a background run may have written since.
+    ctx.settings = await mutateSettings((cur) => ({
+      ...cur,
+      autoSort: { ...cur.autoSort, timeLimitsEnabled: on, keepSorting: on, inboxHoursByBucket, labelsOff },
+    }));
     const token = await gmailProvider.getAuthToken(false);
     const synced = await syncGmailCategoryFilters(ctx.settings, token);
-    ctx.settings = await updateSettings({
-      autoSort: {
-        ...ctx.settings.autoSort,
-        filterIdsByBucket: synced.filterIdsByBucket,
-        filterSpecByBucket: synced.filterSpecByBucket,
-      },
-    });
+    ctx.settings = await mutateSettings((cur) => ({
+      ...cur,
+      autoSort: { ...cur.autoSort, filterIdsByBucket: synced.filterIdsByBucket, filterSpecByBucket: synced.filterSpecByBucket },
+    }));
     if (!on) {
       note("Off. New mail stays where it lands.");
     } else {
       await colorClusterLabels(token).catch((err) => log.error("time limits: label colors failed", err));
-      note("Saved. Checking your inbox…");
-      const run = await runInboxTimeLimits();
-      // The run recorded lastSweep in storage; pick it up for the render.
-      ctx.settings = await getSettings();
-      note(run && run.moved > 0 ? `Saved. Moved ${plural(run.moved, "email")}${run.more ? ", more soon" : ""}.` : "Saved.");
+      note("Saved.");
+      // Not awaited: labelling and the sweep can take a while on a big inbox
+      // and show on the Overview scan card, so setup and saves return at once.
+      void runInboxTimeLimits()
+        .then(async (run) => {
+          ctx.settings = await getSettings();
+          if (run && run.moved > 0) note(`Saved. Moved ${plural(run.moved, "email")}${run.more ? ", more soon" : ""}.`);
+          renderTimeLimits();
+        })
+        .catch((err) => log.error("time limits: run failed", err));
     }
     return true;
   } catch (err) {

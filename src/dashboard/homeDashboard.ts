@@ -462,7 +462,7 @@ export interface ScanRow {
 export function renderScanCard(
   scan: ScanState,
   rows: readonly ScanRow[],
-  on: { rescan(): void; dismiss(): void; unsortedHref: string },
+  on: { rescan(): void; dismiss(): void; unsortedHref: string; reading?: boolean },
 ): HTMLElement {
   const card = el("section", "scan-card");
   card.id = "scan-card";
@@ -480,7 +480,9 @@ export function renderScanCard(
     close.onclick = on.dismiss;
     head.append(again, close);
   }
-  card.append(head, scanSteps(done ? 2 : 1));
+  card.append(head);
+  // Labelled by search while the read goes on: the steps would claim it finished.
+  if (!on.reading) card.append(scanSteps(done ? 2 : 1));
   if (!done) {
     const track = el("div", "read-track");
     track.setAttribute("role", "progressbar");

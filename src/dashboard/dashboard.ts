@@ -823,7 +823,7 @@ function gmailSearchUrl(q: string): string {
 
 function paintScanCard() {
   const old = document.getElementById("scan-card");
-  if (!scan || scan.dismissed || scan.phase === "reading" || !overviewContentEl.isConnected) {
+  if (!scan || !ctx.settings || scan.dismissed || scan.phase === "reading" || !overviewContentEl.isConnected) {
     old?.remove();
     return;
   }
@@ -843,6 +843,7 @@ function paintScanCard() {
       void startLabelScan();
     },
     dismiss: () => void setScan({ dismissed: true }),
+    reading: indexRuns.size > 0,
     unsortedHref: gmailSearchUrl(`in:inbox ${names.map(([, l]) => `-label:"${l.replace(/"/g, "")}"`).join(" ")}`),
   });
   if (old) old.replaceWith(card);
@@ -851,6 +852,7 @@ function paintScanCard() {
 
 /** Says reading finished, and marks the tab with a dot until you look at it. */
 function showReadDone() {
+  paintScanCard();
   indexStatusEl.replaceChildren("✓ All your mail is read");
   indexStatusEl.classList.add("done");
   indexStatusEl.hidden = false;
