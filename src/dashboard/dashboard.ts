@@ -560,8 +560,9 @@ async function main() {
   kaiGuide = initKaiGuide(document, {
     questions: CLUSTER_QUESTIONS,
     firstOn: CLUSTER_FIRST_ON,
+    // globalThis: Kai reads this on a timer that can outlive a test's DOM
     currentScreen: () =>
-      document.querySelector<HTMLElement>("#sidebar .nav-item.active")?.dataset.screen ?? "overview",
+      globalThis.document?.querySelector<HTMLElement>("#sidebar .nav-item.active")?.dataset.screen ?? "overview",
     match: (text) => {
       const byId = new Map(CLUSTER_QUESTIONS.map((q) => [q.id, q]));
       return matchKai(text, KAI_DOCS, ctx.settings.kaiLearned ?? {}).map((r) => byId.get(r.id)!);
