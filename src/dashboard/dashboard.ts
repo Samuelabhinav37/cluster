@@ -95,7 +95,7 @@ import { formatRelativeTime, infoButton, pruneSelection, renderConfirmStep, runN
 import { buildCleanupCards } from "../lib/cleanupCards";
 import { renderCleanupPage, renderSenderTable, type PageItem } from "./cleanupPage";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
-import { keepNewestExcess } from "../lib/keepNewest";
+import { keepNewestExcess, olderReadExcess } from "../lib/keepNewest";
 import { deliveredUpdates } from "../lib/orderEvents";
 import { appendUndoButton, logAction, renderRecentTab, undoEntry } from "./recentTab";
 import { openRuleSheetFor, renderRulesTab, saveRules, wireRulesTab } from "./rulesTab";
@@ -651,7 +651,7 @@ async function main() {
   wireSortInbox();
   wireTimeLimits();
   setPresetActions(() =>
-    [replyReminderCard(), neverOpenedSkipsInboxCard(), keepNewestInInboxCard(), deliveredOrdersCard()].filter(
+    [getToZeroCard(), replyReminderCard(), neverOpenedSkipsInboxCard(), keepNewestInInboxCard(), deliveredOrdersCard()].filter(
       (c): c is HTMLElement => c !== null,
     ),
   );
@@ -2667,6 +2667,39 @@ function keepNewestInInboxCard(): HTMLElement | null {
       await logAction(
         "archive",
         `Kept each sender's newest ${KEEP_IN_INBOX} in the inbox: moved out ${moved}`,
+        gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "unarchive" } : undefined,
+      );
+      void scanAndRender();
+      return `Moved ${moved.toLocaleString()} out. Undo from Activity.`;
+    },
+  );
+}
+
+/** Superhuman's "Get me to zero": read mail older than a month leaves the
+ * inbox; unread and starred mail stays. shortcut: fixed at 30 days, add a
+ * picker if people ask for another cutoff. */
+const ZERO_DAYS = 30;
+function getToZeroCard(): HTMLElement | null {
+  const merged = olderReadExcess(ctx.senders, ZERO_DAYS, Date.now(), buildProtectionContext(ctx.settings));
+  const total = [...merged.values()].reduce((n, ids) => n + ids.length, 0);
+  if (total === 0 && !presetNotes.has("zero")) return null;
+  return presetActionCard(
+    "zero",
+    "Get to zero",
+    `${total.toLocaleString()} read ${total === 1 ? "email" : "emails"} older than a month`,
+    "Move out",
+    async () => {
+      let moved = 0;
+      for (const [pid, ids] of merged) {
+        const provider = providerById.get(pid);
+        if (!provider?.archiveMessages || ids.length === 0) continue;
+        await provider.archiveMessages(await provider.getAuthToken(false), ids);
+        moved += ids.length;
+      }
+      const gmailIds = merged.get("gmail") ?? [];
+      await logAction(
+        "archive",
+        `Moved out ${moved} read emails older than a month`,
         gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "unarchive" } : undefined,
       );
       void scanAndRender();

@@ -13,7 +13,7 @@ Branch: `feat/streamline-2026-11` (on top of `feat/scan-2026-11`). One commit pe
 | 6 | One category system, hide empty labels | done |
 | 7 | Overview: scan card plus 3 widgets | done (kept the category donut; it opens each kind in Details) |
 | 8 | Words: Held, Never opened, no speed-limit line, Welcome on first visit, one setup wording | done |
-| 9 | Get to zero: move older than N days out, keep unread/starred, undo | |
+| 9 | Get to zero: move older than N days out, keep unread/starred, undo | done (fixed 30 days; appears once older mail is read) |
 | 10 | Labelled top-bar icons, "What Cluster learned" first in Settings | |
 
 Check each step with `npx tsc --noEmit`, `npx vitest run <touched tests>`, and the preview

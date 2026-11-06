@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { keepNewestExcess, keepNewestExcessCount } from "./keepNewest";
+import { keepNewestExcess, keepNewestExcessCount, olderReadExcess } from "./keepNewest";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -86,5 +86,13 @@ describe("keepNewestExcess", () => {
     expect(result.get("gmail")).toEqual(["g2", "g3"]);
     expect(result.get("outlook")).toEqual(["o2"]);
     expect(keepNewestExcessCount([g, o], 1)).toBe(3);
+  });
+});
+
+describe("olderReadExcess", () => {
+  it("moves out read mail older than the cutoff, never unread or starred mail", () => {
+    const unread = { ...msg("u", 60), unread: true };
+    const senders = [sender("gmail", "news@x.com", [msg("old", 60), msg("new", 5), unread, msg("star", 60, true)])];
+    expect(olderReadExcess(senders, 30, Date.now())).toEqual(new Map([["gmail", ["old"]]]));
   });
 });

@@ -32,3 +32,24 @@ export function keepNewestExcessCount(senders: SenderSummary[], keepPerSender: n
   for (const ids of keepNewestExcess(senders, keepPerSender).values()) n += ids.length;
   return n;
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** "Get to zero": read mail older than `days` leaves the inbox. Unread mail
+ * and anything protected (starred, people you write to) stays. */
+export function olderReadExcess(
+  senders: SenderSummary[],
+  days: number,
+  now: number,
+  ctx: ProtectionContext = emptyProtectionContext(),
+): Map<ProviderId, string[]> {
+  const out = new Map<ProviderId, string[]>();
+  for (const s of senders) {
+    const old = s.messages.filter(
+      (m) => !m.unread && m.receivedAt < now - days * DAY_MS && !protectionDecision(m, s.address, ctx).protected,
+    );
+    if (old.length === 0) continue;
+    out.set(s.provider, [...(out.get(s.provider) ?? []), ...old.map((m) => m.id)]);
+  }
+  return out;
+}
