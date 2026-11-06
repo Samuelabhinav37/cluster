@@ -79,6 +79,11 @@ const providerById = new Map<ProviderId, EmailProvider>([
   [outlookProvider.id, outlookProvider],
 ]);
 
+// Chrome can't run code on uninstall; it can open a page. That page says
+// how to remove Cluster's filters and labels and end its Google access.
+const UNINSTALL_URL = "https://samuelabhinav.com/cluster/uninstalled.html";
+chrome.runtime.setUninstallURL?.(UNINSTALL_URL);
+
 chrome.runtime.onInstalled.addListener((details) => {
   chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 5, periodInMinutes: 360 });
   chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });

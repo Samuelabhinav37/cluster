@@ -1,7 +1,7 @@
 // Settings groups added 2026-10-28: Accounts, Notifications,
 // Show Kai, Privacy (export, erase) and Keyboard. The background worker sends
 // the notifications (background.ts); this file only stores the choices.
-import { deleteFiltersInto, getAuthToken, listLabels, revokeGoogleAccess } from "../lib/gmailApi";
+import { deleteFiltersInto, deleteLabel, getAuthToken, listLabels, revokeGoogleAccess } from "../lib/gmailApi";
 import { forgetGmailSignIn, gmailRefreshToken } from "../lib/gmailWebAuth";
 import { log } from "../lib/log";
 import { clusterLabelIdSet } from "../lib/seedFromExisting";
@@ -115,12 +115,15 @@ export function renderLearned(): void {
 
 export const SIGNED_OUT_KEY = "cluster.signedOut";
 
-/** Revoke Google access, optionally removing the filters that file into Cluster's labels. Labels stay. */
-async function signOut(removeFilters: boolean): Promise<void> {
+/** Revoke Google access, optionally removing the filters that file into
+ * Cluster's labels, and the labels themselves (their mail stays in All Mail).
+ * Signing out is what stops the background from making them again. */
+async function signOut(removeFilters: boolean, removeLabels = false): Promise<void> {
   const token = await getAuthToken(false);
-  if (removeFilters) {
-    const labels = await listLabels(token);
-    await deleteFiltersInto(token, clusterLabelIdSet(labels, ctx.settings.clusterOwnedLabels));
+  if (removeFilters || removeLabels) {
+    const ours = clusterLabelIdSet(await listLabels(token), ctx.settings.clusterOwnedLabels);
+    await deleteFiltersInto(token, ours);
+    if (removeLabels) for (const id of ours) await deleteLabel(token, id);
   }
   // Revoking the refresh token revokes every access token it issued.
   if (!(await revokeGoogleAccess((await gmailRefreshToken()) ?? token))) {
@@ -162,6 +165,30 @@ function wireSignOut() {
       "Cluster's Gmail filters: ",
       choice("Keep them", "btn", go(false)),
       choice("Remove them", "btn", go(true)),
+      choice("Cancel", "btn btn-ghost", reset),
+    );
+  };
+}
+
+/** Danger zone: take Cluster out of Gmail and sign out, ready to uninstall. */
+function wireRemoveFromGmail() {
+  const slot = $("settings-remove-slot");
+  const btn = $<HTMLButtonElement>("settings-remove");
+  if (!slot || !btn) return;
+  const reset = () => slot.replaceChildren(btn);
+  const choice = (label: string, cls: string, run: () => void) =>
+    Object.assign(document.createElement("button"), { type: "button", className: cls, textContent: label, onclick: run });
+  btn.onclick = () => {
+    const go = (labels: boolean) => () => {
+      slot.replaceChildren("Removing…");
+      signOut(true, labels).catch((err) => {
+        log.error("Remove from Gmail failed", err);
+        slot.replaceChildren("Couldn't reach Gmail. ", choice("Try again", "btn", () => btn.click()));
+      });
+    };
+    slot.replaceChildren(
+      choice("Filters only", "btn", go(false)),
+      choice("Filters and labels", "btn danger", go(true)),
       choice("Cancel", "btn btn-ghost", reset),
     );
   };
@@ -367,6 +394,7 @@ export function wireSettingsMore(showScreen: (name: string) => void, act?: KeyAc
   if (email) watch.observe(email, { childList: true, characterData: true, subtree: true });
 
   wireSignOut();
+  wireRemoveFromGmail();
   wireNotifySwitch("notify-scam-toggle", "notifyScamHeld");
   wireNotifySwitch("notify-weekly-toggle", "notifyWeekly");
   // An email into the user's own inbox needs no Chrome permission.

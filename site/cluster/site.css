@@ -175,3 +175,10 @@ section { padding: 160px 22px 0; text-align: center; }
   .facts { grid-template-columns: 1fr; }
   .facts li { padding: 26px; font-size: 21px; }
 }
+
+/* Uninstalled page: one column of plain steps. */
+.bye { max-width: 640px; margin: 0 auto; padding: 120px 22px 160px; }
+.bye h1 { font-size: clamp(40px, 6vw, 64px); }
+.bye-line { margin-top: 24px; color: var(--ink-2); }
+.bye-steps { margin: 40px 0 0; padding-left: 22px; display: grid; gap: 20px; }
+.bye-steps b { display: block; color: var(--ink); }
