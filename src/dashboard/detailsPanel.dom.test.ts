@@ -96,19 +96,15 @@ describe("Details panel", () => {
     expect(rows(root)).toHaveLength(3);
   });
 
-  it("narrows by week, then by day, from the chart", () => {
+  it("This week and All mail are pills, and there is no chart", () => {
     const panel = boot();
     panel.open({ kind: "promo" });
-    const weeks = root.querySelectorAll<HTMLButtonElement>(".col");
-    expect(weeks).toHaveLength(8);
-    weeks[7].click();
+    expect(root.querySelector(".details-chart, .cellbar")).toBeNull();
+    click(root, ".chips button", "This week");
     expect(rows(root)).toEqual(["Shop Sale today"]);
-    const days = root.querySelectorAll<HTMLButtonElement>(".col");
-    expect(days).toHaveLength(7);
-    expect(days[4].getAttribute("aria-label")).toMatch(/1 email$/);
-    days[3].click();
-    expect(rows(root)).toEqual([]);
-    expect(root.querySelector(".empty")?.textContent).toBe("Nothing here.");
+    click(root, ".chips button", "All mail");
+    expect(rows(root)).toHaveLength(3);
+    expect(root.querySelector(".chips .on")!.textContent).toBe("All mail");
   });
 
   it("protected mail can't be ticked, and Trash gets only what was ticked", () => {

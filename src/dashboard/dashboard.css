@@ -3147,7 +3147,7 @@ body[data-state="connect"] .crumbs {
 .details { position: sticky; top: 0; flex: none; width: 25%; min-width: 320px; height: 100vh; display: flex; flex-direction: column;
   background: var(--glass); border-left: 1px solid var(--hairline); font-size: 13px; }
 .details.wide { width: 50%; }
-.details[hidden], .details-chart[hidden], .selbar[hidden] { display: none; }
+.details[hidden], .selbar[hidden] { display: none; }
 .details-head { display: flex; align-items: center; gap: 6px; padding: 14px 12px 10px 14px; }
 .details .spacer { flex: 1; }
 .details .seg { display: inline-flex; padding: 3px; border-radius: 9px; background: var(--neutral-fill); }
@@ -3158,16 +3158,7 @@ body[data-state="connect"] .crumbs {
 .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 8px; }
 .chip { padding: 3px 10px; border: 1px solid var(--separator); border-radius: 980px; background: none; color: var(--label-2); font: inherit; font-size: 12px; }
 .chip.on { border-color: transparent; background: var(--accent-fill); color: var(--accent-fill-text); font-weight: 600; }
-.details-chart { padding: 0 12px 10px; }
 .chart-head { margin-bottom: 4px; font-size: 12px; color: var(--label-4); }
-.details-chart .cols { display: flex; gap: 4px; height: 84px; }
-.details-chart .col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 2px 0 0; border: 0; border-radius: 6px;
-  background: none; cursor: pointer; }
-.details-chart .col:hover { background: var(--neutral-fill); }
-.details-chart .track { flex: 1; width: min(26px, 70%); display: flex; align-items: flex-end; }
-.details-chart .fill { width: 100%; border-radius: 3px 3px 1px 1px; background: var(--k2); }
-.details-chart .dim .fill { background: var(--k4); }
-.details-chart .lbl { font-size: 11px; color: var(--label-4); white-space: nowrap; }
 .details .sheet-wrap { flex: 1; min-height: 0; overflow: auto; border-top: 1px solid var(--separator); }
 table.sheet { width: 100%; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
 .sheet th { position: sticky; top: 0; z-index: 2; padding: 6px 8px; border-bottom: 1px solid var(--separator); background: var(--glass-bar);
@@ -3192,9 +3183,6 @@ table.sheet { width: 100%; border-collapse: collapse; table-layout: fixed; font-
 .sheet .subj { color: var(--label-3); }
 .sheet tr.unread .subj { color: var(--label); font-weight: 600; }
 .sheet .num { text-align: right; }
-.cellbar { display: inline-block; width: 36px; height: 4px; margin-right: 8px; overflow: hidden; border-radius: 2px; background: var(--neutral-fill);
-  vertical-align: middle; }
-.cellbar i { display: block; height: 100%; background: var(--k3); }
 .sheet tr.group td { position: sticky; top: var(--sheet-head, 33px); z-index: 1; background: var(--glass-bar); font-size: 11px; font-weight: 600; color: var(--label-2); cursor: default; }
 .sheet tr.group span, .sheet .when { margin: 0 8px 0 6px; font-weight: 400; color: var(--label-4); }
 .sheet tr.sub td { background: var(--row-hover); color: var(--label-2); cursor: default; }
@@ -3280,7 +3268,6 @@ table.sheet { font-size: 12px; }
 /* The base button/input/checkbox rules size for touch; the sheet is a dense table. */
 .details button { min-height: 0; }
 .details .icon-btn { padding: 0; }
-.details-chart .track { width: 80%; }
 .details .sheet input.tick { width: 14px; height: 14px; min-width: 0; min-height: 0; margin: 0; }
 /* Protect (mockup): icon tiles, then scams as one grouped list of rows. */
 #security-sender-list, #security-low-list { gap: 0; border: 1px solid var(--separator); border-radius: 14px; overflow: hidden; background: var(--glass); }
@@ -4158,19 +4145,31 @@ section[data-screen="impersonation"] > .tabs .tab-count { margin-left: 6px; padd
 .details .seg { padding: 0; gap: 8px; background: none; }
 .details .seg button { padding: 8px 16px; border-radius: 10px; border: 1px solid var(--hairline); color: var(--label-2); font: 500 14px var(--font); }
 .details .seg [aria-pressed="true"] { border-color: transparent; background: color-mix(in srgb, var(--accent) 22%, var(--neutral-fill)); color: var(--label); box-shadow: none; font-weight: 500; }
-.details .details-title { margin: 8px 8px 16px; font: 600 24px/1.2 var(--font); letter-spacing: -0.01em; }
+.details .details-head { gap: 8px; padding: 16px 8px 20px; }
+.details:not(.min) { container: details / inline-size; }
+.details .details-head { flex-wrap: wrap; }
+/* Never shrinks: a long name takes its own line rather than turning into "Medi…". */
+.details .details-title { flex: 1 0 auto; max-width: 100%; min-width: 0; margin: 0; font: 500 28px/1.2 var(--font); letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Mercury keeps its pills on one line; extra ones scroll sideways. */
+.details .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.details .chip { flex: none; }
+
+.details .details-count { margin-left: 12px; font: 400 15px var(--font); color: var(--label-3); letter-spacing: 0; }
+.details .details-head .seg { margin-right: 8px; }
 .details .chips { gap: 10px; padding: 0 8px 16px; }
 .details .chip { padding: 8px 16px; border: 1px solid var(--hairline); border-radius: 10px; color: var(--label-2); font: 400 14px var(--font); }
 .details .chip:hover { background: var(--neutral-fill); color: var(--label); }
 .details .chip.on { border-color: transparent; background: color-mix(in srgb, var(--accent) 22%, var(--neutral-fill)); color: var(--label); font-weight: 500; }
-.details .details-chart { padding: 0 8px 16px; }
-.details .details-chart .cols { height: 64px; }
-.details .details-chart .fill { background: color-mix(in srgb, var(--accent) 55%, transparent); }
-.details .details-chart .dim .fill { background: color-mix(in srgb, var(--label-4) 40%, transparent); }
 .details .sheet-wrap { border-top: 0; }
 .details table.sheet { font-size: 15px; border-collapse: separate; border-spacing: 0; }
 .details .sheet th { padding: 12px; border-bottom: 0; background: var(--glass); font: 400 13px var(--font); color: var(--label-3); }
-.details .sheet td { padding: 14px 12px; border-bottom: 1px solid var(--hairline); }
+.details .sheet td { padding: 20px 12px; border-bottom: 1px solid var(--hairline); }
+/* Mercury's hovered row: a lighter fill inside a thin rounded outline. */
+.details .sheet tbody tr:hover, .details .sheet tr.sel { outline: 1px solid var(--hairline); outline-offset: -1px; border-radius: 10px; }
+/* No tick column until you point at a row or start ticking, as in Mercury. */
+.details .sheet .tick { opacity: 0; }
+.details .sheet tr:hover .tick, .details .sheet .tick:focus-visible, .details:has(tbody .tick:checked) .sheet .tick { opacity: 1; }
+.details .sheet .tick:disabled { opacity: 0; }
 .details .sheet tbody tr:hover td, .details .sheet tr.sel td { background: var(--neutral-fill); border-bottom-color: transparent; }
 .details .sheet tbody tr:hover td:first-child, .details .sheet tr.sel td:first-child { border-radius: 10px 0 0 10px; }
 .details .sheet tbody tr:hover td:last-child, .details .sheet tr.sel td:last-child { border-radius: 0 10px 10px 0; }
@@ -4228,3 +4227,18 @@ section[data-screen="impersonation"] > .tabs .tab-count { margin-left: 6px; padd
 .top-tool:disabled { opacity: 1; }
 .sort-conflicts .sort-sub { margin: 0 0 16px; }
 .sort-conflicts .sort-report-row { grid-template-columns: minmax(0, 1fr) 0 auto auto; gap: 24px; }
+
+/* Side panel (Cleanup, Security...): no Kind column, tighter cells, so From and Subject fit. */
+@container details (max-width: 640px) {
+  /* Zero width, not display: none, which leaves its width empty in a fixed-layout table. */
+  .details .sheet.emails th:nth-child(5), .details .sheet.emails td:nth-child(5) { width: 0; padding: 0; font-size: 0; }
+  .details .sheet.emails th:nth-child(2) { width: 64px; }
+  .details .sheet.emails th:nth-child(3) { width: 38%; }
+  .details .sheet th:first-child, .details .sheet .c { width: 26px; }
+  .details .sheet th { white-space: nowrap; }
+  .details .sheet td { padding: 16px 8px; }
+  .details .details-title { flex-basis: 100%; }
+  .details .sheet .logo-tile { width: 28px; height: 28px; margin-right: 10px; }
+  /* Room for the 28px logo and its gap, or a long name drops to a hidden second line. */
+  .details .sheet .who { max-width: calc(100% - 40px); }
+}

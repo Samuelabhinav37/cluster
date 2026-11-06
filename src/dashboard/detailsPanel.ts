@@ -1,8 +1,8 @@
 // Details: a sheet in the right quarter of the window where you work on the
 // mail behind any number (docs/dashboard-plan.md; approved mockup
 // research/2026-10-27-home-cleanup-mockup.html). Every count you click opens
-// it already filtered. A chart narrows by week, then by day; filters show as
-// chips you remove; tick rows and act from the bar at the bottom. Actions are
+// it already filtered. Filters are one row of pills, as in Mercury's
+// Transactions table; tick rows and act from the bar at the bottom. Actions are
 // supplied by the dashboard, which owns the protection checks, confirm,
 // Undo and the activity log. Built with DOM calls only, no markup strings.
 
@@ -60,7 +60,6 @@ export interface DetailsFilter {
   kind?: HomeKind | null;
   senderKey?: string | null;
   week?: number | null;
-  day?: number | null;
   never?: boolean;
   /** A smart view id, e.g. "large". */
   smart?: string | null;
@@ -91,12 +90,11 @@ export interface DetailsActions {
   labels?: ReadonlyArray<{ bucket: SortBucket; name: string }>;
 }
 
-type State = Required<Omit<DetailsFilter, "senderKey" | "kind" | "week" | "day" | "smart">> & {
+type State = Required<Omit<DetailsFilter, "senderKey" | "kind" | "week" | "smart">> & {
   smart: string | null;
   kind: HomeKind | null;
   senderKey: string | null;
   week: number | null;
-  day: number | null;
 };
 
 const BLANK: State = {
@@ -104,7 +102,6 @@ const BLANK: State = {
   kind: null,
   senderKey: null,
   week: null,
-  day: null,
   never: false,
   smart: null,
   q: "",
@@ -268,19 +265,17 @@ export function initDetailsPanel(
   closeBtn.setAttribute("aria-label", "Minimize details");
   // Minimized, the panel stays as a strip at the edge; clicking it opens it again.
   const tab = button("details-tab", "Details", () => panel.open());
-  head.append(tabs, spacer, wideBtn, closeBtn);
-
-  // What the panel shows now, e.g. "Groupon · 14 emails". Search lives in the top bar.
+  // What the panel shows now, e.g. "Groupon 14 emails". Search lives in the top bar.
   const title = h("div", "details-title");
   title.setAttribute("aria-live", "polite");
+  head.append(title, spacer, tabs, wideBtn, closeBtn);
   const chips = h("div", "chips");
-  const chart = h("div", "details-chart");
   const wrap = h("div", "sheet-wrap");
   const table = h("table", "sheet");
   wrap.append(table);
   const bar = h("div", "selbar");
   bar.hidden = true;
-  root.append(tab, head, title, chips, chart, wrap, bar);
+  root.append(tab, head, chips, wrap, bar);
   root.hidden = false;
   root.classList.add("min");
 
@@ -294,12 +289,11 @@ export function initDetailsPanel(
 
   const inWeek = (m: DetailMessage) => {
     if (st.week === null) return true;
-    const w = weekOf(m.at, now());
-    return w.week === st.week && (st.day === null || w.day === st.day);
+    return weekOf(m.at, now()).week === st.week;
   };
   const neverKeys = () => new Set(senders.filter((s) => s.opened === 0).map((s) => s.key));
 
-  /** Messages matching every filter except time, which the chart splits. */
+  /** Messages matching every filter except the week. */
   function baseMessages(): DetailMessage[] {
     const q = st.q.toLowerCase();
     const never = st.never ? neverKeys() : null;
@@ -345,105 +339,48 @@ export function initDetailsPanel(
     );
   }
 
+  /** Mercury's row of pills: All, then any filter set from elsewhere, then the toggles. */
   function renderChips() {
-    const on: Array<[string, Partial<State>]> = [];
-    if (st.q) on.push([`“${st.q}”`, { q: "" }]);
-    if (st.kind) on.push([kindLabel(st.kind), { kind: null }]);
+    const pill = (label: string, on: boolean, patch: Partial<State>) => {
+      const b = button(`chip${on ? " on" : ""}`, label, () => set(patch));
+      b.setAttribute("aria-pressed", String(on));
+      return b;
+    };
+    const thisWeek = st.week === WEEKS - 1;
+    const toggles: Array<[string, boolean, Partial<State>]> = [
+      ["Never opened", st.never, { never: !st.never }],
+      ["Promotions", st.kind === "promo", { kind: st.kind === "promo" ? null : "promo" }],
+      ["This week", thisWeek, { week: thisWeek ? null : WEEKS - 1 }],
+      ...SMART_VIEWS.filter((v) => v.id === "older-1y" || v.id === "large").map(
+        (v): [string, boolean, Partial<State>] => [
+          v.label,
+          st.smart === v.id,
+          { smart: st.smart === v.id ? null : v.id, view: "emails" },
+        ],
+      ),
+    ];
+    // Filters set from elsewhere (search, a sender, another kind), removable with ✕.
+    const extra: Array<[string, Partial<State>]> = [];
+    if (st.q) extra.push([`“${st.q}”`, { q: "" }]);
+    if (st.kind && st.kind !== "promo") extra.push([kindLabel(st.kind), { kind: null }]);
     if (st.senderKey)
-      on.push([senders.find((s) => s.key === st.senderKey)?.name ?? "Sender", { senderKey: null }]);
-    if (st.never) on.push(["Never opened", { never: false }]);
+      extra.push([senders.find((s) => s.key === st.senderKey)?.name ?? "Sender", { senderKey: null }]);
     const smart = SMART_VIEWS.find((v) => v.id === st.smart);
-    if (smart) on.push([smart.label, { smart: null }]);
-    if (st.week !== null)
-      on.push([
-        st.week === WEEKS - 1 ? "This week" : `Week of ${fmtShort(weekStart(st.week))}`,
-        { week: null, day: null },
-      ]);
-    if (st.day !== null && st.week !== null)
-      on.push([
-        fmtDay(weekStart(st.week) + st.day * DAY)
-          .split(" ")[0]
-          .replace(",", ""),
-        { day: null },
-      ]);
-    const quick: Array<[string, Partial<State>]> = [];
-    if (!st.never) quick.push(["Never opened", { never: true }]);
-    if (!st.kind) quick.push(["Promotions", { kind: "promo" }]);
-    if (st.week === null) quick.push(["This week", { week: WEEKS - 1 }]);
-    // The views the four kinds don't already cover.
-    if (!st.smart)
-      for (const v of SMART_VIEWS.filter((v) => v.id === "older-1y" || v.id === "large"))
-        quick.push([v.label, { smart: v.id, view: "emails" }]);
+    if (smart && !toggles.some(([label]) => label === smart.label)) extra.push([smart.label, { smart: null }]);
+    if (st.week !== null && !thisWeek) extra.push([`Week of ${fmtShort(weekStart(st.week))}`, { week: null }]);
+    const all = !st.q && !st.kind && !st.senderKey && !st.never && !st.smart && st.week === null;
     chips.replaceChildren(
-      ...on.map(([label, patch]) => {
-        const b = button("chip on", `${label} ✕`, () => set(patch));
+      pill("All mail", all, { ...BLANK, view: st.view }),
+      ...extra.map(([label, patch]) => {
+        const b = pill(`${label} ✕`, true, patch);
         b.setAttribute("aria-label", `Remove filter ${label}`);
         return b;
       }),
-      ...quick.map(([label, patch]) => button("chip", label, () => set(patch))),
+      ...toggles.map(([label, on, patch]) => pill(label, on, patch)),
     );
   }
 
   const weekStart = (w: number) => startOfDay(now()) - (WEEKS * 7 - 1) * DAY + w * 7 * DAY;
-
-  /** Columns as buttons: weeks, or the chosen week's seven days. */
-  function renderChart() {
-    const base = baseMessages();
-    const bars: Array<{ n: number; label: string; name: string; on: boolean; patch: Partial<State> }> = [];
-    if (st.week === null) {
-      const counts = new Array<number>(WEEKS).fill(0);
-      for (const m of base) {
-        const w = weekOf(m.at, now()).week;
-        if (w >= 0 && w < WEEKS) counts[w] += 1;
-      }
-      counts.forEach((n, w) =>
-        bars.push({
-          n,
-          label: fmtShort(weekStart(w)),
-          name: `Week of ${fmtShort(weekStart(w))}`,
-          on: false,
-          patch: { week: w },
-        }),
-      );
-    } else {
-      const counts = new Array<number>(7).fill(0);
-      for (const m of base) {
-        const w = weekOf(m.at, now());
-        if (w.week === st.week) counts[w.day] += 1;
-      }
-      counts.forEach((n, d) => {
-        const t = weekStart(st.week!) + d * DAY;
-        bars.push({
-          n,
-          label: new Date(t).toLocaleDateString(undefined, { weekday: "short" }),
-          name: fmtDay(t),
-          on: st.day === d,
-          patch: { day: st.day === d ? null : d },
-        });
-      });
-    }
-    const max = Math.max(1, ...bars.map((b) => b.n));
-    const caption = h(
-      "div",
-      "chart-head",
-      st.week === null ? "Per week" : `Week of ${fmtShort(weekStart(st.week))}`,
-    );
-    const cols = h("div", "cols");
-    for (const b of bars) {
-      const col = button(`col${b.on ? " on" : ""}${st.day !== null && !b.on ? " dim" : ""}`, "", () =>
-        set(b.patch),
-      );
-      col.setAttribute("aria-label", `${b.name}: ${b.n} ${b.n === 1 ? "email" : "emails"}`);
-      col.title = `${b.name}: ${b.n}`;
-      const track = h("span", "track");
-      const fill = h("span", "fill");
-      fill.style.height = `${Math.max(3, (b.n / max) * 100)}%`;
-      track.append(fill);
-      col.append(track, h("span", "lbl", b.label));
-      cols.append(col);
-    }
-    chart.replaceChildren(caption, cols);
-  }
 
   function tick(id: string, label: string, disabled = false): HTMLInputElement {
     const box = h("input", "tick");
@@ -499,7 +436,7 @@ export function initDetailsPanel(
     table.className = "sheet emails";
     table.replaceChildren(
       // Mercury's transactions table: the date is a column, not a group row.
-      headRow([selectAll(pickable), "Date", "From", "Subject", "Kind"]),
+      headRow([selectAll(pickable), "Date ↓", "From", "Subject", "Kind"]),
     );
     const body = h("tbody");
     for (const m of shown) {
@@ -564,7 +501,6 @@ export function initDetailsPanel(
 
   function renderSenders() {
     const rows = senderRows();
-    const top = Math.max(1, ...rows.map((s) => s.emails));
     table.className = "sheet senders";
     const sortHead = (label: string, key: typeof sortBy) => {
       const b = button("sort", `${label}${sortBy === key ? (sortDir > 0 ? " ↑" : " ↓") : ""}`, () => {
@@ -600,12 +536,7 @@ export function initDetailsPanel(
       if (mismatchedSenders(s.members).length > 0) from.append(h("span", "chip chip-danger", "Doesn't match"));
       else if (certifiedCompany(s.address)) from.append(verifiedTick());
       from.title = s.members.map((m) => m.address).join(", ");
-      const n = h("td", "num");
-      const cell = h("span", "cellbar");
-      const fill = h("i");
-      fill.style.width = `${(s.emails / top) * 100}%`;
-      cell.append(fill);
-      n.append(cell, String(s.emails));
+      const n = h("td", "num", String(s.emails));
       const o = h("td", "num", s.opened === 0 ? "None" : `${Math.round((s.opened / s.emails) * 100)}%`);
       tr.append(c, from, n, o);
       if (wide) tr.append(h("td", "", kindLabel(s.kind)), h("td", "", fmtShort(s.last)));
@@ -714,7 +645,7 @@ export function initDetailsPanel(
     const who = st.senderKey ? senders.find((s) => s.key === st.senderKey)?.name : undefined;
     const what = who ?? (st.q ? `“${st.q}”` : st.kind ? kindLabel(st.kind) : st.never ? "Never opened" : "All mail");
     const unit = st.view === "emails" ? (n === 1 ? "email" : "emails") : n === 1 ? "sender" : "senders";
-    title.textContent = `${what} · ${n.toLocaleString()} ${unit}`;
+    title.replaceChildren(what, h("span", "details-count", `${n.toLocaleString()} ${unit}`));
   }
 
   function render(fromScan = false) {
@@ -723,15 +654,11 @@ export function initDetailsPanel(
     renderTabs();
     renderChips();
     if (st.view === "emails") {
-      chart.hidden = false;
-      renderChart();
       renderEmails();
       // Day rows stick right under the header, whatever height it renders at.
       const head = table.tHead?.offsetHeight;
       if (head) table.style.setProperty("--sheet-head", `${head}px`);
     } else {
-      chart.hidden = st.week === null;
-      if (!chart.hidden) renderChart();
       renderSenders();
     }
     renderBar(fromScan);
