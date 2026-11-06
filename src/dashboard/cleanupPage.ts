@@ -78,6 +78,63 @@ export function weeklyCounts(items: readonly PageItem[], now: number): number[] 
   return weeks;
 }
 
+/** Emails per day, oldest first, the last `days` days ending today. */
+export function dailyCounts(items: readonly PageItem[], now: number, days = 28): number[] {
+  const out = new Array<number>(days).fill(0);
+  const today = new Date(now).setHours(0, 0, 0, 0);
+  for (const { sender, ids } of items) {
+    const wanted = new Set(ids);
+    for (const m of sender.messages) {
+      if (!wanted.has(m.id)) continue;
+      const back = Math.round((today - new Date(m.receivedAt).setHours(0, 0, 0, 0)) / DAY);
+      if (back >= 0 && back < days) out[days - 1 - back]++;
+    }
+  }
+  return out;
+}
+
+const SVG = "http://www.w3.org/2000/svg";
+
+/** Plausible-style area line: gridlines with counts on the left, a date under every week. */
+export function lineChart(counts: readonly number[], now: number): HTMLElement {
+  const wrap = el("div", "pl-chart");
+  const last = counts.length - 1;
+  const step = Math.max(1, Math.ceil(Math.max(...counts, 1) / 4));
+  const top = step * 4;
+  wrap.setAttribute("role", "img");
+  wrap.setAttribute("aria-label", `Emails each day, last ${counts.length} days: ${counts.join(", ")}`);
+  const svg = document.createElementNS(SVG, "svg");
+  svg.setAttribute("viewBox", `0 0 ${Math.max(1, last)} 100`);
+  svg.setAttribute("preserveAspectRatio", "none");
+  const y = (n: number) => 100 - (n / top) * 100;
+  for (let i = 0; i <= 4; i++) {
+    const line = document.createElementNS(SVG, "line");
+    Object.entries({ x1: 0, x2: last, y1: y(step * i), y2: y(step * i), class: "pl-grid" }).forEach(([k, v]) => line.setAttribute(k, String(v)));
+    svg.append(line);
+    const label = el("span", "pl-y", (step * i).toLocaleString());
+    label.setAttribute("aria-hidden", "true");
+    label.style.top = `${y(step * i)}%`;
+    wrap.append(label);
+  }
+  const pts = counts.map((n, i) => `${i},${y(n)}`).join(" L");
+  const area = document.createElementNS(SVG, "path");
+  area.setAttribute("d", `M0,100 L${pts} L${last},100 Z`);
+  area.setAttribute("class", "pl-area");
+  const line = document.createElementNS(SVG, "path");
+  line.setAttribute("d", `M${pts}`);
+  line.setAttribute("class", "pl-line");
+  svg.append(area, line);
+  wrap.append(svg);
+  for (let i = last % 7; i <= last; i += 7) {
+    const d = new Date(now - (last - i) * DAY);
+    const label = el("span", "pl-x", d.toLocaleDateString(undefined, { day: "numeric", month: "short" }));
+    label.style.left = `${(i / Math.max(1, last)) * 100}%`;
+    label.setAttribute("aria-hidden", "true");
+    wrap.append(label);
+  }
+  return wrap;
+}
+
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = "", text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
   if (cls) node.className = cls;
@@ -212,6 +269,7 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
     if (!reasons.has(k)) reasons.set(k, it.reason);
   }
   const selected = new Set<string>();
+  const top = Math.max(1, ...rows.map((r) => r.count));
   let shown = PAGE;
 
   const render = () => {
@@ -273,7 +331,11 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
       const td0 = el("td", "ct-tick");
       td0.append(box);
       const who = el("td", "ct-who");
-      who.append(senderTile(r.lead.address, r.lead.displayName, "sz-26"), el("b", "", senderName(r.lead)));
+      const name = el("span", "ct-name");
+      // Plausible's bar behind the name: the row's share of the biggest sender.
+      name.style.setProperty("--share", `${(r.count / top) * 100}%`);
+      name.append(senderTile(r.lead.address, r.lead.displayName, "sz-26"), el("b", "", senderName(r.lead)));
+      who.append(name);
       const reason = el("td");
       reason.append(el("span", "ct-pill", reasons.get(r.key) ?? ""));
       const latest = Math.max(0, ...r.senders.flatMap((s) => s.messages.map((m) => m.receivedAt)));

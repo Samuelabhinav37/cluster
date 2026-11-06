@@ -4145,3 +4145,39 @@ section[data-screen="settings"] .set-ic { display: none; }
 section[data-screen="settings"] .set-row { grid-template-columns: minmax(0, 1fr) auto; }
 section[data-screen="settings"] .set-row > .grow { grid-column: 1; }
 section[data-screen="settings"] .set-row > :not(.grow):not(.set-ic) { grid-column: 2; grid-row: 1 / span 2; }
+
+/* Cleanup, Plausible-style: one card with a KPI strip and a 28-day line, then panels
+   with tabs in their header and a faint bar behind each name. */
+#cu-head .pl-card { margin: 0 0 24px; padding: 8px 8px 0; border-radius: 10px; background: var(--glass); border: 1px solid var(--hairline); }
+#cu-head .pl-card .cu-cards { margin: 0; border: 0; gap: 4px; }
+#cu-head .pl-card .cu-card { padding: 10px 14px; border-radius: 6px; }
+#cu-head .pl-card .cu-card + .cu-card { border-left: 0; }
+#cu-head .pl-card .cu-card:first-child { padding-left: 14px; }
+#cu-head .pl-card .cu-card.selected { background: var(--neutral-fill); }
+#cu-head .pl-card .cu-head { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+#cu-head .pl-card .cu-num b { font-size: 20px; }
+.pl-chart { position: relative; height: 260px; margin: 16px 20px 40px 52px; }
+.pl-chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.pl-grid { stroke: var(--hairline); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.pl-area { fill: color-mix(in srgb, var(--accent) 14%, transparent); }
+.pl-line { fill: none; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.pl-y, .pl-x { position: absolute; color: var(--label-4); font-size: 11px; font-variant-numeric: tabular-nums; }
+.pl-y { right: calc(100% + 12px); transform: translateY(-50%); }
+.pl-x { top: calc(100% + 10px); transform: translateX(-50%); white-space: nowrap; }
+section[data-screen="delete"] #cu-head .tabs { margin: 0; padding: 4px 20px 0; gap: 20px; border: 1px solid var(--hairline); border-bottom-color: var(--hairline);
+  border-radius: 10px 10px 0 0; background: var(--glass); }
+#cu-head .tab { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--label-3); }
+#cu-head .tab.active { color: var(--label); }
+section[data-screen="delete"] #cu-senders-table { padding: 8px 20px 16px; border: 1px solid var(--hairline); border-top: 0; border-radius: 0 0 10px 10px; background: var(--glass); }
+#cu-senders-table .ct-selbar { margin-top: 8px; }
+#cu-senders-table .ct-table th { padding: 10px 8px; background: none; border: 0; }
+#cu-senders-table .ct-table td { padding: 4px 8px; border: 0; }
+#cu-senders-table .ct-table tbody tr:hover { background: none; }
+#cu-senders-table .ct-table tbody tr:hover .ct-name::before { background: var(--neutral-fill-hover, #2a2a2e); }
+.ct-name { position: relative; display: flex; align-items: center; gap: 10px; padding: 6px 8px; }
+.ct-name::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--share, 0); border-radius: 4px; background: var(--neutral-fill); }
+.ct-name > * { position: relative; }
+#cu-senders-table .ct-who b { margin-left: 0; }
+#cu-senders-table .ct-more { margin-top: 12px; }
+/* The screen's flex gap would split the tabs header from its panel. */
+section[data-screen="delete"] #cu-head + #cu-senders-table { margin-top: -28px; }

@@ -105,7 +105,7 @@ import { markLearnedTransactional } from "../lib/kindModel";
 import { isAuthCancelled } from "../lib/chromeError";
 import { formatRelativeTime, infoButton, pruneSelection, renderConfirmStep, runNow } from "./ui";
 import { buildCleanupCards } from "../lib/cleanupCards";
-import { renderCleanupPage, renderSenderTable, type PageItem } from "./cleanupPage";
+import { dailyCounts, lineChart, renderCleanupPage, renderSenderTable, type PageItem } from "./cleanupPage";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { keepNewestExcess, olderReadExcess } from "../lib/keepNewest";
 import { deliveredUpdates } from "../lib/orderEvents";
@@ -220,6 +220,7 @@ function showScreen(name: string) {
     const head = document.getElementById("cu-head");
     const panel = screenPanels.find((p) => p.dataset.screen === target);
     if (head && panel) panel.querySelector(".page-head")?.after(head);
+    paintCleanupChart(target === "subscriptions" ? "lists" : cuKpi);
     for (const t of Array.from(document.querySelectorAll<HTMLElement>("#cu-head [data-tab-for]"))) {
       t.classList.toggle("active", t.dataset.tabFor === target);
       t.setAttribute("aria-selected", String(t.dataset.tabFor === target));
@@ -1554,10 +1555,11 @@ function renderDeleteScreen(senders: SenderSummary[]) {
   document.getElementById("tab-count-subs")!.textContent = plan.lists.length ? n(plan.lists.length) : "";
   // The same total as the sidebar badge, so the two always match.
   document.getElementById("tab-count-senders")!.textContent = plan.total ? n(plan.total) : "";
+  paintCleanupChart(cuKpi);
   renderSenderTable(document.getElementById("cu-senders-table")!, {
     items: [
-      ...pageItems("never").map((it) => ({ ...it, reason: "Unopened" })),
-      ...pageItems("old").map((it) => ({ ...it, reason: "Expired" })),
+      ...(cuKpi !== "old" ? pageItems("never").map((it) => ({ ...it, reason: "Unopened" })) : []),
+      ...(cuKpi !== "never" ? pageItems("old").map((it) => ({ ...it, reason: "Expired" })) : []),
     ],
     rowKeyOf: detailRowKey,
     openRow: (key) => details?.open({ view: "emails", senderKey: key }),
@@ -1567,6 +1569,20 @@ function renderDeleteScreen(senders: SenderSummary[]) {
 }
 
 let lastPlan: ReturnType<typeof clearOutPlan> | null = null;
+/** The Cleanup KPI picked (Plausible-style): it drives the chart and filters the table. */
+let cuKpi: "never" | "old" | null = null;
+
+function paintCleanupChart(kpi: "never" | "old" | "lists" | null) {
+  for (const card of Array.from(document.querySelectorAll<HTMLElement>(".cu-card[data-page]")))
+    card.classList.toggle("selected", card.dataset.page === kpi);
+  const items =
+    kpi === "lists"
+      ? (lastPlan?.lists ?? []).map((sender) => ({ sender, ids: sender.messages.map((m) => m.id) }))
+      : kpi
+        ? pageItems(kpi)
+        : [...pageItems("never"), ...pageItems("old")];
+  document.getElementById("cu-chart")?.replaceChildren(lineChart(dailyCounts(items, Date.now()), Date.now()));
+}
 let openPage: "never" | "old" | null = null;
 
 /** The items a card's page lists: each sender with the ids that card holds. */
@@ -1599,15 +1615,17 @@ function showCleanupPage(page: "never" | "old" | null) {
   });
 }
 
-/** A card opens its page; its button still runs the card's own action. */
+/** A KPI picks what the chart and table show; Subscriptions opens its tab. */
 function wireCleanupCards() {
   for (const card of Array.from(document.querySelectorAll<HTMLElement>(".cu-card[data-page]"))) {
     card.classList.add("row-link");
     card.addEventListener("click", (e) => {
       if (e.target instanceof HTMLElement && e.target.closest("button, a, input, label, .confirm-slot")) return;
       const page = card.dataset.page;
-      if (page === "lists") void selectScreen("subscriptions");
-      else showCleanupPage(page as "never" | "old");
+      if (page === "lists") return void selectScreen("subscriptions");
+      cuKpi = cuKpi === page ? null : (page as "never" | "old");
+      if (document.querySelector('section[data-screen="subscriptions"]:not([hidden])')) void selectScreen("delete");
+      renderDeleteScreen(ctx.senders);
     });
   }
   document.getElementById("lists-unsub-btn")?.addEventListener("click", () => {

@@ -29,39 +29,39 @@ describe("Delete screen — ready-to-clean-up (expiry)", () => {
   });
 });
 
-describe("Clean up — a card's own page", () => {
-  it("opens from the card, lists each company, sends a row to Details, and trashes what's ticked", async () => {
-    const dash = await bootDashboard();
-    dash.showScreen("delete");
-    const card = dash.el("past-date-card");
-    expect(card.hidden).toBe(false);
-    card.click();
+describe("Clean up — KPIs pick what the table shows", () => {
+  const rowNames = () => Array.from(document.querySelectorAll("#cu-senders-table tbody .ct-pill")).map((p) => p.textContent);
 
-    const page = dash.el("cu-page");
-    expect(page.hidden).toBe(false);
-    expect(page.querySelector(".cu-page-title")?.textContent).toBe("Old codes and news");
-    const rows = page.querySelectorAll(".list-row");
-    expect(rows.length).toBeGreaterThan(0);
-
-    (rows[0] as HTMLElement).click();
-    expect(dash.el("details").classList.contains("min")).toBe(false);
-
-    const slot = page.querySelector<HTMLElement>(".cu-sel-slot")!;
-    slot.querySelector("button")!.click();
-    const resultText = await confirmStep(slot);
-    expect(resultText).toMatch(/to Trash/);
-    const calledIds = (dash.gmail.trashMessages as ReturnType<typeof vi.fn>).mock.calls.flatMap(
-      ([, ids]) => ids as string[],
-    );
-    expect(calledIds).toContain("o1");
-  });
-
-  it("goes back to the cards", async () => {
+  it("Expired filters the table; ticked rows go to Trash after Confirm", async () => {
     const dash = await bootDashboard();
     dash.showScreen("delete");
     dash.el("past-date-card").click();
-    dash.el("cu-page").querySelector<HTMLButtonElement>(".cu-back")!.click();
-    expect(dash.el("cu-page").hidden).toBe(true);
-    expect(document.querySelector<HTMLElement>(".cu-cards")!.hidden).toBe(false);
+    expect(dash.el("past-date-card").classList.contains("selected")).toBe(true);
+    expect(rowNames().length).toBeGreaterThan(0);
+    expect(new Set(rowNames())).toEqual(new Set(["Expired"]));
+    expect(dash.el("cu-chart").querySelector(".pl-chart")).not.toBeNull();
+
+    document.querySelector<HTMLInputElement>("#cu-senders-table tbody input")!.click();
+    const slot = document.querySelector<HTMLElement>("#cu-senders-table .ct-sel-slot")!;
+    Array.from(slot.querySelectorAll("button")).find((b) => b.textContent === "Trash")!.click();
+    await vi.waitFor(() => {
+      const confirm = Array.from(document.querySelectorAll<HTMLButtonElement>("#cu-senders-table button")).find((b) => b.textContent === "Confirm");
+      if (!confirm) throw new Error("no visible confirm yet");
+      expect(confirm.closest("[hidden]")).toBeNull();
+      confirm.click();
+    });
+    await vi.waitFor(() => expect(dash.gmail.trashMessages).toHaveBeenCalled());
+    const calledIds = (dash.gmail.trashMessages as ReturnType<typeof vi.fn>).mock.calls.flatMap(([, ids]) => ids as string[]);
+    expect(calledIds).toContain("o1");
+  });
+
+  it("clicking the picked KPI again shows every sender", async () => {
+    const dash = await bootDashboard();
+    dash.showScreen("delete");
+    const all = rowNames().length;
+    dash.el("past-date-card").click();
+    dash.el("past-date-card").click();
+    expect(dash.el("past-date-card").classList.contains("selected")).toBe(false);
+    expect(rowNames().length).toBe(all);
   });
 });
