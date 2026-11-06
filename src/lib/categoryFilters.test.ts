@@ -107,6 +107,7 @@ describe("syncCategoryFilters", () => {
       filterSpecByBucket: { otp: specKey(otpSpec), shopping: "stale" },
     };
     const shopSpec: CategoryFilterSpec = { ...otpSpec, bucket: "shopping", labelName: "🛍 Shopping" };
+    vi.mocked(a.listFilters).mockResolvedValueOnce([{ id: "OLD_OTP", action: { addLabelIds: [`L:${otpSpec.labelName}`] } }]);
     const res = await syncCategoryFilters([otpSpec, shopSpec], current, a);
     expect(res.filterIdsByBucket.otp).toEqual(["OLD_OTP"]);
     expect(a.deleteFilter).toHaveBeenCalledWith("OLD_SHOP");
@@ -118,9 +119,29 @@ describe("syncCategoryFilters", () => {
     // The desired list now comes from settings only, so nothing is torn down.
     const a = api();
     const current = { filterIdsByBucket: { otp: ["KEEP"] }, filterSpecByBucket: { otp: specKey(otpSpec) } };
+    vi.mocked(a.listFilters).mockResolvedValueOnce([{ id: "KEEP", action: { addLabelIds: [`L:${otpSpec.labelName}`] } }]);
     await syncCategoryFilters([otpSpec], current, a);
     expect(a.deleteFilter).not.toHaveBeenCalled();
     expect(a.createFilter).not.toHaveBeenCalled();
+  });
+
+  it("rebuilds a filter whose label was deleted in Gmail", async () => {
+    const a = api();
+    const current = { filterIdsByBucket: { otp: ["OLD"] }, filterSpecByBucket: { otp: specKey(otpSpec) } };
+    // Gmail kept the filter, but it adds the deleted label's old id.
+    vi.mocked(a.listFilters).mockResolvedValueOnce([{ id: "OLD", action: { addLabelIds: ["Label_dead"] } }]);
+    const res = await syncCategoryFilters([otpSpec], current, a);
+    expect(a.deleteFilter).toHaveBeenCalledWith("OLD");
+    expect(a.createFilter).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ addLabelIds: [`L:${otpSpec.labelName}`] }));
+    expect(res).toMatchObject({ created: 1, kept: 0 });
+  });
+
+  it("rebuilds a filter Gmail removed along with its label", async () => {
+    const a = api();
+    const current = { filterIdsByBucket: { otp: ["GONE"] }, filterSpecByBucket: { otp: specKey(otpSpec) } };
+    const res = await syncCategoryFilters([otpSpec], current, a);
+    expect(a.createFilter).toHaveBeenCalled();
+    expect(res).toMatchObject({ created: 1, kept: 0 });
   });
 
   it("deletes filters for categories no longer wanted, ignoring ones already gone", async () => {

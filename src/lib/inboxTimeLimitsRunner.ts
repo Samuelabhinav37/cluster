@@ -87,7 +87,9 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
 
   const tag = await tagUntaggedInbox(ctx, api);
   // Then one page of older unlabelled inbox mail, until the whole inbox is seen.
-  const back = settings.autoSort.tagBackBefore === TAG_BACK_DONE ? null : await tagOlderPages(ctx, api, settings.autoSort.tagBackBefore);
+  // A rescan (labels deleted in Gmail, say) works back through older inbox mail again.
+  const backFrom = options.relabel ? 0 : settings.autoSort.tagBackBefore;
+  const back = backFrom === TAG_BACK_DONE ? null : await tagOlderPages(ctx, api, backFrom);
   const relabelled =
     indexReady && (options.relabel || builtNow || settings.autoSort.labelledVersion !== LABEL_RULES_VERSION)
       ? await relabelInbox(ctx, api, now)

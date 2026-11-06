@@ -271,12 +271,21 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
       getArchiveFolderId: vi.fn(async () => null),
     };
   });
+  // Gmail's filters, kept so a filter made earlier is still there when listed.
+  const filters: { id: string; criteria: unknown; action: unknown }[] = [];
   const gmailApiMock = {
-    listFilters: vi.fn(async () => [] as unknown[]),
+    listFilters: vi.fn(async () => [...filters] as unknown[]),
     listLabelNames: vi.fn(async () => [] as string[]),
     getOrCreateLabel: vi.fn(async () => "label-id"),
-    createFilter: vi.fn(async () => "filter-id"),
-    deleteFilter: vi.fn(async () => {}),
+    createFilter: vi.fn(async (_token: string, criteria: unknown, action: unknown) => {
+      const id = `filter-${filters.length + 1}`;
+      filters.push({ id, criteria, action });
+      return id;
+    }),
+    deleteFilter: vi.fn(async (_token: string, id: string) => {
+      const at = filters.findIndex((f) => f.id === id);
+      if (at >= 0) filters.splice(at, 1);
+    }),
     deleteFiltersInto: vi.fn(async () => 0),
     revokeGoogleAccess: vi.fn(async () => true),
     listLabels: vi.fn(async () => opts.labels ?? []),

@@ -108,6 +108,10 @@ export async function syncCategoryFilters(
   let deleted = 0;
   let kept = 0;
   const wanted = new Set(desired.map((d) => d.bucket as string));
+  // A label deleted in Gmail takes its filters with it (or leaves them
+  // pointing nowhere), so "unchanged" also means: still in Gmail, still
+  // adding the label as it exists now.
+  const live = new Map((await api.listFilters()).map((f) => [f.id, f]));
 
   for (const [bucket, ids] of Object.entries(current.filterIdsByBucket)) {
     if (wanted.has(bucket)) continue;
@@ -117,7 +121,9 @@ export async function syncCategoryFilters(
   for (const spec of desired) {
     const key = specKey(spec);
     const oldIds = current.filterIdsByBucket[spec.bucket] ?? [];
-    if (current.filterSpecByBucket[spec.bucket] === key && oldIds.length > 0) {
+    const labelId = await api.labelIdFor(spec.labelName);
+    const intact = oldIds.every((id) => live.get(id)?.action?.addLabelIds?.includes(labelId));
+    if (current.filterSpecByBucket[spec.bucket] === key && oldIds.length > 0 && intact) {
       filterIdsByBucket[spec.bucket] = oldIds;
       filterSpecByBucket[spec.bucket] = key;
       kept++;
@@ -125,7 +131,6 @@ export async function syncCategoryFilters(
     }
     for (const id of oldIds) if (await deleteQuietly(api, id)) deleted++;
 
-    const labelId = await api.labelIdFor(spec.labelName);
     const action: GmailFilterAction = {
       addLabelIds: [labelId],
       removeLabelIds: spec.fileOut ? ["INBOX"] : [],
@@ -137,7 +142,7 @@ export async function syncCategoryFilters(
       } catch (err) {
         if (!/exist/i.test(String(err))) throw err;
         // Gmail refuses an exact duplicate: adopt the one already there.
-        const same = (await api.listFilters()).find(
+        const same = [...live.values()].find(
           (f) => f.criteria?.query === criteria.query && (f.action?.addLabelIds ?? []).includes(labelId),
         );
         if (!same) throw err;
