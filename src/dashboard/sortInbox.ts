@@ -33,7 +33,7 @@ import type { MessageKind } from "../lib/messageKind";
 import type { DomainCategory } from "../lib/domainCategories";
 import type { ProviderId } from "../lib/providers/emailProvider";
 import type { SenderSummary } from "../lib/senderModel";
-import { updateSettings } from "../lib/settingsStore";
+import { ALL_MAIL_DAYS, updateSettings } from "../lib/settingsStore";
 import { activeProviders, ctx, logAction, providerById, rescan } from "./state";
 import { setNowCounts } from "./timeLimitsTab";
 import { pruneSelection } from "./ui";
@@ -314,6 +314,10 @@ async function runSort(mode: SortMode) {
   const stage = sortStage();
   stage.look("Scanning", "Reading your inbox");
   try {
+    // Everything means every email, not just the scan window. Mail already in
+    // the index isn't read again; the read goes on in the background.
+    // shortcut: the index holds MAIL_INDEX_CAP (20,000) emails, so a bigger mailbox stops there; page past it if users hit that.
+    if (mode === "all" && ctx.settings.scanWindowDays < ALL_MAIL_DAYS) ctx.settings = await updateSettings({ scanWindowDays: ALL_MAIL_DAYS });
     if (mode === "all" && ctx.settings.autoSort.timeLimitsEnabled && (await gmailProvider.isConnected())) {
       await resortEverything(stage);
       return;

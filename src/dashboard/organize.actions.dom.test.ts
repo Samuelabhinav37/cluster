@@ -83,5 +83,7 @@ describe("Organize screen — Sort my inbox", () => {
     });
     expect(dash.el("sort-inbox-preview").querySelector(".sort-check")).toBeTruthy();
     expect(dash.el("sort-inbox-preview").querySelectorAll(".sort-report-row").length).toBe(0);
+    // Everything reads back to the first email, not just the last 180 days.
+    expect(dash.storedSettings().scanWindowDays).toBe(36500);
   });
 });

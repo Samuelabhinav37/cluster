@@ -68,7 +68,7 @@ import {
   type SenderGroup,
   type SenderSortId,
 } from "../lib/senderListView";
-import { getSettings, mutateSettings, pullSyncedSettings, updateSettings, type ClusterSettings } from "../lib/settingsStore";
+import { ALL_MAIL_DAYS, getSettings, mutateSettings, pullSyncedSettings, updateSettings, type ClusterSettings } from "../lib/settingsStore";
 import { activeProviders, ctx, providerById, setBridge } from "./state";
 import { renderSortInbox, wireSortInbox } from "./sortInbox";
 import { maybeShowLabelTidyCard } from "./labelTidy";
@@ -2596,7 +2596,7 @@ function wireScanSettings() {
   // Settings' Rescan row runs the account menu's Rescan.
   applyScanSettingsBtn.onclick = async () => {
     const scanWindowDays = Math.min(
-      3650,
+      ALL_MAIL_DAYS,
       Math.max(1, Number(scanWindowInput.value) || ctx.settings.scanWindowDays),
     );
     scanWindowInput.value = String(scanWindowDays);

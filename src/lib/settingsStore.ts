@@ -239,6 +239,8 @@ export interface HealthSnapshot {
 }
 
 const STORAGE_KEY = "clusterSettings";
+/** A scan window that reaches the first email (Gmail began in 2004). */
+export const ALL_MAIL_DAYS = 36500;
 export const CURRENT_SETTINGS_SCHEMA_VERSION = 15;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
