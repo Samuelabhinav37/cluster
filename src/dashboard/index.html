@@ -209,7 +209,7 @@
           <section class="screen" data-screen="overview" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title" id="overview-greeting">Welcome back!</h1>
+                <h1 class="page-title" id="overview-greeting">Welcome!</h1>
               </div>
             </div>
 
@@ -434,13 +434,13 @@
               </div>
             </div>
             <div class="kpis" id="sec-kpis">
-              <button type="button" class="kpi" data-sec-tab="quarantine"><span>Quarantined</span><b id="kpi-held">0</b><em>emails</em></button>
-              <button type="button" class="kpi" data-sec-tab="suspicious"><span>Threats detected</span><b id="kpi-threats">0</b></button>
+              <button type="button" class="kpi" data-sec-tab="quarantine"><span>Held</span><b id="kpi-held">0</b><em>emails</em></button>
+              <button type="button" class="kpi" data-sec-tab="suspicious"><span>Look like scams</span><b id="kpi-threats">0</b></button>
               <button type="button" class="kpi" data-open-screen="screener"><span>New senders</span><b id="kpi-waiting">0</b></button>
             </div>
             <div class="tabs" role="tablist" aria-label="Security">
               <button type="button" role="tab" class="tab active" aria-selected="true" data-sec-tab="suspicious">Suspicious<span class="tab-count" id="tab-count-threats"></span></button>
-              <button type="button" role="tab" class="tab" aria-selected="false" data-sec-tab="quarantine">Quarantine<span class="tab-count" id="tab-count-held"></span></button>
+              <button type="button" role="tab" class="tab" aria-selected="false" data-sec-tab="quarantine">Held<span class="tab-count" id="tab-count-held"></span></button>
             </div>
             <section class="ios-section" hidden>
               <h2 class="ios-head">This scan</h2>
@@ -468,7 +468,7 @@
             <p class="muted" id="quarantine-review-accuracy" hidden></p>
             <section id="quarantine-review-section" hidden>
               <div class="section-head">
-                <h2 class="section-label">Quarantine</h2>
+                <h2 class="section-label">Held</h2>
                 <span class="muted" id="quarantine-review-count"></span>
               </div>
               <ul id="quarantine-review-list" class="stack"></ul>

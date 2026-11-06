@@ -48,7 +48,7 @@ describe("first-run setup", () => {
     (document.querySelector('[data-who="me"]') as HTMLButtonElement).click();
     (dash.el("setup-next") as HTMLButtonElement).click();
     expect(document.querySelector(".onb-title")!.textContent).toBe("What should always stay?");
-    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toContain("never move"));
+    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toContain("always stay"));
   });
 
   it("Keep me safe turns on scam holding and lands on Home", async () => {

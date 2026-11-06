@@ -57,7 +57,7 @@ const STEPS: Step[] = ["who", "keep", "hands", "plan"];
 // What Kai says on each step: one short line, like Duolingo's owl.
 const KAI_LINES: Record<Step | "done", string> = {
   who: "Hi, I'm Kai. Let's set up Cluster.",
-  keep: "What should never move?",
+  keep: "What should always stay?",
   hands: "Should I wait for you?",
   plan: "Nothing changes until you press Start.",
   done: "All set. I'm reading your mail now.",

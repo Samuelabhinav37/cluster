@@ -488,7 +488,9 @@ async function showAccountPill(token: string) {
       pill.title = email;
     }
     const greeting = document.getElementById("overview-greeting");
-    if (greeting) greeting.textContent = name ? `Welcome back, ${name.split(/\s+/)[0]}!` : "Welcome back!";
+    // "back" only once Cluster has seen this inbox before, not on day one.
+    const back = ctx.settings.healthHistory.length > 0 ? " back" : "";
+    if (greeting) greeting.textContent = name ? `Welcome${back}, ${name.split(/\s+/)[0]}!` : `Welcome${back}!`;
   } catch (err) {
     log.error("Could not load the account email", err);
   }
@@ -723,18 +725,12 @@ const BUILD_PACE = {
   batchUnits: 25 * 20,
   minGapMs: 7_500,
 };
-/** When the paced build's next batch is due, for the status line. */
-let buildResumesAt = 0;
-
 async function waitForGmailHeadroom() {
   for (;;) {
     const wait = await gmailBuildPaceDelay(BUILD_PACE);
     if (wait <= 0) break;
-    buildResumesAt = Date.now() + wait;
-    updateIndexStatus();
     await delay(Math.min(wait, 1000));
   }
-  buildResumesAt = 0;
 }
 
 function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
@@ -899,12 +895,10 @@ function updateIndexStatus() {
   // Until 20 s of real pace exists, estimate from the build's quota share (20 units a read).
   const perMs = rate > 0 && elapsed > 20_000 ? rate : BUILD_PACE.share / 20 / 60_000;
   const minutes = Math.ceil((total - done) / perMs / 60_000);
-  // Waits past the usual gap are Gmail's per-minute limit; say when reading resumes.
-  const resumeIn = Math.ceil((buildResumesAt - Date.now()) / 1000);
+  // Gmail's per-minute pauses are normal pacing, already in the estimate: no
+  // "paused" line, which read like an error.
   const eta =
-    resumeIn * 1000 > BUILD_PACE.minGapMs + 2_000
-      ? `paused for Gmail's speed limit, back in ${resumeIn} s`
-      : done < total && minutes > 0
+    done < total && minutes > 0
         ? minutes >= 60
           ? `about ${Math.round(minutes / 60)} h left`
           : `about ${minutes} min left`

@@ -254,7 +254,7 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
     const th0 = el("th", "ct-tick");
     th0.append(all);
     head.append(th0);
-    for (const [t, c] of [["Sender", ""], ["Reason", ""], ["Emails", "num"], ["Last received", ""], ["Open rate", "num"]])
+    for (const [t, c] of [["Sender", ""], ["Reason", ""], ["Emails", "num"], ["Last received", ""], ["Opened", "num"]])
       head.append(el("th", c, t));
     const thead = el("thead");
     thead.append(head);
@@ -284,7 +284,7 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
         reason,
         el("td", "num", r.count.toLocaleString()),
         el("td", "ct-dim", latest ? lastReceived(latest, now) : ""),
-        el("td", "num ct-dim", pct === 0 ? "None" : `${pct}%`),
+        el("td", "num ct-dim", pct === 0 ? "Never" : `${pct}%`),
       );
       tr.onclick = (e) => {
         if (!(e.target instanceof Element && e.target.closest("input, label, button"))) spec.openRow(r.key);
