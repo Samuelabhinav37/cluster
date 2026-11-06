@@ -12,6 +12,7 @@
  *   ?offline   every Gmail call fails with a network error
  *   ?pinned    report the toolbar icon as pinned (hides the pin tip)
  *   ?big       about 2,000 messages, for scan speed and grouping at scale
+ *   ?scale=N   N times the base mailbox (N=11 is about 4,500 messages)
  * Not a test of Gmail itself: real quota, real headers and the real consent
  * screen still need the reload-unpacked checklist.
  */
@@ -19,6 +20,8 @@
   const qs = new URLSearchParams(location.search);
   if (qs.has("reset")) { localStorage.clear(); indexedDB.deleteDatabase("cluster-mail-index"); }
   const LS_KEY = "__preview_storage_";
+  // chrome.storage.onChanged: fired for every area, like the real one.
+  const anyChange = [];
 
   // ── storage ──────────────────────────────────────────────────────────
   function area(name, persistent) {
@@ -41,6 +44,7 @@
       for (const [k, v] of Object.entries(items)) { changes[k] = { oldValue: all[k], newValue: v }; all[k] = JSON.parse(JSON.stringify(v)); }
       save(all);
       listeners.forEach((l) => l(changes, name));
+      anyChange.forEach((l) => l(changes, name));
       if (cb) { setTimeout(cb); return; }
       return Promise.resolve();
     }
@@ -108,7 +112,7 @@
 
   window.chrome = {
     runtime,
-    storage: { local: area("local", true), session: area("session", false), sync: area("sync", true), managed: area("managed", false), onChanged: { addListener() {}, removeListener() {} } },
+    storage: { local: area("local", true), session: area("session", false), sync: area("sync", true), managed: area("managed", false), onChanged: { addListener: (f) => anyChange.push(f), removeListener() {} } },
     identity: {
       getRedirectURL: () => "https://preview.chromiumapp.org/",
       launchWebAuthFlow,
@@ -188,7 +192,7 @@
 
   const MSGS = {}; const ORDER = [];
   let idc = 1000;
-  const SCALE = qs.has("big") ? 5 : 1;
+  const SCALE = Number(qs.get("scale")) || (qs.has("big") ? 5 : 1);
   for (const [name, addr, cat, baseCount, read, unsub, subjects, opts = {}] of S) {
     const domain = addr.split("@")[1];
     const count = opts.firstContact || opts.phish ? baseCount : baseCount * SCALE;
