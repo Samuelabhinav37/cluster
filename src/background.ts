@@ -39,6 +39,7 @@ import { loadPublicSuffixList } from "./lib/publicSuffix";
 import { applyBrandVerdicts, loadBrandRegistry } from "./lib/brandRegistry";
 import { applySenderLedger } from "./lib/senderLedgerStore";
 import { notify, weeklySummary } from "./lib/notices";
+import { holdWorkerLease } from "./lib/workerLease";
 
 async function openDashboard() {
   const url = chrome.runtime.getURL("src/dashboard/index.html");
@@ -112,7 +113,9 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   // Both are local files loaded once per service-worker start, so waiting is quick.
   void Promise.all([loadPublicSuffixList(), loadBrandRegistry(), getSettings()]).then(([, , settings]) => {
     applyBrandVerdicts(settings.brandVerdicts);
-    handleAlarm(alarm);
+    // Work that changes Gmail runs on one computer only (see workerLease.ts).
+    if (alarm.name !== TRIAGE_ALARM && alarm.name !== INBOX_LIMITS_ALARM) return handleAlarm(alarm);
+    void holdWorkerLease().then((mine) => mine && handleAlarm(alarm));
   });
 });
 
