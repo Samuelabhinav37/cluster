@@ -11,7 +11,7 @@ import {
 import { buildProtectionContext, idsSafeToMoveOut } from "../lib/protectionPolicy";
 import { CLUSTER_LABEL_COLORS, clusterLabelName } from "../lib/clusterLabels";
 import { categoryLabelName } from "../lib/categoryFilters";
-import { runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
+import { learnFromLabelMoves, runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
 import { getScan, newScan, onScanChange, setScan, type ScanState } from "../lib/scanState";
 import { ALL_SORT_BUCKETS } from "../lib/sortTaxonomy";
 import { runReplyReminders } from "../lib/replyReminders";
@@ -762,6 +762,7 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
             updateIndexStatus();
           },
           waitForHeadroom: provider.id === "gmail" ? waitForGmailHeadroom : undefined,
+          onLabelMoves: provider.id === "gmail" ? (moves) => learnFromLabelMoves(authToken, moves) : undefined,
           onSentReady: () =>
             updateCorrespondentsFromIndex(provider).catch((err) =>
               log.error("Could not update people you write to", err),

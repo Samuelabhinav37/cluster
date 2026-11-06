@@ -4,7 +4,8 @@
 // right after the user saves their limits.
 import { appendActionLog, makeLogId } from "./actionLog";
 import { categoryLabelName, desiredCategoryFilters, syncGmailCategoryFilters } from "./categoryFilters";
-import { batchModify, colorClusterLabels, findLabelIds, getOrCreateLabel, listMessageIds } from "./gmailApi";
+import { batchModify, colorClusterLabels, findLabelIds, getOrCreateLabel, listLabels, listMessageIds } from "./gmailApi";
+import { movedTo, tallyMoves, type LabelMove } from "./learnFromMoves";
 import {
   holdUnsortedInbox,
   labelBySearch,
@@ -26,7 +27,7 @@ import { gmailProvider } from "./providers/gmailProvider";
 import { knownSenderSet } from "./screener";
 import { buildSenderSummariesFromStubs } from "./senderModel";
 import { getSettings, mutateSettings, type ClusterSettings } from "./settingsStore";
-import { ALL_SORT_BUCKETS } from "./sortTaxonomy";
+import { ALL_SORT_BUCKETS, type SortBucket } from "./sortTaxonomy";
 import { clusterLabelName } from "./clusterLabels";
 
 /** Bump when labelling rules change (domains, kinds, phrases): the next run
@@ -69,7 +70,8 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
   // Senders come from the mail index (kept current from Gmail's change feed);
   // only inbox mail it doesn't have yet is read, then saved to it. Without
   // a built index this falls back to the old warm cache.
-  const indexReady = (await refreshIndexForBackground([gmailProvider], settings.scanWindowDays)).length > 0;
+  const indexReady =
+    (await refreshIndexForBackground([gmailProvider], settings.scanWindowDays, undefined, (moves) => learnFromLabelMoves(token, moves))).length > 0;
   const legacyCache = indexReady ? undefined : await loadMetadataCache(now);
   const api: InboxLimitsApi = {
     findLabelId: async (name) => (await findLabelIds(token, name))[0] ?? null,
@@ -224,4 +226,34 @@ async function searchLabelInbox(token: string, settings: ClusterSettings, limits
   await appendActionLog([
     { id: makeLogId("sort"), at: now, kind: "sort", summary: `Labelled ${res.labelled} message${res.labelled === 1 ? "" : "s"} in the inbox by search` },
   ]);
+}
+
+/** Saves a correction once a sender's Cluster label was swapped in Gmail
+ * twice for the same one. The next run rewrites the filters to match. */
+export async function learnFromLabelMoves(token: string, moves: LabelMove[]): Promise<void> {
+  const settings = await getSettings();
+  const byName = new Map(ALL_SORT_BUCKETS.map((b) => [categoryLabelName(b, settings.labelChoices), b]));
+  const bucketOf = new Map((await listLabels(token)).flatMap((l) => (byName.has(l.name) ? [[l.id, byName.get(l.name)!] as const] : [])));
+  const moved = movedTo(moves, bucketOf);
+  if (moved.length === 0) return;
+  let learned: Array<[string, SortBucket]> = [];
+  await mutateSettings((current) => {
+    const res = tallyMoves(current.autoSort.moveVotes, moved, current.sortOverrides);
+    learned = res.learned;
+    return {
+      ...current,
+      sortOverrides: { ...current.sortOverrides, ...Object.fromEntries(res.learned) },
+      autoSort: { ...current.autoSort, moveVotes: res.votes },
+    };
+  });
+  if (learned.length === 0) return;
+  const now = Date.now();
+  await appendActionLog(
+    learned.map(([address, bucket]) => ({
+      id: makeLogId("sort"),
+      at: now,
+      kind: "sort" as const,
+      summary: `Learned from Gmail: ${address} goes to ${categoryLabelName(bucket, settings.labelChoices).replace(/^\S+\s/, "")}`,
+    })),
+  );
 }

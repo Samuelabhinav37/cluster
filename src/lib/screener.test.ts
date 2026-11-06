@@ -62,7 +62,7 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
       keptInInboxIds: [],
       tagBackBefore: 0,
       holdUnsorted: false,
-      labelledVersion: 0, searchedVersion: 0,
+      labelledVersion: 0, searchedVersion: 0, moveVotes: {},
     },
     sortOverrides: {},
     seededFromExisting: false,

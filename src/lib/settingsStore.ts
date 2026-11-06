@@ -3,7 +3,7 @@ import type { ProviderId } from "./providers/emailProvider";
 import type { ClusterRule } from "./rules";
 import type { ActionLogEntry } from "./actionLog";
 import { normalizeEngagementRecord, type SenderEngagementMap } from "./engagementModel";
-import { DEFAULT_INBOX_HOURS, type SortOverride } from "./sortTaxonomy";
+import { DEFAULT_INBOX_HOURS, type SortBucket, type SortOverride } from "./sortTaxonomy";
 import type { QuarantineReviewMap } from "./quarantineReview";
 import { withStorageLock } from "./storageLock";
 import { migrateStoredLabelNames } from "./clusterLabels";
@@ -185,6 +185,8 @@ export interface ClusterSettings {
     labelledVersion: number;
     /** LABEL_RULES_VERSION of the last label-by-search pass (0 = never). */
     searchedVersion: number;
+    /** Label swaps made in Gmail, per sender, not yet learned (learnFromMoves.ts). */
+    moveVotes: Record<string, { bucket: SortBucket; n: number }>;
   };
   /** Per-sender "wrong bucket?" corrections from the sort preview, keyed by
    * lowercased from-address → a bucket to force, or "never" to skip. Consulted
@@ -303,6 +305,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
     holdUnsorted: true,
     labelledVersion: 0,
     searchedVersion: 0,
+    moveVotes: {},
   },
   sortOverrides: {},
   seededFromExisting: false,

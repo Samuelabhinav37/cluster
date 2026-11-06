@@ -160,6 +160,15 @@ describe("syncMailIndex: changes after the first build", () => {
     expect((await store.getState("gmail"))?.cursor).toBe("h2");
   });
 
+  it("reports a label swapped in Gmail as a move from that sender", async () => {
+    const { provider, state, store } = await built([message("a", ["INBOX", "Label_1"])]);
+    state.changes = { added: [], removed: [], labelUpdates: [{ id: "a", labelIds: ["INBOX", "Label_2"] }], cursor: "h2", expired: false };
+    const onLabelMoves = vi.fn();
+    await syncMailIndex(provider, "t", store, { ...options, onLabelMoves });
+    const [row] = await store.get("gmail", ["a"]);
+    expect(onLabelMoves).toHaveBeenCalledWith([{ address: row.fromAddress, added: ["Label_2"], removed: ["Label_1"] }]);
+  });
+
   it("reads new mail, drops trashed and deleted mail, and ignores new spam", async () => {
     const { provider, state, store } = await built([
       message("a", ["INBOX"]),

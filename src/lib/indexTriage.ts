@@ -9,7 +9,7 @@ import { emptyKindModel, loadKindModel, markLearnedTransactional } from "./kindM
 import { buildCorrespondents, mergeCorrespondentAddresses, type Correspondent } from "./correspondents";
 import { log } from "./log";
 import { openMailIndex, type MailIndexStore } from "./mailIndex";
-import { readMailIndex, syncMailIndex } from "./mailSync";
+import { readMailIndex, syncMailIndex, type SyncOptions } from "./mailSync";
 import type { EmailProvider, NormalizedMessageMetadata } from "./providers/emailProvider";
 import { summarizeCombined, type SenderSummary } from "./senderModel";
 import { mutateSettings, type ClusterSettings } from "./settingsStore";
@@ -32,6 +32,7 @@ export async function refreshIndexForBackground(
   providers: readonly EmailProvider[],
   windowDays: number,
   store?: MailIndexStore,
+  onLabelMoves?: SyncOptions["onLabelMoves"],
 ): Promise<EmailProvider[]> {
   const index = store ?? (await openMailIndex());
   const ready: EmailProvider[] = [];
@@ -42,7 +43,7 @@ export async function refreshIndexForBackground(
     try {
       const token = await provider.getAuthToken(false);
       await tryWithStorageLock(mailIndexLockKey(provider), () =>
-        syncMailIndex(provider, token, index, { windowDays, changesOnly: true }),
+        syncMailIndex(provider, token, index, { windowDays, changesOnly: true, onLabelMoves }),
       );
     } catch (err) {
       // A failed refresh still leaves a usable index from the last sync.

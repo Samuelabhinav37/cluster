@@ -9,7 +9,7 @@ Branch: `feat/streamline-2026-11` (on top of `feat/scan-2026-11`). One commit pe
 | 2 | Setup Start and sign-in never wait on Gmail; work shows on the scan card | done |
 | 3 | One number per fact: Cleanup badge = page, Overview Suspicious = Security | done |
 | 4 | "Label as" in Details rows, with "always for this sender", applied to old mail | done |
-| 5 | Learn from Gmail moves (Cluster label removed or swapped twice for a sender → correction) | |
+| 5 | Learn from Gmail moves (Cluster label removed or swapped twice for a sender → correction) | done |
 | 6 | One category system, hide empty labels | |
 | 7 | Overview: scan card plus 3 widgets | |
 | 8 | Words: Held, Never opened, no speed-limit line, Welcome on first visit, one setup wording | |
