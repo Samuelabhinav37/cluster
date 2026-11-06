@@ -251,7 +251,7 @@ describe("renderScanCard", () => {
 
   it("while labelling: Read mail ticked, Label on, a bar, no Rescan", () => {
     const card = renderScanCard({ ...newScan(NOW), phase: "labelling", done: 30, total: 120 }, rows, on());
-    expect([...card.querySelectorAll(".scan-steps li")].map((li) => li.className)).toEqual(["is-done", "is-on"]);
+    expect(Array.from(card.querySelectorAll(".scan-steps li")).map((li) => li.className)).toEqual(["is-done", "is-on"]);
     expect(card.querySelector(".read-track")!.getAttribute("aria-valuenow")).toBe("30");
     expect(card.querySelector("button")).toBeNull();
   });
@@ -260,7 +260,7 @@ describe("renderScanCard", () => {
     const actions = on();
     const card = renderScanCard({ ...newScan(NOW), phase: "done", unsorted: 7 }, rows, actions);
     expect(card.querySelector(".scan-head b")!.textContent).toBe("52 labelled");
-    const names = [...card.querySelectorAll(".scan-rows .grow")].map((x) => x.textContent);
+    const names = Array.from(card.querySelectorAll(".scan-rows .grow")).map((x) => x.textContent);
     expect(names).toEqual(["Shopping", "Receipts", "No label"]);
     expect(card.querySelector<HTMLAnchorElement>(".scan-rows a")!.href).toBe("https://mail.google.com/s");
     card.querySelector<HTMLButtonElement>(".scan-head .btn")!.click();

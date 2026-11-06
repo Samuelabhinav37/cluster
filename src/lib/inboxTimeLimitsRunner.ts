@@ -3,10 +3,11 @@
 // action log. Called by the 5-minute background alarm and by the dashboard
 // right after the user saves their limits.
 import { appendActionLog, makeLogId } from "./actionLog";
-import { categoryLabelName, syncGmailCategoryFilters } from "./categoryFilters";
+import { categoryLabelName, desiredCategoryFilters, syncGmailCategoryFilters } from "./categoryFilters";
 import { batchModify, colorClusterLabels, findLabelIds, getOrCreateLabel, listMessageIds } from "./gmailApi";
 import {
   holdUnsortedInbox,
+  labelBySearch,
   labelFromIndex,
   pinInInbox,
   sweepExpiredInbox,
@@ -19,12 +20,12 @@ import {
 import { indexSeededCache, refreshIndexForBackground } from "./indexTriage";
 import { openMailIndex } from "./mailIndex";
 import { notify } from "./notices";
-import { getScan, setScan } from "./scanState";
+import { getScan, newScan, setScan } from "./scanState";
 import { loadMetadataCache, saveMetadataCache } from "./metadataCache";
 import { gmailProvider } from "./providers/gmailProvider";
 import { knownSenderSet } from "./screener";
 import { buildSenderSummariesFromStubs } from "./senderModel";
-import { getSettings, mutateSettings } from "./settingsStore";
+import { getSettings, mutateSettings, type ClusterSettings } from "./settingsStore";
 import { ALL_SORT_BUCKETS } from "./sortTaxonomy";
 import { clusterLabelName } from "./clusterLabels";
 
@@ -61,6 +62,10 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
     labelName: categoryLabelName(bucket, settings.labelChoices),
     hours: settings.autoSort.inboxHoursByBucket[bucket] ?? null,
   }));
+  // First, before any read: label the inbox by each filter's own query.
+  if (options.relabel || settings.autoSort.searchedVersion !== LABEL_RULES_VERSION) {
+    await searchLabelInbox(token, settings, limits, now);
+  }
   // Senders come from the mail index (kept current from Gmail's change feed);
   // only inbox mail it doesn't have yet is read, then saved to it. Without
   // a built index this falls back to the old warm cache.
@@ -106,6 +111,7 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
       lastSweep: { at: now, moved: sweep.movedIds.length },
       tagBackBefore: back ? back.nextBefore : current.autoSort.tagBackBefore,
       labelledVersion: indexReady ? LABEL_RULES_VERSION : current.autoSort.labelledVersion,
+      searchedVersion: LABEL_RULES_VERSION,
       keptInInboxIds: pinInInbox(current.autoSort.keptInInboxIds, sweep.keptIds),
     },
   }));
@@ -188,4 +194,34 @@ async function relabelInbox(
     await notify("scan-done", `Scan done: ${changed.toLocaleString()} labelled.`);
   }
   return res.labelled;
+}
+
+/** Labels inbox mail by Gmail search (seconds, no reads) and shows the
+ * counts on the scan card while the read goes on. */
+async function searchLabelInbox(token: string, settings: ClusterSettings, limits: CategoryLimit[], now: number): Promise<void> {
+  const wanted = new Set(limits.map((l) => l.bucket));
+  const specs = desiredCategoryFilters(settings)
+    .filter((s) => wanted.has(s.bucket))
+    .map((s) => ({ bucket: s.bucket, labelName: s.labelName, queries: s.criteria.flatMap((c) => (c.query ? [c.query] : [])) }));
+  const res = await labelBySearch(
+    {
+      findLabelId: async (name) => (await findLabelIds(token, name))[0] ?? null,
+      ensureLabelId: (name) => getOrCreateLabel(token, name),
+      listIds: async (labelIds, query, max) => (await listMessageIds(token, query, max, labelIds)).map((m) => m.id),
+      readSenders: async () => [],
+      batchModify: (ids, add, remove) => batchModify(token, ids, add, remove),
+    },
+    specs,
+  );
+  if (res.labelled === 0) return;
+  const scan = await getScan();
+  // A relabel already under way keeps its own phase and finishes the card.
+  await setScan(
+    scan?.phase === "labelling"
+      ? { byBucket: res.byBucket, labelled: res.labelled }
+      : { ...newScan(now), phase: "done", byBucket: res.byBucket, labelled: res.labelled, finishedAt: now },
+  );
+  await appendActionLog([
+    { id: makeLogId("sort"), at: now, kind: "sort", summary: `Labelled ${res.labelled} message${res.labelled === 1 ? "" : "s"} in the inbox by search` },
+  ]);
 }

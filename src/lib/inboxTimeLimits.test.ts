@@ -4,6 +4,7 @@ import type { MessageRecord, SenderSummary } from "./senderModel";
 import {
   dueForMove,
   holdUnsortedInbox,
+  labelBySearch,
   labelFromIndex,
   sweepExpiredInbox,
   TAG_BACK_DONE,
@@ -261,5 +262,26 @@ describe("holdUnsortedInbox", () => {
     const api = fakeApi({});
     expect((await holdUnsortedInbox(ctx(), api, "✋ Screener")).heldIds).toEqual([]);
     expect(api.batchModify).not.toHaveBeenCalled();
+  });
+});
+
+describe("labelBySearch", () => {
+  it("labels each query's inbox matches with no reads, skipping starred mail", async () => {
+    const hits: Record<string, string[]> = { "q1 -is:starred": ["a", "b"], "q2 -is:starred": ["b", "c"], "q3 -is:starred": [] };
+    const api = {
+      findLabelId: vi.fn(),
+      ensureLabelId: vi.fn(async (name: string) => `L:${name}`),
+      listIds: vi.fn(async (_l: string[], q: string) => hits[q] ?? []),
+      readSenders: vi.fn(),
+      batchModify: vi.fn(async () => {}),
+    } satisfies InboxLimitsApi;
+    const res = await labelBySearch(api, [
+      { bucket: "shopping", labelName: "Shopping", queries: ["q1", "q2"] },
+      { bucket: "otp", labelName: "Codes", queries: ["q3"] },
+    ]);
+    expect(api.listIds).toHaveBeenCalledWith(["INBOX"], "q1 -is:starred", expect.any(Number));
+    expect(api.batchModify).toHaveBeenCalledExactlyOnceWith(["a", "b", "c"], ["L:Shopping"], []);
+    expect(api.readSenders).not.toHaveBeenCalled();
+    expect(res).toEqual({ labelled: 3, byBucket: { shopping: 3 } });
   });
 });

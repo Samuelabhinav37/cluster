@@ -315,3 +315,32 @@ export async function sweepExpiredInbox(ctx: LimitContext, api: InboxLimitsApi):
   if (movedIds.length > 0) await api.batchModify(movedIds, [], ["INBOX"]);
   return { movedIds, keptIds, more: candidates.length > batch.length };
 }
+
+export interface SearchSpec {
+  bucket: SortBucket;
+  labelName: string;
+  /** The category's Gmail filter queries. */
+  queries: string[];
+}
+
+/** Labels inbox mail each category's filter query matches, with no message
+ * reads: a search lists 500 ids for 5 quota units and one batchModify labels
+ * 1,000 for 50, so a 4,000-email inbox is labelled in seconds. Counts are
+ * matches in the inbox (adding a label it already has is a no-op). Starred
+ * mail is left alone; the index relabel fixes the rest later. */
+export async function labelBySearch(
+  api: InboxLimitsApi,
+  specs: readonly SearchSpec[],
+): Promise<{ labelled: number; byBucket: Partial<Record<SortBucket, number>> }> {
+  const byBucket: Partial<Record<SortBucket, number>> = {};
+  let labelled = 0;
+  for (const spec of specs) {
+    const ids = new Set<string>();
+    for (const q of spec.queries) for (const id of await api.listIds(["INBOX"], `${q} -is:starred`, LIST_MAX)) ids.add(id);
+    if (ids.size === 0) continue;
+    await api.batchModify([...ids], [await api.ensureLabelId(spec.labelName)], []);
+    byBucket[spec.bucket] = ids.size;
+    labelled += ids.size;
+  }
+  return { labelled, byBucket };
+}

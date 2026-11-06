@@ -183,6 +183,8 @@ export interface ClusterSettings {
     /** LABEL_RULES_VERSION the inbox was last relabelled from the mail index
      * under; a newer version relabels it once (inboxTimeLimitsRunner). */
     labelledVersion: number;
+    /** LABEL_RULES_VERSION of the last label-by-search pass (0 = never). */
+    searchedVersion: number;
   };
   /** Per-sender "wrong bucket?" corrections from the sort preview, keyed by
    * lowercased from-address → a bucket to force, or "never" to skip. Consulted
@@ -300,6 +302,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
     tagBackBefore: 0,
     holdUnsorted: true,
     labelledVersion: 0,
+    searchedVersion: 0,
   },
   sortOverrides: {},
   seededFromExisting: false,
