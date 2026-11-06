@@ -8,6 +8,7 @@ import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 import { clearedCount, type ActionLogEntry } from "../lib/actionLog";
 import type { TodayItem } from "../lib/today";
 import type { ScanState } from "../lib/scanState";
+import type { SortBucket } from "../lib/sortTaxonomy";
 import { gmailMessageUrl } from "./detailsPanel";
 import { infoButton } from "./ui";
 import { areaChart, barChart, dayLabels, donutChart, lineChart, ticks } from "./overviewCharts";
@@ -20,6 +21,24 @@ export const HOME_KINDS: ReadonlyArray<{ key: HomeKind; label: string }> = [
   { key: "updates", label: "Updates" },
   { key: "promo", label: "Promotions" },
 ];
+
+/** Which of the four kinds each label belongs to, so the Labels page groups
+ * its labels under the same names as Overview's chart. People get no label. */
+export const BUCKET_KIND: Record<SortBucket, Exclude<HomeKind, "primary">> = {
+  receipt: "trans",
+  shipping: "trans",
+  finance: "trans",
+  travel: "trans",
+  otp: "updates",
+  accounts: "updates",
+  newsletter: "updates",
+  social: "updates",
+  productivity: "updates",
+  education: "updates",
+  jobs: "updates",
+  promotions: "promo",
+  shopping: "promo",
+};
 
 /** Apple Mail's four kinds: receipts and shipping are Transactions, Gmail's
  * Promotions tab is Promotions, codes, lists, social and Gmail's other tabs

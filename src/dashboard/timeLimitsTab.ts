@@ -16,7 +16,7 @@ import { domainOf } from "../lib/domainGrouping";
 import { deliverNewsletters, HOLD_HOURS, newsletterDayOn } from "../lib/newsletterDay";
 import type { SenderSummary } from "../lib/senderModel";
 import { ALL_SORT_BUCKETS, SKIP_INBOX_BUCKETS, effectiveBucket, type SortBucket } from "../lib/sortTaxonomy";
-import { icon } from "./homeDashboard";
+import { BUCKET_KIND, HOME_KINDS, icon } from "./homeDashboard";
 import { ctx } from "./state";
 
 const rowsEl = document.getElementById("time-limits-rows") as HTMLDivElement | null;
@@ -160,14 +160,30 @@ export function labelCount(bucket: SortBucket): number {
   return gmailCounts.get(bucket) ?? nowByBucket.get(bucket) ?? 0;
 }
 
+/** Labels with no mail are hidden (Superhuman hides empty splits) until asked. */
+let showAllLabels = false;
+
 function renderKindSubs(): void {
   const weekly = weeklyByBucket(presetSenders, Date.now());
+  let empty = 0;
   for (const bucket of ALL_SORT_BUCKETS) {
     const count = document.getElementById(`time-limit-count-${bucket}`);
     if (count) count.textContent = labelCount(bucket).toLocaleString();
     const row = count?.closest<HTMLElement>(".ios-row");
+    if (row) {
+      row.hidden = !showAllLabels && labelCount(bucket) === 0;
+      if (row.hidden) empty++;
+    }
     const week = weekly.get(bucket) ?? 0;
     if (row) row.title = week > 0 ? `${BUCKET_HINT[bucket]}. About ${week.toLocaleString()} a week.` : BUCKET_HINT[bucket];
+  }
+  for (const section of Array.from(rowsEl?.querySelectorAll<HTMLElement>(".ios-section") ?? [])) {
+    section.hidden = !section.querySelector(".ios-row:not([hidden])");
+  }
+  const showEmpty = document.getElementById("labels-show-empty");
+  if (showEmpty) {
+    showEmpty.hidden = empty === 0;
+    showEmpty.textContent = `Show ${empty} empty label${empty === 1 ? "" : "s"}`;
   }
 }
 
@@ -206,13 +222,22 @@ export function renderTimeLimits(): void {
     row.append(mark, words, count, select);
     return row;
   });
-  const wrap = document.createElement("section");
-  wrap.className = "ios-section";
-  const group = document.createElement("div");
-  group.className = "ios-group";
-  group.append(...rows);
-  wrap.append(Object.assign(document.createElement("h2"), { className: "ios-head", textContent: "Labels" }), group);
-  rowsEl.replaceChildren(wrap);
+  // Grouped under Overview's kinds, so both screens name mail the same way.
+  const sections = HOME_KINDS.filter((k) => k.key !== "primary").map(({ key, label }) => {
+    const wrap = document.createElement("section");
+    wrap.className = "ios-section";
+    const group = document.createElement("div");
+    group.className = "ios-group";
+    group.append(...rows.filter((_, i) => BUCKET_KIND[buckets[i]] === key));
+    wrap.append(Object.assign(document.createElement("h2"), { className: "ios-head", textContent: label }), group);
+    return wrap;
+  });
+  const showEmpty = Object.assign(document.createElement("button"), { type: "button", className: "link", id: "labels-show-empty" });
+  showEmpty.onclick = () => {
+    showAllLabels = true;
+    renderKindSubs();
+  };
+  rowsEl.replaceChildren(...sections, showEmpty);
   renderWindow();
   renderKindSubs();
   void refreshGmailCounts();
