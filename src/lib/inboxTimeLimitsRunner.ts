@@ -224,7 +224,7 @@ export async function readLabeller(): Promise<ReadLabeller | null> {
   if (!carry) await setScan({ ...newScan(), phase: "reading" });
 
   const flush = async () => {
-    const batch = pending.filter((r) => r.labelIds?.includes("INBOX"));
+    const batch = pending.filter((r) => r.labelIds);
     pending = [];
     if (batch.length === 0) return;
     try {
@@ -297,11 +297,13 @@ async function relabelInbox(
   now: number,
 ): Promise<number> {
   const index = await openMailIndex();
-  const rows = (await index.all("gmail")).filter((r) => r.labelIds?.includes("INBOX"));
-  const inbox = rows.map((r) => ({ id: r.id, labelIds: r.labelIds! }));
+  // All mail Cluster has read, not just the inbox: labels deleted in Gmail
+  // come back on archived mail too, with no message reads.
+  const rows = (await index.all("gmail")).filter((r) => r.labelIds);
+  const all = rows.map((r) => ({ id: r.id, labelIds: r.labelIds! }));
   // Progress writes run in order, so a late one can't overwrite "done".
-  let writes = setScan({ phase: "labelling", done: 0, total: inbox.length });
-  const res = await labelFromIndex(ctx, api, inbox, (done, total) => {
+  let writes = setScan({ phase: "labelling", done: 0, total: all.length });
+  const res = await labelFromIndex(ctx, api, all, (done, total) => {
     writes = writes.then(() => setScan({ done, total }));
   });
   await writes;
@@ -312,14 +314,14 @@ async function relabelInbox(
     return [{ ...r, labelIds: [...r.labelIds!.filter((l) => !change.remove.includes(l)), ...change.add] }];
   });
   await index.put(patched);
-  const sorted = Object.values(res.byBucket).reduce((n, c) => n + (c ?? 0), 0);
+  const unsorted = rows.filter((r) => r.labelIds!.includes("INBOX") && !res.sortedIds.has(r.id)).length;
   const scan = await getScan();
   await setScan({
     phase: "done",
     byBucket: res.byBucket,
     labelled: res.labelled,
     fixed: res.fixed,
-    unsorted: inbox.length - sorted,
+    unsorted,
     finishedAt: now,
     dismissed: scan?.phase === "done" ? scan.dismissed : false,
   });

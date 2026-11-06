@@ -840,7 +840,7 @@ function paintScanCard() {
     icon: BUCKET_ICON[bucket],
     color: CLUSTER_LABEL_COLORS[bucket],
     count: scan!.byBucket[bucket] ?? 0,
-    href: gmailSearchUrl(`in:inbox label:"${label.replace(/"/g, "")}"`),
+    href: gmailSearchUrl(`label:"${label.replace(/"/g, "")}"`),
   }));
   const card = renderScanCard(scan, rows, {
     rescan: () => {

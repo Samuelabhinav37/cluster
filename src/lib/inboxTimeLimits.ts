@@ -146,6 +146,8 @@ export interface RelabelResult {
   byBucket: Partial<Record<SortBucket, number>>;
   /** Label ids added and removed, per message, so the index can be patched. */
   changes: Map<string, { add: string[]; remove: string[] }>;
+  /** Every message that fits a label. */
+  sortedIds: Set<string>;
 }
 
 /**
@@ -159,7 +161,7 @@ export async function labelFromIndex(
   inbox: readonly IndexedInboxRow[],
   onProgress?: (done: number, total: number) => void,
 ): Promise<RelabelResult> {
-  const result: RelabelResult = { labelled: 0, fixed: 0, byBucket: {}, changes: new Map() };
+  const result: RelabelResult = { labelled: 0, fixed: 0, byBucket: {}, changes: new Map(), sortedIds: new Set() };
   if (inbox.length === 0) return result;
   const groups = bucketsFor(await api.readSenders(inbox.map((r) => r.id)), ctx);
   const labelsOf = new Map(inbox.map((r) => [r.id, r.labelIds]));
@@ -177,6 +179,7 @@ export async function labelFromIndex(
   let done = 0;
   for (const [bucket, ids] of groups) {
     result.byBucket[bucket] = ids.length;
+    for (const id of ids) result.sortedIds.add(id);
     const labelId = existing.get(bucket) ?? (await api.ensureLabelId(ctx.limits.find((l) => l.bucket === bucket)!.labelName));
     const missing = ids.filter((id) => !labelsOf.get(id)?.includes(labelId));
     if (missing.length > 0) await api.batchModify(missing, [labelId], []);
