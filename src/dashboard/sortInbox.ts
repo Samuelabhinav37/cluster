@@ -48,6 +48,13 @@ const sortInboxBtn = document.getElementById("sort-inbox-btn") as HTMLButtonElem
 const sortInboxSlot = document.getElementById("sort-inbox-slot") as HTMLSpanElement;
 const sortInboxCountEl = document.getElementById("sort-inbox-count") as HTMLSpanElement;
 const sortInboxPreviewEl = document.getElementById("sort-inbox-preview") as HTMLDivElement;
+// The top bar's Sort inbox opens Labels (data-open-screen) and starts the same confirm there.
+const topSortBtn = document.getElementById("top-sort") as HTMLButtonElement | null;
+topSortBtn?.addEventListener("click", () =>
+  setTimeout(() => {
+    if (sortInboxSlotIdle() && !sortInboxBtn.disabled) sortInboxBtn.click();
+  }, 0),
+);
 
 // ── "Sort my inbox" (Clean up tab) ──────────────────────────────────────
 // Buckets that come from the message kind (subject) rather than the sender's
@@ -115,6 +122,7 @@ function updateSortInboxCount() {
   sortInboxCountEl.textContent =
     moving > 0 ? `${emails(moving)} move now` : labelled > 0 ? `${emails(labelled)} get labels` : "";
   sortInboxBtn.disabled = chosen.length === 0;
+  if (topSortBtn) topSortBtn.disabled = chosen.length === 0;
   // Nothing to sort: no button at all, rather than a disabled one.
   const bar = document.getElementById("sort-inbox-bar");
   if (bar) bar.hidden = chosen.length === 0 && sortInboxSlotIdle();

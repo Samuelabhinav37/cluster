@@ -35,8 +35,9 @@ describe("Where each kind of mail goes", () => {
     expect(document.getElementById("time-limits-toggle")).toBeNull();
     const text = dash.el("time-limits-rows").textContent!;
     expect(text.indexOf("Education")).toBeLessThan(text.indexOf("Promotions"));
-    const icon = dash.el("time-limit-receipt").closest(".ios-row")!.querySelector<HTMLElement>(".app-ic")!;
-    expect(icon.style.background).not.toBe("");
+    const icon = dash.el("time-limit-receipt").closest(".ios-row")!.querySelector<HTMLElement>(".gl-tag")!;
+    expect(icon.style.color).not.toBe("");
+
     // A muted count sits on each row; the weekly rate is on hover.
     expect(dash.el("time-limit-count-travel").textContent).toMatch(/^\d+$/);
     // "Skip the inbox" means never seeing it, so only Promotions offers it.

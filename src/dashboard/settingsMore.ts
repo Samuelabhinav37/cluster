@@ -167,58 +167,61 @@ function wireSignOut() {
   };
 }
 
-/** Settings: a left list of its sections over one scrolling page. */
-function wireSettingsNav(): (inside: Element | null) => void {
-  const list = document.querySelector<HTMLElement>(".settings-list");
+// Mercury-style groups for the sidebar while Settings is open.
+const SETTINGS_GROUPS: Array<[group: string, sections: string[]]> = [
+  ["Account", ["Account", "Notifications", "Privacy & data", "Danger zone"]],
+  ["Mail", ["Mail", "What Cluster learned", "Advanced"]],
+  ["App", ["General", "Kai"]],
+];
+
+/** Settings, Mercury-style: the sidebar turns into "‹ Settings" and the
+ * section list, and the page shows one section at a time under its name. */
+function wireSettingsNav(showScreen: (name: string) => void): (inside: Element | null) => void {
   const secs = Array.from(document.querySelectorAll<HTMLElement>(".settings-list > .set-sec"));
-  if (!list || secs.length === 0) return () => {};
-  const nav = document.createElement("nav");
+  const sidebar = document.getElementById("sidebar");
+  const title = document.querySelector<HTMLElement>('[data-screen="settings"] .page-title');
+  if (!sidebar || secs.length === 0) return () => {};
+  const nameOf = (sec: HTMLElement) => sec.querySelector("h2")?.textContent?.trim() ?? "";
+  const nav = document.createElement("div");
   nav.className = "settings-nav";
+  nav.setAttribute("role", "navigation");
   nav.setAttribute("aria-label", "Settings sections");
-  const mark = (sec: HTMLElement) => {
-    for (const b of Array.from(nav.children)) b.setAttribute("aria-current", String(b === buttons.get(sec)));
-  };
-  const show = (sec: HTMLElement) => {
-    mark(sec);
-    sec.scrollIntoView?.({ behavior: "smooth", block: "start" });
-  };
+  const back = Object.assign(document.createElement("button"), { type: "button", className: "sn-back", textContent: "Settings" });
+  back.setAttribute("aria-label", "Leave Settings");
+  back.onclick = () => showScreen("overview");
+  nav.append(back);
   const buttons = new Map<HTMLElement, HTMLButtonElement>();
-  for (const sec of secs) {
-    const name = sec.querySelector("h2")?.textContent?.trim().replace(/^What Cluster learned$/, "Learned") ?? "";
-    const b = Object.assign(document.createElement("button"), { type: "button", textContent: name });
+  const show = (sec: HTMLElement) => {
+    for (const s of secs) s.hidden = s !== sec;
+    for (const [s, b] of buttons) b.setAttribute("aria-current", String(s === sec));
+    if (title) title.textContent = nameOf(sec);
+    window.scrollTo?.({ top: 0 });
+  };
+  const listed = new Set<HTMLElement>();
+  for (const [group, names] of SETTINGS_GROUPS) {
+    const items = names.map((n) => secs.find((s) => nameOf(s) === n)).filter((s): s is HTMLElement => !!s);
+    if (items.length === 0) continue;
+    nav.append(Object.assign(document.createElement("h3"), { textContent: group }));
+    for (const sec of items) {
+      const b = Object.assign(document.createElement("button"), { type: "button", className: "sn-item", textContent: nameOf(sec) });
+      b.onclick = () => show(sec);
+      buttons.set(sec, b);
+      listed.add(sec);
+      nav.append(b);
+    }
+  }
+  // A section not in the groups still gets a place, at the end.
+  for (const sec of secs.filter((s) => !listed.has(s))) {
+    const b = Object.assign(document.createElement("button"), { type: "button", className: "sn-item", textContent: nameOf(sec) });
     b.onclick = () => show(sec);
     buttons.set(sec, b);
     nav.append(b);
   }
-  const split = document.createElement("div");
-  split.className = "settings-split";
-  list.before(split);
-  split.append(nav, list);
-  mark(secs[0]);
+  sidebar.querySelector(".nav-area")?.before(nav);
+  show(buttons.keys().next().value!);
   return (inside) => {
     const sec = inside?.closest<HTMLElement>(".settings-list > .set-sec");
     if (sec) show(sec);
-  };
-}
-
-/** Settings' search: matching rows from every section; empty, every section. */
-function wireSettingsSearch(): void {
-  const input = $<HTMLInputElement>("settings-search");
-  if (!input) return;
-  const secs = () => Array.from(document.querySelectorAll<HTMLElement>(".settings-list > .set-sec"));
-  input.oninput = () => {
-    const q = input.value.trim().toLowerCase();
-    for (const sec of secs()) {
-      const heading = sec.querySelector("h2")?.textContent?.toLowerCase() ?? "";
-      let any = false;
-      for (const row of Array.from(sec.querySelectorAll<HTMLElement>(".set-row, .set-row-details"))) {
-        if (row.parentElement?.closest(".set-row-details")) continue;
-        const hit = !q || heading.includes(q) || (row.textContent ?? "").toLowerCase().includes(q);
-        row.hidden = !hit;
-        any ||= hit;
-      }
-      sec.hidden = q ? !any : false;
-    }
   };
 }
 
@@ -326,8 +329,7 @@ export interface KeyActions {
 }
 
 export function wireSettingsMore(showScreen: (name: string) => void, act?: KeyActions): void {
-  const openPaneOf = wireSettingsNav();
-  wireSettingsSearch();
+  const openPaneOf = wireSettingsNav(showScreen);
   renderKeys();
   renderKaiMissed();
   const single = $<HTMLInputElement>("single-keys-toggle");

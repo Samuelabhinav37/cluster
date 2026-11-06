@@ -477,6 +477,21 @@ export interface ScanRow {
   href: string;
 }
 
+/** Gmail's own label mark: the Material "label" tag (Apache-2.0), filled in
+ * the label's Gmail color, as in Gmail's sidebar. */
+export function gmailLabelIcon(color?: string): HTMLElement {
+  const mark = el("span", "gl-tag");
+  if (color) mark.style.color = color;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 -960 960 960");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M200-200q-33 0-56.5-23.5T120-280v-400q0-33 23.5-56.5T200-760h400q19 0 36 8.5t28 23.5l174 248-174 248q-11 15-28 23.5t-36 8.5H200Z");
+  svg.append(path);
+  mark.append(svg);
+  return mark;
+}
+
 /** Labelling after a read: live counts per label, then what landed where. */
 export function renderScanCard(
   scan: ScanState,
@@ -521,9 +536,7 @@ export function renderScanCard(
     row.href = r.href;
     row.target = "_blank";
     row.rel = "noopener";
-    const mark = el("span", "app-ic label-ic");
-    if (r.color) Object.assign(mark.style, { background: r.color.backgroundColor, color: r.color.textColor });
-    mark.append(icon(r.icon));
+    const mark = gmailLabelIcon(r.color?.backgroundColor);
     row.append(mark, el("span", "grow", r.name), el("span", "ios-value", n(r.count)));
     list.append(row);
   }

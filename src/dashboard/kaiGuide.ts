@@ -560,7 +560,7 @@ export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
 export const CLUSTER_QUESTIONS: KaiQuestion[] = [
   { id: "read", ask: "Does Cluster read my emails?", answer: "No. It reads senders, subjects, dates, labels and a few sender-check headers, never the message itself. Everything runs in your browser.", follow: ["starred", "undo"],
     phrases: ["is my mail private", "do you send my data anywhere", "is cluster safe", "does it use the cloud or ai"] },
-  { id: "sort", ask: "How do I sort my inbox?", answer: "Open Labels, set each label, then press Sort inbox at the top. Nothing moves until you confirm.", screen: "organize", target: "#sort-inbox-bar", follow: ["keep", "undo"],
+  { id: "sort", ask: "How do I sort my inbox?", answer: "Set each label in Labels, then press Sort inbox in the top bar. Nothing moves until you confirm.", screen: "organize", target: "#top-sort", follow: ["keep", "undo"],
     phrases: ["put mail into labels", "organize my email", "file mail into folders", "group my emails"] },
   { id: "flagged", ask: "Why was this sender flagged?", answer: "It looked like someone else: a lookalike address, a failed sender check, or a name you know from a new address. Open a row in Look at these to see every reason.", screen: "impersonation", follow: ["read"],
     phrases: ["why is this a scam", "is this email phishing", "why does protect warn me", "what are warning signs"] },

@@ -3867,11 +3867,6 @@ body[data-screen="overview"] #ask-kai-open > svg { display: block; }
 .kind-head { display: flex; align-items: center; gap: 10px; font-weight: 600; }
 .kind-head .sub { display: block; font-weight: 400; font-size: 12.5px; color: var(--label-3); }
 /* Settings, round 2: the sections as a left list, one pane at a time. */
-.settings-split { display: grid; grid-template-columns: 210px minmax(0, 1fr); column-gap: 20px; align-items: start; }
-.settings-nav { display: flex; flex-direction: column; gap: 2px; padding: 8px; border-radius: 16px; background: var(--glass); border: 0.5px solid var(--hairline); position: sticky; top: 16px; }
-.settings-nav button { min-height: 0; padding: 8px 12px; border: 0; border-radius: 9px; background: none; color: var(--label-2); text-align: left; font-size: 14px; font-weight: 500; cursor: pointer; }
-.settings-nav button:hover { color: var(--label); }
-.settings-nav button[aria-current="true"] { background: var(--neutral-fill); color: var(--label); font-weight: 600; }
 
 /* Organize, after Apple Mail's categories: a codes switch, then groups that
    open to their kinds (timeLimitsTab.ts). */
@@ -3935,7 +3930,6 @@ body[data-state="connect"] .top-bar { display: none; }
 section.screen.paged > :not(.page-head):not(#protect-page) { display: none !important; }
 
 /* Settings: search on top; keys change in place. */
-.settings-search { display: block; width: min(420px, 100%); margin: 0 0 14px; padding: 8px 12px; border: 0; border-radius: 10px; background: var(--neutral-fill); color: var(--label); font: inherit; }
 .set-row .sub.warn { color: var(--danger-label); }
 .key-btn { min-width: 64px; font-variant-numeric: tabular-nums; }
 
@@ -4136,12 +4130,7 @@ body[data-screen="overview"].details-open .screen[data-screen="overview"] { visi
 section[data-screen="settings"] .set-ic { display: none; }
 .set-sec { scroll-margin-top: 80px; }
 .set-danger .set-rows { border: 1px solid var(--danger-border); border-radius: 10px; }
-.settings-nav { position: sticky; top: 80px; align-self: start; }
-.settings-split { grid-template-columns: 180px minmax(0, 1fr); column-gap: 48px; }
-.settings-nav { padding: 0; background: none; border: 0; border-radius: 0; }
-.settings-nav button { font-size: 13px; padding: 7px 10px; border-radius: 6px; }
 .settings-list .set-sec + .set-sec { margin-top: 40px; }
-.settings-search { max-width: none; margin-left: 228px; width: calc(100% - 228px); }
 section[data-screen="settings"] .set-row { grid-template-columns: minmax(0, 1fr) auto; }
 section[data-screen="settings"] .set-row > .grow { grid-column: 1; }
 section[data-screen="settings"] .set-row > :not(.grow):not(.set-ic) { grid-column: 2; grid-row: 1 / span 2; }
@@ -4264,3 +4253,43 @@ tr:hover .ct-name::before, #subscriptions-list .list-row:hover .row-media::befor
 .row-menu-spacer { display: inline-block; width: 28px; flex: none; }
 #subscriptions-list .pl-count { margin-left: 8px; font-size: 13px; white-space: nowrap; }
 #cu-senders-table th.ct-tick { padding-top: 10px !important; vertical-align: top !important; }
+
+/* Labels: Gmail's tag mark in the label's color, as in Gmail's sidebar. */
+.gl-tag { display: inline-grid; place-items: center; width: 30px; height: 30px; flex: none; color: var(--label-4); }
+.gl-tag svg { width: 22px; height: 22px; fill: currentColor; }
+.scan-rows .gl-tag { width: 24px; height: 24px; }
+.scan-rows .gl-tag svg { width: 20px; height: 20px; }
+/* Sort inbox lives in the top bar; Labels only shows its confirm and progress. */
+#sort-inbox-count, #sort-inbox-slot > #sort-inbox-btn { display: none; }
+#sort-inbox-bar:has(#sort-inbox-slot > #sort-inbox-btn:only-child) { display: none; }
+.top-tool:disabled { opacity: .45; cursor: default; }
+
+/* Settings, Mercury-style (demo.mercury.com/settings): the sidebar becomes
+   "‹ Settings" and grouped sections; the page is one section at a time, rows in
+   two columns (label and description, then the control), hairlines between. */
+.settings-nav { display: none; }
+body[data-screen="settings"] #sidebar .nav-area { display: none; }
+body[data-screen="settings"] #sidebar .settings-nav { display: flex; flex-direction: column; gap: 2px; padding: 4px 0; }
+.settings-nav button { min-height: 0; padding: 7px 12px; border: 0; border-radius: 8px; background: none; color: var(--label-2); font: 400 14px var(--font); text-align: left; cursor: pointer; }
+.settings-nav button:hover { background: var(--neutral-fill); color: var(--label); }
+.settings-nav .sn-back { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; color: var(--label); font-weight: 500; }
+.settings-nav .sn-back::before { content: ""; width: 7px; height: 7px; border: solid currentColor; border-width: 0 0 1.5px 1.5px; transform: rotate(45deg); margin-left: 2px; }
+.settings-nav h3 { margin: 14px 12px 4px; font: 500 12px var(--font); color: var(--label-4); }
+.settings-nav .sn-item[aria-current="true"] { background: var(--neutral-fill); color: var(--label); font-weight: 500; }
+.settings-list { max-width: 960px; }
+.settings-list > .set-sec > h2 { display: none; }
+.settings-list .set-rows { border: 0; border-radius: 0; background: none; box-shadow: none; border-top: 1px solid var(--hairline); }
+.settings-list .set-row, .settings-list .set-row:not(:has(> .set-ic)) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 48px; align-items: start;
+  min-height: 0; padding: 20px 0; border-top: 0; border-bottom: 1px solid var(--hairline); background: none; }
+.settings-list .set-row > .set-ic { display: none; }
+.settings-list .set-row > .grow { grid-column: 1; grid-row: auto; font-size: 15px; font-weight: 500; }
+.settings-list .set-row > :not(.grow):not(.set-ic) { grid-column: 2; grid-row: auto; justify-self: start; }
+.settings-list .set-row .sub { margin-top: 4px; font-size: 13px; font-weight: 400; line-height: 1.5; color: var(--label-3); }
+.settings-list .set-danger .set-rows { border: 0; border-top: 1px solid var(--hairline); }
+.ios-row > .gl-tag { grid-column: 1; grid-row: 1 / span 2; }
+.top-tool { white-space: nowrap; }
+.org-window { margin-top: 24px; }
+/* One section shows at a time, so no stacked-section margin; subheads sit flush like Mercury's. */
+.settings-list .set-sec + .set-sec { margin-top: 0; }
+.settings-list .set-sec .section-head { margin: 0; padding: 0; }
+.settings-list .set-sec .section-label { margin: 40px 0 12px; padding: 0; font: 600 13px var(--font); color: var(--label); }

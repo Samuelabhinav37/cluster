@@ -5,7 +5,7 @@ import { CLUSTER_FIRST_ON, CLUSTER_QUESTIONS, initKaiGuide } from "./kaiGuide";
 function setup(screen = "overview", extra: Partial<Parameters<typeof initKaiGuide>[1]> = {}) {
   document.body.innerHTML = `
     <nav id="sidebar"><button class="nav-item active" data-screen="${screen}">Here</button><button class="nav-item" data-screen="organize">Sorting</button></nav>
-    <section id="sort-inbox-bar">Sort my inbox</section>`;
+    <button id="top-sort">Sort inbox</button>`;
   const sortNav = document.querySelector<HTMLButtonElement>('.nav-item[data-screen="organize"]')!;
   const navClick = vi.fn();
   sortNav.addEventListener("click", navClick);
@@ -83,16 +83,16 @@ describe("Kai's guide in Cluster", () => {
     expect(panel.querySelector(".kg-msg.typing")).not.toBeNull();
     expect(panel.querySelector(".kg-status")!.textContent).toBe("Thinking");
     vi.advanceTimersByTime(3000);
-    expect(said().at(-1)).toContain("Open Labels, set each label, then press Sort inbox");
+    expect(said().at(-1)).toContain("Set each label in Labels, then press Sort inbox");
     expect(panel.querySelectorAll(".kg-msg.kai")).toHaveLength(0);
     panel.querySelector<HTMLButtonElement>(".kg-go")!.click();
     expect(navClick).toHaveBeenCalledOnce();
     expect(panel.hidden).toBe(true);
     // Kai looks at the spot first, then the ring appears
     vi.advanceTimersByTime(300);
-    expect(document.getElementById("sort-inbox-bar")!.classList.contains("kai-here")).toBe(false);
+    expect(document.getElementById("top-sort")!.classList.contains("kai-here")).toBe(false);
     vi.advanceTimersByTime(700);
-    expect(document.getElementById("sort-inbox-bar")!.classList.contains("kai-here")).toBe(true);
+    expect(document.getElementById("top-sort")!.classList.contains("kai-here")).toBe(true);
   });
 
   it("answers without Show me when there is nowhere to go, then offers follow-ups", () => {
@@ -111,7 +111,7 @@ describe("Kai's guide in Cluster", () => {
     expect(panel.hidden).toBe(true);
     expect(button.getAttribute("aria-expanded")).toBe("false");
     open();
-    document.getElementById("sort-inbox-bar")!.click();
+    document.getElementById("top-sort")!.click();
     expect(panel.hidden).toBe(true);
   });
 

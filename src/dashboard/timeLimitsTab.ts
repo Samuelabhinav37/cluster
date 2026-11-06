@@ -16,7 +16,7 @@ import { domainOf } from "../lib/domainGrouping";
 import { deliverNewsletters, HOLD_HOURS, newsletterDayOn } from "../lib/newsletterDay";
 import type { SenderSummary } from "../lib/senderModel";
 import { ALL_SORT_BUCKETS, SKIP_INBOX_BUCKETS, effectiveBucket, type SortBucket } from "../lib/sortTaxonomy";
-import { BUCKET_KIND, HOME_KINDS, icon } from "./homeDashboard";
+import { BUCKET_KIND, gmailLabelIcon, HOME_KINDS, icon } from "./homeDashboard";
 import { ctx } from "./state";
 
 const rowsEl = document.getElementById("time-limits-rows") as HTMLDivElement | null;
@@ -199,11 +199,7 @@ export function renderTimeLimits(): void {
     const row = document.createElement("div");
     row.className = "ios-row org-row";
     row.title = BUCKET_HINT[bucket];
-    const mark = document.createElement("span");
-    mark.className = "app-ic label-ic";
-    const color = CLUSTER_LABEL_COLORS[bucket];
-    if (color) Object.assign(mark.style, { background: color.backgroundColor, color: color.textColor });
-    mark.append(icon(BUCKET_ICON[bucket]));
+    const mark = gmailLabelIcon(CLUSTER_LABEL_COLORS[bucket]?.backgroundColor);
     const words = document.createElement("span");
     words.className = "grow";
     words.append(name);
@@ -297,7 +293,8 @@ function renderWindow(): void {
     group.append(row, holdRow());
     const wrap = Object.assign(document.createElement("section"), { className: "ios-section org-window" });
     wrap.append(group);
-    rowsEl.before(wrap);
+    // Below the labels: the labels are what this page is for.
+    rowsEl.after(wrap);
   }
   if (!select) return;
   const on = windowTargets().filter((m) => m.value !== OFF);
