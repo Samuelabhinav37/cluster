@@ -166,6 +166,8 @@ export interface BootOptions {
   labels?: { id: string; name: string; type?: "system" | "user"; messagesTotal?: number }[];
   /** Gmail search results for listMessageIds, by query (default: none). */
   search?: (query: string, labelIds: string[]) => string[];
+  /** Emails Gmail reports for the mailbox (countMailbox); default 0. */
+  mailboxCount?: number;
   /** Message ids under each label id, for listMessageIdsInLabel. */
   labelMessages?: Record<string, string[]>;
   /** Make the incremental filter-scope consent screen come back denied. */
@@ -288,6 +290,7 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
     }),
     deleteFiltersInto: vi.fn(async () => 0),
     revokeGoogleAccess: vi.fn(async () => true),
+    countMailbox: vi.fn(async () => opts.mailboxCount ?? 0),
     listLabels: vi.fn(async () => opts.labels ?? []),
     getLabel: vi.fn(async (_t: string, id: string) => {
       const label = (opts.labels ?? []).find((l) => l.id === id);

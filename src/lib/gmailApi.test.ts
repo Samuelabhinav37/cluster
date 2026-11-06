@@ -10,6 +10,7 @@ import {
   getAuthToken as getAuthToken_,
   getFilterAuthToken,
   getCurrentHistoryId,
+  countMailbox,
   findLabelIds,
   getOrCreateLabel,
   gmailQuotaCost,
@@ -485,5 +486,18 @@ describe("sign out", () => {
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://oauth2.googleapis.com/revoke");
     expect(String(init.body)).toBe("token=tok");
+  });
+});
+
+describe("countMailbox", () => {
+  it("counts the mailbox without Spam, Trash and Drafts", async () => {
+    const totals: Record<string, number> = { SPAM: 300, TRASH: 200, DRAFT: 10 };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        url.endsWith("/profile") ? json({ messagesTotal: 48_720 }) : json({ messagesTotal: totals[url.split("/").pop()!] }),
+      ),
+    );
+    await expect(countMailbox("t")).resolves.toBe(48_210);
   });
 });

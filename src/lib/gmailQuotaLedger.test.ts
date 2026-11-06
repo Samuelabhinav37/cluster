@@ -6,6 +6,8 @@ import {
   gmailQuotaHeadroom,
   gmailQuotaUsedWithin,
   penalizeGmailQuota,
+  readTimeText,
+  READS_PER_MINUTE,
   reserveGmailQuota,
 } from "./gmailQuotaLedger";
 
@@ -154,5 +156,15 @@ describe("buildPaceDelay", () => {
       [10_000, 2000],
     ];
     expect(buildPaceDelay(spends, 20_000, pace)).toBe(40_050);
+  });
+});
+
+describe("readTimeText", () => {
+  it("estimates from the build's read pace, in 5-minute steps", () => {
+    expect(READS_PER_MINUTE).toBe(200);
+    expect(readTimeText(100)).toBe("about 5 min");
+    expect(readTimeText(10_000)).toBe("about 50 min");
+    expect(readTimeText(20_000)).toBe("about 1 h 40 min");
+    expect(readTimeText(24_000)).toBe("about 2 h");
   });
 });

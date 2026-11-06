@@ -51,6 +51,27 @@ describe("first-run setup", () => {
     await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toContain("always stay"));
   });
 
+  it("asks how much to read only when the mailbox is over 20,000, with a time for each", async () => {
+    const small = await bootDashboard({ mailboxCount: 12_000 });
+    await runSetup(small, "me");
+    await vi.waitFor(() => expect(small.storedSettings().setupDone).toBe(true));
+    expect(small.storedSettings().readCap).toBe(20_000);
+
+    const big = await bootDashboard({ mailboxCount: 48_210 });
+    (document.querySelector('[data-who="me"]') as HTMLButtonElement).click();
+    (big.el("setup-next") as HTMLButtonElement).click();
+    navButton("Skip").click();
+    navButton("Skip").click();
+    await vi.waitFor(() => expect(document.querySelector(".onb-read-title")?.textContent).toBe("You have 48,210 emails"));
+    const all = Array.from(document.querySelectorAll<HTMLButtonElement>(".onb-read .onb-opt")).find((b) =>
+      b.textContent?.startsWith("All 48,210"),
+    )!;
+    expect(all.textContent).toContain("about 4 h 5 min");
+    all.click();
+    (big.el("setup-go") as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(big.storedSettings().readCap).toBe(100_000));
+  });
+
   it("Keep me safe turns on scam holding and lands on Home", async () => {
     const dash = await bootDashboard();
     await runSetup(dash, "safe");

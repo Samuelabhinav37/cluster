@@ -3,6 +3,7 @@
 // Facts are computed here from the scan; the dashboard supplies the counts it
 // already has.
 
+import { readTimeText } from "../lib/gmailQuotaLedger";
 import { senderTile } from "./senderTile";
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 import { clearedCount, type ActionLogEntry } from "../lib/actionLog";
@@ -522,7 +523,9 @@ export function renderScanCard(
     card.append(track);
     if (reading) {
       const of = scan.total > 0 ? `${n(scan.done)} of ${n(scan.total)} read` : `${n(scan.done)} read`;
-      card.append(el("p", "scan-line", `${of} · ${n(scan.labelled)} labelled so far`));
+      const left = scan.total > scan.done ? ` · ${readTimeText(scan.total - scan.done)} left` : "";
+      card.append(el("p", "scan-line", `${of}${left} · ${n(scan.labelled)} labelled so far`));
+      card.append(el("p", "scan-line", "You can close this tab."));
     }
     // Rows popping in and reordering mid-run looked messy: show them once, at the end.
     return card;

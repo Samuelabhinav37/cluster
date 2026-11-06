@@ -2054,6 +2054,8 @@ body[data-screen="setup"] .index-status {
 .onb-opt.picked[aria-pressed="true"] .onb-chk { animation: onb-pop 0.35s var(--spring); }
 .onb-opt.picked[aria-pressed="true"] .onb-chk .i { animation: onb-draw 0.2s 0.1s both; }
 
+.onb-read { display: grid; gap: 8px; margin-top: 18px; }
+.onb-read-title { margin: 0; font: 600 15px/1.4 var(--font); color: var(--label); }
 .onb-plan { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .onb-plan li { display: flex; align-items: flex-start; gap: 12px; animation: onb-rise 0.45s calc(var(--i, 0) * 90ms + 150ms) both; }
 .onb-glyph { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--neutral-fill); color: var(--label-2); }

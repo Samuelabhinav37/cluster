@@ -15,12 +15,13 @@ import {
   TAG_BACK_DONE,
   tagOlderInbox,
   tagUntaggedInbox,
+  withoutClusterLabels,
   type CategoryLimit,
   type InboxLimitsApi,
 } from "./inboxTimeLimits";
 import { applyIndexedCorrespondents, indexSeededCache, mailIndexLockKey, refreshIndexForBackground } from "./indexTriage";
-import { MAIL_INDEX_CAP, openMailIndex } from "./mailIndex";
-import { syncMailIndex, type SyncOptions } from "./mailSync";
+import { MAIL_INDEX_MAX, openMailIndex } from "./mailIndex";
+import { indexNeedsBuild, syncMailIndex, type SyncOptions } from "./mailSync";
 import { waitForGmailHeadroom } from "./gmailQuotaLedger";
 import { log } from "./log";
 import type { NormalizedMessageMetadata } from "./providers/emailProvider";
@@ -56,7 +57,8 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
   // old query until rewritten. Unchanged filters cost no API calls.
   const synced = await syncGmailCategoryFilters(settings, token);
   if (synced.created > 0 || synced.deleted > 0) {
-    await colorClusterLabels(token);
+    // Colours are cosmetic: a failure mustn't stop the labelling below.
+    await colorClusterLabels(token).catch((err: unknown) => log.error("Time limits: label colours failed", err));
     await mutateSettings((current) => ({
       ...current,
       autoSort: { ...current.autoSort, filterIdsByBucket: synced.filterIdsByBucket, filterSpecByBucket: synced.filterSpecByBucket },
@@ -69,7 +71,7 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
     await searchLabelInbox(token, settings, limits, now);
   }
   // A read the dashboard started and didn't finish goes on here, labelling as it reads.
-  const builtNow = await continueIndexBuild(token, settings.scanWindowDays);
+  const builtNow = await continueIndexBuild(token, settings.scanWindowDays, settings.readCap);
   // Senders come from the mail index (kept current from Gmail's change feed);
   // only inbox mail it doesn't have yet is read, then saved to it. Without
   // a built index this falls back to the old warm cache.
@@ -201,14 +203,15 @@ export type ReadLabeller = Required<Pick<SyncOptions, "onRead" | "onPlanned" | "
  * Labels inbox mail as a mail-index build stores it, and shows the read on
  * the Overview scan card ("reading", done of total). Labelling waits until
  * some sent mail is in, so mail from people you write to is never labelled.
- * Null when there is no build to follow (the index is complete) or time
- * limits are off.
+ * The read starts at sign-in, before setup turns labels on, so the card
+ * counts from the start and labelling begins once they're on. Null when
+ * there is no build to follow (the index is complete).
  */
 export async function readLabeller(): Promise<ReadLabeller | null> {
   const settings = await getSettings();
-  if (!settings.autoSort.timeLimitsEnabled || !(await gmailProvider.isConnected())) return null;
+  if (!(await gmailProvider.isConnected())) return null;
   const index = await openMailIndex();
-  if ((await index.getState("gmail"))?.complete) return null;
+  if (!indexNeedsBuild(await index.getState("gmail"), settings.scanWindowDays, settings.readCap)) return null;
   const token = await gmailProvider.getAuthToken(false);
   const ctx = { limits: limitsFor(settings), known: knownSenderSet(settings), overrides: settings.sortOverrides, now: Date.now() };
   const api = limitsApi(token);
@@ -227,6 +230,10 @@ export async function readLabeller(): Promise<ReadLabeller | null> {
     const batch = pending.filter((r) => r.labelIds);
     pending = [];
     if (batch.length === 0) return;
+    // Setup may have turned labels on (or "Ask me first" left them off) mid-read.
+    const now = await getSettings();
+    if (!now.autoSort.timeLimitsEnabled) return;
+    ctx.limits = limitsFor(now);
     try {
       const res = await labelFromIndex(ctx, api, batch.map((r) => ({ id: r.id, labelIds: r.labelIds! })));
       const patched = batch.flatMap((r) => {
@@ -267,17 +274,18 @@ export async function readLabeller(): Promise<ReadLabeller | null> {
 
 /**
  * Carries on a mail-index build that isn't finished (the dashboard was closed
- * mid-read), labelling as it reads. Skips when the dashboard is reading right
- * now. True when this call finished the build.
+ * mid-read, or the user widened the window or the cap), labelling as it
+ * reads. Skips when the dashboard is reading right now. True when this call
+ * finished the build.
  */
-async function continueIndexBuild(token: string, windowDays: number): Promise<boolean> {
+async function continueIndexBuild(token: string, windowDays: number, cap: number): Promise<boolean> {
   const index = await openMailIndex();
-  if ((await index.getState("gmail"))?.complete) return false;
+  if (!indexNeedsBuild(await index.getState("gmail"), windowDays, cap)) return false;
   const labeller = await readLabeller();
   const ran = await tryWithStorageLock(mailIndexLockKey(gmailProvider), () =>
     syncMailIndex(gmailProvider, token, index, {
       windowDays,
-      cap: MAIL_INDEX_CAP,
+      cap,
       waitForHeadroom: waitForGmailHeadroom,
       onLabelMoves: (moves) => learnFromLabelMoves(token, moves),
       ...labeller,
@@ -319,7 +327,8 @@ async function relabelInbox(
   await setScan({
     phase: "done",
     byBucket: res.byBucket,
-    labelled: res.labelled,
+    // Every email that has its label now, including those labelled while reading.
+    labelled: res.sortedIds.size,
     fixed: res.fixed,
     unsorted,
     finishedAt: now,
@@ -330,8 +339,9 @@ async function relabelInbox(
     await appendActionLog([
       { id: makeLogId("sort"), at: now, kind: "sort", summary: `Labelled ${changed} message${changed === 1 ? "" : "s"} in the inbox` },
     ]);
-    await notify("scan-done", `Scan done: ${changed.toLocaleString()} labelled.`);
   }
+  // Mail labelled while reading leaves nothing new here; the scan is still done.
+  if (res.sortedIds.size > 0) await notify("scan-done", `Scan done: ${res.sortedIds.size.toLocaleString()} labelled.`);
   return res.labelled;
 }
 
@@ -351,17 +361,22 @@ async function searchLabelInbox(token: string, settings: ClusterSettings, limits
       batchModify: (ids, add, remove) => batchModify(token, ids, add, remove),
     },
     specs,
+    // Archived mail too, back to the first email: a search labels thousands
+    // for a few hundred quota units, with no email read.
+    { allMail: true, skip: withoutClusterLabels(limits), max: MAIL_INDEX_MAX },
   );
   if (res.labelled === 0) return;
   const scan = await getScan();
-  // A relabel already under way keeps its own phase and finishes the card.
-  await setScan(
-    scan?.phase === "labelling"
-      ? { byBucket: res.byBucket, labelled: res.labelled }
-      : { ...newScan(now), phase: "done", byBucket: res.byBucket, labelled: res.labelled, finishedAt: now },
-  );
+  // A read under way owns the card; a relabel keeps its phase and finishes it.
+  if (scan?.phase !== "reading") {
+    await setScan(
+      scan?.phase === "labelling"
+        ? { byBucket: res.byBucket, labelled: res.labelled }
+        : { ...newScan(now), phase: "done", byBucket: res.byBucket, labelled: res.labelled, finishedAt: now },
+    );
+  }
   await appendActionLog([
-    { id: makeLogId("sort"), at: now, kind: "sort", summary: `Labelled ${res.labelled} message${res.labelled === 1 ? "" : "s"} in the inbox by search` },
+    { id: makeLogId("sort"), at: now, kind: "sort", summary: `Labelled ${res.labelled} message${res.labelled === 1 ? "" : "s"} by search` },
   ]);
 }
 

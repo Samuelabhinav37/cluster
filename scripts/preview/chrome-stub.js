@@ -303,7 +303,7 @@
       await new Promise((r) => setTimeout(r, 8 + rnd() * 20));
       const p = url.pathname.replace("/gmail/v1/users/me", "");
       window.__previewLog.push(method + " " + p + (url.search.length < 200 ? url.search : ""));
-      if (p === "/profile") return json({ emailAddress: "you@example.com", historyId: "9001", messagesTotal: ORDER.length });
+      if (p === "/profile") return json({ emailAddress: "you@example.com", historyId: "9001", messagesTotal: Number(qs.get("mailcount")) || ORDER.length });
       if (p === "/history") return json({ historyId: "9001", history: [] });
       if (p === "/settings/sendAs") return json({ sendAs: [{ sendAsEmail: "you@example.com", isPrimary: true, verificationStatus: "accepted" }] });
       if (p === "/messages" && method === "GET") {
@@ -334,6 +334,11 @@
       }
       if (p === "/messages/batchDelete") { const body = JSON.parse(init.body); for (const id of body.ids) { delete MSGS[id]; persistLabels(id); } return new Response(null, { status: 204 }); }
       if (p === "/labels" && method === "GET") return json({ labels: LABELS });
+      if (p.startsWith("/labels/") && (method === "GET" || method === "PATCH")) {
+        const id = decodeURIComponent(p.slice(8)); const l = LABELS.find((x) => x.id === id) || { id, name: id, type: "system" };
+        if (method === "PATCH") Object.assign(l, JSON.parse(init.body));
+        return json({ ...l, messagesTotal: 0, messagesUnread: 0 });
+      }
       if (p === "/labels" && method === "POST") { const b = JSON.parse(init.body); const l = { id: "Label_" + (LABELS.length + 10), name: b.name, type: "user" }; LABELS.push(l); saveMeta(); return json(l); }
       if (p === "/settings/filters" && method === "GET") return json({ filter: FILTERS });
       if (p === "/settings/filters" && method === "POST") { const b = JSON.parse(init.body); const f = { id: "F" + (FILTERS.length + 1), ...b }; FILTERS.push(f); saveMeta(); return json(f); }

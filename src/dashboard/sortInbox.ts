@@ -316,7 +316,7 @@ async function runSort(mode: SortMode) {
   try {
     // Everything means every email, not just the scan window. Mail already in
     // the index isn't read again; the read goes on in the background.
-    // shortcut: the index holds MAIL_INDEX_CAP (20,000) emails, so a bigger mailbox stops there; page past it if users hit that.
+    // The read stops at settings.readCap (20,000, or 100,000 if setup chose All); search labels the rest.
     if (mode === "all" && ctx.settings.scanWindowDays < ALL_MAIL_DAYS) ctx.settings = await updateSettings({ scanWindowDays: ALL_MAIL_DAYS });
     if (mode === "all" && ctx.settings.autoSort.timeLimitsEnabled && (await gmailProvider.isConnected())) {
       await resortEverything(stage);

@@ -21,6 +21,10 @@ import {
 import { ctx } from "./state";
 import { icon } from "./homeDashboard";
 import { renderTimeLimits, turnOnTimeLimits } from "./timeLimitsTab";
+import { countMailbox } from "../lib/gmailApi";
+import { readTimeText } from "../lib/gmailQuotaLedger";
+import { MAIL_INDEX_CAP, MAIL_INDEX_MAX } from "../lib/mailIndex";
+import { gmailProvider } from "../lib/providers/gmailProvider";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
 
@@ -159,9 +163,10 @@ function freshAnswers(): OnboardingAnswers {
 }
 
 /** Saves the answers and applies the plan. Gmail filters only for "Tidy for me". */
-async function startPlan(answers: OnboardingAnswers): Promise<{ tidyFailed: boolean }> {
+async function startPlan(answers: OnboardingAnswers, readCap: number): Promise<{ tidyFailed: boolean }> {
   const plan = buildOnboardingPlan(answers);
   const patch: Partial<ClusterSettings> = {
+    readCap,
     persona: plan.persona,
     setupDone: true,
     onboarding: { version: 1, answers, answeredAt: Date.now() },
@@ -230,6 +235,10 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   let picked = "";
   let couldGo = false;
   let shown = new Set<string>();
+  // Counted on the plan screen (16 quota units, nothing read). Only a mailbox
+  // over 20,000 gets the question; smaller ones are read in full.
+  let mailCount: number | null | undefined;
+  let readAll = false;
 
   const button = (label: string, className: string, onClick: () => void, disabled = false) => {
     const b = el("button", className, label);
@@ -367,6 +376,46 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     body.append(opts, nav(Boolean(answers.hands)));
   }
 
+  /** "You have 48,210 emails": read the newest 20,000, or all of them. */
+  function renderReadChoice(): HTMLElement | null {
+    if (mailCount === undefined) {
+      mailCount = null;
+      void gmailProvider
+        .getAuthToken(false)
+        .then(countMailbox)
+        .then((n) => {
+          mailCount = n;
+          if (n > MAIL_INDEX_CAP && STEPS[at] === "plan") render();
+        })
+        .catch((err: unknown) => log.error("Setup could not count the mailbox", err));
+    }
+    if (!mailCount || mailCount <= MAIL_INDEX_CAP) return null;
+    const all = Math.min(mailCount, MAIL_INDEX_MAX);
+    const box = el("div", "onb-read");
+    box.append(el("p", "onb-read-title", `You have ${mailCount.toLocaleString()} emails`));
+    const opts = el("div", "onb-opts");
+    opts.setAttribute("role", "group");
+    opts.setAttribute("aria-label", "How much mail to read");
+    const pick = (value: boolean) => () => {
+      readAll = value;
+      render();
+    };
+    opts.append(
+      option("read-newest", `Newest ${MAIL_INDEX_CAP.toLocaleString()}`, readTimeText(MAIL_INDEX_CAP), "clock", "blue", !readAll, pick(false)),
+      option(
+        "read-all",
+        all === mailCount ? `All ${all.toLocaleString()}` : `Newest ${all.toLocaleString()}`,
+        readTimeText(all),
+        "layers",
+        "purple",
+        readAll,
+        pick(true),
+      ),
+    );
+    box.append(opts);
+    return box;
+  }
+
   function renderPlan(body: HTMLElement) {
     const plan = buildOnboardingPlan(answers);
     body.append(
@@ -390,7 +439,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
         go.textContent = "Setting up…";
       }
       try {
-        const { tidyFailed } = await startPlan(answers);
+        const { tidyFailed } = await startPlan(answers, readAll ? MAIL_INDEX_MAX : MAIL_INDEX_CAP);
         if (go) {
           go.textContent = "All set";
           go.classList.add("done");
@@ -407,8 +456,10 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
         }
       }
     };
+    const readChoice = renderReadChoice();
     body.append(
       list,
+      ...(readChoice ? [readChoice] : []),
       nav(true, "Start", () => void start()),
     );
   }

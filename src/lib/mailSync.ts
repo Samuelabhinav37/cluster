@@ -97,6 +97,13 @@ export function syncChangedIndex(result: SyncResult): boolean {
   return result.read + result.removed + result.updated > 0;
 }
 
+/** True when a full listing is still owed: never finished, or the user
+ * changed how far back (window) or how many (cap) to read. */
+export function indexNeedsBuild(state: MailIndexState | undefined, windowDays: number, cap: number): boolean {
+  if (!state?.complete) return true;
+  return (state.windowDays !== undefined && state.windowDays !== windowDays) || (state.cap !== undefined && state.cap !== cap);
+}
+
 export async function syncMailIndex(
   provider: EmailProvider,
   token: string,
@@ -159,7 +166,7 @@ export async function syncMailIndex(
   // 2. Re-list when there's no cursor, the scan window changed, or rows were
   //    stored before a field was added. Known mail isn't read again, except
   //    rows of an older shape.
-  const windowChanged = state.windowDays !== undefined && state.windowDays !== options.windowDays;
+  const windowChanged = state.complete && indexNeedsBuild(state, options.windowDays, cap);
   const rowsOutdated = state.complete && (state.rowVersion ?? 1) < MAIL_ROW_VERSION;
   const scopeWidened = state.complete && (state.scopeVersion ?? 1) < INDEX_SCOPE_VERSION;
   if (!applied || windowChanged || rowsOutdated || scopeWidened) {
@@ -182,6 +189,7 @@ export async function syncMailIndex(
       ...state,
       complete: true,
       windowDays: options.windowDays,
+      cap,
       rowVersion: MAIL_ROW_VERSION,
       scopeVersion: INDEX_SCOPE_VERSION,
       cursor: state.pendingCursor ?? state.cursor,

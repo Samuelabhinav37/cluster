@@ -259,6 +259,17 @@ export async function getCurrentHistoryId(token: string): Promise<string> {
 
 /** The signed-in Gmail address, for the dashboard's account pill. Costs 1
  * quota unit; failures are non-fatal (the caller just hides the pill). */
+/** Emails in the mailbox, leaving out Spam, Trash and Drafts. Four calls,
+ * 16 quota units; nothing is read. */
+export async function countMailbox(token: string): Promise<number> {
+  const [profile, ...skipped] = await Promise.all([
+    gmailFetch<{ messagesTotal?: number }>("/users/me/profile", token),
+    ...["SPAM", "TRASH", "DRAFT"].map((id) => getLabel(token, id).catch(() => ({ messagesTotal: 0 }))),
+  ]);
+  const skip = skipped.reduce((n, l) => n + (l.messagesTotal ?? 0), 0);
+  return Math.max(0, (profile.messagesTotal ?? 0) - skip);
+}
+
 export async function getProfileEmail(token: string): Promise<string> {
   const profile = await gmailFetch<{ emailAddress?: string }>("/users/me/profile", token);
   return profile.emailAddress ?? "";

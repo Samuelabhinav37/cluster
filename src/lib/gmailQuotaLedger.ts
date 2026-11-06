@@ -227,6 +227,20 @@ export const BUILD_PACE: BuildPace = {
   minGapMs: 7_500,
 };
 
+/** Emails the index build reads a minute (200 at today's pace). */
+export const READS_PER_MINUTE = Math.floor(
+  Math.min(BUILD_PACE.share, (BUILD_PACE.batchUnits * 60_000) / BUILD_PACE.minGapMs) / 20,
+);
+
+/** "about 50 min" / "about 1 h 40 min" to read this many emails. */
+export function readTimeText(count: number): string {
+  const minutes = Math.max(1, Math.ceil(count / READS_PER_MINUTE / 5) * 5);
+  if (minutes < 60) return `about ${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m ? `about ${h} h ${m} min` : `about ${h} h`;
+}
+
 /** Waits until the mail-index build may spend its next batch of reads. */
 export async function waitForGmailHeadroom(): Promise<void> {
   for (;;) {

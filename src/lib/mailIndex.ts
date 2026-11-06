@@ -10,8 +10,11 @@
 import { log } from "./log";
 import type { NormalizedMessageMetadata, ProviderId, SentRecord } from "./providers/emailProvider";
 
-/** Most messages the index keeps per account. Oldest go first past this. */
+/** Most messages the index keeps per account by default. Oldest go first past this. */
 export const MAIL_INDEX_CAP = 20_000;
+/** The most a user can choose to read ("All" in setup for a big mailbox). */
+// shortcut: every screen loads the whole index into memory, so 100,000 rows is a guess at what stays smooth; measure on a real 100k mailbox before raising it.
+export const MAIL_INDEX_MAX = 100_000;
 
 /** Shape version of a stored message row. Bump when a provider starts
  * filling a new field; older rows are re-read once, paced, in the background.
@@ -37,6 +40,8 @@ export interface MailIndexState {
   lastSyncAt?: number;
   /** Scan window the last listing used. A different window re-lists. */
   windowDays?: number;
+  /** Read cap the last listing used. A different cap re-lists. */
+  cap?: number;
   /** MAIL_ROW_VERSION of the last full listing; older rows get re-read. */
   rowVersion?: number;
   /** Which mail the listing covered (INDEX_SCOPE_VERSION). A wider scope

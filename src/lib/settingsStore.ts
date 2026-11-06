@@ -9,6 +9,7 @@ import type { QuarantineReviewMap } from "./quarantineReview";
 import { withStorageLock } from "./storageLock";
 import { migrateStoredLabelNames } from "./clusterLabels";
 import { buildOnboardingPlan, type OnboardingAnswers } from "./onboardingPlan";
+import { MAIL_INDEX_CAP, MAIL_INDEX_MAX } from "./mailIndex";
 
 export type UnsubscribeMethod = "one-click" | "mailto";
 
@@ -33,6 +34,9 @@ export interface UnsubscribeRequestRecord {
 export interface ClusterSettings {
   schemaVersion: number;
   scanWindowDays: number;
+  /** Most emails the mail index reads: 20,000, or more when the user chose
+   * "All" for a bigger mailbox in setup. */
+  readCap: number;
   maxMessagesPerProvider: number;
   collapsedSenderCategories: string[];
   collapsedDomainCategories: string[];
@@ -245,7 +249,9 @@ export const CURRENT_SETTINGS_SCHEMA_VERSION = 15;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
-  scanWindowDays: 180,
+  // All mail, back to the first email (see ALL_MAIL_DAYS); readCap bounds the count.
+  scanWindowDays: ALL_MAIL_DAYS,
+  readCap: MAIL_INDEX_CAP,
   // Each message is a 20-unit Gmail messages.get against a 6,000-unit/min
   // per-user ceiling (the ledger paces to 5,500). 150 here + the 100-message
   // security lane keeps a cold first scan inside roughly one quota window, so
@@ -443,6 +449,7 @@ function normalizeSettings(value: unknown): ClusterSettings {
     ...DEFAULT_SETTINGS,
     ...stored,
     schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
+    readCap: Math.min(MAIL_INDEX_MAX, Math.max(MAIL_INDEX_CAP, Number(stored.readCap) || MAIL_INDEX_CAP)),
     sentCorrespondents: {
       ...DEFAULT_SETTINGS.sentCorrespondents,
       ...sentCorrespondents,
@@ -521,6 +528,7 @@ export function updateSettings(partial: Partial<ClusterSettings>): Promise<Clust
 /** Top-level choices that follow the user. */
 const SYNCED_KEYS = [
   "scanWindowDays",
+  "readCap",
   "theme",
   "showKai",
   "simpleMode",

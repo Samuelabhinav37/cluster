@@ -22,7 +22,8 @@ beforeEach(() => {
 describe("settingsStore", () => {
   it("returns defaults when nothing has been stored yet", async () => {
     const settings = await getSettings();
-    expect(settings.scanWindowDays).toBe(180);
+    expect(settings.scanWindowDays).toBe(36500);
+    expect(settings.readCap).toBe(20_000);
     expect(settings.maxMessagesPerProvider).toBe(150);
     expect(settings.fastPermanentDeleteEnabled).toBe(false);
     expect(settings.unsubscribeRequests).toEqual({});

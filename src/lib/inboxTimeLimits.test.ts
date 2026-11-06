@@ -284,4 +284,21 @@ describe("labelBySearch", () => {
     expect(api.readSenders).not.toHaveBeenCalled();
     expect(res).toEqual({ labelled: 3, byBucket: { shopping: 3 } });
   });
+
+  it("searches all mail outside Spam and Trash that has no Cluster label yet", async () => {
+    const api = {
+      findLabelId: vi.fn(),
+      ensureLabelId: vi.fn(async (name: string) => `L:${name}`),
+      listIds: vi.fn(async () => ["old1"]),
+      readSenders: vi.fn(),
+      batchModify: vi.fn(async () => {}),
+    } satisfies InboxLimitsApi;
+    await labelBySearch(api, [{ bucket: "shopping", labelName: "Shopping", queries: ["q1"] }], {
+      allMail: true,
+      skip: '-label:"Shopping"',
+      max: 100_000,
+    });
+    expect(api.listIds).toHaveBeenCalledWith([], 'q1 -is:starred -in:spam -in:trash -label:"Shopping"', 100_000);
+    expect(api.batchModify).toHaveBeenCalledWith(["old1"], ["L:Shopping"], []);
+  });
 });

@@ -33,7 +33,7 @@ import { parseAddressList } from "../lib/headerFields";
 import { brandName } from "../lib/verdict";
 import { fillToday, pickToday, type TodayItem } from "../lib/today";
 import { clearMetadataCache } from "../lib/metadataCache";
-import { MAIL_INDEX_CAP, openMailIndex } from "../lib/mailIndex";
+import { openMailIndex } from "../lib/mailIndex";
 import {
   catchUpIndex,
   DEFAULT_QUICK_COUNT,
@@ -753,7 +753,7 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
       const result = await withStorageLock(mailIndexLockKey(provider), () =>
         syncMailIndex(provider, authToken, store, {
           windowDays: ctx.settings.scanWindowDays,
-          cap: MAIL_INDEX_CAP,
+          cap: ctx.settings.readCap,
           quickCount: QUICK_READY_COUNT,
           onQuickReady: resolveQuick,
           onProgress: (progress) => {
@@ -813,7 +813,11 @@ onScanChange((s) => {
 
 /** Labels the whole inbox from the mail index; the card follows along. */
 async function startLabelScan() {
-  if (!ctx.settings.autoSort.timeLimitsEnabled) return;
+  if (!ctx.settings.autoSort.timeLimitsEnabled) {
+    // Labels off ("Ask me first"): the read is the whole scan.
+    if ((await getScan())?.phase === "reading") await setScan({ phase: "done", finishedAt: Date.now() });
+    return;
+  }
   await setScan({ ...newScan(), phase: "labelling" });
   try {
     await runInboxTimeLimits(Date.now(), { relabel: true });
@@ -1067,7 +1071,7 @@ async function scanAndRender({
   const combined = summarizeCombined(
     metas,
     SECURITY_SCAN_MAX_MESSAGES,
-    metas.length >= MAIL_INDEX_CAP * providers.length,
+    metas.length >= ctx.settings.readCap * providers.length,
   );
   // Real per-sender totals, counted by search, for senders not fully read yet.
   const censusRows = (await Promise.all(providers.map((p) => store.allCensus(p.id)))).flat();
@@ -1497,7 +1501,7 @@ function renderOverview(
   if (lastScanCapHit) {
     const footNote = document.createElement("p");
     footNote.className = "text-meta";
-    footNote.textContent = `Based on your latest ${MAIL_INDEX_CAP.toLocaleString()} messages per account.`;
+    footNote.textContent = `Based on your latest ${ctx.settings.readCap.toLocaleString()} messages per account.`;
     overviewContentEl.appendChild(footNote);
   }
 }

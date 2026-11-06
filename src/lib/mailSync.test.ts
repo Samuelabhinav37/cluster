@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createMemoryMailIndex, INDEX_SCOPE_VERSION, MAIL_ROW_VERSION } from "./mailIndex";
-import { catchUpIndex, readMailIndex, SENT_FIRST, syncMailIndex } from "./mailSync";
+import { catchUpIndex, indexNeedsBuild, readMailIndex, SENT_FIRST, syncMailIndex } from "./mailSync";
 import type { EmailProvider, MailboxChanges, NormalizedMessageMetadata } from "./providers/emailProvider";
 import { gmailLabelFields, inIndexScope } from "./providers/gmailProvider";
 
@@ -624,5 +624,18 @@ describe("syncMailIndex: fetch one, count many", () => {
     // Older mail still goes through the census: one search, not 20 reads.
     expect(listFrom).toHaveBeenCalledTimes(1);
     expect((await store.ids("gmail")).size).toBe(40);
+  });
+});
+
+describe("indexNeedsBuild", () => {
+  it("re-lists when unfinished, or when the window or the cap changed", () => {
+    const done = { provider: "gmail" as const, complete: true, windowDays: 36500, cap: 20_000 };
+    expect(indexNeedsBuild(undefined, 36500, 20_000)).toBe(true);
+    expect(indexNeedsBuild({ ...done, complete: false }, 36500, 20_000)).toBe(true);
+    expect(indexNeedsBuild(done, 36500, 20_000)).toBe(false);
+    expect(indexNeedsBuild(done, 36500, 100_000)).toBe(true);
+    expect(indexNeedsBuild({ ...done, windowDays: 180 }, 36500, 20_000)).toBe(true);
+    // Built before the cap was recorded: not a reason to re-list.
+    expect(indexNeedsBuild({ ...done, cap: undefined }, 36500, 20_000)).toBe(false);
   });
 });

@@ -334,12 +334,18 @@ export interface SearchSpec {
 export async function labelBySearch(
   api: InboxLimitsApi,
   specs: readonly SearchSpec[],
+  /** Default: the inbox. allMail: every email outside Spam and Trash that has
+   * no Cluster label yet (`skip`), up to `max` per search. */
+  scope: { allMail: true; skip: string; max: number } | { allMail?: false } = {},
 ): Promise<{ labelled: number; byBucket: Partial<Record<SortBucket, number>> }> {
   const byBucket: Partial<Record<SortBucket, number>> = {};
   let labelled = 0;
+  const [labelIds, suffix, max] = scope.allMail
+    ? [[], ` -in:spam -in:trash ${scope.skip}`, scope.max]
+    : [["INBOX"], "", LIST_MAX];
   for (const spec of specs) {
     const ids = new Set<string>();
-    for (const q of spec.queries) for (const id of await api.listIds(["INBOX"], `${q} -is:starred`, LIST_MAX)) ids.add(id);
+    for (const q of spec.queries) for (const id of await api.listIds(labelIds, `${q} -is:starred${suffix}`, max)) ids.add(id);
     if (ids.size === 0) continue;
     await api.batchModify([...ids], [await api.ensureLabelId(spec.labelName)], []);
     byBucket[spec.bucket] = ids.size;
