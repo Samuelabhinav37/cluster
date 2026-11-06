@@ -26,7 +26,8 @@ const BUDGETS = {
   // 2026-10-30: 340 -> 345 KB for the brand registry (shared with the dashboard).
   // 2026-11-03: 345 -> 350 KB for 5-minute scam holds and the Today email.
   // 2026-11-03: 350 -> 352 KB for auto-mute 14 days after Unsubscribe.
-  "service worker JS": 352 * KB,
+  // 2026-11-06: 352 -> 372 KB for the Nov redesign, Sort inbox and the daily security scan.
+  "service worker JS": 372 * KB,
   // 2026-10-16: 500 → 540 KB for the mail index, sender profiles,
   // suggestions v2 and the unsubscribe work that follows (~174 KB gzip at
   // the raise). Lazy-loading the tabs is the next lever if it grows again.
@@ -38,7 +39,8 @@ const BUDGETS = {
   // 2026-10-28: 595 → 600 KB for Moved today, Delivered orders, newsletter schedule.
   // 2026-10-29: 600 -> 615 KB for the five-step setup with Kai and its drawings.
   // 2026-10-30: 615 -> 635 KB for round 2: brand registry, mark check, Protect brand check.
-  "dashboard JS": 635 * KB,
+  // 2026-11-06: 635 -> 670 KB for the Nov redesign (Overview, Cleanup, Security, Sort inbox, Scan now).
+  "dashboard JS": 670 * KB,
   // 2026-10-16: +10 KB for Kai's corner guide and chat (dashboard.css Kai
   // section, ~8 KB raw / 1.5 KB gzip), on top of 47 KB before Kai.
   // 2026-10-26: 60 → 64 KB for the rail shell (rail, panel, crumbs; ~3 KB raw).
@@ -48,7 +50,9 @@ const BUDGETS = {
   // 2026-10-29: 76 -> 88 KB for the split sign-in page and the animated setup screens.
   // 2026-10-29: 88 -> 89 KB for Home v2, share bars and the Report gauge.
   // 2026-10-30: 89 -> 94 KB for the round 2 screens.
-  "dashboard CSS": 94 * KB,
+  // 2026-11-06: 94 -> 125 KB for the Nov redesign (Plausible/Mercury pages), after
+  // deleting 93 unused rules (129 -> 122 KB). What's left is all in use.
+  "dashboard CSS": 125 * KB,
 };
 
 function file(name) {
