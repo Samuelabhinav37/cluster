@@ -81,19 +81,19 @@ describe("first-run setup", () => {
     expect(document.getElementById("settings-change-setup")).toBeNull();
   });
 
-  it("by default turns everything on: filters for every label, promotions and newsletters skip the inbox, scams held", async () => {
+  it("by default turns everything on: filters for every label, promotions, newsletters and social skip the inbox, scams held", async () => {
     const dash = await bootDashboard();
     await runSetup(dash, "me");
     await vi.waitFor(() => expect(Object.keys(dash.storedSettings().autoSort.filterIdsByBucket)).toHaveLength(13));
     const stored = dash.storedSettings();
     expect(stored.autoSort.timeLimitsEnabled).toBe(true);
     expect(stored.autoSort.labelsOff).toEqual([]);
-    expect(stored.autoSort.inboxHoursByBucket).toMatchObject({ promotions: 0, newsletter: 0, social: 1, finance: 1, jobs: 1 });
+    expect(stored.autoSort.inboxHoursByBucket).toMatchObject({ promotions: 0, newsletter: 0, social: 0, finance: 1, jobs: 1 });
     expect(stored.autoQuarantineHighRisk).toBe(true);
     const calls = dash.gmailApi.createFilter.mock.calls as [string, { query?: string }, { removeLabelIds: string[] }][];
     const skipping = calls.filter((c) => c[2].removeLabelIds.includes("INBOX")).length;
     const ids = stored.autoSort.filterIdsByBucket;
-    expect(skipping).toBe(ids.promotions.length + ids.newsletter.length);
+    expect(skipping).toBe(ids.promotions.length + ids.newsletter.length + ids.social.length);
   });
 
   it("Ask me first saves the answers but never turns on Gmail filters", async () => {

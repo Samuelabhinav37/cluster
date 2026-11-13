@@ -40,7 +40,7 @@ import { clusterLabelName } from "./clusterLabels";
 
 /** Bump when labelling rules change (domains, kinds, phrases): the next run
  * relabels the whole indexed inbox once. */
-export const LABEL_RULES_VERSION = 1;
+export const LABEL_RULES_VERSION = 2;
 
 export interface TimeLimitRun {
   tagged: number;
@@ -156,7 +156,10 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
   const builtNow = await step("index build", false, () => continueIndexBuild(token, settings.scanWindowDays, settings.readCap));
   // Then pages of older unlabelled inbox mail, until the whole inbox is seen.
   // A rescan (labels deleted in Gmail, say) works back through older inbox mail again.
-  const backFrom = options.relabel ? 0 : settings.autoSort.tagBackBefore;
+  // So does a gap: the tagger only looks back two days, so after Chrome was
+  // closed (or the run stalled) for longer, older mail would stay unlabelled.
+  const gap = settings.autoSort.lastSweep.at > 0 && now - settings.autoSort.lastSweep.at > TAG_GAP_MS;
+  const backFrom = options.relabel || gap ? 0 : settings.autoSort.tagBackBefore;
   const back = backFrom === TAG_BACK_DONE ? null : await step("older inbox", null, () => tagOlderPages(ctx, api, backFrom));
   const indexDone = indexReady || builtNow;
   const relabelled =
@@ -173,6 +176,9 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
   }));
   return { tagged: tag.tagged + (back?.tagged ?? 0) + (relabelled ?? 0), moved: sweep.movedIds.length, more: sweep.more };
 }
+
+/** The tagger's look-back (TAG_WINDOW in inboxTimeLimits.ts). */
+const TAG_GAP_MS = 2 * 24 * 60 * 60 * 1000;
 
 /** Pages of older inbox mail (100 each) labelled per run, paced like the read. */
 const OLDER_PAGES = 3;

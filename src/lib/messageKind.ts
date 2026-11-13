@@ -31,14 +31,14 @@ const RECEIPT_RE =
 const ACCOUNT_EXCLUDE_RE = /\bcve-\d/i;
 // No bare "application": PayPal's "Pay in 4 application" is not a job.
 const JOBS_RE =
-  /\b(thanks?( you)? for (applying|your application)|your (job )?application|job application|application (update|status|received|confirmation)|received your application|job alerts?|jobs for you|new jobs?|job opening|new opportunity|career opportunit(y|ies)|(urgent|immediate) (hiring|opportunity|requirement)|complete your( [\w-]+){0,4} application|(complete )?your( \w+)? interview|interview (questionnaire|invitation|request|scheduled))\b/i;
+  /\b(thanks?( you)? for (applying|your application)|your (job )?application|job application|application (update|status|received|confirmation)|received your application|job alerts?|job (notifications?|search|match(es)?)|jobs for you|new jobs?|looking for( [\w-]+){0,4} jobs|job opening|new opportunity|career opportunit(y|ies)|(urgent|immediate) (hiring|opportunity|requirement)|complete your( [\w-]+){0,4} application|(complete )?your( \w+)? interview|interview (questionnaire|invitation|request|scheduled))\b/i;
 // recruiting@dupaco.com, recruitingnoreply@ford.com, talentacquisition@hr.questdiagnostics.com.
 // A staffing agency's one-to-one post: a job title next to a work mode
 // ("Cybersecurity Engineer :: Remote", "IAM Consultant - Frisco, TX (Onsite)").
 // Only without an unsubscribe link, so newsletters about remote work stay news.
 const JOB_POST_RE =
   /\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b.*\b(remote|hybrid|on-?site|contract|w2|c2c)\b|\b(remote|hybrid|on-?site|contract)\b.*\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b|^looking for\b/i;
-const JOBS_SENDER_RE = /\b(recruit\w*|talent ?acquisition|careers?)\b/i;
+const JOBS_SENDER_RE = /\b(recruit\w*|talent ?acquisition|careers?|jobs?|job ?(alerts?|notifications?))\b/i;
 const SOCIAL_RE = /\b(mentioned you|tagged you|new follower|friend request|liked your|commented on)\b/i;
 // When the subject says nothing ("Your Thursday evening trip with Uber"), a
 // sender named for receipts or orders still does: "Uber Receipts",

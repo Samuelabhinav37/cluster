@@ -12,7 +12,7 @@ vi.mock("./providers/gmailProvider", () => ({
 }));
 vi.mock("./settingsStore", () => ({
   getSettings: async () => ({
-    autoSort: { timeLimitsEnabled: true, labelsOff: [], inboxHoursByBucket: {} },
+    autoSort: { timeLimitsEnabled: true, labelsOff: [], inboxHoursByBucket: {}, lastSweep: { at: 0, moved: 0 } },
     labelChoices: {},
     sortOverrides: {},
   }),

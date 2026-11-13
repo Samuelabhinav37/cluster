@@ -439,7 +439,8 @@ function migrateSettings(value: unknown): Record<string, unknown> {
       // closed and can't stall the way the timed move-out did (Nov 2026).
       const autoSort = isRecord(stored.autoSort) ? stored.autoSort : {};
       const hours = isRecord(autoSort.inboxHoursByBucket) ? { ...autoSort.inboxHoursByBucket } : {};
-      for (const b of ["promotions", "newsletter", "social"]) hours[b] = 0;
+      // Only where times were saved: a fresh install gets these from setup.
+      for (const b of ["promotions", "newsletter", "social"]) if (b in hours) hours[b] = 0;
       stored = { ...stored, schemaVersion: 16, autoSort: { ...autoSort, inboxHoursByBucket: hours } };
       version = 16;
     }

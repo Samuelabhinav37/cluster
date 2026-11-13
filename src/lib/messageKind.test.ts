@@ -102,3 +102,12 @@ describe("looksAutomated", () => {
     expect(classifyMessageKind("Your October Affirm Card statement is here", true)).toBe("receipt");
   });
 });
+
+describe("job mail left unlabelled in a real inbox (Nov 2026)", () => {
+  it("labels job notifications by subject or by a jobs@ sender", () => {
+    expect(classifyMessageKind("Your Randstad USA Job Notification", true)).toBe("jobs");
+    expect(classifyMessageKind("Are you still looking for Security Analyst jobs?", true)).toBe("jobs");
+    expect(classifyMessageKind("Weekly roundup", true, { address: "jobs@randstadusa.com", displayName: "Randstad USA" })).toBe("jobs");
+    expect(classifyMessageKind("Steve Jobs biography is on sale", true)).toBe("newsletter");
+  });
+});
