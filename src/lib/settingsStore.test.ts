@@ -279,6 +279,14 @@ describe("settingsStore", () => {
     expect(hours).toMatchObject({ accounts: 1, jobs: 1, travel: 1, otp: 1, promotions: 0 });
   });
 
+  it("migrates schema 15: promotions, newsletters and social skip the inbox", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: { schemaVersion: 15, autoSort: { inboxHoursByBucket: { promotions: 1, newsletter: 1, social: 1, receipt: 1 } } },
+    });
+    const hours = (await getSettings()).autoSort.inboxHoursByBucket;
+    expect(hours).toMatchObject({ promotions: 0, newsletter: 0, social: 0, receipt: 1 });
+  });
+
   it("serializes concurrent partial updates so unrelated changes are preserved", async () => {
     await Promise.all([
       updateSettings({ scanWindowDays: 14 }),

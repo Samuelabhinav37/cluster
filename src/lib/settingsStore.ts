@@ -245,7 +245,7 @@ export interface HealthSnapshot {
 const STORAGE_KEY = "clusterSettings";
 /** A scan window that reaches the first email (Gmail began in 2004). */
 export const ALL_MAIL_DAYS = 36500;
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 15;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 16;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -433,6 +433,15 @@ function migrateSettings(value: unknown): Record<string, unknown> {
       for (const b of Object.keys(hours)) if (hours[b] !== 0) hours[b] = 1;
       stored = { ...stored, schemaVersion: 15, autoSort: { ...autoSort, inboxHoursByBucket: hours } };
       version = 15;
+    } else if (version === 15) {
+      // Promotions, newsletters and social skip the inbox on arrival: the
+      // Gmail filter moves them on Google's side, so it works with Chrome
+      // closed and can't stall the way the timed move-out did (Nov 2026).
+      const autoSort = isRecord(stored.autoSort) ? stored.autoSort : {};
+      const hours = isRecord(autoSort.inboxHoursByBucket) ? { ...autoSort.inboxHoursByBucket } : {};
+      for (const b of ["promotions", "newsletter", "social"]) hours[b] = 0;
+      stored = { ...stored, schemaVersion: 16, autoSort: { ...autoSort, inboxHoursByBucket: hours } };
+      version = 16;
     }
   }
   return stored;

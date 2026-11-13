@@ -10,6 +10,7 @@ import {
   paintHomeRead,
   renderHomeDashboard,
   renderScanCard,
+  sweepLine,
   type HomeFacts,
 } from "./homeDashboard";
 import { newScan } from "../lib/scanState";
@@ -243,6 +244,15 @@ describe("renderHomeDashboard", () => {
     expect(text(card.querySelector(".home-verdict"))).toBe("Reading your sent mail.");
     expect(text(card.querySelector(".read-nums"))).toBe("");
     expect(card.querySelector<HTMLElement>(".read-track")!.hidden).toBe(true);
+  });
+});
+
+describe("sweepLine", () => {
+  it("says when the inbox was last checked, and warns after 30 minutes without a run", () => {
+    expect(sweepLine(NOW - 4 * 60000, NOW).textContent).toBe("Inbox checked 4 min ago.");
+    const stale = sweepLine(NOW - 31 * 60000, NOW);
+    expect(stale.className).toContain("ov-stale");
+    expect(stale.textContent).toMatch(/^Inbox not checked since /);
   });
 });
 

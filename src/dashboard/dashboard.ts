@@ -129,6 +129,7 @@ import {
   paintHomeRead,
   fillTodaySnippets,
   renderHomeDashboard,
+  STALE_SWEEP_MS,
   renderScanCard,
   filedByDay,
   type HomeAct,
@@ -1382,6 +1383,7 @@ function oldestRead(senders: SenderSummary[]): number | undefined {
 let inboxUnread: number | undefined;
 let unreadAt = 0;
 let lastOverview: Parameters<typeof renderOverview> | null = null;
+let staleSweepKicked = false;
 async function refreshInboxUnread(): Promise<void> {
   if (Date.now() - unreadAt < 5 * 60 * 1000 || !providerById.has("gmail")) return;
   unreadAt = Date.now();
@@ -1469,6 +1471,7 @@ function renderOverview(
     stopLists: stopListKeys.length,
     filed: filedByDay(ctx.settings.actionLog, Date.now()),
     topSenders: topSendersByCompany(allSenders, Date.now()),
+    sweptAt: ctx.settings.autoSort.timeLimitsEnabled ? ctx.settings.autoSort.lastSweep.at || undefined : undefined,
     // Security's own rows, so Overview never lists a sender Security doesn't.
     suspects: rankFlagged(securitySenders).high.slice(0, 2).map(({ sender: s }) => ({
       key: s.key,
@@ -1495,6 +1498,12 @@ function renderOverview(
     ),
   );
   paintScanCard();
+  // The background run is late (Chrome just opened, or it stalled): run it
+  // from here, once per page load, instead of only reporting it.
+  if (facts.sweptAt && !staleSweepKicked && Date.now() - facts.sweptAt > STALE_SWEEP_MS) {
+    staleSweepKicked = true;
+    void runInboxTimeLimits().catch((err) => log.error("Overview: late inbox run failed", err));
+  }
   void loadTodaySnippets(facts.today);
   lastOverview = [senders, securitySenders, allSenders];
   void refreshInboxUnread();

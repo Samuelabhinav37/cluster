@@ -116,7 +116,27 @@ export function filedByDay(log: readonly ActionLogEntry[], now: number): { cur: 
   return { cur, prev };
 }
 
+/** How long without a run before the Overview says the inbox isn't being checked. */
+export const STALE_SWEEP_MS = 30 * 60 * 1000;
+
+/** One line that proves the background run is alive: a week of labelled
+ * mail sat in the inbox (Nov 2026) and nothing on screen said so. */
+export function sweepLine(sweptAt: number, now: number): HTMLElement {
+  const age = now - sweptAt;
+  if (age > STALE_SWEEP_MS) {
+    const day = age > 24 * 60 * 60 * 1000;
+    const when = new Date(sweptAt).toLocaleString(undefined, day ? { month: "short", day: "numeric" } : { hour: "numeric", minute: "2-digit" });
+    const line = el("p", "text-meta ov-stale", `Inbox not checked since ${when}.`);
+    line.setAttribute("role", "status");
+    return line;
+  }
+  const mins = Math.floor(age / 60000);
+  return el("p", "text-meta ov-health", mins < 1 ? "Inbox checked just now." : `Inbox checked ${mins} min ago.`);
+}
+
 export interface HomeFacts {
+  /** When the background run last looked at the inbox; unset when labels are off. */
+  sweptAt?: number;
   kinds: Record<HomeKind, number>;
   total: number;
   thisWeek: number;
@@ -703,6 +723,7 @@ export function renderHomeDashboard(
   today.append(el("h2", "ov-card-title", "Today"), todayList(f.today ?? []));
   head.append(today);
   root.append(head);
+  if (f.sweptAt) root.append(sweepLine(f.sweptAt, Date.now()));
   const since = f.since
     ? ` Read back to ${new Date(f.since).toLocaleDateString(undefined, { month: "short", day: "numeric" })} so far.`
     : "";

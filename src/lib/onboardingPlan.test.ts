@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { buildOnboardingPlan, FOCUS_HOURS } from "./onboardingPlan";
 
 describe("buildOnboardingPlan", () => {
-  it("by default: promotions and newsletters skip the inbox, the rest leaves after the focus window, scams held", () => {
+  it("by default: promotions, newsletters and social skip the inbox, the rest leaves after the focus window, scams held", () => {
     const plan = buildOnboardingPlan({ who: "me", sorted: {}, keep: [] });
     expect(plan.tidy).toBe(true);
     expect(plan.holdScams).toBe(true);
-    expect(plan.hours).toMatchObject({ promotions: 0, newsletter: 0, social: FOCUS_HOURS, otp: FOCUS_HOURS, finance: FOCUS_HOURS });
+    expect(plan.hours).toMatchObject({ promotions: 0, newsletter: 0, social: 0, otp: FOCUS_HOURS, finance: FOCUS_HOURS });
     expect(Object.keys(plan.hours)).toHaveLength(13);
     expect(plan.hours.accounts).toBe(1);
     expect(plan.persona).toBe("calm");
