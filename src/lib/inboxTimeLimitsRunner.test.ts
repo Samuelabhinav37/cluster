@@ -25,10 +25,39 @@ vi.mock("./scanState", async (orig) => ({
   setScan: async (patch: Partial<ScanState>) => (scan = { ...(scan as ScanState), ...patch }),
 }));
 vi.mock("./screener", () => ({ knownSenderSet: () => new Set<string>() }));
-vi.mock("./indexTriage", () => ({ applyIndexedCorrespondents: vi.fn(async () => undefined) }));
-vi.mock("./inboxTimeLimits", async (orig) => ({ ...(await orig<object>()), labelFromIndex: (...a: unknown[]) => labelFromIndex(...a) }));
+vi.mock("./indexTriage", () => ({
+  applyIndexedCorrespondents: vi.fn(async () => undefined),
+  refreshIndexForBackground: async () => [],
+  indexSeededCache: async () => ({ cache: new Map(), saveFetched: async () => {} }),
+  mailIndexLockKey: () => "k",
+}));
+const order: string[] = [];
+vi.mock("./inboxTimeLimits", async (orig) => ({
+  ...(await orig<object>()),
+  labelFromIndex: (...a: unknown[]) => labelFromIndex(...a),
+  tagUntaggedInbox: async () => ({ tagged: 0, byBucket: {}, oldestAt: null, listed: 0 }),
+  tagOlderInbox: async () => ({ tagged: 0, nextBefore: -3 }),
+  sweepExpiredInbox: async () => (order.push("sweep"), { movedIds: ["m1"], keptIds: [], more: false }),
+}));
+vi.mock("./categoryFilters", () => ({
+  categoryLabelName: (b: string) => b,
+  desiredCategoryFilters: () => [],
+  syncGmailCategoryFilters: async () => {
+    throw new Error("filters down");
+  },
+}));
+vi.mock("./mailSync", async (orig) => ({
+  ...(await orig<object>()),
+  syncMailIndex: async () => {
+    order.push("read");
+    throw new Error("read died");
+  },
+}));
+vi.mock("./metadataCache", () => ({ loadMetadataCache: async () => new Map(), saveMetadataCache: async () => {} }));
+vi.mock("./actionLog", () => ({ appendActionLog: async () => {}, makeLogId: () => "id" }));
+vi.mock("./gmailApi", () => ({}));
 
-const { readLabeller } = await import("./inboxTimeLimitsRunner");
+const { readLabeller, runInboxTimeLimits } = await import("./inboxTimeLimitsRunner");
 
 function row(id: string, labelIds: string[]): NormalizedMessageMetadata {
   return {
@@ -85,5 +114,15 @@ describe("readLabeller", () => {
   it("is off once the read is finished", async () => {
     await index.setState({ provider: "gmail", complete: true });
     expect(await readLabeller()).toBeNull();
+  });
+});
+
+describe("runInboxTimeLimits", () => {
+  it("moves mail out before the long read, and when the filter sync and the read both fail", async () => {
+    await index.setState({ provider: "gmail", complete: false });
+    order.length = 0;
+    const run = await runInboxTimeLimits(1, {});
+    expect(run?.moved).toBe(1);
+    expect(order).toEqual(["sweep", "read"]);
   });
 });

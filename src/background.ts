@@ -147,9 +147,10 @@ function handleAlarm(alarm: chrome.alarms.Alarm): void {
 
 async function runInboxTimeLimitsIfQuota(): Promise<void> {
   try {
-    // Same guard as triage: don't add to a scan already near Gmail's
-    // per-minute ceiling; the next 5-minute tick tries again.
-    if ((await gmailQuotaHeadroom()) < 1500) return;
+    // The label and move steps cost a few hundred units, and a mailbox read
+    // paces itself to leave 1,500 free: a 1,500 floor here skipped every
+    // run for as long as a read went on, so labelled mail never left the inbox.
+    if ((await gmailQuotaHeadroom()) < 500) return;
     await runInboxTimeLimits();
   } catch (err) {
     log.error("Inbox time limits failed", err);

@@ -18,6 +18,8 @@ import {
   withoutClusterLabels,
   type CategoryLimit,
   type InboxLimitsApi,
+  type SweepResult,
+  type TagResult,
 } from "./inboxTimeLimits";
 import { applyIndexedCorrespondents, indexSeededCache, mailIndexLockKey, refreshIndexForBackground } from "./indexTriage";
 import { MAIL_INDEX_MAX, openMailIndex } from "./mailIndex";
@@ -53,25 +55,35 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
   if (!settings.autoSort.timeLimitsEnabled) return null;
   if (!(await gmailProvider.isConnected())) return null;
   const token = await gmailProvider.getAuthToken(false);
+  // Each step stands alone: a failed filter sync or read must not stop the
+  // sweep (labelled mail sat in the inbox for a week behind an earlier step).
+  const step = async <T>(name: string, fallback: T, fn: () => Promise<T>): Promise<T> => {
+    try {
+      return await fn();
+    } catch (err) {
+      log.error(`Time limits: ${name} failed`, err);
+      return fallback;
+    }
+  };
   // An update can change what a category matches; Gmail's filters keep the
   // old query until rewritten. Unchanged filters cost no API calls.
-  const synced = await syncGmailCategoryFilters(settings, token);
-  if (synced.created > 0 || synced.deleted > 0) {
+  await step("filter sync", undefined, async () => {
+    const synced = await syncGmailCategoryFilters(settings, token);
+    if (synced.created === 0 && synced.deleted === 0) return;
     // Colours are cosmetic: a failure mustn't stop the labelling below.
     await colorClusterLabels(token).catch((err: unknown) => log.error("Time limits: label colours failed", err));
     await mutateSettings((current) => ({
       ...current,
       autoSort: { ...current.autoSort, filterIdsByBucket: synced.filterIdsByBucket, filterSpecByBucket: synced.filterSpecByBucket },
     }));
-  }
+  });
 
   const limits = limitsFor(settings);
   // First, before any read: label the inbox by each filter's own query.
-  if (options.relabel || settings.autoSort.searchedVersion !== LABEL_RULES_VERSION) {
-    await searchLabelInbox(token, settings, limits, now);
-  }
-  // A read the dashboard started and didn't finish goes on here, labelling as it reads.
-  const builtNow = await continueIndexBuild(token, settings.scanWindowDays, settings.readCap);
+  const searched =
+    options.relabel || settings.autoSort.searchedVersion !== LABEL_RULES_VERSION
+      ? await step("search labelling", false, async () => (await searchLabelInbox(token, settings, limits, now), true))
+      : true;
   // Senders come from the mail index (kept current from Gmail's change feed);
   // only inbox mail it doesn't have yet is read, then saved to it. Without
   // a built index this falls back to the old warm cache.
@@ -87,26 +99,18 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
     keptIds: new Set(settings.autoSort.keptInInboxIds),
   };
 
-  const tag = await tagUntaggedInbox(ctx, api);
-  // Then one page of older unlabelled inbox mail, until the whole inbox is seen.
-  // A rescan (labels deleted in Gmail, say) works back through older inbox mail again.
-  const backFrom = options.relabel ? 0 : settings.autoSort.tagBackBefore;
-  const back = backFrom === TAG_BACK_DONE ? null : await tagOlderPages(ctx, api, backFrom);
-  const relabelled =
-    indexReady && (options.relabel || builtNow || settings.autoSort.labelledVersion !== LABEL_RULES_VERSION)
-      ? await relabelInbox(ctx, api, now)
-      : 0;
-  const sweep = await sweepExpiredInbox(ctx, api);
+  // The quick work first: label new mail, then move out what is past its
+  // time. The long read comes last, so a read that takes hours (or dies with
+  // the service worker) never holds labelled mail in the inbox.
+  const tag = await step<TagResult>("tagging", { tagged: 0, byBucket: {}, oldestAt: null, listed: 0 }, () => tagUntaggedInbox(ctx, api));
+  const sweep = await step<SweepResult>("sweep", { movedIds: [], keptIds: [], more: false }, () => sweepExpiredInbox(ctx, api));
   if (legacyCache) void saveMetadataCache(legacyCache);
-
   await mutateSettings((current) => ({
     ...current,
     autoSort: {
       ...current.autoSort,
       lastSweep: { at: now, moved: sweep.movedIds.length },
-      tagBackBefore: back ? back.nextBefore : current.autoSort.tagBackBefore,
-      labelledVersion: indexReady ? LABEL_RULES_VERSION : current.autoSort.labelledVersion,
-      searchedVersion: LABEL_RULES_VERSION,
+      searchedVersion: searched ? LABEL_RULES_VERSION : current.autoSort.searchedVersion,
       keptInInboxIds: pinInInbox(current.autoSort.keptInInboxIds, sweep.keptIds),
     },
   }));
@@ -125,7 +129,9 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
     ]);
   }
   if (settings.autoSort.holdUnsorted) {
-    const held = await holdUnsortedInbox(ctx, api, clusterLabelName("screener"));
+    const held = await step<{ heldIds: string[]; senders: string[] }>("hold", { heldIds: [], senders: [] }, () =>
+      holdUnsortedInbox(ctx, api, clusterLabelName("screener")),
+    );
     if (held.heldIds.length > 0) {
       // Listed as screened so the Screener page shows them waiting.
       await mutateSettings((current) => ({
@@ -144,7 +150,28 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
       ]);
     }
   }
-  return { tagged: tag.tagged + (back?.tagged ?? 0) + relabelled, moved: sweep.movedIds.length, more: sweep.more };
+
+  // Now the slow work. A read the dashboard started and didn't finish goes
+  // on here, labelling as it reads.
+  const builtNow = await step("index build", false, () => continueIndexBuild(token, settings.scanWindowDays, settings.readCap));
+  // Then pages of older unlabelled inbox mail, until the whole inbox is seen.
+  // A rescan (labels deleted in Gmail, say) works back through older inbox mail again.
+  const backFrom = options.relabel ? 0 : settings.autoSort.tagBackBefore;
+  const back = backFrom === TAG_BACK_DONE ? null : await step("older inbox", null, () => tagOlderPages(ctx, api, backFrom));
+  const indexDone = indexReady || builtNow;
+  const relabelled =
+    indexDone && (options.relabel || builtNow || settings.autoSort.labelledVersion !== LABEL_RULES_VERSION)
+      ? await step<number | null>("relabel", null, () => relabelInbox(ctx, api, now))
+      : 0;
+  await mutateSettings((current) => ({
+    ...current,
+    autoSort: {
+      ...current.autoSort,
+      tagBackBefore: back ? back.nextBefore : current.autoSort.tagBackBefore,
+      labelledVersion: indexDone && relabelled !== null ? LABEL_RULES_VERSION : current.autoSort.labelledVersion,
+    },
+  }));
+  return { tagged: tag.tagged + (back?.tagged ?? 0) + (relabelled ?? 0), moved: sweep.movedIds.length, more: sweep.more };
 }
 
 /** Pages of older inbox mail (100 each) labelled per run, paced like the read. */
