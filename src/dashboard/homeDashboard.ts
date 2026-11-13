@@ -7,7 +7,7 @@ import { readTimeText } from "../lib/gmailQuotaLedger";
 import { senderTile } from "./senderTile";
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 import { clearedCount, type ActionLogEntry } from "../lib/actionLog";
-import type { TodayItem } from "../lib/today";
+import { REASON_WORD, type TodayItem } from "../lib/today";
 import type { ScanState } from "../lib/scanState";
 import type { SortBucket } from "../lib/sortTaxonomy";
 import { gmailMessageUrl } from "./detailsPanel";
@@ -617,7 +617,9 @@ function todayList(items: readonly TodayItem[]): HTMLElement {
     const line = el("span", "today-sub", t.subject);
     line.append(snippet);
     words.append(el("b", "", t.name), line);
-    const when = el("span", "ios-value", new Date(t.receivedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }));
+    const time = new Date(t.receivedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    // Why this email is here; "recent" rows only fill the list, so they say nothing.
+    const when = el("span", "ios-value", t.reason === "recent" ? time : `${REASON_WORD[t.reason]} · ${time}`);
     row.append(senderTile(t.address, t.name, "sz-44"), words, when);
     group.append(row);
   }

@@ -81,7 +81,7 @@ export function fillToday(items: TodayItem[], senders: readonly SenderSummary[],
   return [...items, ...extra].slice(0, max);
 }
 
-const REASON_WORD: Record<TodayReason, string> = {
+export const REASON_WORD: Record<TodayReason, string> = {
   starred: "Starred",
   reply: "Reply",
   person: "From a person",

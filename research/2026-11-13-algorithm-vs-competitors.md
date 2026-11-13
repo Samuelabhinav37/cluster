@@ -80,3 +80,13 @@ The others ask the user for one decision each:
 - Copilot: one sentence saying what matters.
 
 Cluster asks per label: Off, Label only, Skip inbox, Move after X, plus a window. Proposal: two states per label, **Show in inbox** or **Keep out**, and one global "glance time" (1 h, 3 h, 1 day) for the labels that show. Everything else moves to Advanced. That is change 1 above seen from the screen.
+
+## 6. Status (2026-11-13, evening)
+
+Built: 1 (Promotions, Newsletters, Social skip the inbox; schema 16), 2 (Overview line "Inbox checked N min ago", warning after 30 minutes, late run starts itself), 4 (job notifications, jobs@ senders), 6 (reason on Today rows).
+
+Change 3 needed no new rule. Mail with an unsubscribe header already becomes Newsletters. The 200 leftovers were unlabelled because the tagger was not running and only looks back two days. The catch-up pass now runs once more, and again after any gap over two days.
+
+Not built, each changes a screen: 5 (sender plus kind corrections), 7 (daily list of what Cluster did), and the two-state label menu in section 5.
+
+Left out on purpose: "Thank you for your interest in X" as a Jobs subject. Rejection mail uses it, and so does marketing.
