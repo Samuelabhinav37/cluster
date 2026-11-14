@@ -11,7 +11,7 @@ export type MessageKind = "otp" | "accounts" | "receipt" | "shipping" | "newslet
 // last line covers the same phrase in French, Spanish, Portuguese, German,
 // Italian and Dutch.
 const OTP_RE =
-  /\b(one[- ]?time|(verification|security|confirmation|authentication) code|otp|passcode|(confirm|verify) your (email|sign[- ]?in)|(login|sign[- ]?in) code|\d{4,8} is your( \w+)? code|your( \w+)? code is:?\s*[A-Z0-9-]*\d|verify your device|confirm it.?s you|use \d{4,8} to (sign|log) ?in|2fa|two-factor|code de (vérification|confirmation|sécurité)|código de (verificación|verificação|seguridad|segurança|acceso)|(bestätigungs|sicherheits|verifizierungs|anmelde)code|codice di (verifica|sicurezza)|verificatiecode)\b/i;
+  /\b(one[- ]?time|(verification|security|confirmation|authentication) code|otp|passcode|(confirm|verify) your (email|identity|sign[- ]?in)|email verification|(login|sign[- ]?in) code|\d{4,8} is your( \w+)? code|your( \w+)? code is:?\s*[A-Z0-9-]*\d|verify your device|confirm it.?s you|use \d{4,8} to (sign|log) ?in|2fa|two-factor|code de (vérification|confirmation|sécurité)|código de (verificación|verificação|seguridad|segurança|acceso)|(bestätigungs|sicherheits|verifizierungs|anmelde)code|codice di (verifica|sicurezza)|verificatiecode)\b/i;
 // Security notices that mention codes or 2FA ("Two-factor authentication was
 // disabled", "Security alert") are not disposable codes. Mirrors
 // OTP_EXCLUDED_PHRASES in categoryQueries.ts.
@@ -20,7 +20,7 @@ const OTP_EXCLUDE_RE = /\b(alert|disabled|changed|new sign[- ]?in|suspicious)\b/
 // Checked right after codes so a Google "Security alert" with an unsubscribe
 // footer is never filed as a newsletter.
 const ACCOUNT_RE =
-  /\b(security alert|new sign[- ]?in|sign[- ]?in (attempt|alert)|new (login|device)|password (reset|changed|was changed|updated)|changed (your )?password|reset your( \w+)? password|signed in (from|on|to)|new account linked|verify your( \w+)? account|(new )?trusted (browser|device)|authentication added|found your info|suspicious (activity|sign[- ]?in|login)|account (recovery|activity|alert|locked|suspended)|recovery (email|phone)|2-step verification|two-factor authentication (was )?(disabled|turned off|enabled|turned on)|app password|passkey|shared some( \w+)? account data)\b/i;
+  /\b(security alert|new sign[- ]?in|sign[- ]?in (attempt|alert)|new (login|device)|password (reset|changed|(was|has been) (changed|updated|reset)|updated|assistance)|changed (your )?password|reset your( \w+)? password|signed in (from|on|to)|new account linked|verify your( \w+)? account|(new )?trusted (browser|device)|authentication added|found your info|suspicious (activity|sign[- ]?in|login)|account (recovery|activity|alert|locked|suspended)|recovery (email|phone)|2-step verification|two-factor authentication (was )?(disabled|turned off|enabled|turned on)|app password|passkey|shared some( \w+)? account data)\b/i;
 // Phrases, not lone words: "Free delivery this weekend" and "Tracking your
 // fitness goals" are promotions, "Our statement on the outage" is news.
 const SHIPPING_RE =
@@ -31,7 +31,7 @@ const RECEIPT_RE =
 const ACCOUNT_EXCLUDE_RE = /\bcve-\d/i;
 // No bare "application": PayPal's "Pay in 4 application" is not a job.
 const JOBS_RE =
-  /\b(thanks?( you)? for (applying|your application|your interest in)|opportunity at|job recommendations|background (screening|check)|your (job )?application|job application|application (update|status|received|confirmation)|received your application|job alerts?|job (notifications?|search|match(es)?)|jobs for you|new jobs?|looking for( [\w-]+){0,4} jobs|job opening|new opportunity|career opportunit(y|ies)|(urgent|immediate) (hiring|opportunity|requirement)|complete your( [\w-]+){0,4} application|(complete )?your( \w+)? interview|interview (questionnaire|invitation|request|scheduled))\b/i;
+  /\b(thanks?( you)? for (applying|your application|your interest)|position (closed|filled)|resume submission|right to represent|(phone|video) interview|interview request|has applied on|opportunity at|job recommendations|background (screening|check)|your (job )?application|job application|application (update|status|received|confirmation)|received your application|job alerts?|job (notifications?|search|match(es)?)|jobs for you|new jobs?|looking for( [\w-]+){0,4} jobs|job opening|new opportunity|career opportunit(y|ies)|(urgent|immediate) (hiring|opportunity|requirement)|complete your( [\w-]+){0,4} application|(complete )?your( \w+)? interview|interview (questionnaire|invitation|request|scheduled))\b|^application [–—-] /i;
 // recruiting@dupaco.com, recruitingnoreply@ford.com, talentacquisition@hr.questdiagnostics.com.
 // A staffing agency's one-to-one post: a job title next to a work mode
 // ("Cybersecurity Engineer :: Remote", "IAM Consultant - Frisco, TX (Onsite)").

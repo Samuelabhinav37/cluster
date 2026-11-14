@@ -136,6 +136,18 @@ describe("mislabels seen in a real inbox", () => {
     ["A new passkey was added to your account", undefined, "accounts"],
     ["Confirm it's you", undefined, "otp"],
     ["You shared some Google Account data with oceg.org", undefined, "accounts"],
+    // Old inbox mail no rule matched (real subjects, Nov 2026).
+    ["Your Amazon Web Services Password Has Been Updated", undefined, "accounts"],
+    ["Amazon Web Services Password Assistance", undefined, "accounts"],
+    ["Verify your identity", undefined, "otp"],
+    ["Confirm your identity for job Cybersecurity Analyst I - 109551", undefined, "otp"],
+    ["Roblox Email Verification: Silentzephyrus37", undefined, "otp"],
+    ["Thank you for your interest", undefined, "jobs"],
+    ["Position Closed", undefined, "jobs"],
+    ["RTS resume submission", undefined, "jobs"],
+    ["Application – Information Security Analyst II Status", undefined, "jobs"],
+    ["Samuel Abhinav - Phone Interview w/ Merchants Bonding!", undefined, "jobs"],
+    ["RE: EHR Security Analyst - Samuel Meruga has applied on Dice", undefined, "jobs"],
     ["Don't Miss Out on a Spot in MIT IDSS' Data Science Program!", { address: "career@academy.mygreatlearning.com", displayName: "MIT IDSS" }, "other"],
     ["Next steps with Peraton", { address: "no-reply@icims.com", displayName: "Peraton Careers" }, "jobs"],
   ] as const)("%s", (subject, sender, kind) => {
