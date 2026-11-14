@@ -70,6 +70,16 @@ describe("buildSenderProfiles", () => {
     expect(p.lastOpenedAt).toBe(NOW - 10 * DAY);
   });
 
+  it("leaves unread mail that skipped the inbox out of the open rate", () => {
+    const rows = [
+      msg("news@shop.example", 10, { ...bulk(), unread: true, labelIds: ["Label_1"] }),
+      msg("news@shop.example", 12, { ...bulk(), unread: true, labelIds: ["INBOX"] }),
+      msg("news@shop.example", 40, { ...bulk(), unread: true, labelIds: ["Label_1"] }),
+    ];
+    const p = buildSenderProfiles({ rows, sent: [], now: NOW, skipInboxSince: NOW - 20 * DAY }).get("gmail:news@shop.example")!;
+    expect(p.judged).toBe(2);
+  });
+
   it("marks a machine sender you rarely open as ignored", () => {
     const rows = Array.from({ length: 8 }, (_, i) => msg("deals@shop.example", 20 + i * 7, { ...bulk(), unread: true }));
     const p = profile(rows).get("gmail:deals@shop.example")!;

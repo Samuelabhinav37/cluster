@@ -287,6 +287,11 @@ describe("settingsStore", () => {
     expect(hours).toMatchObject({ promotions: 0, receipt: 0, finance: 0, travel: 0 });
   });
 
+  it("migrates schema 17: forgets the mail earlier sweeps kept in the inbox", async () => {
+    await chrome.storage.local.set({ clusterSettings: { schemaVersion: 17, autoSort: { keptInInboxIds: ["a", "b"] } } });
+    expect((await getSettings()).autoSort.keptInInboxIds).toEqual([]);
+  });
+
   it("serializes concurrent partial updates so unrelated changes are preserved", async () => {
     await Promise.all([
       updateSettings({ scanWindowDays: 14 }),

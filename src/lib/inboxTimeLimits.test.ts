@@ -101,7 +101,7 @@ describe("sweepExpiredInbox", () => {
     await sweepExpiredInbox(ctx(), api);
     expect(api.listIds).toHaveBeenCalledWith(
       ["INBOX", "L:🔑 One-time codes"],
-      `before:${cutoff(24)} -is:starred`,
+      `before:${cutoff(24)}`,
       5000,
     );
     expect(api.listIds).toHaveBeenCalledWith(["INBOX", "L:🛍 Shopping"], `after:${cutoff(72)}`, 5000);
@@ -110,13 +110,13 @@ describe("sweepExpiredInbox", () => {
     expect(cutoff(24)).toBe(Math.floor(NOW / 1000) - DAY_S);
   });
 
-  it("moves due mail out of the inbox but keeps starred, known people and risky senders", async () => {
+  it("moves due mail out of the inbox, starred and known senders too, but keeps risky senders", async () => {
     const phishy: ThreatSignal[] = [
       { kind: "brand-impersonation", brand: "paypal", confidence: "high" },
       { kind: "failed-authentication", brand: "paypal", confidence: "high" },
     ];
     const api = fakeApi(
-      { [`INBOX,L:🔑 One-time codes|before:${cutoff(24)} -is:starred`]: ["o1", "o2", "o3", "o4"] },
+      { [`INBOX,L:🔑 One-time codes|before:${cutoff(24)}`]: ["o1", "o2", "o3", "o4"] },
       [
         sender("code@auth.example", [msg("o1", "otp"), msg("o2", "otp", { isProtected: true })]),
         sender("friend@mail.example", [msg("o3", "otp")]),
@@ -124,13 +124,13 @@ describe("sweepExpiredInbox", () => {
       ],
     );
     const res = await sweepExpiredInbox(ctx({ known: new Set(["friend@mail.example"]) }), api);
-    expect(api.batchModify).toHaveBeenCalledWith(["o1"], [], ["INBOX"]);
-    expect(res.movedIds).toEqual(["o1"]);
-    expect(res.keptIds.sort()).toEqual(["o2", "o3", "o4"]);
+    expect(api.batchModify).toHaveBeenCalledWith(["o1", "o2", "o3"], [], ["INBOX"]);
+    expect(res.movedIds).toEqual(["o1", "o2", "o3"]);
+    expect(res.keptIds).toEqual(["o4"]);
   });
 
   it("skips messages an earlier sweep kept, and does nothing without a label", async () => {
-    const api = fakeApi({ [`INBOX,L:🔑 One-time codes|before:${cutoff(24)} -is:starred`]: ["o1"] });
+    const api = fakeApi({ [`INBOX,L:🔑 One-time codes|before:${cutoff(24)}`]: ["o1"] });
     const res = await sweepExpiredInbox(ctx({ keptIds: new Set(["o1"]) }), api);
     expect(res.movedIds).toEqual([]);
     expect(api.readSenders).not.toHaveBeenCalled();

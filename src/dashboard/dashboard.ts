@@ -1092,6 +1092,7 @@ async function scanAndRender({
       .map((state) => state?.accountId ?? "")
       .filter(Boolean),
     knownSenders: buildProtectionContext(ctx.settings).knownSenders,
+    skipInboxSince: ctx.settings.autoSort.skipInboxSince,
   });
   for (const [key, isPersonCall] of Object.entries(ctx.settings.personOverrides)) {
     const profile = ctx.profiles.get(key);
@@ -1134,7 +1135,7 @@ async function scanAndRender({
 
   // Record this week's inbox-health score for the Overview trend chart (once
   // per ISO week; a same-week rescan overwrites it).
-  const weeklyScore = inboxHealthScore(senders);
+  const weeklyScore = inboxHealthScore(senders, ctx.settings.autoSort.skipInboxSince);
   const nextHistory = recordHealthSnapshot(ctx.settings.healthHistory, weeklyScore, Date.now());
   if (
     nextHistory.length !== ctx.settings.healthHistory.length ||

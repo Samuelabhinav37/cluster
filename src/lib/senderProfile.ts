@@ -93,6 +93,9 @@ export interface ProfileInputs {
   ownAddresses?: readonly string[];
   /** Addresses the protection rules already trust (Screener allowlist etc). */
   knownSenders?: ReadonlySet<string>;
+  /** settings.autoSort.skipInboxSince: unread mail filed out of the inbox
+   * after this was never shown, so it isn't counted as ignored. */
+  skipInboxSince?: number;
   now?: number;
 }
 
@@ -308,7 +311,10 @@ export function buildSenderProfiles(inputs: ProfileInputs): Map<string, SenderPr
     const ascending = rows.map((m) => m.receivedAt).sort((a, b) => a - b);
     const firstSeenAt = ascending[0];
     const lastSeenAt = ascending[ascending.length - 1];
-    const judgedRows = rows.filter((m) => now - m.receivedAt >= OPEN_GRACE_MS);
+    const since = inputs.skipInboxSince ?? 0;
+    const neverShown = (m: NormalizedMessageMetadata) =>
+      since > 0 && m.unread && m.receivedAt >= since && m.labelIds !== undefined && !m.labelIds.includes("INBOX");
+    const judgedRows = rows.filter((m) => now - m.receivedAt >= OPEN_GRACE_MS && !neverShown(m));
     const opened = judgedRows.filter((m) => !m.unread).length;
     const readRows = rows.filter((m) => !m.unread);
     const usualGap = median(ascending.slice(1).map((t, i) => t - ascending[i]));

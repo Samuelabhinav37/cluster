@@ -61,6 +61,7 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
       inboxHoursByBucket: {},
       lastSweep: { at: 0, moved: 0 },
       keptInInboxIds: [],
+      skipInboxSince: 0,
       tagBackBefore: 0,
       holdUnsorted: false,
       labelledVersion: 0, searchedVersion: 0, lastRelabelAt: 0, moveVotes: {},

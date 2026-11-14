@@ -43,7 +43,7 @@ export function buildInboxHealth(input: {
   const now = input.now ?? Date.now();
 
   const readyToCleanUp = totalExpiryCount(buildExpiryBuckets(senders));
-  const neverOpened = neverReadSenders(senders).length;
+  const neverOpened = neverReadSenders(senders, undefined, undefined, now, settings.autoSort.skipInboxSince).length;
   const suspectedSpam = suggestSpamSenders(senders).length;
 
   const oldView = SMART_VIEWS.find((v) => v.id === "older-1y");
@@ -167,11 +167,11 @@ function hasUnsub(u: SenderSummary["unsubscribe"]): boolean {
  * no scanning. 100 is a tidy inbox; the penalties are capped so one bad
  * dimension can't zero the score on its own.
  */
-export function inboxHealthScore(senders: SenderSummary[]): number {
+export function inboxHealthScore(senders: SenderSummary[], skipInboxSince = 0): number {
   const messages = senders.flatMap((s) => s.messages);
   const total = messages.length || 1;
   const unreadRatio = messages.filter((m) => m.unread).length / total;
-  const neverOpened = neverReadSenders(senders).length;
+  const neverOpened = neverReadSenders(senders, undefined, undefined, undefined, skipInboxSince).length;
   // Lists you read are fine; only ones you mostly skip (3 in 4 unread) count.
   const unsubCapable = senders.filter(
     (s) => hasUnsub(s.unsubscribe) && s.messages.filter((m) => m.unread).length >= 0.75 * s.messages.length,

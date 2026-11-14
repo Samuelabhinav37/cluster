@@ -179,9 +179,13 @@ export interface ClusterSettings {
     labelsOff: string[];
     /** The last time-limit sweep: when, and how many messages it moved. */
     lastSweep: { at: number; moved: number };
-    /** Messages past their limit that a sweep kept in the inbox (starred, a
-     * known person, or risky), so later sweeps don't re-read them. Capped. */
+    /** Messages past their limit that a sweep kept in the inbox (risky, or a
+     * person's own note), so later sweeps don't re-read them. Capped. */
     keptInInboxIds: string[];
+    /** When labels began skipping the inbox (0 = they don't). Unread mail
+     * filed after this was never shown, so it says nothing about what you
+     * open (senderProfile, neverRead). */
+    skipInboxSince: number;
     /** Catch-up labelling of older inbox mail (inboxTimeLimits.tagOlderInbox):
      * 0 or -1 = not started, -2 = done, else the next page ends at this time (ms). */
     tagBackBefore: number;
@@ -249,7 +253,7 @@ export interface HealthSnapshot {
 const STORAGE_KEY = "clusterSettings";
 /** A scan window that reaches the first email (Gmail began in 2004). */
 export const ALL_MAIL_DAYS = 36500;
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 17;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 18;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -317,6 +321,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
     labelsOff: [],
     lastSweep: { at: 0, moved: 0 },
     keptInInboxIds: [],
+    skipInboxSince: 0,
     tagBackBefore: 0,
     holdUnsorted: true,
     labelledVersion: 0,
@@ -456,6 +461,17 @@ function migrateSettings(value: unknown): Record<string, unknown> {
       for (const b of Object.keys(hours)) hours[b] = 0;
       stored = { ...stored, schemaVersion: 17, autoSort: { ...autoSort, inboxHoursByBucket: hours } };
       version = 17;
+    } else if (version === 17) {
+      // Labelled mail from starred threads and senders you've written to now
+      // leaves the inbox too: forget the mail earlier sweeps kept for that.
+      // (Mail put back with Undo is forgotten once as well.)
+      const autoSort = isRecord(stored.autoSort) ? stored.autoSort : {};
+      stored = {
+        ...stored,
+        schemaVersion: 18,
+        autoSort: "keptInInboxIds" in autoSort ? { ...autoSort, keptInInboxIds: [] } : autoSort,
+      };
+      version = 18;
     }
   }
   return stored;

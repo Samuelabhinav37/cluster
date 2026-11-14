@@ -113,6 +113,10 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
     autoSort: {
       ...current.autoSort,
       lastSweep: { at: now, moved: sweep.movedIds.length },
+      // Stamped the first run after any label is set to skip the inbox.
+      skipInboxSince: Object.values(current.autoSort.inboxHoursByBucket).some((h) => h === 0)
+        ? current.autoSort.skipInboxSince || now
+        : 0,
       searchedVersion: searched ? LABEL_RULES_VERSION : current.autoSort.searchedVersion,
       // Stamped here, before the long read: an unfinished read must not make
       // the daily search run every five minutes.

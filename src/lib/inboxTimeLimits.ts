@@ -270,8 +270,9 @@ export async function holdUnsortedInbox(
 
 export interface SweepResult {
   movedIds: string[];
-  /** Past their limit but kept: starred since, a known person, or risky.
-   * The caller remembers these so later sweeps don't re-read them. */
+  /** Past their limit but kept: a risky sender (the scam hold's job) or a
+   * person's own note. The caller remembers these so later sweeps don't
+   * re-read them. */
   keptIds: string[];
   /** More were due than one run moves; the next run continues. */
   more: boolean;
@@ -302,7 +303,8 @@ export async function sweepExpiredInbox(ctx: LimitContext, api: InboxLimitsApi):
       continue;
     }
     const cutoff = epochSeconds(ctx.now - limit.hours * HOUR_MS);
-    due.set(limit.bucket, await api.listIds(both, `before:${cutoff} -is:starred`, LIST_MAX));
+    // Starred mail leaves too: it stays under Starred and its label.
+    due.set(limit.bucket, await api.listIds(both, `before:${cutoff}`, LIST_MAX));
     notYet.set(limit.bucket, await api.listIds(both, `after:${cutoff}`, LIST_MAX));
   }
 
@@ -312,9 +314,11 @@ export async function sweepExpiredInbox(ctx: LimitContext, api: InboxLimitsApi):
 
   const movedIds: string[] = [];
   const keptIds: string[] = [];
+  // A label means it has a place: mail from senders you've written to goes
+  // there as well (a store's support desk kept its whole thread in the inbox).
   for (const sender of await api.readSenders(batch)) {
-    const skip = skipSender(sender, ctx.known);
-    for (const msg of sender.messages) (skip || msg.isProtected || neverMove(msg, sender.address) ? keptIds : movedIds).push(msg.id);
+    const risky = riskTier(senderRiskScore(sender.threatSignals)) === "high";
+    for (const msg of sender.messages) (risky || neverMove(msg, sender.address) ? keptIds : movedIds).push(msg.id);
   }
   if (movedIds.length > 0) await api.batchModify(movedIds, [], ["INBOX"]);
   return { movedIds, keptIds, more: candidates.length > batch.length };
