@@ -27,7 +27,7 @@ import { indexNeedsBuild, syncMailIndex, type SyncOptions } from "./mailSync";
 import { waitForGmailHeadroom } from "./gmailQuotaLedger";
 import { log } from "./log";
 import type { NormalizedMessageMetadata } from "./providers/emailProvider";
-import { tryWithStorageLock } from "./storageLock";
+import { tryWithStorageLock, withStorageLock } from "./storageLock";
 import { notify } from "./notices";
 import { getScan, newScan, setScan } from "./scanState";
 import { loadMetadataCache, saveMetadataCache } from "./metadataCache";
@@ -48,9 +48,27 @@ export interface TimeLimitRun {
   more: boolean;
 }
 
-/** One tag + sweep pass, or null when time limits are off or Gmail isn't
- * connected. */
+const RUN_LOCK = "inbox-time-limits";
+
+/** One tag + sweep pass, or null when time limits are off, Gmail isn't
+ * connected, or (for a background pass) another pass is still going: two at
+ * once did the same work twice and ate the first read's quota. A Rescan the
+ * user asked for waits its turn instead. Web Locks free the lock if Chrome
+ * stops the worker mid-run. */
 export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: boolean } = {}): Promise<TimeLimitRun | null> {
+  const locked = <T>(key: string, fn: () => Promise<T>) =>
+    options.relabel ? withStorageLock(key, fn) : tryWithStorageLock(key, fn);
+  const pass = await locked(RUN_LOCK, () => runPass(now, options));
+  if (!pass) return null;
+  return (await locked(SLOW_LOCK, pass.slow)) ?? pass.quick;
+}
+
+const SLOW_LOCK = "inbox-time-limits-slow";
+
+async function runPass(
+  now: number,
+  options: { relabel?: boolean },
+): Promise<{ quick: TimeLimitRun; slow: () => Promise<TimeLimitRun> } | null> {
   const settings = await getSettings();
   if (!settings.autoSort.timeLimitsEnabled) return null;
   if (!(await gmailProvider.isConnected())) return null;
@@ -165,31 +183,37 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
     }
   }
 
-  // Now the slow work. A read the dashboard started and didn't finish goes
-  // on here, labelling as it reads.
-  const builtNow = await step("index build", false, () => continueIndexBuild(token, settings.scanWindowDays, settings.readCap));
-  // Then pages of older unlabelled inbox mail, until the whole inbox is seen.
-  // A rescan (labels deleted in Gmail, say) works back through older inbox mail again.
-  // So does a gap: the tagger only looks back two days, so after Chrome was
-  // closed (or the run stalled) for longer, older mail would stay unlabelled.
-  const gap = settings.autoSort.lastSweep.at > 0 && now - settings.autoSort.lastSweep.at > TAG_GAP_MS;
-  const backFrom = options.relabel || gap ? 0 : settings.autoSort.tagBackBefore;
-  const back = backFrom === TAG_BACK_DONE ? null : await step("older inbox", null, () => tagOlderPages(ctx, api, backFrom));
-  const indexDone = indexReady || builtNow;
-  const relabelled =
-    indexDone && (shown || builtNow || daily)
-      ? await step<number | null>("relabel", null, () => relabelInbox(ctx, api, now, !shown && !builtNow))
-      : null;
-  await mutateSettings((current) => ({
-    ...current,
-    autoSort: {
-      ...current.autoSort,
-      tagBackBefore: back ? back.nextBefore : current.autoSort.tagBackBefore,
-      labelledVersion: relabelled !== null ? LABEL_RULES_VERSION : current.autoSort.labelledVersion,
-      lastRelabelAt: relabelled !== null ? now : current.autoSort.lastRelabelAt,
-    },
-  }));
-  return { tagged: tag.tagged + (back?.tagged ?? 0) + (relabelled ?? 0), moved: sweep.movedIds.length, more: sweep.more };
+  const quick: TimeLimitRun = { tagged: tag.tagged, moved: sweep.movedIds.length, more: sweep.more };
+  return { quick, slow: () => slowPass() };
+
+  // Now the slow work, under its own lock so an hours-long read never holds
+  // up the 5-minute sweep. A read the dashboard started and didn't finish
+  // goes on here, labelling as it reads.
+  async function slowPass(): Promise<TimeLimitRun> {
+    const builtNow = await step("index build", false, () => continueIndexBuild(token, settings.scanWindowDays, settings.readCap));
+    // Then pages of older unlabelled inbox mail, until the whole inbox is seen.
+    // A rescan (labels deleted in Gmail, say) works back through older inbox mail again.
+    // So does a gap: the tagger only looks back two days, so after Chrome was
+    // closed (or the run stalled) for longer, older mail would stay unlabelled.
+    const gap = settings.autoSort.lastSweep.at > 0 && now - settings.autoSort.lastSweep.at > TAG_GAP_MS;
+    const backFrom = options.relabel || gap ? 0 : settings.autoSort.tagBackBefore;
+    const back = backFrom === TAG_BACK_DONE ? null : await step("older inbox", null, () => tagOlderPages(ctx, api, backFrom));
+    const indexDone = indexReady || builtNow;
+    const relabelled =
+      indexDone && (shown || builtNow || daily)
+        ? await step<number | null>("relabel", null, () => relabelInbox(ctx, api, now, !shown && !builtNow))
+        : null;
+    await mutateSettings((current) => ({
+      ...current,
+      autoSort: {
+        ...current.autoSort,
+        tagBackBefore: back ? back.nextBefore : current.autoSort.tagBackBefore,
+        labelledVersion: relabelled !== null ? LABEL_RULES_VERSION : current.autoSort.labelledVersion,
+        lastRelabelAt: relabelled !== null ? now : current.autoSort.lastRelabelAt,
+      },
+    }));
+    return { tagged: tag.tagged + (back?.tagged ?? 0) + (relabelled ?? 0), moved: sweep.movedIds.length, more: sweep.more };
+  }
 }
 
 /** The tagger's look-back (TAG_WINDOW in inboxTimeLimits.ts). */
