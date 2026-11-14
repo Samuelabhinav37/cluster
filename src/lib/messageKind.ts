@@ -11,7 +11,7 @@ export type MessageKind = "otp" | "accounts" | "receipt" | "shipping" | "newslet
 // last line covers the same phrase in French, Spanish, Portuguese, German,
 // Italian and Dutch.
 const OTP_RE =
-  /\b(one[- ]?time|(verification|security|confirmation|authentication) code|otp|passcode|(confirm|verify) your (email|sign[- ]?in)|(login|sign[- ]?in) code|\d{4,8} is your( \w+)? code|your( \w+)? code is:?\s*[A-Z0-9-]*\d|verify your device|use \d{4,8} to (sign|log) ?in|2fa|two-factor|code de (vérification|confirmation|sécurité)|código de (verificación|verificação|seguridad|segurança|acceso)|(bestätigungs|sicherheits|verifizierungs|anmelde)code|codice di (verifica|sicurezza)|verificatiecode)\b/i;
+  /\b(one[- ]?time|(verification|security|confirmation|authentication) code|otp|passcode|(confirm|verify) your (email|sign[- ]?in)|(login|sign[- ]?in) code|\d{4,8} is your( \w+)? code|your( \w+)? code is:?\s*[A-Z0-9-]*\d|verify your device|confirm it.?s you|use \d{4,8} to (sign|log) ?in|2fa|two-factor|code de (vérification|confirmation|sécurité)|código de (verificación|verificação|seguridad|segurança|acceso)|(bestätigungs|sicherheits|verifizierungs|anmelde)code|codice di (verifica|sicurezza)|verificatiecode)\b/i;
 // Security notices that mention codes or 2FA ("Two-factor authentication was
 // disabled", "Security alert") are not disposable codes. Mirrors
 // OTP_EXCLUDED_PHRASES in categoryQueries.ts.
@@ -20,13 +20,13 @@ const OTP_EXCLUDE_RE = /\b(alert|disabled|changed|new sign[- ]?in|suspicious)\b/
 // Checked right after codes so a Google "Security alert" with an unsubscribe
 // footer is never filed as a newsletter.
 const ACCOUNT_RE =
-  /\b(security alert|new sign[- ]?in|sign[- ]?in (attempt|alert)|new (login|device)|password (reset|changed|was changed|updated)|changed (your )?password|reset your( \w+)? password|signed in (from|on|to)|new account linked|verify your( \w+)? account|(new )?trusted (browser|device)|authentication added|found your info|suspicious (activity|sign[- ]?in|login)|account (recovery|activity|alert|locked|suspended)|recovery (email|phone)|2-step verification|two-factor authentication (was )?(disabled|turned off|enabled|turned on)|app password)\b/i;
+  /\b(security alert|new sign[- ]?in|sign[- ]?in (attempt|alert)|new (login|device)|password (reset|changed|was changed|updated)|changed (your )?password|reset your( \w+)? password|signed in (from|on|to)|new account linked|verify your( \w+)? account|(new )?trusted (browser|device)|authentication added|found your info|suspicious (activity|sign[- ]?in|login)|account (recovery|activity|alert|locked|suspended)|recovery (email|phone)|2-step verification|two-factor authentication (was )?(disabled|turned off|enabled|turned on)|app password|passkey)\b/i;
 // Phrases, not lone words: "Free delivery this weekend" and "Tracking your
 // fitness goals" are promotions, "Our statement on the outage" is news.
 const SHIPPING_RE =
   /\b(shipped|out for delivery|delivery (update|attempt|scheduled|exception|confirmation)|delivered|tracking (number|info|information|update|details)|track your (order|package|parcel|shipment)|order (confirm|confirmed|confirmation)|order #|order (is |has been )?(confirmed|placed|received)|has shipped|arriving|on its way|on the way|received your order|package (has )?arrived|delivery order)\b|^ordered:/i;
 const RECEIPT_RE =
-  /\b(receipt|reciept|has been renewed|subscription (has )?(been )?(canceled|cancelled|expired)|change to your( [\w-]+){0,6} subscription|registration confirm(ed|ation)|invoice|payment (received|confirmation)|received your payment|purchase (confirmation|confirmed)|refund (confirmation|issued|processed)|your refund|booking confirm(ation|ed)|your tickets?|your bill|e-?statement|statement (is )?(ready|available)|your( \w+){0,3} statement|paid|will renew|renews on|is renewing|renewal (notice|reminder|confirmation)|auto-?renew)\b/i;
+  /\b(receipt|reciept|has been renewed|subscription (has )?(been )?(canceled|cancelled|expired)|change to your( [\w-]+){0,6} subscription|registration confirm(ed|ation)|invoice|payment (received|confirmation)|received your payment|purchase (confirmation|confirmed)|refund (confirmation|issued|processed)|your refund|booking confirm(ation|ed)|your tickets?|your bill|e-?statement|statement (is )?(ready|available)|your( \w+){0,3} statement|(has been|was|is|been) paid|will renew|renews on|is renewing|renewal (notice|reminder|confirmation)|auto-?renew)\b/i;
 // Oracle's "Security Alert for CVE-2026-1234" is an advisory, not your account.
 const ACCOUNT_EXCLUDE_RE = /\bcve-\d/i;
 // No bare "application": PayPal's "Pay in 4 application" is not a job.
@@ -38,11 +38,12 @@ const JOBS_RE =
 // Only without an unsubscribe link, so newsletters about remote work stay news.
 const JOB_POST_RE =
   /\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b.*\b(remote|hybrid|on-?site|contract|w2|c2c)\b|\b(remote|hybrid|on-?site|contract)\b.*\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b|^looking for\b/i;
-const JOBS_SENDER_RE = /\b(recruit\w*|talent ?(acquisition|exchange|network|community)|careers?|jobs?|job ?(alerts?|notifications?))\b/i;
+const JOBS_SENDER_RE = /\b(recruit\w*|talent ?(acquisition|exchange|network|community)|careers|jobs?|job ?(alerts?|notifications?))\b/i;
 const SOCIAL_RE = /\b(mentioned you|tagged you|new follower|friend request|liked your|commented on)\b/i;
 // When the subject says nothing ("Your Thursday evening trip with Uber"), a
 // sender named for receipts or orders still does: "Uber Receipts",
-// reservations@hertz.com, shipment-tracking@amazon.com.
+// reservations@hertz.com, shipment-tracking@amazon.com. "careers" only in the
+// plural: career@ and "Career Advice" senders sell courses.
 const SHIPPING_SENDER_RE = /\b(shipping|shipments?|tracking|deliver(y|ies))\b/i;
 const RECEIPT_SENDER_RE =
   /\b(receipts?|orders?|billing|invoices?|payments?|bookings?|reservations?|tickets?)\b/i;

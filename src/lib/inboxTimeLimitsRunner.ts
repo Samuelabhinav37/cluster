@@ -40,7 +40,7 @@ import { clusterLabelName } from "./clusterLabels";
 
 /** Bump when labelling rules change (domains, kinds, phrases): the next run
  * relabels the whole indexed inbox once. */
-export const LABEL_RULES_VERSION = 3;
+export const LABEL_RULES_VERSION = 4;
 
 export interface TimeLimitRun {
   tagged: number;

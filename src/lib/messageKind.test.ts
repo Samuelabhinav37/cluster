@@ -127,3 +127,17 @@ describe("subjects seen unlabelled in a real inbox", () => {
     expect(classifyMessageKind(subject, false)).toBe(kind);
   });
 });
+
+describe("mislabels seen in a real inbox", () => {
+  it.each([
+    ["Get paid. Test privately. Get discovered.", undefined, "other"],
+    ["Update on Cybersecurity Practitioner: Paid Expert Interviews and next steps", undefined, "other"],
+    ["Your Zolve bill has been paid.", undefined, "receipt"],
+    ["A new passkey was added to your account", undefined, "accounts"],
+    ["Confirm it's you", undefined, "otp"],
+    ["Don't Miss Out on a Spot in MIT IDSS' Data Science Program!", { address: "career@academy.mygreatlearning.com", displayName: "MIT IDSS" }, "other"],
+    ["Next steps with Peraton", { address: "no-reply@icims.com", displayName: "Peraton Careers" }, "jobs"],
+  ] as const)("%s", (subject, sender, kind) => {
+    expect(classifyMessageKind(subject, false, sender)).toBe(kind);
+  });
+});
