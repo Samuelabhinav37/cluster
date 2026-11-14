@@ -653,11 +653,18 @@ async function pushSynced(settings: ClusterSettings): Promise<void> {
     const items = { ...syncedItems(settings), [SYNC_SCHEMA_KEY]: CURRENT_SETTINGS_SCHEMA_VERSION };
     const stored = await area.get(Object.keys(items));
     const changed: Record<string, unknown> = {};
+    const tooBig: string[] = [];
     for (const [key, value] of Object.entries(items)) {
       const json = JSON.stringify(value);
-      if (json.length > SYNC_ITEM_MAX || json === JSON.stringify(stored[key])) continue;
-      changed[key] = value;
+      if (json.length > SYNC_ITEM_MAX) {
+        // Past sync's item limit it stays on this computer. Its old synced
+        // copy is dropped: pulled back at every start, it undid newer choices.
+        if (key in stored) tooBig.push(key);
+        continue;
+      }
+      if (json !== JSON.stringify(stored[key])) changed[key] = value;
     }
+    if (tooBig.length > 0) await area.remove(tooBig);
     if (Object.keys(changed).length > 0) await area.set(changed);
   } catch (err) {
     // Sync is a convenience: a full quota or an offline browser keeps working locally.
