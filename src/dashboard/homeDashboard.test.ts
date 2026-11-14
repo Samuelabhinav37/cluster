@@ -275,7 +275,7 @@ describe("renderScanCard", () => {
   it("when done: the total, label rows biggest first linking to Gmail, No label, Rescan and close", () => {
     const actions = on();
     const card = renderScanCard({ ...newScan(NOW), phase: "done", unsorted: 7 }, rows, actions);
-    expect(card.querySelector(".scan-head b")!.textContent).toBe("52 labelled");
+    expect(card.querySelector(".scan-head b")!.textContent).toBe("52 labelled · 7 with no label");
     const names = Array.from(card.querySelectorAll(".scan-rows .grow")).map((x) => x.textContent);
     expect(names).toEqual(["Shopping", "Receipts", "No label"]);
     expect(card.querySelector<HTMLAnchorElement>(".scan-rows a")!.href).toBe("https://mail.google.com/s");

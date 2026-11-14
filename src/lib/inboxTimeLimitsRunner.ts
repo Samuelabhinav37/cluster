@@ -145,6 +145,9 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
         screenedSenders: [...new Set([...current.screenedSenders, ...held.senders])],
       }));
       const n = held.heldIds.length;
+      // The scan card's "with no label" count goes down as they leave the inbox.
+      const scan = await getScan();
+      if (scan?.phase === "done") await setScan({ unsorted: Math.max(0, scan.unsorted - n) });
       await appendActionLog([
         {
           id: makeLogId("sort"),

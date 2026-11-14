@@ -516,7 +516,9 @@ export function renderScanCard(
   const reading = scan.phase === "reading";
   const sorted = rows.reduce((sum, r) => sum + r.count, 0);
   const head = el("div", "scan-head");
-  head.append(el("b", "", done ? `${n(sorted)} labelled` : reading ? "Reading your inbox" : "Labelling your inbox"));
+  // What is still in the inbox leads: "labelled" alone read as finished.
+  const left = done && scan.unsorted > 0 ? ` · ${n(scan.unsorted)} with no label` : "";
+  head.append(el("b", "", done ? `${n(sorted)} labelled${left}` : reading ? "Reading your inbox" : "Labelling your inbox"));
   if (done) {
     const again = el("button", "btn", "Rescan");
     again.type = "button";
