@@ -13,7 +13,9 @@ function buildStamp(): string {
   } catch {
     // No git (a source zip): keep "dev".
   }
-  const at = new Date().toISOString().slice(0, 16).replace("T", " ");
+  const d = new Date();
+  const pad = (x: number) => String(x).padStart(2, "0");
+  const at = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   return `${manifest.version} (${sha} ${at})`;
 }
 
