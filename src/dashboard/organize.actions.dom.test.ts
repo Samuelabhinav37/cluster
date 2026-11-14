@@ -79,11 +79,55 @@ describe("Organize screen — Sort my inbox", () => {
     dash.el("sort-inbox-preview").querySelector<HTMLButtonElement>('.sort-choice[data-mode="all"]')!.click();
     await vi.waitFor(() => {
       const big = dash.el("sort-inbox-preview").querySelector(".sort-big");
-      if (big?.textContent !== "Everything is sorted") throw new Error("not done yet");
+      if (big?.textContent !== "Everything is sorted") throw new Error("not done yet: " + dash.el("sort-inbox-preview").textContent);
     });
     expect(dash.el("sort-inbox-preview").querySelector(".sort-check")).toBeTruthy();
     expect(dash.el("sort-inbox-preview").querySelectorAll(".sort-report-row").length).toBe(0);
     // Everything reads back to the first email, not just the last 180 days.
     expect(dash.storedSettings().scanWindowDays).toBe(36500);
+  });
+
+  describe("labels that aren't Cluster's", () => {
+    const labels = [
+      { id: "INBOX", name: "INBOX", type: "system" as const },
+      { id: "L1", name: "Family", type: "user" as const },
+      { id: "L2", name: "Old stuff", type: "user" as const },
+    ];
+    /** Starts Everything and waits for the question. */
+    const start = async () => {
+      const dash = await bootDashboard({ labels });
+      dash.showScreen("organize");
+      for (const k of Array.from(document.querySelectorAll<HTMLSelectElement>("#time-limits-rows select"))) {
+        k.value = "24";
+        k.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      (dash.el("sort-inbox-btn") as HTMLButtonElement).click();
+      dash.el("sort-inbox-preview").querySelector<HTMLButtonElement>('.sort-choice[data-mode="all"]')!.click();
+      await vi.waitFor(() => expect(document.getElementById("other-labels-keep")).toBeTruthy(), { timeout: 8000 });
+      expect(dash.el("sort-inbox-preview").querySelector(".sort-big")!.textContent).toBe("2 labels of your own");
+      expect(dash.el("sort-inbox-preview").textContent).toContain("Family");
+      // Nothing is deleted before the answer.
+      expect(dash.gmailApi.deleteLabel).not.toHaveBeenCalled();
+      return dash;
+    };
+    // The sort goes on after the answer and ends with Done (sorted, or still reading).
+    const done = (dash: Awaited<ReturnType<typeof bootDashboard>>) =>
+      vi.waitFor(() => expect(dash.el("sort-inbox-preview").querySelector(".sort-actions button")?.textContent).toBe("Done"), { timeout: 8000 });
+
+    it("Everything asks first, and Delete removes them", async () => {
+      const dash = await start();
+      document.getElementById("other-labels-delete")!.click();
+      await done(dash);
+      expect((dash.gmailApi.deleteLabel.mock.calls as [string, string][]).map((c) => c[1])).toEqual(["L1", "L2"]);
+      expect(dash.storedSettings().keepOtherLabels).toBe(false);
+    });
+
+    it("Keep deletes nothing and stops asking", async () => {
+      const dash = await start();
+      document.getElementById("other-labels-keep")!.click();
+      await done(dash);
+      expect(dash.gmailApi.deleteLabel).not.toHaveBeenCalled();
+      expect(dash.storedSettings().keepOtherLabels).toBe(true);
+    });
   });
 });

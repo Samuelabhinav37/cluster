@@ -13,6 +13,23 @@ const HELPER = "https://cluster-auth.samuelabhinav37.workers.dev";
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const REFRESH_KEY = "gmailAuth";
 const ACCESS_KEY = "gmailAccess";
+/** Set when Google ended the sign-in (not when the user signed out), so the
+ * background can say so instead of quietly doing nothing. */
+const EXPIRED_KEY = "gmailSignInExpired";
+
+export interface SignInExpired {
+  at: number;
+  warned: boolean;
+}
+
+export async function gmailSignInExpired(): Promise<SignInExpired | undefined> {
+  return ((await chrome.storage.local.get(EXPIRED_KEY)) as Record<string, SignInExpired | undefined>)[EXPIRED_KEY];
+}
+
+export async function markSignInWarned(): Promise<void> {
+  const expired = await gmailSignInExpired();
+  if (expired) await chrome.storage.local.set({ [EXPIRED_KEY]: { ...expired, warned: true } });
+}
 // Renew this long before Google's expiry, so a call never starts on a dying token.
 const EARLY_MS = 2 * 60_000;
 
@@ -87,7 +104,10 @@ async function refresh(stored: StoredAuth): Promise<string> {
     const answer = await askHelper("/refresh", { refresh_token: stored.refreshToken });
     return await saveAccess(answer, answer.scope ? answer.scope.split(" ") : stored.scopes);
   } catch (err) {
-    if (err instanceof GmailSignInExpired) await chrome.storage.local.remove(REFRESH_KEY);
+    if (err instanceof GmailSignInExpired) {
+      await chrome.storage.local.remove(REFRESH_KEY);
+      await chrome.storage.local.set({ [EXPIRED_KEY]: { at: Date.now(), warned: false } satisfies SignInExpired });
+    }
     throw err;
   }
 }
@@ -132,6 +152,8 @@ async function signIn(scopes: string[], stored: StoredAuth | undefined): Promise
     const email = stored?.email ?? (await profileEmail(token));
     await chrome.storage.local.set({ [REFRESH_KEY]: { refreshToken, scopes: granted, email } satisfies StoredAuth });
   }
+  await chrome.storage.local.remove(EXPIRED_KEY);
+  void chrome.action?.setBadgeText({ text: "" });
   return token;
 }
 
@@ -188,5 +210,6 @@ export async function gmailRefreshToken(): Promise<string | undefined> {
 /** Forget this Gmail sign-in on this computer. */
 export async function forgetGmailSignIn(): Promise<void> {
   await chrome.storage.local.remove(REFRESH_KEY);
+  await chrome.storage.local.remove(EXPIRED_KEY);
   await chrome.storage.session.remove(ACCESS_KEY);
 }

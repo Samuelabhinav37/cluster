@@ -5,6 +5,7 @@ import {
   filteredFromTargets,
   findLabelReuseCandidates,
   skipOverridesFor,
+  otherUserLabels,
 } from "./seedFromExisting";
 
 describe("findLabelReuseCandidates", () => {
@@ -78,5 +79,18 @@ describe("skipOverridesFor", () => {
       "news@stripe.com": "never",
       "amazon.com": "never",
     });
+  });
+});
+
+describe("otherUserLabels", () => {
+  it("lists only the user's own labels: not Gmail's, Cluster's, or one a category reuses", () => {
+    const labels = [
+      { id: "INBOX", name: "INBOX", type: "system" },
+      { id: "1", name: "Family", type: "user" },
+      { id: "2", name: "Cluster/Shopping", type: "user" },
+      { id: "3", name: "Acme Deals", type: "user" },
+      { id: "4", name: "Trips", type: "user" },
+    ];
+    expect(otherUserLabels(labels, ["acme deals"], ["Trips"]).map((l) => l.name)).toEqual(["Family"]);
   });
 });

@@ -105,6 +105,8 @@ describe("getGmailToken", () => {
     stubFetch({ "/refresh": () => json({ error: "invalid_grant" }, 400) });
     await expect(getGmailToken([MODIFY], false)).rejects.toBeInstanceOf(GmailSignInExpired);
     expect(local.data.gmailAuth).toBeUndefined();
+    // Marked so the background can warn once; a deliberate sign-out is not.
+    expect(local.data.gmailSignInExpired).toMatchObject({ warned: false });
   });
 
   it("refuses a window answer for another request, and passes a refusal through as cancelled", async () => {

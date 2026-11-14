@@ -39,6 +39,7 @@ import { loadPublicSuffixList } from "./lib/publicSuffix";
 import { applyBrandVerdicts, loadBrandRegistry } from "./lib/brandRegistry";
 import { applySenderLedger } from "./lib/senderLedgerStore";
 import { notify, weeklySummary } from "./lib/notices";
+import { gmailSignInExpired, markSignInWarned } from "./lib/gmailWebAuth";
 import { holdWorkerLease } from "./lib/workerLease";
 
 async function openDashboard() {
@@ -54,7 +55,7 @@ async function openDashboard() {
 chrome.action.onClicked.addListener(() => void openDashboard());
 // Only there once the optional notifications permission is granted.
 chrome.notifications?.onClicked.addListener((id) => {
-  if (id === "scan-done" || id === "cluster-weekly") void openDashboard();
+  if (id === "scan-done" || id === "cluster-weekly" || id === "signed-out") void openDashboard();
 });
 
 // Background pre-triage: periodically counts mail that's aged past its
@@ -145,8 +146,24 @@ function handleAlarm(alarm: chrome.alarms.Alarm): void {
   }
 }
 
+/** Google ended the sign-in: nothing can run, so say it once (badge, and a
+ * notification when allowed) rather than leave mail unsorted in silence. */
+async function warnSignedOut(): Promise<boolean> {
+  const expired = await gmailSignInExpired();
+  if (!expired) return false;
+  if (!expired.warned) {
+    await chrome.action.setBadgeText({ text: "!" });
+    await chrome.action.setBadgeBackgroundColor({ color: "#c0392b" });
+    await notify("signed-out", "Cluster is signed out of Gmail. Open Cluster to sign in.");
+    await markSignInWarned();
+  }
+  return true;
+}
+
 async function runInboxTimeLimitsIfQuota(): Promise<void> {
   try {
+    // A token check first: an expired sign-in is noticed here.
+    if (!(await gmailProvider.isConnected()) && (await warnSignedOut())) return;
     // The label and move steps cost a few hundred units, and a mailbox read
     // paces itself to leave 1,500 free: a 1,500 floor here skipped every
     // run for as long as a read went on, so labelled mail never left the inbox.

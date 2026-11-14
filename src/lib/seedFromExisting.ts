@@ -112,3 +112,15 @@ export function clusterLabelIdSet(
   }
   return ids;
 }
+
+/** The user's own labels: not Gmail's, not Cluster's, and not one a category
+ * files into (a label the user chose to reuse). */
+export function otherUserLabels<T extends { id: string; name: string; type?: string }>(
+  labels: T[],
+  clusterOwnedLabels: string[],
+  inUse: string[],
+): T[] {
+  const ours = clusterLabelIdSet(labels, clusterOwnedLabels);
+  const used = new Set(inUse.map((n) => n.toLowerCase()));
+  return labels.filter((l) => l.type === "user" && !ours.has(l.id) && !used.has(l.name.toLowerCase()));
+}

@@ -193,6 +193,8 @@ export interface ClusterSettings {
     labelledVersion: number;
     /** LABEL_RULES_VERSION of the last label-by-search pass (0 = never). */
     searchedVersion: number;
+    /** When all read mail (archived too) was last checked for missing labels. */
+    lastRelabelAt: number;
     /** Label swaps made in Gmail, per sender, not yet learned (learnFromMoves.ts). */
     moveVotes: Record<string, { bucket: SortBucket; n: number }>;
   };
@@ -205,6 +207,8 @@ export interface ClusterSettings {
   seededFromExisting: boolean;
   /** The user closed the "Tidy up Cluster's labels" card without applying. */
   labelTidyDismissed: boolean;
+  /** The user said to keep labels that aren't Cluster's; Sort stops asking. */
+  keepOtherLabels: boolean;
 
   // ── Flat-label collision guard ─────────────────────────────────────────
   /** Canonical names of Gmail labels Cluster itself created. Lets us tell
@@ -317,11 +321,13 @@ const DEFAULT_SETTINGS: ClusterSettings = {
     holdUnsorted: true,
     labelledVersion: 0,
     searchedVersion: 0,
+    lastRelabelAt: 0,
     moveVotes: {},
   },
   sortOverrides: {},
   seededFromExisting: false,
   labelTidyDismissed: false,
+  keepOtherLabels: false,
   clusterOwnedLabels: [],
   labelChoices: {},
   healthHistory: [],

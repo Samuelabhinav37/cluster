@@ -79,10 +79,13 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
   });
 
   const limits = limitsFor(settings);
+  const daily = now - settings.autoSort.lastRelabelAt > RELABEL_EVERY_MS;
+  // The user asked (Rescan) or the rules changed: show it on the scan card.
+  const shown = Boolean(options.relabel) || settings.autoSort.labelledVersion !== LABEL_RULES_VERSION;
   // First, before any read: label the inbox by each filter's own query.
   const searched =
-    options.relabel || settings.autoSort.searchedVersion !== LABEL_RULES_VERSION
-      ? await step("search labelling", false, async () => (await searchLabelInbox(token, settings, limits, now), true))
+    options.relabel || daily || settings.autoSort.searchedVersion !== LABEL_RULES_VERSION
+      ? await step("search labelling", false, async () => (await searchLabelInbox(token, settings, limits, now, !shown), true))
       : true;
   // Senders come from the mail index (kept current from Gmail's change feed);
   // only inbox mail it doesn't have yet is read, then saved to it. Without
@@ -111,6 +114,9 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
       ...current.autoSort,
       lastSweep: { at: now, moved: sweep.movedIds.length },
       searchedVersion: searched ? LABEL_RULES_VERSION : current.autoSort.searchedVersion,
+      // Stamped here, before the long read: an unfinished read must not make
+      // the daily search run every five minutes.
+      lastRelabelAt: daily && searched ? now : current.autoSort.lastRelabelAt,
       keptInInboxIds: pinInInbox(current.autoSort.keptInInboxIds, sweep.keptIds),
     },
   }));
@@ -163,15 +169,16 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
   const back = backFrom === TAG_BACK_DONE ? null : await step("older inbox", null, () => tagOlderPages(ctx, api, backFrom));
   const indexDone = indexReady || builtNow;
   const relabelled =
-    indexDone && (options.relabel || builtNow || settings.autoSort.labelledVersion !== LABEL_RULES_VERSION)
-      ? await step<number | null>("relabel", null, () => relabelInbox(ctx, api, now))
-      : 0;
+    indexDone && (shown || builtNow || daily)
+      ? await step<number | null>("relabel", null, () => relabelInbox(ctx, api, now, !shown && !builtNow))
+      : null;
   await mutateSettings((current) => ({
     ...current,
     autoSort: {
       ...current.autoSort,
       tagBackBefore: back ? back.nextBefore : current.autoSort.tagBackBefore,
-      labelledVersion: indexDone && relabelled !== null ? LABEL_RULES_VERSION : current.autoSort.labelledVersion,
+      labelledVersion: relabelled !== null ? LABEL_RULES_VERSION : current.autoSort.labelledVersion,
+      lastRelabelAt: relabelled !== null ? now : current.autoSort.lastRelabelAt,
     },
   }));
   return { tagged: tag.tagged + (back?.tagged ?? 0) + (relabelled ?? 0), moved: sweep.movedIds.length, more: sweep.more };
@@ -179,6 +186,9 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
 
 /** The tagger's look-back (TAG_WINDOW in inboxTimeLimits.ts). */
 const TAG_GAP_MS = 2 * 24 * 60 * 60 * 1000;
+/** Once a day all read mail, archived too, is checked for missing labels,
+ * without the scan card or a notification. */
+const RELABEL_EVERY_MS = 24 * 60 * 60 * 1000;
 
 /** Pages of older inbox mail (100 each) labelled per run, paced like the read. */
 const OLDER_PAGES = 3;
@@ -336,6 +346,7 @@ async function relabelInbox(
   ctx: Parameters<typeof labelFromIndex>[0],
   api: Parameters<typeof labelFromIndex>[1],
   now: number,
+  quiet = false,
 ): Promise<number> {
   const index = await openMailIndex();
   // All mail Cluster has read, not just the inbox: labels deleted in Gmail
@@ -343,9 +354,9 @@ async function relabelInbox(
   const rows = (await index.all("gmail")).filter((r) => r.labelIds);
   const all = rows.map((r) => ({ id: r.id, labelIds: r.labelIds! }));
   // Progress writes run in order, so a late one can't overwrite "done".
-  let writes = setScan({ phase: "labelling", done: 0, total: all.length });
+  let writes: Promise<unknown> = quiet ? Promise.resolve() : setScan({ phase: "labelling", done: 0, total: all.length });
   const res = await labelFromIndex(ctx, api, all, (done, total) => {
-    writes = writes.then(() => setScan({ done, total }));
+    if (!quiet) writes = writes.then(() => setScan({ done, total }));
   });
   await writes;
   // Patch the index so the next pass sees the new labels before Gmail's change feed does.
@@ -355,6 +366,13 @@ async function relabelInbox(
     return [{ ...r, labelIds: [...r.labelIds!.filter((l) => !change.remove.includes(l)), ...change.add] }];
   });
   await index.put(patched);
+  const changed = res.labelled + res.fixed;
+  if (changed > 0) {
+    await appendActionLog([
+      { id: makeLogId("sort"), at: now, kind: "sort", summary: `Labelled ${changed} message${changed === 1 ? "" : "s"}` },
+    ]);
+  }
+  if (quiet) return res.labelled;
   const unsorted = rows.filter((r) => r.labelIds!.includes("INBOX") && !res.sortedIds.has(r.id)).length;
   const scan = await getScan();
   await setScan({
@@ -367,12 +385,6 @@ async function relabelInbox(
     finishedAt: now,
     dismissed: scan?.phase === "done" ? scan.dismissed : false,
   });
-  const changed = res.labelled + res.fixed;
-  if (changed > 0) {
-    await appendActionLog([
-      { id: makeLogId("sort"), at: now, kind: "sort", summary: `Labelled ${changed} message${changed === 1 ? "" : "s"} in the inbox` },
-    ]);
-  }
   // Mail labelled while reading leaves nothing new here; the scan is still done.
   if (res.sortedIds.size > 0) await notify("scan-done", `Scan done: ${res.sortedIds.size.toLocaleString()} labelled.`);
   return res.labelled;
@@ -380,7 +392,7 @@ async function relabelInbox(
 
 /** Labels inbox mail by Gmail search (seconds, no reads) and shows the
  * counts on the scan card while the read goes on. */
-async function searchLabelInbox(token: string, settings: ClusterSettings, limits: CategoryLimit[], now: number): Promise<void> {
+async function searchLabelInbox(token: string, settings: ClusterSettings, limits: CategoryLimit[], now: number, quiet = false): Promise<void> {
   const wanted = new Set(limits.map((l) => l.bucket));
   const specs = desiredCategoryFilters(settings)
     .filter((s) => wanted.has(s.bucket))
@@ -401,7 +413,7 @@ async function searchLabelInbox(token: string, settings: ClusterSettings, limits
   if (res.labelled === 0) return;
   const scan = await getScan();
   // A read under way owns the card; a relabel keeps its phase and finishes it.
-  if (scan?.phase !== "reading") {
+  if (!quiet && scan?.phase !== "reading") {
     await setScan(
       scan?.phase === "labelling"
         ? { byBucket: res.byBucket, labelled: res.labelled }

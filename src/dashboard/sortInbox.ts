@@ -15,7 +15,8 @@ import { ALL_SORT_BUCKETS, SORT_BUCKET_LABELS, type SortBucket } from "../lib/so
 import { SORT_RULE_PREFIX } from "../lib/clusterLabels";
 import { syncGmailCategoryFilters } from "../lib/categoryFilters";
 import { buildBucketRule, bucketMatchTerms, isServerSortBucket } from "../lib/serverSort";
-import { colorClusterLabels, getOrCreateLabel, listLabels, listMessageIds } from "../lib/gmailApi";
+import { colorClusterLabels, deleteLabel, getOrCreateLabel, listLabels, listMessageIds } from "../lib/gmailApi";
+import { otherUserLabels } from "../lib/seedFromExisting";
 import { categoryLabelName } from "../lib/categoryFilters";
 import { runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
 import { getScan, newScan, onScanChange, setScan, type ScanState } from "../lib/scanState";
@@ -233,6 +234,13 @@ function sortStage() {
       big.textContent = title;
       sub.textContent = line;
     },
+    /** A question: the arc stops and waits for an answer. */
+    ask(title: string, line: string) {
+      looking(false);
+      middle.replaceChildren(gmailLabelIcon());
+      big.textContent = title;
+      sub.textContent = line;
+    },
     /** Sorting: the ring fills to done/total and shows the count. */
     progress(done: number, total: number, line: string) {
       looking(false);
@@ -318,6 +326,10 @@ async function runSort(mode: SortMode) {
     // the index isn't read again; the read goes on in the background.
     // The read stops at settings.readCap (20,000, or 100,000 if setup chose All); search labels the rest.
     if (mode === "all" && ctx.settings.scanWindowDays < ALL_MAIL_DAYS) ctx.settings = await updateSettings({ scanWindowDays: ALL_MAIL_DAYS });
+    if (mode === "all" && (await gmailProvider.isConnected())) {
+      await askOtherLabels(stage, await gmailProvider.getAuthToken(false));
+      stage.look("Scanning", "Reading your inbox");
+    }
     if (mode === "all" && ctx.settings.autoSort.timeLimitsEnabled && (await gmailProvider.isConnected())) {
       await resortEverything(stage);
       return;
@@ -477,6 +489,51 @@ async function sortWithPlan(
 
 /** Everything: make the labels, then relabel the whole inbox from the index.
  * The background pass reports done/total through the scan state. */
+/** Labels that aren't Cluster's: delete them or keep them. Asked before
+ * every full sort until the user says Keep. A deleted label's mail stays. */
+async function askOtherLabels(stage: SortStage, token: string): Promise<void> {
+  if (ctx.settings.keepOtherLabels) return;
+  const inUse = ALL_SORT_BUCKETS.map((b) => categoryLabelName(b, ctx.settings.labelChoices));
+  const others = otherUserLabels(await listLabels(token), ctx.settings.clusterOwnedLabels, inUse);
+  if (others.length === 0) return;
+  const labels = `${num(others.length)} label${others.length === 1 ? "" : "s"}`;
+  stage.ask(`${labels} of your own`, "Deleting a label keeps its emails.");
+  stage.list.replaceChildren(
+    ...others.map((l) => {
+      const row = document.createElement("div");
+      row.className = "sort-report-row";
+      const name = document.createElement("span");
+      name.className = "sort-name";
+      name.append(gmailLabelIcon(l.color?.backgroundColor), l.name);
+      row.append(document.createElement("i"), name);
+      return row;
+    }),
+  );
+  const remove = await new Promise<boolean>((resolve) => {
+    const del = Object.assign(document.createElement("button"), { className: "btn", textContent: "Delete", id: "other-labels-delete" });
+    const keep = Object.assign(document.createElement("button"), { className: "btn btn-accent-solid", textContent: "Keep", id: "other-labels-keep" });
+    del.onclick = () => resolve(true);
+    keep.onclick = () => resolve(false);
+    stage.actions.replaceChildren(keep, del);
+  });
+  stage.actions.replaceChildren();
+  stage.list.replaceChildren();
+  if (!remove) {
+    ctx.settings = await updateSettings({ keepOtherLabels: true });
+    return;
+  }
+  let deleted = 0;
+  for (const l of others) {
+    stage.progress(deleted, others.length, `Deleting ${l.name}`);
+    // One that fails (already gone, say) doesn't stop the rest.
+    await deleteLabel(token, l.id).then(
+      () => deleted++,
+      (err: unknown) => log.error(`Sort: could not delete label ${l.name}`, err),
+    );
+  }
+  if (deleted > 0) await logAction("labels", `Deleted ${num(deleted)} label${deleted === 1 ? "" : "s"} that weren't Cluster's`);
+}
+
 async function resortEverything(stage: SortStage) {
   const token = await gmailProvider.getAuthToken(false);
   stage.look("Creating labels", "Making sure every label is in Gmail");

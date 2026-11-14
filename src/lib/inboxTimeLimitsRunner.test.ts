@@ -6,13 +6,15 @@ import type { ScanState } from "./scanState";
 let index: MailIndexStore;
 let scan: ScanState | null;
 const labelFromIndex = vi.fn();
+let autoSort: Record<string, unknown>;
+let indexReady: string[];
 
 vi.mock("./providers/gmailProvider", () => ({
   gmailProvider: { id: "gmail", isConnected: async () => true, getAuthToken: async () => "t" },
 }));
 vi.mock("./settingsStore", () => ({
   getSettings: async () => ({
-    autoSort: { timeLimitsEnabled: true, labelsOff: [], inboxHoursByBucket: {}, lastSweep: { at: 0, moved: 0 } },
+    autoSort,
     labelChoices: {},
     sortOverrides: {},
   }),
@@ -27,7 +29,7 @@ vi.mock("./scanState", async (orig) => ({
 vi.mock("./screener", () => ({ knownSenderSet: () => new Set<string>() }));
 vi.mock("./indexTriage", () => ({
   applyIndexedCorrespondents: vi.fn(async () => undefined),
-  refreshIndexForBackground: async () => [],
+  refreshIndexForBackground: async () => indexReady,
   indexSeededCache: async () => ({ cache: new Map(), saveFetched: async () => {} }),
   mailIndexLockKey: () => "k",
 }));
@@ -57,7 +59,7 @@ vi.mock("./metadataCache", () => ({ loadMetadataCache: async () => new Map(), sa
 vi.mock("./actionLog", () => ({ appendActionLog: async () => {}, makeLogId: () => "id" }));
 vi.mock("./gmailApi", () => ({}));
 
-const { readLabeller, runInboxTimeLimits } = await import("./inboxTimeLimitsRunner");
+const { readLabeller, runInboxTimeLimits, LABEL_RULES_VERSION } = await import("./inboxTimeLimitsRunner");
 
 function row(id: string, labelIds: string[]): NormalizedMessageMetadata {
   return {
@@ -79,6 +81,8 @@ function row(id: string, labelIds: string[]): NormalizedMessageMetadata {
 beforeEach(() => {
   index = createMemoryMailIndex();
   scan = null;
+  autoSort = { timeLimitsEnabled: true, labelsOff: [], inboxHoursByBucket: {}, lastSweep: { at: 0, moved: 0 } };
+  indexReady = [];
   labelFromIndex.mockReset();
   labelFromIndex.mockImplementation(async (_ctx, _api, rows: { id: string }[]) => ({
     labelled: rows.length,
@@ -124,5 +128,22 @@ describe("runInboxTimeLimits", () => {
     const run = await runInboxTimeLimits(1, {});
     expect(run?.moved).toBe(1);
     expect(order).toEqual(["sweep", "read"]);
+  });
+
+  it("once a day labels all read mail, archived too, without the scan card", async () => {
+    const day = 24 * 60 * 60 * 1000;
+    await index.setState({ provider: "gmail", complete: true });
+    await index.put([row("archived", ["L_other"])]);
+    indexReady = ["gmail"];
+    autoSort = { ...autoSort, labelledVersion: LABEL_RULES_VERSION, searchedVersion: LABEL_RULES_VERSION, lastRelabelAt: 5 * day };
+
+    // Checked less than a day ago: nothing.
+    await runInboxTimeLimits(5 * day + 1000, {});
+    expect(labelFromIndex).not.toHaveBeenCalled();
+
+    await runInboxTimeLimits(7 * day, {});
+    expect(labelFromIndex.mock.calls[0][2]).toEqual([{ id: "archived", labelIds: ["L_other"] }]);
+    expect((await index.get("gmail", ["archived"]))[0].labelIds).toContain("L_shop");
+    expect(scan).toBeNull();
   });
 });
