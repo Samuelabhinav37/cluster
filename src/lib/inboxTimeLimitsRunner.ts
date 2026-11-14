@@ -139,15 +139,16 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
     ]);
   }
   if (settings.autoSort.holdUnsorted) {
-    const held = await step<{ heldIds: string[]; senders: string[] }>("hold", { heldIds: [], senders: [] }, () =>
-      holdUnsortedInbox(ctx, api, clusterLabelName("screener")),
+    const held = await step<{ heldIds: string[]; senders: string[]; nextBefore: number }>("hold", { heldIds: [], senders: [], nextBefore: 0 }, () =>
+      holdUnsortedInbox(ctx, api, clusterLabelName("screener"), settings.autoSort.holdBefore),
     );
+    // Listed as screened so the Screener page shows them waiting.
+    await mutateSettings((current) => ({
+      ...current,
+      screenedSenders: [...new Set([...current.screenedSenders, ...held.senders])],
+      autoSort: { ...current.autoSort, holdBefore: held.nextBefore },
+    }));
     if (held.heldIds.length > 0) {
-      // Listed as screened so the Screener page shows them waiting.
-      await mutateSettings((current) => ({
-        ...current,
-        screenedSenders: [...new Set([...current.screenedSenders, ...held.senders])],
-      }));
       const n = held.heldIds.length;
       // The scan card's "with no label" count goes down as they leave the inbox.
       const scan = await getScan();

@@ -260,6 +260,31 @@ describe("holdUnsortedInbox", () => {
     expect(query).not.toContain("category:primary");
   });
 
+  it("holds Important and Primary mail no person wrote, and keeps a person's note", async () => {
+    const senders = [
+      sender("alerts@bank-co.example", [msg("a1", "other", { looksAutomated: true, providerMarkedPersonal: true })]),
+      sender("tulsi@recruit.example", [msg("t1", "other", { providerMarkedPersonal: true })]),
+    ];
+    const api = fakeApi({}, senders);
+    api.listIds.mockResolvedValue(["a1", "t1"]);
+    const res = await holdUnsortedInbox(ctx(), api, "✋ Screener");
+    expect(res.heldIds).toEqual(["a1"]);
+    expect(api.listIds.mock.calls[0][1]).not.toContain("is:important");
+  });
+
+  it("pages past a full page of kept mail, then starts over from the newest", async () => {
+    const page = Array.from({ length: 100 }, (_, i) => msg(`p${i}`, "other", { receivedAt: NOW - (i + 10) * 3600_000 }));
+    const api = fakeApi({}, [sender("person@co.example", page)]);
+    api.listIds.mockResolvedValue(page.map((m) => m.id));
+    const first = await holdUnsortedInbox(ctx(), api, "✋ Screener");
+    expect(first.heldIds).toEqual([]);
+    expect(first.nextBefore).toBe(Math.floor((NOW - 109 * 3600_000) / 1000));
+    await holdUnsortedInbox(ctx(), api, "✋ Screener", first.nextBefore);
+    expect(api.listIds.mock.calls[1][1]).toContain(`before:${first.nextBefore}`);
+    api.listIds.mockResolvedValue(["p0"]);
+    expect((await holdUnsortedInbox(ctx(), api, "✋ Screener", first.nextBefore)).nextBefore).toBe(0);
+  });
+
   it("does nothing when nothing is unsorted", async () => {
     const api = fakeApi({});
     expect((await holdUnsortedInbox(ctx(), api, "✋ Screener")).heldIds).toEqual([]);

@@ -64,6 +64,7 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
       skipInboxSince: 0,
       tagBackBefore: 0,
       holdUnsorted: false,
+      holdBefore: 0,
       labelledVersion: 0, searchedVersion: 0, lastRelabelAt: 0, moveVotes: {},
     },
     sortOverrides: {},

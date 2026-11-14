@@ -192,6 +192,8 @@ export interface ClusterSettings {
     /** Inbox mail that fits no label goes to the Screener after a few hours
      * (inboxTimeLimits.holdUnsortedInbox). */
     holdUnsorted: boolean;
+    /** Where the next Screener page ends (epoch seconds, 0 = the newest mail). */
+    holdBefore: number;
     /** LABEL_RULES_VERSION the inbox was last relabelled from the mail index
      * under; a newer version relabels it once (inboxTimeLimitsRunner). */
     labelledVersion: number;
@@ -324,6 +326,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
     skipInboxSince: 0,
     tagBackBefore: 0,
     holdUnsorted: true,
+    holdBefore: 0,
     labelledVersion: 0,
     searchedVersion: 0,
     lastRelabelAt: 0,
