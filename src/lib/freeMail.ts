@@ -91,8 +91,12 @@ export function isSchoolDomain(domain: string): boolean {
 // Shared mailboxes and robots. Never a person, even on a free-mail domain.
 const ROLE_LOCAL = /^(no-?reply|do-?not-?reply|support|help|info|hello|hi|team|billing|accounts?|notifications?|alerts?|news|newsletters?|updates|marketing|sales|admin|service|orders?|receipts?|mailer-daemon|postmaster)([+._-]|$)/i;
 
+// Robots with longer names: recruitingnoreply@, noreply.news@, ibmwjb.fa.sender@.
+const ROBOT_LOCAL = /no-?reply|do-?not-?reply|[._-]sender$/i;
+
 export function isRoleAddress(address: string): boolean {
-  return ROLE_LOCAL.test(address.slice(0, address.indexOf("@")));
+  const local = address.slice(0, address.indexOf("@"));
+  return ROLE_LOCAL.test(local) || ROBOT_LOCAL.test(local);
 }
 
 // Platforms that send for many unrelated customers: every address on them is

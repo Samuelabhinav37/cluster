@@ -12,6 +12,7 @@
 // them has run out ("stays in inbox" wins). A person's own note and senders
 // that look like phishing always stay; starred mail leaves and keeps its star.
 import { domainOf } from "./domainGrouping";
+import { isRoleAddress } from "./freeMail";
 import { neverMove } from "./protectionPolicy";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import { effectiveBucket, type SortBucket, type SortOverride } from "./sortTaxonomy";
@@ -200,12 +201,13 @@ export async function labelFromIndex(
   return result;
 }
 
-/** Where the catch-up pass stands: -5 = done, else it reads inbox mail
- * received before this time (ms) next. -1 to -4 were older "done" values
+/** Where the catch-up pass stands: -6 = done, else it reads inbox mail
+ * received before this time (ms) next. -1 to -5 were older "done" values
  * (the has:nouserlabels bug, before Accounts and Jobs, the week the
- * background run stalled, then rules that missed old job and account mail),
+ * background run stalled, rules that missed old job and account mail, then
+ * missed codes and no-reply mail kept as a person's),
  * so those accounts start over. */
-export const TAG_BACK_DONE = -5;
+export const TAG_BACK_DONE = -6;
 
 /**
  * Labels older inbox mail no filter or tagger saw, one page per run, newest
@@ -263,7 +265,7 @@ export async function holdUnsortedInbox(
     if (skipSender(sender, ctx.known)) continue;
     const domain = domainOf(sender.address);
     for (const msg of sender.messages) {
-      if (msg.isProtected || msg.repliesToYou || writtenByPerson(msg)) continue;
+      if (msg.isProtected || msg.repliesToYou || writtenByPerson(msg, sender.address)) continue;
       if (CALENDAR_RE.test(msg.subject ?? "")) continue;
       // The tagger will label it; it just hasn't yet.
       if (effectiveBucket(msg.kind, domain, sender.address, ctx.overrides, msg.promotion)) continue;
@@ -277,9 +279,10 @@ export async function holdUnsortedInbox(
   return { heldIds, senders: [...senders], nextBefore };
 }
 
-/** A person typed it: not a mailing, not automated. Such mail stays in the inbox. */
-function writtenByPerson(msg: MessageRecord): boolean {
-  return msg.kind === "other" && !msg.looksAutomated;
+/** A person typed it: not a mailing, not automated, not a no-reply or shared
+ * mailbox. Such mail stays in the inbox. */
+function writtenByPerson(msg: MessageRecord, address: string): boolean {
+  return msg.kind === "other" && !msg.looksAutomated && !isRoleAddress(address);
 }
 
 export interface SweepResult {

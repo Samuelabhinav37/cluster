@@ -272,6 +272,17 @@ describe("holdUnsortedInbox", () => {
     expect(api.listIds.mock.calls[0][1]).not.toContain("is:important");
   });
 
+  it("holds no-reply mail with no bulk headers: a robot is never a person", async () => {
+    const senders = [
+      sender("DoNotReply@frederick.example", [msg("d1", "other")]),
+      sender("ibmwjb.fa.sender@workflow.example", [msg("w1", "other")]),
+      sender("tulsi@recruit.example", [msg("t1", "other")]),
+    ];
+    const api = fakeApi({}, senders);
+    api.listIds.mockResolvedValue(["d1", "w1", "t1"]);
+    expect((await holdUnsortedInbox(ctx(), api, "✋ Screener")).heldIds).toEqual(["d1", "w1"]);
+  });
+
   it("pages past a full page of kept mail, then starts over from the newest", async () => {
     const page = Array.from({ length: 100 }, (_, i) => msg(`p${i}`, "other", { receivedAt: NOW - (i + 10) * 3600_000 }));
     const api = fakeApi({}, [sender("person@co.example", page)]);

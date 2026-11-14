@@ -8,6 +8,24 @@ describe("classifyMessageKind", () => {
     expect(classifyMessageKind("Your login code", false)).toBe("otp");
   });
 
+  // Real subjects that sat unlabelled in an inbox (2026-11-14).
+  it("labels codes, account notices and job replies that used to be missed", () => {
+    const who = (address: string, displayName = "") => ({ address, displayName });
+    expect(classifyMessageKind("Your single-use code", false)).toBe("otp");
+    expect(classifyMessageKind("Your Pega Access Code", false)).toBe("otp");
+    expect(classifyMessageKind("Use 87189915 to change your password", false)).toBe("otp");
+    expect(classifyMessageKind("TCM Security: Account Created", false)).toBe("accounts");
+    expect(classifyMessageKind("You've been invited to join Datadog", false)).toBe("accounts");
+    expect(classifyMessageKind("Position Has Been Filled", false)).toBe("jobs");
+    expect(classifyMessageKind("Your VEG application is officially in review 🚀", false)).toBe("jobs");
+    expect(classifyMessageKind("You are invited to interview with HGV", false)).toBe("jobs");
+    expect(classifyMessageKind("Thank you for considering Brookdale Senior Living Inc.", false)).toBe("jobs");
+    expect(classifyMessageKind("Update from AbbVie", false, who("notifications@talentacquisition.abbvie.com", "AbbVie Hiring Team"))).toBe("jobs");
+    expect(classifyMessageKind("Answering Service Care Update: Thank you!", false, who("no-reply@ats.rippling.com"))).toBe("jobs");
+    // A subdomain alone names no job: mail.example.com stays other.
+    expect(classifyMessageKind("Hello", false, who("team@mail.perplexity.ai"))).toBe("other");
+  });
+
   it("detects shipping/order updates", () => {
     expect(classifyMessageKind("Your order has shipped!", false)).toBe("shipping");
     expect(classifyMessageKind("Order confirmation #12345", false)).toBe("shipping");

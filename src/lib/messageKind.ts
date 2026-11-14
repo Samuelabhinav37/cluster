@@ -11,7 +11,7 @@ export type MessageKind = "otp" | "accounts" | "receipt" | "shipping" | "newslet
 // last line covers the same phrase in French, Spanish, Portuguese, German,
 // Italian and Dutch.
 const OTP_RE =
-  /\b(one[- ]?time|(verification|security|confirmation|authentication) code|otp|passcode|(confirm|verify) your (email|identity|sign[- ]?in)|email verification|(login|sign[- ]?in) code|\d{4,8} is your( \w+)? code|your( \w+)? code is:?\s*[A-Z0-9-]*\d|verify your device|confirm it.?s you|use \d{4,8} to (sign|log) ?in|2fa|two-factor|code de (vérification|confirmation|sécurité)|código de (verificación|verificação|seguridad|segurança|acceso)|(bestätigungs|sicherheits|verifizierungs|anmelde)code|codice di (verifica|sicurezza)|verificatiecode)\b/i;
+  /\b(one[- ]?time|(verification|security|confirmation|authentication) code|otp|passcode|(confirm|verify) your (email|identity|sign[- ]?in)|email verification|(login|sign[- ]?in) code|\d{4,8} is your( \w+)? code|your( \w+)? code is:?\s*[A-Z0-9-]*\d|verify your device|confirm it.?s you|use \d{4,8} to ((sign|log) ?in|change|reset|verify|confirm)|single[- ]use code|access code|2fa|two-factor|code de (vérification|confirmation|sécurité)|código de (verificación|verificação|seguridad|segurança|acceso)|(bestätigungs|sicherheits|verifizierungs|anmelde)code|codice di (verifica|sicurezza)|verificatiecode)\b/i;
 // Security notices that mention codes or 2FA ("Two-factor authentication was
 // disabled", "Security alert") are not disposable codes. Mirrors
 // OTP_EXCLUDED_PHRASES in categoryQueries.ts.
@@ -20,7 +20,7 @@ const OTP_EXCLUDE_RE = /\b(alert|disabled|changed|new sign[- ]?in|suspicious)\b/
 // Checked right after codes so a Google "Security alert" with an unsubscribe
 // footer is never filed as a newsletter.
 const ACCOUNT_RE =
-  /\b(security alert|new sign[- ]?in|sign[- ]?in (attempt|alert)|new (login|device)|password (reset|changed|(was|has been) (changed|updated|reset)|updated|assistance)|changed (your )?password|reset your( \w+)? password|signed in (from|on|to)|new account linked|verify your( \w+)? account|(new )?trusted (browser|device)|authentication added|found your info|suspicious (activity|sign[- ]?in|login)|account (recovery|activity|alert|locked|suspended)|recovery (email|phone)|2-step verification|two-factor authentication (was )?(disabled|turned off|enabled|turned on)|app password|passkey|shared some( \w+)? account data)\b/i;
+  /\b(security alert|new sign[- ]?in|sign[- ]?in (attempt|alert)|new (login|device)|password (reset|changed|(was|has been) (changed|updated|reset)|updated|assistance)|changed (your )?password|reset your( \w+)? password|signed in (from|on|to)|new account linked|verify your( \w+)? account|(new )?trusted (browser|device)|authentication added|found your info|suspicious (activity|sign[- ]?in|login)|account (recovery|activity|alert|locked|suspended)|recovery (email|phone)|2-step verification|two-factor authentication (was )?(disabled|turned off|enabled|turned on)|app password|passkey|shared some( \w+)? account data|account (created|details)|invited (you )?to join|reconnect your)\b/i;
 // Phrases, not lone words: "Free delivery this weekend" and "Tracking your
 // fitness goals" are promotions, "Our statement on the outage" is news.
 const SHIPPING_RE =
@@ -31,14 +31,14 @@ const RECEIPT_RE =
 const ACCOUNT_EXCLUDE_RE = /\bcve-\d/i;
 // No bare "application": PayPal's "Pay in 4 application" is not a job.
 const JOBS_RE =
-  /\b(thanks?( you)? for (applying|your application|your interest)|position (closed|filled)|resume submission|right to represent|(phone|video) interview|interview request|has applied on|opportunity at|job recommendations|background (screening|check)|your (job )?application|job application|application (update|status|received|confirmation)|received your application|job alerts?|job (notifications?|search|match(es)?)|jobs for you|new jobs?|looking for( [\w-]+){0,4} jobs|job opening|new opportunity|career opportunit(y|ies)|(urgent|immediate) (hiring|opportunity|requirement)|complete your( [\w-]+){0,4} application|(complete )?your( \w+)? interview|interview (questionnaire|invitation|request|scheduled))\b|^application [–—-] /i;
+  /\b(thanks?( you)? for (applying|your application|your interest)|position (has been |was )?(closed|filled)|submitting your resume|thank you for considering|invited to (an? )?interview|application is( officially)? (in|under) review|resume submission|right to represent|(phone|video) interview|interview request|has applied on|opportunity at|job recommendations|background (screening|check)|your (job )?application|job application|application (update|status|received|confirmation)|received your application|job alerts?|job (notifications?|search|match(es)?)|jobs for you|new jobs?|looking for( [\w-]+){0,4} jobs|job opening|new opportunity|career opportunit(y|ies)|(urgent|immediate) (hiring|opportunity|requirement)|complete your( [\w-]+){0,4} application|(complete )?your( \w+)? interview|interview (questionnaire|invitation|request|scheduled))\b|^application [–—-] /i;
 // recruiting@dupaco.com, recruitingnoreply@ford.com, talentacquisition@hr.questdiagnostics.com.
 // A staffing agency's one-to-one post: a job title next to a work mode
 // ("Cybersecurity Engineer :: Remote", "IAM Consultant - Frisco, TX (Onsite)").
 // Only without an unsubscribe link, so newsletters about remote work stay news.
 const JOB_POST_RE =
   /\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b.*\b(remote|hybrid|on-?site|contract|w2|c2c)\b|\b(remote|hybrid|on-?site|contract)\b.*\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b|^looking for\b/i;
-const JOBS_SENDER_RE = /\b(recruit\w*|talent ?(acquisition|exchange|network|community)|careers|jobs?|job ?(alerts?|notifications?))\b/i;
+const JOBS_SENDER_RE = /\b(recruit\w*|hiring|ats|talent ?(acquisition|exchange|network|community)|careers|jobs?|job ?(alerts?|notifications?))\b/i;
 const SOCIAL_RE = /\b(mentioned you|tagged you|new follower|friend request|liked your|commented on)\b/i;
 // When the subject says nothing ("Your Thursday evening trip with Uber"), a
 // sender named for receipts or orders still does: "Uber Receipts",
@@ -66,7 +66,10 @@ export function classifyMessageKind(
   if (SOCIAL_RE.test(s)) return "social";
   if (JOBS_RE.test(s) || (!hasListUnsubscribe && JOB_POST_RE.test(s))) return "jobs";
   if (sender) {
-    const who = `${sender.address.split("@")[0].replace(/[._+-]/g, " ")} ${cleanText(sender.displayName)}`;
+    // Subdomains count too: talentacquisition.abbvie.com, ats.rippling.com.
+    const [local, host = ""] = sender.address.split("@");
+    const sub = host.split(".").slice(0, -2).join(" ");
+    const who = `${local.replace(/[._+-]/g, " ")} ${sub} ${cleanText(sender.displayName)}`;
     if (SHIPPING_SENDER_RE.test(who)) return "shipping";
     if (RECEIPT_SENDER_RE.test(who)) return "receipt";
     if (JOBS_SENDER_RE.test(who)) return "jobs";
@@ -85,7 +88,7 @@ export function withPurchase(kind: MessageKind, purchase: boolean | undefined): 
 // Subjects that read like an actual code to type in, not just a mention of
 // "one-time" or "2FA" ("Your one-time payment receipt", "Enable 2FA").
 const CODE_PHRASE_RE =
-  /\b(verification|security|login|sign[- ]?in|confirmation|access) code\b|\bone[- ]?time pass(word|code)\b|\bpasscode\b|\bis your code\b|\byour code is\b|\botp\b/i;
+  /\b(verification|security|login|sign[- ]?in|confirmation|access) code\b|\bone[- ]?time pass(word|code)\b|\bsingle[- ]use code\b|\bpasscode\b|\bis your code\b|\byour code is\b|\botp\b/i;
 const CODE_TOKEN_RE = /\b\d{4,8}\b|\b(?=[A-Z0-9]*\d)[A-Z0-9]{6,8}\b/;
 
 /** True when a one-time-code subject looks like a disposable code, the only
