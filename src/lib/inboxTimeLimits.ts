@@ -236,9 +236,9 @@ const CALENDAR_RE = /^(updated )?invitation:|^(accepted|declined|tentatively acc
  * the user to review: nothing is deleted, and Gmail's spam filter learns
  * nothing. Starred, important or Primary-tab mail, mail from anyone known,
  * replies, personal addresses, calendar invites and risky senders (the scam
- * hold's job) all stay.
- * shortcut: only the last 14 days are looked at, so an older unsorted
- * backlog stays put; widen once the catch-up tagger has finished.
+ * hold's job) all stay. Primary is checked on each message's own labels, not
+ * in the search: with inbox tabs off, Gmail's `category:primary` matches the
+ * whole inbox, so `-category:primary` listed nothing and nothing was held.
  */
 export async function holdUnsortedInbox(
   ctx: LimitContext,
@@ -246,7 +246,7 @@ export async function holdUnsortedInbox(
   holdLabelName: string,
 ): Promise<{ heldIds: string[]; senders: string[] }> {
   const cutoff = epochSeconds(ctx.now - HOLD_UNSORTED_HOURS * HOUR_MS);
-  const query = `before:${cutoff} newer_than:14d -is:starred -is:important -category:primary -label:"${holdLabelName}" ${withoutClusterLabels(ctx.limits)}`;
+  const query = `before:${cutoff} -is:starred -is:important -label:"${holdLabelName}" ${withoutClusterLabels(ctx.limits)}`;
   const ids = await api.listIds(["INBOX"], query, HOLD_MAX);
   if (ids.length === 0) return { heldIds: [], senders: [] };
   const heldIds: string[] = [];

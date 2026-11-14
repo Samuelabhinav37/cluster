@@ -256,6 +256,8 @@ describe("holdUnsortedInbox", () => {
     expect(query).toContain(`before:${cutoff(3)}`);
     expect(query).toContain('-label:"✋ Screener"');
     expect(query).toContain('-label:"🛍 Shopping"');
+    // With inbox tabs off it matches every inbox email, so nothing was listed.
+    expect(query).not.toContain("category:primary");
   });
 
   it("does nothing when nothing is unsorted", async () => {
