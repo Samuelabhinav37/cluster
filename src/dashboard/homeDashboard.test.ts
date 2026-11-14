@@ -154,7 +154,7 @@ describe("renderHomeDashboard", () => {
     expect(el.querySelector(".home-hero")).toBeNull();
     const widgets = Array.from(el.querySelectorAll<HTMLElement>(".ov-w"));
     expect(widgets.map((w) => w.querySelector(".ov-w-title")?.firstChild?.textContent)).toEqual([
-      "Inbox by category",
+      "Mail by category",
       "Suspicious emails",
       "Top senders",
     ]);
@@ -169,9 +169,9 @@ describe("renderHomeDashboard", () => {
     const el = renderHomeDashboard({ ...calm, kinds: { ...calm.kinds, trans: 0 }, total: 60 }, vi.fn(), openKind);
     expect(Array.from(el.querySelectorAll(".ov-legend button")).map(text)).toEqual([
       "People10",
-      "Receipts0",
+      "Transactions0",
       "Updates20",
-      "Promotions30",
+      "Offers30",
     ]);
     expect(text(el.querySelector(".ov-mid b"))).toBe("60");
     el.querySelector<HTMLButtonElement>(".ov-legend button")!.click();

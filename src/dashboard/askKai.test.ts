@@ -18,7 +18,7 @@ describe("askIntents", () => {
 
   it("answers how many of a kind", () => {
     const [best] = askIntents("how many promotions", facts, act());
-    expect(best.title).toBe("Promotions");
+    expect(best.title).toBe("Offers");
     expect(best.sub).toBe("40 emails");
   });
 

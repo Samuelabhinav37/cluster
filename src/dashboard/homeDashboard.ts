@@ -19,9 +19,10 @@ export type HomeKind = "primary" | "trans" | "updates" | "promo";
 
 export const HOME_KINDS: ReadonlyArray<{ key: HomeKind; label: string }> = [
   { key: "primary", label: "People" },
-  { key: "trans", label: "Receipts" },
+  // Not "Receipts"/"Promotions": each group holds a label of that name.
+  { key: "trans", label: "Transactions" },
   { key: "updates", label: "Updates" },
-  { key: "promo", label: "Promotions" },
+  { key: "promo", label: "Offers" },
 ];
 
 /** Which of the four kinds each label belongs to, so the Labels page groups
@@ -756,7 +757,7 @@ export function renderHomeDashboard(
   const grid = el("div", "ov-grid");
 
   const donutBox = el("div", "ov-donut-box");
-  donutBox.append(donutChart(HOME_KINDS.map((k) => [k.label, f.kinds[k.key], KIND_COLORS[k.key]]), "in inbox"));
+  donutBox.append(donutChart(HOME_KINDS.map((k) => [k.label, f.kinds[k.key], KIND_COLORS[k.key]]), "emails"));
   const legend = el("div", "ov-legend");
   for (const k of HOME_KINDS) {
     const item = el("button", "", k.label);
@@ -769,7 +770,7 @@ export function renderHomeDashboard(
   donutBox.append(legend);
   const left = el("div", "ov-col");
   left.append(
-    widget("Inbox by category", `Every email Cluster has read, by kind. Pick a kind to see its emails.${since}`, null, donutBox, () => go("organize"), "Labels"),
+    widget("Mail by category", `Every email Cluster has read, by kind. Pick a kind to see its emails.${since}`, null, donutBox, () => go("organize"), "Labels"),
   );
 
   const senderRow = (cls: string, key: string | undefined, name: string) => {

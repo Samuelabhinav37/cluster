@@ -75,6 +75,8 @@ import { maybeShowLabelTidyCard } from "./labelTidy";
 import {
   BUCKET_ICON,
   presetSwitch,
+  gmailCount,
+  refreshGmailCounts,
   renderPresets,
   renderTimeLimits,
   setPresetActions,
@@ -848,7 +850,8 @@ function paintScanCard() {
     name: label.replace(/^\S+\s/, ""),
     icon: BUCKET_ICON[bucket],
     color: CLUSTER_LABEL_COLORS[bucket],
-    count: scan!.byBucket[bucket] ?? 0,
+    // Gmail's own totals once the scan is done, so the card matches Labels and Gmail.
+    count: (scan!.phase === "done" ? gmailCount(bucket) : undefined) ?? scan!.byBucket[bucket] ?? 0,
     href: gmailSearchUrl(`label:"${label.replace(/"/g, "")}"`),
   }));
   const card = renderScanCard(scan, rows, {
@@ -862,6 +865,8 @@ function paintScanCard() {
   });
   if (old) old.replaceWith(card);
   else overviewContentEl.prepend(card);
+  // Resolves false inside its 5-minute window, so this repaints once per read.
+  if (scan.phase === "done") void refreshGmailCounts().then((fresh) => fresh && paintScanCard());
 }
 
 /** Says reading finished, and marks the tab with a dot until you look at it. */
@@ -1650,14 +1655,16 @@ function renderDeleteScreen(senders: SenderSummary[]) {
   list("lists-top", plan.lists.map((s) => [senderName(s), senderVolume(s)]));
   lastPlan = plan;
   document.getElementById("tab-count-subs")!.textContent = plan.lists.length ? n(plan.lists.length) : "";
-  // The same total as the sidebar badge, so the two always match.
-  document.getElementById("tab-count-senders")!.textContent = plan.total ? n(plan.total) : "";
   paintCleanupChart(cuKpi);
+  const tableItems = [
+    ...(cuKpi !== "old" ? pageItems("never").map((it) => ({ ...it, reason: "Unopened" })) : []),
+    ...(cuKpi !== "never" ? pageItems("old").map((it) => ({ ...it, reason: "Expired" })) : []),
+  ];
+  // The tab says Senders, so it counts the table's rows, not their emails.
+  const senderRows = new Set(tableItems.map((it) => detailRowKey(it.sender))).size;
+  document.getElementById("tab-count-senders")!.textContent = senderRows ? n(senderRows) : "";
   renderSenderTable(document.getElementById("cu-senders-table")!, {
-    items: [
-      ...(cuKpi !== "old" ? pageItems("never").map((it) => ({ ...it, reason: "Unopened" })) : []),
-      ...(cuKpi !== "never" ? pageItems("old").map((it) => ({ ...it, reason: "Expired" })) : []),
-    ],
+    items: tableItems,
     rowKeyOf: detailRowKey,
     openRow: (key) => details?.open({ view: "emails", senderKey: key }),
     trash: (merged, picked, slot, reset) => trashFromPage("table", merged, picked, slot, reset),

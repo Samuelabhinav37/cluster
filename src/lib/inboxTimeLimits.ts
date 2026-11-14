@@ -9,8 +9,8 @@
 //   mail out of the inbox into the label. Nothing is deleted.
 //
 // Mail that carries several Cluster labels leaves only when every one of
-// them has run out ("stays in inbox" wins). Starred mail, mail from people
-// the user writes to, and senders that look like phishing always stay.
+// them has run out ("stays in inbox" wins). A person's own note and senders
+// that look like phishing always stay; starred mail leaves and keeps its star.
 import { domainOf } from "./domainGrouping";
 import { neverMove } from "./protectionPolicy";
 import type { SenderSummary } from "./senderModel";

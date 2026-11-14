@@ -31,7 +31,7 @@ describe("Where each kind of mail goes", () => {
     expect(kinds).toHaveLength(13);
     expect(kinds.every((k) => k.value === "off")).toBe(true);
     // Grouped like Overview: Receipts, Updates, Promotions.
-    expect(Array.from(document.querySelectorAll("#time-limits-rows .ios-head")).map((h) => h.textContent)).toEqual(["Receipts", "Updates", "Promotions"]);
+    expect(Array.from(document.querySelectorAll("#time-limits-rows .ios-head")).map((h) => h.textContent)).toEqual(["Transactions", "Updates", "Offers"]);
     expect(document.getElementById("time-limits-toggle")).toBeNull();
     const text = dash.el("time-limits-rows").textContent!;
     expect(text.indexOf("Education")).toBeLessThan(text.indexOf("Promotions"));

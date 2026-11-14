@@ -43,7 +43,7 @@ export function buildInboxHealth(input: {
   const now = input.now ?? Date.now();
 
   const readyToCleanUp = totalExpiryCount(buildExpiryBuckets(senders));
-  const neverOpened = neverReadSenders(senders, undefined, undefined, now, settings.autoSort.skipInboxSince).length;
+  const neverOpened = neverReadSenders(senders, undefined, undefined, now, settings.autoSort?.skipInboxSince).length;
   const suspectedSpam = suggestSpamSenders(senders).length;
 
   const oldView = SMART_VIEWS.find((v) => v.id === "older-1y");

@@ -120,8 +120,8 @@ const COUNTS_TTL_MS = 5 * 60 * 1000;
 
 /** Reads each Cluster label's message count from Gmail (labels.get), so the
  * list shows what Gmail shows. */
-async function refreshGmailCounts(): Promise<void> {
-  if (Date.now() - countsAt < COUNTS_TTL_MS) return;
+export async function refreshGmailCounts(): Promise<boolean> {
+  if (Date.now() - countsAt < COUNTS_TTL_MS) return false;
   countsAt = Date.now();
   try {
     const token = await gmailProvider.getAuthToken(false);
@@ -137,10 +137,15 @@ async function refreshGmailCounts(): Promise<void> {
     );
     gmailCounts = next;
     renderKindSubs();
+    return true;
   } catch (err) {
     log.error("organize: label counts failed", err);
+    return false;
   }
 }
+
+/** Gmail's count of a label, once it has answered. */
+export const gmailCount = (bucket: SortBucket): number | undefined => gmailCounts.get(bucket);
 
 /** The muted number on a label's row: Gmail's count, else what Sort would label now. */
 export function labelCount(bucket: SortBucket): number {
