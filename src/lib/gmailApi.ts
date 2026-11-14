@@ -106,6 +106,10 @@ async function removeCachedAuthToken(token: string): Promise<void> {
 // Thin JSON wrapper. Callers pass the response shape they read as `T`; the
 // Gmail API's own schema is the source of truth, so this doesn't try to model
 // it exhaustively — just the handful of fields each call site touches.
+// Stale token -> its replacement. shortcut: grows by one entry per hourly
+// refresh for the worker's life; fine, the worker restarts often.
+const renewedTokens = new Map<string, string>();
+
 async function gmailFetch<T = unknown>(
   path: string,
   token: string,
@@ -115,14 +119,17 @@ async function gmailFetch<T = unknown>(
   // its elevated-scope getter so recovery keeps the mail.google.com scope.
   refreshToken: () => Promise<string> = () => getAuthToken(false),
 ): Promise<T> {
-  let bearer = token;
+  // A long run keeps the token it started with; after one refresh, every
+  // later call uses the new one instead of failing once and retrying.
+  let bearer = renewedTokens.get(token) ?? token;
   if (path.startsWith("/users/me/settings/filters")) {
     bearer = await getFilterAuthToken();
     refreshToken = getFilterAuthToken;
   }
   const cost = gmailQuotaCost(path, (init.method ?? "GET").toUpperCase());
   for (let attempt = 0; ; attempt++) {
-    await reserveGmailQuota(cost);
+    // Counted once: a 401 retry used to count the call twice and halve the pace.
+    if (attempt === 0) await reserveGmailQuota(cost);
     const res = await fetchWithRetry(`${API_BASE}${path}`, {
       ...init,
       headers: {
@@ -136,7 +143,9 @@ async function gmailFetch<T = unknown>(
     // real auth failure (grant revoked, wrong scopes) and propagates.
     if (res.status === 401 && attempt === 0) {
       await removeCachedAuthToken(bearer);
+      const stale = bearer;
       bearer = await refreshToken();
+      if (stale === token) renewedTokens.set(token, bearer);
       continue;
     }
     if (!res.ok) {

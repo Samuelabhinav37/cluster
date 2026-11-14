@@ -9,6 +9,7 @@ import {
   readTimeText,
   READS_PER_MINUTE,
   reserveGmailQuota,
+  MAX_SLEEP_MS,
 } from "./gmailQuotaLedger";
 
 function fakeChromeStorage() {
@@ -62,6 +63,15 @@ describe("gmailQuotaLedger", () => {
     const waited = await reserveGmailQuota(20, clock);
     expect(waited).toBeGreaterThanOrEqual(60_000);
     expect(await reserveGmailQuota(20, clock)).toBe(0);
+  });
+
+  it("waits in slices short enough to keep the worker alive", async () => {
+    const clock = makeClock();
+    const slept: number[] = [];
+    await reserveGmailQuota(BUDGET, clock);
+    await reserveGmailQuota(20, { now: clock.now, sleep: (ms) => (slept.push(ms), clock.sleep(ms)) });
+    expect(slept.length).toBeGreaterThan(1);
+    expect(Math.max(...slept)).toBeLessThanOrEqual(MAX_SLEEP_MS);
   });
 
   it("remembers spend across separate calls — a reload can't reset it", async () => {

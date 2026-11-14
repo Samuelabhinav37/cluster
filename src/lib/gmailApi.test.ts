@@ -333,6 +333,19 @@ describe("Gmail stale-token recovery", () => {
     });
   });
 
+  it("after one refresh, later calls with the old token use the new one", async () => {
+    stubIdentity("renewed-token");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ error: "invalid credentials" }, 401))
+      .mockImplementation(async () => json({ historyId: "42" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await getCurrentHistoryId("hour-old-token");
+    await getCurrentHistoryId("hour-old-token");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect((fetchMock.mock.calls[2][1] as RequestInit).headers).toMatchObject({ Authorization: "Bearer renewed-token" });
+  });
+
   it("gives up after a second consecutive 401", async () => {
     const { removeCachedAuthToken } = stubIdentity("fresh-token");
     const fetchMock = vi.fn(async () => json({ error: "revoked" }, 401));

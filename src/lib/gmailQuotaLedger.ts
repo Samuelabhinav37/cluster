@@ -81,6 +81,8 @@ function usedUnits(ledger: Ledger): number {
 }
 
 const realSleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+/** Chrome stops an idle worker after 30 s with no extension API call. */
+export const MAX_SLEEP_MS = 20_000;
 
 /**
  * Blocks until `cost` units fit inside the trailing-60s window across every
@@ -108,8 +110,11 @@ export async function reserveGmailQuota(cost: number, deps: LedgerDeps = {}): Pr
       return { ok: false as const, wait: Math.max(WINDOW_MS - (t - oldest) + 50, 100) };
     });
     if (decision.ok) return waited;
-    await sleep(decision.wait);
-    waited += decision.wait;
+    // Short slices: the storage read each loop is an extension API call,
+    // which keeps Chrome from stopping the worker during a minute-long wait.
+    const slice = Math.min(decision.wait, MAX_SLEEP_MS);
+    await sleep(slice);
+    waited += slice;
   }
 }
 
