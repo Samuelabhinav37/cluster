@@ -88,3 +88,7 @@ Check: a fresh Chrome profile with a test Gmail account, start to finish, timed.
 ## Progress
 
 Branch `feat/scan-flow-2026-11`. Steps are ticked here as they land.
+
+- 0.1 build stamp f577cb2. 0.2 + 0.4 Screener pages and holds non-person Important/Primary mail b36a52e. 0.3 covered by c413f1a + 0.4 (a person's reply keeps a thread, by design). 0.5 one pass at a time c47e48f, refined adc3e53. 0.6 + 1.11 run reports, watchdog, Diagnostics 012214b.
+- 1.1 expired cursor 67f1d91. 1.2 + 1.3 card never sticks, done only when read 012214b, adc3e53. 1.4 sent-mail line 736a5cb. 1.5 + 1.6 token reuse, quota slices c7d98f4. 1.7 + 1.9 already in place (4 concurrent reads, Retry-After, quota-based ETA in words). 1.8 retry failed reads a4474c1. 1.10 sync over 8 KB 603d243.
+- Next: live check of Phases 0-1 on the real inbox, then Phase 2 (mockup of the review step first).
