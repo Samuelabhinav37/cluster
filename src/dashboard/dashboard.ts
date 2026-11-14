@@ -848,7 +848,7 @@ onRunReportsChange(pickLastRun);
 async function startLabelScan() {
   if (!ctx.settings.autoSort.timeLimitsEnabled) {
     // Labels off ("Ask me first"): the read is the whole scan.
-    if ((await getScan())?.phase === "reading") await setScan({ phase: "done", finishedAt: Date.now() });
+    if ((await getScan())?.phase === "reading" && (await readFinished())) await setScan({ phase: "done", finishedAt: Date.now() });
     return;
   }
   await setScan({ ...newScan(), phase: "labelling" });
@@ -857,8 +857,15 @@ async function startLabelScan() {
   } catch (err) {
     log.error("Scan: labelling failed", err);
   }
-  // No index yet, or nothing to do: don't leave the card spinning.
-  if ((await getScan())?.phase !== "done") await setScan({ phase: "done", finishedAt: Date.now() });
+  // Nothing left to do: don't leave the card spinning. While the read is
+  // unfinished it stays open: "done" there claimed every email was sorted.
+  if ((await getScan())?.phase !== "done" && (await readFinished())) await setScan({ phase: "done", finishedAt: Date.now() });
+}
+
+/** The Gmail read is complete, so a scan card may say done. */
+async function readFinished(): Promise<boolean> {
+  const state = await openMailIndex().then((index) => index.getState("gmail")).catch(() => undefined);
+  return state?.complete === true;
 }
 
 function gmailSearchUrl(q: string): string {

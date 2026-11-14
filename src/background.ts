@@ -179,7 +179,7 @@ async function runInboxTimeLimitsIfQuota(): Promise<void> {
     // paces itself to leave 1,500 free: a 1,500 floor here skipped every
     // run for as long as a read went on, so labelled mail never left the inbox.
     if ((await gmailQuotaHeadroom()) < 500) return;
-    await runInboxTimeLimits();
+    await runInboxTimeLimits(Date.now(), { background: true });
   } catch (err) {
     log.error("Inbox time limits failed", err);
   }

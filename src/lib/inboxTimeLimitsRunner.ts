@@ -52,17 +52,22 @@ export interface TimeLimitRun {
 const RUN_LOCK = "inbox-time-limits";
 
 /** One tag + sweep pass, or null when time limits are off, Gmail isn't
- * connected, or (for a background pass) another pass is still going: two at
- * once did the same work twice and ate the first read's quota. A Rescan the
- * user asked for waits its turn instead. Web Locks free the lock if Chrome
- * stops the worker mid-run. */
-export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: boolean } = {}): Promise<TimeLimitRun | null> {
-  const locked = <T>(key: string, fn: () => Promise<T>) =>
-    options.relabel ? withStorageLock(key, fn) : tryWithStorageLock(key, fn);
-  const pass = await locked(RUN_LOCK, () => runPass(now, options));
+ * connected, or (for the 5-minute alarm, `background`) another pass is still
+ * going: two at once did the same work twice and ate the first read's quota.
+ * Anything the user did waits its turn instead. Web Locks free the lock if
+ * Chrome stops the worker mid-run. */
+export async function runInboxTimeLimits(
+  now = Date.now(),
+  options: { relabel?: boolean; background?: boolean } = {},
+): Promise<TimeLimitRun | null> {
+  const pass = options.background
+    ? await tryWithStorageLock(RUN_LOCK, () => runPass(now, options))
+    : await withStorageLock(RUN_LOCK, () => runPass(now, options));
   if (!pass) return null;
   try {
-    return (await locked(SLOW_LOCK, pass.slow)) ?? pass.quick;
+    // Only a Rescan waits for a slow pass already going (it can take hours).
+    const slow = options.relabel ? withStorageLock(SLOW_LOCK, pass.slow) : tryWithStorageLock(SLOW_LOCK, pass.slow);
+    return (await slow) ?? pass.quick;
   } finally {
     await pass.run.finish();
   }
@@ -304,7 +309,8 @@ export async function readLabeller(): Promise<ReadLabeller | null> {
   const settings = await getSettings();
   if (!(await gmailProvider.isConnected())) return null;
   const index = await openMailIndex();
-  if (!indexNeedsBuild(await index.getState("gmail"), settings.scanWindowDays, settings.readCap)) return null;
+  const state = await index.getState("gmail");
+  if (!indexNeedsBuild(state, settings.scanWindowDays, settings.readCap)) return null;
   const token = await gmailProvider.getAuthToken(false);
   const ctx = { limits: limitsFor(settings), known: knownSenderSet(settings), overrides: settings.sortOverrides, now: Date.now() };
   const api = limitsApi(token);
@@ -317,7 +323,9 @@ export async function readLabeller(): Promise<ReadLabeller | null> {
   let labelled = carry?.labelled ?? 0;
   const byBucket: Partial<Record<SortBucket, number>> = { ...carry?.byBucket };
   let pending: NormalizedMessageMetadata[] = [];
-  if (!carry) await setScan({ ...newScan(), phase: "reading" });
+  // A mailbox read before (a rebuild after an expired cursor or a new scan
+  // range) mostly reads nothing new: don't flip a finished card back.
+  if (!carry && !state?.complete) await setScan({ ...newScan(), phase: "reading" });
 
   const flush = async () => {
     const batch = pending.filter((r) => r.labelIds);
