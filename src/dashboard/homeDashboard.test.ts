@@ -272,6 +272,11 @@ describe("renderScanCard", () => {
     expect(card.querySelector(".scan-rows")).toBeNull();
   });
 
+  it("with every email read, says sent mail is being read rather than sitting at 120 of 120", () => {
+    const card = renderScanCard({ ...newScan(NOW), phase: "reading", done: 120, total: 120 }, rows, on());
+    expect(card.querySelector(".scan-line")!.textContent).toContain("Reading your sent mail");
+  });
+
   it("a stalled run says why and gets Rescan and close mid-scan, so the card can't stick", () => {
     const actions = on();
     const text = "Stopped while labelling new mail, with no sign of life for 10 minutes.";

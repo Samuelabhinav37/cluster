@@ -556,7 +556,14 @@ export function renderScanCard(
     track.append(fill);
     card.append(track);
     if (reading) {
-      const of = scan.total > 0 ? `${n(scan.done)} of ${n(scan.total)} read` : `${n(scan.done)} read`;
+      // Every email counted, but the read goes on through sent mail (up to
+      // 5,000, many minutes): "120 of 120 read" looked finished but stuck.
+      const of =
+        scan.total > 0 && scan.done >= scan.total
+          ? "Reading your sent mail, to learn who you write to"
+          : scan.total > 0
+            ? `${n(scan.done)} of ${n(scan.total)} read`
+            : `${n(scan.done)} read`;
       const left = scan.total > scan.done ? ` · ${readTimeText(scan.total - scan.done)} left` : "";
       card.append(el("p", "scan-line", `${of}${left} · ${n(scan.labelled)} labelled so far`));
       card.append(el("p", "scan-line", "You can close this tab."));
