@@ -15,7 +15,7 @@ import { getSettings, mutateSettings, updateSettings } from "../lib/settingsStor
 import { domainOf } from "../lib/domainGrouping";
 import { deliverNewsletters, HOLD_HOURS, newsletterDayOn } from "../lib/newsletterDay";
 import type { SenderSummary } from "../lib/senderModel";
-import { ALL_SORT_BUCKETS, SKIP_INBOX_BUCKETS, effectiveBucket, type SortBucket } from "../lib/sortTaxonomy";
+import { ALL_SORT_BUCKETS, effectiveBucket, type SortBucket } from "../lib/sortTaxonomy";
 import { BUCKET_KIND, gmailLabelIcon, HOME_KINDS, icon } from "./homeDashboard";
 import { ctx } from "./state";
 
@@ -39,6 +39,7 @@ export const LIMIT_CHOICES: { label: string; hours: number | null }[] = [
 
 /** "Keep in inbox": one menu that sets every label's time at once. */
 const WINDOW_CHOICES = [
+  { label: "Skip the inbox", value: "0" },
   { label: "1 hour", value: "1" },
   { label: "3 hours", value: "3" },
   { label: "1 day", value: "24" },
@@ -47,12 +48,6 @@ const PER_LABEL = "per";
 
 /** Off: no label, no Gmail filter, never moved. */
 const OFF = "off";
-
-/** "Skip the inbox" means never seeing it, so it's offered only where
- * missing one costs nothing (SKIP_INBOX_BUCKETS). */
-export function limitChoicesFor(bucket: SortBucket) {
-  return SKIP_INBOX_BUCKETS.includes(bucket) ? LIMIT_CHOICES : LIMIT_CHOICES.filter((c) => c.hours !== 0);
-}
 
 /** What each kind of mail is, shown on hover over its name. */
 const BUCKET_HINT: Record<SortBucket, string> = {
@@ -203,7 +198,7 @@ export function renderTimeLimits(): void {
     select.className = "kind-pick";
     select.setAttribute("aria-label", `${name}: where it goes`);
     select.add(new Option("Off", OFF));
-    for (const choice of limitChoicesFor(bucket)) select.add(new Option(choice.label, choiceValue(choice.hours)));
+    for (const choice of LIMIT_CHOICES) select.add(new Option(choice.label, choiceValue(choice.hours)));
     select.value = storedValue(bucket);
     select.onchange = () => void queueSave();
     row.append(mark, words, count, select);
@@ -244,12 +239,9 @@ export async function turnOnTimeLimits(): Promise<boolean> {
   return queueSave();
 }
 
-/** Menus the window sets: every label that is on (all of them when none
- * is), except those set to skip the inbox. */
+/** Menus the window sets: every label that is on (all of them when none is). */
 function windowTargets(): HTMLSelectElement[] {
-  const menus = ALL_SORT_BUCKETS.map(selectFor).filter(
-    (m): m is HTMLSelectElement => m !== null && m.value !== "0",
-  );
+  const menus = ALL_SORT_BUCKETS.map(selectFor).filter((m): m is HTMLSelectElement => m !== null);
   const on = menus.filter((m) => m.value !== OFF);
   return on.length > 0 ? on : menus;
 }

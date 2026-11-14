@@ -245,7 +245,7 @@ export interface HealthSnapshot {
 const STORAGE_KEY = "clusterSettings";
 /** A scan window that reaches the first email (Gmail began in 2004). */
 export const ALL_MAIL_DAYS = 36500;
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 16;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 17;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -443,6 +443,13 @@ function migrateSettings(value: unknown): Record<string, unknown> {
       for (const b of ["promotions", "newsletter", "social"]) if (b in hours) hours[b] = 0;
       stored = { ...stored, schemaVersion: 16, autoSort: { ...autoSort, inboxHoursByBucket: hours } };
       version = 16;
+    } else if (version === 16) {
+      // Every label skips the inbox now; the user turns one back per label.
+      const autoSort = isRecord(stored.autoSort) ? stored.autoSort : {};
+      const hours = isRecord(autoSort.inboxHoursByBucket) ? { ...autoSort.inboxHoursByBucket } : {};
+      for (const b of Object.keys(hours)) hours[b] = 0;
+      stored = { ...stored, schemaVersion: 17, autoSort: { ...autoSort, inboxHoursByBucket: hours } };
+      version = 17;
     }
   }
   return stored;
@@ -568,6 +575,22 @@ const SYNCED_KEYS = [
 const SYNCED_AUTOSORT = ["timeLimitsEnabled", "inboxHoursByBucket", "labelsOff", "holdUnsorted", "enabledBuckets", "keepSorting", "expireOtp"] as const;
 
 const SYNC_PREFIX = "settings:";
+/** The schema the synced copy was written at. Without it, a copy written by
+ * an older version laid its old choices back over a migrated computer. */
+const SYNC_SCHEMA_KEY = `${SYNC_PREFIX}schema`;
+/** Sync shipped at schema 15, before copies carried their version. */
+const SYNC_FIRST_SCHEMA = 15;
+
+/** Synced items written at an older schema, brought up to this one. */
+function migrateSyncedItems(items: Record<string, unknown>): Record<string, unknown> {
+  const stored = items[SYNC_SCHEMA_KEY];
+  const version = typeof stored === "number" ? stored : SYNC_FIRST_SCHEMA;
+  if (version >= CURRENT_SETTINGS_SCHEMA_VERSION) return items;
+  const raw: Record<string, unknown> = { schemaVersion: version };
+  for (const [key, value] of Object.entries(items)) if (key !== SYNC_SCHEMA_KEY) raw[key.slice(SYNC_PREFIX.length)] = value;
+  const migrated = migrateSettings(raw);
+  return Object.fromEntries(Object.keys(raw).filter((k) => k !== "schemaVersion").map((k) => [SYNC_PREFIX + k, migrated[k]]));
+}
 const SYNC_ITEM_MAX = 8000;
 
 /** The synced items for these settings, keyed as stored in chrome.storage.sync. */
@@ -602,7 +625,7 @@ async function pushSynced(settings: ClusterSettings): Promise<void> {
   const area = syncArea();
   if (!area || !pulled) return;
   try {
-    const items = syncedItems(settings);
+    const items = { ...syncedItems(settings), [SYNC_SCHEMA_KEY]: CURRENT_SETTINGS_SCHEMA_VERSION };
     const stored = await area.get(Object.keys(items));
     const changed: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(items)) {
@@ -627,7 +650,7 @@ export async function pullSyncedSettings(): Promise<void> {
   if (Object.keys(items).length > 0) {
     await withStorageLock(STORAGE_KEY, async () => {
       const current = (await readSettings()).settings;
-      const next = normalizeSettings(applySyncedItems(current, items));
+      const next = normalizeSettings(applySyncedItems(current, migrateSyncedItems(items)));
       if (JSON.stringify(next) !== JSON.stringify(current)) await chrome.storage.local.set({ [STORAGE_KEY]: next });
     });
   }

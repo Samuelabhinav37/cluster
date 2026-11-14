@@ -66,7 +66,8 @@ export const DEFAULT_FILE_OUT_OF_INBOX: Record<SortBucket, boolean> = {
   jobs: false,
 };
 
-const HOUR = 1;
+// Straight to the label: every label skips the inbox unless the user picks a time.
+const HOUR = 0;
 
 /** How long each category's new mail stays in the inbox before the time
  * sweep moves it into its label. 0 = straight to the label on arrival;
@@ -88,10 +89,6 @@ export const DEFAULT_INBOX_HOURS: Record<SortBucket, number | null> = {
 };
 
 export const ALL_SORT_BUCKETS: SortBucket[] = Object.keys(SORT_BUCKET_LABELS) as SortBucket[];
-
-/** Kinds that may skip the inbox on arrival ("Skip the inbox", 0 hours):
- * missing one costs nothing, and the Gmail filter works on phones too. */
-export const SKIP_INBOX_BUCKETS: readonly SortBucket[] = ["promotions", "newsletter", "social"];
 
 const KIND_BUCKET: Partial<Record<MessageKind, SortBucket>> = {
   otp: "otp",

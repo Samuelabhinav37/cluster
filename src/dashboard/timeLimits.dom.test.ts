@@ -40,11 +40,9 @@ describe("Where each kind of mail goes", () => {
 
     // A muted count sits on each row; the weekly rate is on hover.
     expect(dash.el("time-limit-count-travel").textContent).toMatch(/^\d+$/);
-    // "Skip the inbox" means never seeing it, so only Promotions offers it.
+    // Every label can skip the inbox.
     const values = (id: string) => Array.from((dash.el(id) as HTMLSelectElement).options).map((o) => o.value);
-    expect(values("time-limit-otp")).toEqual(expect.arrayContaining(["off", "stay", "24"]));
-    expect(values("time-limit-otp")).not.toContain("0");
-    expect(values("time-limit-promotions")).toContain("0");
+    expect(values("time-limit-otp")).toEqual(expect.arrayContaining(["off", "stay", "0", "24"]));
   });
 
   it("anything but Off turns that label on for new mail, alone", async () => {
@@ -84,19 +82,20 @@ describe("Where each kind of mail goes", () => {
     expect(otp?.[2].removeLabelIds).toEqual([]);
   });
 
-  it("Keep in inbox sets every label's time at once, Promotions' skip stays", async () => {
+  it("Time in inbox sets every label's time at once", async () => {
     const dash = await bootDashboard();
     await openOrganize(dash);
     expect((dash.el("time-limits-window") as HTMLSelectElement).value).toBe("per");
-    pick("time-limit-promotions", "0");
-    await vi.waitFor(() => expect(dash.storedSettings().autoSort.inboxHoursByBucket.promotions).toBe(0));
     pick("time-limits-window", "3");
-    await vi.waitFor(() => expect(dash.storedSettings().autoSort.labelsOff).toEqual([]));
-    const hours = dash.storedSettings().autoSort.inboxHoursByBucket;
-    expect(hours.productivity).toBe(3);
-    expect(hours.receipt).toBe(3);
-    expect(hours.promotions).toBe(0);
+    await vi.waitFor(() => expect(dash.storedSettings().autoSort.inboxHoursByBucket.productivity).toBe(3));
+    const stored = dash.storedSettings().autoSort;
+    expect(stored.labelsOff).toEqual([]);
+    expect(stored.inboxHoursByBucket.promotions).toBe(3);
     expect((dash.el("time-limits-window") as HTMLSelectElement).value).toBe("3");
+
+    pick("time-limits-window", "0");
+    await vi.waitFor(() => expect(dash.storedSettings().autoSort.inboxHoursByBucket.productivity).toBe(0));
+    expect((dash.el("time-limits-window") as HTMLSelectElement).value).toBe("0");
 
     pick("time-limit-receipt", "24");
     await vi.waitFor(() => expect(dash.storedSettings().autoSort.inboxHoursByBucket.receipt).toBe(24));

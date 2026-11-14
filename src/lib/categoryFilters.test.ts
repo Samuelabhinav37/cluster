@@ -45,18 +45,19 @@ function api(): CategoryFilterApi {
 describe("desiredCategoryFilters", () => {
   it("with time limits on, files every category and keeps mail in the inbox unless its limit is 0", () => {
     const specs = desiredCategoryFilters(
-      settings({ timeLimitsEnabled: true, inboxHoursByBucket: { ...DEFAULT_INBOX_HOURS, promotions: 0 } }),
+      settings({ timeLimitsEnabled: true, inboxHoursByBucket: { ...DEFAULT_INBOX_HOURS, otp: 3, promotions: 0 } }),
     );
     expect(specs.map((s) => s.bucket)).toContain("otp");
     expect(specs.find((s) => s.bucket === "otp")).toMatchObject({ labelName: "🔑 One-time codes", fileOut: false });
     expect(specs.find((s) => s.bucket === "promotions")?.fileOut).toBe(true);
   });
 
-  it("lets only Promotions skip the inbox on arrival, even if another limit is 0", () => {
+  it("lets any label skip the inbox on arrival, and a label kept in the inbox stay", () => {
     const specs = desiredCategoryFilters(
-      settings({ timeLimitsEnabled: true, inboxHoursByBucket: { ...DEFAULT_INBOX_HOURS, otp: 0, promotions: 0 } }),
+      settings({ timeLimitsEnabled: true, inboxHoursByBucket: { ...DEFAULT_INBOX_HOURS, otp: 0, promotions: 0, finance: null } }),
     );
-    expect(specs.find((s) => s.bucket === "otp")?.fileOut).toBe(false);
+    expect(specs.find((s) => s.bucket === "otp")?.fileOut).toBe(true);
+    expect(specs.find((s) => s.bucket === "finance")?.fileOut).toBe(false);
     expect(specs.find((s) => s.bucket === "promotions")?.fileOut).toBe(true);
   });
 

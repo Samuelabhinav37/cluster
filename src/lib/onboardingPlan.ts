@@ -1,6 +1,6 @@
 // What the first-run setup's answers turn into (research/2026-10-29-onboarding.md).
 // Pure: the setup screen shows `lines` as the plan, and applies the rest on Start.
-import { ALL_SORT_BUCKETS, SKIP_INBOX_BUCKETS, type SortBucket } from "./sortTaxonomy";
+import { ALL_SORT_BUCKETS, type SortBucket } from "./sortTaxonomy";
 
 export type Who = "me" | "business" | "safe" | "busy";
 /** The practice inbox: one made-up email of each kind. */
@@ -25,9 +25,6 @@ export interface OnboardingPlan {
   tidy: boolean;
   persona: "calm" | "business" | "safe" | "busy";
 }
-
-/** Hours mail stays in the inbox before it goes to its label, unless kept. */
-export const FOCUS_HOURS = 1;
 
 /** Question 1 pre-ticks the later screens, like Apple Music's artists from your genres. */
 export const SEEDS: Record<Who, Pick<OnboardingAnswers, "keep" | "hands">> = {
@@ -62,16 +59,15 @@ const KEEP_BUCKETS: Record<KeepKind, SortBucket[]> = {
 };
 
 /**
- * Setup's defaults: Promotions and Newsletters skip the inbox (a Gmail filter
- * does it, so phones see it too), what the user keeps stays, everything else
- * leaves after FOCUS_HOURS, and likely scams are held. "Ask me first" saves
+ * Setup's defaults: every label skips the inbox (a Gmail filter does it, so
+ * phones see it too), what the user keeps stays, and likely scams are held. "Ask me first" saves
  * the same times but moves nothing.
  */
 export function buildOnboardingPlan(a: OnboardingAnswers): OnboardingPlan {
   const keep = new Set<KeepKind>(["people", ...a.keep]);
   const stays = new Set<SortBucket>([...keep].flatMap((k) => KEEP_BUCKETS[k]));
   const hours: OnboardingPlan["hours"] = {};
-  for (const b of ALL_SORT_BUCKETS) hours[b] = stays.has(b) ? null : SKIP_INBOX_BUCKETS.includes(b) ? 0 : FOCUS_HOURS;
+  for (const b of ALL_SORT_BUCKETS) hours[b] = stays.has(b) ? null : 0;
 
   const tidy = a.hands !== "ask";
   const lines: OnboardingPlan["lines"] = tidy
