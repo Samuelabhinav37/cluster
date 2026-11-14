@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  define: { __BUILD__: JSON.stringify("test") },
   test: {
     include: ["src/**/*.test.ts", "auth-worker/**/*.test.ts"],
     // A DOM test's first case imports the whole dashboard (about 2 s alone),

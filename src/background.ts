@@ -85,6 +85,9 @@ const providerById = new Map<ProviderId, EmailProvider>([
 // how to remove Cluster's filters and labels and end its Google access.
 const UNINSTALL_URL = "https://samuelabhinav.com/cluster/uninstalled.html";
 chrome.runtime.setUninstallURL?.(UNINSTALL_URL);
+// The dashboard compares this with its own build and asks for a reload when
+// they differ: Chrome keeps running the old worker after dist is rebuilt.
+void Promise.resolve(chrome.storage?.local?.set({ workerBuild: __BUILD__ })).catch(() => {});
 // Choices made on another computer follow the user here.
 followSyncedSettings();
 void pullSyncedSettings().catch((err) => log.error("Settings sync pull failed", err));

@@ -108,6 +108,10 @@
 
         <!-- ── Main ──────────────────────────────────────────────────── -->
         <main class="app-main">
+          <div id="reload-banner" class="banner" role="alert" hidden>
+            <p>Cluster was updated. Reload it so the new version runs.</p>
+            <button type="button" id="reload-btn" class="btn btn-accent">Reload Cluster</button>
+          </div>
           <div class="top-bar">
               <span aria-hidden="true"></span>
               <button type="button" class="header-search top-search ask-open" id="ask-kai-open">
@@ -637,7 +641,7 @@
                 <div class="set-rows">
                   <div class="set-row">
                     <span class="set-ic set-ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6"></path></svg></span>
-                    <span class="grow" id="settings-account">Gmail</span>
+                    <span class="grow"><span id="settings-account">Gmail</span><span class="sub" id="settings-build"></span></span>
                     <span class="row-actions">
                       <span id="settings-signout-slot"><button type="button" class="btn" id="settings-signout">Sign out</button></span>
                     </span>

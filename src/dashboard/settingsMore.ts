@@ -383,6 +383,8 @@ export function wireSettingsMore(showScreen: (name: string) => void, act?: KeyAc
       btn?.click();
       $("settings-signout-slot")?.scrollIntoView({ block: "center" });
     };
+  const build = $("settings-build");
+  if (build) build.textContent = `Version ${__BUILD__}`;
   // Mirror the header's email, which fills in after sign-in.
   const account = $("settings-account");
   const email = $("account-email");

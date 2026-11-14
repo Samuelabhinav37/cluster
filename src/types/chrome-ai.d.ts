@@ -1,5 +1,10 @@
 export {};
 
+/** The build stamp from vite.config.ts. */
+declare global {
+  const __BUILD__: string;
+}
+
 // Chrome's built-in on-device Summarizer API (chrome.dev/docs/ai/summarizer-api).
 // Not part of TypeScript's DOM lib yet, so declared minimally here for just
 // what aiDigest.ts uses.

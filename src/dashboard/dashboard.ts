@@ -372,8 +372,21 @@ function wireNav() {
 
   wireCleanupCards();
 
+  void showReloadBanner();
+
   // First run opens on setup; skipping or answering it sets setupDone.
   showScreen(ctx.settings.setupDone ? ctx.settings.activeTab : "setup");
+}
+
+/** The worker writes its build on start. A different one means Chrome is
+ * still running old background code against these new pages. */
+async function showReloadBanner() {
+  const banner = document.getElementById("reload-banner");
+  if (!banner) return;
+  const { workerBuild } = await chrome.storage.local.get("workerBuild").catch(() => ({ workerBuild: undefined }));
+  if (typeof workerBuild !== "string" || workerBuild === __BUILD__) return;
+  banner.hidden = false;
+  document.getElementById("reload-btn")!.onclick = () => chrome.runtime.reload();
 }
 
 // `accentWhenPositive` keeps the "Clean up" group's badges on one shared
