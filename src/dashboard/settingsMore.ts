@@ -10,6 +10,7 @@ import { clearSyncedSettings, getSettings, updateSettings } from "../lib/setting
 import { kindModel, resetKindModel } from "./kindLearning";
 import { ctx } from "./state";
 import { renderConfirmStep } from "./ui";
+import { describeRun, getRunReports, onRunReportsChange, reportText, type RunReport } from "../lib/runReport";
 
 const MAIL_INDEX_DB = "cluster-mail-index";
 
@@ -58,6 +59,45 @@ export async function eraseEverything(): Promise<void> {
     const req = indexedDB.deleteDatabase(MAIL_INDEX_DB);
     req.onsuccess = req.onerror = req.onblocked = () => resolve();
   });
+}
+
+const RUN_KIND_WORDS: Record<RunReport["kind"], string> = { sweep: "Sort", read: "Read mail", rescan: "Rescan" };
+
+/** Diagnostics: the last runs, newest first, each in one sentence, and Copy
+ * for a bug report. Quiet 5-minute sweeps collapse into one row. */
+export async function renderRuns(): Promise<void> {
+  const host = $("settings-runs");
+  if (!host) return;
+  const reports = await getRunReports();
+  const rows = [...reports].reverse().map((r) => {
+    const row = Object.assign(document.createElement("div"), { className: "set-row plain" });
+    row.dataset.status = r.status;
+    const when = new Date(r.startedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    const name = Object.assign(document.createElement("span"), { className: "grow" });
+    name.append(
+      `${RUN_KIND_WORDS[r.kind]} · ${when}`,
+      Object.assign(document.createElement("span"), { className: "sub", textContent: describeRun(r) }),
+    );
+    row.append(name);
+    return row;
+  });
+  const foot = Object.assign(document.createElement("div"), { className: "set-row plain" });
+  const lead = Object.assign(document.createElement("span"), {
+    className: "grow",
+    textContent: reports.length ? "Copy the full log to send with a bug report" : "No runs yet",
+  });
+  const copy = Object.assign(document.createElement("button"), { type: "button", className: "btn", textContent: "Copy" });
+  copy.disabled = reports.length === 0;
+  copy.onclick = () =>
+    void navigator.clipboard
+      .writeText(`Cluster ${__BUILD__}
+${reportText(reports)}`)
+      .then(() => (copy.textContent = "Copied"))
+      .catch(() => (copy.textContent = "Couldn't copy"));
+  const trail = Object.assign(document.createElement("span"), { className: "row-actions" });
+  trail.append(copy);
+  foot.append(lead, trail);
+  host.replaceChildren(...rows, foot);
 }
 
 /** "What Cluster learned": your corrections, each kind with a count and Reset. */
@@ -383,6 +423,8 @@ export function wireSettingsMore(showScreen: (name: string) => void, act?: KeyAc
       btn?.click();
       $("settings-signout-slot")?.scrollIntoView({ block: "center" });
     };
+  void renderRuns();
+  onRunReportsChange(() => void renderRuns());
   const build = $("settings-build");
   if (build) build.textContent = `Version ${__BUILD__}`;
   // Mirror the header's email, which fills in after sign-in.

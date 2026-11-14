@@ -272,6 +272,15 @@ describe("renderScanCard", () => {
     expect(card.querySelector(".scan-rows")).toBeNull();
   });
 
+  it("a stalled run says why and gets Rescan and close mid-scan, so the card can't stick", () => {
+    const actions = on();
+    const text = "Stopped while labelling new mail, with no sign of life for 10 minutes.";
+    const card = renderScanCard({ ...newScan(NOW), phase: "labelling" }, rows, { ...actions, note: { text, stuck: true } });
+    expect(card.querySelector(".scan-note")!.textContent).toBe(text);
+    card.querySelector<HTMLButtonElement>(".scan-close")!.click();
+    expect(actions.dismiss).toHaveBeenCalled();
+  });
+
   it("when done: the total, label rows biggest first linking to Gmail, No label, Rescan and close", () => {
     const actions = on();
     const card = renderScanCard({ ...newScan(NOW), phase: "done", unsorted: 7 }, rows, actions);

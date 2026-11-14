@@ -28,6 +28,7 @@ import { waitForGmailHeadroom } from "./gmailQuotaLedger";
 import { log } from "./log";
 import type { NormalizedMessageMetadata } from "./providers/emailProvider";
 import { tryWithStorageLock, withStorageLock } from "./storageLock";
+import { getRunReports, startRun, type Run } from "./runReport";
 import { notify } from "./notices";
 import { getScan, newScan, setScan } from "./scanState";
 import { loadMetadataCache, saveMetadataCache } from "./metadataCache";
@@ -60,7 +61,11 @@ export async function runInboxTimeLimits(now = Date.now(), options: { relabel?: 
     options.relabel ? withStorageLock(key, fn) : tryWithStorageLock(key, fn);
   const pass = await locked(RUN_LOCK, () => runPass(now, options));
   if (!pass) return null;
-  return (await locked(SLOW_LOCK, pass.slow)) ?? pass.quick;
+  try {
+    return (await locked(SLOW_LOCK, pass.slow)) ?? pass.quick;
+  } finally {
+    await pass.run.finish();
+  }
 }
 
 const SLOW_LOCK = "inbox-time-limits-slow";
@@ -68,21 +73,26 @@ const SLOW_LOCK = "inbox-time-limits-slow";
 async function runPass(
   now: number,
   options: { relabel?: boolean },
-): Promise<{ quick: TimeLimitRun; slow: () => Promise<TimeLimitRun> } | null> {
+): Promise<{ quick: TimeLimitRun; slow: () => Promise<TimeLimitRun>; run: Run } | null> {
   const settings = await getSettings();
   if (!settings.autoSort.timeLimitsEnabled) return null;
   if (!(await gmailProvider.isConnected())) return null;
   const token = await gmailProvider.getAuthToken(false);
+  // Every step lands in the run report (Settings, Diagnostics).
+  const run = await startRun(options.relabel ? "rescan" : "sweep");
   // Each step stands alone: a failed filter sync or read must not stop the
   // sweep (labelled mail sat in the inbox for a week behind an earlier step).
-  const step = async <T>(name: string, fallback: T, fn: () => Promise<T>): Promise<T> => {
-    try {
-      return await fn();
-    } catch (err) {
-      log.error(`Time limits: ${name} failed`, err);
-      return fallback;
-    }
-  };
+  const step = <T>(name: string, fallback: T, fn: () => Promise<T>, counts?: (value: T) => Record<string, number>): Promise<T> =>
+    run.step(
+      name,
+      fallback,
+      () =>
+        fn().catch((err: unknown) => {
+          log.error(`Time limits: ${name} failed`, err);
+          throw err;
+        }),
+      counts,
+    );
   // An update can change what a category matches; Gmail's filters keep the
   // old query until rewritten. Unchanged filters cost no API calls.
   await step("filter sync", undefined, async () => {
@@ -123,14 +133,15 @@ async function runPass(
   // The quick work first: label new mail, then move out what is past its
   // time. The long read comes last, so a read that takes hours (or dies with
   // the service worker) never holds labelled mail in the inbox.
-  const tag = await step<TagResult>("tagging", { tagged: 0, byBucket: {}, oldestAt: null, listed: 0 }, () => tagUntaggedInbox(ctx, api));
-  const sweep = await step<SweepResult>("sweep", { movedIds: [], keptIds: [], more: false }, () => sweepExpiredInbox(ctx, api));
+  const tag = await step<TagResult>("tagging", { tagged: 0, byBucket: {}, oldestAt: null, listed: 0 }, () => tagUntaggedInbox(ctx, api), (t) => ({ labelled: t.tagged }));
+  const sweep = await step<SweepResult>("sweep", { movedIds: [], keptIds: [], more: false }, () => sweepExpiredInbox(ctx, api), (w) => ({ moved: w.movedIds.length }));
   if (legacyCache) void saveMetadataCache(legacyCache);
   await mutateSettings((current) => ({
     ...current,
     autoSort: {
       ...current.autoSort,
-      lastSweep: { at: now, moved: sweep.movedIds.length },
+      // Only a sweep that worked counts: a fresh stamp used to hide failures.
+      lastSweep: run.succeeded("tagging", "sweep") ? { at: now, moved: sweep.movedIds.length } : current.autoSort.lastSweep,
       // Stamped the first run after any label is set to skip the inbox.
       skipInboxSince: Object.values(current.autoSort.inboxHoursByBucket).some((h) => h === 0)
         ? current.autoSort.skipInboxSince || now
@@ -159,6 +170,7 @@ async function runPass(
   if (settings.autoSort.holdUnsorted) {
     const held = await step<{ heldIds: string[]; senders: string[]; nextBefore: number }>("hold", { heldIds: [], senders: [], nextBefore: 0 }, () =>
       holdUnsortedInbox(ctx, api, clusterLabelName("screener"), settings.autoSort.holdBefore),
+      (h) => ({ held: h.heldIds.length }),
     );
     // Listed as screened so the Screener page shows them waiting.
     await mutateSettings((current) => ({
@@ -184,25 +196,31 @@ async function runPass(
   }
 
   const quick: TimeLimitRun = { tagged: tag.tagged, moved: sweep.movedIds.length, more: sweep.more };
-  return { quick, slow: () => slowPass() };
+  return { quick, slow: () => slowPass(), run };
 
   // Now the slow work, under its own lock so an hours-long read never holds
   // up the 5-minute sweep. A read the dashboard started and didn't finish
   // goes on here, labelling as it reads.
   async function slowPass(): Promise<TimeLimitRun> {
-    const builtNow = await step("index build", false, () => continueIndexBuild(token, settings.scanWindowDays, settings.readCap));
+    const builtNow = await step("index build", false, () => continueIndexBuild(token, settings.scanWindowDays, settings.readCap, (read) => run.beat({ read })));
     // Then pages of older unlabelled inbox mail, until the whole inbox is seen.
     // A rescan (labels deleted in Gmail, say) works back through older inbox mail again.
     // So does a gap: the tagger only looks back two days, so after Chrome was
     // closed (or the run stalled) for longer, older mail would stay unlabelled.
     const gap = settings.autoSort.lastSweep.at > 0 && now - settings.autoSort.lastSweep.at > TAG_GAP_MS;
     const backFrom = options.relabel || gap ? 0 : settings.autoSort.tagBackBefore;
-    const back = backFrom === TAG_BACK_DONE ? null : await step("older inbox", null, () => tagOlderPages(ctx, api, backFrom));
+    const back = backFrom === TAG_BACK_DONE ? null : await step("older inbox", null, () => tagOlderPages(ctx, api, backFrom), (b) => ({ labelled: b?.tagged ?? 0 }));
     const indexDone = indexReady || builtNow;
     const relabelled =
       indexDone && (shown || builtNow || daily)
-        ? await step<number | null>("relabel", null, () => relabelInbox(ctx, api, now, !shown && !builtNow))
+        ? await step<number | null>("relabel", null, () => relabelInbox(ctx, api, now, !shown && !builtNow), (n) => ({ labelled: n ?? 0 }))
         : null;
+    // A card left on "Labelling" (its tab closed mid-pass) had no way out:
+    // a finished relabel closes it, unless a Rescan is the one running.
+    if (relabelled !== null && (await getScan())?.phase === "labelling") {
+      const rescanning = (await getRunReports()).some((r) => r.kind === "rescan" && r.status === "running" && r.id !== run.report.id);
+      if (!rescanning) await setScan({ phase: "done", finishedAt: Date.now() });
+    }
     await mutateSettings((current) => ({
       ...current,
       autoSort: {
@@ -357,7 +375,7 @@ export async function readLabeller(): Promise<ReadLabeller | null> {
  * reads. Skips when the dashboard is reading right now. True when this call
  * finished the build.
  */
-async function continueIndexBuild(token: string, windowDays: number, cap: number): Promise<boolean> {
+async function continueIndexBuild(token: string, windowDays: number, cap: number, onRead?: (read: number) => void): Promise<boolean> {
   const index = await openMailIndex();
   if (!indexNeedsBuild(await index.getState("gmail"), windowDays, cap)) return false;
   const labeller = await readLabeller();
@@ -367,6 +385,7 @@ async function continueIndexBuild(token: string, windowDays: number, cap: number
       cap,
       waitForHeadroom: waitForGmailHeadroom,
       onLabelMoves: (moves) => learnFromLabelMoves(token, moves),
+      onProgress: (p) => onRead?.(p.done),
       ...labeller,
     }),
   );

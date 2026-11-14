@@ -511,7 +511,15 @@ export function gmailLabelIcon(color?: string): HTMLElement {
 export function renderScanCard(
   scan: ScanState,
   rows: readonly ScanRow[],
-  on: { rescan(): void; dismiss(): void; unsortedHref: string; reading?: boolean },
+  on: {
+    rescan(): void;
+    dismiss(): void;
+    unsortedHref: string;
+    reading?: boolean;
+    /** The last run's report when it failed or stalled (runReport.describeRun).
+     * A stalled run gets Rescan and × even mid-scan, so the card can't stick. */
+    note?: { text: string; stuck?: boolean };
+  },
 ): HTMLElement {
   const card = el("section", "scan-card");
   card.id = "scan-card";
@@ -522,7 +530,7 @@ export function renderScanCard(
   // What is still in the inbox leads: "labelled" alone read as finished.
   const left = done && scan.unsorted > 0 ? ` · ${n(scan.unsorted)} with no label` : "";
   head.append(el("b", "", done ? `${n(sorted)} labelled${left}` : reading ? "Reading your inbox" : "Labelling your inbox"));
-  if (done) {
+  if (done || on.note?.stuck) {
     const again = el("button", "btn", "Rescan");
     again.type = "button";
     again.onclick = on.rescan;
@@ -533,6 +541,7 @@ export function renderScanCard(
     head.append(again, close);
   }
   card.append(head);
+  if (on.note) card.append(el("p", "scan-line scan-note", on.note.text));
   // Labelled by search while the read goes on: the steps would claim it finished.
   if (reading) card.append(scanSteps(0));
   else if (!on.reading) card.append(scanSteps(done ? 2 : 1));

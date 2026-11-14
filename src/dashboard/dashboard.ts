@@ -14,6 +14,7 @@ import { CLUSTER_LABEL_COLORS, clusterLabelName } from "../lib/clusterLabels";
 import { categoryLabelName } from "../lib/categoryFilters";
 import { learnFromLabelMoves, readLabeller, runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
 import { getScan, newScan, onScanChange, setScan, type ScanState } from "../lib/scanState";
+import { describeRun, getRunReports, onRunReportsChange, startRun, type RunReport } from "../lib/runReport";
 import { ALL_SORT_BUCKETS } from "../lib/sortTaxonomy";
 import { runReplyReminders } from "../lib/replyReminders";
 import { markRepliesToYou } from "../lib/correspondents";
@@ -761,12 +762,16 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
     done: Promise.resolve(null),
   };
   run.done = (async () => {
+    // The read's own entry in Settings, Diagnostics (runReport.ts).
+    const report = await startRun("read");
     try {
       const store = await openMailIndex();
       const authToken = token ?? (await provider.getAuthToken(false));
       // Label inbox mail as it's read, not after the whole read.
       const labeller = provider.id === "gmail" ? await readLabeller().catch(() => null) : null;
-      const result = await withStorageLock(mailIndexLockKey(provider), () =>
+      const result = await report.track(
+        "index build",
+        () => withStorageLock(mailIndexLockKey(provider), () =>
         syncMailIndex(provider, authToken, store, {
           windowDays: ctx.settings.scanWindowDays,
           cap: ctx.settings.readCap,
@@ -776,6 +781,7 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
             run.progress = progress;
             run.progressAt = Date.now();
             if (progress.phase === "reading" || progress.phase === "sent") run.didRead = true;
+            report.beat({ read: progress.done });
             updateIndexStatus();
           },
           waitForHeadroom: provider.id === "gmail" ? waitForGmailHeadroom : undefined,
@@ -789,6 +795,8 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
           onRead: labeller?.onRead,
           onPlanned: labeller?.onPlanned,
         }),
+        ),
+        (r) => ({ read: r?.read ?? 0 }),
       );
       await labeller?.flush();
       await updateCorrespondentsFromIndex(provider).catch((err) =>
@@ -801,6 +809,7 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
       log.error(`Mail index sync failed for ${provider.id}`, err);
       return null;
     } finally {
+      await report.finish();
       run.settled = true;
       resolveQuick();
       indexRuns.delete(provider.id);
@@ -826,6 +835,14 @@ onScanChange((s) => {
   scan = s;
   paintScanCard();
 });
+// The newest run that did something, for the card's "what went wrong" line.
+let lastRun: RunReport | undefined;
+const pickLastRun = (all: RunReport[]) => {
+  lastRun = [...all].reverse().find((r) => !r.quiet);
+  paintScanCard();
+};
+void getRunReports().then(pickLastRun);
+onRunReportsChange(pickLastRun);
 
 /** Labels the whole inbox from the mail index; the card follows along. */
 async function startLabelScan() {
@@ -874,6 +891,10 @@ function paintScanCard() {
     },
     dismiss: () => void setScan({ dismissed: true }),
     reading: indexRuns.size > 0,
+    note:
+      lastRun && lastRun.startedAt >= scan.startedAt && ["partial", "failed", "stalled"].includes(lastRun.status)
+        ? { text: describeRun(lastRun), stuck: lastRun.status === "stalled" }
+        : undefined,
     unsortedHref: gmailSearchUrl(`in:inbox ${names.map(([, l]) => `-label:"${l.replace(/"/g, "")}"`).join(" ")}`),
   });
   if (old) old.replaceWith(card);

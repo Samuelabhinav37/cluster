@@ -39,6 +39,7 @@ import { loadPublicSuffixList } from "./lib/publicSuffix";
 import { applyBrandVerdicts, loadBrandRegistry } from "./lib/brandRegistry";
 import { applySenderLedger } from "./lib/senderLedgerStore";
 import { notify, weeklySummary } from "./lib/notices";
+import { describeRun, markStalled } from "./lib/runReport";
 import { gmailSignInExpired, markSignInWarned } from "./lib/gmailWebAuth";
 import { holdWorkerLease } from "./lib/workerLease";
 
@@ -140,6 +141,13 @@ function handleAlarm(alarm: chrome.alarms.Alarm): void {
   }
   if (alarm.name === DATASET_ALARM) void refreshPublicDatasets();
   if (alarm.name === INBOX_LIMITS_ALARM) {
+    // The watchdog: a run that went quiet (worker stopped, tab closed, a hang)
+    // is marked stalled with the step it stopped in, and said once.
+    void markStalled()
+      .then((stalled) =>
+        Promise.all(stalled.map((r) => notify(`stalled-${r.id}`, describeRun(r)))),
+      )
+      .catch((err) => log.error("Watchdog failed", err));
     void runInboxTimeLimitsIfQuota()
       .then(() => holdScamsFromIndex().catch((err) => log.error("Scam hold failed", err)))
       .then(() => sendTodayEmail().catch((err) => log.error("Today email failed", err)))
