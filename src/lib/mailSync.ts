@@ -489,14 +489,22 @@ async function readRows(
   batch: string[],
   options: SyncOptions,
 ): Promise<NormalizedMessageMetadata[]> {
+  const failed: string[] = [];
   const rows = await mapWithConcurrency(batch, FETCH_CONCURRENCY, async (id) => {
     try {
       return await provider.getMessageMetadata(token, id);
     } catch (error) {
+      // Deleted since it was listed: nothing to retry.
+      if ((error as { status?: number })?.status !== 404) failed.push(id);
       log.error(`mailSync: could not read message ${id}`, error);
       return undefined;
     }
   });
+  // One more try each: a finished read never came back for mail that
+  // failed once (a blip, a 500), so it stayed missing from the index.
+  for (const id of failed) {
+    rows.push(await provider.getMessageMetadata(token, id).catch(() => undefined));
+  }
   // A message trashed or moved to spam since it was listed doesn't belong.
   const found = rows.filter(
     (row): row is NormalizedMessageMetadata =>

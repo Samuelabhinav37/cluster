@@ -81,6 +81,17 @@ describe("syncMailIndex: first build", () => {
     });
   });
 
+  it("tries a message that failed once more, so a blip doesn't leave it out of the index", async () => {
+    const mailbox = Array.from({ length: 5 }, (_, i) => message(`m${i}`, ["INBOX"], i));
+    const { provider } = fakeGmail(mailbox);
+    provider.getMessageMetadata.mockImplementationOnce(async () => {
+      throw Object.assign(new Error("server"), { status: 500 });
+    });
+    const store = createMemoryMailIndex();
+    await syncMailIndex(provider, "t", store, options);
+    expect((await store.ids("gmail")).size).toBe(5);
+  });
+
   it("hands each stored batch to onRead and plans the whole read up front", async () => {
     const mailbox = Array.from({ length: 60 }, (_, i) => message(`m${i}`, ["INBOX"], i));
     const { provider } = fakeGmail(mailbox);
