@@ -111,3 +111,19 @@ describe("job mail left unlabelled in a real inbox (Nov 2026)", () => {
     expect(classifyMessageKind("Steve Jobs biography is on sale", true)).toBe("newsletter");
   });
 });
+
+describe("subjects seen unlabelled in a real inbox", () => {
+  it.each([
+    ["Thank You for Your Interest in Everpure", "jobs"],
+    ["Cybersecurity Engineer I opportunity at Space Coast Credit Union", "jobs"],
+    ["Your first job recommendations are ready", "jobs"],
+    ["Background Screening Report Returned", "jobs"],
+    ["Verify your email address", "otp"],
+    ["[OCEG] Your OCEG authentication code", "otp"],
+    ["Your IBM Bob subscription has expired", "receipt"],
+    ["Confirmation of change to your IBM Bob Pro Plus plan subscription", "receipt"],
+    ["Registration confirmed for Portfolios That Get You Hired", "receipt"],
+  ])("%s is %s", (subject, kind) => {
+    expect(classifyMessageKind(subject, false)).toBe(kind);
+  });
+});

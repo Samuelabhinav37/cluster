@@ -58,7 +58,7 @@ export const KIND_PHRASES: Record<SubjectKind, string[]> = {
     "your bill",
   ],
   social: ["mentioned you", "tagged you", "new follower", "friend request", "liked your", "commented on"],
-  jobs: ["thank you for applying", "thanks for applying", "your application", "job application", "application update", "application status", "job alert", "jobs for you", "job opening"],
+  jobs: ["thank you for applying", "thanks for applying", "your application", "job application", "application update", "application status", "job alert", "jobs for you", "job opening", "thank you for your interest in", "job recommendations"],
 };
 
 /** Security notices that mention codes or 2FA but must never be filed away

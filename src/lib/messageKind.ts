@@ -11,7 +11,7 @@ export type MessageKind = "otp" | "accounts" | "receipt" | "shipping" | "newslet
 // last line covers the same phrase in French, Spanish, Portuguese, German,
 // Italian and Dutch.
 const OTP_RE =
-  /\b(one[- ]?time|(verification|security|confirmation) code|otp|passcode|confirm your (email|sign[- ]?in)|(login|sign[- ]?in) code|\d{4,8} is your( \w+)? code|your( \w+)? code is:?\s*[A-Z0-9-]*\d|verify your device|use \d{4,8} to (sign|log) ?in|2fa|two-factor|code de (vérification|confirmation|sécurité)|código de (verificación|verificação|seguridad|segurança|acceso)|(bestätigungs|sicherheits|verifizierungs|anmelde)code|codice di (verifica|sicurezza)|verificatiecode)\b/i;
+  /\b(one[- ]?time|(verification|security|confirmation|authentication) code|otp|passcode|(confirm|verify) your (email|sign[- ]?in)|(login|sign[- ]?in) code|\d{4,8} is your( \w+)? code|your( \w+)? code is:?\s*[A-Z0-9-]*\d|verify your device|use \d{4,8} to (sign|log) ?in|2fa|two-factor|code de (vérification|confirmation|sécurité)|código de (verificación|verificação|seguridad|segurança|acceso)|(bestätigungs|sicherheits|verifizierungs|anmelde)code|codice di (verifica|sicurezza)|verificatiecode)\b/i;
 // Security notices that mention codes or 2FA ("Two-factor authentication was
 // disabled", "Security alert") are not disposable codes. Mirrors
 // OTP_EXCLUDED_PHRASES in categoryQueries.ts.
@@ -26,19 +26,19 @@ const ACCOUNT_RE =
 const SHIPPING_RE =
   /\b(shipped|out for delivery|delivery (update|attempt|scheduled|exception|confirmation)|delivered|tracking (number|info|information|update|details)|track your (order|package|parcel|shipment)|order (confirm|confirmed|confirmation)|order #|order (is |has been )?(confirmed|placed|received)|has shipped|arriving|on its way|on the way|received your order|package (has )?arrived|delivery order)\b|^ordered:/i;
 const RECEIPT_RE =
-  /\b(receipt|reciept|has been renewed|subscription (has been )?(canceled|cancelled)|invoice|payment (received|confirmation)|received your payment|purchase (confirmation|confirmed)|refund (confirmation|issued|processed)|your refund|booking confirm(ation|ed)|your tickets?|your bill|e-?statement|statement (is )?(ready|available)|your( \w+){0,3} statement|paid|will renew|renews on|is renewing|renewal (notice|reminder|confirmation)|auto-?renew)\b/i;
+  /\b(receipt|reciept|has been renewed|subscription (has )?(been )?(canceled|cancelled|expired)|change to your( [\w-]+){0,6} subscription|registration confirm(ed|ation)|invoice|payment (received|confirmation)|received your payment|purchase (confirmation|confirmed)|refund (confirmation|issued|processed)|your refund|booking confirm(ation|ed)|your tickets?|your bill|e-?statement|statement (is )?(ready|available)|your( \w+){0,3} statement|paid|will renew|renews on|is renewing|renewal (notice|reminder|confirmation)|auto-?renew)\b/i;
 // Oracle's "Security Alert for CVE-2026-1234" is an advisory, not your account.
 const ACCOUNT_EXCLUDE_RE = /\bcve-\d/i;
 // No bare "application": PayPal's "Pay in 4 application" is not a job.
 const JOBS_RE =
-  /\b(thanks?( you)? for (applying|your application)|your (job )?application|job application|application (update|status|received|confirmation)|received your application|job alerts?|job (notifications?|search|match(es)?)|jobs for you|new jobs?|looking for( [\w-]+){0,4} jobs|job opening|new opportunity|career opportunit(y|ies)|(urgent|immediate) (hiring|opportunity|requirement)|complete your( [\w-]+){0,4} application|(complete )?your( \w+)? interview|interview (questionnaire|invitation|request|scheduled))\b/i;
+  /\b(thanks?( you)? for (applying|your application|your interest in)|opportunity at|job recommendations|background (screening|check)|your (job )?application|job application|application (update|status|received|confirmation)|received your application|job alerts?|job (notifications?|search|match(es)?)|jobs for you|new jobs?|looking for( [\w-]+){0,4} jobs|job opening|new opportunity|career opportunit(y|ies)|(urgent|immediate) (hiring|opportunity|requirement)|complete your( [\w-]+){0,4} application|(complete )?your( \w+)? interview|interview (questionnaire|invitation|request|scheduled))\b/i;
 // recruiting@dupaco.com, recruitingnoreply@ford.com, talentacquisition@hr.questdiagnostics.com.
 // A staffing agency's one-to-one post: a job title next to a work mode
 // ("Cybersecurity Engineer :: Remote", "IAM Consultant - Frisco, TX (Onsite)").
 // Only without an unsubscribe link, so newsletters about remote work stay news.
 const JOB_POST_RE =
   /\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b.*\b(remote|hybrid|on-?site|contract|w2|c2c)\b|\b(remote|hybrid|on-?site|contract)\b.*\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b|^looking for\b/i;
-const JOBS_SENDER_RE = /\b(recruit\w*|talent ?acquisition|careers?|jobs?|job ?(alerts?|notifications?))\b/i;
+const JOBS_SENDER_RE = /\b(recruit\w*|talent ?(acquisition|exchange|network|community)|careers?|jobs?|job ?(alerts?|notifications?))\b/i;
 const SOCIAL_RE = /\b(mentioned you|tagged you|new follower|friend request|liked your|commented on)\b/i;
 // When the subject says nothing ("Your Thursday evening trip with Uber"), a
 // sender named for receipts or orders still does: "Uber Receipts",

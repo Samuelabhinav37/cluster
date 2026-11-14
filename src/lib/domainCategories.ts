@@ -45,7 +45,8 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "dominos.com", "starbucks.com", "chipotle.com", "subway.com", "mcdonalds.com", "tacobell.com",
     "panerabread.com", "sopost.com", "bigbasket.com", "blinkit.com", "zeptonow.com",
     "tatacliq.com", "croma.com", "jiomart.com", "lenskart.com", "snapdeal.com", "firstcry.com",
-    "purplle.com", "decathlon.in",
+    "purplle.com", "decathlon.in", "steampowered.com", "joinhoney.com", "cargurus.com",
+    "etsy.zendesk.com",
   ],
   travel: [
     "expedia.com", "booking.com", "airbnb.com", "uber.com", "lyft.com", "delta.com",
@@ -58,7 +59,8 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "hyatt.com", "choicehotels.com", "wyndhamhotels.com", "agoda.com", "trip.com",
     "skyscanner.net", "hopper.com", "greyhound.com", "flixbus.com", "turo.com", "nationalcar.com",
     "budget.com", "alamo.com", "cleartrip.com", "yatra.com", "ixigo.com", "easemytrip.com",
-    "redbus.in", "oyorooms.com", "olacabs.com", "spicejet.com", "akasaair.com",
+    "redbus.in", "oyorooms.com", "olacabs.com", "spicejet.com", "akasaair.com", "lyftmail.com",
+    "expediagroup.com",
   ],
   finance: [
     "paypal.com", "chase.com", "bankofamerica.com", "wellsfargo.com", "americanexpress.com",
@@ -76,14 +78,16 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "allstate.com", "libertymutual.com", "lemonade.com", "proxyvote.com", "cash.app", "kraken.com",
     "crypto.com", "binance.com", "wazirx.com", "coindcx.com", "upstox.com", "angelone.in",
     "cred.club", "bajajfinserv.in", "policybazaar.com", "sbicard.com", "idfcfirstbank.com",
-    "mobikwik.com", "razorpay.com",
+    "mobikwik.com", "razorpay.com", "synchronybank.com", "mercury.com",
+    // Indian banks moved to the .bank.in domain.
+    "axis.bank.in", "hdfc.bank.in", "icici.bank.in", "sbi.bank.in", "kotak.bank.in",
   ],
   social: [
     "facebook.com", "facebookmail.com", "instagram.com", "twitter.com", "x.com",
     "linkedin.com", "pinterest.com", "tiktok.com", "reddit.com", "snapchat.com",
     "discord.com", "meetup.com", "nextdoor.com",
     "quora.com", "youtube.com", "threads.net", "bsky.app", "tumblr.com", "strava.com",
-    "goodreads.com", "twitch.tv",
+    "goodreads.com", "twitch.tv", "meta.com",
   ],
   // Not google.com or microsoft.com: they send security alerts, account
   // notices and ads from the same domain, so the domain says nothing.
@@ -96,7 +100,7 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "box.com", "webex.com", "ringcentral.com", "canva.com", "grammarly.com", "vercel.com",
     "netlify.com", "heroku.com", "digitalocean.com", "jetbrains.com", "postman.com", "docker.com",
     "sentry.io", "smartsheet.com", "wrike.com", "todoist.com", "evernote.com", "1password.com",
-    "bitwarden.com",
+    "bitwarden.com", "wetransfer.com",
   ],
   newsletter: [
     "substack.com", "medium.com", "mailchimp.com", "nytimes.com", "washingtonpost.com",
@@ -119,7 +123,8 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "piazza.com", "gradescope.com", "collegeboard.org", "commonapp.org", "ets.org", "pearson.com",
     "mheducation.com", "cengage.com", "adplist.org", "adplistapp.org", "angelhack.com",
     "devpost.com", "mlh.io", "kaggle.com", "isc2.org", "comptia.org", "credly.com", "sans.org",
-    "offsec.com", "tryhackme.com", "hackthebox.com", "cybrary.it",
+    "offsec.com", "tryhackme.com", "hackthebox.com", "cybrary.it", "greatlearning.in",
+    "myalumni.network", "oceg.org",
   ],
   // Job boards and the applicant-tracking systems employers write from.
   jobs: [
@@ -135,7 +140,7 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "mercor.com", "tsenta.com", "teksystems.com", "ambitionbox.com", "careerbuilder.com",
     "snagajob.com", "usajobs.gov", "flexjobs.com", "hired.com", "otta.com",
     "welcometothejungle.com", "levels.fyi", "talent.com", "jooble.org", "adzuna.com", "lensa.com",
-    "shine.com", "timesjobs.com", "apna.co", "iimjobs.com",
+    "shine.com", "timesjobs.com", "apna.co", "iimjobs.com", "greenhouse-jobs.com", "certn.co",
   ],
 };
 
