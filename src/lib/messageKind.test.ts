@@ -135,6 +135,7 @@ describe("mislabels seen in a real inbox", () => {
     ["Your Zolve bill has been paid.", undefined, "receipt"],
     ["A new passkey was added to your account", undefined, "accounts"],
     ["Confirm it's you", undefined, "otp"],
+    ["You shared some Google Account data with oceg.org", undefined, "accounts"],
     ["Don't Miss Out on a Spot in MIT IDSS' Data Science Program!", { address: "career@academy.mygreatlearning.com", displayName: "MIT IDSS" }, "other"],
     ["Next steps with Peraton", { address: "no-reply@icims.com", displayName: "Peraton Careers" }, "jobs"],
   ] as const)("%s", (subject, sender, kind) => {
