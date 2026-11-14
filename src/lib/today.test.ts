@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { MessageKind } from "./messageKind";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import type { ThreatSignal } from "./threatSignals";
-import { fillToday, pickToday, todayEmailDue, todayEmailMessage } from "./today";
+import { fillToday, pickByLabel, pickToday, todayEmailDue, todayEmailMessage } from "./today";
 
 const NOW = Date.UTC(2026, 10, 3, 12);
 const HOUR = 3600_000;
@@ -62,6 +62,35 @@ describe("pickToday", () => {
     ]);
     expect(pickToday([fake], new Set(), NOW).map((t) => t.id)).not.toContain("fake");
     expect(pickToday(senders, new Set(), NOW, 2)).toHaveLength(2);
+  });
+});
+
+describe("pickByLabel", () => {
+  const DAY = 24 * HOUR;
+  const senders = [
+    sender("jobs@linkedin.com", [
+      msg("j-alert", "jobs", { subject: "New jobs for you", receivedAt: NOW - 2 * HOUR }),
+      msg("j-old", "jobs", { subject: "New jobs for you", receivedAt: NOW - 9 * DAY }),
+    ]),
+    sender("recruiter@corp.example", [
+      msg("j-reply", "jobs", { subject: "Re: your application", repliesToYou: true, receivedAt: NOW - 3 * DAY }),
+      msg("j-imp", "jobs", { subject: "Interview request", providerMarkedPersonal: true, receivedAt: NOW - 4 * DAY }),
+      msg("j-new", "jobs", { subject: "Application received", receivedAt: NOW - 1 * HOUR }),
+    ]),
+    sender("deals@shop.example", [msg("promo", "newsletter", { promotion: true, subject: "50% off" })]),
+    sender("mom@gmail.com", [msg("mom", "other", { looksAutomated: false, subject: "Dinner?" })]),
+  ];
+
+  it("gives each label its week: what matters first, then the newest, and leaves unlabelled mail out", () => {
+    const out = pickByLabel(senders, new Set(), {}, NOW);
+    expect(out.map((d) => d.bucket)).toEqual(["jobs", "promotions"]);
+    expect(out[0].total).toBe(4);
+    expect(out[0].items.map((t) => [t.id, t.reason])).toEqual([
+      ["j-reply", "reply"],
+      ["j-imp", "important"],
+      ["j-new", "recent"],
+    ]);
+    expect(out[1].items.map((t) => t.reason)).toEqual(["recent"]);
   });
 });
 

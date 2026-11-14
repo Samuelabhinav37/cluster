@@ -3,10 +3,11 @@
 import { categorizeDomain } from "./domainCategories";
 import { domainOf } from "./domainGrouping";
 import { neverMove } from "./protectionPolicy";
+import { effectiveBucket, type SortBucket, type SortOverride } from "./sortTaxonomy";
 import type { SenderSummary } from "./senderModel";
 import { riskTier, senderRiskScore } from "./threatSignals";
 
-export type TodayReason = "starred" | "reply" | "person" | "alert" | "delivery" | "recent";
+export type TodayReason = "starred" | "reply" | "person" | "alert" | "delivery" | "important" | "recent";
 
 export interface TodayItem {
   id: string;
@@ -20,7 +21,7 @@ export interface TodayItem {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const TODAY_MAX = 10;
-const RANK: Record<TodayReason, number> = { starred: 0, reply: 1, person: 2, alert: 3, delivery: 4, recent: 5 };
+const RANK: Record<TodayReason, number> = { starred: 0, reply: 1, person: 2, alert: 3, delivery: 4, important: 5, recent: 6 };
 
 /** Account and money notices worth seeing the same day. */
 const ALERT_RE =
@@ -81,12 +82,62 @@ export function fillToday(items: TodayItem[], senders: readonly SenderSummary[],
   return [...items, ...extra].slice(0, max);
 }
 
+export interface LabelDigest {
+  bucket: SortBucket;
+  /** Emails under this label in the window. */
+  total: number;
+  /** The few to look at: those that matter first, then the newest. */
+  items: TodayItem[];
+}
+
+/**
+ * Per label, the last `days` days: how much came and up to `per` emails worth
+ * a look. Like SaneBox's digest of what it moved away, it ranks on headers
+ * and your own history only: starred, a reply to you, someone you write to,
+ * an account or money alert, a delivery today, then mail Gmail marked
+ * important; the newest fill what's left. Scam-like senders are left out.
+ */
+export function pickByLabel(
+  senders: readonly SenderSummary[],
+  known: Set<string>,
+  overrides: Record<string, SortOverride>,
+  now: number,
+  days = 7,
+  per = 3,
+): LabelDigest[] {
+  const groups = new Map<SortBucket, TodayItem[]>();
+  for (const s of senders) {
+    if (riskTier(senderRiskScore(s.threatSignals)) === "high") continue;
+    const address = s.address.toLowerCase();
+    const domain = domainOf(address);
+    const finance = categorizeDomain(domain) === "finance";
+    for (const m of s.messages) {
+      if (now - m.receivedAt > days * DAY_MS) continue;
+      const bucket = effectiveBucket(m.kind, domain, address, overrides, m.promotion);
+      if (!bucket) continue;
+      const reason = reasonFor(m, address, known.has(address), finance) ?? (m.providerMarkedPersonal ? "important" : "recent");
+      const list = groups.get(bucket) ?? [];
+      list.push({ id: m.id, provider: s.provider, address: s.address, name: s.displayName || s.address, subject: m.subject || "(no subject)", receivedAt: m.receivedAt, reason });
+      groups.set(bucket, list);
+    }
+  }
+  const matters = (d: LabelDigest) => d.items.filter((t) => t.reason !== "recent").length;
+  return [...groups]
+    .map(([bucket, all]) => ({
+      bucket,
+      total: all.length,
+      items: all.sort((a, b) => RANK[a.reason] - RANK[b.reason] || b.receivedAt - a.receivedAt).slice(0, per),
+    }))
+    .sort((a, b) => matters(b) - matters(a) || b.total - a.total);
+}
+
 export const REASON_WORD: Record<TodayReason, string> = {
   starred: "Starred",
   reply: "Reply",
   person: "From a person",
   alert: "Account",
   delivery: "Delivery",
+  important: "Important",
   recent: "New",
 };
 

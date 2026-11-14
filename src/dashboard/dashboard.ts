@@ -31,7 +31,7 @@ import {
 } from "../lib/gmailApi";
 import { parseAddressList } from "../lib/headerFields";
 import { brandName } from "../lib/verdict";
-import { fillToday, pickToday, type TodayItem } from "../lib/today";
+import { fillToday, pickByLabel, pickToday, type TodayItem } from "../lib/today";
 import { clearMetadataCache } from "../lib/metadataCache";
 import { openMailIndex } from "../lib/mailIndex";
 import {
@@ -835,11 +835,13 @@ function gmailSearchUrl(q: string): string {
 
 function paintScanCard() {
   const old = document.getElementById("scan-card");
-  if (!scan || !ctx.settings || scan.dismissed || !overviewContentEl.isConnected) {
+  // The first-read block already shows this read: one progress bar, not two.
+  const firstRead = scan?.phase === "reading" && overviewContentEl.querySelector(".home-read");
+  if (!scan || !ctx.settings || scan.dismissed || !overviewContentEl.isConnected || firstRead) {
     old?.remove();
     return;
   }
-  const names = ALL_SORT_BUCKETS.filter((b) => !ctx.settings.autoSort.labelsOff.includes(b)).map(
+  const names =ALL_SORT_BUCKETS.filter((b) => !ctx.settings.autoSort.labelsOff.includes(b)).map(
     (b) => [b, categoryLabelName(b, ctx.settings.labelChoices)] as const,
   );
   const rows = names.map(([bucket, label]) => ({
@@ -1489,6 +1491,12 @@ function renderOverview(
   const counted = allSenders.reduce((n, s) => n + senderVolume(s), 0);
   if (counted > facts.total) Object.assign(facts, { total: counted, since: undefined });
   facts.today = fillToday(pickToday(allSenders, knownSenderSet(ctx.settings), Date.now(), 5), allSenders, Date.now(), 5);
+  facts.byLabel = pickByLabel(allSenders, knownSenderSet(ctx.settings), ctx.settings.sortOverrides, Date.now())
+    .filter((d) => !ctx.settings.autoSort.labelsOff.includes(d.bucket))
+    .map((d) => {
+      const label = categoryLabelName(d.bucket, ctx.settings.labelChoices);
+      return { name: label.replace(/^\S+\s/, ""), total: d.total, items: d.items, href: gmailSearchUrl(`label:"${label.replace(/"/g, "")}" newer_than:7d`) };
+    });
   overviewContentEl.appendChild(
     renderHomeDashboard(
       facts,

@@ -115,6 +115,17 @@ describe("readLabeller", () => {
     expect(scan).toMatchObject({ phase: "reading", done: 251, total: 300, labelled: 251, byBucket: { shopping: 251 } });
   });
 
+  it("counts the newest mail once and leaves sent mail out, so read never passes the plan", async () => {
+    await index.setState({ provider: "gmail", complete: false });
+    const labeller = (await readLabeller())!;
+    // Before the plan: the newest 50, then some sent mail.
+    await labeller.onRead(Array.from({ length: 50 }, (_, i) => row(`q${i}`, ["INBOX"])), 50);
+    await labeller.onRead(Array.from({ length: 30 }, (_, i) => row(`s${i}`, ["SENT"])), 30);
+    labeller.onPlanned(200); // the 50 are part of the 200
+    await labeller.onRead(Array.from({ length: 150 }, (_, i) => row(`r${i}`, ["INBOX"])), 150);
+    expect(scan).toMatchObject({ phase: "reading", done: 200, total: 200 });
+  });
+
   it("is off once the read is finished", async () => {
     await index.setState({ provider: "gmail", complete: true });
     expect(await readLabeller()).toBeNull();

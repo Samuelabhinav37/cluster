@@ -298,7 +298,10 @@ export async function readLabeller(): Promise<ReadLabeller | null> {
   };
   return {
     onPlanned: (planned) => {
-      total = read + planned;
+      // `planned` already holds the newest mail read before the plan, so only
+      // a resumed read's earlier count is added (the card said 275 of 506 for
+      // a 206-email mailbox).
+      total = (carry?.done ?? 0) + planned;
       void setScan({ phase: "reading", done: read, total });
     },
     onSentReady: async () => {
@@ -307,7 +310,8 @@ export async function readLabeller(): Promise<ReadLabeller | null> {
       peopleIn = true;
     },
     onRead: async (rows, tried) => {
-      read += tried;
+      // Sent mail is read to learn who you write to; the plan doesn't count it.
+      read += tried - rows.filter((r) => r.labelIds?.includes("SENT") && !r.labelIds.includes("INBOX")).length;
       pending.push(...rows);
       if (peopleIn && pending.length >= LABEL_BATCH) await flush();
       await setScan({ phase: "reading", done: read, total: Math.max(total, read) });

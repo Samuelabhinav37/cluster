@@ -170,6 +170,8 @@ export interface HomeFacts {
   people?: number;
   /** Gmail's inbox unread count, once it has answered. */
   inboxUnread?: number;
+  /** Each label's last week: how much came and the few worth a look (lib/today.ts pickByLabel). */
+  byLabel?: { name: string; total: number; href: string; items: TodayItem[] }[];
   /** Today's few emails that matter (lib/today.ts pickToday). */
   today?: TodayItem[];
   /** Unread on each of the last seven days, oldest first; null where not recorded. */
@@ -619,7 +621,12 @@ function todayList(items: readonly TodayItem[]): HTMLElement {
     const line = el("span", "today-sub", t.subject);
     line.append(snippet);
     words.append(el("b", "", t.name), line);
-    const time = new Date(t.receivedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    // A time for the last day, the weekday for the week view.
+    const at = new Date(t.receivedAt);
+    const time =
+      Date.now() - t.receivedAt < 24 * 60 * 60 * 1000
+        ? at.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+        : at.toLocaleDateString(undefined, { weekday: "short" });
     // Why this email is here; "recent" rows only fill the list, so they say nothing.
     const when = el("span", "ios-value", t.reason === "recent" ? time : `${REASON_WORD[t.reason]} · ${time}`);
     row.append(senderTile(t.address, t.name, "sz-44"), words, when);
@@ -728,6 +735,21 @@ export function renderHomeDashboard(
   head.append(today);
   root.append(head);
   if (f.sweptAt) root.append(sweepLine(f.sweptAt, Date.now()));
+  // Labelled mail skips the inbox, so this is where it gets seen.
+  if (f.byLabel && f.byLabel.length > 0) {
+    root.append(el("h2", "section-label", "This week"));
+    for (const d of f.byLabel) {
+      const head = el("a", "week-label");
+      head.href = d.href;
+      head.target = "_blank";
+      head.rel = "noopener";
+      head.append(el("b", "", d.name), el("span", "", n(d.total)));
+      root.append(head);
+      // Only what matters is listed; three rows under every label ran to four screens.
+      const matters = d.items.filter((t) => t.reason !== "recent");
+      if (matters.length > 0) root.append(todayList(matters));
+    }
+  }
   const since = f.since
     ? ` Read back to ${new Date(f.since).toLocaleDateString(undefined, { month: "short", day: "numeric" })} so far.`
     : "";
