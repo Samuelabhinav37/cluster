@@ -35,6 +35,9 @@ export interface MailIndexState {
   /** Cursor captured before a build started. Kept across interruptions so a
    * resumed build still replays every change since the first attempt. */
   pendingCursor?: string;
+  /** Gmail said the cursor is too old (history kept about a week): the next
+   * full sync re-lists, reading only mail the index lacks (indexNeedsBuild). */
+  cursorExpired?: boolean;
   /** True once a full listing has been read into the index. */
   complete: boolean;
   lastSyncAt?: number;

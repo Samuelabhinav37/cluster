@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createMemoryMailIndex, INDEX_SCOPE_VERSION, MAIL_ROW_VERSION } from "./mailIndex";
+import { createMemoryMailIndex, INDEX_SCOPE_VERSION, MAIL_INDEX_CAP, MAIL_ROW_VERSION } from "./mailIndex";
 import { catchUpIndex, indexNeedsBuild, readMailIndex, SENT_FIRST, syncMailIndex } from "./mailSync";
 import type { EmailProvider, MailboxChanges, NormalizedMessageMetadata } from "./providers/emailProvider";
 import { gmailLabelFields, inIndexScope } from "./providers/gmailProvider";
@@ -234,6 +234,22 @@ describe("syncMailIndex: changes after the first build", () => {
     // Already-known mail isn't read again.
     expect(provider.getMessageMetadata).not.toHaveBeenCalled();
     expect((await store.getState("gmail"))?.cursor).toBe("h9");
+  });
+
+  it("a background refresh saves an expired cursor, so the next full sync rebuilds", async () => {
+    const { provider, state, store } = await built([message("a", ["INBOX"])]);
+    state.changes = { added: [], removed: [], labelUpdates: [], cursor: "h1", expired: true };
+    await syncMailIndex(provider, "t", store, { ...options, changesOnly: true });
+    const saved = await store.getState("gmail");
+    expect(saved?.cursor).toBeUndefined();
+    expect(indexNeedsBuild(saved, options.windowDays, saved?.cap ?? MAIL_INDEX_CAP)).toBe(true);
+
+    provider.getChangeCursor.mockResolvedValueOnce("h9");
+    await syncMailIndex(provider, "t", store, options);
+    const rebuilt = await store.getState("gmail");
+    expect(rebuilt).toMatchObject({ cursor: "h9", complete: true });
+    expect(rebuilt?.cursorExpired).toBeUndefined();
+    expect(provider.getMessageMetadata).not.toHaveBeenCalled();
   });
 
   it("signals quick-ready at once for an index built before", async () => {

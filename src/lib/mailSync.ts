@@ -100,7 +100,7 @@ export function syncChangedIndex(result: SyncResult): boolean {
 /** True when a full listing is still owed: never finished, or the user
  * changed how far back (window) or how many (cap) to read. */
 export function indexNeedsBuild(state: MailIndexState | undefined, windowDays: number, cap: number): boolean {
-  if (!state?.complete) return true;
+  if (!state?.complete || state.cursorExpired) return true;
   return (state.windowDays !== undefined && state.windowDays !== windowDays) || (state.cap !== undefined && state.cap !== cap);
 }
 
@@ -144,7 +144,10 @@ export async function syncMailIndex(
   if (state.complete && state.cursor && provider.listChangesSince) {
     const changes = await provider.listChangesSince(token, state.cursor);
     if (changes.expired) {
-      state = { ...state, cursor: undefined };
+      state = { ...state, cursor: undefined, cursorExpired: true };
+      // Saved: a background refresh used to drop this and kept calling the
+      // index ready, so new mail never reached it again.
+      await store.setState(state);
     } else {
       result = await applyChanges(provider, token, store, changes, options);
       state = { ...state, cursor: changes.cursor };
@@ -194,6 +197,7 @@ export async function syncMailIndex(
       scopeVersion: INDEX_SCOPE_VERSION,
       cursor: state.pendingCursor ?? state.cursor,
       pendingCursor: undefined,
+      cursorExpired: undefined,
     };
   } else if (!state.sentComplete) {
     // An index built before sent mail was indexed: read the Sent folder now.
