@@ -7,7 +7,7 @@ import { readTimeText } from "../lib/gmailQuotaLedger";
 import { senderTile } from "./senderTile";
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 import { clearedCount, type ActionLogEntry } from "../lib/actionLog";
-import { REASON_WORD, type TodayItem } from "../lib/today";
+import type { TodayItem } from "../lib/today";
 import type { ScanState } from "../lib/scanState";
 import type { SortBucket } from "../lib/sortTaxonomy";
 import { gmailMessageUrl } from "./detailsPanel";
@@ -645,7 +645,7 @@ function todayList(items: readonly TodayItem[]): HTMLElement {
         ? at.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
         : at.toLocaleDateString(undefined, { weekday: "short" });
     // Why this email is here; "recent" rows only fill the list, so they say nothing.
-    const when = el("span", "ios-value", t.reason === "recent" ? time : `${REASON_WORD[t.reason]} · ${time}`);
+    const when = el("span", "ios-value", time);
     row.append(senderTile(t.address, t.name, "sz-44"), words, when);
     group.append(row);
   }
@@ -755,17 +755,17 @@ export function renderHomeDashboard(
   // Labelled mail skips the inbox, so this is where it gets seen.
   if (f.byLabel && f.byLabel.length > 0) {
     root.append(el("h2", "section-label", "This week"));
+    // One row per label: name and count. The emails are one click away in Gmail.
+    const group = el("div", "ios-group week-labels");
     for (const d of f.byLabel) {
-      const head = el("a", "week-label");
-      head.href = d.href;
-      head.target = "_blank";
-      head.rel = "noopener";
-      head.append(el("b", "", d.name), el("span", "", n(d.total)));
-      root.append(head);
-      // Only what matters is listed; three rows under every label ran to four screens.
-      const matters = d.items.filter((t) => t.reason !== "recent");
-      if (matters.length > 0) root.append(todayList(matters));
+      const row = el("a", "ios-row week-label");
+      row.href = d.href;
+      row.target = "_blank";
+      row.rel = "noopener";
+      row.append(el("span", "grow", d.name), el("span", "ios-value", n(d.total)), el("span", "ov-go", "›"));
+      group.append(row);
     }
+    root.append(group);
   }
   const since = f.since
     ? ` Read back to ${new Date(f.since).toLocaleDateString(undefined, { month: "short", day: "numeric" })} so far.`
