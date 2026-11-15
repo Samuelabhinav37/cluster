@@ -104,7 +104,7 @@ export function protectionDecision(
   // otp is deliberately excluded here -- one-time codes are meant to expire
   // quickly (see retentionPolicy.ts) rather than being permanently exempt
   // like receipt/shipping records.
-  if (["receipt", "shipping", "accounts"].includes(message.kind)) {
+  if (["receipt", "statement", "shipping", "accounts"].includes(message.kind)) {
     return { protected: true, reason: "transactional" };
   }
   if (senderAddress && isLifeAdmin(message, subject, senderAddress)) return { protected: true, reason: "transactional" };

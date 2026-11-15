@@ -4,7 +4,7 @@
 // "other", which carries no default retention policy (see retentionPolicy.ts).
 import { cleanText } from "./normalize";
 
-export type MessageKind = "otp" | "accounts" | "receipt" | "shipping" | "newsletter" | "social" | "jobs" | "other";
+export type MessageKind = "otp" | "accounts" | "receipt" | "statement" | "shipping" | "newsletter" | "social" | "jobs" | "other";
 
 // "Your code is" and "is your code" only count next to an actual code, so a
 // colleague's "Your code is in the repo now" stays mail from a person. The
@@ -25,6 +25,10 @@ const ACCOUNT_RE =
 // fitness goals" are promotions, "Our statement on the outage" is news.
 const SHIPPING_RE =
   /\b(shipped|out for delivery|delivery (update|attempt|scheduled|exception|confirmation)|delivered|tracking (number|info|information|update|details)|track your (order|package|parcel|shipment)|order (confirm|confirmed|confirmation)|order #|order (is |has been )?(confirmed|placed|received)|has shipped|arriving|on its way|on the way|received your order|package (has )?arrived|delivery order)\b|^ordered:/i;
+// A bank's statement or balance is about an account, not a purchase: Gmail
+// and Yahoo both give money its own category (Grbovic et al., CIKM 2014).
+const STATEMENT_RE =
+  /\b(e-?statement|(your|monthly|account) statement|statement (is )?(ready|available)|account summary|(available|low|current) balance|balance (alert|is low)|direct deposit|deposit (was )?(made|posted|received)|a (payment|deposit|withdrawal|transfer) (of \$?[\d.,]+ )?(was|has been) posted)\b/i;
 const RECEIPT_RE =
   /\b(receipt|reciept|has (been )?renewed|subscription (has )?(been )?(canceled|cancelled|expired)|change to your( [\w-]+){0,6} subscription|registration confirm(ed|ation)|invoice|payment (received|confirmation)|received your payment|purchase (confirmation|confirmed)|refund (confirmation|issued|processed)|your refund|booking confirm(ation|ed)|your tickets?|your bill|e-?statement|statement (is )?(ready|available)|your( \w+){0,3} statement|(has been|was|is|been) paid|will renew|renews on|is renewing|renewal (notice|reminder|confirmation)|auto-?renew)\b/i;
 // Oracle's "Security Alert for CVE-2026-1234" is an advisory, not your account.
@@ -66,6 +70,7 @@ export function classifyMessageKind(
   if (OTP_RE.test(s) && !OTP_EXCLUDE_RE.test(s)) return "otp";
   if (ACCOUNT_RE.test(s) && !ACCOUNT_EXCLUDE_RE.test(s)) return "accounts";
   if (SHIPPING_RE.test(s)) return "shipping";
+  if (STATEMENT_RE.test(s)) return "statement";
   if (RECEIPT_RE.test(s)) return "receipt";
   if (SOCIAL_RE.test(s)) return "social";
   if (JOBS_RE.test(s) || (!hasListUnsubscribe && JOB_POST_RE.test(s))) return "jobs";

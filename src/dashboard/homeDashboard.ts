@@ -47,7 +47,7 @@ export const BUCKET_KIND: Record<SortBucket, Exclude<HomeKind, "primary">> = {
  * Promotions tab is Promotions, codes, lists, social and Gmail's other tabs
  * are Updates, and the rest is Primary. */
 export function kindOf(m: MessageRecord): HomeKind {
-  if (m.kind === "receipt" || m.kind === "shipping" || m.learnedTransactional) return "trans";
+  if (m.kind === "receipt" || m.kind === "statement" || m.kind === "shipping" || m.learnedTransactional) return "trans";
   if (m.tab === "promotions" || m.promotion) return "promo";
   if (m.kind === "otp" || m.kind === "newsletter" || m.kind === "social") return "updates";
   if (m.tab && m.tab !== "primary") return "updates";

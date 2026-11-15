@@ -157,6 +157,8 @@ function kindVote(m: NormalizedMessageMetadata, repliesToYou: boolean): Exclude<
     m.gmailPurchase,
   );
   if (kind === "otp" || kind === "receipt" || kind === "shipping") return kind;
+  // A statement is a money record, kept like a receipt.
+  if (kind === "statement") return "receipt";
   if (kind === "social" || labels.includes("CATEGORY_SOCIAL")) return "social";
   if (m.gmailPromotion) return "promotion";
   if (m.listId || hasUnsubscribe(m) || labels.includes("CATEGORY_FORUMS")) return "list";

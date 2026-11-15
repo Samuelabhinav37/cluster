@@ -2,6 +2,7 @@
 // don't know using the display name of one you do. A common way to pose as
 // a friend, boss or relative from a fresh free-mail account.
 import { canonicalAddress } from "./addressIdentity";
+import { markCampaigns } from "./campaigns";
 import { isFreeMailDomain } from "./freeMail";
 import type { SenderSummary } from "./senderModel";
 
@@ -25,7 +26,7 @@ function fullName(raw: string): string | undefined {
  * known one. Mutates `senders` in place, as firstContact.ts does.
  * shortcut: names come from the senders in this scan, not from sent mail; store sent-to names if this misses people. */
 export function markNameMatches(senders: SenderSummary[], known: ReadonlySet<string>): number {
-  return markNames(senders, known) + markAliasLookalikes(senders, known);
+  return markNames(senders, known) + markAliasLookalikes(senders, known) + markCampaigns(senders, known);
 }
 
 /** What a person might read as the same mailbox: no +tag, no dots, hyphens

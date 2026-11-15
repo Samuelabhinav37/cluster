@@ -33,6 +33,7 @@ const KIND_NAME: Record<ThreatSignalKind, string> = {
   "blocklisted-link": "Links to a scam site",
   "name-match": "Familiar name, new address",
   "alias-lookalike": "Looks like a contact's address",
+  campaign: "Same subject from many strangers",
 };
 
 const BRAND_KINDS = new Set<ThreatSignalKind>(["brand-impersonation", "freemail-brand-claim", "lookalike-domain"]);

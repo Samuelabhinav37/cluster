@@ -166,3 +166,10 @@ describe("hints: Gmail tab, signing domain, sending path", () => {
     expect(classifySortBucket("receipt", "newco.example", false, "jo@newco.example")).toBe("receipt");
   });
 });
+
+describe("statement kind", () => {
+  it("goes to Finance from any sender but free mail", () => {
+    expect(classifySortBucket("statement", "ridgewaycu.example")).toBe("finance");
+    expect(classifySortBucket("statement", "gmail.com")).toBe(null);
+  });
+});

@@ -54,7 +54,8 @@ export type ThreatSignalKind =
   | "provider-flagged"
   | "blocklisted-link"
   | "name-match"
-  | "alias-lookalike";
+  | "alias-lookalike"
+  | "campaign";
 
 export interface ThreatSignal {
   kind: ThreatSignalKind;
@@ -551,6 +552,9 @@ const SIGNAL_WEIGHTS: Record<ThreatSignalKind, number> = {
   // Reads as an alias of someone you write to but isn't one (nameMatch.ts).
   // High confidence (free mail) reaches the hold score alone.
   "alias-lookalike": 5,
+  // One long subject from many unknown free-mail senders (campaigns.ts).
+  // Warns alone; holds only with a second kind of evidence.
+  campaign: 3,
 };
 
 export type RiskTier = "high" | "elevated" | "low";

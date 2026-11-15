@@ -40,6 +40,6 @@ describe("scanCheckCounts", () => {
   it("covers every warning sign once", () => {
     const kinds = SCAN_CHECKS.flatMap((c) => c.kinds);
     expect(new Set(kinds).size).toBe(kinds.length);
-    expect(kinds.length).toBe(15);
+    expect(kinds.length).toBe(16);
   });
 });

@@ -16,7 +16,7 @@ export const SCAN_CHECKS: readonly { label: string; kinds: readonly ThreatSignal
   },
   { label: "Links", kinds: ["link-mismatch", "blocklisted-link", "blocklisted-domain"] },
   { label: "Attachments", kinds: ["risky-attachment"] },
-  { label: "Other warning signs", kinds: ["lure-language", "provider-flagged"] },
+  { label: "Other warning signs", kinds: ["lure-language", "provider-flagged", "campaign"] },
 ];
 
 /** Senders each check caught, in SCAN_CHECKS order. */

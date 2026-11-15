@@ -185,3 +185,11 @@ describe("bounces and carriers", () => {
     expect(classifyMessageKind("Your Apple ID was used to sign in to iCloud", false)).toBe("accounts");
   });
 });
+
+describe("statements", () => {
+  it("a statement or balance is its own kind, not a receipt", () => {
+    for (const s of ["Your statement is available", "Your eStatement is ready", "Low balance alert", "A direct deposit was posted", "Your monthly account summary"])
+      expect(classifyMessageKind(s, false)).toBe("statement");
+    expect(classifyMessageKind("Your receipt from Apple", false)).toBe("receipt");
+  });
+});

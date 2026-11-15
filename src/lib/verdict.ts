@@ -131,6 +131,8 @@ export function reasonText(signal: ThreatSignal): string {
       return `Uses the name of someone you write to (${signal.brand}), from a new address.`;
     case "alias-lookalike":
       return `Looks like ${signal.brand}, someone you write to, but it's a different address.`;
+    case "campaign":
+      return `The same subject came from ${signal.brand} you don't know.`;
     default: {
       const unreachable: never = signal.kind;
       return unreachable;

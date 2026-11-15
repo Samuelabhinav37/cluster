@@ -97,6 +97,7 @@ const KIND_BUCKET: Partial<Record<MessageKind, SortBucket>> = {
   otp: "otp",
   accounts: "accounts",
   receipt: "receipt",
+  statement: "finance",
   shipping: "shipping",
   newsletter: "newsletter",
   social: "social",
@@ -159,7 +160,7 @@ export function classifySortBucket(
   // A bank's statement or a hotel's booking belongs with the company, not in
   // Receipts: the sender's own category is the stronger signal (Grbovic et
   // al., CIKM 2014). Codes, account notices and shipping keep their label.
-  if (kind === "receipt" && (byCategory === "finance" || byCategory === "travel")) return byCategory;
+  if ((kind === "receipt" || kind === "statement") && (byCategory === "finance" || byCategory === "travel")) return byCategory;
   // "Jane commented on Q4 plan" from GitHub or Google Docs is work, not social.
   if (kind === "social" && byCategory === "productivity") return byCategory;
   return KIND_BUCKET[kind] ?? byCategory ?? null;

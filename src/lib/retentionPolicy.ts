@@ -2,7 +2,7 @@ import type { MessageKind } from "./messageKind";
 
 // Age-since-received is the only expiry signal used anywhere in this project
 // — never body content (e.g. no parsing a claimed delivery date out of an
-// order-confirmation email). Kinds with no entry here (receipt, shipping,
+// order-confirmation email). Kinds with no entry here (receipt, statement, shipping,
 // other) get no default policy: financial records, order/shipping mail
 // (a return window can outlast any reasonable fixed age), and unclassified
 // mail are never auto-suggested for deletion.
@@ -17,6 +17,7 @@ export const RETENTION_LABELS: Record<MessageKind, string> = {
   accounts: "Account and security notices",
   shipping: "Order & shipping updates",
   receipt: "Receipts & invoices",
+  statement: "Statements and balances",
   newsletter: "Newsletters",
   social: "Social notifications",
   jobs: "Jobs and applications",

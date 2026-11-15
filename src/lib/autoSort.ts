@@ -140,7 +140,8 @@ export function kindFromSender(senderKind: SenderKind | undefined, own: MessageK
     case "list":
       return own === "otp" ? own : "newsletter";
     default:
-      return own === "otp" ? own : senderKind;
+      // A bank's codes and statements keep their own kind under "receipt".
+      return own === "otp" || own === "statement" ? own : senderKind;
   }
 }
 

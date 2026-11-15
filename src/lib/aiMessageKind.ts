@@ -142,7 +142,7 @@ export async function classifyOtherSubjects(
 }
 
 /** Kinds the protection policy keeps (receipts, shipping updates). */
-const PROTECTED_KINDS = new Set<MessageKind>(["receipt", "shipping"]);
+const PROTECTED_KINDS = new Set<MessageKind>(["receipt", "statement", "shipping"]);
 
 /**
  * Whether the on-device model's verdict may replace a message's "other" kind.
