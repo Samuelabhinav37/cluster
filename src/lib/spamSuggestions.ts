@@ -75,7 +75,3 @@ export function suggestSpamSenders(
   }
   return out.sort((a, b) => b.messageCount - a.messageCount);
 }
-
-export function reasonLabel(reason: SpamReason): string {
-  return reason === "known-bad-domain" ? "known-bad domain" : "spam / throwaway domain";
-}

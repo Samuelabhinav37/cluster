@@ -30,6 +30,7 @@ import {
   trashStillSending,
   undoUnsubscribe,
   UNDO_UNSUBSCRIBE_COPY,
+  unsubscribeButtonText,
   unsubscribeOutcomeFor,
 } from "./unsubscribeRecord";
 import { openUnsubscribeSheet } from "./unsubscribeSheet";
@@ -230,12 +231,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
   const u = sender.unsubscribe;
   if (u.postUrl) {
     const btn = document.createElement("button");
-    const tracked = ctx.settings.unsubscribeRequests[sender.key];
-    btn.textContent = tracked
-      ? unsubscribeOutcomeFor(sender.key, sender).state === "still-sending"
-        ? "Retry unsubscribe"
-        : "Request again"
-      : "Unsubscribe";
+    btn.textContent = unsubscribeButtonText(sender);
     btn.onclick = async () => {
       const host = btn.parentElement;
       if (host && !(await graceWithUndo(host))) return;

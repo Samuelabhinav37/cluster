@@ -199,8 +199,10 @@ export function senderVerdict(sender: SenderSummary, context: VerdictContext): V
   // Each message is judged on the signals about the sender's address plus
   // its own, so a hold takes only the messages that earn it: one hijacked
   // email from a supplier, not the supplier's whole history.
+  // Sets, so a sender with thousands of messages stays linear, not m².
+  const idSets = signals.map((s) => s.messageIds && new Set(s.messageIds));
   const heldMessageIds = sender.messageIds.filter((id) => {
-    const own = signals.filter((s) => !s.messageIds || s.messageIds.includes(id));
+    const own = signals.filter((_, i) => !idSets[i] || idSets[i].has(id));
     const tier = judge(own, adjustment).tier;
     return tier === "hold" || (context.strict === true && tier === "warn");
   });

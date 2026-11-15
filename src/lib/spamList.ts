@@ -78,7 +78,3 @@ export async function refreshSpamList(publicKeyB64?: string): Promise<boolean> {
 export function isSpamDomain(domain: string): boolean {
   return defaultSpamList.isSpamDomain(domain);
 }
-
-export function spamListSize(): number {
-  return defaultSpamList.size;
-}

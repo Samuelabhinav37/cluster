@@ -81,12 +81,6 @@ function isSubscriptionDomain(domain: string): boolean {
 
 export type SubscriptionSignalKind = "trial-ending" | "renewal" | "domain-match";
 
-export const SUBSCRIPTION_SIGNAL_LABELS: Record<SubscriptionSignalKind, string> = {
-  "trial-ending": "Trial ending",
-  renewal: "Renews",
-  "domain-match": "Seen",
-};
-
 // Rank for sorting: most actionable/urgent first.
 const SIGNAL_RANK: Record<SubscriptionSignalKind, number> = {
   "trial-ending": 0,

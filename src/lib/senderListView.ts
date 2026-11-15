@@ -9,15 +9,6 @@ import { registrableDomain } from "./registrableDomain";
 
 export type SenderSortId = "volume" | "unread" | "newest" | "leastOpened" | "lastOpened" | "people";
 
-export const SENDER_SORT_LABELS: Record<SenderSortId, string> = {
-  volume: "Most mail",
-  unread: "Most unread",
-  newest: "Newest",
-  leastOpened: "Least opened",
-  lastOpened: "Longest since opened",
-  people: "People first",
-};
-
 const TIER_ORDER: SenderTier[] = ["close", "known", "regular", "other", "new", "ignored"];
 
 /** A person: not a machine, mail that reads person to person, and a

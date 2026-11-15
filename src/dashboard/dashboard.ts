@@ -92,7 +92,7 @@ import { fireOneClickUnsubscribe } from "../lib/unsubscribe";
 import { athenaOriginPatterns, getAthenaConfig } from "../lib/athenaIntegration";
 import { recordEngagementFeedback, type EngagementFeedback } from "../lib/engagementModel";
 import { openUnsubscribeSheet } from "./unsubscribeSheet";
-import { readUnsubscribeReplies, unsubscribeOutcomeFor } from "./unsubscribeRecord";
+import { readUnsubscribeReplies, unsubscribeButtonText, unsubscribeOutcomeFor } from "./unsubscribeRecord";
 import {
   buildSuggestions,
   unopenedSuggestions,
@@ -2527,12 +2527,7 @@ function buildUnsubscribeCell(sender: SenderSummary): HTMLDivElement {
         applyState();
       } else {
         statusEl.textContent = "Request failed, try again";
-        const tracked = ctx.settings.unsubscribeRequests[sender.key];
-        btn.textContent = tracked
-          ? unsubscribeOutcomeFor(sender.key, sender).state === "still-sending"
-            ? "Retry unsubscribe"
-            : "Request again"
-          : "Unsubscribe";
+        btn.textContent = unsubscribeButtonText(sender);
       }
       btn.disabled = false;
     };
@@ -2768,6 +2763,21 @@ function presetActionCard(
   return card;
 }
 
+/** Archives each provider's ids, logs one undoable entry, rescans. */
+async function archiveAndLog(merged: Map<ProviderId, string[]>, summary: (moved: number) => string): Promise<string> {
+  let moved = 0;
+  for (const [pid, ids] of merged) {
+    const provider = providerById.get(pid);
+    if (!provider?.archiveMessages || ids.length === 0) continue;
+    await provider.archiveMessages(await provider.getAuthToken(false), ids);
+    moved += ids.length;
+  }
+  const gmailIds = merged.get("gmail") ?? [];
+  await logAction("archive", summary(moved), gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "unarchive" } : undefined);
+  void scanAndRender();
+  return `Moved ${moved.toLocaleString()} out. Undo from Activity.`;
+}
+
 /** Shipping updates for orders that say delivered (orderEvents.ts): archive. */
 function deliveredOrdersCard(): HTMLElement | null {
   const merged = deliveredUpdates(ctx.senders, buildProtectionContext(ctx.settings));
@@ -2778,23 +2788,7 @@ function deliveredOrdersCard(): HTMLElement | null {
     "Delivered orders",
     `${total.toLocaleString()} shipping ${total === 1 ? "update" : "updates"} done`,
     "Move out",
-    async () => {
-      let moved = 0;
-      for (const [pid, ids] of merged) {
-        const provider = providerById.get(pid);
-        if (!provider?.archiveMessages || ids.length === 0) continue;
-        await provider.archiveMessages(await provider.getAuthToken(false), ids);
-        moved += ids.length;
-      }
-      const gmailIds = merged.get("gmail") ?? [];
-      await logAction(
-        "archive",
-        `Moved out ${moved} shipping updates for delivered orders`,
-        gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "unarchive" } : undefined,
-      );
-      void scanAndRender();
-      return `Moved ${moved.toLocaleString()} out. Undo from Activity.`;
-    },
+    () => archiveAndLog(merged, (moved) => `Moved out ${moved} shipping updates for delivered orders`),
   );
 }
 
@@ -2810,23 +2804,7 @@ function keepNewestInInboxCard(): HTMLElement | null {
     `Newest ${KEEP_IN_INBOX} per sender`,
     `${total.toLocaleString()} older ${total === 1 ? "email moves" : "emails move"} out`,
     "Move out",
-    async () => {
-      let moved = 0;
-      for (const [pid, ids] of merged) {
-        const provider = providerById.get(pid);
-        if (!provider?.archiveMessages || ids.length === 0) continue;
-        await provider.archiveMessages(await provider.getAuthToken(false), ids);
-        moved += ids.length;
-      }
-      const gmailIds = merged.get("gmail") ?? [];
-      await logAction(
-        "archive",
-        `Kept each sender's newest ${KEEP_IN_INBOX} in the inbox: moved out ${moved}`,
-        gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "unarchive" } : undefined,
-      );
-      void scanAndRender();
-      return `Moved ${moved.toLocaleString()} out. Undo from Activity.`;
-    },
+    () => archiveAndLog(merged, (moved) => `Kept each sender's newest ${KEEP_IN_INBOX} in the inbox: moved out ${moved}`),
   );
 }
 
@@ -2843,23 +2821,7 @@ function getToZeroCard(): HTMLElement | null {
     "Get to zero",
     `${total.toLocaleString()} read ${total === 1 ? "email" : "emails"} older than a month`,
     "Move out",
-    async () => {
-      let moved = 0;
-      for (const [pid, ids] of merged) {
-        const provider = providerById.get(pid);
-        if (!provider?.archiveMessages || ids.length === 0) continue;
-        await provider.archiveMessages(await provider.getAuthToken(false), ids);
-        moved += ids.length;
-      }
-      const gmailIds = merged.get("gmail") ?? [];
-      await logAction(
-        "archive",
-        `Moved out ${moved} read emails older than a month`,
-        gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "unarchive" } : undefined,
-      );
-      void scanAndRender();
-      return `Moved ${moved.toLocaleString()} out. Undo from Activity.`;
-    },
+    () => archiveAndLog(merged, (moved) => `Moved out ${moved} read emails older than a month`),
   );
 }
 

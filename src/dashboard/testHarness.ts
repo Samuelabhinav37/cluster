@@ -13,11 +13,6 @@ import { labelLookupNames } from "../lib/clusterLabels";
 
 const DAY = 86_400_000;
 
-export interface FixtureMessage extends NormalizedMessageMetadata {
-  /** Convenience: the sender key this message rolls up to. */
-  senderKey?: string;
-}
-
 /** A broad default mailbox: two domain categories, an unsubscribe-capable
  * sender, a starred (protected) sender, a first-contact sender, a free-mail
  * brand-claim sender for Phishing, an aged OTP for expiry, a big+old message

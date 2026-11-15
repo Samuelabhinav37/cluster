@@ -4,7 +4,6 @@
 import type { SortBucket } from "./sortTaxonomy";
 
 export type ScanPhase = "reading" | "checking" | "labelling" | "done";
-export const SCAN_PHASES: readonly ScanPhase[] = ["reading", "checking", "labelling", "done"];
 
 export interface ScanState {
   phase: ScanPhase;

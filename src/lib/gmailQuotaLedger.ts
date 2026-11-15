@@ -22,8 +22,6 @@ const WINDOW_MS = 60_000;
 // re-reserving, a few ×20 units) and Google's window not aligning with ours.
 // 500 units is plenty for that; going lower just slows every scan down.
 const BUDGET = 5500;
-/** The per-minute ceiling Cluster holds itself to across all contexts. */
-export const GMAIL_QUOTA_BUDGET = BUDGET;
 
 /** [epoch ms, cost in quota units] */
 type Spend = [number, number];

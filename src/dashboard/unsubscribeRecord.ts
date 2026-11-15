@@ -90,6 +90,12 @@ export function readUnsubscribeReplies(rows: readonly NormalizedMessageMetadata[
   ctx.unsubscribeReplies = replies;
 }
 
+/** The one-click button's label: first try, retry, or ask again. */
+export function unsubscribeButtonText(sender: SenderSummary): string {
+  if (!ctx.settings.unsubscribeRequests[sender.key]) return "Unsubscribe";
+  return unsubscribeOutcomeFor(sender.key, sender).state === "still-sending" ? "Retry unsubscribe" : "Request again";
+}
+
 /** The outcome of the request for this sender key, with its replies. */
 export function unsubscribeOutcomeFor(key: string, sender: SenderSummary | undefined): UnsubscribeOutcome {
   return evaluateUnsubscribeOutcome(

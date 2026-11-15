@@ -21,13 +21,6 @@ export interface Suggestion {
   safeMessageIds: string[];
 }
 
-export const SUGGESTION_ACTION_LABELS: Record<SuggestionAction, string> = {
-  unsubscribe: "Unsubscribe",
-  mute: "Mute",
-  clearOld: "Clear out old mail",
-  keepSorted: "Keep sorted",
-};
-
 const KEEP_SORTED_PER_MONTH = 4;
 const KEEP_SORTED_IN_INBOX = 5;
 
