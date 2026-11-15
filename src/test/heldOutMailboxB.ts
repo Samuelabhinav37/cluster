@@ -54,8 +54,9 @@ export const HELD_OUT_B: Template[] = [
   { group: "Unknown app notifications", accept: ["screener", "accounts"], count: 100, make: () => mail(...sender(APPS), pick(["Your weekly digest", "Someone viewed your file", "Your trial is ending", "New login detected"]), { autoSubmitted: chance(0.5) }) },
 
   // People.
-  { group: "Friend, varied subject", accept: ["personal"], count: 160, make: () => mail(...personPair(["gmail.com", "outlook.com", "yahoo.com", "icloud.com"]), friendSubject(), { tab: "primary", important: chance(0.6) }) },
-  { group: "Friend's group email", accept: ["personal"], count: 30, make: () => mail(...personPair(["gmail.com"]), `${pick(["potluck", "ski trip", "book club"])} plan for ${pick(DAYS)}`, { tab: "primary", cc: 10 }) },
+  // Strangers on free mail wait in the Screener until you say yes (2026-11-15 decision).
+  { group: "Friend, varied subject", accept: ["screener", "personal"], count: 160, make: () => mail(...personPair(["gmail.com", "outlook.com", "yahoo.com", "icloud.com"]), friendSubject(), { tab: "primary", important: chance(0.6) }) },
+  { group: "Friend's group email", accept: ["screener", "personal"], count: 30, make: () => mail(...personPair(["gmail.com"]), `${pick(["potluck", "ski trip", "book club"])} plan for ${pick(DAYS)}`, { tab: "primary", cc: 10 }) },
   { group: "New colleague (unlisted company)", accept: ["personal"], count: 60, make: () => mail(...personPair(["northwind.example", "fabrikam.example"]), pick(["Kickoff agenda", "Feedback on the draft", "Can we move our call?", "Budget numbers for Q1"]), { tab: "primary", via: "person" }) },
   { group: "Known contacts", accept: ["personal"], count: 40, make: () => mail(...sender([["priya.n@corp.example", "Priya Nair"], ["mom.family@gmail.com", "Mom"], ["sivaram.challa@gmail.com", "Sivaram Challa"]]), friendSubject(), { tab: "primary", via: "person" }) },
   { group: "Reply in your thread from a company", accept: ["personal"], count: 30, make: () => reply(mail(...sender(brands(["Cloudlocker", "Lumen Fiber"], "help")), `Re: case ${digits(6)}`)) },

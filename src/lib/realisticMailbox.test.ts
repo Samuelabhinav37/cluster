@@ -8,12 +8,13 @@ import { build, generatorProblems, report, voteReport, type Template } from "../
 import { HELD_OUT, HELD_OUT_SEED } from "../test/heldOutMailbox";
 import { HELD_OUT_B, HELD_OUT_B_SEED } from "../test/heldOutMailboxB";
 import { HELD_OUT_C, HELD_OUT_C_SEED } from "../test/heldOutMailboxC";
+import { HELD_OUT_D, HELD_OUT_D_SEED } from "../test/heldOutMailboxD";
 import { out, signalVotes, sortMailbox } from "../test/sortHarness";
 import { CONTACTS, TUNED, TUNED_SEED } from "../test/tunedMailbox";
 
-async function run(name: string, templates: Template[], seed: number) {
+async function run(name: string, templates: Template[], seed: number, size = 2000) {
   const { cases, sent } = build(templates, seed);
-  expect(cases).toHaveLength(2000);
+  expect(cases).toHaveLength(size);
   expect(generatorProblems(cases)).toEqual([]);
   const where = await sortMailbox(cases.map((c) => c.meta), { contacts: CONTACTS, sent, now: Date.UTC(2026, 10, 15, 12) });
   const r = report(cases, where, templates);
@@ -38,5 +39,9 @@ describe("2,000-email realistic mailboxes", () => {
 
   it("held-out mailbox C (cycle 3)", async () => {
     await run("Held-out mailbox C (cycle 3)", HELD_OUT_C, HELD_OUT_C_SEED);
+  });
+
+  it("held-out mailbox D (3,000 emails, after screening strangers)", async () => {
+    await run("Held-out mailbox D (3,000)", HELD_OUT_D, HELD_OUT_D_SEED, 3000);
   });
 });

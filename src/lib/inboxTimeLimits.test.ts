@@ -241,7 +241,7 @@ describe("holdUnsortedInbox", () => {
     const senders = [
       sender("hello@unknown-co.example", [msg("u1", "other", { looksAutomated: true })]),
       sender("deals@amazon.com", [msg("s1", "newsletter", { looksAutomated: true })]),
-      sender("friend@gmail.com", [msg("p1")]),
+      sender("friend@smallfirm.example", [msg("p1")]),
       sender("boss@work.example", [msg("k1", "other", { looksAutomated: true })]),
       sender("cal@corp.example", [msg("c1", "other", { subject: "Invitation: Sync @ Wed", looksAutomated: true })]),
       sender("star@x.example", [msg("st", "other", { isProtected: true, looksAutomated: true })]),
@@ -301,7 +301,7 @@ describe("holdUnsortedInbox", () => {
 
   it("files personal mail under Personal and everything else unsorted in the Screener, starred too", async () => {
     const senders = [
-      sender("friend@gmail.com", [msg("p1", "other", { isProtected: true })]),
+      sender("friend@smallfirm.example", [msg("p1", "other", { isProtected: true })]),
       sender("recruiter@staffing.example", [msg("r1", "other", { looksAutomated: true })]),
       sender("support@shop.example", [msg("y1", "other", { looksAutomated: true, repliesToYou: true })]),
       sender("star@x.example", [msg("st", "other", { isProtected: true, looksAutomated: true })]),
@@ -383,7 +383,7 @@ describe("holdUnsortedInbox", () => {
     expect(res.heldIds).toEqual(["x1"]);
   });
 
-  it("Gmail's tabs and the sending path decide Personal vs the Screener for strangers", async () => {
+  it("Gmail's tabs and the sending path decide Personal vs the Screener for strangers; free-mail strangers wait", async () => {
     const senders = [
       sender("maya.lee@gmail.com", [msg("a1", "receipt", { subject: "Invoice for the cabin split", sentBy: "person-app" })]),
       sender("jo@newco.example", [msg("b1", "other", { tab: "updates" })]),
@@ -391,12 +391,27 @@ describe("holdUnsortedInbox", () => {
       { ...sender("billing.office123@gmail.com", [msg("d1", "receipt", { sentBy: "person-app" })]), displayName: "Billing Office" },
       { ...sender("ops.lead@gmail.com", [msg("e1", "other")]), displayName: "Accounts Payable" },
       sender("cal@corp.example", [msg("f1", "other", { subject: "Fwd: Invitation: Sync @ Wed", looksAutomated: true })]),
+      sender("sam.k@smallfirm.example", [msg("g1", "receipt", { subject: "Invoice for the cabin split", sentBy: "person-app" })]),
+      sender("pat.r@yahoo.com", [msg("h1", "other", { subject: "Invitation: Dinner @ Fri" })]),
     ];
     const api = fakeApi({}, senders);
-    api.listIds.mockResolvedValue(["a1", "b1", "c1", "d1", "e1", "f1"]);
+    api.listIds.mockResolvedValue(["a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1"]);
     const res = await holdUnsortedInbox(ctx(), api, "✋ Screener", 0, "👤 Personal");
-    expect(res.personalIds).toEqual(["a1", "f1"]);
-    expect(res.heldIds).toEqual(["b1", "c1", "d1", "e1"]);
+    expect(res.personalIds).toEqual(["f1", "g1"]);
+    expect(res.heldIds).toEqual(["a1", "b1", "c1", "d1", "e1", "h1"]);
+    // Once you know them (you wrote to them, or said yes), they reach Personal.
+    api.listIds.mockResolvedValue(["a1", "h1"]);
+    const known = await holdUnsortedInbox(ctx({ known: new Set(["maya.lee@gmail.com", "pat.r@yahoo.com"]) }), api, "✋ Screener", 0, "👤 Personal");
+    expect(known.personalIds).toEqual(["a1", "h1"]);
+    // "Hold people too" off: strangers on free mail reach Personal as before.
+    api.listIds.mockResolvedValue(["a1", "h1"]);
+    expect((await holdUnsortedInbox(ctx({ holdPeople: false }), api, "✋ Screener", 0, "👤 Personal")).personalIds).toEqual(["a1", "h1"]);
+    // A note to yourself (SENT) is Personal; a forged From: you without SENT waits.
+    const self = fakeApi({}, [sender("me@gmail.com", [msg("n1", "other", { fromYou: true }), msg("n2", "other")])]);
+    self.listIds.mockResolvedValue(["n1", "n2"]);
+    const notes = await holdUnsortedInbox(ctx(), self, "✋ Screener", 0, "👤 Personal");
+    expect(notes.personalIds).toEqual(["n1"]);
+    expect(notes.heldIds).toEqual(["n2"]);
   });
 
   it("a fake reply is never Personal; a thread with your contact copied is, and isn't labelled", async () => {

@@ -361,8 +361,8 @@ export const FIXTURES: Fixture[] = [
   },
   {
     id: "o-confirm-email",
-    cls: "otp",
-    kind: "otp",
+    cls: "transactional",
+    kind: "accounts",
     msg: system("hello@linear.app", "Linear", "Confirm your email address"),
   },
   {

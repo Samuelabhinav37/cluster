@@ -99,6 +99,7 @@ export function mail(from: string, name: string, subject: string, o: Opts = {}):
   const domain = from.split("@")[1];
   const labels = ["INBOX", TAB_LABEL[o.tab ?? "updates"]];
   if (o.important) labels.push("IMPORTANT");
+  if (from === ME) labels.push("SENT");
   if (o.starred) labels.push("STARRED");
   if (chance(0.55)) labels.push("UNREAD");
   const d = o.signedBy ?? domain;

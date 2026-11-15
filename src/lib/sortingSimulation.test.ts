@@ -105,7 +105,8 @@ function build(): Case[] {
   add("Work tools", "productivity", 20, () =>
     mailFrom(from([["notifications@github.com", "GitHub"], ["feedback@slack.com", "Slack"]]), pick([`[cluster] PR #${num(2)} merged`, "New messages in #general"]), list));
 
-  add("A person, new to you", "personal", 60, () =>
+  // A stranger on free mail waits in the Screener until you say yes.
+  add("A person, new to you", "screener", 60, () =>
     mail(`${pick(["maya", "jordan", "chris", "fatima", "wei"])}.${pick(["lee", "patel", "garcia", "khan"])}${num(2)}@${pick(["gmail.com", "outlook.com", "yahoo.com"])}`,
       pick(["Maya Lee", "Jordan Patel", "Chris Garcia"]), pick(["Dinner on Friday?", "Photos from the trip", "Quick question"]), { providerMarkedPersonal: rand() < 0.5 }));
   add("Someone you wrote to", "personal", 40, () =>
@@ -164,6 +165,7 @@ describe("1,000-email mailbox", () => {
     const people = cases.filter((c) => c.expect === "personal");
     const scams = cases.filter((c) => c.expect === "spam");
     expect(people.filter((c) => ["spam", "screener"].includes(where.get(c.meta.id)!)).map((c) => c.meta.fromAddress)).toEqual([]);
+    expect(cases.filter((c) => c.group === "A person, new to you" && where.get(c.meta.id) === "spam")).toEqual([]);
     expect(scams.filter((c) => !["spam", "screener"].includes(where.get(c.meta.id)!)).map((c) => c.meta.fromAddress)).toEqual([]);
   });
 });

@@ -133,6 +133,7 @@ async function runPass(
     overrides: settings.sortOverrides,
     now,
     keptIds: new Set(settings.autoSort.keptInInboxIds),
+    holdPeople: settings.screenerHoldPeople,
   };
 
   // The quick work first: label new mail, then move out what is past its

@@ -6,12 +6,13 @@ import { describe, expect, it } from "vitest";
 import type { NormalizedMessageMetadata } from "./providers/emailProvider";
 import { build, type Case } from "../test/mailboxGen";
 import { HELD_OUT, HELD_OUT_SEED } from "../test/heldOutMailbox";
+import { HELD_OUT_D, HELD_OUT_D_SEED } from "../test/heldOutMailboxD";
 import { sortMailbox, type Where } from "../test/sortHarness";
 import { CONTACTS, TUNED, TUNED_SEED } from "../test/tunedMailbox";
 
 const NOW = Date.UTC(2026, 10, 15, 12);
 
-for (const [name, templates, seed] of [["held-out", HELD_OUT, HELD_OUT_SEED], ["tuned", TUNED, TUNED_SEED]] as const) {
+for (const [name, templates, seed] of [["held-out", HELD_OUT, HELD_OUT_SEED], ["tuned", TUNED, TUNED_SEED], ["held-out D (3,000)", HELD_OUT_D, HELD_OUT_D_SEED]] as const) {
   describe(`metamorphic: ${name} mailbox`, () => {
     const { cases, sent } = build(templates, seed);
     const sort = (metas: NormalizedMessageMetadata[]) => sortMailbox(metas, { contacts: CONTACTS, sent, now: NOW });
@@ -45,7 +46,8 @@ for (const [name, templates, seed] of [["held-out", HELD_OUT, HELD_OUT_SEED], ["
 
     it("a stranger's \"Re:\" with no thread behind it never reaches Personal", async () => {
       const contacts = new Set(CONTACTS);
-      const stranger = (c: Case) => !contacts.has(c.meta.fromAddress) && !sent.some((s) => s.threadId === c.meta.threadId);
+      // Mail you sent yourself (SENT) is not a stranger's.
+      const stranger = (c: Case) => !contacts.has(c.meta.fromAddress) && !c.meta.labelIds?.includes("SENT") && !sent.some((s) => s.threadId === c.meta.threadId);
       const faked = await sort(change(stranger, (m) => ({ subject: `Re: ${m.subject}`, inReplyTo: undefined, referencesCount: 0 })));
       const leaked = cases.filter((c) => stranger(c) && !(c.meta.ccAddresses ?? []).some((a) => contacts.has(a)) && faked.get(c.meta.id) === "personal");
       expect(leaked.map((c) => `${c.t.group}: ${c.meta.subject}`)).toEqual([]);

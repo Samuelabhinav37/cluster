@@ -12,7 +12,7 @@
 // them has run out ("stays in inbox" wins). A person's own note and senders
 // that look like phishing always stay; starred mail leaves and keeps its star.
 import { domainOf } from "./domainGrouping";
-import { isRoleAddress } from "./freeMail";
+import { isFreeMailDomain, isRoleAddress } from "./freeMail";
 import { neverMove } from "./protectionPolicy";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import { isMailboxName } from "./nameMatch";
@@ -59,6 +59,8 @@ export interface LimitContext {
   now: number;
   /** Messages an earlier sweep already decided to keep (see SweepResult). */
   keptIds?: Set<string>;
+  /** "Hold people too": strangers on free mail wait in the Screener. Default on. */
+  holdPeople?: boolean;
 }
 
 function epochSeconds(ms: number): number {
@@ -322,10 +324,13 @@ export async function holdUnsortedInbox(
         override === "personal" ||
         (override !== "never" &&
           (known ||
+            msg.fromYou ||
             msg.repliesToYou ||
             withYourContacts(msg, ctx.known) ||
-            (writtenByPerson(msg, sender.address, sender.displayName) && !sender.threatSignals.some((t) => t.kind === "lure-language")) ||
-            (CALENDAR_RE.test(msg.subject ?? "") && !msg.fakeReply)));
+            // A stranger on free mail waits in the Screener until you say yes (HEY's Screener).
+            ((ctx.holdPeople === false || !isFreeMailDomain(domain)) &&
+              ((writtenByPerson(msg, sender.address, sender.displayName) && !sender.threatSignals.some((t) => t.kind === "lure-language")) ||
+                (CALENDAR_RE.test(msg.subject ?? "") && !msg.fakeReply)))));
       if (personal) {
         if (personalLabelName) personalIds.push(msg.id);
         continue;

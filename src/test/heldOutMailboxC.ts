@@ -35,8 +35,9 @@ export const HELD_OUT_C: Template[] = [
   { group: "Recruiter outreach, fake Re:", accept: ["screener", "jobs"], count: 50, make: () => mail(...personPair(["talentbridge.example", "hirewise.example"]), pick(["Re: Senior Engineer role", "Re: Your background"]), { tab: "primary", via: "person", fakeReply: true }) },
 
   // People and threads.
-  { group: "Friend, real reply", accept: ["personal"], count: 120, make: () => mail(...personPair(["gmail.com", "icloud.com", "outlook.com"]), `Re: ${pick(["dinner", "the trip", "photos", "the game"])} ${pick(DAYS)}`, { tab: "primary" }) },
-  { group: "Friend, new message", accept: ["personal"], count: 100, make: () => mail(...personPair(["gmail.com", "yahoo.com"]), `${pick(["coffee", "lunch", "a call", "the hike"])} ${pick(DAYS)}?`, { tab: "primary" }) },
+  // Strangers on free mail wait in the Screener until you say yes (2026-11-15 decision).
+  { group: "Friend, real reply", accept: ["screener", "personal"], count: 120, make: () => mail(...personPair(["gmail.com", "icloud.com", "outlook.com"]), `Re: ${pick(["dinner", "the trip", "photos", "the game"])} ${pick(DAYS)}`, { tab: "primary" }) },
+  { group: "Friend, new message", accept: ["screener", "personal"], count: 100, make: () => mail(...personPair(["gmail.com", "yahoo.com"]), `${pick(["coffee", "lunch", "a call", "the hike"])} ${pick(DAYS)}?`, { tab: "primary" }) },
   { group: "Stranger on a thread with your contact copied", accept: ["personal"], count: 60, make: () => mail(...personPair(["vendorco.example", "agencyone.example"]), pick(["Re: offsite planning", "Intro: Priya mentioned you", "Invoice process for the project"]), { tab: "primary", ccTo: ["priya.n@corp.example"], via: pick(["person", "own"] as const) }) },
   { group: "Known contacts", accept: ["personal"], count: 50, make: () => mail(...sender([["priya.n@corp.example", "Priya Nair"], ["dan@friends.example", "Dan Brooks"]]), pick(["Re: notes", "can you call?", "Draft for review"]), { tab: "primary", via: "person" }) },
   { group: "Reply in your thread from a company", accept: ["personal"], count: 30, make: () => reply(mail(...sender(brands(["Tilework"], "support")), `Re: request ${digits(5)}`)) },

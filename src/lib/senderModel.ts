@@ -68,6 +68,9 @@ export interface MessageRecord {
   fakeReply?: boolean;
   /** Everyone else it was sent to (To and Cc), for "your contacts are on it". */
   coRecipients?: string[];
+  /** You sent it (Gmail's SENT label): a note to yourself. Gmail sets SENT
+   * only on mail this account sent, so a forged From: you never has it. */
+  fromYou?: boolean;
   /** A sending service or a person's mail app, from Return-Path,
    * Message-ID and Feedback-ID (sendingEvidence.ts). */
   sentBy?: SendingEvidence;
@@ -186,6 +189,7 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     looksAutomated: looksAutomated(hasUnsubscribe(meta.unsubscribe), meta.precedence, meta.autoSubmitted, meta.listId || meta.feedbackId),
     promotion: meta.gmailPromotion ?? false,
     tab: inboxTabOf(meta.labelIds),
+    fromYou: meta.labelIds?.includes("SENT") || undefined,
     sentBy: sendingEvidence(meta),
     fakeReply: /^\s*re:/i.test(meta.subject ?? "") && meta.referencesCount === 0 && !meta.inReplyTo ? true : undefined,
     coRecipients: meta.ccAddresses?.length || (meta.toAddresses?.length ?? 0) > 1
