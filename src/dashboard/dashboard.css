@@ -3936,7 +3936,6 @@ section[data-screen="settings"] .set-row > :not(.grow):not(.set-ic) { grid-colum
 #cu-senders-table .ct-who b { margin-left: 0; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #cu-senders-table .ct-more { margin-top: 12px; }
 .ct-name { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 8px; }
-.ct-name::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--share, 0); border-radius: 3px; background: color-mix(in srgb, var(--label-4) 12%, transparent); transition: background .15s; }
 tr:hover .ct-name::before, #subscriptions-list .list-row:hover .row-media::before { background: color-mix(in srgb, var(--label-4) 30%, transparent); }
 .ct-name > * { position: relative; }
 .ct-name .logo-tile, #subscriptions-list .row-media .logo-tile, .paid-card .logo-tile { width: 20px; height: 20px; border-radius: 5px; font-size: 9px; }
@@ -3958,7 +3957,6 @@ tr:hover .ct-name::before, #subscriptions-list .list-row:hover .row-media::befor
 #subscriptions-list .list-row.pl-head:hover { background: none; }
 #subscriptions-list .list-row.pl-head .row-sub { color: var(--label-3) !important; font-size: 12px; }
 #subscriptions-list .row-media { position: relative; gap: 8px; padding: 6px 8px; }
-#subscriptions-list .row-media::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--share, 0); border-radius: 3px; background: color-mix(in srgb, var(--label-4) 12%, transparent); transition: background .15s; }
 #subscriptions-list .row-media > * { position: relative; }
 #subscriptions-list .row-title { font-size: 14px; font-weight: 400; }
 #subscriptions-list .list-row:hover .row-title { text-decoration: underline; text-underline-offset: 3px; }
@@ -4305,3 +4303,10 @@ section[data-screen="impersonation"] > .tabs .tab-count { margin-left: 6px; padd
   color: var(--label-3);
   font-weight: 400;
 }
+
+/* 2026-11-15 hierarchy pass (Apple's ladder): headings read as headings, numbers as the biggest thing on a card, no small caps. */
+.ios-head, .set-sec > h2, .pl-body .section-label { font: 600 15px/20px var(--font); letter-spacing: -.01em; text-transform: none; color: var(--label); }
+#cu-head .pl-card .cu-head { font: 600 13px/18px var(--font); letter-spacing: 0; text-transform: none; color: var(--label-3); }
+#cu-head .pl-card .cu-num b { font: 700 28px/1.2 var(--font); letter-spacing: -.02em; }
+#cu-head .tab, section[data-screen="impersonation"] > .tabs .tab { font: 600 14px/18px var(--font); letter-spacing: 0; text-transform: none; }
+.sec-title + .sec-run { margin-top: 12px; }

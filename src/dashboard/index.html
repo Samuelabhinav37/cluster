@@ -448,7 +448,6 @@
               </div>
               <div class="sec-body">
                 <h2 class="sec-title" id="sec-title">Nothing looks wrong</h2>
-                <p class="sec-sub" data-protect-sub></p>
                 <div class="sec-run">
                   <button type="button" class="btn" id="sec-scan-now">Scan now</button>
                   <span class="sec-last" id="sec-last" aria-live="polite"></span>
@@ -456,15 +455,15 @@
                 <ol class="sec-checks" id="sec-checks" hidden></ol>
                 <div class="sec-items">
                   <div class="sec-item">
-                    <span class="sec-item-words"><b>Look like scams</b><span><span id="kpi-threats">0</span> pretend to be a company you know</span></span>
+                    <span class="sec-item-words"><b>Scams</b><span><span id="kpi-threats">0</span> senders</span></span>
                     <button type="button" class="sec-view" data-sec-tab="suspicious">View details</button>
                   </div>
                   <div class="sec-item">
-                    <span class="sec-item-words"><b>Held</b><span><span id="kpi-held">0</span> emails held for review</span></span>
+                    <span class="sec-item-words"><b>Held</b><span><span id="kpi-held">0</span> emails</span></span>
                     <button type="button" class="sec-view" data-sec-tab="quarantine">View details</button>
                   </div>
                   <div class="sec-item">
-                    <span class="sec-item-words"><b>New senders</b><span><span id="kpi-waiting">0</span> waiting in the screener</span></span>
+                    <span class="sec-item-words"><b>New senders</b><span><span id="kpi-waiting">0</span> senders</span></span>
                     <button type="button" class="sec-view" data-open-screen="screener">View details</button>
                   </div>
                 </div>
@@ -505,7 +504,7 @@
               </div>
               <ul id="quarantine-review-list" class="stack"></ul>
             </section>
-            <p class="empty-state" id="quarantine-empty">Nothing in quarantine.</p>
+            <p class="empty-state" id="quarantine-empty">Nothing held.</p>
 
             <section id="security-section" hidden>
               <div id="security-high" class="tier">
@@ -516,7 +515,7 @@
             <section id="brand-check"></section>
             <p id="security-empty" class="empty-state">Nothing looks wrong.</p>
             <section class="ios-section">
-              <h2 class="ios-head">Quarantine settings</h2>
+              <h2 class="ios-head">Settings</h2>
               <div class="ios-group">
                 <label class="ios-row" id="auto-quarantine-row">
                   <span class="app-ic app-protect"
@@ -527,7 +526,7 @@
                       <path d="M12 8v4M12 16h.01"></path></svg
                   ></span>
                   <span class="grow"
-                    >Quarantine suspected phishing</span
+                    >Hold scams</span
                   >
                   <input type="checkbox" class="switch" role="switch" id="auto-quarantine-toggle" />
                 </label>
@@ -538,7 +537,7 @@
                       <path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg
                   ></span>
                   <span class="grow"
-                    >Quarantine unverified senders</span
+                    >Hold unverified senders</span
                   >
                   <input type="checkbox" class="switch" role="switch" id="rule-auth-fails" />
                 </label>
@@ -549,7 +548,7 @@
                       <path d="m4.9 4.9 14.2 14.2"></path></svg
                   ></span>
                   <span class="grow"
-                    >Move quarantined mail to Spam</span
+                    >Send held mail to Spam</span
                   >
                   <input type="checkbox" class="switch" role="switch" id="rule-to-spam" />
                 </label>
@@ -558,7 +557,7 @@
                     ><svg class="i" viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg
                   ></span>
-                  <span class="grow">Strict: also hold mail with one warning sign</span>
+                  <span class="grow" title="Also hold mail with one warning sign">Strict</span>
                   <input type="checkbox" class="switch" role="switch" id="rule-strict" />
                 </label>
               </div>

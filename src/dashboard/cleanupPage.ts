@@ -307,11 +307,10 @@ function lastReceived(ms: number, now: number): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-/** Plausible's two-part number: the count, then its share of the whole in gray. */
-export function emailsCell(count: number, total: number, tag: "td" | "span" = "td"): HTMLElement {
+/** The Emails cell: the count alone. */
+export function emailsCell(count: number, tag: "td" | "span" = "td"): HTMLElement {
   const cell = el(tag, "num ct-emails");
-  const pct = total > 0 ? (count / total) * 100 : 0;
-  cell.append(el("b", "", count.toLocaleString()), el("span", "", `${pct >= 1 || pct === 0 ? Math.round(pct) : pct.toFixed(1)}%`));
+  cell.append(el("b", "", count.toLocaleString()));
   return cell;
 }
 
@@ -325,8 +324,6 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
     if (!reasons.has(k)) reasons.set(k, it.reason);
   }
   const selected = new Set<string>();
-  const top = Math.max(1, ...rows.map((r) => r.count));
-  const total = rows.reduce((n, r) => n + r.count, 0);
   let shown = PAGE;
 
   const render = () => {
@@ -389,8 +386,6 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
       td0.append(box);
       const who = el("td", "ct-who");
       const name = el("span", "ct-name");
-      // Plausible's bar behind the name: the row's share of the biggest sender.
-      name.style.setProperty("--share", `${(r.count / top) * 100}%`);
       name.append(senderTile(r.lead.address, r.lead.displayName, "sz-26"), el("b", "", senderName(r.lead)));
       who.append(name);
       const reason = el("td", "ct-dim ct-reason", reasons.get(r.key) ?? "");
@@ -400,9 +395,9 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
         td0,
         who,
         reason,
-        emailsCell(r.count, total),
+        emailsCell(r.count),
         el("td", "ct-dim", latest ? lastReceived(latest, now) : ""),
-        el("td", "num ct-dim", pct === 0 ? "Never" : `${pct}%`),
+        el("td", "num ct-dim", `${pct}%`),
       );
       tr.onclick = (e) => {
         if (!(e.target instanceof Element && e.target.closest("input, label, button"))) spec.openRow(r.key);

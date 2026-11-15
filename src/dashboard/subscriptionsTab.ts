@@ -347,7 +347,7 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
 
 /** A domain with several lists: one row whose tick and Unsubscribe cover all of
  * them, through the same confirm as the bulk button. */
-function domainRow(domain: string, members: SenderSummary[], top: number, all: number): HTMLElement {
+function domainRow(domain: string, members: SenderSummary[]): HTMLElement {
   const total = members.reduce((n, s) => n + senderVolume(s), 0);
   const unread = members.reduce((n, s) => n + senderUnread(s), 0);
   const lead = members.reduce((a, b) => (senderVolume(b) > senderVolume(a) ? b : a));
@@ -357,9 +357,9 @@ function domainRow(domain: string, members: SenderSummary[], top: number, all: n
   const pct = Math.round(((total - unread) / Math.max(1, total)) * 100);
   const opened = document.createElement("span");
   opened.className = "ct-dim";
-  opened.textContent = pct === 0 ? "Never" : `${pct}%`;
+  opened.textContent = `${pct}%`;
   opened.title = "Opened";
-  cols.append(emailsCell(total, all, "span"), opened);
+  cols.append(emailsCell(total, "span"), opened);
   const unsub = document.createElement("button");
   unsub.className = "btn";
   unsub.textContent = "Unsubscribe";
@@ -389,7 +389,6 @@ function domainRow(domain: string, members: SenderSummary[], top: number, all: n
     actions: [unsub, Object.assign(document.createElement("span"), { className: "row-menu-spacer" })],
   });
   row.title = members.map((s) => s.address).join(", ");
-  row.style.setProperty("--share", `${(total / top) * 100}%`);
   return row;
 }
 
@@ -453,8 +452,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
   subscriptionsListEl.innerHTML = "";
   subsBulkBar.hidden = available.length === 0 && trackedCount === 0;
   const tally = unsubscribeTally(allOutcomes);
-  const counts = `${oneClick.length} can stop in one click`;
-  subsCountEl.textContent = tally ? `${counts} · ${tally}` : counts;
+  subsCountEl.textContent = tally;
   subsUnsubAllBtn.disabled = oneClick.length === 0;
   subsUnsubAllBtn.textContent = selectedSubKeys.size > 0 ? `Unsubscribe (${selectedSubKeys.size})` : "Unsubscribe";
 
@@ -513,11 +511,8 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
       const d = registrableDomain(domainOf(r.sender.address));
       byDomain.set(d, [...(byDomain.get(d) ?? []), r]);
     }
-    const groupVolume = (g: typeof visibleCurrentRows) => g.reduce((n, { sender }) => n + senderVolume(sender), 0);
-    const listTop = Math.max(1, ...[...byDomain.values()].map(groupVolume));
-    const listTotal = visibleCurrentRows.reduce((n, { sender }) => n + senderVolume(sender), 0);
     const rows = [...byDomain].map(([domain, group]) =>
-      group.length > 1 ? domainRow(domain, group.map((g) => g.sender), listTop, listTotal) : singleRow(group[0]),
+      group.length > 1 ? domainRow(domain, group.map((g) => g.sender)) : singleRow(group[0]),
     );
     function singleRow({ sender, outcome }: (typeof visibleCurrentRows)[number]): HTMLElement {
       // Round 2: name and how much gets opened; only a sent request earns a line.
@@ -529,9 +524,9 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
       const pct = Math.round(((total - senderUnread(sender)) / Math.max(1, total)) * 100);
       const openedPct = document.createElement("span");
       openedPct.className = "ct-dim";
-      openedPct.textContent = pct === 0 ? "Never" : `${pct}%`;
+      openedPct.textContent = `${pct}%`;
       openedPct.title = "Opened";
-      opened.append(emailsCell(total, listTotal, "span"), openedPct);
+      opened.append(emailsCell(total, "span"), openedPct);
 
       // One visible button (the way to stop the mail); the rest sit in ⋯.
       // A sender that already stopped gets "Clear out old mail" first.
@@ -579,7 +574,6 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
         actions: primary ? [primary, menu] : [menu],
         disclosure: strip,
       });
-      (row.matches(".list-row") ? row : row.querySelector<HTMLElement>(".list-row")!).style.setProperty("--share", `${(total / listTop) * 100}%`);
       keep.onclick = () => {
         row.hidden = true;
         strip.hidden = true;

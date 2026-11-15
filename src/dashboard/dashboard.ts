@@ -1289,6 +1289,11 @@ function renderProtectTiles(scams: number, waiting: number, held: number) {
   put("kpi-held", held);
   put("kpi-threats", scams);
   put("kpi-waiting", waiting);
+  // No link to an empty list.
+  for (const [id, v] of [["kpi-threats", scams], ["kpi-held", held], ["kpi-waiting", waiting]] as const) {
+    const view = document.getElementById(id)?.closest(".sec-item")?.querySelector<HTMLElement>(".sec-view");
+    if (view) view.hidden = v === 0;
+  }
   put("tab-count-threats", scams, true);
   put("tab-count-held", held, true);
   const sub =
@@ -1298,7 +1303,8 @@ function renderProtectTiles(scams: number, waiting: number, held: number) {
         ? `${waiting} new ${waiting === 1 ? "sender" : "senders"} waiting.`
         : "Nothing looks wrong.";
   for (const el of Array.from(document.querySelectorAll<HTMLElement>("[data-protect-sub]")))
-    el.textContent = sub;  const scan = document.getElementById("sec-kpis");
+    el.textContent = sub;
+  const scan = document.getElementById("sec-kpis");
   if (scan) scan.dataset.state = scams > 0 ? "warn" : "clean";
   const title = document.getElementById("sec-title");
   if (title) title.textContent = scams > 0 ? `${scams.toLocaleString()} ${scams === 1 ? "scam" : "scams"} found` : "Nothing looks wrong";

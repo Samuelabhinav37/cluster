@@ -189,7 +189,7 @@ describe("renderHomeDashboard", () => {
     );
     expect(text(el.querySelector(".ov-li"))).toContain("Payment declined");
     expect(text(el.querySelector(".ov-li"))).toContain("Impersonating Netflix");
-    expect(text(el.querySelector(".ov-tr:not(.ov-tr-head)"))).toContain("Shop4100%");
+    expect(text(el.querySelector(".ov-tr:not(.ov-tr-head)"))).toContain("Shop4");
   });
 
   it("a top sender opens that sender's emails, as in Cleanup", () => {

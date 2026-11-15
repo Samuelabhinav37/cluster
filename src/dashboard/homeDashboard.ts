@@ -812,15 +812,11 @@ export function renderHomeDashboard(
   const cols = el("div", "ov-tr ov-tr-head");
   cols.append(el("span", "", "Sender"), el("span", "ov-v", "Emails"));
   if (f.topSenders?.length) top.append(cols);
-  const most = f.topSenders?.[0]?.count ?? 1;
-  const week = (f.topSenders ?? []).reduce((sum, t) => sum + t.count, 0);
   for (const t of f.topSenders ?? []) {
     const row = senderRow("ov-tr", t.key, t.name);
     const name = el("div", "ct-name");
-    name.style.setProperty("--share", `${Math.max(4, (t.count / most) * 100)}%`);
     name.append(senderTile(t.address, t.name, "sz-26"), el("span", "", t.name));
-    // Cleanup's Emails cell: the count, then its share in gray.
-    row.append(name, emailsCell(t.count, week, "span"));
+    row.append(name, emailsCell(t.count, "span"));
     top.append(row);
   }
   if (!f.topSenders?.length) top.append(el("p", "ov-empty", "No mail this week."));
