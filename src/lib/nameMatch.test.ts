@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { AddressSet } from "./addressIdentity";
 import { markNameMatches } from "./nameMatch";
 import type { SenderSummary } from "./senderModel";
 import { senderVerdict } from "./verdict";
@@ -45,5 +46,32 @@ describe("markNameMatches", () => {
     const v = senderVerdict(sender("new@x.com", "New Person", { firstContact: true }), { knownCorrespondent: false });
     expect(v.tier).toBe("none");
     expect(v.score).toBe(0);
+  });
+});
+
+describe("alias lookalikes", () => {
+  const known = () => new AddressSet(["alice@yahoo.com", "bob.smith@gmail.com", "jsmith@corp.example"]);
+
+  it("flags an address that reads as a contact's alias but isn't one for that provider", () => {
+    const senders = [
+      sender("alice+friend@yahoo.com", "Alice"),
+      sender("a.lice@yahoo.com", "Alice"),
+      sender("j.smith@corp.example", "J"),
+    ];
+    expect(markNameMatches(senders, known())).toBe(3);
+    expect(senders.map((s) => s.threatSignals.find((t) => t.kind === "alias-lookalike")?.confidence)).toEqual(["high", "high", "medium"]);
+    expect(senders[0].threatSignals[0].brand).toBe("alice@yahoo.com");
+  });
+
+  it("leaves real aliases and strangers alone", () => {
+    const senders = [sender("bobsmith+news@googlemail.com", "Bob"), sender("carol@yahoo.com", "Carol")];
+    expect(markNameMatches(senders, known())).toBe(0);
+  });
+
+  it("a free-mail alias lookalike is held on its own; a company one only warns", () => {
+    const [free, corp] = [sender("alice+x@yahoo.com", "A"), sender("j.smith@corp.example", "J")];
+    markNameMatches([free, corp], known());
+    expect(senderVerdict(free, { knownCorrespondent: false }).tier).toBe("hold");
+    expect(senderVerdict(corp, { knownCorrespondent: false }).tier).toBe("warn");
   });
 });

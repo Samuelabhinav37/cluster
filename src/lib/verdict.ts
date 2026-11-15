@@ -66,6 +66,8 @@ export const WARN_SCORE = 3;
 export const MAX_REASONS = 3;
 
 const FLOOR_KINDS = new Set<ThreatSignalKind>(["blocklisted-domain", "freemail-brand-claim"]);
+// Floors only when the signal is high confidence.
+const HIGH_FLOOR_KINDS = new Set<ThreatSignalKind>(["alias-lookalike"]);
 const LOOKS_LIKE_A_BRAND = new Set<ThreatSignalKind>([
   "brand-impersonation",
   "freemail-brand-claim",
@@ -127,6 +129,8 @@ export function reasonText(signal: ThreatSignal): string {
       return "Outlook's own filter marked it as phishing or spam.";
     case "name-match":
       return `Uses the name of someone you write to (${signal.brand}), from a new address.`;
+    case "alias-lookalike":
+      return `Looks like ${signal.brand}, someone you write to, but it's a different address.`;
     default: {
       const unreachable: never = signal.kind;
       return unreachable;
@@ -205,7 +209,8 @@ export function senderVerdict(sender: SenderSummary, context: VerdictContext): V
 function judge(signals: ThreatSignal[], adjustment: number): { tier: VerdictTier; score: number } {
   const score = signals.length > 0 ? senderRiskScore(signals) + adjustment : 0;
   const kinds = new Set(signals.map((s) => s.kind));
-  const decisive = signals.some((s) => FLOOR_KINDS.has(s.kind)) || kinds.size >= 2;
+  const decisive =
+    signals.some((s) => FLOOR_KINDS.has(s.kind) || (HIGH_FLOOR_KINDS.has(s.kind) && s.confidence === "high")) || kinds.size >= 2;
   const tier: VerdictTier = score >= HOLD_SCORE && decisive ? "hold" : score >= WARN_SCORE ? "warn" : "none";
   return { tier, score };
 }

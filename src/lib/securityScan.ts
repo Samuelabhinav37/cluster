@@ -12,7 +12,7 @@ export const SCAN_CHECKS: readonly { label: string; kinds: readonly ThreatSignal
   { label: "Pretending to be a company", kinds: ["brand-impersonation", "freemail-brand-claim"] },
   {
     label: "Pretending to be someone you know",
-    kinds: ["name-match", "identity-change", "reply-to-mismatch"],
+    kinds: ["name-match", "alias-lookalike", "identity-change", "reply-to-mismatch"],
   },
   { label: "Links", kinds: ["link-mismatch", "blocklisted-link", "blocklisted-domain"] },
   { label: "Attachments", kinds: ["risky-attachment"] },
