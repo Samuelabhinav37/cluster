@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review step mockup</title>
+<style>
+  :root { --canvas:#f5f5f7; --card:#fff; --hair:#e3e3e8; --l:#1d1d1f; --l2:#3a3a3c; --l3:#4a4a4f; --l4:#636369;
+    --fill:rgba(0,0,0,.05); --accent:#3563c7; --accent-t:#2f5fc4;
+    --font:"Inter Tight","Inter",-apple-system,system-ui,"Segoe UI",sans-serif; --spring:cubic-bezier(.34,1.4,.64,1); }
+  @media (prefers-color-scheme: dark) { :root { --canvas:#0a0a0c; --card:#161618; --hair:#262629; --l:#f5f5f7; --l2:#dcdce0;
+    --l3:#b4b4ba; --l4:#8e8e95; --fill:rgba(255,255,255,.07); --accent:#3f6fd1; --accent-t:#8fb0ea; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--canvas); color:var(--l); font:15px/1.4 var(--font); }
+  .side { padding:20px 40px; }
+  .top { display:flex; align-items:center; gap:10px; }
+  .top b { font-size:18px; }
+  .pane { width:min(620px,100%); margin:clamp(28px,7vh,72px) auto 40px; }
+  .kai { display:flex; align-items:center; gap:12px; margin-bottom:18px; }
+  .kai i { width:40px; height:40px; border-radius:50%; background:#e9eefb; display:grid; place-items:center; font-style:normal; font-size:20px; }
+  .kai p { margin:0; padding:9px 13px; border-radius:14px 14px 14px 4px; background:var(--card); border:1px solid var(--hair); color:var(--l2); font-size:14px; }
+  h1 { margin:0 0 6px; font:400 clamp(32px,4vw,44px)/1.08 var(--font); letter-spacing:-.02em; }
+  .count { margin:0 0 22px; color:var(--l4); font-size:14px; }
+
+  .list { background:var(--card); border:1px solid var(--hair); border-radius:14px; overflow:visible; }
+  .row { border-bottom:1px solid var(--hair); }
+  .row:last-child { border-bottom:0; }
+  .head { display:grid; grid-template-columns:28px minmax(0,1fr) auto; gap:12px; align-items:center; padding:12px 14px; cursor:pointer; }
+  .emo { font-size:18px; text-align:center; }
+  .name b { font-weight:600; }
+  .name b small { font-weight:400; color:var(--l4); margin-left:6px; font-variant-numeric:tabular-nums; }
+  .name span { display:block; color:var(--l4); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .acts { display:flex; gap:6px; }
+  button { font:600 13px/1 var(--font); color:var(--l); background:var(--fill); border:0; border-radius:8px; padding:8px 12px; cursor:pointer; }
+  button:hover { background:rgba(0,0,0,.09); }
+  @media (prefers-color-scheme: dark) { button:hover { background:rgba(255,255,255,.12); } }
+  button.ok[aria-pressed="true"] { background:var(--l); color:var(--canvas); }
+  .row.done .name span { color:var(--l4); }
+  .row.done .emo { animation:pop .35s var(--spring); }
+  @keyframes pop { 50% { transform:scale(1.25); } }
+
+  .senders { display:none; padding:0 14px 10px 54px; }
+  .row.open .senders { display:block; }
+  .s { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:10px; align-items:center; padding:7px 0; border-top:1px solid var(--hair); font-size:14px; }
+  .s .n { color:var(--l4); font-variant-numeric:tabular-nums; font-size:13px; }
+  .s .moved { color:var(--accent-t); font-size:13px; font-weight:600; }
+  .s button { padding:6px 10px; }
+
+  .seg { display:flex; gap:4px; padding:3px; background:var(--fill); border-radius:9px; }
+  .seg button { background:none; padding:7px 10px; border-radius:7px; }
+  .seg button[aria-pressed="true"] { background:var(--card); box-shadow:0 1px 2px rgba(0,0,0,.12); }
+
+  .pop { position:absolute; z-index:5; width:260px; background:var(--card); border:1px solid var(--hair); border-radius:12px; box-shadow:0 12px 32px rgba(0,0,0,.14); padding:6px; }
+  .pop[hidden] { display:none; }
+  .pop .t { padding:8px 10px 6px; font-size:13px; color:var(--l4); }
+  .pop .opt { display:flex; width:100%; gap:10px; align-items:center; background:none; padding:9px 10px; border-radius:8px; font-weight:500; text-align:left; }
+  .pop .opt:hover { background:var(--fill); }
+
+  .foot { display:flex; align-items:center; gap:12px; margin-top:20px; }
+  .foot p { margin:0; flex:1; color:var(--l4); font-size:13px; }
+  .go { background:var(--l); color:var(--canvas); padding:12px 22px; border-radius:12px; font-size:14px; }
+  .go:hover { background:var(--l); opacity:.88; }
+  .note { width:min(620px,100%); margin:0 auto 60px; padding:14px 16px; border:1px dashed var(--hair); border-radius:12px; color:var(--l4); font-size:13px; }
+  .note b { color:var(--l2); }
+</style>
+</head>
+<body>
+<div class="side">
+  <div class="top"><b>Cluster</b></div>
+  <div class="pane">
+    <div class="kai"><i>🦦</i><p id="kai">Here's what I sorted. Is this right?</p></div>
+    <h1>Is this right?</h1>
+    <p class="count" id="count">1,284 emails sorted. 0 of 7 checked.</p>
+    <div class="list" id="list"></div>
+    <div class="foot">
+      <p>Nothing was archived yet.</p>
+      <button class="go" id="go">Start</button>
+    </div>
+  </div>
+  <div class="note">
+    <b>Mockup notes.</b> Shows after the quick scan (step 2.4), before the full scan. Click a row to see its top senders.
+    <b>Right</b> ticks the label. <b>Move</b> on a sender asks where it goes, then "These 24" or "All from amazon.com", which also covers future mail.
+    Start works with rows left unchecked: those count as right. "No label" decides what happens to mail Cluster couldn't place.
+    Rows with the most mail come first. Labels with no mail in the quick scan don't show.
+  </div>
+</div>
+
+<div class="pop" id="pop" hidden></div>
+
+<script>
+const LABELS = [
+  { e:"🛍", n:"Shopping", c:312, s:[["Amazon","amazon.com",141],["Target","target.com",88],["Temu","temu.com",83]] },
+  { e:"📋", n:"Jobs", c:268, s:[["LinkedIn","linkedin.com",120],["Rippling","rippling.com",74],["NetApp Careers","netapp.com",74]] },
+  { e:"📰", n:"Newsletters", c:221, s:[["Ipsos","ipsos.com",96],["Darknet Diaries","darknetdiaries.com",70],["Medium","medium.com",55]] },
+  { e:"🔐", n:"Accounts", c:164, s:[["Google","google.com",90],["Salesforce","salesforce.com",41],["Claude","claude.com",33]] },
+  { e:"💳", n:"Finance", c:139, s:[["Capital One","capitalone.com",77],["PayPal","paypal.com",40],["Oracle collections","oracle.com",22]] },
+  { e:"🎓", n:"Education", c:118, s:[["Iowa State","iastate.edu",80],["Yale Career Alerts","yale.edu",21],["Coursera","coursera.org",17]] },
+  { e:"🔑", n:"One-time codes", c:62, s:[["Microsoft","microsoft.com",30],["Steam","steampowered.com",18],["Chase","chase.com",14]] },
+];
+const ALL = ["🛍 Shopping","📋 Jobs","📰 Newsletters","🔐 Accounts","💳 Finance","🎓 Education","🔑 One-time codes","🧾 Receipts","📦 Orders & shipping","💼 Work","✋ Screener","Keep in inbox"];
+const list = document.getElementById("list"), pop = document.getElementById("pop");
+let checked = 0;
+
+function el(tag, cls, text) { const x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; }
+
+function count() { document.getElementById("count").textContent = `1,284 emails sorted. ${checked} of ${LABELS.length} checked.`; }
+
+LABELS.forEach((L) => {
+  const row = el("div", "row");
+  const head = el("div", "head");
+  const name = el("div", "name");
+  const b = el("b", "", L.n); b.append(el("small", "", L.c.toLocaleString()));
+  name.append(b, el("span", "", L.s.map((x) => x[0]).join(", ")));
+  const ok = el("button", "ok", "Right"); ok.setAttribute("aria-pressed", "false");
+  ok.onclick = (ev) => { ev.stopPropagation(); const on = ok.getAttribute("aria-pressed") !== "true";
+    ok.setAttribute("aria-pressed", String(on)); row.classList.toggle("done", on); checked += on ? 1 : -1; count(); };
+  const acts = el("div", "acts"); acts.append(ok);
+  head.append(el("span", "emo", L.e), name, acts);
+  head.onclick = () => row.classList.toggle("open");
+  const senders = el("div", "senders");
+  L.s.forEach(([who, dom, n]) => {
+    const s = el("div", "s");
+    const mv = el("button", "", "Move");
+    const tail = el("span", "n", n.toLocaleString());
+    mv.onclick = (ev) => { ev.stopPropagation(); openMove(mv, who, dom, n, L.n, tail); };
+    s.append(el("span", "", who), tail, mv);
+    senders.append(s);
+  });
+  row.append(head, senders);
+  list.append(row);
+});
+
+// The row for mail Cluster couldn't place.
+const none = el("div", "row");
+const nh = el("div", "head");
+const nn = el("div", "name");
+const nb = el("b", "", "No label"); nb.append(el("small", "", "41"));
+nn.append(nb, el("span", "", "Bishops, Hudl, talentemail.com"));
+const seg = el("div", "seg");
+["Keep in inbox","Screener"].forEach((t, i) => { const x = el("button", "", t); x.setAttribute("aria-pressed", String(i === 1));
+  x.onclick = (ev) => { ev.stopPropagation(); seg.querySelectorAll("button").forEach((y) => y.setAttribute("aria-pressed", String(y === x))); };
+  seg.append(x); });
+nh.append(el("span", "emo", "∅"), nn, seg);
+none.append(nh);
+list.append(none);
+
+function openMove(btn, who, dom, n, from, tail) {
+  pop.replaceChildren(el("div", "t", `Move ${who} to`));
+  ALL.filter((x) => !x.endsWith(from)).forEach((lab) => {
+    const o = el("button", "opt", lab);
+    o.onclick = () => askScope(who, dom, n, lab, tail);
+    pop.append(o);
+  });
+  const r = btn.getBoundingClientRect();
+  pop.style.top = `${r.bottom + scrollY + 6}px`;
+  pop.style.left = `${Math.max(16, r.right + scrollX - 260)}px`;
+  pop.hidden = false;
+}
+
+function askScope(who, dom, n, lab, tail) {
+  pop.replaceChildren(el("div", "t", `${who} to ${lab}`));
+  [[`These ${n}`, false], [`All from ${dom}`, true]].forEach(([t, all]) => {
+    const o = el("button", "opt", t);
+    o.onclick = () => { tail.className = "moved"; tail.textContent = lab; pop.hidden = true;
+      document.getElementById("kai").textContent = all ? `Got it. ${who} goes to ${lab.replace(/^\S+ /, "")} from now on.` : `Moved ${n}.`; };
+    pop.append(o);
+  });
+}
+
+document.addEventListener("click", (ev) => { if (!pop.contains(ev.target) && !ev.target.closest(".s button")) pop.hidden = true; });
+document.getElementById("go").onclick = (ev) => { ev.target.textContent = "Sorting…"; document.getElementById("kai").textContent = "Reading the rest now. About 40 minutes."; };
+</script>
+</body>
+</html>
