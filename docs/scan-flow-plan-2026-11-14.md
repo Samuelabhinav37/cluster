@@ -102,3 +102,4 @@ Branch `feat/scan-flow-2026-11`. Steps are ticked here as they land.
 - 2026-11-15: research steps 1-8 built (see git log): held-out 2,000 mailbox 94.2% -> 97.9% acceptable, 71.9% -> 77.4% ideal; replay via clusterExportReplay() awaits a real export.
 
 - 2026-11-15: cycles 2 (740782e statements, campaigns) and 3 (fake replies, your circle) built; held-out A 99.0%, B 99.5%, C 100% acceptable.
+- 2026-11-15: competitor review (research/2026-11-15-competitor-sorting.md); held-out A/B answer keys aligned with Cluster's own labels (a4056c1). Tuned 100%, A 99.8%, B 100%, C 100% acceptable; open decisions: snippets, first-time-sender screening, Codes vs Accounts.
