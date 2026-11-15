@@ -297,21 +297,22 @@ describe("holdUnsortedInbox", () => {
     expect((await holdUnsortedInbox(ctx(), api, "✋ Screener", first.nextBefore)).nextBefore).toBe(0);
   });
 
-  it("files conversations under Personal, starred ones too, and leaves starred company mail", async () => {
+  it("files personal mail under Personal and everything else unsorted in the Screener, starred too", async () => {
     const senders = [
       sender("friend@gmail.com", [msg("p1", "other", { isProtected: true })]),
       sender("recruiter@staffing.example", [msg("r1", "other", { looksAutomated: true })]),
       sender("support@shop.example", [msg("y1", "other", { looksAutomated: true, repliesToYou: true })]),
       sender("star@x.example", [msg("st", "other", { isProtected: true, looksAutomated: true })]),
       sender("hello@unknown-co.example", [msg("u1", "other", { looksAutomated: true })]),
+      sender("cal@corp.example", [msg("c1", "other", { subject: "Invitation: Sync @ Wed", looksAutomated: true })]),
     ];
     const api = fakeApi({}, senders);
-    api.listIds.mockResolvedValue(["p1", "r1", "y1", "st", "u1"]);
+    api.listIds.mockResolvedValue(["p1", "r1", "y1", "st", "u1", "c1"]);
     const c = ctx({ known: new Set(["recruiter@staffing.example"]) });
     const res = await holdUnsortedInbox(c, api, "✋ Screener", 0, "👤 Personal");
-    expect(res.personalIds).toEqual(["p1", "r1", "y1"]);
-    expect(res.heldIds).toEqual(["u1"]);
-    expect(api.batchModify).toHaveBeenCalledWith(["p1", "r1", "y1"], ["L:👤 Personal"], ["INBOX"]);
+    expect(res.personalIds).toEqual(["p1", "r1", "y1", "c1"]);
+    expect(res.heldIds).toEqual(["st", "u1"]);
+    expect(api.batchModify).toHaveBeenCalledWith(["p1", "r1", "y1", "c1"], ["L:👤 Personal"], ["INBOX"]);
     const query = api.listIds.mock.calls[0][1];
     expect(query).toContain('-label:"👤 Personal"');
     expect(query).not.toContain("-is:starred");
@@ -319,7 +320,7 @@ describe("holdUnsortedInbox", () => {
     api.batchModify.mockClear();
     const off = await holdUnsortedInbox(c, api, "✋ Screener", 0, "👤 Personal", false);
     expect(off.heldIds).toEqual([]);
-    expect(off.personalIds).toEqual(["p1", "r1", "y1"]);
+    expect(off.personalIds).toEqual(["p1", "r1", "y1", "c1"]);
   });
 
   it("does nothing when nothing is unsorted", async () => {

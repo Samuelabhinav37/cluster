@@ -236,12 +236,12 @@ const HOLD_MAX = 100;
 const CALENDAR_RE = /^(updated )?invitation:|^(accepted|declined|tentatively accepted|new event|canceled event|cancelled event):/i;
 
 /**
- * Cleans what the labels left in the inbox. Conversations (mail a person
- * wrote, replies to you, anyone you've written to) go under
- * `personalLabelName`. When `hold` is on, mail that fits no label goes to
- * `holdLabelName` (the Screener) for review. Nothing is deleted, and Gmail's
- * spam filter learns nothing. Starred mail no person wrote, calendar invites
- * and risky senders (the scam hold's job) stay.
+ * Cleans what the labels left in the inbox. Anything that looks personal
+ * (mail a person wrote, replies to you, anyone you've written to, calendar
+ * invites) goes under `personalLabelName`. When `hold` is on, everything else
+ * that fits no label goes to `holdLabelName` (the Screener), starred mail too
+ * (it keeps its star). Nothing is deleted, and Gmail's spam filter learns
+ * nothing. Only risky senders stay (the scam hold's job).
  *
  * Pages through the inbox: `before` (epoch seconds, 0 = newest) is where this
  * page ends, and `nextBefore` where the next one should. A full page of kept
@@ -271,12 +271,13 @@ export async function holdUnsortedInbox(
     const known = ctx.known.has(sender.address.toLowerCase());
     const domain = domainOf(sender.address);
     for (const msg of sender.messages) {
-      if (CALENDAR_RE.test(msg.subject ?? "")) continue;
-      if (known || msg.repliesToYou || writtenByPerson(msg, sender.address)) {
+      const personal = known || msg.repliesToYou || writtenByPerson(msg, sender.address) || CALENDAR_RE.test(msg.subject ?? "");
+      if (personal) {
         if (personalLabelName) personalIds.push(msg.id);
         continue;
       }
-      if (msg.isProtected || !hold) continue;
+      // Without a Personal label (old callers) starred and protected mail stays.
+      if (!hold || (!personalLabelName && msg.isProtected)) continue;
       // The tagger will label it; it just hasn't yet.
       if (effectiveBucket(msg.kind, domain, sender.address, ctx.overrides, msg.promotion)) continue;
       heldIds.push(msg.id);
