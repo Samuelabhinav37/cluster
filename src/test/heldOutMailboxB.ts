@@ -6,6 +6,8 @@
 import { chance, digits, mail, pick, reply, sender, type Tab, type Template } from "./mailboxGen";
 import { personPair } from "./tunedMailbox";
 
+// Answer-key fix (competitor review): an order confirmation belongs under
+// "📦 Orders & shipping", Cluster's own label for orders.
 // Answer-key fix after the first run: "New login detected" is an account
 // notice, so Accounts counts as right for app notifications.
 export const HELD_OUT_B_SEED = 777;
@@ -46,7 +48,7 @@ export const HELD_OUT_B: Template[] = [
   { group: "Promotion, Promotions tab", accept: ["promotions"], count: 480, make: () => mail(...sender(MARKETING), pick(["Weekend sale: 25% off", "New colors just landed", "Free gift with every order", "Last chance for early access"]), { unsub: true, tab: "promotions" }) },
   { group: "Newsletter (unlisted)", accept: ["newsletter", "promotions"], count: 280, make: () => mail(...sender(PUBLISHERS), pick([`No. ${digits(3)}: the week in review`, "Sunday edition", "What we're reading", "A short note on the news"]), { unsub: true, listId: "<edition.list.example>", tab: pick<Tab>(["updates", "promotions", "primary"]) }) },
   { group: "Social network, Social tab", accept: ["social", "newsletter"], count: 80, make: () => mail(...sender(NETWORKS), pick(["You have new connections", "Alex shared a post", "Your weekly highlights"]), { unsub: true, tab: "social" }) },
-  { group: "Event tickets (unlisted)", accept: ["receipt", "shopping", "screener", "travel"], count: 50, make: () => mail(...sender(TICKETS), pick(["Your tickets for Saturday", "Order confirmation: 2 tickets", "Your event is tomorrow"]), { purchase: chance(0.5) }) },
+  { group: "Event tickets (unlisted)", accept: ["receipt", "shipping", "shopping", "screener", "travel"], count: 50, make: () => mail(...sender(TICKETS), pick(["Your tickets for Saturday", "Order confirmation: 2 tickets", "Your event is tomorrow"]), { purchase: chance(0.5) }) },
   { group: "School (unlisted .edu)", accept: ["education"], count: 60, make: () => mail(...sender(SCHOOLS), pick(["Registration opens Monday", "New announcement in CS 201", "Grades posted"]), { unsub: chance(0.4) }) },
   { group: "Job application (unlisted ATS)", accept: ["jobs", "screener"], count: 60, make: () => mail(...sender(ATS), pick(["Thank you for applying", "Your application was received", "Next steps for your application"]), { tab: "primary" }) },
   { group: "Unknown app notifications", accept: ["screener", "accounts"], count: 100, make: () => mail(...sender(APPS), pick(["Your weekly digest", "Someone viewed your file", "Your trial is ending", "New login detected"]), { autoSubmitted: chance(0.5) }) },

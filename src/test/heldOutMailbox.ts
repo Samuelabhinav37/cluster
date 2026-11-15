@@ -5,6 +5,8 @@
 import { chance, digits, mail, ME, pick, reply, sender, type Tab, type Template } from "./mailboxGen";
 import { personPair } from "./tunedMailbox";
 
+// Answer-key fix (competitor review): "Verify your email address" is a
+// one-time link, and the tuned set already counts Codes as right for it.
 export const HELD_OUT_SEED = 4242;
 
 // A few made-up brands per kind of business; each keeps one address and name.
@@ -22,7 +24,7 @@ const TOOLS = brands(["Trackline", "Sprintboard", "Docuflow"], "notifications");
 export const HELD_OUT: Template[] = [
   // Codes and account notices: only the subject can say what they are.
   { group: "Code from an unlisted app", accept: ["otp", "accounts"], count: 80, make: () => mail(...sender(APPS), pick([`${digits(6)} is your verification code`, `Your login code: ${digits(6)}`, `Use ${digits(6)} to sign in`, "Your sign-in link"]), { autoSubmitted: chance(0.5) }) },
-  { group: "Account notice from an unlisted app", accept: ["accounts", "screener"], count: 60, make: () => mail(...sender(APPS), pick(["New sign-in to your account", "Your password was changed", "Security alert: new device", "Verify your email address"]), { important: chance(0.4) }) },
+  { group: "Account notice from an unlisted app", accept: ["accounts", "screener", "otp"], count: 60, make: () => mail(...sender(APPS), pick(["New sign-in to your account", "Your password was changed", "Security alert: new device", "Verify your email address"]), { important: chance(0.4) }) },
 
   // Stores.
   { group: "Shipping from an unlisted store", accept: ["shipping"], count: 120, make: () => mail(...sender(STORES), pick([`Your order #${digits(5)} has shipped`, "Out for delivery today", "Your package was delivered", "Track your shipment"]), { autoSubmitted: chance(0.5) }) },
