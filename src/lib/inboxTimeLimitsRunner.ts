@@ -172,11 +172,26 @@ async function runPass(
       },
     ]);
   }
-  if (settings.autoSort.holdUnsorted) {
-    const held = await step<{ heldIds: string[]; senders: string[]; nextBefore: number }>("hold", { heldIds: [], senders: [], nextBefore: 0 }, () =>
-      holdUnsortedInbox(ctx, api, clusterLabelName("screener"), settings.autoSort.holdBefore),
-      (h) => ({ held: h.heldIds.length }),
+  {
+    const hold = settings.autoSort.holdUnsorted;
+    const held = await step<{ heldIds: string[]; personalIds: string[]; senders: string[]; nextBefore: number }>(
+      "hold",
+      { heldIds: [], personalIds: [], senders: [], nextBefore: 0 },
+      () => holdUnsortedInbox(ctx, api, clusterLabelName("screener"), settings.autoSort.holdBefore, clusterLabelName("personal"), hold),
+      (h) => ({ held: h.heldIds.length, personal: h.personalIds.length }),
     );
+    if (held.personalIds.length > 0) {
+      const n = held.personalIds.length;
+      await appendActionLog([
+        {
+          id: makeLogId("sort"),
+          at: now,
+          kind: "sort",
+          summary: `Moved ${n} conversation message${n === 1 ? "" : "s"} into Personal`,
+          undo: { provider: "gmail", ids: held.personalIds, via: "unarchive" },
+        },
+      ]);
+    }
     // Listed as screened so the Screener page shows them waiting.
     await mutateSettings((current) => ({
       ...current,

@@ -22,6 +22,7 @@ export type ClusterLabelKey =
   | "education"
   | "accounts"
   | "jobs"
+  | "personal"
   | "muted"
   | "screener"
   | "snoozed"
@@ -61,6 +62,7 @@ export const CLUSTER_LABELS: Record<ClusterLabelKey, ClusterLabelSpec> = {
   education: spec("🎓 Education", "Education"),
   accounts: spec("🔐 Accounts"),
   jobs: spec("📋 Jobs"),
+  personal: spec("👤 Personal"),
   muted: spec("🔇 Muted", "Muted"),
   screener: spec("✋ Screener", "Screener"),
   snoozed: spec("💤 Snoozed", "Snoozed"),

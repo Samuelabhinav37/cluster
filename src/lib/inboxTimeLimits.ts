@@ -236,12 +236,12 @@ const HOLD_MAX = 100;
 const CALENDAR_RE = /^(updated )?invitation:|^(accepted|declined|tentatively accepted|new event|canceled event|cancelled event):/i;
 
 /**
- * Moves inbox mail that fits no label into `holdLabelName` (the Screener) for
- * the user to review: nothing is deleted, and Gmail's spam filter learns
- * nothing. Starred mail, mail a person wrote, mail from anyone known,
- * replies, calendar invites and risky senders (the scam hold's job) all stay.
- * Important and Primary mail no person wrote is held too: it fit no label and
- * otherwise sat in the inbox forever.
+ * Cleans what the labels left in the inbox. Conversations (mail a person
+ * wrote, replies to you, anyone you've written to) go under
+ * `personalLabelName`. When `hold` is on, mail that fits no label goes to
+ * `holdLabelName` (the Screener) for review. Nothing is deleted, and Gmail's
+ * spam filter learns nothing. Starred mail no person wrote, calendar invites
+ * and risky senders (the scam hold's job) stay.
  *
  * Pages through the inbox: `before` (epoch seconds, 0 = newest) is where this
  * page ends, and `nextBefore` where the next one should. A full page of kept
@@ -252,32 +252,42 @@ export async function holdUnsortedInbox(
   api: InboxLimitsApi,
   holdLabelName: string,
   before = 0,
-): Promise<{ heldIds: string[]; senders: string[]; nextBefore: number }> {
+  personalLabelName?: string,
+  hold = true,
+): Promise<{ heldIds: string[]; personalIds: string[]; senders: string[]; nextBefore: number }> {
   const cutoff = epochSeconds(ctx.now - HOLD_UNSORTED_HOURS * HOUR_MS);
   const until = before > 0 ? Math.min(before, cutoff) : cutoff;
-  const query = `before:${until} -is:starred -label:"${holdLabelName}" ${withoutClusterLabels(ctx.limits)}`;
+  const skipPersonal = personalLabelName ? ` -label:"${personalLabelName}"` : " -is:starred";
+  const query = `before:${until}${skipPersonal} -label:"${holdLabelName}" ${withoutClusterLabels(ctx.limits)}`;
   const ids = await api.listIds(["INBOX"], query, HOLD_MAX);
-  if (ids.length === 0) return { heldIds: [], senders: [], nextBefore: 0 };
+  if (ids.length === 0) return { heldIds: [], personalIds: [], senders: [], nextBefore: 0 };
   const heldIds: string[] = [];
+  const personalIds: string[] = [];
   const senders = new Set<string>();
   let oldest = Infinity;
   for (const sender of await api.readSenders(ids)) {
     for (const msg of sender.messages) oldest = Math.min(oldest, msg.receivedAt);
-    if (skipSender(sender, ctx.known)) continue;
+    if (riskTier(senderRiskScore(sender.threatSignals)) === "high") continue;
+    const known = ctx.known.has(sender.address.toLowerCase());
     const domain = domainOf(sender.address);
     for (const msg of sender.messages) {
-      if (msg.isProtected || msg.repliesToYou || writtenByPerson(msg, sender.address)) continue;
       if (CALENDAR_RE.test(msg.subject ?? "")) continue;
+      if (known || msg.repliesToYou || writtenByPerson(msg, sender.address)) {
+        if (personalLabelName) personalIds.push(msg.id);
+        continue;
+      }
+      if (msg.isProtected || !hold) continue;
       // The tagger will label it; it just hasn't yet.
       if (effectiveBucket(msg.kind, domain, sender.address, ctx.overrides, msg.promotion)) continue;
       heldIds.push(msg.id);
       senders.add(sender.address.toLowerCase());
     }
   }
+  if (personalIds.length > 0) await api.batchModify(personalIds, [await api.ensureLabelId(personalLabelName!)], ["INBOX"]);
   if (heldIds.length > 0) await api.batchModify(heldIds, [await api.ensureLabelId(holdLabelName)], ["INBOX"]);
   // A full page means older mail is waiting below it; a short one, start over.
   const nextBefore = ids.length < HOLD_MAX || !Number.isFinite(oldest) ? 0 : epochSeconds(oldest);
-  return { heldIds, senders: [...senders], nextBefore };
+  return { heldIds, personalIds, senders: [...senders], nextBefore };
 }
 
 /** A person typed it: not a mailing, not automated, not a no-reply or shared
