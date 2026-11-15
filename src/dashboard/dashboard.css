@@ -4301,3 +4301,77 @@ section[data-screen="impersonation"] > .tabs .tab-count { margin-left: 6px; padd
 #cu-head .pl-card .cu-num b { font: 700 28px/1.2 var(--font); letter-spacing: -.02em; }
 #cu-head .tab, section[data-screen="impersonation"] > .tabs .tab { font: 600 14px/18px var(--font); letter-spacing: 0; text-transform: none; }
 .sec-title + .sec-run { margin-top: 12px; }
+
+/* ── Apple details (2026-11-15) ─────────────────────────────────────────
+   Same layout; Apple's small things on top: system colors, SF first, cards
+   lifted by color not outlines, green switches, soft focus ring, a press
+   that gives, tighter display type. Values from Apple's HIG system colors. */
+:root {
+  --canvas: #f5f5f7; --ambient: #f5f5f7;
+  --hairline: #e5e5ea; --separator: #e5e5ea;
+  --label: #1d1d1f; --label-2: #3a3a3c; --label-3: #515154; --label-4: #6e6e73;
+  --accent: #0071e3; --accent-solid: #0071e3; --accent-solid-border: #0071e3; --accent-text: #0066cc; --focus-ring: #0071e3;
+  --accent-fill: rgba(0, 113, 227, 0.1); --accent-fill-hover: rgba(0, 113, 227, 0.16); --accent-fill-text: #0058b0;
+  --danger-text: #d70015; --success-text: #248a3d;
+  --neutral-fill: rgba(120, 120, 128, 0.12); --neutral-fill-hover: rgba(120, 120, 128, 0.2); --row-hover: rgba(120, 120, 128, 0.08);
+  --switch-on: #34c759;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter Tight Variable", "Inter Tight", "Inter", system-ui, "Segoe UI", sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter Tight Variable", "Inter Tight", "Inter", system-ui, "Segoe UI", sans-serif;
+  --r-lg: 12px; --r-list: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas: #000; --ambient: #000;
+    --glass: #1c1c1e; --glass-solid: #1c1c1e; --glass-toolbar: #1c1c1e; --glass-bar: #2c2c2e;
+    --hairline: #38383a; --separator: #38383a;
+    --label: #f5f5f7; --label-2: #e5e5ea; --label-3: #aeaeb2; --label-4: #98989d;
+    --accent: #0a84ff; --accent-solid: #0a84ff; --accent-solid-border: #0a84ff; --accent-text: #409cff; --focus-ring: #0a84ff;
+    --accent-fill: rgba(10, 132, 255, 0.16); --accent-fill-hover: rgba(10, 132, 255, 0.24); --accent-fill-text: #cfe6ff;
+    --danger-text: #ff453a; --success-text: #30d158;
+    --neutral-fill: rgba(120, 120, 128, 0.24); --neutral-fill-hover: rgba(120, 120, 128, 0.32); --row-hover: rgba(120, 120, 128, 0.14);
+    --switch-on: #30d158;
+  }
+}
+:root[data-theme="dark"] {
+  --canvas: #000; --ambient: #000;
+  --glass: #1c1c1e; --glass-solid: #1c1c1e; --glass-toolbar: #1c1c1e; --glass-bar: #2c2c2e;
+  --hairline: #38383a; --separator: #38383a;
+  --label: #f5f5f7; --label-2: #e5e5ea; --label-3: #aeaeb2; --label-4: #98989d;
+  --accent: #0a84ff; --accent-solid: #0a84ff; --accent-solid-border: #0a84ff; --accent-text: #409cff; --focus-ring: #0a84ff;
+  --accent-fill: rgba(10, 132, 255, 0.16); --accent-fill-hover: rgba(10, 132, 255, 0.24); --accent-fill-text: #cfe6ff;
+  --danger-text: #ff453a; --success-text: #30d158;
+  --neutral-fill: rgba(120, 120, 128, 0.24); --neutral-fill-hover: rgba(120, 120, 128, 0.32); --row-hover: rgba(120, 120, 128, 0.14);
+  --switch-on: #30d158;
+}
+
+body { letter-spacing: -0.01em; }
+.page-title { font-family: var(--font-display); letter-spacing: -0.025em; }
+::selection { background: var(--accent-fill-hover); }
+
+/* Cards and grouped lists: lifted by color, 12px corners, no outline. */
+.ov-card, #cu-head .pl-card, .ios-group, .set-rows,
+#cu-head .tabs, #cu-head + #cu-senders-table, #cu-head + .pl-body,
+section[data-screen="impersonation"] .stack > *, #security-sender-list > * { border-color: transparent; }
+.ov-card, #cu-head .pl-card, .ios-group, .set-rows { border-radius: 12px; }
+#cu-head .tabs { border-radius: 12px 12px 0 0; }
+#cu-head + #cu-senders-table, #cu-head + .pl-body { border-radius: 0 0 12px 12px; }
+
+/* Switches are green when on, like iOS and macOS. */
+input.switch:checked { background: var(--switch-on); }
+input.switch::after { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 0.2s cubic-bezier(.3, .7, .4, 1); }
+
+/* Soft focus ring and a button press that gives a little. */
+:focus-visible { outline: 3px solid color-mix(in srgb, var(--focus-ring) 55%, transparent); outline-offset: 1px; }
+.btn, .btn-sm, .btn-accent, .tool, .chip { transition: background 0.2s ease, transform 0.12s ease, filter 0.2s ease; }
+.btn:active, .btn-sm:active, .btn-accent:active, .tool:active, .chip:active { transform: scale(0.97); }
+
+/* Rows highlight quietly on hover. */
+.ios-row, .row-link, .ov-tr, .ov-li { transition: background 0.15s ease; }
+
+/* Thin scrollbars that stay out of the way. */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--label-4) 45%, transparent) transparent; }
+/* Apple's grouped look: the page sits one step darker than its cards. */
+body { background: var(--canvas); }
+/* Pop-up menus in list rows read as gray values until hovered, like macOS. */
+.ios-row select { text-align: right; text-align-last: right; background-color: transparent; border-color: transparent; color: var(--label-4); transition: background-color 0.15s ease; }
+.ios-row select:hover, .ios-row select:focus-visible { background-color: var(--neutral-fill); color: var(--label); }
