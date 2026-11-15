@@ -98,3 +98,5 @@ Branch `feat/scan-flow-2026-11`. Steps are ticked here as they land.
 - 2026-11-15 research `research/2026-11-15-email-classification-papers.md` (NDSS 2026 aliases, Yahoo CIKM 2014, Google WSDM 2016, Priority Inbox, BEC-Guard). Built: canonical sender identity 4e9b439; alias-lookalike scam signal f12b0fb; corrections by address pattern f8d2f07; Screener/Personal moves teach, Personal correction, corrections beat "known" 35c5abf. Left: sender+subject templates, per-user thresholds, wider address keywords.
 
 - 2026-11-15: 2,000-email realistic test (src/lib/realisticMailbox.test.ts, harness src/test/sortHarness.ts). Fixes f473044: 87.0% -> 100% acceptable, 87.1% ideal, 0 people in Spam, 0 scams with people.
+
+- 2026-11-15: research steps 1-8 built (see git log): held-out 2,000 mailbox 94.2% -> 97.9% acceptable, 71.9% -> 77.4% ideal; replay via clusterExportReplay() awaits a real export.
