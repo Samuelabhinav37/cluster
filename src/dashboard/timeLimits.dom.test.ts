@@ -76,7 +76,8 @@ describe("Where each kind of mail goes", () => {
       const stored = dash.storedSettings().autoSort;
       expect(stored.labelsOff).toEqual([]);
       expect(Object.keys(stored.filterIdsByBucket)).toHaveLength(13);
-    });
+      // 13 filter creates pass waitFor's 1 s default when the suite runs in parallel.
+    }, { timeout: 10_000 });
     const calls = dash.gmailApi.createFilter.mock.calls as [string, { query?: string }, { removeLabelIds: string[] }][];
     const otp = calls.find(([, c]) => c.query?.startsWith('subject:("verification code"'));
     expect(otp?.[2].removeLabelIds).toEqual([]);
