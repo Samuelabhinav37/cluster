@@ -133,6 +133,10 @@ export function classifySortBucket(
   // An unsubscribe link only says "list mail"; a sender we know (a bank, a
   // school, an airline) says more. LIC's premium reminder is Finance, not news.
   if (kind === "newsletter" && byCategory) return byCategory;
+  // A bank's statement or a hotel's booking belongs with the company, not in
+  // Receipts: the sender's own category is the stronger signal (Grbovic et
+  // al., CIKM 2014). Codes, account notices and shipping keep their label.
+  if (kind === "receipt" && (byCategory === "finance" || byCategory === "travel")) return byCategory;
   return KIND_BUCKET[kind] ?? byCategory ?? null;
 }
 

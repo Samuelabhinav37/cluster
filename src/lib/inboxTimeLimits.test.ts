@@ -341,6 +341,24 @@ describe("holdUnsortedInbox", () => {
     expect(bucketsFor(senders, c).get("finance")).toEqual(["r1"]);
   });
 
+  it("mail that earns a scam warning but no hold goes to the Screener, not the inbox forever", async () => {
+    // Two warnings of one kind: a "high" raw score, but the hold needs two kinds.
+    const warned = sender(
+      "no-reply@chase.com",
+      [msg("w1", "receipt", { looksAutomated: true })],
+      [
+        { kind: "brand-impersonation", brand: "paypal", confidence: "medium" },
+        { kind: "brand-impersonation", brand: "capital one", confidence: "medium" },
+      ],
+    );
+    const api = fakeApi({}, [warned]);
+    api.listIds.mockResolvedValue(["w1"]);
+    expect(bucketsFor([warned], ctx()).size).toBe(0);
+    const res = await holdUnsortedInbox(ctx(), api, "✋ Screener", 0, "👤 Personal");
+    expect(res.heldIds).toEqual(["w1"]);
+    expect(res.personalIds).toEqual([]);
+  });
+
   it("does nothing when nothing is unsorted", async () => {
     const api = fakeApi({});
     expect((await holdUnsortedInbox(ctx(), api, "✋ Screener")).heldIds).toEqual([]);

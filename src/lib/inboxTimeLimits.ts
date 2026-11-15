@@ -16,7 +16,7 @@ import { isRoleAddress } from "./freeMail";
 import { neverMove } from "./protectionPolicy";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import { effectiveBucket, overrideFor, type SortBucket, type SortOverride } from "./sortTaxonomy";
-import { riskTier, senderRiskScore } from "./threatSignals";
+import { senderVerdict, type VerdictTier } from "./verdict";
 
 const HOUR_MS = 60 * 60 * 1000;
 /** How far back the tagger looks for unlabelled inbox mail. */
@@ -66,11 +66,15 @@ function epochSeconds(ms: number): number {
 
 /** Senders whose mail must never be moved or auto-labelled. */
 function skipSender(sender: SenderSummary, known: Set<string>): boolean {
-  return known.has(sender.address.toLowerCase()) || isRisky(sender);
+  return known.has(sender.address.toLowerCase()) || scamTier(sender, known) !== "none";
 }
 
-function isRisky(sender: SenderSummary): boolean {
-  return riskTier(senderRiskScore(sender.threatSignals)) === "high";
+/** The scam hold's own verdict, so every pass agrees on what's risky. "hold"
+ * is the hold's to move (to Spam); "warn" is never labelled or filed as
+ * Personal, it goes to the Screener for a look. A raw score used to say
+ * "high" where the verdict didn't hold, and that mail sat in the inbox. */
+function scamTier(sender: SenderSummary, known: Set<string>): VerdictTier {
+  return senderVerdict(sender, { knownCorrespondent: known.has(sender.address) }).tier;
 }
 
 function isBucket(o: SortOverride | undefined): o is SortBucket {
@@ -106,7 +110,7 @@ export function bucketsFor(senders: SenderSummary[], ctx: LimitContext): Map<Sor
   for (const sender of senders) {
     const domain = domainOf(sender.address);
     const corrected = isBucket(overrideFor(sender.address, domain, ctx.overrides));
-    if (corrected ? isRisky(sender) : skipSender(sender, ctx.known)) continue;
+    if (corrected ? scamTier(sender, ctx.known) === "hold" : skipSender(sender, ctx.known)) continue;
     for (const msg of sender.messages) {
       if (!corrected && (msg.isProtected || neverMove(msg, sender.address))) continue;
       const bucket = effectiveBucket(msg.kind, domain, sender.address, ctx.overrides, msg.promotion);
@@ -278,7 +282,13 @@ export async function holdUnsortedInbox(
   let oldest = Infinity;
   for (const sender of await api.readSenders(ids)) {
     for (const msg of sender.messages) oldest = Math.min(oldest, msg.receivedAt);
-    if (isRisky(sender)) continue;
+    const tier = scamTier(sender, ctx.known);
+    if (tier === "hold") continue;
+    if (tier === "warn") {
+      if (hold) for (const msg of sender.messages) heldIds.push(msg.id);
+      if (hold) senders.add(sender.address.toLowerCase());
+      continue;
+    }
     const known = ctx.known.has(sender.address.toLowerCase());
     const domain = domainOf(sender.address);
     const override = overrideFor(sender.address, domain, ctx.overrides);
@@ -362,7 +372,7 @@ export async function sweepExpiredInbox(ctx: LimitContext, api: InboxLimitsApi):
   // A label means it has a place: mail from senders you've written to goes
   // there as well (a store's support desk kept its whole thread in the inbox).
   for (const sender of await api.readSenders(batch)) {
-    const risky = riskTier(senderRiskScore(sender.threatSignals)) === "high";
+    const risky = scamTier(sender, ctx.known) === "hold";
     for (const msg of sender.messages) (risky || neverMove(msg, sender.address) ? keptIds : movedIds).push(msg.id);
   }
   if (movedIds.length > 0) await api.batchModify(movedIds, [], ["INBOX"]);
