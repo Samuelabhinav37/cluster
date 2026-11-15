@@ -62,6 +62,12 @@ export interface MessageRecord {
   purchase?: boolean;
   /** The Gmail inbox tab it sits in. Unset for providers without tabs. */
   tab?: InboxTab;
+  /** "Re:" with no In-Reply-To or References: no thread behind it. Cold
+   * outreach and fake-thread scams do this; a real reply never does. Unset
+   * when the row has no threading headers to judge by. */
+  fakeReply?: boolean;
+  /** Everyone else it was sent to (To and Cc), for "your contacts are on it". */
+  coRecipients?: string[];
   /** A sending service or a person's mail app, from Return-Path,
    * Message-ID and Feedback-ID (sendingEvidence.ts). */
   sentBy?: SendingEvidence;
@@ -181,6 +187,10 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     promotion: meta.gmailPromotion ?? false,
     tab: inboxTabOf(meta.labelIds),
     sentBy: sendingEvidence(meta),
+    fakeReply: /^\s*re:/i.test(meta.subject ?? "") && meta.referencesCount === 0 && !meta.inReplyTo ? true : undefined,
+    coRecipients: meta.ccAddresses?.length || (meta.toAddresses?.length ?? 0) > 1
+      ? [...(meta.toAddresses ?? []), ...(meta.ccAddresses ?? [])].slice(0, 20)
+      : undefined,
     dkimDomains: [...new Set(passingDkimDomains(meta.authenticationResults).map(registrableDomain))],
     replyToDomain: meta.replyToAddress.includes("@")
       ? registrableDomain(meta.replyToAddress.slice(meta.replyToAddress.lastIndexOf("@") + 1))

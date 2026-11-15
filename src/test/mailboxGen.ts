@@ -48,7 +48,11 @@ export interface Opts {
   autoSubmitted?: boolean;
   purchase?: boolean;
   cc?: number;
+  /** Copied addresses, when they matter (your contacts on a thread). */
+  ccTo?: string[];
   via?: Via;
+  /** A "Re:" subject with no thread behind it (cold outreach, fake threads). */
+  fakeReply?: boolean;
 }
 
 const FREE_APPS: Record<string, string> = {
@@ -115,15 +119,17 @@ export function mail(from: string, name: string, subject: string, o: Opts = {}):
     unsubscribe: o.unsub ? { httpUrl: `https://${domain}/unsubscribe`, postUrl: `https://${domain}/one-click` } : {},
     receivedAt: NOW - Math.floor(rand() * 60) * 86_400_000 - 5 * 3_600_000,
     threadId: `t${id}`,
+    // A real reply points at the message it answers (RFC 5322 In-Reply-To).
+    ...(/^re:/i.test(subject) && !o.fakeReply ? { inReplyTo: `<prev-${id}@mail.gmail.com>` } : {}),
     authenticationResults: auth,
     listId: o.listId,
     feedbackId: o.feedbackId ? `${digits(6)}:${domain}` : undefined,
     autoSubmitted: o.autoSubmitted ? "auto-generated" : undefined,
     gmailPurchase: o.purchase,
     toAddresses: [ME],
-    ccAddresses: Array.from({ length: o.cc ?? 0 }, (_, i) => `cc${i}@example.com`),
-    recipientCount: 1 + (o.cc ?? 0),
-    referencesCount: 0,
+    ccAddresses: [...(o.ccTo ?? []), ...Array.from({ length: o.cc ?? 0 }, (_, i) => `cc${i}@example.com`)],
+    recipientCount: 1 + (o.cc ?? 0) + (o.ccTo?.length ?? 0),
+    referencesCount: /^re:/i.test(subject) && !o.fakeReply ? 1 : 0,
     ...headers(from.toLowerCase(), id, o.via),
     ...gmailLabelFields(labels),
     // gmailLabelFields can't know a purchase; keep ours.

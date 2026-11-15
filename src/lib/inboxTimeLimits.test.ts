@@ -399,6 +399,22 @@ describe("holdUnsortedInbox", () => {
     expect(res.heldIds).toEqual(["b1", "c1", "d1", "e1"]);
   });
 
+  it("a fake reply is never Personal; a thread with your contact copied is, and isn't labelled", async () => {
+    const senders = [
+      sender("chris@growthly.example", [msg("f1", "other", { subject: "Re: Idea for Cluster", fakeReply: true, sentBy: "person-app" })]),
+      sender("x@vendorco.example", [msg("v1", "receipt", { subject: "Invoice process for the project", coRecipients: ["priya.n@corp.example"] })]),
+      sender("y@vendorco.example", [msg("v2", "other", { subject: "Re: Invitation: Sync", fakeReply: true })]),
+      sender("news@list.example", [msg("n1", "receipt", { coRecipients: ["priya.n@corp.example"], looksAutomated: true })]),
+    ];
+    const c = ctx({ known: new Set(["priya.n@corp.example"]), limits: [...LIMITS, { bucket: "receipt", labelName: "Receipts", hours: 24 }] });
+    expect(bucketsFor(senders, c).get("receipt")).toEqual(["n1"]);
+    const api = fakeApi({}, senders);
+    api.listIds.mockResolvedValue(["f1", "v1", "v2"]);
+    const res = await holdUnsortedInbox(c, api, "✋ Screener", 0, "👤 Personal");
+    expect(res.personalIds).toEqual(["v1"]);
+    expect(res.heldIds).toEqual(["f1", "v2"]);
+  });
+
   it("an unlabelled message takes its sender's usual label, never a code's", () => {
     const hotel = sender("stay@hotel.example", [
       ...["h1", "h2", "h3"].map((id) => msg(id, "shipping")),

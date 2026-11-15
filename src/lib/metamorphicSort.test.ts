@@ -37,9 +37,18 @@ for (const [name, templates, seed] of [["held-out", HELD_OUT, HELD_OUT_SEED], ["
     });
 
     it("a person's mail that reached Personal stays there as a reply", async () => {
+      // A real reply carries In-Reply-To and References.
       const inPersonal = (c: Case) => isPerson(c) && base.get(c.meta.id) === "personal";
-      const replies = await sort(change(inPersonal, (m) => ({ subject: `Re: ${m.subject}` })));
+      const replies = await sort(change(inPersonal, (m) => ({ subject: `Re: ${m.subject}`, inReplyTo: `<p-${m.id}@mail.gmail.com>`, referencesCount: 1 })));
       expect(moved(base, replies, cases.filter(inPersonal).map((c) => c.meta.id))).toEqual([]);
+    });
+
+    it("a stranger's \"Re:\" with no thread behind it never reaches Personal", async () => {
+      const contacts = new Set(CONTACTS);
+      const stranger = (c: Case) => !contacts.has(c.meta.fromAddress) && !sent.some((s) => s.threadId === c.meta.threadId);
+      const faked = await sort(change(stranger, (m) => ({ subject: `Re: ${m.subject}`, inReplyTo: undefined, referencesCount: 0 })));
+      const leaked = cases.filter((c) => stranger(c) && !(c.meta.ccAddresses ?? []).some((a) => contacts.has(a)) && faked.get(c.meta.id) === "personal");
+      expect(leaked.map((c) => `${c.t.group}: ${c.meta.subject}`)).toEqual([]);
     });
 
     it("without Gmail tabs or sending headers, no person goes to Spam and no extra scam reaches Personal", async () => {

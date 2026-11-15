@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { build, generatorProblems, report, voteReport, type Template } from "../test/mailboxGen";
 import { HELD_OUT, HELD_OUT_SEED } from "../test/heldOutMailbox";
 import { HELD_OUT_B, HELD_OUT_B_SEED } from "../test/heldOutMailboxB";
+import { HELD_OUT_C, HELD_OUT_C_SEED } from "../test/heldOutMailboxC";
 import { out, signalVotes, sortMailbox } from "../test/sortHarness";
 import { CONTACTS, TUNED, TUNED_SEED } from "../test/tunedMailbox";
 
@@ -33,5 +34,9 @@ describe("2,000-email realistic mailboxes", () => {
 
   it("held-out mailbox B (cycle 2)", async () => {
     await run("Held-out mailbox B (cycle 2)", HELD_OUT_B, HELD_OUT_B_SEED);
+  });
+
+  it("held-out mailbox C (cycle 3)", async () => {
+    await run("Held-out mailbox C (cycle 3)", HELD_OUT_C, HELD_OUT_C_SEED);
   });
 });

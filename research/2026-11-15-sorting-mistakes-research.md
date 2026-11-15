@@ -74,3 +74,19 @@ Items 1 to 4 change sorting. Items 5 to 8 change how we find mistakes. Item 7 ma
 - Ratner et al. "Snorkel: Rapid Training Data Creation with Weak Supervision." VLDB 2017. https://arxiv.org/abs/1711.10160 and LFAnalysis docs https://snorkel.readthedocs.io/en/latest/packages/_autosummary/labeling/snorkel.labeling.LFAnalysis.html
 - Geifman, El-Yaniv. "SelectiveNet: A Deep Neural Network with an Integrated Reject Option." ICML 2019. https://proceedings.mlr.press/v97/geifman19a.html
 - Metamorphic testing of classifiers: Ma et al., IJCAI 2020. https://mlanthology.org/ijcai/2020/ma2020ijcai-metamorphic
+
+## Cycle 2 (statements, campaigns)
+
+Research: Yahoo groups machine mail by sender and subject template (Gamzu, Maarek et al., WWW 2015, https://archives.iw3c2.org/www2015/documents/proceedings/companion/p1327.pdf). Sextortion runs send one wording from many throwaway addresses (Sophos, https://www.sophos.com/en-us/blog/following-the-sextortion-money; Talos, https://blog.talosintelligence.com/anatomy-of-sextortion-scam/). Gmail's preview snippet would help with body-only scams, but Cluster promises "Metadata-only" and never fetches it for sorting, so that stays a decision for you.
+
+Built: a `statement` kind (statements, balances, deposits) that goes to Finance and is protected like a receipt. A `campaign` signal: one subject of 6+ words from 3+ unknown free-mail senders whose names aren't in their addresses. It warns alone (the Screener) and holds with other evidence. A first version without the name check put friends in the Screener; it was fixed before commit.
+
+Held-out B, written first: 93.7% to 99.5% acceptable (95.0% at the start once one answer-key mistake is corrected), wrong labels 5.4% to 0.7%, scams with people 50 to 0. Held-out A: 97.9% to 99.0%, scams with people 15 to 0.
+
+## Cycle 3 (threads and your circle)
+
+Research: Priority Inbox uses social features (the share of a sender's mail you read), thread features (whether you began the thread), content and labels; about 80% accuracy (Aberdeen, Pacovsky, Slater, 2010, https://storage.googleapis.com/gweb-research2023-media/pubtools/pdf/36955.pdf). A "Re:" from a first-time sender with no matching In-Reply-To or References is a fake thread (IronScales, https://ironscales.com/threat-intelligence/fake-reply-bcc-read-receipt-phone-harvest-bec; Sublime rule, https://detection.fyi/sublime-security/sublime-rules/fake_thread_suspicious_indicators/).
+
+Built: fake replies (a "Re:" with no threading headers) are never Personal and never count as invites. A thread that copies someone you write to is Personal and isn't labelled. The read ratio was left out on purpose: Cluster moves mail out of the inbox before you read it, so "never opened" would partly measure Cluster itself (the presentation bias the paper notes).
+
+Held-out C, written first: 92.0% to 100% acceptable, 77.4% to 85.5% ideal. A, B, the tuned set and the 1,000 test are unchanged. A new metamorphic test (a stranger's fake "Re:" never reaches Personal) found that "Re: Invitation:" slipped through; that is fixed.

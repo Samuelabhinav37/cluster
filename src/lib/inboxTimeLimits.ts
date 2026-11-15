@@ -114,7 +114,7 @@ export function bucketsFor(senders: SenderSummary[], ctx: LimitContext): Map<Sor
     if (corrected ? scamTier(sender, ctx.known) === "hold" : skipSender(sender, ctx.known)) continue;
     const buckets = senderBuckets(sender, domain, ctx.overrides);
     for (const msg of sender.messages) {
-      if (!corrected && (msg.isProtected || neverMove(msg, sender.address))) continue;
+      if (!corrected && (msg.isProtected || neverMove(msg, sender.address) || withYourContacts(msg, ctx.known))) continue;
       const bucket = buckets.get(msg.id);
       if (!bucket || !wanted.has(bucket)) continue;
       const list = groups.get(bucket) ?? [];
@@ -320,7 +320,12 @@ export async function holdUnsortedInbox(
     for (const msg of sender.messages) {
       const personal =
         override === "personal" ||
-        (override !== "never" && (known || msg.repliesToYou || (writtenByPerson(msg, sender.address, sender.displayName) && !sender.threatSignals.some((t) => t.kind === "lure-language")) || CALENDAR_RE.test(msg.subject ?? "")));
+        (override !== "never" &&
+          (known ||
+            msg.repliesToYou ||
+            withYourContacts(msg, ctx.known) ||
+            (writtenByPerson(msg, sender.address, sender.displayName) && !sender.threatSignals.some((t) => t.kind === "lure-language")) ||
+            (CALENDAR_RE.test(msg.subject ?? "") && !msg.fakeReply)));
       if (personal) {
         if (personalLabelName) personalIds.push(msg.id);
         continue;
@@ -340,10 +345,18 @@ export async function holdUnsortedInbox(
   return { heldIds, personalIds, senders: [...senders], nextBefore };
 }
 
+/** A person wrote it to you and someone you write to: a thread in your
+ * circle (Priority Inbox's social features: Aberdeen et al., 2010). Bulk
+ * mail and fake replies don't count. */
+function withYourContacts(msg: MessageRecord, known: ReadonlySet<string>): boolean {
+  if (msg.looksAutomated || msg.sentBy === "service" || msg.fakeReply) return false;
+  return (msg.coRecipients ?? []).some((a) => known.has(a));
+}
+
 /** A person typed it: not a mailing, not automated, not a no-reply or shared
  * mailbox. Such mail stays in the inbox. */
 function writtenByPerson(msg: MessageRecord, address: string, name = ""): boolean {
-  if (isRoleAddress(address) || msg.looksAutomated || msg.sentBy === "service") return false;
+  if (isRoleAddress(address) || msg.looksAutomated || msg.sentBy === "service" || msg.fakeReply) return false;
   // Updates, Social and Forums are Gmail's own call that it's machine mail.
   if (msg.tab && msg.tab !== "primary") return false;
   if (looksLikeCompany(address, msg.dkimDomains) || isMailboxName(name)) return false;
