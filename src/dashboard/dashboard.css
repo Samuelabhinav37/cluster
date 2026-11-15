@@ -4373,5 +4373,5 @@ input.switch::after { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: tra
 /* Apple's grouped look: the page sits one step darker than its cards. */
 body { background: var(--canvas); }
 /* Pop-up menus in list rows read as gray values until hovered, like macOS. */
-.ios-row select { text-align: right; text-align-last: right; background-color: transparent; border-color: transparent; color: var(--label-4); transition: background-color 0.15s ease; }
+.ios-row select, .ios-row select.kind-pick { text-align: right; text-align-last: right; padding-right: 30px; background-color: transparent; border-color: transparent; color: var(--label-4); transition: background-color 0.15s ease; }
 .ios-row select:hover, .ios-row select:focus-visible { background-color: var(--neutral-fill); color: var(--label); }
