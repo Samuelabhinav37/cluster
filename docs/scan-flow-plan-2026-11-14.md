@@ -94,3 +94,5 @@ Branch `feat/scan-flow-2026-11`. Steps are ticked here as they land.
 - Live check 2026-11-14 18:00: build d11e621 loaded, every run ok, no labelled mail left in the inbox. INBOX still 741 threads: no-reply senders counted as people and missed code/account/job phrases. Fixed b4c972c (rules v7, catch-up -6).
 - Live check 2026-11-15: INBOX about 201 threads, nearly all starred or from real people. One miss: Bishops thread, newer message unlabelled.
 - 2.5 mockup research/2026-11-15-review-step-mockup.html, awaiting user.
+- 2026-11-15: conversations → 👤 Personal, unsorted (starred too) → Screener 982d218, 571ad64; held scams to Spam by default (settings v19) 780c2f1.
+- 2026-11-15 research `research/2026-11-15-email-classification-papers.md` (NDSS 2026 aliases, Yahoo CIKM 2014, Google WSDM 2016, Priority Inbox, BEC-Guard). Built: canonical sender identity 4e9b439; alias-lookalike scam signal f12b0fb; corrections by address pattern f8d2f07; Screener/Personal moves teach, Personal correction, corrections beat "known" 35c5abf. Left: sender+subject templates, per-user thresholds, wider address keywords.
