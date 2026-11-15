@@ -882,6 +882,8 @@ function paintScanCard() {
   const firstRead = scan?.phase === "reading" && overviewContentEl.querySelector(".home-read");
   if (!scan || !ctx.settings || scan.dismissed || !overviewContentEl.isConnected || firstRead) {
     old?.remove();
+    overviewContentEl.classList.remove("is-scanning");
+    document.body.classList.remove("ov-scanning");
     return;
   }
   const names =ALL_SORT_BUCKETS.filter((b) => !ctx.settings.autoSort.labelsOff.includes(b)).map(
@@ -910,6 +912,9 @@ function paintScanCard() {
   });
   if (old) old.replaceWith(card);
   else overviewContentEl.prepend(card);
+  const busy = scan.phase !== "done";
+  overviewContentEl.classList.toggle("is-scanning", busy);
+  document.body.classList.toggle("ov-scanning", busy);
   // Resolves false inside its 5-minute window, so this repaints once per read.
   if (scan.phase === "done") void refreshGmailCounts().then((fresh) => fresh && paintScanCard());
 }
@@ -1552,7 +1557,14 @@ function renderOverview(
     .filter((d) => !ctx.settings.autoSort.labelsOff.includes(d.bucket))
     .map((d) => {
       const label = categoryLabelName(d.bucket, ctx.settings.labelChoices);
-      return { name: label.replace(/^\S+\s/, ""), total: d.total, items: d.items, href: gmailSearchUrl(`label:"${label.replace(/"/g, "")}" newer_than:7d`) };
+      return {
+        name: label.replace(/^\S+\s/, ""),
+        icon: BUCKET_ICON[d.bucket],
+        color: CLUSTER_LABEL_COLORS[d.bucket]?.backgroundColor,
+        total: d.total,
+        items: d.items,
+        href: gmailSearchUrl(`label:"${label.replace(/"/g, "")}" newer_than:7d`),
+      };
     });
   overviewContentEl.appendChild(
     renderHomeDashboard(

@@ -172,7 +172,7 @@ export interface HomeFacts {
   /** Gmail's inbox unread count, once it has answered. */
   inboxUnread?: number;
   /** Each label's last week: how much came and the few worth a look (lib/today.ts pickByLabel). */
-  byLabel?: { name: string; total: number; href: string; items: TodayItem[] }[];
+  byLabel?: { name: string; icon?: string; color?: string; total: number; href: string; items: TodayItem[] }[];
   /** Today's few emails that matter (lib/today.ts pickToday). */
   today?: TodayItem[];
   /** Unread on each of the last seven days, oldest first; null where not recorded. */
@@ -438,13 +438,7 @@ function readHero(r: { done: number; total: number }): HTMLElement {
   track.setAttribute("role", "progressbar");
   track.setAttribute("aria-label", "Emails read");
   track.append(el("i", ""));
-  words.append(
-    scanSteps(0),
-    el("p", "home-verdict", "Reading your mail."),
-    el("p", "home-sub", "Nothing changes in Gmail until you choose."),
-    nums,
-    track,
-  );
+  words.append(el("p", "home-verdict", "Reading your mail"), nums, track);
   hero.append(words);
   paintHomeRead(hero, r.done, r.total, "");
   return hero;
@@ -460,7 +454,7 @@ export function paintHomeRead(
   eta: string,
   label = "Reading your mail",
 ): void {
-  card.querySelector(".home-verdict")!.textContent = `${label}.`;
+  card.querySelector(".home-verdict")!.textContent = label;
   card.querySelector(".read-done")!.textContent = done < total ? n(done) : "";
   card.querySelector(".read-of")!.textContent = done < total ? `of ${n(total)} emails` : "";
   card.querySelector(".read-eta")!.textContent = eta;
@@ -470,17 +464,6 @@ export function paintHomeRead(
   track.setAttribute("aria-valuemax", String(Math.max(done, total)));
   track.querySelector<HTMLElement>("i")!.style.width =
     `${total > 0 ? Math.min(100, (done / total) * 100) : 0}%`;
-}
-
-/** The scan's two steps, ticked off as they finish (Malwarebytes-style milestones). */
-export function scanSteps(active: number): HTMLElement {
-  const steps = el("ol", "scan-steps");
-  ["Read mail", "Label"].forEach((label, i) => {
-    const step = el("li", i < active ? "is-done" : i === active ? "is-on" : "", label);
-    step.prepend(el("i", ""));
-    steps.append(step);
-  });
-  return steps;
 }
 
 export interface ScanRow {
@@ -529,7 +512,8 @@ export function renderScanCard(
   const head = el("div", "scan-head");
   // What is still in the inbox leads: "labelled" alone read as finished.
   const left = done && scan.unsorted > 0 ? ` · ${n(scan.unsorted)} with no label` : "";
-  head.append(el("b", "", done ? `${n(sorted)} labelled${left}` : reading ? "Reading your inbox" : "Labelling your inbox"));
+  const sentMail = reading && scan.total > 0 && scan.done >= scan.total;
+  head.append(el("b", "", done ? `${n(sorted)} labelled${left}` : sentMail ? "Reading sent mail" : reading ? "Reading your mail" : "Labelling your mail"));
   if (done || on.note?.stuck) {
     const again = el("button", "btn", "Rescan");
     again.type = "button";
@@ -542,10 +526,13 @@ export function renderScanCard(
   }
   card.append(head);
   if (on.note) card.append(el("p", "scan-line scan-note", on.note.text));
-  // Labelled by search while the read goes on: the steps would claim it finished.
-  if (reading) card.append(scanSteps(0));
-  else if (!on.reading) card.append(scanSteps(done ? 2 : 1));
   if (!done) {
+    // One big count, the bar, and the time left. Sent mail has no total to show.
+    if (!sentMail) {
+      const nums = el("div", "read-nums");
+      nums.append(el("b", "read-done", n(scan.done)), el("span", "read-of", scan.total > 0 ? `of ${n(scan.total)} emails` : "emails"));
+      card.append(nums);
+    }
     const track = el("div", "read-track");
     track.setAttribute("role", "progressbar");
     track.setAttribute("aria-label", reading ? "Emails read" : "Emails labelled");
@@ -555,18 +542,9 @@ export function renderScanCard(
     fill.style.width = `${scan.total > 0 ? Math.min(100, (scan.done / scan.total) * 100) : 0}%`;
     track.append(fill);
     card.append(track);
-    if (reading) {
-      // Every email counted, but the read goes on through sent mail (up to
-      // 5,000, many minutes): "120 of 120 read" looked finished but stuck.
-      const of =
-        scan.total > 0 && scan.done >= scan.total
-          ? "Reading your sent mail, to learn who you write to"
-          : scan.total > 0
-            ? `${n(scan.done)} of ${n(scan.total)} read`
-            : `${n(scan.done)} read`;
-      const left = scan.total > scan.done ? ` · ${readTimeText(scan.total - scan.done)} left` : "";
-      card.append(el("p", "scan-line", `${of}${left} · ${n(scan.labelled)} labelled so far`));
-      card.append(el("p", "scan-line", "You can close this tab."));
+    if (reading && scan.total > scan.done) {
+      const t = readTimeText(scan.total - scan.done);
+      card.append(el("p", "scan-line", `${t.charAt(0).toUpperCase()}${t.slice(1)} left`));
     }
     // Rows popping in and reordering mid-run looked messy: show them once, at the end.
     return card;
@@ -593,26 +571,6 @@ export function renderScanCard(
   }
   if (list.childElementCount > 0) card.append(list);
   return card;
-}
-
-/** Found so far: one row of three, each a place's icon, a number and a label. */
-function foundSoFar(f: HomeFacts): HTMLElement {
-  const strip = el("div", "found-strip");
-  const tiles: Array<[app: string, ic: string, count: number, label: string]> = [
-    ["protect", "shield-alert", f.suspicious, "look like scams"],
-    ["clean", "mail-x", f.neverOpened.emails, "you never open"],
-    ["inbox", "users", f.people ?? 0, "people you write to"],
-  ];
-  for (const [app, ic, count, label] of tiles) {
-    const tile = el("div", "found-tile");
-    const mark = el("span", `app-ic app-${app}`);
-    mark.append(icon(ic));
-    const words = el("span", "");
-    words.append(el("b", "", n(count)), el("span", "found-label", label));
-    tile.append(mark, words);
-    strip.append(tile);
-  }
-  return strip;
 }
 
 /** Today: one row per email that matters, linking to it in Gmail. The
@@ -704,7 +662,7 @@ function flow(cls: string, value: number, label: string): HTMLElement {
   const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
   path.setAttribute("d", ARROW);
   svg.append(path);
-  span.append(svg, `${cls === "out" && value > 0 ? "−" : ""}${n(value)}`);
+  span.append(svg, `${n(value)} ${label}`);
   span.setAttribute("aria-label", `${n(value)} ${label}`);
   return span;
 }
@@ -718,7 +676,19 @@ function inboxCard(f: HomeFacts): HTMLElement {
   const flows = el("span", "ov-flows");
   flows.append(flow("out", f.cleared30 ?? 0, "cleared"));
   meta.append(el("span", "", "Last 30 days"), flows);
-  card.append(meta, lineChart(days, Date.now()));
+  // Apple's stat pairs: a number, then what it is in gray.
+  const total = days.reduce((a, b) => a + b, 0);
+  const peak = days.reduce((best, v, i) => (v > days[best] ? i : best), 0);
+  const peakDay = new Date(Date.now() - (days.length - 1 - peak) * 24 * 60 * 60 * 1000);
+  const stats = el("div", "ov-stats");
+  const stat = (value: string, label: string) => {
+    const s = el("span", "ov-stat");
+    s.append(el("b", "", value), el("span", "", label));
+    return s;
+  };
+  stats.append(stat(n(Math.round(total / Math.max(1, days.length))), "a day on average"));
+  if (total > 0) stats.append(stat(n(days[peak]), `on ${peakDay.toLocaleDateString(undefined, { month: "short", day: "numeric" })}, the busiest day`));
+  card.append(meta, stats, lineChart(days, Date.now()));
   return card;
 }
 
@@ -741,8 +711,6 @@ export function renderHomeDashboard(
   const root = el("div", "home");
   if (f.reading) {
     root.append(readHero(f.reading));
-    if (f.today) root.append(todayList(f.today));
-    root.append(el("h2", "section-label", "Found so far"), foundSoFar(f));
     return root;
   }
   const head = el("div", "ov-top");
@@ -758,11 +726,15 @@ export function renderHomeDashboard(
     // One row per label: name and count. The emails are one click away in Gmail.
     const group = el("div", "ios-group week-labels");
     for (const d of f.byLabel) {
-      const row = el("a", "ios-row week-label");
+      const row = el("a", "ios-row org-row week-label");
       row.href = d.href;
       row.target = "_blank";
       row.rel = "noopener";
-      row.append(el("span", "grow", d.name), el("span", "ios-value", n(d.total)), el("span", "ov-go", "›"));
+      // The same tag and icon as the Labels page.
+      const words = el("span", "grow");
+      if (d.icon) words.append(icon(d.icon));
+      words.append(d.name);
+      row.append(gmailLabelIcon(d.color), words, el("span", "ios-value", n(d.total)), el("span", "ov-go", "›"));
       group.append(row);
     }
     root.append(group);

@@ -3510,17 +3510,8 @@ select:not([multiple]):hover { background-color: var(--neutral-fill-hover); }
 .read-track { height: 8px; border-radius: 4px; background: var(--neutral-fill); overflow: hidden; }
 .read-track i { display: block; height: 100%; border-radius: 4px; background: var(--accent); transition: width 0.4s linear; }
 .home-read .home-words { flex: 1; max-width: 640px; }
-/* Scan steps: gray, then a pulsing dot while on, then a tick (Malwarebytes-style milestones). */
-.scan-steps { display: flex; gap: 18px; margin: 0 0 12px; padding: 0; list-style: none; font-size: 13px; color: var(--label-4); }
-.scan-steps li { display: flex; align-items: center; gap: 6px; }
-.scan-steps i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--label-4); box-sizing: border-box; }
-.scan-steps .is-on { color: var(--label); }
-.scan-steps .is-on i { border-color: var(--accent); animation: scan-pulse 1.2s ease-in-out infinite; }
-.scan-steps .is-done { color: var(--label-2); }
-.scan-steps .is-done i { border: 0; background: var(--accent) no-repeat center / 10px
-  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6.5l2.5 2.5L10 3.5' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E"); }
-@keyframes scan-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent); } }
 .scan-line { margin: 10px 0 0; color: var(--label-2); font-size: 13px; font-variant-numeric: tabular-nums; }
+@keyframes scan-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent); } }
 .scan-card { margin-bottom: 18px; padding: 18px; border: 1px solid var(--separator); border-radius: 16px; background: var(--glass); }
 .scan-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .scan-head b { flex: 1; font: 600 20px/1.2 var(--font-display); font-variant-numeric: tabular-nums; }
@@ -3528,17 +3519,9 @@ select:not([multiple]):hover { background-color: var(--neutral-fill-hover); }
 .scan-rows { margin-top: 12px; }
 .scan-rows .ios-row { color: inherit; text-decoration: none; }
 .scan-rows .ios-value { font-variant-numeric: tabular-nums; }
-@media (prefers-reduced-motion: reduce) { .scan-steps .is-on i { animation: none; } }
-.found-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--separator); border-radius: 16px;
-  background: var(--glass); overflow: hidden; }
-.found-tile { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
-.found-tile + .found-tile { border-left: 1px solid var(--separator); }
-.found-tile b { display: block; font: 600 24px/1 var(--font-display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.found-label { display: block; margin-top: 4px; font-size: 13px; color: var(--label-2); }
 body[data-screen="overview"] #index-status.home-shows { display: none; }
 @media (max-width: 760px) {
-  .home-week, .found-strip { grid-template-columns: minmax(0, 1fr); }
-  .found-tile + .found-tile { border-left: 0; border-top: 1px solid var(--separator); }
+  .home-week { grid-template-columns: minmax(0, 1fr); }
   .home-hero { flex-direction: column; align-items: flex-start; }
 }
 /* Sender checks: 20 ticks filled to the share that passed. */
@@ -4291,9 +4274,6 @@ section[data-screen="impersonation"] > .tabs .tab-count { margin-left: 6px; padd
 }
 
 /* Overview "This week": one row per label, name and count. */
-.week-labels .week-label { display: flex; align-items: center; gap: 8px; color: var(--label); text-decoration: none; }
-.week-labels .week-label .grow { flex: 1; min-width: 0; }
-.week-label .ov-go { margin-left: 8px; color: var(--label-4); }
 
 /* 2026-11-15 hierarchy pass (Apple's ladder): headings read as headings, numbers as the biggest thing on a card, no small caps. */
 .ios-head, .set-sec > h2, .pl-body .section-label, .home > .section-label { font: 600 15px/20px var(--font); letter-spacing: -.01em; text-transform: none; color: var(--label); }
@@ -4375,3 +4355,28 @@ body { background: var(--canvas); }
 /* Pop-up menus in list rows read as gray values until hovered, like macOS. */
 .ios-row select, .ios-row select.kind-pick { text-align: right; text-align-last: right; padding-right: 30px; background-color: transparent; border-color: transparent; color: var(--label-4); transition: background-color 0.15s ease; }
 .ios-row select:hover, .ios-row select:focus-visible { background-color: var(--neutral-fill); color: var(--label); }
+
+/* Overview while reading or labelling: the progress card alone, no second bar. */
+.is-scanning > :not(#scan-card) { display: none; }
+body.ov-scanning[data-screen="overview"] #index-status { display: none; }
+.scan-card .read-nums, .home-read .read-nums { display: flex; align-items: baseline; gap: 6px; margin: 4px 0 12px; }
+.scan-card .read-done, .home-read .read-done { font: 700 34px/1.1 var(--font-display); letter-spacing: -0.025em; font-variant-numeric: tabular-nums; }
+.scan-card .read-of, .home-read .read-of { color: var(--label-4); font-size: 15px; }
+.scan-card .scan-line { color: var(--label-4); }
+
+/* Mail received: two stat pairs and a full chart (axis and gridlines). */
+.ov-stats { display: flex; flex-wrap: wrap; gap: 6px 24px; margin-top: 14px; }
+.ov-stat { display: inline-flex; align-items: baseline; gap: 6px; color: var(--label-4); font-size: 13px; }
+.ov-stat b { color: var(--label); font: 600 17px/1.2 var(--font); font-variant-numeric: tabular-nums; }
+.ov-inbox .pl-chart { margin-left: 32px; }
+.ov-inbox .pl-y, .ov-inbox .pl-grid, .ov-inbox .pl-tick { display: revert; }
+.ov-flow { color: var(--label-4); }
+
+/* This week rows carry the Labels page's tag and icon. */
+.scan-card { border-color: transparent; border-radius: 12px; padding: 20px 24px; }
+.week-labels .week-label { color: var(--label); text-decoration: none; }
+.week-labels .week-label > .ov-go { grid-column: 4; grid-row: 1 / span 2; color: var(--label-4); }
+/* The first read uses the same card as a sort. */
+.home-read { padding: 20px 24px; border-radius: 12px; background: var(--glass); }
+.home-read .home-words { max-width: none; }
+.home-read .home-verdict { margin: 0 0 4px; font: 600 20px/1.2 var(--font-display); color: var(--label); }

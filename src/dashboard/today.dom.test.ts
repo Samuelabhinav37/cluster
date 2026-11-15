@@ -28,7 +28,8 @@ describe("Today", () => {
     const dash = await bootDashboard({ mailbox });
     await vi.waitFor(() => {
       if (!document.querySelector(".today-row")) throw new Error("no Today rows yet");
-    });
+      // Overview shows only the progress while the first read runs.
+    }, { timeout: 10_000 });
     const row = document.querySelector<HTMLAnchorElement>(".today-row")!;
     expect(row.textContent).toContain("Mom");
     expect(row.textContent).toContain("Dinner on Sunday?");

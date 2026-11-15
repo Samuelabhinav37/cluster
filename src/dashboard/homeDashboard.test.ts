@@ -209,7 +209,7 @@ describe("renderHomeDashboard", () => {
     expect(text(el.querySelector(".info-pop"))).toMatch(/Read back to \w+ \d+ so far\.$/);
   });
 
-  it("during the first read shows Kai's counter and Found so far instead of the tiles", () => {
+  it("during the first read shows the counter and nothing else", () => {
     const el = renderHomeDashboard(
       {
         ...calm,
@@ -220,14 +220,10 @@ describe("renderHomeDashboard", () => {
       },
       vi.fn(),
     );
-    expect(text(el.querySelector(".home-verdict"))).toBe("Reading your mail.");
+    expect(text(el.querySelector(".home-verdict"))).toBe("Reading your mail");
     expect(text(el.querySelector(".read-nums"))).toBe("40of 184 emails");
-    expect(sections(el)).toEqual(["Found so far"]);
-    expect(Array.from(el.querySelectorAll(".found-tile")).map(text)).toEqual([
-      "1look like scams",
-      "14you never open",
-      "5people you write to",
-    ]);
+    expect(sections(el)).toEqual([]);
+    expect(el.children).toHaveLength(1);
     // A scam during the first read is still found, not hidden behind the verdict.
     expect(el.querySelector(".home-hero .btn")).toBeNull();
   });
@@ -241,7 +237,7 @@ describe("renderHomeDashboard", () => {
     expect(card.querySelector(".read-track")!.getAttribute("aria-valuenow")).toBe("50");
     // Between phases "200 of 200" would look finished: say what is read, hide the count.
     paintHomeRead(card, 200, 200, "", "Reading your sent mail");
-    expect(text(card.querySelector(".home-verdict"))).toBe("Reading your sent mail.");
+    expect(text(card.querySelector(".home-verdict"))).toBe("Reading your sent mail");
     expect(text(card.querySelector(".read-nums"))).toBe("");
     expect(card.querySelector<HTMLElement>(".read-track")!.hidden).toBe(true);
   });
@@ -264,9 +260,10 @@ describe("renderScanCard", () => {
   ];
   const on = () => ({ rescan: vi.fn(), dismiss: vi.fn(), unsortedHref: "https://mail.google.com/u" });
 
-  it("while labelling: Read mail ticked, Label on, a bar, no Rescan", () => {
+  it("while labelling: a title, the count, a bar, no Rescan", () => {
     const card = renderScanCard({ ...newScan(NOW), phase: "labelling", done: 30, total: 120 }, rows, on());
-    expect(Array.from(card.querySelectorAll(".scan-steps li")).map((li) => li.className)).toEqual(["is-done", "is-on"]);
+    expect(card.querySelector(".scan-head")!.textContent).toBe("Labelling your mail");
+    expect(card.querySelector(".read-nums")!.textContent).toBe("30of 120 emails");
     expect(card.querySelector(".read-track")!.getAttribute("aria-valuenow")).toBe("30");
     expect(card.querySelector("button")).toBeNull();
     expect(card.querySelector(".scan-rows")).toBeNull();
@@ -274,7 +271,8 @@ describe("renderScanCard", () => {
 
   it("with every email read, says sent mail is being read rather than sitting at 120 of 120", () => {
     const card = renderScanCard({ ...newScan(NOW), phase: "reading", done: 120, total: 120 }, rows, on());
-    expect(card.querySelector(".scan-line")!.textContent).toContain("Reading your sent mail");
+    expect(card.querySelector(".scan-head")!.textContent).toBe("Reading sent mail");
+    expect(card.querySelector(".read-nums")).toBeNull();
   });
 
   it("a stalled run says why and gets Rescan and close mid-scan, so the card can't stick", () => {
