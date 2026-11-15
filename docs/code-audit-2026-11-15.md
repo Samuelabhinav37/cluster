@@ -30,6 +30,40 @@ Time grows in a straight line (O(n)), including single senders with 2,400 emails
 The app never calls these, but each has tests. Deleting one removes its
 tests too, so this is a feature-by-feature call:
 
+- `src/dashboard/testHarness.ts` `confirmStep`
+- `src/lib/aiMessageKind.ts` `checkMessageKindAiAvailability`
+- `src/lib/aiMessageKind.ts` `classifyOtherSubjects`
+- `src/lib/aiMessageKind.ts` `aiVerdictAllowed`
+- `src/lib/bulkActions.ts` `safeSenderKeys`
+- `src/lib/bulkActions.ts` `safeDomainGroupKeys`
+- `src/lib/bulkActions.ts` `partitionForUnsubscribe`
+- `src/lib/bulkActions.ts` `partitionForKeepSorted`
+- `src/lib/bulkActions.ts` `executeBulkKeepSorted`
+- `src/lib/bulkActions.ts` `partitionForSnooze`
+- `src/lib/bulkActions.ts` `executeBulkSnooze`
+- `src/lib/bulkActions.ts` `mergeDeletableIdsByProvider`
+- `src/lib/bulkActions.ts` `totalDeletableAcrossGroups`
+- `src/lib/categoryQueries.ts` `categoryQuery`
+- `src/lib/census.ts` `cadenceLabel`
+- `src/lib/domainGrouping.ts` `buildDomainGroups`
+- `src/lib/durableJobs.ts` `listDurableJobs`
+- `src/lib/durableJobs.ts` `requestJobCancellation`
+- `src/lib/durableJobs.ts` `retryFailedJob`
+- `src/lib/gmailQuotaLedger.ts` `gmailQuotaUsedWithin`
+- `src/lib/gmailQuotaLedger.ts` `clearGmailQuotaLedger`
+- `src/lib/gmailQuotaLedger.ts` `_internals`
+- `src/lib/keepNewest.ts` `keepNewestExcessCount`
+- `src/lib/kindModel.ts` `sendersToAsk`
+- `src/lib/publicSuffix.ts` `isPublicSuffixListLoaded`
+- `src/lib/seedFromExisting.ts` `findLabelReuseCandidates`
+- `src/lib/seedFromExisting.ts` `filteredFromTargets`
+- `src/lib/seedFromExisting.ts` `skipOverridesFor`
+- `src/lib/senderListView.ts` `mainTemplate`
+- `src/lib/senderModel.ts` `buildCombinedSenderSummaries`
+- `src/lib/serverSort.ts` `buildBucketFilter`
+- `src/lib/smartViews.ts` `evaluateSmartViewForTrash`
+- `src/lib/subscriptionSignals.ts` `buildSubscriptionCandidates`
+
 
 Kept on purpose: two `securityTab.ts` cards share DOM scaffolding but hold
 different content, and `buildCombinedSenderSummaries` repeats
