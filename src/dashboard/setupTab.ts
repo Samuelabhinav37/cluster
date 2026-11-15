@@ -1,23 +1,19 @@
-// First-run setup: opens for a new user or after sign-out.
+// First-run setup: opens once, for a new user.
 //
 // - Setup (research/2026-10-29-onboarding.md): four questions and a plan,
 //   one per screen. On the right, Kai and a card that fills in as you answer
 //   (research/2026-10-29-onboarding-audit.md). Round 2 (2026-10-30): three
 //   questions and the plan, no practice inbox, no kickers or subtitles, gray
-//   icons. Answers are kept in settings.onboarding so Setup reopens with them, and only
+//   icons. 2026-11-15: "What describes you?" dropped (it changed nothing),
+//   answers start on the defaults, Kai never repeats the title, calmer motion
+//   (research/2026-11-15-animation-onboarding-apple.md). Answers are kept in settings.onboarding so Setup reopens with them, and only
 //   Start changes anything. Gmail filters are made only for "Tidy for me".
 import "./kai/kaiLife.js";
 import type { KaiInstance, KaiMood } from "./kai/kaiLife";
 import type { ClusterSettings } from "../lib/settingsStore";
 import { updateSettings } from "../lib/settingsStore";
 import { log } from "../lib/log";
-import {
-  buildOnboardingPlan,
-  SEEDS,
-  type KeepKind,
-  type OnboardingAnswers,
-  type Who,
-} from "../lib/onboardingPlan";
+import { buildOnboardingPlan, type KeepKind, type OnboardingAnswers } from "../lib/onboardingPlan";
 import { ctx } from "./state";
 import { icon } from "./homeDashboard";
 import { renderTimeLimits, turnOnTimeLimits } from "./timeLimitsTab";
@@ -55,14 +51,13 @@ function glyph(name: string): HTMLElement {
   return g;
 }
 
-type Step = "who" | "keep" | "hands" | "plan";
-const STEPS: Step[] = ["who", "keep", "hands", "plan"];
+type Step = "keep" | "hands" | "plan";
+const STEPS: Step[] = ["keep", "hands", "plan"];
 
-// What Kai says on each step: one short line, like Duolingo's owl.
+// What Kai says on each step: one short line the title doesn't already say.
 const KAI_LINES: Record<Step | "done", string> = {
-  who: "Hi, I'm Kai. Let's set up Cluster.",
-  keep: "What should always stay?",
-  hands: "Should I wait for you?",
+  keep: "Hi, I'm Kai. Everything else gets a label.",
+  hands: "You can undo anything.",
   plan: "Nothing changes until you press Start.",
   done: "All set. I'm reading your mail now.",
 };
@@ -159,7 +154,7 @@ function freshAnswers(): OnboardingAnswers {
   const saved = ctx.settings.onboarding?.answers;
   return saved
     ? { who: saved.who, sorted: { ...saved.sorted }, keep: [...saved.keep], hands: saved.hands }
-    : { sorted: {}, keep: ["people"] };
+    : { sorted: {}, keep: ["people"], hands: "tidy" };
 }
 
 /** Saves the answers and applies the plan. Gmail filters only for "Tidy for me". */
@@ -190,20 +185,6 @@ async function startPlan(answers: OnboardingAnswers, readCap: number): Promise<{
   return { tidyFailed };
 }
 
-const WHO_LABEL: Record<Who, string> = {
-  me: "Just me",
-  business: "I run a business",
-  safe: "Keep me safe",
-  busy: "Lots of people email me",
-};
-
-const WHO_ICON: Record<Who, string> = {
-  me: "user",
-  business: "briefcase",
-  safe: "shield-check",
-  busy: "users",
-};
-
 export function wireSetup(select: (screen: string) => Promise<void>): void {
   const root = $("setup-flow");
   if (!root) return;
@@ -233,7 +214,6 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   let saidHello = false;
   // What just changed, so only that piece animates on the next render.
   let picked = "";
-  let couldGo = false;
   let shown = new Set<string>();
   // Counted on the plan screen (16 quota units, nothing read). Only a mailbox
   // over 20,000 gets the question; smaller ones are read in full.
@@ -285,40 +265,13 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     const row = el("div", "onb-nav");
     if (at > 0) row.append(button("Back", "onb-btn ghost", () => goTo(at - 1)));
     row.append(el("span", "grow"));
-    if (STEPS[at] !== "plan") row.append(button("Skip", "onb-btn ghost", () => goTo(at + 1)));
     const next = button(label, "onb-btn dark", go, !canGo);
     next.id = STEPS[at] === "plan" ? "setup-go" : "setup-next";
-    // Continue lifts once when it unlocks.
-    if (canGo && !couldGo) next.classList.add("ready");
-    couldGo = canGo;
     row.append(next);
     return row;
   };
 
   const heading = (title: string) => [el("h1", "onb-title", title)];
-
-  function renderWho(body: HTMLElement) {
-    body.append(...heading("What describes you?"));
-    const opts = el("div", "onb-opts");
-    opts.setAttribute("role", "group");
-    opts.setAttribute("aria-label", "What describes you");
-    const choices: Array<[Who, string, string, string]> = [
-      ["me", "", "user", "blue"],
-      ["business", "", "briefcase", "orange"],
-      ["safe", "", "shield-check", "indigo"],
-      ["busy", "", "users", "purple"],
-    ];
-    for (const [who, sub, ic, tone] of choices) {
-      const b = option(`who-${who}`, WHO_LABEL[who], sub, ic, tone, answers.who === who, () => {
-        // A new answer re-seeds the next screens, like Apple Music's artists from your genres.
-        answers = { ...answers, who, keep: [...SEEDS[who].keep], hands: SEEDS[who].hands };
-        render();
-      });
-      b.dataset.who = who;
-      opts.append(b);
-    }
-    body.append(opts, nav(Boolean(answers.who)));
-  }
 
   function renderKeep(body: HTMLElement) {
     body.append(
@@ -366,7 +319,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       option(
         "tidy",
         "Tidy for me",
-        "New mail sorts itself, and you can undo",
+        "New mail sorts itself",
         "sparkles",
         "purple",
         answers.hands === "tidy",
@@ -445,8 +398,8 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
           go.classList.add("done");
         }
         kai.say(tidyFailed ? "Saved. Turn on the filters in Labels." : KAI_LINES.done, "happy");
-        // Let Kai's line land before Home opens.
-        await new Promise((r) => window.setTimeout(r, 1100));
+        // Long enough to see "All set", short enough not to wait on it.
+        await new Promise((r) => window.setTimeout(r, 400));
         await select("overview");
       } catch (err) {
         log.error("Setup could not be saved", err);
@@ -464,12 +417,10 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     );
   }
 
-  /** The preview card: who you are, then the plan so far. New rows rise in. */
+  /** The preview card: the plan so far. New rows rise in. */
   function renderCard() {
-    const plan = buildOnboardingPlan(answers);
-    const rows: Array<{ text: string; icon: string }> = [];
-    if (answers.who) rows.push({ text: WHO_LABEL[answers.who], icon: WHO_ICON[answers.who] });
-    rows.push(...plan.lines);
+    const rows = buildOnboardingPlan(answers).lines;
+    art.classList.toggle("is-plan", STEPS[at] === "plan");
     const now = new Set(rows.map((r) => r.text));
     cardList.replaceChildren(
       ...rows.map((r) => {
@@ -485,7 +436,6 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   function render(newStep = false) {
     const step = STEPS[at];
     if (newStep) {
-      couldGo = true;
       picked = "";
       kai.say(KAI_LINES[step], step === "plan" ? "proud" : undefined);
       if (!saidHello) {
@@ -497,7 +447,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     dots.setAttribute("aria-label", `Step ${at + 1} of ${STEPS.length}`);
     STEPS.forEach((_, i) => dots.append(el("i", i < at ? "on" : i === at ? "on now" : "")));
     const body = el("div", newStep ? "onb-body onb-in" : "onb-body");
-    ({ who: renderWho, keep: renderKeep, hands: renderHands, plan: renderPlan })[step](
+    ({ keep: renderKeep, hands: renderHands, plan: renderPlan })[step](
       body,
     );
     pane.replaceChildren(dots, body);

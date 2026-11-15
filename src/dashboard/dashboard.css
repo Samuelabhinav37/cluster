@@ -327,10 +327,16 @@ a:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * {
-    transition: none !important;
-    animation: none !important;
+  *, *::before, *::after {
+    animation-duration: 0.2s !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.2s !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
   }
+  .onb-in > *, .onb-plan li, .onb-card-list li.new, .connect-glass, .kg-panel, .kg-msg, .onb-bubble.pop { animation-name: onb-fade !important; }
+  .onb-opt:active, .onb-btn:active, .btn:active, .chip:active, .tool:active, .connect-btn:active { transform: none; }
+  .sort-ring.is-looking::after, .sort-preview-bucket.active > i { animation-duration: 2.4s !important; }
 }
 
 /* ── Shell ─────────────────────────────────────────────────────────────── */
@@ -934,7 +940,7 @@ a:hover {
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
-  transition: left 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: left var(--t-fast) var(--spring-smooth);
 }
 
 .switch[aria-checked="true"] > span {
@@ -1284,7 +1290,7 @@ body[data-state="connect"] .screen {
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   color: #fff;
-  animation: connect-rise 0.8s 0.3s both;
+  animation: connect-rise var(--t-slow) var(--ease-out) both;
 }
 
 .connect-glass li {
@@ -1316,13 +1322,10 @@ body[data-state="connect"] .screen {
 }
 
 @keyframes connect-rise {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .connect-glass { animation: none; }
-}
 
 @media (max-width: 900px) {
   .connect-gate { grid-template-columns: 1fr; }
@@ -1961,7 +1964,7 @@ input.switch:disabled {
 /* First-run setup: steps on the left; on the right the sign-in photo, Kai, and
    a card that fills in as you answer (research/2026-10-29-onboarding-audit.md). */
 .onb {
-  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --spring: var(--spring-snappy);
   position: fixed;
   inset: 0;
   z-index: 30;
@@ -2003,17 +2006,11 @@ body[data-screen="setup"] .index-status {
 .onb-dots i.on { background: var(--label-4); }
 .onb-dots i.now { width: 28px; background: var(--label); }
 .onb-body { display: flex; flex-direction: column; gap: 12px; }
-.onb-in > * { animation: onb-rise 0.45s both; }
-.onb-in > :nth-child(2) { animation-delay: 40ms; }
-.onb-in > :nth-child(3) { animation-delay: 80ms; }
-.onb-in > :nth-child(n + 4) { animation-delay: 120ms; }
+.onb-in > * { animation: onb-rise var(--t) var(--ease-out) both; }
+.onb-in > :nth-child(2) { animation-delay: 30ms; }
+.onb-in > :nth-child(n + 3) { animation-delay: 60ms; }
 .onb-title { margin: 0; font: 400 clamp(32px, 4vw, 46px)/1.08 var(--font); letter-spacing: -0.02em; color: var(--label); }
 .onb-opts { display: grid; gap: 8px; }
-.onb-in .onb-opt { animation: onb-rise 0.4s both; }
-.onb-in .onb-opt:nth-child(2) { animation-delay: 160ms; }
-.onb-in .onb-opt:nth-child(3) { animation-delay: 200ms; }
-.onb-in .onb-opt:nth-child(4) { animation-delay: 240ms; }
-.onb-in .onb-opt:nth-child(5) { animation-delay: 280ms; }
 
 .onb-opt {
   display: flex;
@@ -2025,14 +2022,13 @@ body[data-screen="setup"] .index-status {
   border: 1px solid var(--separator);
   border-radius: 14px;
   background: var(--canvas);
-  transition: border-color 0.15s, transform 0.2s var(--spring), box-shadow 0.2s;
+  transition: border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--spring);
 }
 
-.onb-opt:hover { border-color: var(--label-4); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08); }
+.onb-opt:hover { border-color: var(--label-4); }
 .onb-opt:active { transform: scale(0.98); }
 .onb-opt[aria-pressed="true"] { border-color: var(--label); box-shadow: inset 0 0 0 1px var(--label); }
 .onb-opt[aria-disabled="true"] { cursor: default; transform: none; }
-.onb-opt.picked .onb-ic { animation: onb-nudge 0.4s var(--spring); }
 
 .onb-ic { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 22.5%; color: #fff; box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.25); }
 .onb-ic .i { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -2057,7 +2053,7 @@ body[data-screen="setup"] .index-status {
 .onb-read { display: grid; gap: 8px; margin-top: 18px; }
 .onb-read-title { margin: 0; font: 600 15px/1.4 var(--font); color: var(--label); }
 .onb-plan { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
-.onb-plan li { display: flex; align-items: flex-start; gap: 12px; animation: onb-rise 0.45s calc(var(--i, 0) * 90ms + 150ms) both; }
+.onb-plan li { display: flex; align-items: flex-start; gap: 12px; animation: onb-rise var(--t) var(--ease-out) calc(var(--i, 0) * 40ms) both; }
 .onb-glyph { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--neutral-fill); color: var(--label-2); }
 .onb-glyph .i { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 .onb-plan span { display: flex; flex-direction: column; font: 500 15px/1.4 var(--font); color: var(--label); }
@@ -2069,7 +2065,6 @@ body[data-screen="setup"] .index-status {
 .onb-btn:active { transform: scale(0.96); }
 .onb-btn.dark { background: var(--label); color: var(--canvas); }
 .onb-btn.dark:disabled { opacity: 0.3; cursor: default; transform: none; }
-.onb-btn.dark.ready { animation: onb-lift 0.5s var(--spring); }
 .onb-btn.dark.done { background: var(--success-text, #1f9d63); color: #fff; opacity: 1; }
 .onb-btn.ghost { background: none; color: var(--label-2); }
 .onb-btn.ghost:hover { color: var(--label); background: var(--neutral-fill); }
@@ -2140,21 +2135,16 @@ body[data-screen="setup"] .index-status {
 .onb-card-list { margin: 0; padding: 0; list-style: none; }
 .onb-card-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; font: 500 13.5px/1.35 var(--font); }
 .onb-card-list li + li { border-top: 1px solid rgba(255, 255, 255, 0.14); }
-.onb-card-list li.new { animation: onb-rise 0.45s var(--spring) both; }
+.onb-card-list li.new { animation: onb-rise var(--t) var(--ease-out) both; }
 .onb-card-list .onb-glyph { width: 26px; height: 26px; background: rgba(255, 255, 255, 0.14); color: rgba(255, 255, 255, 0.9); }
 .onb-card-empty { opacity: 0.7; font-weight: 400; }
 
-@keyframes onb-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes onb-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes onb-fade { from { opacity: 0; } }
-@keyframes onb-pop { 0% { transform: scale(0.6); } 100% { transform: scale(1); } }
+@keyframes onb-pop { 0% { transform: scale(0.8); } 100% { transform: scale(1); } }
 @keyframes onb-draw { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
-@keyframes onb-nudge { 50% { transform: scale(1.12) rotate(-6deg); } }
-@keyframes onb-lift { 40% { transform: translateY(-3px) scale(1.04); } }
 @keyframes onb-bubble { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: none; } }
 
-@media (prefers-reduced-motion: reduce) {
-  .onb *, .onb *::after { animation-duration: 1ms !important; animation-delay: 0ms !important; transition-duration: 1ms !important; transition-delay: 0ms !important; }
-}
 
 @media (max-width: 900px) {
   .onb { grid-template-columns: 1fr; }
@@ -2595,7 +2585,7 @@ body {
   stroke-linecap: round;
   stroke-linejoin: round;
   transform-box: fill-box;
-  transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform var(--t) var(--spring-smooth);
 }
 
 .nav-item:hover svg.nav-icon,
@@ -2684,7 +2674,7 @@ body {
   box-shadow: 0 8px 20px rgba(0, 0, 0, .3); cursor: pointer;
   transform-origin: calc(100% - var(--kg-kai) / 2) calc(100% + 6px);
   opacity: 0; transform: translateY(6px) scale(.85); pointer-events: none;
-  transition: opacity .22s ease, transform .32s cubic-bezier(.2, .9, .3, 1.2), border-color .2s ease, width .3s cubic-bezier(.2, .8, .2, 1);
+  transition: opacity .22s ease, transform var(--t) var(--spring-snappy), border-color .2s ease, width .3s cubic-bezier(.2, .8, .2, 1);
 }
 .kg-tag::after {
   content: ""; position: absolute; right: calc(var(--kg-kai) / 2 - 5px); bottom: -5px; width: 9px; height: 9px;
@@ -2703,10 +2693,10 @@ body {
   display: flex; flex-direction: column; overflow: hidden;
   border-radius: 24px; background: var(--glass-solid); border: 1px solid var(--hairline);
   box-shadow: 0 28px 70px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .05);
-  transform-origin: calc(100% - 40px) 100%; animation: kg-open .4s cubic-bezier(.2, .9, .25, 1.05);
+  transform-origin: calc(100% - 40px) 100%; animation: kg-open var(--t) var(--spring-smooth);
 }
 .kg-panel[hidden] { display: none; }
-@keyframes kg-open { from { opacity: 0; transform: scale(.6) translateY(10px); } }
+@keyframes kg-open { from { opacity: 0; transform: scale(.92) translateY(6px); } }
 /* a thin light runs round the edge while Kai thinks */
 .kg-panel::before {
   content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
@@ -4243,7 +4233,6 @@ section[data-screen="impersonation"] > .tabs .tab-count { margin-left: 6px; padd
 @keyframes sort-turn { to { transform: rotate(1turn); } }
 @keyframes sort-draw { to { stroke-dashoffset: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .sort-ring.is-looking::after, .sort-preview-bucket.active > i { animation: none; }
   .sort-check path { animation: none; stroke-dashoffset: 0; }
 }
 
@@ -4338,7 +4327,7 @@ section[data-screen="impersonation"] .stack > *, #security-sender-list > * { bor
 
 /* Switches are green when on, like iOS and macOS. */
 input.switch:checked { background: var(--switch-on); }
-input.switch::after { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 0.2s cubic-bezier(.3, .7, .4, 1); }
+input.switch::after { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform var(--t-fast) var(--spring-smooth); }
 
 /* Soft focus ring and a button press that gives a little. */
 :focus-visible { outline: 3px solid color-mix(in srgb, var(--focus-ring) 55%, transparent); outline-offset: 1px; }
@@ -4380,3 +4369,18 @@ body.ov-scanning[data-screen="overview"] #index-status { display: none; }
 .home-read { padding: 20px 24px; border-radius: 12px; background: var(--glass); }
 .home-read .home-words { max-width: none; }
 .home-read .home-verdict { margin: 0 0 4px; font: 600 20px/1.2 var(--font-display); color: var(--label); }
+
+/* Motion: Apple's no-bounce spring by default (SwiftUI .smooth), a touch of
+   bounce for small pops (.snappy), apple.com's easing for fades
+   (research/2026-11-15-animation-onboarding-apple.md). */
+:root {
+  --ease: cubic-bezier(0.4, 0, 0.6, 1);
+  --ease-out: cubic-bezier(0.25, 0.1, 0.3, 1);
+  --spring-smooth: linear(0, 0.06, 0.186, 0.329, 0.466, 0.584, 0.682, 0.76, 0.821, 0.868, 0.903, 0.929, 0.949, 0.963, 0.973, 0.981, 1);
+  --spring-snappy: linear(0, 0.062, 0.198, 0.356, 0.509, 0.642, 0.75, 0.833, 0.895, 0.938, 0.967, 0.985, 0.996, 1.003, 1.005, 1.006, 1);
+  --t-fast: 0.2s;
+  --t: 0.3s;
+  --t-slow: 0.5s;
+}
+/* The plan is on the left already, so the preview card steps aside. */
+.onb-art.is-plan .onb-card { visibility: hidden; }

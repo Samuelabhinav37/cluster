@@ -26,15 +26,6 @@ export interface OnboardingPlan {
   persona: "calm" | "business" | "safe" | "busy";
 }
 
-/** Question 1 pre-ticks the later screens, like Apple Music's artists from your genres. */
-export const SEEDS: Record<Who, Pick<OnboardingAnswers, "keep" | "hands">> = {
-  // Nothing pre-ticked: labelled mail leaves after an hour unless the user keeps it.
-  me: { keep: ["people"], hands: "tidy" },
-  business: { keep: ["people"], hands: "tidy" },
-  safe: { keep: ["people"], hands: "tidy" },
-  busy: { keep: ["people"], hands: "tidy" },
-};
-
 export const PERSONA_OF: Record<Who, OnboardingPlan["persona"]> = {
   me: "calm",
   business: "business",
