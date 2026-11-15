@@ -202,7 +202,7 @@ export interface ClusterSettings {
     /** When all read mail (archived too) was last checked for missing labels. */
     lastRelabelAt: number;
     /** Label swaps made in Gmail, per sender, not yet learned (learnFromMoves.ts). */
-    moveVotes: Record<string, { bucket: SortBucket; n: number }>;
+    moveVotes: Record<string, { bucket: SortBucket | "personal"; n: number }>;
   };
   /** Per-sender "wrong bucket?" corrections from the sort preview, keyed by
    * lowercased from-address → a bucket to force, or "never" to skip. Consulted

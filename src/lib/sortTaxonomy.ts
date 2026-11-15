@@ -136,8 +136,26 @@ export function classifySortBucket(
   return KIND_BUCKET[kind] ?? byCategory ?? null;
 }
 
-/** A user's correction for one sender: force a bucket, or never sort them. */
-export type SortOverride = "never" | SortBucket;
+/** A user's correction for one sender: force a bucket, file them under
+ * Personal, or never sort them. */
+export type SortOverride = "never" | "personal" | SortBucket;
+
+/** The user's correction for this sender, if any: for this mailbox (any
+ * spelling, or as older builds saved it), then its address pattern
+ * (bounce-*@host), then the domain ("@host"). */
+export function overrideFor(
+  senderAddress: string,
+  senderDomain: string,
+  overrides: Record<string, SortOverride>,
+): SortOverride | undefined {
+  const pattern = senderPattern(senderAddress);
+  return (
+    overrides[canonicalAddress(senderAddress)] ??
+    overrides[senderAddress.toLowerCase()] ??
+    (pattern ? overrides[pattern] : undefined) ??
+    overrides[`@${senderDomain.toLowerCase()}`]
+  );
+}
 
 /**
  * classifySortBucket, but a per-sender override (from a "wrong bucket?"
@@ -152,15 +170,9 @@ export function effectiveBucket(
   overrides: Record<string, SortOverride>,
   promotion = false,
 ): SortBucket | null {
-  // A correction for this mailbox (any spelling of it, or as older builds saved
-  // it), then for its address pattern (bounce-*@host), then for the domain.
-  const pattern = senderPattern(senderAddress);
-  const override =
-    overrides[canonicalAddress(senderAddress)] ??
-    overrides[senderAddress.toLowerCase()] ??
-    (pattern ? overrides[pattern] : undefined) ??
-    overrides[`@${senderDomain.toLowerCase()}`];
-  if (override === "never") return null;
+  const override = overrideFor(senderAddress, senderDomain, overrides);
+  // Personal isn't a label bucket: the unsorted pass files it.
+  if (override === "never" || override === "personal") return null;
   if (override) return override;
   return classifySortBucket(kind, senderDomain, promotion, senderAddress);
 }

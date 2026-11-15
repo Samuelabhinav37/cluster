@@ -5,7 +5,7 @@
 import { appendActionLog, makeLogId } from "./actionLog";
 import { categoryLabelName, desiredCategoryFilters, syncGmailCategoryFilters } from "./categoryFilters";
 import { batchModify, colorClusterLabels, findLabelIds, getOrCreateLabel, listLabels, listMessageIds } from "./gmailApi";
-import { movedTo, tallyMoves, type LabelMove } from "./learnFromMoves";
+import { movedTo, tallyMoves, type LabelMove, type MoveTarget } from "./learnFromMoves";
 import {
   holdUnsortedInbox,
   labelBySearch,
@@ -507,11 +507,15 @@ async function searchLabelInbox(token: string, settings: ClusterSettings, limits
  * twice for the same one. The next run rewrites the filters to match. */
 export async function learnFromLabelMoves(token: string, moves: LabelMove[]): Promise<void> {
   const settings = await getSettings();
-  const byName = new Map(ALL_SORT_BUCKETS.map((b) => [categoryLabelName(b, settings.labelChoices), b]));
-  const bucketOf = new Map((await listLabels(token)).flatMap((l) => (byName.has(l.name) ? [[l.id, byName.get(l.name)!] as const] : [])));
-  const moved = movedTo(moves, bucketOf);
+  const byName = new Map<string, MoveTarget>(ALL_SORT_BUCKETS.map((b) => [categoryLabelName(b, settings.labelChoices), b]));
+  byName.set(clusterLabelName("personal"), "personal");
+  const labels = await listLabels(token);
+  const bucketOf = new Map(labels.flatMap((l) => (byName.has(l.name) ? [[l.id, byName.get(l.name)!] as const] : [])));
+  // Taking mail out of the Screener into a label teaches too.
+  const fromIds = new Set([...bucketOf.keys(), ...labels.filter((l) => l.name === clusterLabelName("screener")).map((l) => l.id)]);
+  const moved = movedTo(moves, bucketOf, fromIds);
   if (moved.length === 0) return;
-  let learned: Array<[string, SortBucket]> = [];
+  let learned: Array<[string, MoveTarget]> = [];
   await mutateSettings((current) => {
     const res = tallyMoves(current.autoSort.moveVotes, moved, current.sortOverrides);
     learned = res.learned;
@@ -528,7 +532,7 @@ export async function learnFromLabelMoves(token: string, moves: LabelMove[]): Pr
       id: makeLogId("sort"),
       at: now,
       kind: "sort" as const,
-      summary: `Learned from Gmail: ${address} goes to ${categoryLabelName(bucket, settings.labelChoices).replace(/^\S+\s/, "")}`,
+      summary: `Learned from Gmail: ${address} goes to ${(bucket === "personal" ? clusterLabelName("personal") : categoryLabelName(bucket, settings.labelChoices)).replace(/^\S+\s/, "")}`,
     })),
   );
 }

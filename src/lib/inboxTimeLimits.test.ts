@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { MessageKind } from "./messageKind";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import {
+  bucketsFor,
   dueForMove,
   holdUnsortedInbox,
   labelBySearch,
@@ -321,6 +322,23 @@ describe("holdUnsortedInbox", () => {
     const off = await holdUnsortedInbox(c, api, "✋ Screener", 0, "👤 Personal", false);
     expect(off.heldIds).toEqual([]);
     expect(off.personalIds).toEqual(["p1", "r1", "y1", "c1"]);
+  });
+
+  it("a correction beats the person checks: Personal on request, a label for someone you wrote to", async () => {
+    const senders = [
+      sender("hr@school.example", [msg("h1", "other", { looksAutomated: true })]),
+      sender("recruiter@staffing.example", [msg("r1", "other")]),
+    ];
+    const api = fakeApi({}, senders);
+    api.listIds.mockResolvedValue(["h1", "r1"]);
+    const c = ctx({
+      known: new Set(["recruiter@staffing.example"]),
+      overrides: { "hr@school.example": "personal", "recruiter@staffing.example": "finance" },
+    });
+    const res = await holdUnsortedInbox(c, api, "✋ Screener", 0, "👤 Personal");
+    expect(res.personalIds).toEqual(["h1"]);
+    expect(res.heldIds).toEqual([]);
+    expect(bucketsFor(senders, c).get("finance")).toEqual(["r1"]);
   });
 
   it("does nothing when nothing is unsorted", async () => {

@@ -32,3 +32,28 @@ describe("learn from Gmail moves", () => {
     expect(tallyMoves({}, [["a@x.com", "shopping"]], { "a@x.com": "shopping" })).toEqual({ votes: {}, learned: [] });
   });
 });
+
+describe("moves out of the Screener and into Personal", () => {
+  it("counts a move out of the Screener into a label, and a move into Personal", () => {
+    const targets = new Map<string, "jobs" | "personal">([
+      ["LJ", "jobs"],
+      ["LP", "personal"],
+    ]);
+    const from = new Set(["LJ", "LP", "LS"]);
+    expect(
+      movedTo(
+        [
+          { address: "recruiter@staffing.example", added: ["LJ"], removed: ["LS"] },
+          { address: "friend@corp.example", added: ["LP"], removed: ["LJ"] },
+          // Screener back to the inbox teaches nothing.
+          { address: "x@y.example", added: ["INBOX"], removed: ["LS"] },
+        ],
+        targets,
+        from,
+      ),
+    ).toEqual([
+      ["recruiter@staffing.example", "jobs"],
+      ["friend@corp.example", "personal"],
+    ]);
+  });
+});

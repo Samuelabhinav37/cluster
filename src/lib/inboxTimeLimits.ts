@@ -15,7 +15,7 @@ import { domainOf } from "./domainGrouping";
 import { isRoleAddress } from "./freeMail";
 import { neverMove } from "./protectionPolicy";
 import type { MessageRecord, SenderSummary } from "./senderModel";
-import { effectiveBucket, type SortBucket, type SortOverride } from "./sortTaxonomy";
+import { effectiveBucket, overrideFor, type SortBucket, type SortOverride } from "./sortTaxonomy";
 import { riskTier, senderRiskScore } from "./threatSignals";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -66,7 +66,15 @@ function epochSeconds(ms: number): number {
 
 /** Senders whose mail must never be moved or auto-labelled. */
 function skipSender(sender: SenderSummary, known: Set<string>): boolean {
-  return known.has(sender.address.toLowerCase()) || riskTier(senderRiskScore(sender.threatSignals)) === "high";
+  return known.has(sender.address.toLowerCase()) || isRisky(sender);
+}
+
+function isRisky(sender: SenderSummary): boolean {
+  return riskTier(senderRiskScore(sender.threatSignals)) === "high";
+}
+
+function isBucket(o: SortOverride | undefined): o is SortBucket {
+  return o !== undefined && o !== "never" && o !== "personal";
 }
 
 /** Ids the sweep must leave in the inbox, newest last and capped: mail it
@@ -89,15 +97,18 @@ export interface TagResult {
 }
 
 /** Which label each message belongs under. Mail that must stay put (known or
- * risky senders, starred, never-move) and mail that fits no label is left out. */
+ * risky senders, starred, never-move) and mail that fits no label is left out,
+ * unless the user filed the sender under a label themselves: their
+ * correction beats "you've written to them" (a recruiter you replied to). */
 export function bucketsFor(senders: SenderSummary[], ctx: LimitContext): Map<SortBucket, string[]> {
   const wanted = new Set(ctx.limits.map((l) => l.bucket));
   const groups = new Map<SortBucket, string[]>();
   for (const sender of senders) {
-    if (skipSender(sender, ctx.known)) continue;
     const domain = domainOf(sender.address);
+    const corrected = isBucket(overrideFor(sender.address, domain, ctx.overrides));
+    if (corrected ? isRisky(sender) : skipSender(sender, ctx.known)) continue;
     for (const msg of sender.messages) {
-      if (msg.isProtected || neverMove(msg, sender.address)) continue;
+      if (!corrected && (msg.isProtected || neverMove(msg, sender.address))) continue;
       const bucket = effectiveBucket(msg.kind, domain, sender.address, ctx.overrides, msg.promotion);
       if (!bucket || !wanted.has(bucket)) continue;
       const list = groups.get(bucket) ?? [];
@@ -267,11 +278,16 @@ export async function holdUnsortedInbox(
   let oldest = Infinity;
   for (const sender of await api.readSenders(ids)) {
     for (const msg of sender.messages) oldest = Math.min(oldest, msg.receivedAt);
-    if (riskTier(senderRiskScore(sender.threatSignals)) === "high") continue;
+    if (isRisky(sender)) continue;
     const known = ctx.known.has(sender.address.toLowerCase());
     const domain = domainOf(sender.address);
+    const override = overrideFor(sender.address, domain, ctx.overrides);
+    // Filed under a label by the user: the tagger labels it.
+    if (isBucket(override)) continue;
     for (const msg of sender.messages) {
-      const personal = known || msg.repliesToYou || writtenByPerson(msg, sender.address) || CALENDAR_RE.test(msg.subject ?? "");
+      const personal =
+        override === "personal" ||
+        (override !== "never" && (known || msg.repliesToYou || writtenByPerson(msg, sender.address) || CALENDAR_RE.test(msg.subject ?? "")));
       if (personal) {
         if (personalLabelName) personalIds.push(msg.id);
         continue;
