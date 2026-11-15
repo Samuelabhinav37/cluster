@@ -255,7 +255,7 @@ export interface HealthSnapshot {
 const STORAGE_KEY = "clusterSettings";
 /** A scan window that reaches the first email (Gmail began in 2004). */
 export const ALL_MAIL_DAYS = 36500;
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 18;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 19;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -275,7 +275,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   onboardingDismissed: false,
   snoozedMessages: {},
   replyReminders: { enabled: false, days: 3, reminded: {} },
-  securityRules: { toSpam: false, holdAuthFails: false },
+  securityRules: { toSpam: true, holdAuthFails: false },
   newsletterDay: { enabled: false, lastDelivered: 0 },
   rules: [],
   ruleFilters: {},
@@ -475,6 +475,11 @@ function migrateSettings(value: unknown): Record<string, unknown> {
         autoSort: "keptInInboxIds" in autoSort ? { ...autoSort, keptInInboxIds: [] } : autoSort,
       };
       version = 18;
+    } else if (version === 18) {
+      // Mail that looks like a scam goes to Gmail's Spam (user, Nov 2026).
+      const rules = isRecord(stored.securityRules) ? stored.securityRules : {};
+      stored = { ...stored, schemaVersion: 19, securityRules: { ...rules, toSpam: true } };
+      version = 19;
     }
   }
   return stored;
