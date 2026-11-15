@@ -77,7 +77,7 @@ export function buildSortPlan(
       const promotion =
         senderKind === "promotion" ||
         (senderKind === undefined || senderKind === "mixed" || senderKind === "list" ? msg.promotion : false);
-      const bucket = effectiveBucket(kind, domain, sender.address, overrides, promotion);
+      const bucket = effectiveBucket(kind, domain, sender.address, overrides, promotion, msg);
       if (!bucket) continue;
 
       let entry = byBucket.get(bucket);

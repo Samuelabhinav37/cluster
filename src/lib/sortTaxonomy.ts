@@ -7,6 +7,7 @@ import { canonicalAddress, senderPattern } from "./addressIdentity";
 import { isFreeMailDomain } from "./freeMail";
 import { categorizeDomain, isJobAddress, type DomainCategory } from "./domainCategories";
 import type { MessageKind } from "./messageKind";
+import type { SendingEvidence } from "./sendingEvidence";
 import { clusterLabelName } from "./clusterLabels";
 
 export type SortBucket =
@@ -119,16 +120,26 @@ const CATEGORY_BUCKET: Partial<Record<DomainCategory, SortBucket>> = {
  * Kind takes priority, then Gmail's Promotions tab (an ad is an ad whoever
  * sends it), then the sender's category.
  */
+/** What else a message says about itself, beyond its subject and sender. */
+export interface SortHints {
+  /** The Gmail tab: Google's own call on what the mail is. */
+  tab?: string;
+  /** Domains whose DKIM signature passed: the company that really sent it. */
+  dkimDomains?: string[];
+  sentBy?: SendingEvidence;
+}
+
 export function classifySortBucket(
   kind: MessageKind,
   senderDomain: string,
   promotion = false,
   senderAddress = "",
+  hints: SortHints = {},
 ): SortBucket | null {
   // A free-mail address is a person or someone posing as a company: an
   // "invoice" or "order" from one goes to the Screener, never a label.
   if (isFreeMailDomain(senderDomain)) return null;
-  const byCategory = isJobAddress(senderAddress) ? "jobs" : CATEGORY_BUCKET[categorizeDomain(senderDomain)];
+  const byCategory = isJobAddress(senderAddress) ? "jobs" : CATEGORY_BUCKET[senderCategory(senderDomain, hints.dkimDomains)];
   // Any list mail has an unsubscribe link, so "newsletter" alone can't tell
   // an ad from news; Gmail's Promotions tab can.
   // The tab also beats the sender's domain: Microsoft 365's Copilot ad is an
@@ -138,6 +149,13 @@ export function classifySortBucket(
   // An unsubscribe link only says "list mail"; a sender we know (a bank, a
   // school, an airline) says more. LIC's premium reminder is Finance, not news.
   if (kind === "newsletter" && byCategory) return byCategory;
+  // Gmail's Social tab is a social network's mail; a subject that only sounds
+  // social ("Jane commented") from an unknown sender outside it is not.
+  if (hints.tab === "social" && (kind === "newsletter" || kind === "other")) return byCategory ?? "social";
+  if (kind === "social" && !byCategory && hints.tab !== undefined && hints.tab !== "social") return null;
+  // Typed in a person's mail app at a company we don't know: "Question about
+  // the invoice" from a colleague is a conversation, not a receipt.
+  if (hints.sentBy === "person-app" && !byCategory) return null;
   // A bank's statement or a hotel's booking belongs with the company, not in
   // Receipts: the sender's own category is the stronger signal (Grbovic et
   // al., CIKM 2014). Codes, account notices and shipping keep their label.
@@ -180,10 +198,23 @@ export function effectiveBucket(
   senderAddress: string,
   overrides: Record<string, SortOverride>,
   promotion = false,
+  hints: SortHints = {},
 ): SortBucket | null {
   const override = overrideFor(senderAddress, senderDomain, overrides);
   // Personal isn't a label bucket: the unsorted pass files it.
   if (override === "never" || override === "personal") return null;
   if (override) return override;
-  return classifySortBucket(kind, senderDomain, promotion, senderAddress);
+  return classifySortBucket(kind, senderDomain, promotion, senderAddress, hints);
+}
+
+/** The sender's category, or, when its From domain is on no list, the
+ * category of a domain that signed the mail (Gmail checked the signature). */
+export function senderCategory(senderDomain: string, dkimDomains: readonly string[] = []): DomainCategory {
+  const own = categorizeDomain(senderDomain);
+  if (own !== "other") return own;
+  for (const d of dkimDomains) {
+    const signed = categorizeDomain(d);
+    if (signed !== "other") return signed;
+  }
+  return own;
 }

@@ -334,9 +334,11 @@ const ROLE_WORDS = new Set(
   ].map(skeleton),
 );
 
+// The brand alone, or with any mailbox word ("PayPal Resolution Center" has
+// "center"): a person sharing the name ("Chase Miller") uses none.
 function soundsOfficial(displayName: string, brand: string): boolean {
-  const rest = skeleton(displayName).replace(skeleton(brand), " ");
-  return rest.split(/[^a-z0-9]+/).every((word) => word === "" || ROLE_WORDS.has(word));
+  const rest = skeleton(displayName).replace(skeleton(brand), " ").split(/[^a-z0-9]+/).filter(Boolean);
+  return rest.length === 0 || rest.some((word) => ROLE_WORDS.has(word));
 }
 
 // Platforms a company signs up for to mail people under its own name: hiring

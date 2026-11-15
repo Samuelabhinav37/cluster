@@ -10,6 +10,11 @@ import type { SenderSummary } from "./senderModel";
 // "Support Team" and "Accounts Payable" are mailboxes, not people.
 const ROLE_WORD = /^(support|team|service|services|customer|billing|accounts?|payable|notifications?|alerts?|security|help|desk|center|centre|care|info|admin|office|department|dept|hr|sales|marketing|news|rewards?|recruiting|careers)$/;
 
+/** A display name made of mailbox words: "Billing Office", "Support Team". */
+export function isMailboxName(raw: string): boolean {
+  return raw.toLowerCase().split(/[^a-z]+/).some((w) => ROLE_WORD.test(w));
+}
+
 function fullName(raw: string): string | undefined {
   const name = raw.toLowerCase().replace(/["'“”]/g, "").replace(/\s+/g, " ").trim();
   const words = name.split(" ");

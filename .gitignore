@@ -3,3 +3,6 @@ dist
 .vite
 coverage
 cluster.zip
+
+# Real mail exported for the replay test (src/lib/replayMailbox.test.ts)
+replay/

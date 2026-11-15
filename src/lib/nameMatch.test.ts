@@ -81,3 +81,12 @@ describe("alias lookalikes", () => {
     expect(senderVerdict(corp, { knownCorrespondent: false }).tier).toBe("warn");
   });
 });
+
+describe("isMailboxName", () => {
+  it("mailbox words make a mailbox; a person's name doesn't", async () => {
+    const { isMailboxName } = await import("./nameMatch");
+    expect(isMailboxName("PayPal Resolution Center")).toBe(true);
+    expect(isMailboxName("Billing Office")).toBe(true);
+    expect(isMailboxName("Maya Lee")).toBe(false);
+  });
+});

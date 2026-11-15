@@ -13,6 +13,7 @@ import {
   type AuthVerdict,
 } from "./emailAuth";
 import { registrableDomain } from "./registrableDomain";
+import { sendingEvidence, type SendingEvidence } from "./sendingEvidence";
 import type {
   EmailProvider,
   NormalizedMessageMetadata,
@@ -61,6 +62,9 @@ export interface MessageRecord {
   purchase?: boolean;
   /** The Gmail inbox tab it sits in. Unset for providers without tabs. */
   tab?: InboxTab;
+  /** A sending service or a person's mail app, from Return-Path,
+   * Message-ID and Feedback-ID (sendingEvidence.ts). */
+  sentBy?: SendingEvidence;
   /** Registrable domains of the DKIM signatures the provider says passed.
    * The sender ledger's signing baseline (senderLedger.ts). */
   dkimDomains?: string[];
@@ -176,6 +180,7 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     looksAutomated: looksAutomated(hasUnsubscribe(meta.unsubscribe), meta.precedence, meta.autoSubmitted, meta.listId || meta.feedbackId),
     promotion: meta.gmailPromotion ?? false,
     tab: inboxTabOf(meta.labelIds),
+    sentBy: sendingEvidence(meta),
     dkimDomains: [...new Set(passingDkimDomains(meta.authenticationResults).map(registrableDomain))],
     replyToDomain: meta.replyToAddress.includes("@")
       ? registrableDomain(meta.replyToAddress.slice(meta.replyToAddress.lastIndexOf("@") + 1))

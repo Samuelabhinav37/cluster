@@ -36,6 +36,7 @@ import { brandName } from "../lib/verdict";
 import { fillToday, pickByLabel, pickToday, type TodayItem } from "../lib/today";
 import { clearMetadataCache } from "../lib/metadataCache";
 import { openMailIndex } from "../lib/mailIndex";
+import { exportReplay } from "./replayExport";
 import {
   catchUpIndex,
   DEFAULT_QUICK_COUNT,
@@ -575,6 +576,8 @@ const KAI_DOCS = CLUSTER_QUESTIONS.map((q) => ({ id: q.id, texts: [q.ask, ...(q.
 let search: { open(): void } | null = null;
 
 async function main() {
+  // DevTools only: saves the mail index for the replay test (replayExport.ts).
+  (globalThis as { clusterExportReplay?: () => Promise<number> }).clusterExportReplay = exportReplay;
   kaiGuide = initKaiGuide(document, {
     questions: CLUSTER_QUESTIONS,
     firstOn: CLUSTER_FIRST_ON,

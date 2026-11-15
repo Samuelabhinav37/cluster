@@ -12,11 +12,11 @@
 // them has run out ("stays in inbox" wins). A person's own note and senders
 // that look like phishing always stay; starred mail leaves and keeps its star.
 import { domainOf } from "./domainGrouping";
-import { categorizeDomain } from "./domainCategories";
 import { isRoleAddress } from "./freeMail";
 import { neverMove } from "./protectionPolicy";
 import type { MessageRecord, SenderSummary } from "./senderModel";
-import { effectiveBucket, overrideFor, type SortBucket, type SortOverride } from "./sortTaxonomy";
+import { isMailboxName } from "./nameMatch";
+import { effectiveBucket, overrideFor, senderCategory, type SortBucket, type SortOverride } from "./sortTaxonomy";
 import { senderVerdict, type VerdictTier } from "./verdict";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -112,9 +112,10 @@ export function bucketsFor(senders: SenderSummary[], ctx: LimitContext): Map<Sor
     const domain = domainOf(sender.address);
     const corrected = isBucket(overrideFor(sender.address, domain, ctx.overrides));
     if (corrected ? scamTier(sender, ctx.known) === "hold" : skipSender(sender, ctx.known)) continue;
+    const buckets = senderBuckets(sender, domain, ctx.overrides);
     for (const msg of sender.messages) {
       if (!corrected && (msg.isProtected || neverMove(msg, sender.address))) continue;
-      const bucket = effectiveBucket(msg.kind, domain, sender.address, ctx.overrides, msg.promotion);
+      const bucket = buckets.get(msg.id);
       if (!bucket || !wanted.has(bucket)) continue;
       const list = groups.get(bucket) ?? [];
       list.push(msg.id);
@@ -122,6 +123,24 @@ export function bucketsFor(senders: SenderSummary[], ctx: LimitContext): Map<Sor
     }
   }
   return groups;
+}
+
+// Codes and account notices are about one message; they never speak for the
+// rest of a sender's mail.
+const PER_MESSAGE = new Set<SortBucket>(["otp", "accounts"]);
+
+/** Each message's label. A message nothing labels takes its sender's usual
+ * label when at least three of the sender's messages, and two in three
+ * overall, share it (Yahoo sorts per sender, not per message: Grbovic et al.,
+ * CIKM 2014). "Your stay is coming up" from a hotel goes with its bookings. */
+export function senderBuckets(sender: SenderSummary, domain: string, overrides: Record<string, SortOverride>): Map<string, SortBucket | null> {
+  const own = new Map(sender.messages.map((m) => [m.id, effectiveBucket(m.kind, domain, sender.address, overrides, m.promotion, m)] as const));
+  const counts = new Map<SortBucket, number>();
+  for (const b of own.values()) if (b && !PER_MESSAGE.has(b)) counts.set(b, (counts.get(b) ?? 0) + 1);
+  const [top, n] = [...counts].sort((a, b) => b[1] - a[1])[0] ?? [];
+  const usual = top && n >= 3 && n * 3 >= own.size * 2 ? top : null;
+  for (const [id, b] of own) if (!b) own.set(id, usual);
+  return own;
 }
 
 export async function tagUntaggedInbox(
@@ -249,7 +268,8 @@ export async function tagOlderInbox(
 export const HOLD_UNSORTED_HOURS = 3;
 const HOLD_MAX = 100;
 // Calendar invites and replies to them are people arranging something.
-const CALENDAR_RE = /^(updated )?invitation:|^(accepted|declined|tentatively accepted|new event|canceled event|cancelled event):/i;
+// A forwarded or answered invite ("Fwd: Invitation: Sync") is still one.
+const CALENDAR_RE = /^((re|fwd?|fw):\s*)*((updated )?invitation|accepted|declined|tentatively accepted|new event|canceled event|cancelled event):/i;
 
 /**
  * Cleans what the labels left in the inbox. Anything that looks personal
@@ -296,10 +316,11 @@ export async function holdUnsortedInbox(
     const override = overrideFor(sender.address, domain, ctx.overrides);
     // Filed under a label by the user: the tagger labels it.
     if (isBucket(override)) continue;
+    const buckets = senderBuckets(sender, domain, ctx.overrides);
     for (const msg of sender.messages) {
       const personal =
         override === "personal" ||
-        (override !== "never" && (known || msg.repliesToYou || (writtenByPerson(msg, sender.address) && !sender.threatSignals.some((t) => t.kind === "lure-language")) || CALENDAR_RE.test(msg.subject ?? "")));
+        (override !== "never" && (known || msg.repliesToYou || (writtenByPerson(msg, sender.address, sender.displayName) && !sender.threatSignals.some((t) => t.kind === "lure-language")) || CALENDAR_RE.test(msg.subject ?? "")));
       if (personal) {
         if (personalLabelName) personalIds.push(msg.id);
         continue;
@@ -307,7 +328,7 @@ export async function holdUnsortedInbox(
       // Without a Personal label (old callers) starred and protected mail stays.
       if (!hold || (!personalLabelName && msg.isProtected)) continue;
       // The tagger will label it; it just hasn't yet.
-      if (effectiveBucket(msg.kind, domain, sender.address, ctx.overrides, msg.promotion)) continue;
+      if (buckets.get(msg.id)) continue;
       heldIds.push(msg.id);
       senders.add(sender.address.toLowerCase());
     }
@@ -321,19 +342,24 @@ export async function holdUnsortedInbox(
 
 /** A person typed it: not a mailing, not automated, not a no-reply or shared
  * mailbox. Such mail stays in the inbox. */
-function writtenByPerson(msg: MessageRecord, address: string): boolean {
-  return msg.kind === "other" && !msg.looksAutomated && !isRoleAddress(address) && !looksLikeCompany(address);
+function writtenByPerson(msg: MessageRecord, address: string, name = ""): boolean {
+  if (isRoleAddress(address) || msg.looksAutomated || msg.sentBy === "service") return false;
+  // Updates, Social and Forums are Gmail's own call that it's machine mail.
+  if (msg.tab && msg.tab !== "primary") return false;
+  if (looksLikeCompany(address, msg.dkimDomains) || isMailboxName(name)) return false;
+  // Sent from a person's mail app, "Invoice for the cabin split" is a friend's.
+  return msg.kind === "other" || msg.sentBy === "person-app";
 }
 
 // A store's or carrier's mail with no bulk headers is still a company:
 // mcinfo@ups.com, store+12345@t.shopifyemail.com. Words in the address
 // (Grbovic et al., CIKM 2014) and sending subdomains say so. Schools are left
 // out: a professor writes from the same .edu as the registrar.
-const COMPANY_TOKEN = /(^|[._+-])(\w*info|store|shop|orders?|tracking|shipping|delivery|invoices?|payments?|billing|receipts?|bookings?|reservations?|tickets?|promo|deals|offers|rewards|surveys?|feedback|digest|updates?|newsletters?|community|events|members?|customer|care|concierge|contact|automated|system|bot)([._+-]|$)/i;
+const COMPANY_TOKEN = /(^|[._+-])(\w*info|store|shop|orders?|accounts?|dept|office|payable|support|security|service|helpdesk|admin|tracking|shipping|delivery|invoices?|payments?|billing|receipts?|bookings?|reservations?|tickets?|promo|deals|offers|rewards|surveys?|feedback|digest|updates?|newsletters?|community|events|members?|customer|care|concierge|contact|automated|system|bot)([._+-]|$)/i;
 const SENDING_SUBDOMAIN = /^(t|e|em|email|mail|mailer|mailing|news|newsletter|info|go|link|links|reply|bounce|notify|notifications?|marketing|comms|alerts?)\./i;
-function looksLikeCompany(address: string): boolean {
+function looksLikeCompany(address: string, dkimDomains: readonly string[] = []): boolean {
   const domain = domainOf(address);
-  const category = categorizeDomain(domain);
+  const category = senderCategory(domain, dkimDomains);
   return (category !== "other" && category !== "education") || SENDING_SUBDOMAIN.test(domain) || COMPANY_TOKEN.test(address.slice(0, address.indexOf("@")));
 }
 

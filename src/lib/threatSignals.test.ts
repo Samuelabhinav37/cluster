@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { refreshBrandDomains, riskTier, scoreMessageForThreats, senderRiskScore } from "./threatSignals";
+import { refreshBrandDomains, riskTier, scoreMessageForThreats, scoreSenderIdentity, senderRiskScore } from "./threatSignals";
 import type { NormalizedMessageMetadata } from "./providers/emailProvider";
 import publicSuffixData from "../../public/data/public-suffix.json";
 import { setPublicSuffixRules } from "./publicSuffix";
@@ -586,5 +586,14 @@ describe("real brand mail seen flagged in an inbox (2026-11-05)", () => {
   it("still flags a brand name on an open help desk or a free account", () => {
     expect(scoreMessageForThreats(message({ fromDisplayName: "PayPal Support", fromAddress: "help@paypal-help.zendesk.com" })).map((s) => s.kind)).toContain("brand-impersonation");
     expect(scoreMessageForThreats(message({ fromDisplayName: "PayPal Support", fromAddress: "paypal.support@gmail.com" })).map((s) => s.kind)).toContain("freemail-brand-claim");
+  });
+});
+
+describe("brand claims on free mail", () => {
+  it("a brand with any mailbox word is a claim; a person who shares the name isn't", () => {
+    const kinds = (fromAddress: string, fromDisplayName: string) =>
+      scoreSenderIdentity({ fromAddress, fromDisplayName, replyToAddress: "", subject: "" } as never).map((s) => s.kind);
+    expect(kinds("paypal.resolution801@gmail.com", "PayPal Resolution Center")).toEqual(["freemail-brand-claim"]);
+    expect(kinds("chase.miller@gmail.com", "Chase Miller")).toEqual([]);
   });
 });

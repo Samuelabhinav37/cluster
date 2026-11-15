@@ -8,7 +8,8 @@ import { bucketsFor, holdUnsortedInbox, type CategoryLimit, type InboxLimitsApi 
 import { markNameMatches } from "../lib/nameMatch";
 import type { NormalizedMessageMetadata, SentRecord } from "../lib/providers/emailProvider";
 import { buildSenderSummariesFromStubs, type SenderSummary } from "../lib/senderModel";
-import { ALL_SORT_BUCKETS, type SortBucket, type SortOverride } from "../lib/sortTaxonomy";
+import { ALL_SORT_BUCKETS, classifySortBucket, type SortBucket, type SortOverride } from "../lib/sortTaxonomy";
+import { domainOf } from "../lib/domainGrouping";
 import { senderVerdict } from "../lib/verdict";
 
 export type Where = SortBucket | "personal" | "screener" | "spam" | "inbox";
@@ -21,7 +22,8 @@ export interface MailboxSetup {
   now: number;
 }
 
-export async function sortMailbox(metas: NormalizedMessageMetadata[], setup: MailboxSetup): Promise<Map<string, Where>> {
+/** Sender records as the background builds them, with replies and name checks marked. */
+async function sendersOf(metas: NormalizedMessageMetadata[], setup: MailboxSetup) {
   const cache = new Map(metas.map((m) => [`gmail:${m.id}`, m]));
   const provider = { id: "gmail", getMessageMetadata: () => Promise.reject(new Error("not cached")) };
   const stubs = metas.map((m) => ({ id: m.id, provider: "gmail" as const }));
@@ -29,6 +31,11 @@ export async function sortMailbox(metas: NormalizedMessageMetadata[], setup: Mai
   markRepliesToYou(senders, metas, setup.sent ?? []);
   const known = new AddressSet(setup.contacts);
   markNameMatches(senders, known);
+  return { senders, known };
+}
+
+export async function sortMailbox(metas: NormalizedMessageMetadata[], setup: MailboxSetup): Promise<Map<string, Where>> {
+  const { senders, known } = await sendersOf(metas, setup);
 
   const where = new Map<string, Where>();
   // 1. Scam hold, as runQuarantine does (starred mail never moves).
@@ -63,3 +70,44 @@ export async function sortMailbox(metas: NormalizedMessageMetadata[], setup: Mai
 /** Writes past vitest's console silencer (the runner is Node). */
 export const out = (text: string) =>
   (globalThis as unknown as { process: { stdout: { write(t: string): void } } }).process.stdout.write(text);
+
+/** One signal's say about an email: a label, "person" or "machine". */
+export type Vote = SortBucket | "person" | "machine";
+
+/** What each independent signal says about each email, like Snorkel's label
+ * matrix (Ratner et al., VLDB 2017): the subject, the sender's domain (or the
+ * domain that signed it), the Gmail tab, the sending path, the bulk headers,
+ * and whether you know the sender. Mail where no signal speaks, or where
+ * signals disagree, is where mistakes hide. */
+export async function signalVotes(metas: NormalizedMessageMetadata[], setup: MailboxSetup): Promise<Map<string, Record<string, Vote>>> {
+  const { senders, known } = await sendersOf(metas, setup);
+  const votes = new Map<string, Record<string, Vote>>();
+  for (const s of senders) {
+    const domain = domainOf(s.address);
+    for (const m of s.messages) {
+      const v: Record<string, Vote> = {};
+      const bySubject = classifySortBucket(m.kind, "unlisted.invalid");
+      if (bySubject) v.subject = bySubject;
+      const byDomain = classifySortBucket("other", domain, false, s.address, { dkimDomains: m.dkimDomains });
+      if (byDomain) v.domain = byDomain;
+      if (m.tab === "promotions" || m.tab === "social") v.tab = m.tab;
+      else if (m.tab === "updates" || m.tab === "forums") v.tab = "machine";
+      if (m.sentBy) v.headers = m.sentBy === "service" ? "machine" : "person";
+      if (m.looksAutomated) v.bulk = "machine";
+      if (known.has(s.address) || m.repliesToYou) v.you = "person";
+      votes.set(m.id, v);
+    }
+  }
+  return votes;
+}
+
+/** "none": no signal spoke. "conflict": a person vote against a machine or
+ * label vote, the disagreement that decides Personal vs the rest. "mixed":
+ * only labels differ (Amazon shipping mail is shipping by subject and
+ * shopping by domain), which the label order settles. "agree": the rest. */
+export function agreement(v: Record<string, Vote>): "none" | "agree" | "mixed" | "conflict" {
+  const all = Object.values(v);
+  if (all.length === 0) return "none";
+  if (all.includes("person") && all.some((x) => x !== "person")) return "conflict";
+  return new Set(all.filter((x) => x !== "person" && x !== "machine")).size > 1 ? "mixed" : "agree";
+}

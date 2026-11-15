@@ -5,6 +5,7 @@ import {
   bucketsFor,
   dueForMove,
   holdUnsortedInbox,
+  senderBuckets,
   labelBySearch,
   labelFromIndex,
   sweepExpiredInbox,
@@ -380,6 +381,34 @@ describe("holdUnsortedInbox", () => {
     const res = await holdUnsortedInbox(ctx(), api, "✋ Screener", 0, "👤 Personal");
     expect(res.personalIds).toEqual([]);
     expect(res.heldIds).toEqual(["x1"]);
+  });
+
+  it("Gmail's tabs and the sending path decide Personal vs the Screener for strangers", async () => {
+    const senders = [
+      sender("maya.lee@gmail.com", [msg("a1", "receipt", { subject: "Invoice for the cabin split", sentBy: "person-app" })]),
+      sender("jo@newco.example", [msg("b1", "other", { tab: "updates" })]),
+      sender("hello@studio.example", [msg("c1", "other", { sentBy: "service" })]),
+      { ...sender("billing.office123@gmail.com", [msg("d1", "receipt", { sentBy: "person-app" })]), displayName: "Billing Office" },
+      { ...sender("ops.lead@gmail.com", [msg("e1", "other")]), displayName: "Accounts Payable" },
+      sender("cal@corp.example", [msg("f1", "other", { subject: "Fwd: Invitation: Sync @ Wed", looksAutomated: true })]),
+    ];
+    const api = fakeApi({}, senders);
+    api.listIds.mockResolvedValue(["a1", "b1", "c1", "d1", "e1", "f1"]);
+    const res = await holdUnsortedInbox(ctx(), api, "✋ Screener", 0, "👤 Personal");
+    expect(res.personalIds).toEqual(["a1", "f1"]);
+    expect(res.heldIds).toEqual(["b1", "c1", "d1", "e1"]);
+  });
+
+  it("an unlabelled message takes its sender's usual label, never a code's", () => {
+    const hotel = sender("stay@hotel.example", [
+      ...["h1", "h2", "h3"].map((id) => msg(id, "shipping")),
+      msg("h4", "other", { subject: "Your stay is coming up" }),
+    ]);
+    expect(senderBuckets(hotel, "hotel.example", {}).get("h4")).toBe("shipping");
+    const codes = sender("no-reply@app.example", [...["o1", "o2", "o3"].map((id) => msg(id, "otp")), msg("o4", "other")]);
+    expect(senderBuckets(codes, "app.example", {}).get("o4")).toBe(null);
+    const mixed = sender("x@shop.example", [msg("x1", "shipping"), msg("x2", "shipping"), msg("x3", "other"), msg("x4", "other")]);
+    expect(senderBuckets(mixed, "shop.example", {}).get("x3")).toBe(null);
   });
 
   it("does nothing when nothing is unsorted", async () => {

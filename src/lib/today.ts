@@ -113,7 +113,7 @@ export function pickByLabel(
     const finance = categorizeDomain(domain) === "finance";
     for (const m of s.messages) {
       if (now - m.receivedAt > days * DAY_MS) continue;
-      const bucket = effectiveBucket(m.kind, domain, address, overrides, m.promotion);
+      const bucket = effectiveBucket(m.kind, domain, address, overrides, m.promotion, m);
       if (!bucket) continue;
       const reason = reasonFor(m, address, known.has(address), finance) ?? (m.providerMarkedPersonal ? "important" : "recent");
       const list = groups.get(bucket) ?? [];

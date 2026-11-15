@@ -149,3 +149,20 @@ describe("free mail and publishers", () => {
     expect(classifySortBucket("social", "docs.google.com", false, "comments-noreply@docs.google.com")).toBe("productivity");
   });
 });
+
+describe("hints: Gmail tab, signing domain, sending path", () => {
+  it("the Social tab makes list mail Social; a social-sounding subject outside it from an unknown sender gets no label", () => {
+    expect(classifySortBucket("newsletter", "gatherly.example", false, "notify@gatherly.example", { tab: "social" })).toBe("social");
+    expect(classifySortBucket("social", "trackline.example", false, "n@trackline.example", { tab: "updates" })).toBe(null);
+    expect(classifySortBucket("social", "facebookmail.com", false, "n@facebookmail.com", { tab: "updates" })).toBe("social");
+  });
+
+  it("an unlisted From domain takes the category of the domain that signed it", () => {
+    expect(classifySortBucket("other", "mailer-hotel.example", false, "x@mailer-hotel.example", { dkimDomains: ["marriott.com"] })).toBe("travel");
+  });
+
+  it("a person's mail app at an unknown company gets no subject label", () => {
+    expect(classifySortBucket("receipt", "newco.example", false, "jo@newco.example", { sentBy: "person-app" })).toBe(null);
+    expect(classifySortBucket("receipt", "newco.example", false, "jo@newco.example")).toBe("receipt");
+  });
+});
