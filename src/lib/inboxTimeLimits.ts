@@ -201,13 +201,14 @@ export async function labelFromIndex(
   return result;
 }
 
-/** Where the catch-up pass stands: -6 = done, else it reads inbox mail
- * received before this time (ms) next. -1 to -5 were older "done" values
+/** Where the catch-up pass stands: -7 = done, else it reads inbox mail
+ * received before this time (ms) next. -1 to -6 were older "done" values
  * (the has:nouserlabels bug, before Accounts and Jobs, the week the
  * background run stalled, rules that missed old job and account mail, then
- * missed codes and no-reply mail kept as a person's),
+ * missed codes and no-reply mail kept as a person's, then list mail with
+ * no unsubscribe link),
  * so those accounts start over. */
-export const TAG_BACK_DONE = -6;
+export const TAG_BACK_DONE = -7;
 
 /**
  * Labels older inbox mail no filter or tagger saw, one page per run, newest

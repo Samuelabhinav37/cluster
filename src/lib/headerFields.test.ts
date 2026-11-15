@@ -55,6 +55,11 @@ describe("relationshipFields", () => {
     });
   });
 
+  it("reads SendGrid and Mailgun's X-Feedback-ID when Feedback-ID is missing", () => {
+    const h: Record<string, string> = { "x-feedback-id": "28410572:SG" };
+    expect(relationshipFields((name) => h[name.toLowerCase()]).feedbackId).toBe("28410572:SG");
+  });
+
   it("leaves absent headers empty", () => {
     expect(relationshipFields(() => undefined)).toEqual({
       toAddresses: [],

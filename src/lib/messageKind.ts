@@ -20,13 +20,13 @@ const OTP_EXCLUDE_RE = /\b(alert|disabled|changed|new sign[- ]?in|suspicious)\b/
 // Checked right after codes so a Google "Security alert" with an unsubscribe
 // footer is never filed as a newsletter.
 const ACCOUNT_RE =
-  /\b(security alert|new sign[- ]?in|sign[- ]?in (attempt|alert)|new (login|device)|password (reset|changed|(was|has been) (changed|updated|reset)|updated|assistance)|changed (your )?password|reset your( \w+)? password|signed in (from|on|to)|new account linked|verify your( \w+)? account|(new )?trusted (browser|device)|authentication added|found your info|suspicious (activity|sign[- ]?in|login)|account (recovery|activity|alert|locked|suspended)|recovery (email|phone)|2-step verification|two-factor authentication (was )?(disabled|turned off|enabled|turned on)|app password|passkey|shared some( \w+)? account data|account (created|details)|invited (you )?to join|reconnect your)\b/i;
+  /\b(security alert|new sign[- ]?in|sign[- ]?in (attempt|alert)|new (login|device)|password (reset|changed|(was|has been) (changed|updated|reset)|updated|assistance)|changed (your )?password|reset your( \w+)? password|signed in (from|on|to)|new account linked|verify your( \w+)? account|(new )?trusted (browser|device)|authentication added|found your info|suspicious (activity|sign[- ]?in|login)|account (recovery|activity|alert|locked|suspended)|recovery (email|phone)|2-step verification|two-factor authentication (was )?(disabled|turned off|enabled|turned on)|app password|passkey|shared some( \w+)? account data|account (created|details)|(login|sign[- ]?in) activity|invited (you )?to join|reconnect your)\b/i;
 // Phrases, not lone words: "Free delivery this weekend" and "Tracking your
 // fitness goals" are promotions, "Our statement on the outage" is news.
 const SHIPPING_RE =
   /\b(shipped|out for delivery|delivery (update|attempt|scheduled|exception|confirmation)|delivered|tracking (number|info|information|update|details)|track your (order|package|parcel|shipment)|order (confirm|confirmed|confirmation)|order #|order (is |has been )?(confirmed|placed|received)|has shipped|arriving|on its way|on the way|received your order|package (has )?arrived|delivery order)\b|^ordered:/i;
 const RECEIPT_RE =
-  /\b(receipt|reciept|has been renewed|subscription (has )?(been )?(canceled|cancelled|expired)|change to your( [\w-]+){0,6} subscription|registration confirm(ed|ation)|invoice|payment (received|confirmation)|received your payment|purchase (confirmation|confirmed)|refund (confirmation|issued|processed)|your refund|booking confirm(ation|ed)|your tickets?|your bill|e-?statement|statement (is )?(ready|available)|your( \w+){0,3} statement|(has been|was|is|been) paid|will renew|renews on|is renewing|renewal (notice|reminder|confirmation)|auto-?renew)\b/i;
+  /\b(receipt|reciept|has (been )?renewed|subscription (has )?(been )?(canceled|cancelled|expired)|change to your( [\w-]+){0,6} subscription|registration confirm(ed|ation)|invoice|payment (received|confirmation)|received your payment|purchase (confirmation|confirmed)|refund (confirmation|issued|processed)|your refund|booking confirm(ation|ed)|your tickets?|your bill|e-?statement|statement (is )?(ready|available)|your( \w+){0,3} statement|(has been|was|is|been) paid|will renew|renews on|is renewing|renewal (notice|reminder|confirmation)|auto-?renew)\b/i;
 // Oracle's "Security Alert for CVE-2026-1234" is an advisory, not your account.
 const ACCOUNT_EXCLUDE_RE = /\bcve-\d/i;
 // No bare "application": PayPal's "Pay in 4 application" is not a job.
@@ -114,8 +114,11 @@ export function looksAutomated(
   hasListUnsubscribe: boolean,
   precedence?: string,
   autoSubmitted?: string,
+  /** List-Id or Feedback-ID: only mailing lists and bulk-mail services set
+   * them (Rakuten via Iterable sends no List-Unsubscribe). */
+  bulkId?: string,
 ): boolean {
-  if (hasListUnsubscribe) return true;
+  if (hasListUnsubscribe || bulkId) return true;
   if (precedence && PRECEDENCE_BULK_RE.test(precedence)) return true;
   if (autoSubmitted && AUTO_SUBMITTED_RE.test(autoSubmitted)) return true;
   return false;

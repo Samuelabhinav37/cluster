@@ -1,3 +1,4 @@
+import { isSchoolDomain } from "./freeMail";
 import { lookupDomainInMap } from "./registrableDomain";
 
 export type DomainCategory =
@@ -165,7 +166,7 @@ export function categorizeDomain(domain: string): DomainCategory {
   // lookupDomainInMap walks parent labels so a sending subdomain matches the
   // registrable domain: email.amazon.com -> amazon.com, e.delta.com ->
   // delta.com. Stops before the bare TLD so that could never match.
-  return lookupDomainInMap(domain, DOMAIN_TO_CATEGORY) ?? "other";
+  return lookupDomainInMap(domain, DOMAIN_TO_CATEGORY) ?? (isSchoolDomain(domain) ? "education" : "other");
 }
 
 /** The curated domains that map to a category — the source list for the

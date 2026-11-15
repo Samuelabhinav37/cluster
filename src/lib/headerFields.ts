@@ -84,6 +84,8 @@ export const RELATIONSHIP_HEADERS = [
   "List-Id",
   "Return-Path",
   "Feedback-ID",
+  // SendGrid and Mailgun send this one instead (Temu, Ipsos in 2023).
+  "X-Feedback-ID",
   "Sender",
 ] as const;
 
@@ -115,7 +117,7 @@ export function relationshipFields(header: (name: string) => string | undefined)
     referencesCount: messageIdTokens(header("References")).length,
     listId: listId ? listId.toLowerCase() : undefined,
     returnPathDomain: returnPath ? domainOf(returnPath) : undefined,
-    feedbackId: header("Feedback-ID")?.trim() || undefined,
+    feedbackId: (header("Feedback-ID") ?? header("X-Feedback-ID"))?.trim() || undefined,
     senderHeaderAddress: firstAddress(header("Sender")) || undefined,
   };
 }

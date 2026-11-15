@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { categorizeDomain, domainsForCategory } from "./domainCategories";
 
 describe("categorizeDomain", () => {
+  it("files any school domain under education", () => {
+    expect(categorizeDomain("iastate.edu")).toBe("education");
+    expect(categorizeDomain("vitap.ac.in")).toBe("education");
+    expect(categorizeDomain("iastate.edu.example.com")).toBe("other");
+  });
+
   it("maps an exact curated domain", () => {
     expect(categorizeDomain("amazon.com")).toBe("shopping");
     expect(categorizeDomain("chase.com")).toBe("finance");

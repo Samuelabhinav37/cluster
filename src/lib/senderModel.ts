@@ -160,7 +160,9 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     receivedAt: meta.receivedAt,
     threadId: meta.threadId,
     kind: withPurchase(
-      classifyMessageKind(meta.subject, hasUnsubscribe(meta.unsubscribe), {
+      // A list or bulk-service header is list mail even with no unsubscribe
+      // link: mail from before Gmail's 2024 sender rules often had none.
+      classifyMessageKind(meta.subject, hasUnsubscribe(meta.unsubscribe) || Boolean(meta.listId || meta.feedbackId), {
         address: meta.fromAddress,
         displayName: meta.fromDisplayName,
       }),
@@ -171,7 +173,7 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     unread: meta.unread,
     sizeBytes: meta.sizeBytes,
     providerMarkedPersonal: meta.providerMarkedPersonal ?? false,
-    looksAutomated: looksAutomated(hasUnsubscribe(meta.unsubscribe), meta.precedence, meta.autoSubmitted),
+    looksAutomated: looksAutomated(hasUnsubscribe(meta.unsubscribe), meta.precedence, meta.autoSubmitted, meta.listId || meta.feedbackId),
     promotion: meta.gmailPromotion ?? false,
     tab: inboxTabOf(meta.labelIds),
     dkimDomains: [...new Set(passingDkimDomains(meta.authenticationResults).map(registrableDomain))],

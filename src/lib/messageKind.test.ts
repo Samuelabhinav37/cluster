@@ -22,6 +22,9 @@ describe("classifyMessageKind", () => {
     expect(classifyMessageKind("Thank you for considering Brookdale Senior Living Inc.", false)).toBe("jobs");
     expect(classifyMessageKind("Update from AbbVie", false, who("notifications@talentacquisition.abbvie.com", "AbbVie Hiring Team"))).toBe("jobs");
     expect(classifyMessageKind("Answering Service Care Update: Thank you!", false, who("no-reply@ats.rippling.com"))).toBe("jobs");
+    expect(classifyMessageKind("Your monthly Course Hero membership has renewed", false)).toBe("receipt");
+    expect(classifyMessageKind("Login activity on your account", false)).toBe("accounts");
+    expect(looksAutomated(false, undefined, undefined, "13914398:10562142:100009:iterable")).toBe(true);
     // A subdomain alone names no job: mail.example.com stays other.
     expect(classifyMessageKind("Hello", false, who("team@mail.perplexity.ai"))).toBe("other");
   });
