@@ -1,7 +1,7 @@
 // Learns from labels changed in Gmail itself (SaneBox's core idea): when you
 // swap one of a sender's Cluster labels for another twice, Cluster saves that
 // as a correction, so its filters and relabelling follow you from then on.
-import { canonicalAddress } from "./addressIdentity";
+import { correctionKey } from "./addressIdentity";
 import type { SortBucket, SortOverride } from "./sortTaxonomy";
 
 /** A message whose labels changed in Gmail, from the change feed. */
@@ -24,7 +24,7 @@ export function movedTo(moves: readonly LabelMove[], bucketOf: ReadonlyMap<strin
   for (const m of moves) {
     const to = m.added.flatMap((id) => bucketOf.get(id) ?? []);
     const from = m.removed.flatMap((id) => bucketOf.get(id) ?? []);
-    if (to.length === 1 && from.length > 0 && m.address) out.push([canonicalAddress(m.address), to[0]]);
+    if (to.length === 1 && from.length > 0 && m.address) out.push([correctionKey(m.address), to[0]]);
   }
   return out;
 }

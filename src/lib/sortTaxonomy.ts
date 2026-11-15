@@ -3,7 +3,7 @@
 // categories (domainCategories.ts, judged from the sender domain). When both
 // apply, the kind wins -- "your order shipped" from amazon.com is an
 // order-update, not just "Shopping".
-import { canonicalAddress } from "./addressIdentity";
+import { canonicalAddress, senderPattern } from "./addressIdentity";
 import { categorizeDomain, isJobAddress, type DomainCategory } from "./domainCategories";
 import type { MessageKind } from "./messageKind";
 import { clusterLabelName } from "./clusterLabels";
@@ -153,9 +153,13 @@ export function effectiveBucket(
   promotion = false,
 ): SortBucket | null {
   // A correction for this mailbox (any spelling of it, or as older builds saved
-  // it) wins over one for its whole domain ("@host").
+  // it), then for its address pattern (bounce-*@host), then for the domain.
+  const pattern = senderPattern(senderAddress);
   const override =
-    overrides[canonicalAddress(senderAddress)] ?? overrides[senderAddress.toLowerCase()] ?? overrides[`@${senderDomain.toLowerCase()}`];
+    overrides[canonicalAddress(senderAddress)] ??
+    overrides[senderAddress.toLowerCase()] ??
+    (pattern ? overrides[pattern] : undefined) ??
+    overrides[`@${senderDomain.toLowerCase()}`];
   if (override === "never") return null;
   if (override) return override;
   return classifySortBucket(kind, senderDomain, promotion, senderAddress);

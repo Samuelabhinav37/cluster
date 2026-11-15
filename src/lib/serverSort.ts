@@ -43,7 +43,8 @@ export function bucketMatchTerms(
   const exclude = new Set<string>();
   for (const [rawAddr, target] of Object.entries(overrides)) {
     const addr = rawAddr.toLowerCase().trim();
-    if (!addr) continue;
+    // No wildcards in Gmail search; Cluster's own pass applies patterns.
+    if (!addr || addr.includes("*")) continue;
     if (target === bucket) include.add(addr);
     else exclude.add(addr); // "never", or another bucket
   }

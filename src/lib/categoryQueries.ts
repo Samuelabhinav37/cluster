@@ -104,7 +104,9 @@ function overrideTerms(bucket: SortBucket, overrides: Record<string, SortOverrid
   const exclude: string[] = [];
   for (const [raw, target] of Object.entries(overrides)) {
     const addr = raw.toLowerCase().trim();
-    if (!addr) continue;
+    // Gmail search has no wildcards: a pattern (bounce-*@host) is applied by
+    // Cluster's own 5-minute pass instead.
+    if (!addr || addr.includes("*")) continue;
     (target === bucket ? include : exclude).push(addr);
   }
   return { include, exclude };

@@ -52,3 +52,41 @@ describe("spellings in sorting and known senders", () => {
     expect(known.has("sivaramchalla123@yahoo.com")).toBe(false);
   });
 });
+
+describe("senderPattern", () => {
+  it("turns machine-made parts into *", async () => {
+    const { senderPattern, correctionKey } = await import("./addressIdentity");
+    expect(senderPattern("bounce-8812@mail.shop.example")).toBe("bounce-*@mail.shop.example");
+    expect(senderPattern("update+ab12cd@facebookmail.com")).toBe("update+*@facebookmail.com");
+    expect(senderPattern("noreply.x7k2q9@notify.bank.example")).toBe("noreply.*@notify.bank.example");
+    expect(senderPattern("Bounce-99@mail.shop.example")).toBe("bounce-*@mail.shop.example");
+    expect(correctionKey("orders@target.com")).toBe("orders@target.com");
+  });
+
+  it("never widens a person's address or a whole domain", async () => {
+    const { senderPattern } = await import("./addressIdentity");
+    // Free mail is a person's mailbox.
+    expect(senderPattern("sivaramchalla123@gmail.com")).toBe(null);
+    // Every part would be *: that's the whole company.
+    expect(senderPattern("rec38@asciigroup.com")).toBe(null);
+    expect(senderPattern("name.lastname@target.com")).toBe(null);
+    expect(senderPattern("orders@target.com")).toBe(null);
+  });
+});
+
+describe("pattern corrections", () => {
+  it("a correction saved for one bounce address covers its siblings, never the whole company", async () => {
+    const { effectiveBucket } = await import("./sortTaxonomy");
+    const { correctionKey } = await import("./addressIdentity");
+    const overrides = { [correctionKey("bounce-8812@mail.shop.example")]: "finance" as const };
+    expect(effectiveBucket("other", "mail.shop.example", "bounce-1203@mail.shop.example", overrides)).toBe("finance");
+    expect(effectiveBucket("other", "mail.shop.example", "careers@mail.shop.example", overrides)).toBe(null);
+  });
+
+  it("patterns stay out of Gmail filter queries", async () => {
+    const { categoryQueries } = await import("./categoryQueries");
+    const q = categoryQueries("finance", { "bounce-*@mail.shop.example": "finance", "billing@shop.example": "finance" }).join(" ");
+    expect(q).toContain("billing@shop.example");
+    expect(q).not.toContain("*");
+  });
+});
