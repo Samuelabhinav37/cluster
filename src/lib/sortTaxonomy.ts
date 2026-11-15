@@ -4,6 +4,7 @@
 // apply, the kind wins -- "your order shipped" from amazon.com is an
 // order-update, not just "Shopping".
 import { canonicalAddress, senderPattern } from "./addressIdentity";
+import { isFreeMailDomain } from "./freeMail";
 import { categorizeDomain, isJobAddress, type DomainCategory } from "./domainCategories";
 import type { MessageKind } from "./messageKind";
 import { clusterLabelName } from "./clusterLabels";
@@ -124,12 +125,16 @@ export function classifySortBucket(
   promotion = false,
   senderAddress = "",
 ): SortBucket | null {
+  // A free-mail address is a person or someone posing as a company: an
+  // "invoice" or "order" from one goes to the Screener, never a label.
+  if (isFreeMailDomain(senderDomain)) return null;
+  const byCategory = isJobAddress(senderAddress) ? "jobs" : CATEGORY_BUCKET[categorizeDomain(senderDomain)];
   // Any list mail has an unsubscribe link, so "newsletter" alone can't tell
   // an ad from news; Gmail's Promotions tab can.
   // The tab also beats the sender's domain: Microsoft 365's Copilot ad is an
-  // ad, not Work, and Amazon's deals are not an order.
-  if (promotion && (kind === "newsletter" || kind === "other")) return "promotions";
-  const byCategory = isJobAddress(senderAddress) ? "jobs" : CATEGORY_BUCKET[categorizeDomain(senderDomain)];
+  // ad, not Work, and Amazon's deals are not an order. A publisher's
+  // newsletter stays a newsletter.
+  if (promotion && (kind === "newsletter" || kind === "other")) return byCategory === "newsletter" ? "newsletter" : "promotions";
   // An unsubscribe link only says "list mail"; a sender we know (a bank, a
   // school, an airline) says more. LIC's premium reminder is Finance, not news.
   if (kind === "newsletter" && byCategory) return byCategory;
@@ -137,6 +142,8 @@ export function classifySortBucket(
   // Receipts: the sender's own category is the stronger signal (Grbovic et
   // al., CIKM 2014). Codes, account notices and shipping keep their label.
   if (kind === "receipt" && (byCategory === "finance" || byCategory === "travel")) return byCategory;
+  // "Jane commented on Q4 plan" from GitHub or Google Docs is work, not social.
+  if (kind === "social" && byCategory === "productivity") return byCategory;
   return KIND_BUCKET[kind] ?? byCategory ?? null;
 }
 

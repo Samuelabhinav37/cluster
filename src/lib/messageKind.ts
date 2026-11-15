@@ -11,7 +11,7 @@ export type MessageKind = "otp" | "accounts" | "receipt" | "shipping" | "newslet
 // last line covers the same phrase in French, Spanish, Portuguese, German,
 // Italian and Dutch.
 const OTP_RE =
-  /\b(one[- ]?time|(verification|security|confirmation|authentication) code|otp|passcode|(confirm|verify) your (email|identity|sign[- ]?in)|email verification|(login|sign[- ]?in) code|\d{4,8} is your( \w+)? code|your( \w+)? code is:?\s*[A-Z0-9-]*\d|verify your device|confirm it.?s you|use \d{4,8} to ((sign|log) ?in|change|reset|verify|confirm)|single[- ]use code|access code|2fa|two-factor|code de (vérification|confirmation|sécurité)|código de (verificación|verificação|seguridad|segurança|acceso)|(bestätigungs|sicherheits|verifizierungs|anmelde)code|codice di (verifica|sicurezza)|verificatiecode)\b/i;
+  /\b(one[- ]?time|(verification|security|confirmation|authentication) code|otp|passcode|(confirm|verify) your (email|identity|sign[- ]?in)|email verification|(login|sign[- ]?in) (code|link)|magic link|\d{4,8} is your( \w+)? code|your( \w+)? code is:?\s*[A-Z0-9-]*\d|verify your device|confirm it.?s you|use \d{4,8} to ((sign|log) ?in|change|reset|verify|confirm)|single[- ]use code|access code|2fa|two-factor|code de (vérification|confirmation|sécurité)|código de (verificación|verificação|seguridad|segurança|acceso)|(bestätigungs|sicherheits|verifizierungs|anmelde)code|codice di (verifica|sicurezza)|verificatiecode)\b/i;
 // Security notices that mention codes or 2FA ("Two-factor authentication was
 // disabled", "Security alert") are not disposable codes. Mirrors
 // OTP_EXCLUDED_PHRASES in categoryQueries.ts.
@@ -20,7 +20,7 @@ const OTP_EXCLUDE_RE = /\b(alert|disabled|changed|new sign[- ]?in|suspicious)\b/
 // Checked right after codes so a Google "Security alert" with an unsubscribe
 // footer is never filed as a newsletter.
 const ACCOUNT_RE =
-  /\b(security alert|new sign[- ]?in|sign[- ]?in (attempt|alert)|new (login|device)|password (reset|changed|(was|has been) (changed|updated|reset)|updated|assistance)|changed (your )?password|reset your( \w+)? password|signed in (from|on|to)|new account linked|verify your( \w+)? account|(new )?trusted (browser|device)|authentication added|found your info|suspicious (activity|sign[- ]?in|login)|account (recovery|activity|alert|locked|suspended)|recovery (email|phone)|2-step verification|two-factor authentication (was )?(disabled|turned off|enabled|turned on)|app password|passkey|shared some( \w+)? account data|account (created|details)|(login|sign[- ]?in) activity|invited (you )?to join|reconnect your)\b/i;
+  /\b(security alert|new sign[- ]?in|sign[- ]?in (attempt|alert)|new (login|device)|password (reset|changed|(was|has been) (changed|updated|reset)|updated|assistance)|changed (your )?password|reset your( \w+)? password|signed in (from|on|to)|new account linked|verify your( \w+)? account|(new )?trusted (browser|device)|authentication added|found your info|suspicious (activity|sign[- ]?in|login)|account (recovery|activity|alert|locked|suspended)|recovery (email|phone)|2-step verification|two-factor authentication (was )?(disabled|turned off|enabled|turned on)|app password|passkey|shared some( \w+)? account data|account (created|details)|(login|sign[- ]?in) activity|invited (you )?to join|reconnect your|used to sign in)\b/i;
 // Phrases, not lone words: "Free delivery this weekend" and "Tracking your
 // fitness goals" are promotions, "Our statement on the outage" is news.
 const SHIPPING_RE =
@@ -44,7 +44,10 @@ const SOCIAL_RE = /\b(mentioned you|tagged you|new follower|friend request|liked
 // sender named for receipts or orders still does: "Uber Receipts",
 // reservations@hertz.com, shipment-tracking@amazon.com. "careers" only in the
 // plural: career@ and "Career Advice" senders sell courses.
-const SHIPPING_SENDER_RE = /\b(shipping|shipments?|tracking|deliver(y|ies))\b/i;
+const SHIPPING_SENDER_RE = /\b(shipping|shipments?|tracking|deliver(y|ies)|ups|fedex|usps|dhl|informed ?delivery)\b/i;
+// A bounce is about your own mail, not a parcel ("Delivery Status Notification").
+const BOUNCE_SENDER_RE = /^(mailer-daemon|postmaster)@/i;
+const BOUNCE_SUBJECT_RE = /^(delivery status notification|undeliver(able|ed)|mail delivery (failed|subsystem)|returned mail|failure notice)/i;
 const RECEIPT_SENDER_RE =
   /\b(receipts?|orders?|billing|invoices?|payments?|bookings?|reservations?|tickets?)\b/i;
 
@@ -59,6 +62,7 @@ export function classifyMessageKind(
   sender?: KindSender,
 ): MessageKind {
   const s = cleanText(subject || "");
+  if (BOUNCE_SUBJECT_RE.test(s) || (sender && BOUNCE_SENDER_RE.test(sender.address))) return "other";
   if (OTP_RE.test(s) && !OTP_EXCLUDE_RE.test(s)) return "otp";
   if (ACCOUNT_RE.test(s) && !ACCOUNT_EXCLUDE_RE.test(s)) return "accounts";
   if (SHIPPING_RE.test(s)) return "shipping";

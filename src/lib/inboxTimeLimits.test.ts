@@ -359,6 +359,29 @@ describe("holdUnsortedInbox", () => {
     expect(res.personalIds).toEqual([]);
   });
 
+  it("company mail with no bulk headers isn't a person: stores, carriers, sending subdomains", async () => {
+    const senders = [
+      sender("mcinfo@ups.com", [msg("u1", "other")]),
+      sender("store+12345@t.mugshop-mail.example", [msg("s1", "other")]),
+      sender("jane.doe@acme.example", [msg("j1", "other")]),
+      sender("prof.lee@cs.stanford.edu", [msg("e1", "other")]),
+    ];
+    const api = fakeApi({}, senders);
+    api.listIds.mockResolvedValue(["u1", "s1", "j1", "e1"]);
+    const res = await holdUnsortedInbox(ctx(), api, "✋ Screener", 0, "👤 Personal");
+    expect(res.personalIds).toEqual(["j1", "e1"]);
+    expect(res.heldIds).toEqual(["u1", "s1"]);
+  });
+
+  it("a stranger's lure goes to the Screener, not Personal", async () => {
+    const lure = sender("lena.lee88@gmail.com", [msg("x1", "other")], [{ kind: "lure-language", brand: "gmail.com", confidence: "medium" }]);
+    const api = fakeApi({}, [lure]);
+    api.listIds.mockResolvedValue(["x1"]);
+    const res = await holdUnsortedInbox(ctx(), api, "✋ Screener", 0, "👤 Personal");
+    expect(res.personalIds).toEqual([]);
+    expect(res.heldIds).toEqual(["x1"]);
+  });
+
   it("does nothing when nothing is unsorted", async () => {
     const api = fakeApi({});
     expect((await holdUnsortedInbox(ctx(), api, "✋ Screener")).heldIds).toEqual([]);

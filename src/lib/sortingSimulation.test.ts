@@ -4,19 +4,10 @@
 // where a person would expect it; the test prints where Cluster put it.
 // Mis-sorts are reported, not failed: only the safety rules fail the test.
 import { describe, expect, it } from "vitest";
-import { AddressSet, correctionKey } from "./addressIdentity";
-import { markRepliesToYou } from "./correspondents";
-import { bucketsFor, holdUnsortedInbox, type CategoryLimit, type InboxLimitsApi } from "./inboxTimeLimits";
-import { markNameMatches } from "./nameMatch";
+import { correctionKey } from "./addressIdentity";
 import type { NormalizedMessageMetadata, SentRecord } from "./providers/emailProvider";
-import { buildSenderSummariesFromStubs, type SenderSummary } from "./senderModel";
-import { ALL_SORT_BUCKETS, type SortBucket, type SortOverride } from "./sortTaxonomy";
-import { senderVerdict } from "./verdict";
-
-// The test runner is Node; print the table past the console silencer.
-const out = (text: string) => (globalThis as unknown as { process: { stdout: { write(t: string): void } } }).process.stdout.write(text);
-
-type Where = SortBucket | "personal" | "screener" | "spam" | "inbox";
+import type { SortOverride } from "./sortTaxonomy";
+import { out, sortMailbox, type Where } from "../test/sortHarness";
 
 interface Case {
   group: string;
@@ -146,52 +137,12 @@ function build(): Case[] {
   return cases;
 }
 
-async function sortMailbox(cases: Case[]): Promise<Map<string, Where>> {
-  const metas = cases.map((c) => c.meta);
-  const cache = new Map(metas.map((m) => [`gmail:${m.id}`, m]));
-  const provider = { id: "gmail", getMessageMetadata: () => Promise.reject(new Error("not cached")) };
-  const stubs = metas.map((m) => ({ id: m.id, provider: "gmail" as const }));
-  const senders = await buildSenderSummariesFromStubs([{ provider: provider as never, token: "", stubs }], undefined, cache);
-  markRepliesToYou(senders, metas, sent);
-  const known = new AddressSet(CONTACTS);
-  markNameMatches(senders, known);
-
-  const where = new Map<string, Where>();
-  // 1. Scam hold, as runQuarantine does (protected mail never moves).
-  for (const s of senders) {
-    const v = senderVerdict(s, { knownCorrespondent: known.has(s.address) });
-    for (const id of v.heldMessageIds) if (!s.protectedMessageIds.includes(id)) where.set(id, "spam");
-  }
-  const rest = (list: SenderSummary[]) =>
-    list.map((s) => ({ ...s, messages: s.messages.filter((m) => !where.has(m.id)) })).filter((s) => s.messages.length > 0);
-
-  // 2. Labels.
-  const limits: CategoryLimit[] = ALL_SORT_BUCKETS.map((bucket) => ({ bucket, labelName: bucket, hours: 0 }));
-  const ctx = { limits, known, overrides: OVERRIDES, now: NOW };
-  for (const [bucket, ids] of bucketsFor(rest(senders), ctx)) for (const id of ids) where.set(id, bucket);
-
-  // 3. Personal and Screener, over what's left in the inbox.
-  const left = rest(senders);
-  const api: InboxLimitsApi = {
-    findLabelId: async (n) => n,
-    ensureLabelId: async (n) => n,
-    listIds: async () => left.flatMap((s) => s.messages.map((m) => m.id)),
-    readSenders: async () => left,
-    batchModify: async () => {},
-  };
-  const res = await holdUnsortedInbox(ctx, api, "screener", 0, "personal");
-  for (const id of res.personalIds) where.set(id, "personal");
-  for (const id of res.heldIds) where.set(id, "screener");
-  for (const c of cases) if (!where.has(c.meta.id)) where.set(c.meta.id, "inbox");
-  return where;
-}
-
 describe("1,000-email mailbox", () => {
   it("sorts every kind of mail, and never puts a person in Spam or a scam with people", async () => {
     // HOLD_MAX pages 100 at a time in real runs; here every email is one page.
     const cases = build();
     expect(cases).toHaveLength(1000);
-    const where = await sortMailbox(cases);
+    const where = await sortMailbox(cases.map((c) => c.meta), { contacts: CONTACTS, overrides: OVERRIDES, sent, now: NOW });
 
     const rows = new Map<string, { expected: Where; n: number; right: number; got: Map<Where, number> }>();
     for (const c of cases) {

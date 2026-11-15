@@ -27,6 +27,12 @@ describe("markNameMatches", () => {
     expect(real.threatSignals).toEqual([]);
   });
 
+  it("ignores mailbox names like Support Team", () => {
+    const known = sender("support@shop.example", "Support Team");
+    const other = sender("help@acme-saas.example", "Support Team");
+    expect(markNameMatches([known, other], new Set(["support@shop.example"]))).toBe(0);
+  });
+
   it("ignores one-word names and senders you already know", () => {
     const a = sender("help@shop.com", "Support");
     const b = sender("help@other.com", "Support");

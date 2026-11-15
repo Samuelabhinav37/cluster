@@ -46,7 +46,7 @@
   "best buy": ["bestbuy.com"],
   "geek squad": ["geeksquad.com", "bestbuy.com"],
   "uber": ["uber.com"],
-  "lyft": ["lyft.com"],
+  "lyft": ["lyft.com", "lyftmail.com"],
   "airbnb": ["airbnb.com"],
   "doordash": ["doordash.com"],
   "instacart": ["instacart.com"],

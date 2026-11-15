@@ -30,7 +30,7 @@ export const DOMAIN_CATEGORY_LABELS: Record<DomainCategory, string> = {
 const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
   shopping: [
     "amazon.com", "ebay.com", "apple.com", "walmart.com", "target.com", "etsy.com",
-    "bestbuy.com", "shopify.com", "aliexpress.com", "wayfair.com", "costco.com",
+    "bestbuy.com", "shopify.com", "shopifyemail.com", "aliexpress.com", "wayfair.com", "costco.com",
     "macys.com", "nordstrom.com", "chewy.com", "instacart.com", "doordash.com",
     "ubereats.com", "grubhub.com", "sephora.com", "ikea.com", "homedepot.com",
     "lowes.com", "zappos.com", "newegg.com", "shein.com", "temu.com",
@@ -51,7 +51,7 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
   ],
   travel: [
     "expedia.com", "booking.com", "airbnb.com", "uber.com", "lyft.com", "delta.com",
-    "united.com", "southwest.com", "aa.com", "marriott.com", "hilton.com", "kayak.com",
+    "united.com", "southwest.com", "aa.com", "marriott.com", "email-marriott.com", "hilton.com", "kayak.com",
     "tripadvisor.com", "hotels.com", "priceline.com", "jetblue.com", "airbnb.co.uk",
     "irctc.co.in", "makemytrip.com", "goibibo.com", "goindigo.in", "airindia.com",
     "travelguard.com", "avis.com", "hertz.com", "enterprise.com", "vrbo.com", "amtrak.com",
@@ -86,7 +86,7 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
   social: [
     "facebook.com", "facebookmail.com", "instagram.com", "twitter.com", "x.com",
     "linkedin.com", "pinterest.com", "tiktok.com", "reddit.com", "snapchat.com",
-    "discord.com", "meetup.com", "nextdoor.com",
+    "discord.com", "meetup.com", "nextdoor.com", "redditmail.com",
     "quora.com", "youtube.com", "threads.net", "bsky.app", "tumblr.com", "strava.com",
     "goodreads.com", "twitch.tv", "meta.com",
   ],
@@ -94,7 +94,7 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
   // notices and ads from the same domain, so the domain says nothing.
   productivity: [
     "slack.com", "notion.so", "atlassian.com", "github.com", "gitlab.com", "dropbox.com",
-    "zoom.us", "asana.com", "trello.com", "figma.com",
+    "zoom.us", "asana.com", "trello.com", "figma.com", "docs.google.com",
     "salesforce.com", "hubspot.com", "monday.com", "airtable.com", "calendly.com",
     "docusign.com", "adobe.com",
     "miro.com", "loom.com", "atlassian.net", "linear.app", "clickup.com", "basecamp.com",

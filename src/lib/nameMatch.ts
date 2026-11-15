@@ -7,9 +7,13 @@ import type { SenderSummary } from "./senderModel";
 
 /** Lowercased, quotes and extra spaces dropped. Only full names (two words or
  * more) count, so "Support" or "Team" never match. */
+// "Support Team" and "Accounts Payable" are mailboxes, not people.
+const ROLE_WORD = /^(support|team|service|services|customer|billing|accounts?|payable|notifications?|alerts?|security|help|desk|center|centre|care|info|admin|office|department|dept|hr|sales|marketing|news|rewards?|recruiting|careers)$/;
+
 function fullName(raw: string): string | undefined {
   const name = raw.toLowerCase().replace(/["'“”]/g, "").replace(/\s+/g, " ").trim();
-  return name.split(" ").length >= 2 ? name : undefined;
+  const words = name.split(" ");
+  return words.length >= 2 && !words.some((w) => ROLE_WORD.test(w)) ? name : undefined;
 }
 
 /** Adds a "name-match" signal to each unknown sender whose name belongs to a

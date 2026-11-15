@@ -12,6 +12,7 @@
 // them has run out ("stays in inbox" wins). A person's own note and senders
 // that look like phishing always stay; starred mail leaves and keeps its star.
 import { domainOf } from "./domainGrouping";
+import { categorizeDomain } from "./domainCategories";
 import { isRoleAddress } from "./freeMail";
 import { neverMove } from "./protectionPolicy";
 import type { MessageRecord, SenderSummary } from "./senderModel";
@@ -283,8 +284,9 @@ export async function holdUnsortedInbox(
   for (const sender of await api.readSenders(ids)) {
     for (const msg of sender.messages) oldest = Math.min(oldest, msg.receivedAt);
     const tier = scamTier(sender, ctx.known);
-    if (tier === "hold") continue;
-    if (tier === "warn") {
+    // The hold takes the messages that earn it; the rest of a risky sender's
+    // mail goes to the Screener, never back to the inbox.
+    if (tier !== "none") {
       if (hold) for (const msg of sender.messages) heldIds.push(msg.id);
       if (hold) senders.add(sender.address.toLowerCase());
       continue;
@@ -297,7 +299,7 @@ export async function holdUnsortedInbox(
     for (const msg of sender.messages) {
       const personal =
         override === "personal" ||
-        (override !== "never" && (known || msg.repliesToYou || writtenByPerson(msg, sender.address) || CALENDAR_RE.test(msg.subject ?? "")));
+        (override !== "never" && (known || msg.repliesToYou || (writtenByPerson(msg, sender.address) && !sender.threatSignals.some((t) => t.kind === "lure-language")) || CALENDAR_RE.test(msg.subject ?? "")));
       if (personal) {
         if (personalLabelName) personalIds.push(msg.id);
         continue;
@@ -320,7 +322,19 @@ export async function holdUnsortedInbox(
 /** A person typed it: not a mailing, not automated, not a no-reply or shared
  * mailbox. Such mail stays in the inbox. */
 function writtenByPerson(msg: MessageRecord, address: string): boolean {
-  return msg.kind === "other" && !msg.looksAutomated && !isRoleAddress(address);
+  return msg.kind === "other" && !msg.looksAutomated && !isRoleAddress(address) && !looksLikeCompany(address);
+}
+
+// A store's or carrier's mail with no bulk headers is still a company:
+// mcinfo@ups.com, store+12345@t.shopifyemail.com. Words in the address
+// (Grbovic et al., CIKM 2014) and sending subdomains say so. Schools are left
+// out: a professor writes from the same .edu as the registrar.
+const COMPANY_TOKEN = /(^|[._+-])(\w*info|store|shop|orders?|tracking|shipping|delivery|invoices?|payments?|billing|receipts?|bookings?|reservations?|tickets?|promo|deals|offers|rewards|surveys?|feedback|digest|updates?|newsletters?|community|events|members?|customer|care|concierge|contact|automated|system|bot)([._+-]|$)/i;
+const SENDING_SUBDOMAIN = /^(t|e|em|email|mail|mailer|mailing|news|newsletter|info|go|link|links|reply|bounce|notify|notifications?|marketing|comms|alerts?)\./i;
+function looksLikeCompany(address: string): boolean {
+  const domain = domainOf(address);
+  const category = categorizeDomain(domain);
+  return (category !== "other" && category !== "education") || SENDING_SUBDOMAIN.test(domain) || COMPANY_TOKEN.test(address.slice(0, address.indexOf("@")));
 }
 
 export interface SweepResult {

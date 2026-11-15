@@ -175,3 +175,13 @@ describe("mislabels seen in a real inbox", () => {
     expect(classifyMessageKind(subject, false, sender)).toBe(kind);
   });
 });
+
+describe("bounces and carriers", () => {
+  it("a bounce is not a parcel; a carrier's mail is shipping", () => {
+    expect(classifyMessageKind("Delivery Status Notification (Failure)", false)).toBe("other");
+    expect(classifyMessageKind("Undeliverable: your message", false, { address: "postmaster@outlook.com", displayName: "" })).toBe("other");
+    expect(classifyMessageKind("Your package update", false, { address: "mcinfo@ups.com", displayName: "UPS" })).toBe("shipping");
+    expect(classifyMessageKind("Your sign-in link for Notion", false)).toBe("otp");
+    expect(classifyMessageKind("Your Apple ID was used to sign in to iCloud", false)).toBe("accounts");
+  });
+});

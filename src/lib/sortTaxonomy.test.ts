@@ -140,3 +140,12 @@ describe("Accounts and Jobs", () => {
     expect(classifyMessageKind("Thank you for your interest in Ford", true, { address: "recruitingnoreply@ford.com", displayName: "" })).toBe("jobs");
   });
 });
+
+describe("free mail and publishers", () => {
+  it("an 'invoice' from free mail gets no label; a newsletter in the Promotions tab stays a newsletter", () => {
+    expect(classifySortBucket("receipt", "gmail.com", false, "billing.dept@gmail.com")).toBe(null);
+    expect(classifySortBucket("newsletter", "substack.com", true, "writer@substack.com")).toBe("newsletter");
+    expect(classifySortBucket("newsletter", "target.com", true, "deals@target.com")).toBe("promotions");
+    expect(classifySortBucket("social", "docs.google.com", false, "comments-noreply@docs.google.com")).toBe("productivity");
+  });
+});

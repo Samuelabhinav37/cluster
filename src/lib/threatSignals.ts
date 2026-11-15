@@ -407,7 +407,7 @@ function authenticationSignal(message: NormalizedMessageMetadata): ThreatSignal 
 // deliberately small: this is a low-weight corroborating signal (it can't
 // reach "elevated" on its own), not a spam classifier.
 const LURE_RE =
-  /\b(account (has been )?(suspended|locked|disabled|compromised|on hold)|verify (your )?(account|identity|payment|information)( within| in the next)? \d+ ?(hours?|days?)|unusual (sign[- ]?in|login|activity)|password (will )?expir|confirm your (identity|account) (now|immediately)|payment (was )?(declined|failed)|update your (billing|payment) (details|information) (to avoid|or)|final (notice|warning)|your (account|access) will be (closed|terminated|deleted))\b/i;
+  /\b(account (has been )?(suspended|locked|disabled|compromised|on hold)|verify (your )?(account|identity|payment|information)( within| in the next)? \d+ ?(hours?|days?)|unusual (sign[- ]?in|login|activity)|password (will )?expir|confirm your (identity|account) (now|immediately)|payment (was )?(declined|failed)|update your (billing|payment) (details|information) (to avoid|or)|final (notice|warning)|your (account|access) will be (closed|terminated|deleted)|i have your password|i (have )?recorded you|your (device|computer|phone) (was|has been) (hacked|infected))\b/i;
 
 function lureLanguageSignal(message: NormalizedMessageMetadata): ThreatSignal | null {
   if (!LURE_RE.test(cleanText(message.subject || ""))) return null;
