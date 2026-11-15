@@ -276,11 +276,12 @@ describe("holdUnsortedInbox", () => {
     const senders = [
       sender("DoNotReply@frederick.example", [msg("d1", "other")]),
       sender("ibmwjb.fa.sender@workflow.example", [msg("w1", "other")]),
+      sender("donot_reply@degree.example", [msg("u1", "other")]),
       sender("tulsi@recruit.example", [msg("t1", "other")]),
     ];
     const api = fakeApi({}, senders);
-    api.listIds.mockResolvedValue(["d1", "w1", "t1"]);
-    expect((await holdUnsortedInbox(ctx(), api, "✋ Screener")).heldIds).toEqual(["d1", "w1"]);
+    api.listIds.mockResolvedValue(["d1", "w1", "u1", "t1"]);
+    expect((await holdUnsortedInbox(ctx(), api, "✋ Screener")).heldIds).toEqual(["d1", "w1", "u1"]);
   });
 
   it("pages past a full page of kept mail, then starts over from the newest", async () => {

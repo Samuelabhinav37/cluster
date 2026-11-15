@@ -92,7 +92,7 @@ export function isSchoolDomain(domain: string): boolean {
 const ROLE_LOCAL = /^(no-?reply|do-?not-?reply|support|help|info|hello|hi|team|billing|accounts?|notifications?|alerts?|news|newsletters?|updates|marketing|sales|admin|service|orders?|receipts?|mailer-daemon|postmaster)([+._-]|$)/i;
 
 // Robots with longer names: recruitingnoreply@, noreply.news@, ibmwjb.fa.sender@.
-const ROBOT_LOCAL = /no-?reply|do-?not-?reply|[._-]sender$/i;
+const ROBOT_LOCAL = /no[-_]?reply|do[-_]?not[-_]?reply|[._-]sender$/i;
 
 export function isRoleAddress(address: string): boolean {
   const local = address.slice(0, address.indexOf("@"));
