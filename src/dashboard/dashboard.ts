@@ -1,4 +1,5 @@
 import { SCAN_CHECKS, scanCheckCounts, scanFound } from "../lib/securityScan";
+import { canonicalAddress } from "../lib/addressIdentity";
 import { executeBulkDeleteDomains, filterOutProtected } from "../lib/bulkActions";
 import { loadPublicSuffixList } from "../lib/publicSuffix";
 import { applyBrandVerdicts, loadBrandRegistry } from "../lib/brandRegistry";
@@ -2048,7 +2049,7 @@ function wireDetails() {
           if (always) {
             ctx.settings = await mutateSettings((cur) => ({
               ...cur,
-              sortOverrides: { ...cur.sortOverrides, ...Object.fromEntries([...addresses].map((a) => [a, bucket])) },
+              sortOverrides: { ...cur.sortOverrides, ...Object.fromEntries([...addresses].map((a) => [canonicalAddress(a), bucket])) },
             }));
             // Rewrites the Gmail filters so new mail from them lands there too.
             void runInboxTimeLimits().catch((err) => log.error("Label as: filter update failed", err));

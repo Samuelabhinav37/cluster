@@ -3,6 +3,7 @@
 // generic (Gmail + Outlook, gated per-sender by whether that provider
 // implements screenSender). screenPending is the foreground mirror of
 // background.ts's runScreener, run when the user first turns the Screener on.
+import { canonicalAddress } from "../lib/addressIdentity";
 import { idsSafeToMoveOut } from "../lib/protectionPolicy";
 import { log } from "../lib/log";
 import { updateSettings } from "../lib/settingsStore";
@@ -311,7 +312,7 @@ function labelPicker(s: SenderSummary): HTMLSelectElement {
       await batchModify(token, s.messageIds, [labelId], await findLabelIds(token, clusterLabelName("screener")));
       const address = s.address.toLowerCase();
       ctx.settings = await updateSettings({
-        sortOverrides: { ...ctx.settings.sortOverrides, [address]: bucket },
+        sortOverrides: { ...ctx.settings.sortOverrides, [canonicalAddress(address)]: bucket },
         screenedSenders: ctx.settings.screenedSenders.filter((a) => a.toLowerCase() !== address),
       });
       await logAction("screener", `Filed ${s.address} under ${categoryLabelName(bucket, ctx.settings.labelChoices)}`);

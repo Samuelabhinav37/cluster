@@ -1,3 +1,4 @@
+import { AddressSet } from "./addressIdentity";
 import { log } from "./log";
 import type { EmailProvider, ProviderId } from "./providers/emailProvider";
 import type { SenderSummary } from "./senderModel";
@@ -53,10 +54,9 @@ function looksBulk(s: SenderSummary): boolean {
   return Boolean(s.unsubscribe.postUrl || s.unsubscribe.httpUrl || s.unsubscribe.mailto) || s.messages.some((m) => m.looksAutomated);
 }
 
+/** Matches any spelling of a known mailbox (a.lice@gmail.com is alice@gmail.com). */
 export function knownSenderSet(settings: ClusterSettings): Set<string> {
-  return new Set(
-    [...settings.screenerAllowlist, ...settings.sentCorrespondents.addresses].map((a) => a.toLowerCase()),
-  );
+  return new AddressSet([...settings.screenerAllowlist, ...settings.sentCorrespondents.addresses]);
 }
 
 /**
