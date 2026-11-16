@@ -4436,3 +4436,12 @@ body.ov-scanning[data-screen="overview"] #index-status { display: none; }
 /* The answer buttons stay in reach at the bottom, like Duolingo's footer. */
 .onb-pane .onb-actions { position: sticky; bottom: 0; z-index: 1; padding: 20px 0 24px; margin-top: 0; background: linear-gradient(to bottom, transparent, var(--canvas) 22px); }
 .tour-hole { outline: 2px solid var(--label); outline-offset: 2px; }
+
+/* Account, 2026-11-16: outline person icon, full name, chevron (user's reference). */
+.top-tools .account-pill { display: flex; align-items: center; gap: 8px; width: auto; height: 36px; padding: 0 10px 0 8px; border-radius: 10px; color: var(--label-2); font: 500 14px var(--font); }
+.top-tools .account-pill:hover { box-shadow: none; background: var(--neutral-fill); }
+.top-tools .account-pill .account-glyph { display: block; width: 24px; height: 24px; color: var(--label-2); }
+.top-tools .account-pill .account-chev { width: 16px; height: 16px; color: var(--label-3); }
+.top-tools .account-name { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top-tools .account-name:empty { display: none; }
+@media (max-width: 900px) { .top-tools .account-name, .top-tools .account-chev { display: none; } }

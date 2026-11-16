@@ -542,20 +542,18 @@ async function showAccountPill(token: string) {
     if (!email) return;
     const pill = document.getElementById("account-pill");
     const emailEl = document.getElementById("account-email");
-    const avatarEl = document.getElementById("account-avatar");
-    if (!pill || !emailEl || !avatarEl) return;
+    if (!pill || !emailEl) return;
     emailEl.textContent = email;
-    avatarEl.textContent = email.slice(0, 2).toUpperCase();
     pill.hidden = false;
     // Overview greets by first name, from the name Gmail sends under.
     const name =
       (await listSendAs(token).catch(() => [])).find((i) => i.isPrimary)?.displayName ??
       // Gmail leaves the send-as name blank unless set: read it off the latest sent email.
       (await sentFromName(token).catch(() => undefined));
-    if (name) {
-      emailEl.textContent = name;
-      pill.title = email;
-    }
+    // Pill shows the name (email until Gmail gives one); the menu head keeps the email.
+    const nameEl = document.getElementById("account-name");
+    if (nameEl) nameEl.textContent = name || email;
+    pill.title = email;
     const greeting = document.getElementById("overview-greeting");
     // "back" only once Cluster has seen this inbox before, not on day one.
     const back = ctx.settings.healthHistory.length > 0 ? " back" : "";
