@@ -3790,8 +3790,8 @@ section[data-screen="settings"] .set-row > :not(.grow):not(.set-ic) { grid-colum
 .pl-change.worse svg { color: #ef4444; }
 .pl-change.better svg { color: #22c55e; transform: rotate(90deg); }
 /* Cleanup's chart: the Received Mails card's rules and dates, a line over a soft fill. */
-.pl-chart { margin: 20px 0 16px; padding-right: 40px; }
-.pl-chart .mr-head { margin-right: -40px; margin-bottom: 18px; }
+.pl-chart { margin: 8px 0 16px; padding-right: 40px; }
+.pl-chart .mr-head { margin-right: -40px; margin-bottom: 12px; }
 .pl-plot { position: relative; height: 200px; }
 .pl-plot svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; overflow: visible; }
 .pl-y { position: absolute; right: -40px; width: 34px; transform: translateY(-50%); text-align: right; color: var(--label-4); font-size: 12px; font-variant-numeric: tabular-nums; pointer-events: none; }
