@@ -69,11 +69,29 @@ const KAI_LINES: Record<Step | "done", string> = {
   done: "All set. Reading your mail now.",
 };
 
-const VOICE_PREF = "cluster.kaiVoice";
+// What Kai says beside an option when you point at it.
+const HINTS: Record<string, string> = {
+  "keep-bank": "Bills and statements stay in view.",
+  "keep-work": "Work mail stays put.",
+  "keep-travel": "Trips stay where you can see them.",
+  "keep-receipts": "Receipts and orders stay too.",
+  "keep-people": "People always stay. That one's fixed.",
+  ask: "I'll show you first. You decide.",
+  tidy: "I sort new mail myself.",
+  "read-newest": "Quicker to start.",
+  "read-all": "Every email. Takes longer.",
+};
 
-/** Kai at the top of the preview: a small bubble that types the line, and an optional voice. */
-function kaiNarrator(host: HTMLElement) {
+const VOICE_PREF = "cluster.kaiVoice";
+const SPRING = "linear(0, 0.062, 0.198, 0.356, 0.509, 0.642, 0.75, 0.833, 0.895, 0.938, 0.967, 0.985, 0.996, 1.003, 1.005, 1.006, 1)";
+
+/** Kai as a guide: moves beside what it talks about, with a bubble that types the line. */
+function kaiNarrator(stage: HTMLElement) {
   const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  const host = el("div", "onb-guide");
+  stage.append(host);
+  let at = { x: 0, y: 0 };
+  let placed = false;
   const bubble = el("p", "onb-bubble");
   bubble.id = "setup-kai-line";
   bubble.setAttribute("aria-live", "polite");
@@ -164,18 +182,36 @@ function kaiNarrator(host: HTMLElement) {
     pointAt(target: Element) {
       kai?.pointAt(target);
     },
-    /** Kai hops along the top of the photo to its spot for this step. */
-    moveTo(step: number, first: boolean) {
-      if (!kai || reduced || typeof host.animate !== "function") return;
-      const x = `${step * 72}px`;
-      const from = first ? { transform: "translate(0, 48px)", opacity: 0 } : { transform: `translateX(${host.dataset.x ?? "0px"})` };
-      host.animate([from, { transform: `translateX(${x})`, opacity: 1 }], {
-        duration: first ? 500 : 600,
-        easing: "linear(0, 0.062, 0.198, 0.356, 0.509, 0.642, 0.75, 0.833, 0.895, 0.938, 0.967, 0.985, 0.996, 1.003, 1.005, 1.006, 1)",
-        fill: "forwards",
-      });
-      host.dataset.x = x;
-      kai.do("hop");
+    /** Kai travels to the right of `target` (above it when there's no room), looking at it. */
+    goTo(target: Element | null) {
+      if (!target) return;
+      const r = target.getBoundingClientRect();
+      const box = stage.getBoundingClientRect();
+      const size = 96;
+      let x = r.right - box.left + 20;
+      let y = r.top - box.top + stage.scrollTop + r.height / 2 - size / 2;
+      if (x + size + 280 > box.width) {
+        x = Math.max(8, r.left - box.left);
+        y = r.top - box.top + stage.scrollTop - size - 12;
+      }
+      const to = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+      const moved = Math.hypot(x - at.x, y - at.y);
+      if (reduced || typeof host.animate !== "function" || (placed && moved < 2)) {
+        host.style.transform = to;
+      } else {
+        const from = placed
+          ? `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px)`
+          : `translate(${Math.round(x)}px, ${Math.round(y + 40)}px)`;
+        host.animate([{ transform: from, opacity: placed ? 1 : 0 }, { transform: to, opacity: 1 }], {
+          duration: placed ? Math.min(800, 380 + moved * 0.6) : 500,
+          easing: SPRING,
+        });
+        host.style.transform = to;
+        if (moved > 40) kai?.do("hop");
+      }
+      at = { x, y };
+      placed = true;
+      kai?.lookAt(target);
     },
     stop() {
       clearInterval(typing);
@@ -223,13 +259,6 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   const root = $("setup-flow");
   if (!root) return;
   const pane = el("div", "onb-pane");
-  // The right side: the sign-in photo, Kai, and a card that fills in as you answer.
-  const kaiSpot = el("div", "onb-kai-spot");
-  const card = el("div", "onb-card");
-  const cardList = el("ul", "onb-card-list");
-  card.append(el("p", "onb-card-title", "Your Cluster"), cardList);
-  const art = el("div", "onb-art");
-  art.append(kaiSpot, card);
   const skip = el("button", "onb-skip", "I'll set it up myself");
   skip.type = "button";
   skip.id = "setup-not-now";
@@ -240,15 +269,39 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   top.append(logo, skip);
   const side = el("div", "onb-side");
   side.append(top, pane);
-  root.replaceChildren(side, art);
-  const kai = kaiNarrator(kaiSpot);
+  root.replaceChildren(side);
+  // Kai walks the page: title first, then the options, then Continue or Start.
+  const kai = kaiNarrator(root);
+  let tour: number[] = [];
+  const stopTour = () => {
+    tour.forEach((t) => window.clearTimeout(t));
+    tour = [];
+  };
+  /** Steps Kai takes by itself, each `ms` after the last, until the user does something. */
+  const walk = (steps: Array<[number, () => void]>) => {
+    stopTour();
+    let t = 0;
+    for (const [ms, run] of steps) {
+      t += ms;
+      tour.push(window.setTimeout(run, t));
+    }
+  };
+  const pickEl = (key: string) => pane.querySelector(`[data-pick="${key}"]`);
+  let hinted = "";
+  /** Kai goes to the option you point at and says what it does. */
+  const hint = (key: string) => {
+    if (key === hinted || !HINTS[key]) return;
+    hinted = key;
+    stopTour();
+    kai.goTo(pickEl(key));
+    kai.say(HINTS[key]);
+  };
 
   let answers = freshAnswers();
   let at = 0;
   let saidHello = false;
   // What just changed, so only that piece animates on the next render.
   let picked = "";
-  let shown = new Set<string>();
   // Counted on the plan screen (16 quota units, nothing read). Only a mailbox
   // over 20,000 gets the question; smaller ones are read in full.
   let mailCount: number | null | undefined;
@@ -284,10 +337,19 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     tick.append(icon("check"));
     b.append(iconTile(ic, tone), words, tick);
     b.onclick = () => {
-      if (locked) return;
+      stopTour();
+      hinted = key;
+      if (locked) {
+        kai.goTo(pickEl(key));
+        if (HINTS[key]) kai.say(HINTS[key]);
+        return;
+      }
       picked = key;
       onClick();
+      kai.goTo(pickEl(key));
     };
+    b.onpointerenter = () => hint(key);
+    b.onfocus = () => hint(key);
     return b;
   };
 
@@ -343,8 +405,10 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       render();
       const now = document.querySelector(`[data-pick="${hands}"]`);
       if (!now) return;
-      if (hands === "tidy") kai.react(now, "puff", undefined, "proud");
-      else {
+      if (hands === "tidy") {
+        kai.react(now, "puff", undefined, "proud");
+        kai.say("Nice. I'll keep it tidy.");
+      } else {
         kai.react(now, "nod");
         kai.say("Fine by me. I'll wait.");
       }
@@ -435,6 +499,8 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
         go.textContent = "Setting up…";
       }
       const tidy = buildOnboardingPlan(answers).tidy;
+      stopTour();
+      kai.goTo(go);
       if (tidy) kai.say("Making your labels.");
       try {
         const { tidyFailed } = await startPlan(answers, readAll ? MAIL_INDEX_MAX : MAIL_INDEX_CAP);
@@ -455,6 +521,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
           const body = el("div", "onb-body onb-in");
           body.append(el("h1", "onb-title", "Your labels"), chips);
           pane.replaceChildren(body);
+          kai.goTo(body.querySelector(".onb-title"));
           kai.say(`All ${on.length} labels ready.`, "joyful");
           kai.celebrate();
           await new Promise((r) => window.setTimeout(r, 1800 + on.length * 50));
@@ -480,31 +547,11 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     );
   }
 
-  /** The preview card: the plan so far. New rows rise in. */
-  function renderCard() {
-    const rows = buildOnboardingPlan(answers).lines;
-    art.classList.toggle("is-plan", STEPS[at] === "plan");
-    const now = new Set(rows.map((r) => r.text));
-    cardList.replaceChildren(
-      ...rows.map((r) => {
-        const li = el("li", shown.has(r.text) ? "" : "new");
-        li.append(glyph(r.icon), el("span", "", r.text));
-        return li;
-      }),
-    );
-    shown = now;
-  }
-
   function render(newStep = false) {
     const step = STEPS[at];
     if (newStep) {
       picked = "";
-      kai.say(KAI_LINES[step], step === "plan" ? "proud" : undefined);
-      kai.moveTo(at, !saidHello);
-      if (!saidHello) {
-        kai.wave();
-        saidHello = true;
-      }
+      hinted = "";
     }
     const dots = el("div", "onb-dots");
     dots.setAttribute("aria-label", `Step ${at + 1} of ${STEPS.length}`);
@@ -514,13 +561,38 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       body,
     );
     pane.replaceChildren(dots, body);
-    renderCard();
-    // On the plan, Kai looks over to Start once the rows have landed.
-    if (newStep && step === "plan") window.setTimeout(() => { const go = $("setup-go"); if (go) kai.pointAt(go); }, 500);
     picked = "";
+    if (newStep) guide(step);
+  }
+
+  /** Kai's walk for a new step: to the title with the line, then to what matters next. */
+  function guide(step: Step) {
+    kai.goTo(pane.querySelector(".onb-title"));
+    kai.say(KAI_LINES[step], step === "plan" ? "proud" : undefined);
+    if (!saidHello) {
+      kai.wave();
+      saidHello = true;
+    }
+    const next = () => pane.querySelector<HTMLElement>(step === "plan" ? "#setup-go" : "#setup-next");
+    if (step === "keep") {
+      walk([
+        [2600, () => { kai.goTo(pane.querySelector(".onb-opt")); kai.say("Tap one to keep it in your inbox."); }],
+        [3200, () => { kai.goTo(next()); kai.say("Then Continue."); }],
+      ]);
+    } else if (step === "hands") {
+      walk([[2400, () => { kai.goTo(pickEl("tidy")); kai.say(HINTS.tidy); }]]);
+    } else {
+      // Kai points down the plan one row at a time, then waits by Start.
+      const rows = Array.from(pane.querySelectorAll(".onb-plan li"));
+      walk([
+        ...rows.map((row, i): [number, () => void] => [i === 0 ? 1600 : 900, () => { kai.goTo(row); kai.react(row, "nodSmall"); }]),
+        [1000, () => { kai.goTo(next()); kai.say("Press Start when you're ready."); }],
+      ]);
+    }
   }
 
   skip.onclick = async () => {
+    stopTour();
     kai.stop();
     ctx.settings = await updateSettings({ setupDone: true });
     await select("overview");

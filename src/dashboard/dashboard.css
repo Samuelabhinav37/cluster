@@ -334,7 +334,7 @@ a:hover {
     transition-delay: 0s !important;
     scroll-behavior: auto !important;
   }
-  .onb-in > *, .onb-plan li, .onb-labels li, .onb-card-list li.new, .kg-panel, .kg-msg, .onb-bubble.pop { animation-name: onb-fade !important; }
+  .onb-in > *, .onb-plan li, .onb-labels li, .kg-panel, .kg-msg, .onb-bubble.pop { animation-name: onb-fade !important; }
   .onb-opt:active, .onb-btn:active, .btn:active, .chip:active, .tool:active, .connect-btn:active { transform: none; }
   .sort-ring.is-looking::after, .sort-preview-bucket.active > i { animation-duration: 2.4s !important; }
 }
@@ -1941,9 +1941,7 @@ input.switch:disabled {
   position: fixed;
   inset: 0;
   z-index: 30;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 20px;
+  display: block;
   padding: 20px 20px 64px;
   background: var(--canvas);
   overflow: auto;
@@ -2042,22 +2040,6 @@ body[data-screen="setup"] .index-status {
 .onb-btn.ghost { background: none; color: var(--label-2); }
 .onb-btn.ghost:hover { color: var(--label); background: var(--neutral-fill); }
 
-.onb-art {
-  position: relative;
-  min-height: 540px;
-  border-radius: 14px;
-  overflow: hidden;
-  background: #05070d url("/onboarding/sunrise.webp") center top / cover;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 24px;
-}
-
-.onb-art::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.55)); }
-.onb-art > * { position: relative; }
-
-.onb-kai-spot { display: flex; align-items: flex-end; gap: 10px; }
 .onb-kai { flex: none; width: 120px; height: 120px; }
 .onb-bubble {
   max-width: 280px;
@@ -2092,26 +2074,6 @@ body[data-screen="setup"] .index-status {
 .onb-voice .i { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .onb-voice[aria-pressed="true"] { background: #fff; color: #18181b; }
 
-.onb-card {
-  align-self: flex-end;
-  width: min(340px, 100%);
-  padding: 14px 16px 8px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  color: #fff;
-}
-
-.onb-card-title { margin: 0 0 6px; font: 600 12px/1 var(--font); letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.7; }
-.onb-card-list { margin: 0; padding: 0; list-style: none; }
-.onb-card-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; font: 500 13.5px/1.35 var(--font); }
-.onb-card-list li + li { border-top: 1px solid rgba(255, 255, 255, 0.14); }
-.onb-card-list li.new { animation: onb-rise var(--t) var(--ease-out) both; }
-.onb-card-list .onb-glyph { width: 26px; height: 26px; background: rgba(255, 255, 255, 0.14); color: rgba(255, 255, 255, 0.9); }
-.onb-card-empty { opacity: 0.7; font-weight: 400; }
-
 @keyframes onb-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes onb-fade { from { opacity: 0; } }
 @keyframes onb-pop { 0% { transform: scale(0.8); } 100% { transform: scale(1); } }
@@ -2120,8 +2082,6 @@ body[data-screen="setup"] .index-status {
 
 
 @media (max-width: 900px) {
-  .onb { grid-template-columns: 1fr; }
-  .onb-art { min-height: 320px; order: -1; }
   .onb-side { padding: 10px 6px; }
 }
 
@@ -4355,8 +4315,6 @@ body.ov-scanning[data-screen="overview"] #index-status { display: none; }
   --t: 0.3s;
   --t-slow: 0.5s;
 }
-/* The plan is on the left already, so the preview card steps aside. */
-.onb-art.is-plan .onb-card { visibility: hidden; }
 /* Label emoji in setup: the real label's emoji on a soft tile. */
 .onb-emoji { font-size: 19px; line-height: 1; }
 .onb-glyph.onb-emoji { font-size: 15px; }
@@ -4364,3 +4322,21 @@ body.ov-scanning[data-screen="overview"] #index-status { display: none; }
 .onb-labels { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 0; padding: 0; list-style: none; }
 .onb-labels li { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px 7px 9px; border-radius: 999px; background: var(--glass); font: 500 14px/1 var(--font); color: var(--label); animation: onb-rise var(--t) var(--spring-snappy) calc(var(--i, 0) * 50ms) both; }
 .onb-labels .gl-tag, .onb-labels svg { width: 16px; height: 16px; }
+
+/* Setup is one centered column; Kai walks beside whatever it talks about. */
+.onb-pane { width: min(520px, 100%); }
+.onb-guide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  will-change: transform;
+}
+.onb-guide .onb-kai { width: 96px; height: 96px; }
+.onb-guide .onb-bubble { margin: 0; max-width: 260px; border-radius: 14px 14px 14px 4px; }
+.onb-guide .onb-voice { margin: 0; pointer-events: auto; background: var(--neutral-fill); border-color: var(--separator); color: var(--label-2); }
+.onb-guide .onb-voice[aria-pressed="true"] { background: var(--label); color: var(--canvas); }
