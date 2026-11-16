@@ -42,6 +42,8 @@ export interface KaiInstance {
   talk(ms?: number): void;
   think(on: boolean): void;
   lightAntenna(ms?: number): void;
+  /** Float a short text or emoji up from Kai's head. */
+  emote(text: string, small?: boolean): void;
   react(kind: "found" | "miss" | "hello" | "joke", replyLength?: number): void;
 }
 

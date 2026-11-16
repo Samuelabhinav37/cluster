@@ -77,7 +77,7 @@ function closeIcon(doc: Document): SVGSVGElement {
 /** A Kai that does nothing, where the engine can't run (tests without it). */
 const STILL_KAI: Omit<KaiInstance, "root"> = {
   mood: "neutral", thinking: false,
-  setMood() {}, do() {}, blink() {}, lookAt() {}, pointAt() {}, talk() {}, think() {}, lightAntenna() {}, react() {},
+  setMood() {}, do() {}, blink() {}, lookAt() {}, pointAt() {}, talk() {}, think() {}, lightAntenna() {}, emote() {}, react() {},
 };
 
 function makeKai(host: HTMLElement, src: string): KaiInstance {

@@ -9,7 +9,7 @@
 //   (research/2026-11-15-animation-onboarding-apple.md). Answers are kept in settings.onboarding so Setup reopens with them, and only
 //   Start changes anything. Gmail filters are made only for "Tidy for me".
 import "./kai/kaiLife.js";
-import type { KaiInstance, KaiMood } from "./kai/kaiLife";
+import type { KaiAction, KaiInstance, KaiMood } from "./kai/kaiLife";
 import type { ClusterSettings } from "../lib/settingsStore";
 import { updateSettings } from "../lib/settingsStore";
 import { log } from "../lib/log";
@@ -147,6 +147,30 @@ function kaiNarrator(host: HTMLElement) {
     wave() {
       kai?.do("wave");
     },
+    /** One beat for a pick: look at it, then a small move and maybe its emoji. */
+    react(target: Element, action: KaiAction, emoji?: string, mood?: KaiMood) {
+      if (!kai) return;
+      kai.lookAt(target);
+      kai.do(action);
+      if (mood) kai.setMood(mood, 1600);
+      if (emoji && !reduced) kai.emote(emoji);
+    },
+    pointAt(target: Element) {
+      kai?.pointAt(target);
+    },
+    /** Kai hops along the top of the photo to its spot for this step. */
+    moveTo(step: number, first: boolean) {
+      if (!kai || reduced || typeof host.animate !== "function") return;
+      const x = `${step * 72}px`;
+      const from = first ? { transform: "translate(0, 48px)", opacity: 0 } : { transform: `translateX(${host.dataset.x ?? "0px"})` };
+      host.animate([from, { transform: `translateX(${x})`, opacity: 1 }], {
+        duration: first ? 500 : 600,
+        easing: "linear(0, 0.062, 0.198, 0.356, 0.509, 0.642, 0.75, 0.833, 0.895, 0.938, 0.967, 0.985, 0.996, 1.003, 1.005, 1.006, 1)",
+        fill: "forwards",
+      });
+      host.dataset.x = x;
+      kai.do("hop");
+    },
     stop() {
       clearInterval(typing);
       if (canSpeak) speechSynthesis.cancel();
@@ -245,6 +269,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     const b = el("button", `onb-opt${picked === key ? " picked" : ""}`);
     b.type = "button";
     b.setAttribute("aria-pressed", String(pressed));
+    b.dataset.pick = key;
     if (locked) b.setAttribute("aria-disabled", "true");
     const words = el("span", "onb-words");
     words.append(el("b", "", label));
@@ -292,11 +317,12 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     for (const [kind, label, sub, ic, tone] of choices) {
       const on = kind === "people" || answers.keep.includes(kind);
       const toggle = () => {
-        const keep = answers.keep.includes(kind)
-          ? answers.keep.filter((k) => k !== kind)
-          : [...answers.keep, kind];
+        const adding = !answers.keep.includes(kind);
+        const keep = adding ? [...answers.keep, kind] : answers.keep.filter((k) => k !== kind);
         answers = { ...answers, keep };
         render();
+        const now = document.querySelector(`[data-pick="keep-${kind}"]`);
+        if (now) kai.react(now, adding ? "nodSmall" : "tilt", adding ? ic : undefined);
       };
       opts.append(option(`keep-${kind}`, label, sub, ic, tone, on, toggle, kind === "people"));
     }
@@ -309,6 +335,13 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     const choose = (hands: "ask" | "tidy") => () => {
       answers = { ...answers, hands };
       render();
+      const now = document.querySelector(`[data-pick="${hands}"]`);
+      if (!now) return;
+      if (hands === "tidy") kai.react(now, "puff", undefined, "proud");
+      else {
+        kai.react(now, "nod");
+        kai.say("Fine by me. I'll wait.");
+      }
     };
     opts.append(
       option(
@@ -441,6 +474,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     if (newStep) {
       picked = "";
       kai.say(KAI_LINES[step], step === "plan" ? "proud" : undefined);
+      kai.moveTo(at, !saidHello);
       if (!saidHello) {
         kai.wave();
         saidHello = true;
@@ -455,6 +489,8 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     );
     pane.replaceChildren(dots, body);
     renderCard();
+    // On the plan, Kai looks over to Start once the rows have landed.
+    if (newStep && step === "plan") window.setTimeout(() => { const go = $("setup-go"); if (go) kai.pointAt(go); }, 500);
     picked = "";
   }
 

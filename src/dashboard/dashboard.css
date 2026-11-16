@@ -2085,7 +2085,7 @@ body[data-screen="setup"] .index-status {
 .onb-art > * { position: relative; }
 
 .onb-kai-spot { display: flex; align-items: flex-end; gap: 10px; }
-.onb-kai { flex: none; width: 64px; height: 64px; }
+.onb-kai { flex: none; width: 120px; height: 120px; }
 .onb-bubble {
   max-width: 280px;
   margin: 0 0 22px;
