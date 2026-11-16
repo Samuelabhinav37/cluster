@@ -437,6 +437,55 @@ export async function sweepExpiredInbox(ctx: LimitContext, api: InboxLimitsApi):
   return { movedIds, keptIds, more: candidates.length > batch.length };
 }
 
+/** A code or account notice from a brand-new sender is usually one you just
+ * asked for (a sign-up), so it can't wait in the Screener for a decision. */
+const SCREEN_SKIP: ReadonlySet<SortBucket> = new Set(["otp", "accounts"]);
+
+/**
+ * HEY's Screener for labelled mail: inbox mail with a label, from a sender
+ * who never wrote before `since`, goes to the Screener until you decide.
+ * Senders you know, a sender filed by you, scams (the scam hold's job),
+ * starred mail and replies to you are left alone. A sender with mail from
+ * before `since` is returned in `vetted` so it isn't searched again. Senders
+ * already held (`held`) skip the search: their mail keeps joining them.
+ */
+export async function screenFirstTimeSenders(
+  ctx: LimitContext,
+  api: InboxLimitsApi,
+  screenerLabelName: string,
+  since: number,
+  vetted: ReadonlySet<string>,
+  held: ReadonlySet<string>,
+): Promise<{ heldIds: string[]; senders: string[]; vetted: string[] }> {
+  const none = { heldIds: [], senders: [], vetted: [] };
+  const limits = ctx.limits.filter((l) => !SCREEN_SKIP.has(l.bucket));
+  if (since <= 0 || limits.length === 0) return none;
+  const sinceSec = epochSeconds(since);
+  const anyLabel = `{${limits.map((l) => `label:"${l.labelName.replace(/"/g, "")}"`).join(" ")}}`;
+  const ids = await api.listIds(["INBOX"], `after:${sinceSec} ${anyLabel} -label:"${screenerLabelName}" -is:starred`, SWEEP_MAX);
+  if (ids.length === 0) return none;
+  const heldIds: string[] = [];
+  const senders: string[] = [];
+  const newlyVetted: string[] = [];
+  for (const sender of await api.readSenders(ids)) {
+    const address = sender.address.toLowerCase();
+    if (ctx.known.has(address) || vetted.has(address) || scamTier(sender, ctx.known) !== "none") continue;
+    if (overrideFor(sender.address, domainOf(sender.address), ctx.overrides)) continue;
+    const msgs = sender.messages.filter(
+      (m) => !m.fromYou && !m.repliesToYou && !m.providerMarkedPersonal && !m.isProtected && !neverMove(m, sender.address),
+    );
+    if (msgs.length === 0) continue;
+    if (!held.has(address) && (await api.listIds([], `from:${address} before:${sinceSec}`, 1)).length > 0) {
+      newlyVetted.push(address);
+      continue;
+    }
+    for (const m of msgs) heldIds.push(m.id);
+    senders.push(address);
+  }
+  if (heldIds.length > 0) await api.batchModify(heldIds, [await api.ensureLabelId(screenerLabelName)], ["INBOX"]);
+  return { heldIds, senders, vetted: newlyVetted };
+}
+
 export interface SearchSpec {
   bucket: SortBucket;
   labelName: string;

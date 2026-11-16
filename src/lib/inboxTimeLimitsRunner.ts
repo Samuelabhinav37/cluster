@@ -8,6 +8,7 @@ import { batchModify, colorClusterLabels, findLabelIds, getOrCreateLabel, listLa
 import { movedTo, tallyMoves, type LabelMove, type MoveTarget } from "./learnFromMoves";
 import {
   holdUnsortedInbox,
+  screenFirstTimeSenders,
   labelBySearch,
   labelFromIndex,
   pinInInbox,
@@ -140,6 +141,46 @@ async function runPass(
   // time. The long read comes last, so a read that takes hours (or dies with
   // the service worker) never holds labelled mail in the inbox.
   const tag = await step<TagResult>("tagging", { tagged: 0, byBucket: {}, oldestAt: null, listed: 0 }, () => tagUntaggedInbox(ctx, api), (t) => ({ labelled: t.tagged }));
+  // Before the sweep: mail from a first-time sender goes to the Screener, not its label.
+  const since = settings.autoSort.screenNewSince || now;
+  const screened = settings.autoSort.holdUnsorted && settings.autoSort.screenNewSince
+    ? await step(
+        "screen new senders",
+        { heldIds: [] as string[], senders: [] as string[], vetted: [] as string[] },
+        () =>
+          screenFirstTimeSenders(
+            ctx,
+            api,
+            clusterLabelName("screener"),
+            since,
+            new Set(settings.autoSort.vettedSenders),
+            new Set(settings.screenedSenders.map((a) => a.toLowerCase())),
+          ),
+        (s) => ({ held: s.heldIds.length }),
+      )
+    : { heldIds: [], senders: [], vetted: [] };
+  if (!settings.autoSort.screenNewSince || screened.senders.length > 0 || screened.vetted.length > 0) await mutateSettings((current) => ({
+    ...current,
+    screenedSenders: [...new Set([...current.screenedSenders, ...screened.senders])],
+    autoSort: {
+      ...current.autoSort,
+      // The first run stamps it: everyone who wrote before now is let through.
+      screenNewSince: current.autoSort.screenNewSince || since,
+      vettedSenders: [...new Set([...current.autoSort.vettedSenders, ...screened.vetted])].slice(-VETTED_MAX),
+    },
+  }));
+  if (screened.heldIds.length > 0) {
+    const n = screened.heldIds.length;
+    await appendActionLog([
+      {
+        id: makeLogId("sort"),
+        at: now,
+        kind: "sort",
+        summary: `Held ${n} message${n === 1 ? "" : "s"} from new senders in the Screener`,
+        undo: { provider: "gmail", ids: screened.heldIds, via: "unarchive" },
+      },
+    ]);
+  }
   const sweep = await step<SweepResult>("sweep", { movedIds: [], keptIds: [], more: false }, () => sweepExpiredInbox(ctx, api), (w) => ({ moved: w.movedIds.length }));
   if (legacyCache) void saveMetadataCache(legacyCache);
   await mutateSettings((current) => ({
@@ -307,6 +348,9 @@ function limitsApi(token: string, legacyCache?: Awaited<ReturnType<typeof loadMe
     batchModify: (ids, add, remove) => batchModify(token, ids, add, remove),
   };
 }
+
+/** First-time-sender checks remembered; older ones are searched again. */
+const VETTED_MAX = 2000;
 
 /** Inbox mail read since the last flush is labelled in batches this big. */
 const LABEL_BATCH = 200;

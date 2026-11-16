@@ -299,7 +299,7 @@ function holdRow(): HTMLElement {
   toggle.onchange = async () => {
     ctx.settings = await updateSettings({ autoSort: { ...ctx.settings.autoSort, holdUnsorted: toggle.checked } });
   };
-  row.title = "Mail from new senders that fits no label waits in the Screener for you";
+  row.title = "Mail from new senders waits in the Screener for you";
   row.append(mark, Object.assign(document.createElement("span"), { className: "grow", textContent: "Hold mail with no label" }), toggle);
   return row;
 }

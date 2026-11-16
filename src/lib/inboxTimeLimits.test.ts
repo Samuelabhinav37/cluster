@@ -5,6 +5,7 @@ import {
   bucketsFor,
   dueForMove,
   holdUnsortedInbox,
+  screenFirstTimeSenders,
   senderBuckets,
   labelBySearch,
   labelFromIndex,
@@ -484,5 +485,61 @@ describe("labelBySearch", () => {
     });
     expect(api.listIds).toHaveBeenCalledWith([], 'q1 -is:starred -in:spam -in:trash -label:"Shopping"', 100_000);
     expect(api.batchModify).toHaveBeenCalledWith(["old1"], ["L:Shopping"], []);
+  });
+});
+
+describe("screenFirstTimeSenders", () => {
+  const SINCE = NOW - 2 * 3600 * 1000;
+  const sinceSec = Math.floor(SINCE / 1000);
+  function api(inbox: string[], senders: SenderSummary[], wroteBefore: string[] = []) {
+    const a = fakeApi({}, senders);
+    a.listIds.mockImplementation(async (labelIds: string[], query: string) => {
+      if (labelIds[0] === "INBOX") return inbox;
+      const from = /^from:(\S+) before:/.exec(query)?.[1];
+      return from && wroteBefore.includes(from) ? ["old"] : [];
+    });
+    return a;
+  }
+
+  it("holds labelled mail from a first-time sender, and lets known, earlier, filed, starred and code mail through", async () => {
+    const senders = [
+      sender("new@shop.example", [msg("n1", "newsletter", { looksAutomated: true })]),
+      sender("old@news.example", [msg("o1", "newsletter", { looksAutomated: true })]),
+      sender("friend@co.example", [msg("k1", "newsletter", { looksAutomated: true })]),
+      sender("filed@store.example", [msg("f1", "newsletter", { looksAutomated: true })]),
+      sender("star@x.example", [msg("s1", "newsletter", { isProtected: true, looksAutomated: true })]),
+      sender("re@x.example", [msg("r1", "newsletter", { repliesToYou: true, looksAutomated: true })]),
+    ];
+    const a = api(senders.flatMap((s) => s.messageIds), senders, ["old@news.example"]);
+    const res = await screenFirstTimeSenders(
+      ctx({ known: new Set(["friend@co.example"]), overrides: { "filed@store.example": "shopping" } }),
+      a,
+      "✋ Screener",
+      SINCE,
+      new Set(),
+      new Set(),
+    );
+    expect(res.heldIds).toEqual(["n1"]);
+    expect(res.senders).toEqual(["new@shop.example"]);
+    expect(res.vetted).toEqual(["old@news.example"]);
+    expect(a.batchModify).toHaveBeenCalledWith(["n1"], ["L:✋ Screener"], ["INBOX"]);
+    const [labels, query] = a.listIds.mock.calls[0];
+    expect(labels).toEqual(["INBOX"]);
+    expect(query).toContain(`after:${sinceSec}`);
+    expect(query).toContain('-label:"✋ Screener"');
+    // Codes skip the Screener: a sign-up code can't wait for a decision.
+    expect(query).not.toContain("One-time codes");
+  });
+
+  it("skips the search for vetted and already held senders, and does nothing before it starts", async () => {
+    const senders = [
+      sender("held@x.example", [msg("h1", "newsletter", { looksAutomated: true })]),
+      sender("ok@x.example", [msg("v1", "newsletter", { looksAutomated: true })]),
+    ];
+    const a = api(["h1", "v1"], senders, ["held@x.example"]);
+    const res = await screenFirstTimeSenders(ctx(), a, "✋ Screener", SINCE, new Set(["ok@x.example"]), new Set(["held@x.example"]));
+    expect(res.heldIds).toEqual(["h1"]);
+    expect(a.listIds).toHaveBeenCalledTimes(1);
+    expect((await screenFirstTimeSenders(ctx(), a, "✋ Screener", 0, new Set(), new Set())).heldIds).toEqual([]);
   });
 });

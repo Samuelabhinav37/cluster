@@ -196,6 +196,11 @@ export interface ClusterSettings {
     holdUnsorted: boolean;
     /** Where the next Screener page ends (epoch seconds, 0 = the newest mail). */
     holdBefore: number;
+    /** When first-time senders began going to the Screener (0 = not yet; the
+     * first run stamps it, so everyone who wrote before is let through). */
+    screenNewSince: number;
+    /** Senders found to have written before screenNewSince (capped). */
+    vettedSenders: string[];
     /** LABEL_RULES_VERSION the inbox was last relabelled from the mail index
      * under; a newer version relabels it once (inboxTimeLimitsRunner). */
     labelledVersion: number;
@@ -330,6 +335,8 @@ const DEFAULT_SETTINGS: ClusterSettings = {
     tagBackBefore: 0,
     holdUnsorted: true,
     holdBefore: 0,
+    screenNewSince: 0,
+    vettedSenders: [],
     labelledVersion: 0,
     searchedVersion: 0,
     lastRelabelAt: 0,
