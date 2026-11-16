@@ -1,30 +1,23 @@
-// First-run setup: opens once, for a new user.
+// First-run setup, after the welcome (welcome.ts) and sign-in:
 //
-// - Setup (research/2026-10-29-onboarding.md): four questions and a plan,
-//   one per screen. On the right, Kai and a card that fills in as you answer
-//   (research/2026-10-29-onboarding-audit.md). Round 2 (2026-10-30): three
-//   questions and the plan, no practice inbox, no kickers or subtitles, gray
-//   icons. 2026-11-15: "What describes you?" dropped (it changed nothing),
-//   answers start on the defaults, Kai never repeats the title, calmer motion
-//   (research/2026-11-15-animation-onboarding-apple.md). Answers are kept in settings.onboarding so Setup reopens with them, and only
-//   Start changes anything. Gmail filters are made only for "Tidy for me".
+// 1. scan: Cluster reads the newest 100 emails and the companies pop in as they're found.
+// 2. board: up to 8 of them already in Cluster's guess; drag (or tap, then tap a
+//    label) any that look wrong. Only moves are saved, as sender corrections.
+// 3. one question, "Tidy for me" or "Ask me first", then Start.
+// research/2026-11-15-onboarding-two-sources.md. Only Start changes anything;
+// Gmail filters are made only for "Tidy for me".
 import "./kai/kaiLife.js";
 import type { KaiAction, KaiInstance, KaiMood } from "./kai/kaiLife";
 import type { ClusterSettings } from "../lib/settingsStore";
 import { updateSettings } from "../lib/settingsStore";
 import { log } from "../lib/log";
-import { buildOnboardingPlan, labelEmoji, type KeepKind, type OnboardingAnswers } from "../lib/onboardingPlan";
+import { buildOnboardingPlan, type OnboardingAnswers } from "../lib/onboardingPlan";
 import { ctx } from "./state";
 import { gmailLabelIcon, icon } from "./homeDashboard";
 import { senderTile } from "./senderTile";
 import { mapWithConcurrency } from "../lib/concurrency";
-import {
-  pickPracticeSenders,
-  practiceOverride,
-  type PracticeAnswer,
-  type PracticeSender,
-} from "../lib/practiceSenders";
-import type { SortBucket, SortOverride } from "../lib/sortTaxonomy";
+import { boardOverride, isCompanyMail, pickPracticeSenders, type BoardSpot, type PracticeMail, type PracticeSender } from "../lib/practiceSenders";
+import type { SortOverride } from "../lib/sortTaxonomy";
 import { renderTimeLimits, turnOnTimeLimits } from "./timeLimitsTab";
 import { countMailbox } from "../lib/gmailApi";
 import { readTimeText } from "../lib/gmailQuotaLedger";
@@ -33,6 +26,8 @@ import { gmailProvider } from "../lib/providers/gmailProvider";
 import { ALL_SORT_BUCKETS } from "../lib/sortTaxonomy";
 import { categoryLabelName } from "../lib/categoryFilters";
 import { CLUSTER_LABEL_COLORS, showLabel } from "../lib/clusterLabels";
+import { ONBOARDING_STEPS, progressBar } from "./welcome";
+import { registrableDomain } from "../lib/registrableDomain";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
 
@@ -59,70 +54,44 @@ function iconTile(name: string, tone: string): HTMLElement {
   return tile;
 }
 
-/** The same in a soft circle for plan rows, like the lists elsewhere. */
-function glyph(name: string): HTMLElement {
-  const g = el("span", `onb-glyph${isEmoji(name) ? " onb-emoji" : ""}`);
-  if (isEmoji(name)) g.textContent = name;
-  else g.append(icon(name));
-  return g;
-}
-
-type Step = "senders" | "keep" | "hands" | "plan";
-// "senders" (learn by doing on your own mail) drops out when there are none to show.
-let STEPS: Step[] = ["senders", "keep", "hands", "plan"];
-
-// What Kai says on each step: one short line the title doesn't already say.
-const KAI_LINES: Record<Step | "done", string> = {
-  senders: "Hi, I'm Kai. Let's try your own mail.",
-  keep: "Hi, I'm Kai. Pick what stays.",
-  hands: "Should I sort, or ask first?",
-  plan: "Here's what I'll do.",
-  done: "All set. Reading your mail now.",
-};
+type Step = "scan" | "board" | "hands";
+// "board" drops out when the scan finds no company mail.
+let STEPS: Step[] = ["scan", "board", "hands"];
 
 // What Kai says beside an option when you point at it.
 const HINTS: Record<string, string> = {
-  "keep-bank": "Bills and statements stay in view.",
-  "keep-work": "Work mail stays put.",
-  "keep-travel": "Trips stay where you can see them.",
-  "keep-receipts": "Receipts and orders stay too.",
-  "keep-people": "People always stay. That one's fixed.",
   ask: "I'll show you first. You decide.",
   tidy: "I sort new mail myself.",
   "read-newest": "Quicker to start.",
   "read-all": "Every email. Takes longer.",
-  "p-guess": "That's my guess.",
-  "p-alt": "It fits here too.",
-  "p-keep": "It stays in your inbox.",
 };
 
-/** Three companies from the newest mail, or none if it can't be read in time. */
-async function loadPractice(): Promise<PracticeSender[]> {
+const SCAN_MAX = 100;
+const SCAN_MS = 10_000;
+const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
+
+/** Reads the newest mail one message at a time (each one reported as it lands), for at most 10 s. */
+async function scanNewest(onMail: (m: PracticeMail, read: number) => void): Promise<PracticeMail[]> {
+  const mail: PracticeMail[] = [];
   const read = (async () => {
     const token = await gmailProvider.getAuthToken(false);
-    const stubs = await gmailProvider.listCandidateMessages(token, 50, 30);
-    const metas = await mapWithConcurrency(stubs.slice(0, 50), 6, (stub) =>
-      gmailProvider.getMessageMetadata(token, stub.id).catch(() => null),
-    );
-    return pickPracticeSenders(
-      metas.flatMap((m) =>
-        m
-          ? [{
-              fromAddress: m.fromAddress,
-              fromDisplayName: m.fromDisplayName,
-              subject: m.subject,
-              promotion: m.gmailPromotion,
-              listMail: Boolean(m.unsubscribe?.postUrl || m.unsubscribe?.httpUrl || m.unsubscribe?.mailto),
-            }]
-          : [],
-      ),
-    );
-  })();
-  const late = new Promise<PracticeSender[]>((r) => window.setTimeout(() => r([]), 8000));
-  return Promise.race([read, late]).catch((err: unknown) => {
-    log.error("Setup could not read recent senders", err);
-    return [];
-  });
+    const stubs = await gmailProvider.listCandidateMessages(token, SCAN_MAX, 30);
+    await mapWithConcurrency(stubs.slice(0, SCAN_MAX), 6, async (stub) => {
+      const m = await gmailProvider.getMessageMetadata(token, stub.id).catch(() => null);
+      if (!m) return;
+      const one: PracticeMail = {
+        fromAddress: m.fromAddress,
+        fromDisplayName: m.fromDisplayName,
+        subject: m.subject,
+        promotion: m.gmailPromotion,
+        listMail: Boolean(m.unsubscribe?.postUrl || m.unsubscribe?.httpUrl || m.unsubscribe?.mailto),
+      };
+      mail.push(one);
+      onMail(one, mail.length);
+    });
+  })().catch((err: unknown) => log.error("Setup could not read recent senders", err));
+  await Promise.race([read, wait(SCAN_MS)]);
+  return [...mail];
 }
 
 const VOICE_PREF = "cluster.kaiVoice";
@@ -350,26 +319,32 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   let saidHello = false;
   // What just changed, so only that piece animates on the next render.
   let picked = "";
-  // Counted on the plan screen (16 quota units, nothing read). Only a mailbox
+  // Counted on the last step (16 quota units, nothing read). Only a mailbox
   // over 20,000 gets the question; smaller ones are read in full.
   let mailCount: number | null | undefined;
   let readAll = false;
-  // Learn by doing: null while the newest mail is read.
-  let practice: PracticeSender[] | null = null;
-  let practiceAt = 0;
-  const practiceAnswers: PracticeAnswer[] = [];
+  // The scan: companies as they're found, then the board's senders.
+  const seen = new Map<string, { address: string; name: string }>();
+  let readSoFar = 0;
+  let found: PracticeSender[] | null = null;
+  // Where each board sender sits (by host); missing means Cluster's guess.
+  const placed = new Map<string, BoardSpot>();
+  let selected = "";
+  const spotOf = (p: PracticeSender): BoardSpot => placed.get(p.host) ?? p.guess;
   const corrections = () => {
     const out: Record<string, SortOverride> = {};
-    (practice ?? []).forEach((p, i) => {
-      const saved = practiceAnswers[i] ? practiceOverride(p, practiceAnswers[i]) : null;
+    for (const p of found ?? []) {
+      const saved = boardOverride(p, spotOf(p));
       if (saved) out[saved[0]] = saved[1];
-    });
+    }
     return out;
   };
-  const labelParts = (b: SortBucket) => {
-    const [emoji, ...rest] = showLabel(categoryLabelName(b, ctx.settings.labelChoices)).split(" ");
+  const spotParts = (spot: BoardSpot) => {
+    if (spot === "keep") return { emoji: "📥", name: "Keep in inbox" };
+    const [emoji, ...rest] = showLabel(categoryLabelName(spot, ctx.settings.labelChoices)).split(" ");
     return { emoji, name: rest.join(" ") };
   };
+  const hello = () => (ctx.settings.userName ? `Hi ${ctx.settings.userName}! ` : "");
 
   const button = (label: string, className: string, onClick: () => void, disabled = false) => {
     const b = el("button", className, label);
@@ -387,13 +362,11 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     tone: string,
     pressed: boolean,
     onClick: () => void,
-    locked = false,
   ) => {
     const b = el("button", `onb-opt${picked === key ? " picked" : ""}`);
     b.type = "button";
     b.setAttribute("aria-pressed", String(pressed));
     b.dataset.pick = key;
-    if (locked) b.setAttribute("aria-disabled", "true");
     const words = el("span", "onb-words");
     words.append(el("b", "", label));
     if (sub) words.append(el("small", "", sub));
@@ -403,11 +376,6 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     b.onclick = () => {
       stopTour();
       hinted = key;
-      if (locked) {
-        kai.goTo(pickEl(key));
-        if (HINTS[key]) kai.say(HINTS[key]);
-        return;
-      }
       picked = key;
       onClick();
       kai.goTo(pickEl(key));
@@ -424,102 +392,144 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
 
   const nav = (canGo: boolean, label = "Continue", go: () => void = () => goTo(at + 1)) => {
     const row = el("div", "onb-nav");
-    if (STEPS[at] === "senders" && practiceAt > 0)
-      row.append(button("Back", "onb-btn ghost", () => { practiceAt -= 1; render(true); }));
-    else if (at > 0) row.append(button("Back", "onb-btn ghost", () => goTo(at - 1)));
+    // The scan can't be gone back to.
+    if (at > 0 && STEPS[at - 1] !== "scan") row.append(button("Back", "onb-btn ghost", () => goTo(at - 1)));
     row.append(el("span", "grow"));
     const next = button(label, "onb-btn dark", go, !canGo);
-    next.id = STEPS[at] === "plan" ? "setup-go" : "setup-next";
+    next.id = STEPS[at] === "hands" ? "setup-go" : "setup-next";
     row.append(next);
     return row;
   };
 
   const heading = (title: string) => [el("h1", "onb-title", title)];
 
-  /** "Where does Amazon go?": Cluster's guess, one other label, or Keep. */
-  function renderSenders(body: HTMLElement) {
-    if (!practice) {
-      body.append(...heading("Looking at your mail"));
-      body.append(el("p", "onb-wait", "One moment."));
-      return;
-    }
-    const p = practice[practiceAt];
-    const answer = practiceAnswers[practiceAt];
-    body.append(...heading(`Where does ${p.name} go?`));
-    const card = el("div", "onb-mail");
-    const words = el("span", "onb-words");
-    words.append(el("b", "", p.name), el("small", "", p.subject));
-    card.append(senderTile(p.address, p.name, "sz-44"), words);
-    const guess = labelParts(p.guess);
-    const alt = labelParts(p.alt);
-    const choose = (a: PracticeAnswer) => () => {
-      practiceAnswers[practiceAt] = a;
-      render();
-      const now = pickEl(`p-${a}`);
-      if (!now) return;
-      if (a === "guess") {
-        kai.react(now, "hop", guess.emoji, "joyful");
-        kai.say("Same as me!");
-      } else if (a === "alt") {
-        kai.react(now, "nodSmall", alt.emoji);
-        kai.say("Good call. I'll remember.");
-      } else {
-        kai.react(now, "nodSmall");
-        kai.say("Kept. It stays in your inbox.");
-      }
-    };
-    const opts = el("div", "onb-opts");
-    opts.append(
-      option("p-guess", guess.name, "My guess", guess.emoji, "gray", answer === "guess", choose("guess")),
-      option("p-alt", alt.name, "", alt.emoji, "gray", answer === "alt", choose("alt")),
-      option("p-keep", "Keep in inbox", "", "📥", "gray", answer === "keep", choose("keep")),
-    );
-    body.append(card, opts);
-    if (answer) {
-      const where = answer === "keep" ? "stays in your inbox" : `goes to ${answer === "guess" ? guess.name : alt.name}`;
-      const got = el("p", "onb-got");
-      const tick = el("span", "onb-got-tick");
-      tick.append(icon("check"));
-      got.append(tick, `Got it. ${p.name} ${where}.`);
-      body.append(got);
-    }
-    const last = practiceAt === practice.length - 1;
-    body.append(
-      nav(Boolean(answer), "Continue", () => {
-        if (last) goTo(at + 1);
-        else {
-          practiceAt += 1;
-          render(true);
-        }
-      }),
-    );
+  /** One company tile for the scan grid. */
+  const scanTile = (address: string, name: string) => {
+    const li = el("li", "scan-tile");
+    li.append(senderTile(address, name, "sz-44"), el("span", "", name));
+    return li;
+  };
+
+  function renderScan(body: HTMLElement) {
+    body.append(...heading("Reading your mail"));
+    const count = el("p", "onb-count", `${readSoFar} emails`);
+    count.id = "scan-count";
+    const bar = el("div", "scan-bar");
+    const fill = el("span");
+    fill.style.width = `${Math.min(100, (readSoFar / SCAN_MAX) * 100)}%`;
+    bar.append(fill);
+    const grid = el("ul", "scan-grid");
+    grid.id = "scan-grid";
+    for (const s of seen.values()) grid.append(scanTile(s.address, s.name));
+    body.append(count, bar, grid);
   }
 
-  function renderKeep(body: HTMLElement) {
-    body.append(
-      ...heading("What should always stay?"),
-    );
-    const opts = el("div", "onb-opts");
-    const choices: Array<[KeepKind, string, string, string, string]> = [
-      ["bank", "Bank and bills", "", labelEmoji("finance"), "green"],
-      ["work", "Work", "", labelEmoji("productivity"), "orange"],
-      ["travel", "Travel", "", labelEmoji("travel"), "blue"],
-      ["receipts", "Receipts and orders", "", labelEmoji("receipt"), "teal"],
-      ["people", "People you write to", "", labelEmoji("personal"), "indigo"],
-    ];
-    for (const [kind, label, sub, ic, tone] of choices) {
-      const on = kind === "people" || answers.keep.includes(kind);
-      const toggle = () => {
-        const adding = !answers.keep.includes(kind);
-        const keep = adding ? [...answers.keep, kind] : answers.keep.filter((k) => k !== kind);
-        answers = { ...answers, keep };
-        render();
-        const now = document.querySelector(`[data-pick="keep-${kind}"]`);
-        if (now) kai.react(now, adding ? "nodSmall" : "tilt", adding ? ic : undefined);
+  /** A message read mid-scan: count up, and a new company pops into the grid. */
+  function onScanned(m: PracticeMail, read: number) {
+    readSoFar = read;
+    const count = pane.querySelector("#scan-count");
+    if (count) count.textContent = `${read} emails`;
+    pane.querySelector<HTMLElement>(".scan-bar span")?.style.setProperty("width", `${Math.min(100, (read / SCAN_MAX) * 100)}%`);
+    if (!isCompanyMail(m)) return;
+    const key = registrableDomain(m.fromAddress.toLowerCase().split("@")[1] ?? "");
+    if (seen.has(key) || seen.size >= 12) return;
+    const name = m.fromDisplayName.trim() || key;
+    seen.set(key, { address: m.fromAddress, name });
+    pane.querySelector("#scan-grid")?.append(scanTile(m.fromAddress, name));
+    if (seen.size === 6) kai.say("Lots of companies here.");
+  }
+
+  /** Up to 8 senders already in Cluster's guess; drag, or tap one then tap a label. */
+  function renderBoard(body: HTMLElement) {
+    const senders = found ?? [];
+    body.append(...heading("Here's how I'd sort them"));
+    const spots: BoardSpot[] = [...new Set(senders.map((p) => p.guess)), "keep"];
+    const board = el("div", `board${selected ? " picking" : ""}`);
+    for (const spot of spots) {
+      const { emoji, name } = spotParts(spot);
+      const col = el("section", "board-col");
+      col.dataset.spot = spot;
+      const head = el("button", "board-head");
+      head.type = "button";
+      head.append(el("span", "board-emoji", emoji), el("b", "", name));
+      head.setAttribute("aria-label", selected ? `Move here: ${name}` : name);
+      const chips = el("div", "board-chips");
+      for (const p of senders.filter((x) => spotOf(x) === spot)) {
+        const chip = el("button", `board-chip${selected === p.host ? " on" : ""}`);
+        chip.type = "button";
+        chip.draggable = true;
+        chip.dataset.host = p.host;
+        chip.setAttribute("aria-pressed", String(selected === p.host));
+        chip.append(senderTile(p.address, p.name, "sz-26"), el("span", "", p.name));
+        chip.onclick = (e) => {
+          e.stopPropagation();
+          selected = selected === p.host ? "" : p.host;
+          stopTour();
+          render();
+          if (selected) {
+            // Beside the board, never on top of it; Kai looks at the pick.
+            kai.goTo(pane.querySelector(".board"));
+            kai.pointAt(pane.querySelector(`[data-host="${CSS.escape(p.host)}"]`) ?? pane);
+            kai.say(`Now tap where ${p.name} goes.`);
+          }
+        };
+        chip.ondragstart = (e) => {
+          stopTour();
+          e.dataTransfer?.setData("text/plain", p.host);
+          chip.classList.add("dragging");
+        };
+        chip.ondragend = () => chip.classList.remove("dragging");
+        chips.append(chip);
+      }
+      col.ondragover = (e) => {
+        e.preventDefault();
+        col.classList.add("over");
       };
-      opts.append(option(`keep-${kind}`, label, sub, ic, tone, on, toggle, kind === "people"));
+      col.ondragleave = () => col.classList.remove("over");
+      col.ondrop = (e) => {
+        e.preventDefault();
+        col.classList.remove("over");
+        const host = e.dataTransfer?.getData("text/plain");
+        if (host) move(host, spot);
+      };
+      // The header (a button, for the keyboard) or anywhere in the column takes the picked sender.
+      col.onclick = () => {
+        if (selected) move(selected, spot);
+      };
+      col.append(head, chips);
+      board.append(col);
     }
-    body.append(opts, nav(true));
+    body.append(board, nav(true, "Looks good"));
+  }
+
+  /** Moves a board sender, sliding every chip from where it was (FLIP). */
+  function move(host: string, spot: BoardSpot) {
+    const p = (found ?? []).find((x) => x.host === host);
+    selected = "";
+    if (!p || spotOf(p) === spot) {
+      render();
+      return;
+    }
+    const before = new Map<string, DOMRect>();
+    pane.querySelectorAll<HTMLElement>(".board-chip").forEach((c) => before.set(c.dataset.host ?? "", c.getBoundingClientRect()));
+    if (spot === p.guess) placed.delete(host);
+    else placed.set(host, spot);
+    render();
+    if (!reducedMotion()) {
+      pane.querySelectorAll<HTMLElement>(".board-chip").forEach((c) => {
+        const was = before.get(c.dataset.host ?? "");
+        if (!was || typeof c.animate !== "function") return;
+        const now = c.getBoundingClientRect();
+        const dx = was.left - now.left;
+        const dy = was.top - now.top;
+        if (dx || dy) c.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 420, easing: SPRING });
+      });
+    }
+    const col = pane.querySelector(`[data-spot="${spot}"]`);
+    const { emoji, name } = spotParts(spot);
+    kai.goTo(pane.querySelector(".board"));
+    if (col) kai.react(col, "nodSmall", emoji);
+    kai.say(spot === "keep" ? `Got it. ${p.name} stays in your inbox.` : `Got it. ${p.name} goes to ${name}.`);
   }
 
   function renderHands(body: HTMLElement) {
@@ -539,26 +549,12 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       }
     };
     opts.append(
-      option(
-        "ask",
-        "Ask me first",
-        "",
-        "eye",
-        "gray",
-        answers.hands === "ask",
-        choose("ask"),
-      ),
-      option(
-        "tidy",
-        "Tidy for me",
-        "New mail sorts itself",
-        "sparkles",
-        "purple",
-        answers.hands === "tidy",
-        choose("tidy"),
-      ),
+      option("ask", "Ask me first", "", "eye", "gray", answers.hands === "ask", choose("ask")),
+      option("tidy", "Tidy for me", "New mail sorts itself", "sparkles", "purple", answers.hands === "tidy", choose("tidy")),
     );
-    body.append(opts, nav(Boolean(answers.hands)));
+    const readChoice = renderReadChoice();
+    const tidy = buildOnboardingPlan(answers).tidy;
+    body.append(opts, ...(readChoice ? [readChoice] : []), nav(true, tidy ? "Sort my inbox" : "Save", () => void start()));
   }
 
   /** "You have 48,210 emails": read the newest 20,000, or all of them. */
@@ -570,7 +566,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
         .then(countMailbox)
         .then((n) => {
           mailCount = n;
-          if (n > MAIL_INDEX_CAP && STEPS[at] === "plan") render();
+          if (n > MAIL_INDEX_CAP && STEPS[at] === "hands") render();
         })
         .catch((err: unknown) => log.error("Setup could not count the mailbox", err));
     }
@@ -601,78 +597,58 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     return box;
   }
 
-  function renderPlan(body: HTMLElement) {
-    const plan = buildOnboardingPlan(answers);
-    body.append(
-      ...heading("Here's your plan"),
-    );
-    const list = el("ul", "onb-plan");
-    plan.lines.forEach((line, i) => {
-      const li = el("li");
-      li.style.setProperty("--i", String(i));
-      const words = el("span", "", line.text);
-      if (line.sub) words.append(el("small", "", line.sub));
-      li.append(glyph(line.icon), words);
-      list.append(li);
-    });
-    const start = async () => {
-      // Asked on this click (a user gesture) so the scan can say when it's done.
-      chrome.permissions?.request({ permissions: ["notifications"] }).catch(() => {});
-      const go = $<HTMLButtonElement>("setup-go");
+  async function start() {
+    // Asked on this click (a user gesture) so the scan can say when it's done.
+    chrome.permissions?.request({ permissions: ["notifications"] }).catch(() => {});
+    const go = $<HTMLButtonElement>("setup-go");
+    if (go) {
+      go.disabled = true;
+      go.textContent = "Setting up…";
+    }
+    const tidy = buildOnboardingPlan(answers).tidy;
+    stopTour();
+    kai.goTo(go);
+    if (tidy) kai.say("Making your labels.");
+    try {
+      const { tidyFailed } = await startPlan(answers, readAll ? MAIL_INDEX_MAX : MAIL_INDEX_CAP, corrections());
       if (go) {
-        go.disabled = true;
-        go.textContent = "Setting up…";
+        go.textContent = "All set";
+        go.classList.add("done");
       }
-      const tidy = buildOnboardingPlan(answers).tidy;
-      stopTour();
-      kai.goTo(go);
-      if (tidy) kai.say("Making your labels.");
-      try {
-        const { tidyFailed } = await startPlan(answers, readAll ? MAIL_INDEX_MAX : MAIL_INDEX_CAP, corrections());
-        if (go) {
-          go.textContent = "All set";
-          go.classList.add("done");
-        }
-        if (tidy && !tidyFailed) {
-          // The milestone: every label Gmail now has, landing one by one, and one cheer.
-          const on = ALL_SORT_BUCKETS.filter((b) => !ctx.settings.autoSort.labelsOff.includes(b));
-          const chips = el("ul", "onb-labels");
-          on.forEach((b, i) => {
-            const chip = el("li");
-            chip.style.setProperty("--i", String(i));
-            chip.append(gmailLabelIcon(CLUSTER_LABEL_COLORS[b]?.backgroundColor), showLabel(categoryLabelName(b, ctx.settings.labelChoices)));
-            chips.append(chip);
-          });
-          const body = el("div", "onb-body onb-in");
-          body.append(el("h1", "onb-title", "Your labels"), chips);
-          pane.replaceChildren(body);
-          kai.goTo(body.querySelector(".onb-title"));
-          const reading = typeof mailCount === "number" && mailCount > 0
+      if (tidy && !tidyFailed) {
+        // The milestone: every label Gmail now has, landing one by one, and one cheer.
+        const on = ALL_SORT_BUCKETS.filter((b) => !ctx.settings.autoSort.labelsOff.includes(b));
+        const chips = el("ul", "onb-labels");
+        on.forEach((b, i) => {
+          const chip = el("li");
+          chip.style.setProperty("--i", String(i));
+          chip.append(gmailLabelIcon(CLUSTER_LABEL_COLORS[b]?.backgroundColor), showLabel(categoryLabelName(b, ctx.settings.labelChoices)));
+          chips.append(chip);
+        });
+        const body = el("div", "onb-body onb-in");
+        body.append(el("h1", "onb-title", "Your labels"), chips);
+        pane.replaceChildren(progressBar(ONBOARDING_STEPS), body);
+        kai.goTo(body.querySelector(".onb-title"));
+        const reading =
+          typeof mailCount === "number" && mailCount > 0
             ? ` Sorting ${Math.min(mailCount, readAll ? MAIL_INDEX_MAX : MAIL_INDEX_CAP).toLocaleString("en-US")} emails.`
             : "";
-          kai.say(`All ${on.length} labels ready.${reading}`, "joyful");
-          kai.celebrate();
-          await new Promise((r) => window.setTimeout(r, 1800 + on.length * 50));
-        } else {
-          kai.say(tidyFailed ? "Saved. Turn on the filters in Labels." : KAI_LINES.done, "happy");
-          // Long enough to see "All set", short enough not to wait on it.
-          await new Promise((r) => window.setTimeout(r, 400));
-        }
-        await select("overview");
-      } catch (err) {
-        log.error("Setup could not be saved", err);
-        if (go) {
-          go.disabled = false;
-          go.textContent = "Try again";
-        }
+        kai.say(`All ${on.length} labels ready.${reading}`, "joyful");
+        kai.celebrate();
+        await wait(1800 + on.length * 50);
+      } else {
+        kai.say(tidyFailed ? "Saved. Turn on the filters in Labels." : "All set. Reading your mail now.", "happy");
+        // Long enough to see "All set", short enough not to wait on it.
+        await wait(400);
       }
-    };
-    const readChoice = renderReadChoice();
-    body.append(
-      list,
-      ...(readChoice ? [readChoice] : []),
-      nav(true, plan.tidy ? "Sort my inbox" : "Save", () => void start()),
-    );
+      await select("overview");
+    } catch (err) {
+      log.error("Setup could not be saved", err);
+      if (go) {
+        go.disabled = false;
+        go.textContent = "Try again";
+      }
+    }
   }
 
   function render(newStep = false) {
@@ -681,15 +657,11 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       picked = "";
       hinted = "";
     }
-    const dots = el("div", "onb-dots");
-    dots.setAttribute("aria-label", `Step ${at + 2} of ${STEPS.length + 1}`);
-    dots.append(el("i", "on"));
-    STEPS.forEach((_, i) => dots.append(el("i", i < at ? "on" : i === at ? "on now" : "")));
+    // Name and email were the first two, on the welcome screens.
+    const done = 2 + ((ONBOARDING_STEPS - 2) * at) / STEPS.length;
     const body = el("div", newStep ? "onb-body onb-in" : "onb-body");
-    ({ senders: renderSenders, keep: renderKeep, hands: renderHands, plan: renderPlan })[step](
-      body,
-    );
-    pane.replaceChildren(dots, body);
+    ({ scan: renderScan, board: renderBoard, hands: renderHands })[step](body);
+    pane.replaceChildren(progressBar(done), body);
     picked = "";
     if (newStep) guide(step);
   }
@@ -697,29 +669,21 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   /** Kai's walk for a new step: to the title with the line, then to what matters next. */
   function guide(step: Step) {
     kai.goTo(pane.querySelector(".onb-title"));
-    kai.say(KAI_LINES[step], step === "plan" ? "proud" : undefined);
     if (!saidHello) {
       kai.wave();
       saidHello = true;
     }
-    const next = () => pane.querySelector<HTMLElement>(step === "plan" ? "#setup-go" : "#setup-next");
-    if (step === "senders") {
-      if (practice && practiceAt > 0) kai.say("Next one.");
-      if (practice) walk([[2200, () => { kai.goTo(pickEl("p-guess")); kai.say(HINTS["p-guess"]); }]]);
-    } else if (step === "keep") {
+    if (step === "scan") {
+      kai.say(`${hello()}Reading your newest mail.`);
+    } else if (step === "board") {
+      kai.say("Here's my guess.", "proud");
       walk([
-        [2600, () => { kai.goTo(pane.querySelector(".onb-opt")); kai.say("Tap one to keep it in your inbox."); }],
-        [3200, () => { kai.goTo(next()); kai.say("Then Continue."); }],
+        [2200, () => { kai.goTo(pane.querySelector(".board")); kai.pointAt(pane.querySelector(".board-chip") ?? pane); kai.say("Drag any that look wrong."); }],
+        [3200, () => { kai.goTo(pane.querySelector("#setup-next")); kai.say("Or tap Looks good."); }],
       ]);
-    } else if (step === "hands") {
-      walk([[2400, () => { kai.goTo(pickEl("tidy")); kai.say(HINTS.tidy); }]]);
     } else {
-      // Kai points down the plan one row at a time, then waits by Start.
-      const rows = Array.from(pane.querySelectorAll(".onb-plan li"));
-      walk([
-        ...rows.map((row, i): [number, () => void] => [i === 0 ? 1600 : 900, () => { kai.goTo(row); kai.react(row, "nodSmall"); }]),
-        [1000, () => { kai.goTo(next()); kai.say("Press Start when you're ready."); }],
-      ]);
+      kai.say("Last one. Should I sort, or ask first?");
+      walk([[2400, () => { kai.goTo(pickEl("tidy")); kai.say(HINTS.tidy); }]]);
     }
   }
 
@@ -730,23 +694,33 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     await select("overview");
   };
 
-  STEPS = ["senders", "keep", "hands", "plan"];
+  STEPS = ["scan", "board", "hands"];
   render(true);
-  // Setup draws behind the sign-in screen; the newest mail is read once signed in.
-  beginPractice = () => {
-    beginPractice = () => {};
+  // Setup draws behind the sign-in screen; the scan starts once signed in.
+  beginScan = () => {
+    beginScan = () => {};
     if (ctx.settings.setupDone) return;
-    void loadPractice().then((found) => {
-      practice = found;
-      // Nothing to practise on: setup starts at "What should always stay?".
-      if (found.length === 0) STEPS = STEPS.filter((st) => st !== "senders");
-      if (!ctx.settings.setupDone) render(true);
+    if (STEPS[at] === "scan") guide("scan");
+    const shownAt = Date.now();
+    void scanNewest(onScanned).then(async (mail) => {
+      // Long enough to watch the companies land.
+      await wait(Math.max(0, 2500 - (Date.now() - shownAt)));
+      found = pickPracticeSenders(mail, 8);
+      if (ctx.settings.setupDone) return;
+      if (found.length === 0) STEPS = STEPS.filter((st) => st !== "board");
+      else kai.say(`Found ${seen.size} companies.`, "joyful");
+      if (STEPS[at] === "scan") {
+        await wait(found.length ? 900 : 0);
+        if (!ctx.settings.setupDone) goTo(at + 1);
+      }
     });
   };
 }
 
-let beginPractice = () => {};
-/** Called once Gmail is signed in: reads the newest mail for setup's first step. */
+const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+let beginScan = () => {};
+/** Called once Gmail is signed in: starts setup's scan of the newest mail. */
 export function setupSignedIn(): void {
-  beginPractice();
+  beginScan();
 }

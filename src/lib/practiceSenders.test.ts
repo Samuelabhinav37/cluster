@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickPracticeSenders, practiceOverride } from "./practiceSenders";
+import { boardOverride, isCompanyMail, pickPracticeSenders } from "./practiceSenders";
 
 const m = (fromAddress: string, subject: string, extra: { promotion?: boolean; listMail?: boolean } = {}) => ({
   fromAddress,
@@ -24,13 +24,13 @@ describe("pickPracticeSenders", () => {
     expect(new Set(picked.map((p) => p.host)).size).toBe(picked.length);
     expect(picked[0].host).toBe("amazon.com");
     expect(picked[0].guess).toBe("shipping");
-    expect(picked[0].alt).not.toBe(picked[0].guess);
+    expect(isCompanyMail(mail[3])).toBe(false);
   });
 
-  it("saves nothing for Cluster's guess, the other label, or never for Keep", () => {
+  it("saves nothing where Cluster guessed, the new label when moved, never for Keep", () => {
     const [amazon] = pickPracticeSenders(mail);
-    expect(practiceOverride(amazon, "guess")).toBeNull();
-    expect(practiceOverride(amazon, "alt")).toEqual(["@amazon.com", amazon.alt]);
-    expect(practiceOverride(amazon, "keep")).toEqual(["@amazon.com", "never"]);
+    expect(boardOverride(amazon, amazon.guess)).toBeNull();
+    expect(boardOverride(amazon, "shopping")).toEqual(["@amazon.com", "shopping"]);
+    expect(boardOverride(amazon, "keep")).toEqual(["@amazon.com", "never"]);
   });
 });

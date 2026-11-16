@@ -11,11 +11,11 @@ beforeEach(() => {
 
 type Dash = Awaited<ReturnType<typeof bootDashboard>>;
 
-/** No mail to practise on, so setup starts at "What should always stay?". */
+/** No company mail, so setup goes from the scan straight to "How hands-on?". */
 async function bootSetup(opts: Parameters<typeof bootDashboard>[0] = {}) {
   const dash = await bootDashboard({ mailbox: [], ...opts });
   if (!dash.el("setup-flow").closest("section")!.hidden)
-    await vi.waitFor(() => expect(document.querySelector(".onb-title")?.textContent).toBe("What should always stay?"));
+    await vi.waitFor(() => expect(document.querySelector(".onb-title")?.textContent).toBe("How hands-on?"), { timeout: 5000 });
   return dash;
 }
 
@@ -24,18 +24,21 @@ const setupSection = (dash: Dash) => dash.el("setup-flow").closest("section")!;
 const navButton = (text: string) =>
   Array.from(document.querySelectorAll<HTMLButtonElement>(".onb-nav button")).find((b) => b.textContent === text)!;
 
-/** Keeps the defaults for "what stays", answers "how hands-on" if given, and presses Start. */
+/** Answers "how hands-on" if given, and presses Start. */
 async function runSetup(dash: Dash, hands?: string) {
   expect(setupSection(dash).hidden).toBe(false);
-  (dash.el("setup-next") as HTMLButtonElement).click();
   if (hands) {
     Array.from(document.querySelectorAll<HTMLButtonElement>(".onb-opt"))
       .find((b) => b.textContent?.includes(hands))!
       .click();
   }
-  (dash.el("setup-next") as HTMLButtonElement).click();
   (dash.el("setup-go") as HTMLButtonElement).click();
 }
+
+const mail = (id: string, fromAddress: string, fromDisplayName: string, subject: string) => ({
+  id, provider: "gmail" as const, fromAddress, fromDisplayName, subject, replyToAddress: "",
+  isProtected: false, unread: true, sizeBytes: 1, unsubscribe: {}, receivedAt: Date.now(),
+});
 
 describe("first-run setup", () => {
   it("opens on setup the first time, and on Home once it's skipped", async () => {
@@ -48,45 +51,32 @@ describe("first-run setup", () => {
     expect(setupSection(again).hidden).toBe(true);
   });
 
-  it("starts on the defaults in three steps, and Kai never repeats the title", async () => {
-    const dash = await bootSetup();
-    expect(document.querySelector(".onb-title")!.textContent).toBe("What should always stay?");
-    // Sign-in counts as the first dot, already done.
-    expect(document.querySelector(".onb-dots")!.children).toHaveLength(4);
-    expect(document.querySelector(".onb-dots")!.children[0].className).toBe("on");
-    expect((dash.el("setup-next") as HTMLButtonElement).disabled).toBe(false);
-    expect(navButton("Skip")).toBeUndefined();
-    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("Hi, I'm Kai. Pick what stays."));
-    (dash.el("setup-next") as HTMLButtonElement).click();
-    expect(document.querySelector('.onb-opt[aria-pressed="true"]')!.textContent).toContain("Tidy for me");
-    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("Should I sort, or ask first?"));
-  });
-
-  it("first asks where three of your own senders go, and saves only the answers that differ", async () => {
-    const now = Date.now();
-    const mail = (id: string, fromAddress: string, fromDisplayName: string, subject: string) => ({
-      id, provider: "gmail" as const, fromAddress, fromDisplayName, subject, replyToAddress: "",
-      isProtected: false, unread: true, sizeBytes: 1, unsubscribe: {}, receivedAt: now,
-    });
+  it("scans, shows the companies on a board in Cluster's guess, and saves only the moves", async () => {
     const dash = await bootDashboard({
+      settings: { userName: "Samuel" },
       mailbox: [
         mail("a1", "ship-confirm@amazon.com", "Amazon", "Your order has shipped"),
         mail("a2", "ship-confirm@amazon.com", "Amazon", "Delivered: your package"),
         mail("c1", "alerts@chase.com", "Chase", "Your statement is ready"),
+        mail("f1", "friend@gmail.com", "Friend", "dinner?"),
       ],
     });
-    await vi.waitFor(() => expect(document.querySelector(".onb-title")?.textContent).toBe("Where does Amazon go?"));
-    expect(document.querySelector(".onb-got")).toBeNull();
-    expect((dash.el("setup-next") as HTMLButtonElement).disabled).toBe(true);
-    (document.querySelector('[data-pick="p-keep"]') as HTMLButtonElement).click();
-    expect(document.querySelector(".onb-got")!.textContent).toBe("Got it. Amazon stays in your inbox.");
+    expect(document.querySelector(".onb-title")!.textContent).toBe("Reading your mail");
+    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toContain("Hi Samuel!"));
+    await vi.waitFor(() => expect(document.querySelectorAll(".scan-tile")).toHaveLength(2));
+    await vi.waitFor(() => expect(document.querySelector(".onb-title")?.textContent).toBe("Here's how I'd sort them"), { timeout: 6000 });
+    const chip = (host: string) => document.querySelector<HTMLButtonElement>(`.board-chip[data-host="${host}"]`)!;
+    const col = (spot: string) => document.querySelector<HTMLElement>(`.board-col[data-spot="${spot}"]`)!;
+    expect(col("shipping").contains(chip("amazon.com"))).toBe(true);
+    expect(col("keep")).not.toBeNull();
+    // Tap a sender, then a column.
+    chip("amazon.com").click();
+    expect(chip("amazon.com").getAttribute("aria-pressed")).toBe("true");
+    col("keep").click();
+    expect(col("keep").contains(chip("amazon.com"))).toBe(true);
+    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("Got it. Amazon stays in your inbox."));
     (dash.el("setup-next") as HTMLButtonElement).click();
-    expect(document.querySelector(".onb-title")!.textContent).toBe("Where does Chase go?");
-    (document.querySelector('[data-pick="p-guess"]') as HTMLButtonElement).click();
-    (dash.el("setup-next") as HTMLButtonElement).click();
-    expect(document.querySelector(".onb-title")!.textContent).toBe("What should always stay?");
-    (dash.el("setup-next") as HTMLButtonElement).click();
-    (dash.el("setup-next") as HTMLButtonElement).click();
+    expect(document.querySelector(".onb-title")!.textContent).toBe("How hands-on?");
     expect(navButton("Sort my inbox")).toBeDefined();
     (dash.el("setup-go") as HTMLButtonElement).click();
     await vi.waitFor(() => expect(dash.storedSettings().setupDone).toBe(true));
@@ -100,8 +90,6 @@ describe("first-run setup", () => {
     expect(small.storedSettings().readCap).toBe(20_000);
 
     const big = await bootSetup({ mailboxCount: 48_210 });
-    (big.el("setup-next") as HTMLButtonElement).click();
-    (big.el("setup-next") as HTMLButtonElement).click();
     await vi.waitFor(() => expect(document.querySelector(".onb-read-title")?.textContent).toBe("You have 48,210 emails"));
     const all = Array.from(document.querySelectorAll<HTMLButtonElement>(".onb-read .onb-opt")).find((b) =>
       b.textContent?.startsWith("All 48,210"),
@@ -111,7 +99,6 @@ describe("first-run setup", () => {
     (big.el("setup-go") as HTMLButtonElement).click();
     await vi.waitFor(() => expect(big.storedSettings().readCap).toBe(100_000));
   });
-
   it("Tidy for me turns on scam holding and lands on Home", async () => {
     const dash = await bootSetup();
     await runSetup(dash);

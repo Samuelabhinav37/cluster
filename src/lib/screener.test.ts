@@ -8,6 +8,7 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
     schemaVersion: 8,
     scanWindowDays: 180,
     readCap: 20_000,
+    userName: "",
     maxMessagesPerProvider: 500,
     collapsedSenderCategories: [],
     collapsedDomainCategories: [],

@@ -320,6 +320,7 @@ export async function bootDashboard(opts: BootOptions = {}): Promise<BootedDashb
     }),
     grantedGmailScopes: vi.fn(async () => (opts.denyFilterScope ? [MODIFY] : [MODIFY, FILTER])),
     dropGmailToken: vi.fn(async () => {}),
+    setGmailLoginHint: vi.fn(),
     gmailRefreshToken: vi.fn(async () => "refresh-token"),
     forgetGmailSignIn: vi.fn(async () => {}),
   }));

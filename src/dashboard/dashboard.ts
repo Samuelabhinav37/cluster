@@ -121,6 +121,7 @@ import { initBodyChecks, rankFlagged, renderSecuritySection } from "./securityTa
 import { renderScamReport, wireProtectPages } from "./reportTab";
 import { heldByWeek } from "../lib/scamHistory";
 import { setupSignedIn, wireSetup } from "./setupTab";
+import { firstName, showWelcome } from "./welcome";
 import { renderScreenerTab, wireScreenerTab } from "./screenerTab";
 import { preselectLists, recordUnsubscribeRequests, renderSubscriptionsTab, wireSubscriptionsTab } from "./subscriptionsTab";
 import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib/inboxHealth";
@@ -481,8 +482,12 @@ function showConnectGate(): Promise<string> {
 
   document.body.dataset.state = "connect";
   gate.hidden = false;
-  btn.focus();
-  greetOnGate(ctx.settings.healthHistory.length > 0);
+  // A first run gets Kai's welcome (name, then email); a returning user the plain gate.
+  if (ctx.settings.healthHistory.length === 0) showWelcome(gate, btn);
+  else {
+    btn.focus();
+    greetOnGate(true);
+  }
 
   const label = btn.textContent;
   return new Promise((resolve) => {
@@ -554,7 +559,9 @@ async function showAccountPill(token: string) {
     const greeting = document.getElementById("overview-greeting");
     // "back" only once Cluster has seen this inbox before, not on day one.
     const back = ctx.settings.healthHistory.length > 0 ? " back" : "";
-    if (greeting) greeting.textContent = name ? `Welcome${back}, ${name.split(/\s+/)[0]}!` : `Welcome${back}!`;
+    // The name they gave Kai beats the one Gmail sends under.
+    const first = ctx.settings.userName || (name ? firstName(name) : "");
+    if (greeting) greeting.textContent = first ? `Welcome${back}, ${first}!` : `Welcome${back}!`;
   } catch (err) {
     log.error("Could not load the account email", err);
   }

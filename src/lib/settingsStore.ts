@@ -114,6 +114,8 @@ export interface ClusterSettings {
   simpleMode: boolean;
   /** Kai's corner button and tips. */
   showKai: boolean;
+  /** What the user asked to be called, from the welcome screen ("" until then). */
+  userName: string;
   /** Chrome notifications (optional "notifications" permission). */
   notifyScamHeld: boolean;
   notifyWeekly: boolean;
@@ -296,6 +298,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   setupDone: false,
   simpleMode: false,
   showKai: true,
+  userName: "",
   notifyScamHeld: false,
   notifyWeekly: false,
   lastWeeklyNotice: 0,
@@ -578,6 +581,7 @@ const SYNCED_KEYS = [
   "readCap",
   "theme",
   "showKai",
+  "userName",
   "simpleMode",
   "persona",
   "setupDone",

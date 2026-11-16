@@ -1972,10 +1972,6 @@ body[data-screen="setup"] .index-status {
 .onb-skip:hover { color: var(--label); background: var(--neutral-fill); }
 /* A fixed top, so rows leaving the practice inbox don't move the buttons. */
 .onb-pane { width: min(480px, 100%); margin: clamp(32px, 9vh, 96px) auto 32px; }
-.onb-dots { display: flex; gap: 6px; margin-bottom: 28px; }
-.onb-dots i { width: 8px; height: 4px; border-radius: 2px; background: var(--neutral-fill); transition: width 0.35s var(--spring), background 0.3s; }
-.onb-dots i.on { background: var(--label-4); }
-.onb-dots i.now { width: 28px; background: var(--label); }
 .onb-body { display: flex; flex-direction: column; gap: 12px; }
 .onb-in > * { animation: onb-rise var(--t) var(--ease-out) both; }
 .onb-in > :nth-child(2) { animation-delay: 30ms; }
@@ -4340,10 +4336,56 @@ body.ov-scanning[data-screen="overview"] #index-status { display: none; }
 .onb-guide .onb-bubble { margin: 0; max-width: 260px; border-radius: 14px 14px 14px 4px; }
 .onb-guide .onb-voice { margin: 0; pointer-events: auto; background: var(--neutral-fill); border-color: var(--separator); color: var(--label-2); }
 .onb-guide .onb-voice[aria-pressed="true"] { background: var(--label); color: var(--canvas); }
-/* Learn by doing: the sender being asked about, and the "Got it" answer. */
-.onb-mail { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--glass); }
-.onb-mail .onb-words small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.onb-wait { margin: 0; color: var(--label-4); }
-.onb-got { display: flex; align-items: center; gap: 10px; margin: 0; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--success-text, #1f9d63) 16%, transparent); color: var(--label); font: 600 14px/1.3 var(--font); animation: onb-rise var(--t) var(--spring-snappy) both; }
-.onb-got-tick { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--success-text, #1f9d63); color: #fff; flex: none; }
-.onb-got-tick .i { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+
+/* First-run welcome, Duolingo style: one column, a thick progress bar, Kai asking. */
+.connect-gate.is-welcome { display: block; padding: 0; }
+.connect-gate.is-welcome > :not(.wel) { display: none; }
+.wel { min-height: 100%; display: flex; flex-direction: column; align-items: center; padding: 28px 16px 56px; }
+.wel-top { width: min(600px, 100%); display: flex; align-items: center; gap: 16px; min-height: 40px; }
+.wel-back { border: 0; background: none; padding: 6px 0; color: var(--label-3); font: 500 15px/1 var(--font); cursor: pointer; }
+.wel-back:hover { color: var(--label); }
+.wel-bar { flex: 1; height: 14px; border-radius: 7px; background: var(--neutral-fill); overflow: hidden; }
+.wel-bar span { display: block; height: 100%; border-radius: inherit; background: var(--label); transition: width var(--t-slow) var(--spring-smooth); }
+.wel-stage { width: min(600px, 100%); flex: 1; display: flex; flex-direction: column; gap: 18px; margin-top: 10vh; animation: onb-rise var(--t) var(--ease-out) both; }
+.wel.is-hello .wel-stage { align-items: center; justify-content: center; margin-top: 0; text-align: center; }
+.wel.is-hello .wel-kai { width: 180px; height: 180px; }
+.wel.is-hello .wel-bubble { border-radius: 16px; font-size: 20px; }
+.wel-kai { width: 104px; height: 104px; }
+.wel-ask { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+.wel-bubble { margin: 0; max-width: 440px; padding: 14px 18px; border-radius: 16px 16px 16px 4px; font: 600 19px/1.35 var(--font); }
+.wel-input { height: 58px; padding: 0 18px; border: 2px solid var(--separator); border-radius: 14px; background: var(--neutral-fill); color: var(--label); font: 500 18px/1 var(--font); }
+.wel-input:focus { outline: none; border-color: var(--label-3); }
+/* A raised button that presses down, like Duolingo's. */
+.wel-go { width: 100%; height: 56px; border-radius: 14px; font: 600 17px/1 var(--font); box-shadow: 0 4px 0 var(--label-4); }
+.wel-go:active:not(:disabled) { transform: translateY(4px); box-shadow: none; }
+.wel-go:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+.wel.is-hello .wel-go { width: min(340px, 100%); margin-top: 48px; }
+.wel .connect-trust { margin: 0; }
+
+/* Setup: the same bar on top. */
+.onb-pane > .wel-bar { flex: none; width: 100%; margin-bottom: 28px; }
+
+/* Scan: the count, a thin bar, and companies popping in as they're found. */
+.onb-count { margin: 0; font: 600 44px/1 var(--font); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.scan-bar { height: 6px; border-radius: 3px; background: var(--neutral-fill); overflow: hidden; }
+.scan-bar span { display: block; height: 100%; width: 0; background: var(--label); transition: width var(--t) var(--ease-out); }
+.scan-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.scan-tile { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px 12px; border-radius: 14px; background: var(--glass); color: var(--label-2); font: 500 12.5px/1.2 var(--font); animation: scan-pop 0.5s var(--spring-snappy) both; }
+.scan-tile > span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes scan-pop { from { opacity: 0; transform: translateY(14px) scale(0.6); } }
+
+/* Board: label columns with sender chips; drag one, or tap it then a column. */
+.board { display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 10px; }
+.board-col { display: flex; flex-direction: column; gap: 8px; min-height: 104px; padding: 10px; border: 2px dashed transparent; border-radius: 14px; background: var(--glass); transition: border-color var(--t-fast), background var(--t-fast); }
+.board.picking .board-col { border-color: var(--separator); cursor: pointer; }
+.board-col.over, .board.picking .board-col:hover { border-color: var(--label-3); background: var(--neutral-fill); }
+.board-head { display: flex; align-items: center; gap: 6px; padding: 2px; border: 0; background: none; color: var(--label); font: 600 13px/1.2 var(--font); text-align: left; cursor: inherit; }
+.board-emoji { font-size: 15px; }
+.board-chips { display: flex; flex-direction: column; gap: 6px; }
+.board-chip { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--separator); border-radius: 10px; background: var(--canvas); color: var(--label); font: 500 13px/1.2 var(--font); text-align: left; cursor: grab; }
+.board-chip > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board-chip.on { border-color: var(--label); box-shadow: 0 0 0 1px var(--label); }
+.board-chip.dragging { opacity: 0.4; }
+@media (prefers-reduced-motion: reduce) {
+  .scan-tile { animation-name: onb-fade; }
+}
