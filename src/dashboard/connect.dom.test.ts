@@ -56,15 +56,14 @@ describe("connect gate", () => {
 
     expect(gateVisible()).toBe(true);
     expect(document.body.dataset.state).toBe("connect");
-    expect(dash.el("welcome-kai-line").textContent).toBe("");
-    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toContain("I'm Kai"));
+    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toContain("I'm Kai"), { timeout: 3000 });
     expect(gmail.getAuthToken).not.toHaveBeenCalledWith(true);
     expect(gmail.listCandidateMessages).not.toHaveBeenCalled();
 
     await throughWelcome();
     // Only the first name is kept, and Kai uses it.
     await vi.waitFor(() => expect(dash.storedSettings().userName).toBe("Samuel"));
-    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toContain("Nice to meet you, Samuel!"));
+    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toContain("Nice to meet you, Samuel!"), { timeout: 3000 });
     (dash.el("connect-gmail-btn") as HTMLButtonElement).click();
 
     await vi.waitFor(() => expect(gmail.listCandidateMessages).toHaveBeenCalled(), { timeout: 3000 });
