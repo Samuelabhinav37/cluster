@@ -9,8 +9,8 @@ import { updateSettings } from "../lib/settingsStore";
 import { setGmailLoginHint } from "../lib/gmailWebAuth";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-/** Name, email, then setup's scan, board and one question. */
-export const ONBOARDING_STEPS = 5;
+/** Name and email here, then setup: hello, label, scan, found. */
+export const ONBOARDING_STEPS = 6;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);

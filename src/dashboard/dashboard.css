@@ -4319,24 +4319,6 @@ body.ov-scanning[data-screen="overview"] #index-status { display: none; }
 .onb-labels li { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px 7px 9px; border-radius: 999px; background: var(--glass); font: 500 14px/1 var(--font); color: var(--label); animation: onb-rise var(--t) var(--spring-snappy) calc(var(--i, 0) * 50ms) both; }
 .onb-labels .gl-tag, .onb-labels svg { width: 16px; height: 16px; }
 
-/* Setup is one centered column; Kai walks beside whatever it talks about. */
-.onb-pane { width: min(520px, 100%); }
-.onb-guide {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  pointer-events: none;
-  will-change: transform;
-}
-.onb-guide .onb-kai { width: 96px; height: 96px; }
-.onb-guide .onb-bubble { margin: 0; max-width: 260px; border-radius: 14px 14px 14px 4px; }
-.onb-guide .onb-voice { margin: 0; pointer-events: auto; background: var(--neutral-fill); border-color: var(--separator); color: var(--label-2); }
-.onb-guide .onb-voice[aria-pressed="true"] { background: var(--label); color: var(--canvas); }
-
 /* First-run welcome, Duolingo style: one column, a thick progress bar, Kai asking. */
 .connect-gate.is-welcome { display: block; padding: 0; }
 .connect-gate.is-welcome > :not(.wel) { display: none; }
@@ -4362,30 +4344,90 @@ body.ov-scanning[data-screen="overview"] #index-status { display: none; }
 .wel.is-hello .wel-go { width: min(340px, 100%); margin-top: 48px; }
 .wel .connect-trust { margin: 0; }
 
-/* Setup: the same bar on top. */
-.onb-pane > .wel-bar { flex: none; width: 100%; margin-bottom: 28px; }
+/* Setup: the welcome's layout. Bar, Kai asking, the screen, one big button. Room to breathe. */
+.onb-pane { width: min(640px, 100%); margin: clamp(20px, 5vh, 56px) auto 48px; }
+.onb-pane > .wel-bar { display: block; flex: none; width: 100%; margin-bottom: 40px; }
+.onb-pane .onb-body { gap: 28px; }
+.onb-pane .onb-title { margin: 0; font-size: clamp(30px, 3.6vw, 40px); }
+/* Kai's drawing runs past its box (antenna, shadow): keep clear of the title. */
+.onb-kai-row { margin: 12px 0 48px; }
+.onb-kai-words { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.onb-kai-row .onb-voice { margin: 0; background: var(--neutral-fill); border-color: var(--separator); color: var(--label-2); }
+.onb-kai-row .onb-voice[aria-pressed="true"] { background: var(--label); color: var(--canvas); }
+/* Hello: Kai big and centred, like the welcome's first screen. */
+/* Kai's drawing runs below its box, so the row keeps room under it. */
+.onb-pane.is-hello .onb-kai-row { flex-direction: column; text-align: center; margin: 2vh 0 64px; }
+.onb-pane.is-hello .wel-kai { width: 170px; height: 170px; order: 2; margin-top: 18px; }
+.onb-pane.is-hello .onb-body { align-items: center; text-align: center; }
+.onb-pane.is-hello .wel-go { width: min(340px, 100%); }
+.onb-actions { display: flex; flex-direction: column; align-items: stretch; gap: 12px; margin-top: 8px; }
+.onb-wide { width: 100%; height: 52px; border: 2px solid var(--separator); font-size: 16px; }
+.onb-link { align-self: center; padding: 8px 12px; border: 0; background: none; color: var(--label-3); font: 500 14px/1 var(--font); cursor: pointer; }
+.onb-link:hover { color: var(--label); }
+.onb-hint { margin: -12px 0 0; color: var(--label-3); font: 500 15px/1.4 var(--font); }
+.onb-read-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-/* Scan: the count, a thin bar, and companies popping in as they're found. */
-.onb-count { margin: 0; font: 600 44px/1 var(--font); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-.scan-bar { height: 6px; border-radius: 3px; background: var(--neutral-fill); overflow: hidden; }
-.scan-bar span { display: block; height: 100%; width: 0; background: var(--label); transition: width var(--t) var(--ease-out); }
-.scan-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.scan-tile { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px 12px; border-radius: 14px; background: var(--glass); color: var(--label-2); font: 500 12.5px/1.2 var(--font); animation: scan-pop 0.5s var(--spring-snappy) both; }
+/* "This is a label": one email, and its label dropping onto it. */
+.lbl-demo { padding: 28px 0; }
+.lbl-mail { display: flex; align-items: center; gap: 14px; padding: 18px 20px; border-radius: 16px; background: var(--glass); box-shadow: 0 1px 0 var(--separator); }
+.lbl-mail .onb-words b { font-size: 16px; }
+.lbl-mail .onb-words small { font-size: 14px; color: var(--label-3); }
+.lbl-tag { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 8px 12px 8px 10px; border-radius: 999px; background: var(--neutral-fill); color: var(--label); font: 600 14px/1 var(--font); opacity: 0; transform: translateY(-48px) scale(1.25) rotate(-6deg); }
+.lbl-tag.in { opacity: 1; transform: none; transition: transform 0.6s var(--spring-snappy), opacity 0.25s; }
+.lbl-tag .gl-tag, .lbl-tag svg { width: 16px; height: 16px; }
+
+/* Scan: a radar sweeping beside the count, and companies popping in as they're found. */
+.scan-head { display: flex; align-items: center; gap: 24px; }
+.scan-radar { position: relative; flex: none; width: 96px; height: 96px; border-radius: 50%; background: var(--neutral-fill); overflow: hidden; }
+.scan-sweep { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0 70%, color-mix(in srgb, var(--label) 45%, transparent) 100%); animation: scan-spin 1.6s linear infinite; }
+.scan-ring { position: absolute; inset: 30%; border-radius: 50%; border: 1px solid var(--separator); }
+.scan-ring.r2 { inset: 12%; }
+@keyframes scan-spin { to { transform: rotate(1turn); } }
+.onb-count { margin: 0; font: 600 48px/1 var(--font); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.scan-sub { margin: 6px 0 0; color: var(--label-3); font: 500 15px/1 var(--font); }
+.scan-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.scan-tile { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 8px 14px; border-radius: 16px; background: var(--glass); color: var(--label-2); font: 500 13px/1.2 var(--font); animation: scan-pop 0.5s var(--spring-snappy) calc(var(--i, 0) * 160ms) both; }
 .scan-tile > span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @keyframes scan-pop { from { opacity: 0; transform: translateY(14px) scale(0.6); } }
 
-/* Board: label columns with sender chips; drag one, or tap it then a column. */
-.board { display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 10px; }
-.board-col { display: flex; flex-direction: column; gap: 8px; min-height: 104px; padding: 10px; border: 2px dashed transparent; border-radius: 14px; background: var(--glass); transition: border-color var(--t-fast), background var(--t-fast); }
-.board.picking .board-col { border-color: var(--separator); cursor: pointer; }
+/* Board: label columns with company chips. In change mode chips get a grip and can be dragged. */
+.board { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+.board-col { display: flex; flex-direction: column; gap: 10px; min-height: 112px; padding: 14px; border: 2px dashed transparent; border-radius: 16px; background: var(--glass); transition: border-color var(--t-fast), background var(--t-fast); }
+.board.editing .board-col { border-color: var(--separator); }
+.board.picking .board-col { cursor: pointer; }
 .board-col.over, .board.picking .board-col:hover { border-color: var(--label-3); background: var(--neutral-fill); }
-.board-head { display: flex; align-items: center; gap: 6px; padding: 2px; border: 0; background: none; color: var(--label); font: 600 13px/1.2 var(--font); text-align: left; cursor: inherit; }
-.board-emoji { font-size: 15px; }
-.board-chips { display: flex; flex-direction: column; gap: 6px; }
-.board-chip { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--separator); border-radius: 10px; background: var(--canvas); color: var(--label); font: 500 13px/1.2 var(--font); text-align: left; cursor: grab; }
-.board-chip > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board-head { display: flex; align-items: center; gap: 8px; padding: 2px; border: 0; background: none; color: var(--label); font: 600 16px/1.2 var(--font); text-align: left; cursor: inherit; }
+.board-emoji { font-size: 18px; }
+.board-chips { display: flex; flex-direction: column; gap: 8px; }
+.board-chip { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--separator); border-radius: 12px; background: var(--canvas); color: var(--label); font: 500 14px/1.2 var(--font); text-align: left; cursor: pointer; }
+.board.editing .board-chip { cursor: grab; box-shadow: 0 2px 0 var(--separator); }
+.board.editing .board-chip:hover { border-color: var(--label-3); }
+.board-grip { color: var(--label-4); font-size: 14px; letter-spacing: -1px; }
+.board-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .board-chip.on { border-color: var(--label); box-shadow: 0 0 0 1px var(--label); }
 .board-chip.dragging { opacity: 0.4; }
-@media (prefers-reduced-motion: reduce) {
-  .scan-tile { animation-name: onb-fade; }
+
+/* Dashboard tour: the page dims except a hole over what Kai means. */
+.tour { position: fixed; inset: 0; z-index: 60; }
+.tour-hole { position: fixed; border-radius: 14px; box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.6); transition: left var(--t) var(--spring-smooth), top var(--t) var(--spring-smooth), width var(--t) var(--spring-smooth), height var(--t) var(--spring-smooth); pointer-events: none; }
+.tour-card { position: fixed; top: 0; left: 0; display: flex; align-items: center; gap: 14px; width: min(420px, calc(100vw - 32px)); padding: 16px 18px; border-radius: 18px; background: var(--canvas); border: 1px solid var(--separator); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4); transition: transform var(--t-slow) var(--spring-smooth); }
+.tour-kai { width: 76px; height: 76px; }
+.tour-words { display: flex; flex-direction: column; gap: 14px; flex: 1; min-width: 0; }
+.tour-line { margin: 0; color: var(--label); font: 600 16px/1.4 var(--font); }
+.tour-line.pop { animation: onb-rise var(--t) var(--ease-out); }
+.tour-foot { display: flex; align-items: center; gap: 6px; }
+.tour-foot .grow { flex: 1; }
+.tour-count { color: var(--label-4); font: 500 13px/1 var(--font); }
+.tour-next { height: 40px; padding: 0 18px; font-size: 15px; }
+@media (max-width: 700px) {
+  .scan-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .onb-read-opts { grid-template-columns: 1fr; }
 }
+@media (prefers-reduced-motion: reduce) {
+  .scan-tile { animation-name: onb-fade; animation-delay: 0s; }
+  .scan-sweep { animation-duration: 6s; }
+  .lbl-tag.in { transition: opacity 0.2s; }
+}
+/* The answer buttons stay in reach at the bottom, like Duolingo's footer. */
+.onb-pane .onb-actions { position: sticky; bottom: 0; z-index: 1; padding: 20px 0 24px; margin-top: 0; background: linear-gradient(to bottom, transparent, var(--canvas) 22px); }
+.tour-hole { outline: 2px solid var(--label); outline-offset: 2px; }
