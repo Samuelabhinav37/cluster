@@ -123,12 +123,15 @@ export function lineChart(counts: readonly number[], now: number, noun = "emails
     const line = el("i", "mr-grid");
     line.style.top = `${y(v)}%`;
     const label = el("span", "pl-y", v.toLocaleString());
+    label.setAttribute("aria-hidden", "true");
     label.style.top = `${y(v)}%`;
     plot.append(line, label);
   }
   const dayOf = (i: number) => new Date(now - (counts.length - 1 - i) * DAY);
   const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   const xs = el("div", "mr-xs");
+  // The plot's label reads every day; the axis is for the eye.
+  xs.setAttribute("aria-hidden", "true");
   // A date every four days, counted back from today, with a dashed line up.
   for (let i = counts.length - 1; i >= 0; i -= 4) {
     const x = `${(i / last) * 100}%`;
