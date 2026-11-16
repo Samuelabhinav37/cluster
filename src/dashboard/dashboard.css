@@ -4340,3 +4340,10 @@ body.ov-scanning[data-screen="overview"] #index-status { display: none; }
 .onb-guide .onb-bubble { margin: 0; max-width: 260px; border-radius: 14px 14px 14px 4px; }
 .onb-guide .onb-voice { margin: 0; pointer-events: auto; background: var(--neutral-fill); border-color: var(--separator); color: var(--label-2); }
 .onb-guide .onb-voice[aria-pressed="true"] { background: var(--label); color: var(--canvas); }
+/* Learn by doing: the sender being asked about, and the "Got it" answer. */
+.onb-mail { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--glass); }
+.onb-mail .onb-words small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.onb-wait { margin: 0; color: var(--label-4); }
+.onb-got { display: flex; align-items: center; gap: 10px; margin: 0; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--success-text, #1f9d63) 16%, transparent); color: var(--label); font: 600 14px/1.3 var(--font); animation: onb-rise var(--t) var(--spring-snappy) both; }
+.onb-got-tick { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--success-text, #1f9d63); color: #fff; flex: none; }
+.onb-got-tick .i { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }

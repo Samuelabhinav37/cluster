@@ -16,6 +16,15 @@ import { log } from "../lib/log";
 import { buildOnboardingPlan, labelEmoji, type KeepKind, type OnboardingAnswers } from "../lib/onboardingPlan";
 import { ctx } from "./state";
 import { gmailLabelIcon, icon } from "./homeDashboard";
+import { senderTile } from "./senderTile";
+import { mapWithConcurrency } from "../lib/concurrency";
+import {
+  pickPracticeSenders,
+  practiceOverride,
+  type PracticeAnswer,
+  type PracticeSender,
+} from "../lib/practiceSenders";
+import type { SortBucket, SortOverride } from "../lib/sortTaxonomy";
 import { renderTimeLimits, turnOnTimeLimits } from "./timeLimitsTab";
 import { countMailbox } from "../lib/gmailApi";
 import { readTimeText } from "../lib/gmailQuotaLedger";
@@ -58,11 +67,13 @@ function glyph(name: string): HTMLElement {
   return g;
 }
 
-type Step = "keep" | "hands" | "plan";
-const STEPS: Step[] = ["keep", "hands", "plan"];
+type Step = "senders" | "keep" | "hands" | "plan";
+// "senders" (learn by doing on your own mail) drops out when there are none to show.
+let STEPS: Step[] = ["senders", "keep", "hands", "plan"];
 
 // What Kai says on each step: one short line the title doesn't already say.
 const KAI_LINES: Record<Step | "done", string> = {
+  senders: "Hi, I'm Kai. Let's try your own mail.",
   keep: "Hi, I'm Kai. Pick what stays.",
   hands: "Should I sort, or ask first?",
   plan: "Here's what I'll do.",
@@ -80,7 +91,39 @@ const HINTS: Record<string, string> = {
   tidy: "I sort new mail myself.",
   "read-newest": "Quicker to start.",
   "read-all": "Every email. Takes longer.",
+  "p-guess": "That's my guess.",
+  "p-alt": "It fits here too.",
+  "p-keep": "It stays in your inbox.",
 };
+
+/** Three companies from the newest mail, or none if it can't be read in time. */
+async function loadPractice(): Promise<PracticeSender[]> {
+  const read = (async () => {
+    const token = await gmailProvider.getAuthToken(false);
+    const stubs = await gmailProvider.listCandidateMessages(token, 50, 30);
+    const metas = await mapWithConcurrency(stubs.slice(0, 50), 6, (stub) =>
+      gmailProvider.getMessageMetadata(token, stub.id).catch(() => null),
+    );
+    return pickPracticeSenders(
+      metas.flatMap((m) =>
+        m
+          ? [{
+              fromAddress: m.fromAddress,
+              fromDisplayName: m.fromDisplayName,
+              subject: m.subject,
+              promotion: m.gmailPromotion,
+              listMail: Boolean(m.unsubscribe?.postUrl || m.unsubscribe?.httpUrl || m.unsubscribe?.mailto),
+            }]
+          : [],
+      ),
+    );
+  })();
+  const late = new Promise<PracticeSender[]>((r) => window.setTimeout(() => r([]), 8000));
+  return Promise.race([read, late]).catch((err: unknown) => {
+    log.error("Setup could not read recent senders", err);
+    return [];
+  });
+}
 
 const VOICE_PREF = "cluster.kaiVoice";
 const SPRING = "linear(0, 0.062, 0.198, 0.356, 0.509, 0.642, 0.75, 0.833, 0.895, 0.938, 0.967, 0.985, 0.996, 1.003, 1.005, 1.006, 1)";
@@ -228,10 +271,15 @@ function freshAnswers(): OnboardingAnswers {
 }
 
 /** Saves the answers and applies the plan. Gmail filters only for "Tidy for me". */
-async function startPlan(answers: OnboardingAnswers, readCap: number): Promise<{ tidyFailed: boolean }> {
+async function startPlan(
+  answers: OnboardingAnswers,
+  readCap: number,
+  corrections: Record<string, SortOverride> = {},
+): Promise<{ tidyFailed: boolean }> {
   const plan = buildOnboardingPlan(answers);
   const patch: Partial<ClusterSettings> = {
     readCap,
+    sortOverrides: { ...ctx.settings.sortOverrides, ...corrections },
     persona: plan.persona,
     setupDone: true,
     onboarding: { version: 1, answers, answeredAt: Date.now() },
@@ -306,6 +354,22 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   // over 20,000 gets the question; smaller ones are read in full.
   let mailCount: number | null | undefined;
   let readAll = false;
+  // Learn by doing: null while the newest mail is read.
+  let practice: PracticeSender[] | null = null;
+  let practiceAt = 0;
+  const practiceAnswers: PracticeAnswer[] = [];
+  const corrections = () => {
+    const out: Record<string, SortOverride> = {};
+    (practice ?? []).forEach((p, i) => {
+      const saved = practiceAnswers[i] ? practiceOverride(p, practiceAnswers[i]) : null;
+      if (saved) out[saved[0]] = saved[1];
+    });
+    return out;
+  };
+  const labelParts = (b: SortBucket) => {
+    const [emoji, ...rest] = showLabel(categoryLabelName(b, ctx.settings.labelChoices)).split(" ");
+    return { emoji, name: rest.join(" ") };
+  };
 
   const button = (label: string, className: string, onClick: () => void, disabled = false) => {
     const b = el("button", className, label);
@@ -360,7 +424,9 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
 
   const nav = (canGo: boolean, label = "Continue", go: () => void = () => goTo(at + 1)) => {
     const row = el("div", "onb-nav");
-    if (at > 0) row.append(button("Back", "onb-btn ghost", () => goTo(at - 1)));
+    if (STEPS[at] === "senders" && practiceAt > 0)
+      row.append(button("Back", "onb-btn ghost", () => { practiceAt -= 1; render(true); }));
+    else if (at > 0) row.append(button("Back", "onb-btn ghost", () => goTo(at - 1)));
     row.append(el("span", "grow"));
     const next = button(label, "onb-btn dark", go, !canGo);
     next.id = STEPS[at] === "plan" ? "setup-go" : "setup-next";
@@ -369,6 +435,65 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   };
 
   const heading = (title: string) => [el("h1", "onb-title", title)];
+
+  /** "Where does Amazon go?": Cluster's guess, one other label, or Keep. */
+  function renderSenders(body: HTMLElement) {
+    if (!practice) {
+      body.append(...heading("Looking at your mail"));
+      body.append(el("p", "onb-wait", "One moment."));
+      return;
+    }
+    const p = practice[practiceAt];
+    const answer = practiceAnswers[practiceAt];
+    body.append(...heading(`Where does ${p.name} go?`));
+    const card = el("div", "onb-mail");
+    const words = el("span", "onb-words");
+    words.append(el("b", "", p.name), el("small", "", p.subject));
+    card.append(senderTile(p.address, p.name, "sz-44"), words);
+    const guess = labelParts(p.guess);
+    const alt = labelParts(p.alt);
+    const choose = (a: PracticeAnswer) => () => {
+      practiceAnswers[practiceAt] = a;
+      render();
+      const now = pickEl(`p-${a}`);
+      if (!now) return;
+      if (a === "guess") {
+        kai.react(now, "hop", guess.emoji, "joyful");
+        kai.say("Same as me!");
+      } else if (a === "alt") {
+        kai.react(now, "nodSmall", alt.emoji);
+        kai.say("Good call. I'll remember.");
+      } else {
+        kai.react(now, "nodSmall");
+        kai.say("Kept. It stays in your inbox.");
+      }
+    };
+    const opts = el("div", "onb-opts");
+    opts.append(
+      option("p-guess", guess.name, "My guess", guess.emoji, "gray", answer === "guess", choose("guess")),
+      option("p-alt", alt.name, "", alt.emoji, "gray", answer === "alt", choose("alt")),
+      option("p-keep", "Keep in inbox", "", "📥", "gray", answer === "keep", choose("keep")),
+    );
+    body.append(card, opts);
+    if (answer) {
+      const where = answer === "keep" ? "stays in your inbox" : `goes to ${answer === "guess" ? guess.name : alt.name}`;
+      const got = el("p", "onb-got");
+      const tick = el("span", "onb-got-tick");
+      tick.append(icon("check"));
+      got.append(tick, `Got it. ${p.name} ${where}.`);
+      body.append(got);
+    }
+    const last = practiceAt === practice.length - 1;
+    body.append(
+      nav(Boolean(answer), "Continue", () => {
+        if (last) goTo(at + 1);
+        else {
+          practiceAt += 1;
+          render(true);
+        }
+      }),
+    );
+  }
 
   function renderKeep(body: HTMLElement) {
     body.append(
@@ -503,7 +628,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       kai.goTo(go);
       if (tidy) kai.say("Making your labels.");
       try {
-        const { tidyFailed } = await startPlan(answers, readAll ? MAIL_INDEX_MAX : MAIL_INDEX_CAP);
+        const { tidyFailed } = await startPlan(answers, readAll ? MAIL_INDEX_MAX : MAIL_INDEX_CAP, corrections());
         if (go) {
           go.textContent = "All set";
           go.classList.add("done");
@@ -522,7 +647,10 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
           body.append(el("h1", "onb-title", "Your labels"), chips);
           pane.replaceChildren(body);
           kai.goTo(body.querySelector(".onb-title"));
-          kai.say(`All ${on.length} labels ready.`, "joyful");
+          const reading = typeof mailCount === "number" && mailCount > 0
+            ? ` Sorting ${Math.min(mailCount, readAll ? MAIL_INDEX_MAX : MAIL_INDEX_CAP).toLocaleString("en-US")} emails.`
+            : "";
+          kai.say(`All ${on.length} labels ready.${reading}`, "joyful");
           kai.celebrate();
           await new Promise((r) => window.setTimeout(r, 1800 + on.length * 50));
         } else {
@@ -543,7 +671,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     body.append(
       list,
       ...(readChoice ? [readChoice] : []),
-      nav(true, "Start", () => void start()),
+      nav(true, plan.tidy ? "Sort my inbox" : "Save", () => void start()),
     );
   }
 
@@ -554,10 +682,11 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       hinted = "";
     }
     const dots = el("div", "onb-dots");
-    dots.setAttribute("aria-label", `Step ${at + 1} of ${STEPS.length}`);
+    dots.setAttribute("aria-label", `Step ${at + 2} of ${STEPS.length + 1}`);
+    dots.append(el("i", "on"));
     STEPS.forEach((_, i) => dots.append(el("i", i < at ? "on" : i === at ? "on now" : "")));
     const body = el("div", newStep ? "onb-body onb-in" : "onb-body");
-    ({ keep: renderKeep, hands: renderHands, plan: renderPlan })[step](
+    ({ senders: renderSenders, keep: renderKeep, hands: renderHands, plan: renderPlan })[step](
       body,
     );
     pane.replaceChildren(dots, body);
@@ -574,7 +703,10 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       saidHello = true;
     }
     const next = () => pane.querySelector<HTMLElement>(step === "plan" ? "#setup-go" : "#setup-next");
-    if (step === "keep") {
+    if (step === "senders") {
+      if (practice && practiceAt > 0) kai.say("Next one.");
+      if (practice) walk([[2200, () => { kai.goTo(pickEl("p-guess")); kai.say(HINTS["p-guess"]); }]]);
+    } else if (step === "keep") {
       walk([
         [2600, () => { kai.goTo(pane.querySelector(".onb-opt")); kai.say("Tap one to keep it in your inbox."); }],
         [3200, () => { kai.goTo(next()); kai.say("Then Continue."); }],
@@ -598,6 +730,23 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     await select("overview");
   };
 
+  STEPS = ["senders", "keep", "hands", "plan"];
   render(true);
+  // Setup draws behind the sign-in screen; the newest mail is read once signed in.
+  beginPractice = () => {
+    beginPractice = () => {};
+    if (ctx.settings.setupDone) return;
+    void loadPractice().then((found) => {
+      practice = found;
+      // Nothing to practise on: setup starts at "What should always stay?".
+      if (found.length === 0) STEPS = STEPS.filter((st) => st !== "senders");
+      if (!ctx.settings.setupDone) render(true);
+    });
+  };
+}
 
+let beginPractice = () => {};
+/** Called once Gmail is signed in: reads the newest mail for setup's first step. */
+export function setupSignedIn(): void {
+  beginPractice();
 }

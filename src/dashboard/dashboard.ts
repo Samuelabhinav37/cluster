@@ -120,7 +120,7 @@ import { renderLearned, SIGNED_OUT_KEY, wireSettingsMore } from "./settingsMore"
 import { initBodyChecks, rankFlagged, renderSecuritySection } from "./securityTab";
 import { renderScamReport, wireProtectPages } from "./reportTab";
 import { heldByWeek } from "../lib/scamHistory";
-import { wireSetup } from "./setupTab";
+import { setupSignedIn, wireSetup } from "./setupTab";
 import { renderScreenerTab, wireScreenerTab } from "./screenerTab";
 import { preselectLists, recordUnsubscribeRequests, renderSubscriptionsTab, wireSubscriptionsTab } from "./subscriptionsTab";
 import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib/inboxHealth";
@@ -690,6 +690,7 @@ async function main() {
   };
 
   const gmailToken = await connectGmail();
+  setupSignedIn();
   // Start reading mail into the local index right away, so it's ready (or
   // nearly) by the time setup is done and the first screen renders.
   startIndexSync(gmailProvider, gmailToken);
