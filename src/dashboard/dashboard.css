@@ -334,7 +334,7 @@ a:hover {
     transition-delay: 0s !important;
     scroll-behavior: auto !important;
   }
-  .onb-in > *, .onb-plan li, .onb-card-list li.new, .connect-glass, .kg-panel, .kg-msg, .onb-bubble.pop { animation-name: onb-fade !important; }
+  .onb-in > *, .onb-plan li, .onb-labels li, .onb-card-list li.new, .connect-glass, .kg-panel, .kg-msg, .onb-bubble.pop { animation-name: onb-fade !important; }
   .onb-opt:active, .onb-btn:active, .btn:active, .chip:active, .tool:active, .connect-btn:active { transform: none; }
   .sort-ring.is-looking::after, .sort-preview-bucket.active > i { animation-duration: 2.4s !important; }
 }
@@ -4387,3 +4387,7 @@ body.ov-scanning[data-screen="overview"] #index-status { display: none; }
 /* Label emoji in setup: the real label's emoji on a soft tile. */
 .onb-emoji { font-size: 19px; line-height: 1; }
 .onb-glyph.onb-emoji { font-size: 15px; }
+/* The labels Gmail just made, landing one by one. */
+.onb-labels { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 0; padding: 0; list-style: none; }
+.onb-labels li { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px 7px 9px; border-radius: 999px; background: var(--glass); font: 500 14px/1 var(--font); color: var(--label); animation: onb-rise var(--t) var(--spring-snappy) calc(var(--i, 0) * 50ms) both; }
+.onb-labels .gl-tag, .onb-labels svg { width: 16px; height: 16px; }

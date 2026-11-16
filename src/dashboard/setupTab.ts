@@ -15,12 +15,15 @@ import { updateSettings } from "../lib/settingsStore";
 import { log } from "../lib/log";
 import { buildOnboardingPlan, labelEmoji, type KeepKind, type OnboardingAnswers } from "../lib/onboardingPlan";
 import { ctx } from "./state";
-import { icon } from "./homeDashboard";
+import { gmailLabelIcon, icon } from "./homeDashboard";
 import { renderTimeLimits, turnOnTimeLimits } from "./timeLimitsTab";
 import { countMailbox } from "../lib/gmailApi";
 import { readTimeText } from "../lib/gmailQuotaLedger";
 import { MAIL_INDEX_CAP, MAIL_INDEX_MAX } from "../lib/mailIndex";
 import { gmailProvider } from "../lib/providers/gmailProvider";
+import { ALL_SORT_BUCKETS } from "../lib/sortTaxonomy";
+import { categoryLabelName } from "../lib/categoryFilters";
+import { CLUSTER_LABEL_COLORS, showLabel } from "../lib/clusterLabels";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
 
@@ -146,6 +149,9 @@ function kaiNarrator(host: HTMLElement) {
     },
     wave() {
       kai?.do("wave");
+    },
+    celebrate() {
+      kai?.do("celebrate");
     },
     /** One beat for a pick: look at it, then a small move and maybe its emoji. */
     react(target: Element, action: KaiAction, emoji?: string, mood?: KaiMood) {
@@ -428,15 +434,35 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
         go.disabled = true;
         go.textContent = "Setting up…";
       }
+      const tidy = buildOnboardingPlan(answers).tidy;
+      if (tidy) kai.say("Making your labels.");
       try {
         const { tidyFailed } = await startPlan(answers, readAll ? MAIL_INDEX_MAX : MAIL_INDEX_CAP);
         if (go) {
           go.textContent = "All set";
           go.classList.add("done");
         }
-        kai.say(tidyFailed ? "Saved. Turn on the filters in Labels." : KAI_LINES.done, "happy");
-        // Long enough to see "All set", short enough not to wait on it.
-        await new Promise((r) => window.setTimeout(r, 400));
+        if (tidy && !tidyFailed) {
+          // The milestone: every label Gmail now has, landing one by one, and one cheer.
+          const on = ALL_SORT_BUCKETS.filter((b) => !ctx.settings.autoSort.labelsOff.includes(b));
+          const chips = el("ul", "onb-labels");
+          on.forEach((b, i) => {
+            const chip = el("li");
+            chip.style.setProperty("--i", String(i));
+            chip.append(gmailLabelIcon(CLUSTER_LABEL_COLORS[b]?.backgroundColor), showLabel(categoryLabelName(b, ctx.settings.labelChoices)));
+            chips.append(chip);
+          });
+          const body = el("div", "onb-body onb-in");
+          body.append(el("h1", "onb-title", "Your labels"), chips);
+          pane.replaceChildren(body);
+          kai.say(`All ${on.length} labels ready.`, "joyful");
+          kai.celebrate();
+          await new Promise((r) => window.setTimeout(r, 1800 + on.length * 50));
+        } else {
+          kai.say(tidyFailed ? "Saved. Turn on the filters in Labels." : KAI_LINES.done, "happy");
+          // Long enough to see "All set", short enough not to wait on it.
+          await new Promise((r) => window.setTimeout(r, 400));
+        }
         await select("overview");
       } catch (err) {
         log.error("Setup could not be saved", err);

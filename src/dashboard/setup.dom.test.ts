@@ -82,6 +82,10 @@ describe("first-run setup", () => {
   it("by default turns everything on: filters for every label, every label skips the inbox, scams held", async () => {
     const dash = await bootDashboard();
     await runSetup(dash);
+    // The milestone: every label lands as a chip and Kai cheers, before Home opens.
+    await vi.waitFor(() => expect(document.querySelectorAll(".onb-labels li")).toHaveLength(13));
+    expect(document.querySelector(".onb-labels")!.textContent).toContain("Travel");
+    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("All 13 labels ready."));
     await vi.waitFor(() => expect(Object.keys(dash.storedSettings().autoSort.filterIdsByBucket)).toHaveLength(13));
     const stored = dash.storedSettings();
     expect(stored.autoSort.timeLimitsEnabled).toBe(true);
