@@ -13,7 +13,7 @@ import type { SortBucket } from "../lib/sortTaxonomy";
 import { gmailMessageUrl } from "./detailsPanel";
 import { infoButton } from "./ui";
 import { donutChart } from "./overviewCharts";
-import { emailsCell } from "./cleanupPage";
+import { emailsCell, niceStep } from "./cleanupPage";
 
 export type HomeKind = "primary" | "trans" | "updates" | "promo";
 
@@ -661,15 +661,6 @@ function inboxCard(f: HomeFacts): HTMLElement {
   card.append(head, el("b", "mr-total", n(days.reduce((a, b) => a + b, 0))));
   card.append(barChart(days, Date.now()));
   return card;
-}
-
-/** A round step (1, 2, 2.5 or 5 times a power of ten) that splits `max` into about three. */
-export function niceStep(max: number): number {
-  const raw = Math.max(1, max) / 3;
-  const pow = 10 ** Math.floor(Math.log10(raw));
-  // Whole emails only: 2.5 needs a power of ten from 10 up, and a quiet month still steps by 1.
-  const m = [1, 2, 2.5, 5, 10].find((k) => k * pow >= raw && Number.isInteger(k * pow)) ?? 10;
-  return Math.max(1, m * pow);
 }
 
 const compact = new Intl.NumberFormat(undefined, { notation: "compact" });

@@ -97,17 +97,51 @@ const SVG = "http://www.w3.org/2000/svg";
 
 /** Plausible-style area line: gridlines with counts on the left, a baseline with
  * ticks under the dates, and a hover guide with the day's count. */
-export function lineChart(counts: readonly number[], now: number, noun = "emails"): HTMLElement {
+/** A round step (1, 2, 2.5 or 5 times a power of ten) that splits `max` into about three. */
+export function niceStep(max: number): number {
+  const raw = Math.max(1, max) / 3;
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  // Whole emails only: 2.5 needs a power of ten from 10 up, and a quiet month still steps by 1.
+  const m = [1, 2, 2.5, 5, 10].find((k) => k * pow >= raw && Number.isInteger(k * pow)) ?? 10;
+  return Math.max(1, m * pow);
+}
+
+/** Apple's analytics line card: title and range, a line over a soft fill,
+ * solid rules across with the scale on the right, dashed lines up from each date. */
+export function lineChart(counts: readonly number[], now: number, noun = "emails", title = ""): HTMLElement {
   const wrap = el("div", "pl-chart");
-  const last = counts.length - 1;
-  const step = Math.max(1, Math.ceil(Math.max(...counts, 1) / 4));
-  const top = step * 4;
-  wrap.setAttribute("role", "img");
-  wrap.setAttribute("aria-label", `Emails each day, last ${counts.length} days: ${counts.join(", ")}`);
-  const svg = document.createElementNS(SVG, "svg");
-  svg.setAttribute("viewBox", `0 0 ${Math.max(1, last)} 100`);
-  svg.setAttribute("preserveAspectRatio", "none");
+  const head = el("div", "mr-head");
+  head.append(el("h2", "mr-title", title), el("span", "mr-range", `Last ${counts.length} days`));
+  const plot = el("div", "pl-plot");
+  plot.setAttribute("role", "img");
+  plot.setAttribute("aria-label", `${title ? `${title}: ` : ""}${noun} each day, last ${counts.length} days: ${counts.join(", ")}`);
+  const last = Math.max(1, counts.length - 1);
+  const step = niceStep(Math.max(...counts, 0));
+  const top = step * Math.max(1, Math.ceil(Math.max(...counts, 1) / step));
   const y = (n: number) => 100 - (n / top) * 100;
+  for (let v = 0; v <= top; v += step) {
+    const line = el("i", "mr-grid");
+    line.style.top = `${y(v)}%`;
+    const label = el("span", "pl-y", v.toLocaleString());
+    label.style.top = `${y(v)}%`;
+    plot.append(line, label);
+  }
+  const dayOf = (i: number) => new Date(now - (counts.length - 1 - i) * DAY);
+  const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const xs = el("div", "mr-xs");
+  // A date every four days, counted back from today, with a dashed line up.
+  for (let i = counts.length - 1; i >= 0; i -= 4) {
+    const x = `${(i / last) * 100}%`;
+    const tick = el("i", "mr-tick");
+    tick.style.left = x;
+    const label = el("span", "mr-x", fmt(dayOf(i)));
+    label.style.left = x;
+    plot.append(tick);
+    xs.append(label);
+  }
+  const svg = document.createElementNS(SVG, "svg");
+  svg.setAttribute("viewBox", `0 0 ${last} 100`);
+  svg.setAttribute("preserveAspectRatio", "none");
   const node = (tag: string, attrs: Record<string, string | number>) => {
     const n = document.createElementNS(SVG, tag);
     for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, String(v));
@@ -117,48 +151,28 @@ export function lineChart(counts: readonly number[], now: number, noun = "emails
   const grad = node("linearGradient", { id: "pl-fade", x1: 0, x2: 0, y1: 0, y2: 1 });
   grad.append(node("stop", { offset: "0%", class: "pl-fade-top" }), node("stop", { offset: "100%", class: "pl-fade-end" }));
   defs.append(grad);
-  svg.append(defs);
-  for (let i = 1; i <= 4; i++) svg.append(node("line", { x1: 0, x2: last, y1: y(step * i), y2: y(step * i), class: "pl-grid" }));
-  svg.append(node("line", { x1: 0, x2: last, y1: 100, y2: 100, class: "pl-base" }));
-  for (let i = 0; i <= 4; i++) {
-    const label = el("span", "pl-y", (step * i).toLocaleString());
-    label.setAttribute("aria-hidden", "true");
-    label.style.top = `${y(step * i)}%`;
-    wrap.append(label);
-  }
   const pts = counts.map((n, i) => `${i},${y(n)}`).join(" L");
-  svg.append(node("path", { d: `M0,100 L${pts} L${last},100 Z`, class: "pl-area" }), node("path", { d: `M${pts}`, class: "pl-line" }));
-  wrap.append(svg);
-  const dayOf = (i: number) => new Date(now - (last - i) * DAY);
-  const fmt = (d: Date) => d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
-  // A date every five days from the first, like Plausible's 28-day view.
-  for (let i = 0; i <= last; i += 5) {
-    const x = `${(i / Math.max(1, last)) * 100}%`;
-    const label = el("span", "pl-x", fmt(dayOf(i)));
-    label.style.left = x;
-    label.setAttribute("aria-hidden", "true");
-    const tick = el("i", "pl-tick");
-    tick.style.left = x;
-    wrap.append(tick, label);
-  }
+  svg.append(defs, node("path", { d: `M0,100 L${pts} L${last},100 Z`, class: "pl-area" }), node("path", { d: `M${pts}`, class: "pl-line" }));
+  plot.append(svg);
   const guide = el("i", "pl-guide");
   const dot = el("i", "pl-dot");
   const tip = el("div", "pl-tip");
   guide.hidden = dot.hidden = tip.hidden = true;
-  wrap.append(guide, dot, tip);
-  wrap.onmousemove = (e) => {
-    const r = svg.getBoundingClientRect();
-    const i = Math.max(0, Math.min(last, Math.round(((e.clientX - r.left) / Math.max(1, r.width)) * last)));
-    const x = `${(i / Math.max(1, last)) * 100}%`;
+  plot.append(guide, dot, tip);
+  plot.onmousemove = (e) => {
+    const r = plot.getBoundingClientRect();
+    const i = Math.max(0, Math.min(counts.length - 1, Math.round(((e.clientX - r.left) / Math.max(1, r.width)) * last)));
+    const x = `${(i / last) * 100}%`;
     guide.style.left = dot.style.left = tip.style.left = x;
     dot.style.top = `${y(counts[i])}%`;
     tip.classList.toggle("flip", i > last / 2);
     tip.replaceChildren(el("span", "", fmt(dayOf(i))), el("b", "", `${counts[i].toLocaleString()} ${noun}`));
     guide.hidden = dot.hidden = tip.hidden = false;
   };
-  wrap.onmouseleave = () => {
+  plot.onmouseleave = () => {
     guide.hidden = dot.hidden = tip.hidden = true;
   };
+  wrap.append(head, plot, xs);
   return wrap;
 }
 

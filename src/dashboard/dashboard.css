@@ -3789,18 +3789,16 @@ section[data-screen="settings"] .set-row > :not(.grow):not(.set-ic) { grid-colum
 .pl-change svg { width: 10px; height: 10px; fill: currentColor; }
 .pl-change.worse svg { color: #ef4444; }
 .pl-change.better svg { color: #22c55e; transform: rotate(90deg); }
-.pl-chart { position: relative; height: 300px; margin: 28px 4px 40px 40px; }
-.pl-chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
-.pl-grid { stroke: var(--hairline); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.pl-base { stroke: color-mix(in srgb, var(--label-4) 45%, transparent); stroke-width: 1; vector-effect: non-scaling-stroke; }
+/* Cleanup's chart: the Received Mails card's rules and dates, a line over a soft fill. */
+.pl-chart { margin: 20px 0 16px; padding-right: 40px; }
+.pl-chart .mr-head { margin-right: -40px; margin-bottom: 18px; }
+.pl-plot { position: relative; height: 200px; }
+.pl-plot svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; overflow: visible; }
+.pl-y { position: absolute; right: -40px; width: 34px; transform: translateY(-50%); text-align: right; color: var(--label-4); font-size: 12px; font-variant-numeric: tabular-nums; pointer-events: none; }
 .pl-fade-top { stop-color: var(--accent); stop-opacity: .22; }
 .pl-fade-end { stop-color: var(--accent); stop-opacity: 0; }
 .pl-area { fill: url(#pl-fade); }
-.pl-line { fill: none; stroke: var(--accent); stroke-width: 2.5; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
-.pl-y, .pl-x { position: absolute; color: var(--label-3); font-size: 12px; font-variant-numeric: tabular-nums; pointer-events: none; }
-.pl-y { right: calc(100% + 10px); transform: translateY(-50%); }
-.pl-x { top: calc(100% + 12px); transform: translateX(-50%); white-space: nowrap; }
-.pl-tick { position: absolute; top: 100%; width: 1px; height: 5px; background: color-mix(in srgb, var(--label-4) 45%, transparent); }
+.pl-line { fill: none; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
 .pl-guide { position: absolute; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--label-4) 50%, transparent); pointer-events: none; }
 .pl-dot { position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--glass); pointer-events: none; }
 .pl-tip { position: absolute; top: 0; z-index: 2; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; transform: translateX(14px); border-radius: 6px;

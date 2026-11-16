@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
+import { niceStep } from "./cleanupPage";
 import { inboxTabOf } from "../lib/senderModel";
 import type { ActionLogEntry } from "../lib/actionLog";
 import {
-  niceStep,
   clearedByDay,
   kindOf,
   mailByKind,

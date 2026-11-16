@@ -1792,7 +1792,8 @@ function paintCleanupChart(kpi: "never" | "old" | "lists" | null) {
     num.querySelector(".pl-change")?.remove();
     if (chip) num.append(chip);
   }
-  document.getElementById("cu-chart")?.replaceChildren(lineChart(dailyCounts(cleanupItems(kpi), now), now));
+  const title = kpi ? ({ never: "Unopened", old: "Expired", lists: "Unused mailing lists" } as const)[kpi] : "Unopened and expired";
+  document.getElementById("cu-chart")?.replaceChildren(lineChart(dailyCounts(cleanupItems(kpi), now), now, "emails", title));
 }
 let openPage: "never" | "old" | null = null;
 
