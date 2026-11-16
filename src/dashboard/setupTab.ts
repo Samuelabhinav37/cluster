@@ -13,7 +13,7 @@ import type { KaiInstance, KaiMood } from "./kai/kaiLife";
 import type { ClusterSettings } from "../lib/settingsStore";
 import { updateSettings } from "../lib/settingsStore";
 import { log } from "../lib/log";
-import { buildOnboardingPlan, type KeepKind, type OnboardingAnswers } from "../lib/onboardingPlan";
+import { buildOnboardingPlan, labelEmoji, type KeepKind, type OnboardingAnswers } from "../lib/onboardingPlan";
 import { ctx } from "./state";
 import { icon } from "./homeDashboard";
 import { renderTimeLimits, turnOnTimeLimits } from "./timeLimitsTab";
@@ -37,17 +37,21 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
-/** A Lucide icon on a gradient squircle, like the app icons on Home. */
+const isEmoji = (name: string) => /^\p{Extended_Pictographic}/u.test(name);
+
+/** A label emoji, or a Lucide icon, on a soft tile. */
 function iconTile(name: string, tone: string): HTMLElement {
-  const tile = el("span", `onb-ic tone-${tone}`);
-  tile.append(icon(name));
+  const tile = el("span", `onb-ic tone-${tone}${isEmoji(name) ? " onb-emoji" : ""}`);
+  if (isEmoji(name)) tile.textContent = name;
+  else tile.append(icon(name));
   return tile;
 }
 
-/** A plain gray icon in a soft circle for plan rows, like the lists elsewhere. */
+/** The same in a soft circle for plan rows, like the lists elsewhere. */
 function glyph(name: string): HTMLElement {
-  const g = el("span", "onb-glyph");
-  g.append(icon(name));
+  const g = el("span", `onb-glyph${isEmoji(name) ? " onb-emoji" : ""}`);
+  if (isEmoji(name)) g.textContent = name;
+  else g.append(icon(name));
   return g;
 }
 
@@ -56,10 +60,10 @@ const STEPS: Step[] = ["keep", "hands", "plan"];
 
 // What Kai says on each step: one short line the title doesn't already say.
 const KAI_LINES: Record<Step | "done", string> = {
-  keep: "Hi, I'm Kai. Everything else gets a label.",
-  hands: "You can undo anything.",
-  plan: "Nothing changes until you press Start.",
-  done: "All set. I'm reading your mail now.",
+  keep: "Hi, I'm Kai. Pick what stays.",
+  hands: "Should I sort, or ask first?",
+  plan: "Here's what I'll do.",
+  done: "All set. Reading your mail now.",
 };
 
 const VOICE_PREF = "cluster.kaiVoice";
@@ -279,11 +283,11 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     );
     const opts = el("div", "onb-opts");
     const choices: Array<[KeepKind, string, string, string, string]> = [
-      ["bank", "Bank and bills", "", "landmark", "green"],
-      ["work", "Work", "", "briefcase", "orange"],
-      ["travel", "Travel", "", "plane", "blue"],
-      ["receipts", "Receipts and orders", "", "receipt", "teal"],
-      ["people", "People you write to", "Always on", "message", "indigo"],
+      ["bank", "Bank and bills", "", labelEmoji("finance"), "green"],
+      ["work", "Work", "", labelEmoji("productivity"), "orange"],
+      ["travel", "Travel", "", labelEmoji("travel"), "blue"],
+      ["receipts", "Receipts and orders", "", labelEmoji("receipt"), "teal"],
+      ["people", "People you write to", "", labelEmoji("personal"), "indigo"],
     ];
     for (const [kind, label, sub, ic, tone] of choices) {
       const on = kind === "people" || answers.keep.includes(kind);
@@ -310,7 +314,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       option(
         "ask",
         "Ask me first",
-        "Nothing moves until you say so",
+        "",
         "eye",
         "gray",
         answers.hands === "ask",
@@ -429,7 +433,6 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
         return li;
       }),
     );
-    if (rows.length === 0) cardList.append(el("li", "onb-card-empty", "Your answers build your plan here."));
     shown = now;
   }
 

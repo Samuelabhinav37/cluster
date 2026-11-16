@@ -46,10 +46,10 @@ describe("first-run setup", () => {
     expect(document.querySelector(".onb-dots")!.children).toHaveLength(3);
     expect((dash.el("setup-next") as HTMLButtonElement).disabled).toBe(false);
     expect(navButton("Skip")).toBeUndefined();
-    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toContain("Everything else gets a label"));
+    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("Hi, I'm Kai. Pick what stays."));
     (dash.el("setup-next") as HTMLButtonElement).click();
     expect(document.querySelector('.onb-opt[aria-pressed="true"]')!.textContent).toContain("Tidy for me");
-    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("You can undo anything."));
+    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("Should I sort, or ask first?"));
   });
 
   it("asks how much to read only when the mailbox is over 20,000, with a time for each", async () => {

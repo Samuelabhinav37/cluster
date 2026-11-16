@@ -4384,3 +4384,6 @@ body.ov-scanning[data-screen="overview"] #index-status { display: none; }
 }
 /* The plan is on the left already, so the preview card steps aside. */
 .onb-art.is-plan .onb-card { visibility: hidden; }
+/* Label emoji in setup: the real label's emoji on a soft tile. */
+.onb-emoji { font-size: 19px; line-height: 1; }
+.onb-glyph.onb-emoji { font-size: 15px; }

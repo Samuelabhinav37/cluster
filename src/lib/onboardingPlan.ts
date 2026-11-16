@@ -1,6 +1,10 @@
 // What the first-run setup's answers turn into (research/2026-10-29-onboarding.md).
 // Pure: the setup screen shows `lines` as the plan, and applies the rest on Start.
 import { ALL_SORT_BUCKETS, type SortBucket } from "./sortTaxonomy";
+import { clusterLabelName, showLabel, type ClusterLabelKey } from "./clusterLabels";
+
+/** The emoji at the front of a Cluster label, ready to show. */
+export const labelEmoji = (key: ClusterLabelKey): string => showLabel(clusterLabelName(key)).split(" ")[0];
 
 export type Who = "me" | "business" | "safe" | "busy";
 /** The practice inbox: one made-up email of each kind. */
@@ -16,7 +20,7 @@ export interface OnboardingAnswers {
 }
 
 export interface OnboardingPlan {
-  /** `icon` names a Lucide icon in homeDashboard's set. */
+  /** `icon` names a Lucide icon in homeDashboard's set, or is a label emoji. */
   lines: { text: string; sub?: string; icon: string }[];
   /** Organize's "where it goes and when" menus, in hours; null stays in the inbox. */
   hours: Partial<Record<SortBucket, number | null>>;
@@ -63,15 +67,15 @@ export function buildOnboardingPlan(a: OnboardingAnswers): OnboardingPlan {
   const tidy = a.hands !== "ask";
   const lines: OnboardingPlan["lines"] = tidy
     ? [
-        { icon: "tag", text: "Promotions and newsletters skip your inbox", sub: "They wait in their labels" },
+        { icon: labelEmoji("promotions"), text: "Promotions and newsletters skip your inbox" },
         { icon: "clock", text: "Other mail goes to its label after an hour" },
-        { icon: "shield-check", text: "Likely scams are held out of your inbox", sub: "Each one says why" },
+        { icon: labelEmoji("suspicious"), text: "Likely scams are held out of your inbox" },
       ]
     : [];
-  lines.push({ icon: "inbox", text: `Always stays: ${[...keep].map((k) => KEEP_NAMES[k]).join(", ")}` });
+  lines.push({ icon: labelEmoji("personal"), text: `Always stays: ${[...keep].map((k) => KEEP_NAMES[k]).join(", ")}` });
   lines.push(
     tidy
-      ? { icon: "sparkles", text: "New mail sorts itself", sub: "Undo anything in Activity" }
+      ? { icon: "sparkles", text: "New mail sorts itself" }
       : { icon: "eye", text: "Nothing moves until you press Sort my inbox" },
   );
 
