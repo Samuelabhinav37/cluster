@@ -13,7 +13,7 @@ import type { SortBucket } from "../lib/sortTaxonomy";
 import { gmailMessageUrl } from "./detailsPanel";
 import { infoButton } from "./ui";
 import { donutChart } from "./overviewCharts";
-import { emailsCell, lineChart } from "./cleanupPage";
+import { emailsCell } from "./cleanupPage";
 
 export type HomeKind = "primary" | "trans" | "updates" | "promo";
 
@@ -651,45 +651,67 @@ function widget(
   return w;
 }
 
-const ARROW = "M5.22 14.78a.75.75 0 0 0 1.06 0l7.22-7.22v5.69a.75.75 0 0 0 1.5 0v-7.5a.75.75 0 0 0-.75-.75h-7.5a.75.75 0 0 0 0 1.5h5.69l-7.22 7.22a.75.75 0 0 0 0 1.06Z";
-
-function flow(cls: string, value: number, label: string): HTMLElement {
-  const span = el("span", `ov-flow ${cls}`);
-  span.title = label;
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 20 20");
-  svg.setAttribute("aria-hidden", "true");
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", ARROW);
-  svg.append(path);
-  span.append(svg, `${n(value)} ${label}`);
-  span.setAttribute("aria-label", `${n(value)} ${label}`);
-  return span;
-}
-
-/** Mercury's balance card: mail received over 30 days as an area, and how much was cleared. */
+/** Apple's analytics card (App Store Connect): title and range, the total,
+ * then a bar a day with the scale on the right. */
 function inboxCard(f: HomeFacts): HTMLElement {
   const card = el("section", "ov-card ov-inbox");
   const days = f.received30 ?? [];
-  card.append(el("h2", "ov-card-title", "Mail received"), el("b", "ov-big", n(days.reduce((a, b) => a + b, 0))));
-  const meta = el("div", "ov-meta");
-  const flows = el("span", "ov-flows");
-  flows.append(flow("out", f.cleared30 ?? 0, "cleared"));
-  meta.append(el("span", "", "Last 30 days"), flows);
-  // Apple's stat pairs: a number, then what it is in gray.
-  const total = days.reduce((a, b) => a + b, 0);
-  const peak = days.reduce((best, v, i) => (v > days[best] ? i : best), 0);
-  const peakDay = new Date(Date.now() - (days.length - 1 - peak) * 24 * 60 * 60 * 1000);
-  const stats = el("div", "ov-stats");
-  const stat = (value: string, label: string) => {
-    const s = el("span", "ov-stat");
-    s.append(el("b", "", value), el("span", "", label));
-    return s;
-  };
-  stats.append(stat(n(Math.round(total / Math.max(1, days.length))), "a day on average"));
-  if (total > 0) stats.append(stat(n(days[peak]), `on ${peakDay.toLocaleDateString(undefined, { month: "short", day: "numeric" })}, the busiest day`));
-  card.append(meta, stats, lineChart(days, Date.now()));
+  const head = el("div", "mr-head");
+  head.append(el("h2", "mr-title", "Mail received"), el("span", "mr-range", "Last 30 days"));
+  card.append(head, el("span", "mr-sub", `${n(f.cleared30 ?? 0)} cleared`));
+  card.append(el("b", "mr-total", n(days.reduce((a, b) => a + b, 0))), el("span", "mr-sub", "Total"));
+  card.append(barChart(days, Date.now()));
   return card;
+}
+
+/** A round step (1, 2, 2.5 or 5 times a power of ten) that splits `max` into about three. */
+export function niceStep(max: number): number {
+  const raw = Math.max(1, max) / 3;
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  // Whole emails only: 2.5 needs a power of ten from 10 up, and a quiet month still steps by 1.
+  const m = [1, 2, 2.5, 5, 10].find((k) => k * pow >= raw && Number.isInteger(k * pow)) ?? 10;
+  return Math.max(1, m * pow);
+}
+
+const compact = new Intl.NumberFormat(undefined, { notation: "compact" });
+
+function barChart(counts: readonly number[], now: number): HTMLElement {
+  const wrap = el("div", "mr-chart");
+  wrap.setAttribute("role", "img");
+  wrap.setAttribute("aria-label", `Emails each day, last ${counts.length} days: ${counts.join(", ")}`);
+  const step = niceStep(Math.max(...counts, 0));
+  const top = step * Math.max(1, Math.ceil(Math.max(...counts, 1) / step));
+  const last = counts.length - 1;
+  const plot = el("div", "mr-plot");
+  plot.style.setProperty("--n", String(counts.length));
+  for (let v = 0; v <= top; v += step) {
+    const line = el("i", "mr-grid");
+    line.style.bottom = `${(v / top) * 100}%`;
+    const label = el("span", "mr-y", compact.format(v));
+    label.style.bottom = `${(v / top) * 100}%`;
+    plot.append(line, label);
+  }
+  const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const xs = el("div", "mr-xs");
+  counts.forEach((c, i) => {
+    const day = new Date(now - (last - i) * 24 * 60 * 60 * 1000);
+    const bar = el("i", "mr-bar");
+    bar.style.gridColumn = String(i + 1);
+    bar.style.height = `${(c / top) * 100}%`;
+    bar.title = `${fmt(day)}: ${n(c)} email${c === 1 ? "" : "s"}`;
+    plot.append(bar);
+    // A date every four days, counted back from today, with a dashed line up.
+    if ((last - i) % 4 !== 2) return;
+    const x = `${((i + 0.5) / counts.length) * 100}%`;
+    const tick = el("i", "mr-tick");
+    tick.style.left = x;
+    plot.append(tick);
+    const label = el("span", day.getDate() === 1 ? "mr-x is-first" : "mr-x", fmt(day));
+    label.style.left = x;
+    xs.append(label);
+  });
+  wrap.append(plot, xs);
+  return wrap;
 }
 
 const KIND_COLORS: Record<HomeKind, string> = {

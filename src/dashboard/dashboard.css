@@ -3957,9 +3957,6 @@ body[data-screen="settings"] #sidebar .settings-nav { display: flex; flex-direct
 .ov-flow.in svg { color: #22c55e; }
 .ov-flow.out svg { color: #ef4444; transform: rotate(90deg); }
 .ov-inbox { display: flex; flex-direction: column; padding-bottom: 0; }
-.ov-inbox .pl-chart { height: 220px; margin: 24px 0 34px; }
-.ov-inbox .pl-y, .ov-inbox .pl-grid, .ov-inbox .pl-tick { display: none; }
-.ov-inbox .pl-x { top: calc(100% + 10px); }
 .ov-today .home-today { margin: 8px 0 0; }
 .ov-today .ios-group { border: 0; background: none; box-shadow: none; }
 .ov-today .today-row { padding: 10px 0; border: 0; }
@@ -4282,13 +4279,24 @@ body.ov-scanning[data-screen="overview"] #index-status { display: none; }
 .scan-card .read-of, .home-read .read-of { color: var(--label-4); font-size: 15px; }
 .scan-card .scan-line { color: var(--label-4); }
 
-/* Mail received: two stat pairs and a full chart (axis and gridlines). */
-.ov-stats { display: flex; flex-wrap: wrap; gap: 6px 24px; margin-top: 14px; }
-.ov-stat { display: inline-flex; align-items: baseline; gap: 6px; color: var(--label-4); font-size: 13px; }
-.ov-stat b { color: var(--label); font: 600 17px/1.2 var(--font); font-variant-numeric: tabular-nums; }
-.ov-inbox .pl-chart { margin-left: 32px; }
-.ov-inbox .pl-y, .ov-inbox .pl-grid, .ov-inbox .pl-tick { display: revert; }
-.ov-flow { color: var(--label-4); }
+/* Mail received, after Apple's analytics cards: title and range, the total,
+   a bar a day, solid rules across with the scale on the right, dashed lines
+   up from each date. */
+.mr-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.mr-title { margin: 0; font: 600 17px/1.3 var(--font); color: var(--label); }
+.mr-range { color: var(--label-4); font-size: 15px; }
+.mr-sub { display: block; color: var(--label-4); font-size: 13px; }
+.mr-total { display: block; margin-top: 6px; font: 700 40px/1.1 var(--font-display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--label); }
+.mr-chart { margin: 18px 0 24px; padding-right: 40px; }
+.mr-plot { position: relative; height: 220px; display: grid; grid-template-columns: repeat(var(--n), 1fr); align-items: end; border-left: 1px solid var(--hairline); }
+.mr-grid { position: absolute; left: 0; right: 0; height: 0; border-top: 1px solid var(--hairline); }
+.mr-y { position: absolute; right: -40px; width: 34px; transform: translateY(50%); text-align: right; color: var(--label-4); font-size: 12px; font-variant-numeric: tabular-nums; }
+.mr-tick { position: absolute; top: 0; bottom: 0; border-left: 1px dashed var(--hairline); }
+.mr-bar { grid-row: 1; justify-self: center; width: 62%; min-height: 0; border-radius: 2px 2px 0 0; background: var(--accent); position: relative; z-index: 1; }
+.mr-bar:hover { filter: brightness(1.15); }
+.mr-xs { position: relative; height: 22px; margin-top: 6px; }
+.mr-x { position: absolute; transform: translateX(-50%); white-space: nowrap; color: var(--label-4); font-size: 12px; }
+.mr-x.is-first { color: var(--label); font-weight: 600; }
 
 /* This week rows carry the Labels page's tag and icon. */
 .scan-card { border-color: transparent; border-radius: 12px; padding: 20px 24px; }

@@ -4,6 +4,7 @@ import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 import { inboxTabOf } from "../lib/senderModel";
 import type { ActionLogEntry } from "../lib/actionLog";
 import {
+  niceStep,
   clearedByDay,
   kindOf,
   mailByKind,
@@ -295,5 +296,15 @@ describe("renderScanCard", () => {
     card.querySelector<HTMLButtonElement>(".scan-close")!.click();
     expect(actions.rescan).toHaveBeenCalled();
     expect(actions.dismiss).toHaveBeenCalled();
+  });
+});
+
+describe("niceStep", () => {
+  it("splits the busiest day into about three round steps", () => {
+    expect(niceStep(0)).toBe(1);
+    expect(niceStep(7)).toBe(5);
+    expect(niceStep(40)).toBe(20);
+    expect(niceStep(74)).toBe(25);
+    expect(niceStep(5_800_000)).toBe(2_000_000);
   });
 });
