@@ -426,6 +426,22 @@ async function connectGmail(): Promise<string> {
   return showConnectGate();
 }
 
+/** Kai peeks up from the bottom of the photo and waves, once per showing. */
+function greetOnGate(returning: boolean) {
+  const host = document.getElementById("connect-kai");
+  const line = document.getElementById("connect-kai-line");
+  if (!host || !line || !ctx.settings.showKai || typeof window.Kai !== "function") {
+    host?.parentElement?.setAttribute("hidden", "");
+    return;
+  }
+  if (returning) line.textContent = "Welcome back.";
+  if (host.childElementCount > 0) return;
+  const kai = window.Kai(host, { src: "/characters/", imgWidth: 320, calm: true });
+  kai.do("peek");
+  kai.do("wave");
+  kai.talk(1400);
+}
+
 function showConnectGate(): Promise<string> {
   const gate = document.getElementById("connect-gate") as HTMLElement;
   const btn = document.getElementById("connect-gmail-btn") as HTMLButtonElement;
@@ -453,6 +469,7 @@ function showConnectGate(): Promise<string> {
   document.body.dataset.state = "connect";
   gate.hidden = false;
   btn.focus();
+  greetOnGate(ctx.settings.healthHistory.length > 0);
 
   const label = btn.textContent;
   return new Promise((resolve) => {

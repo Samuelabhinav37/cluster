@@ -334,7 +334,7 @@ a:hover {
     transition-delay: 0s !important;
     scroll-behavior: auto !important;
   }
-  .onb-in > *, .onb-plan li, .onb-labels li, .onb-card-list li.new, .connect-glass, .kg-panel, .kg-msg, .onb-bubble.pop { animation-name: onb-fade !important; }
+  .onb-in > *, .onb-plan li, .onb-labels li, .onb-card-list li.new, .kg-panel, .kg-msg, .onb-bubble.pop { animation-name: onb-fade !important; }
   .onb-opt:active, .onb-btn:active, .btn:active, .chip:active, .tool:active, .connect-btn:active { transform: none; }
   .sort-ring.is-looking::after, .sort-preview-bucket.active > i { animation-duration: 2.4s !important; }
 }
@@ -1275,41 +1275,14 @@ body[data-state="connect"] .screen {
   background: linear-gradient(180deg, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.55));
 }
 
-.connect-glass {
+.connect-kai {
   position: absolute;
   z-index: 1;
-  right: 28px;
-  bottom: 64px;
-  width: min(300px, calc(100% - 56px));
-  margin: 0;
-  padding: 6px 16px;
-  list-style: none;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  color: #fff;
-  animation: connect-rise var(--t-slow) var(--ease-out) both;
-}
-
-.connect-glass li {
+  left: 28px;
+  bottom: 84px;
   display: flex;
-  flex-direction: column;
-  padding: 10px 0;
-  font: 400 13px/1.4 var(--font);
-}
-
-.connect-glass li + li {
-  border-top: 1px solid rgba(255, 255, 255, 0.16);
-}
-
-.connect-glass b {
-  font: 600 15px/1.3 var(--font);
-}
-
-.connect-glass span {
-  opacity: 0.8;
+  align-items: flex-end;
+  gap: 10px;
 }
 
 .connect-credit {
