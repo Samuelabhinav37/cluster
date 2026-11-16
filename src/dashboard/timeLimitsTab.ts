@@ -6,7 +6,6 @@
 // the same menus for mail already here.
 import { categoryLabelName, syncGmailCategoryFilters } from "../lib/categoryFilters";
 import { runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
-import { HOLD_UNSORTED_HOURS } from "../lib/inboxTimeLimits";
 import { log } from "../lib/log";
 import { CLUSTER_LABEL_COLORS, showLabel } from "../lib/clusterLabels";
 import { colorClusterLabels, getLabel, listLabels } from "../lib/gmailApi";
@@ -300,7 +299,7 @@ function holdRow(): HTMLElement {
   toggle.onchange = async () => {
     ctx.settings = await updateSettings({ autoSort: { ...ctx.settings.autoSort, holdUnsorted: toggle.checked } });
   };
-  row.title = `After ${HOLD_UNSORTED_HOURS} hours, mail that fits no label waits in the Screener for you`;
+  row.title = "Mail from new senders that fits no label waits in the Screener for you";
   row.append(mark, Object.assign(document.createElement("span"), { className: "grow", textContent: "Hold mail with no label" }), toggle);
   return row;
 }

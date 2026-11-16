@@ -100,7 +100,7 @@ describe("first-run setup", () => {
     await vi.waitFor(() => expect(big.storedSettings().readCap).toBe(100_000));
   });
 
-  it("Yes turns everything on: filters for every label, every label skips the inbox, scams held", async () => {
+  it("Yes turns everything on: filters for every label, every label waits an hour in the inbox, scams held", async () => {
     const dash = await bootEmpty();
     await toFound(dash);
     click("setup-go");
@@ -109,10 +109,11 @@ describe("first-run setup", () => {
     expect(stored.onboarding?.answers.hands).toBe("tidy");
     expect(stored.autoSort.timeLimitsEnabled).toBe(true);
     expect(stored.autoSort.labelsOff).toEqual([]);
-    expect(stored.autoSort.inboxHoursByBucket).toMatchObject({ promotions: 0, newsletter: 0, social: 0, finance: 0, jobs: 0 });
+    expect(stored.autoSort.inboxHoursByBucket).toMatchObject({ promotions: 1, newsletter: 1, social: 1, finance: 1, jobs: 1 });
     expect(stored.autoQuarantineHighRisk).toBe(true);
     const calls = dash.gmailApi.createFilter.mock.calls as [string, { query?: string }, { removeLabelIds: string[] }][];
-    expect(calls.filter((c) => c[2].removeLabelIds.includes("INBOX")).length).toBe(calls.length);
+    // The filters only label; the sweep moves mail out after its hour.
+    expect(calls.filter((c) => c[2].removeLabelIds.includes("INBOX")).length).toBe(0);
     expect(document.getElementById("settings-change-setup")).toBeNull();
   });
 

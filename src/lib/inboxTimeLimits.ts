@@ -267,7 +267,7 @@ export async function tagOlderInbox(
 }
 
 /** Hours unsorted mail stays in the inbox before it's held for review. */
-export const HOLD_UNSORTED_HOURS = 3;
+export const HOLD_UNSORTED_HOURS = 0;
 const HOLD_MAX = 100;
 // Calendar invites and replies to them are people arranging something.
 // A forwarded or answered invite ("Fwd: Invitation: Sync") is still one.

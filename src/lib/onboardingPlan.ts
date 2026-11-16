@@ -54,21 +54,22 @@ const KEEP_BUCKETS: Record<KeepKind, SortBucket[]> = {
 };
 
 /**
- * Setup's defaults: every label skips the inbox (a Gmail filter does it, so
- * phones see it too), what the user keeps stays, and likely scams are held. "Ask me first" saves
+ * Setup's defaults: labelled mail stays in the inbox an hour, then goes to its
+ * label; mail from new senders with no label waits in the Screener; what the
+ * user keeps stays, and likely scams are held. "Ask me first" saves
  * the same times but moves nothing.
  */
 export function buildOnboardingPlan(a: OnboardingAnswers): OnboardingPlan {
   const keep = new Set<KeepKind>(["people", ...a.keep]);
   const stays = new Set<SortBucket>([...keep].flatMap((k) => KEEP_BUCKETS[k]));
   const hours: OnboardingPlan["hours"] = {};
-  for (const b of ALL_SORT_BUCKETS) hours[b] = stays.has(b) ? null : 0;
+  for (const b of ALL_SORT_BUCKETS) hours[b] = stays.has(b) ? null : 1;
 
   const tidy = a.hands !== "ask";
   const lines: OnboardingPlan["lines"] = tidy
     ? [
-        { icon: labelEmoji("promotions"), text: "Promotions and newsletters skip your inbox" },
-        { icon: "clock", text: "Other mail goes to its label after an hour" },
+        { icon: "clock", text: "Mail goes to its label after an hour" },
+        { icon: labelEmoji("screener"), text: "New senders wait in the Screener" },
         { icon: labelEmoji("suspicious"), text: "Likely scams are held out of your inbox" },
       ]
     : [];

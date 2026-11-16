@@ -257,7 +257,7 @@ export interface HealthSnapshot {
 const STORAGE_KEY = "clusterSettings";
 /** A scan window that reaches the first email (Gmail began in 2004). */
 export const ALL_MAIL_DAYS = 36500;
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 19;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 20;
 
 const DEFAULT_SETTINGS: ClusterSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -483,6 +483,14 @@ function migrateSettings(value: unknown): Record<string, unknown> {
       const rules = isRecord(stored.securityRules) ? stored.securityRules : {};
       stored = { ...stored, schemaVersion: 19, securityRules: { ...rules, toSpam: true } };
       version = 19;
+    } else if (version === 19) {
+      // Labelled mail stays in the inbox an hour, then goes to its label
+      // (user, Nov 2026). Labels kept in the inbox (null) stay kept.
+      const autoSort = isRecord(stored.autoSort) ? stored.autoSort : {};
+      const hours = isRecord(autoSort.inboxHoursByBucket) ? { ...autoSort.inboxHoursByBucket } : {};
+      for (const b of Object.keys(hours)) if (hours[b] === 0) hours[b] = 1;
+      stored = { ...stored, schemaVersion: 20, autoSort: { ...autoSort, inboxHoursByBucket: hours } };
+      version = 20;
     }
   }
   return stored;

@@ -247,7 +247,7 @@ describe("settingsStore", () => {
     expect(settings.autoSort.keepSorting).toBe(true);
     expect(settings.autoSort.filterIdsByBucket).toEqual({ travel: ["F"] });
     expect(settings.autoSort.filterSpecByBucket).toEqual({});
-    expect(settings.autoSort.inboxHoursByBucket).toMatchObject({ otp: 0, shipping: 0, travel: 0 });
+    expect(settings.autoSort.inboxHoursByBucket).toMatchObject({ otp: 1, shipping: 1, travel: 1 });
   });
 
   it("gives a label added after setup the time setup's answers give it", async () => {
@@ -261,12 +261,12 @@ describe("settingsStore", () => {
     });
 
     const hours = (await getSettings()).autoSort.inboxHoursByBucket;
-    expect(hours.jobs).toBe(0);
-    expect(hours.accounts).toBe(0);
+    expect(hours.jobs).toBe(1);
+    expect(hours.accounts).toBe(1);
     expect(hours.travel).toBe(3);
   });
 
-  it("migrates schema 14 on through 17: every label skips the inbox", async () => {
+  it("migrates schema 14 on through 20: every label waits an hour", async () => {
     await chrome.storage.local.set({
       clusterSettings: {
         schemaVersion: 14,
@@ -276,15 +276,23 @@ describe("settingsStore", () => {
     });
 
     const hours = (await getSettings()).autoSort.inboxHoursByBucket;
-    expect(hours).toMatchObject({ accounts: 0, jobs: 0, travel: 0, otp: 0, promotions: 0 });
+    expect(hours).toMatchObject({ accounts: 1, jobs: 1, travel: 1, otp: 1, promotions: 1 });
   });
 
-  it("migrates schema 16: every label skips the inbox", async () => {
+  it("migrates schema 16 on through 20: every label waits an hour", async () => {
     await chrome.storage.local.set({
       clusterSettings: { schemaVersion: 16, autoSort: { inboxHoursByBucket: { promotions: 0, receipt: 1, finance: 24, travel: null } } },
     });
     const hours = (await getSettings()).autoSort.inboxHoursByBucket;
-    expect(hours).toMatchObject({ promotions: 0, receipt: 0, finance: 0, travel: 0 });
+    expect(hours).toMatchObject({ promotions: 1, receipt: 1, finance: 1, travel: 1 });
+  });
+
+  it("migrates schema 19: labels that skipped the inbox wait an hour, kept labels stay kept", async () => {
+    await chrome.storage.local.set({
+      clusterSettings: { schemaVersion: 19, autoSort: { inboxHoursByBucket: { promotions: 0, finance: 24, travel: null } } },
+    });
+    const hours = (await getSettings()).autoSort.inboxHoursByBucket;
+    expect(hours).toMatchObject({ promotions: 1, finance: 24, travel: null });
   });
 
   it("migrates schema 17: forgets the mail earlier sweeps kept in the inbox", async () => {
@@ -350,10 +358,10 @@ describe("settings sync across devices", () => {
     const fresh = await import("./settingsStore");
     await fresh.pullSyncedSettings();
     const hours = (await fresh.getSettings()).autoSort.inboxHoursByBucket;
-    expect(hours).toMatchObject({ jobs: 0, finance: 0 });
+    expect(hours).toMatchObject({ jobs: 1, finance: 1 });
     // The first pull pushes this computer's copy, now marked with its schema.
     expect(sync.items()["settings:schema"]).toBe(fresh.CURRENT_SETTINGS_SCHEMA_VERSION);
-    expect((sync.items()["settings:autoSort"] as any).inboxHoursByBucket.jobs).toBe(0);
+    expect((sync.items()["settings:autoSort"] as any).inboxHoursByBucket.jobs).toBe(1);
   });
 
   it("a choice grown past sync's 8 KB item limit drops its old synced copy instead of pulling it back", async () => {
@@ -391,6 +399,6 @@ describe("settings sync across devices", () => {
     expect(s.autoSort.timeLimitsEnabled).toBe(true);
     expect(s.autoSort.inboxHoursByBucket.jobs).toBe(1);
     // Hours missing from the synced copy keep their default.
-    expect(s.autoSort.inboxHoursByBucket.otp).toBe(0);
+    expect(s.autoSort.inboxHoursByBucket.otp).toBe(1);
   });
 });

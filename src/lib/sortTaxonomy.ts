@@ -69,8 +69,8 @@ export const DEFAULT_FILE_OUT_OF_INBOX: Record<SortBucket, boolean> = {
   jobs: false,
 };
 
-// Straight to the label: every label skips the inbox unless the user picks a time.
-const HOUR = 0;
+// Every label's mail stays in the inbox an hour, then goes to its label.
+const HOUR = 1;
 
 /** How long each category's new mail stays in the inbox before the time
  * sweep moves it into its label. 0 = straight to the label on arrival;

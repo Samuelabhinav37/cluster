@@ -255,7 +255,7 @@ describe("holdUnsortedInbox", () => {
     expect(res.senders).toEqual(["hello@unknown-co.example"]);
     expect(api.batchModify).toHaveBeenCalledWith(["u1"], ["L:✋ Screener"], ["INBOX"]);
     const query = api.listIds.mock.calls[0][1];
-    expect(query).toContain(`before:${cutoff(3)}`);
+    expect(query).toContain(`before:${cutoff(0)}`);
     expect(query).toContain('-label:"✋ Screener"');
     expect(query).toContain('-label:"🛍 Shopping"');
     // With inbox tabs off it matches every inbox email, so nothing was listed.
