@@ -602,3 +602,34 @@ export const CLUSTER_FIRST_ON: Record<string, string[]> = {
   screener: ["screener", "read"],
   recent: ["undo"],
 };
+
+/** Kai's line the first time each page opens, never again (research/2026-11-15-kai-duolingo-onboarding.md). */
+export const PAGE_TIPS: Record<string, string> = {
+  delete: "Pick a card. I'll gather the mail.",
+  sort: "New mail or everything. Your pick.",
+  organize: "Choose how long each label stays.",
+  subscriptions: "Stop mail you never open.",
+  impersonation: "Fake senders and held scams land here.",
+  screener: "New senders wait here for you.",
+};
+
+const SEEN_KEY = "cluster-kai-pages";
+
+/** The tip for a page not seen before, and marks it seen. Null otherwise. */
+export function firstVisitTip(screen: string, store: Pick<Storage, "getItem" | "setItem">): string | null {
+  const text = PAGE_TIPS[screen];
+  if (!text) return null;
+  let seen: string[] = [];
+  try {
+    seen = JSON.parse(store.getItem(SEEN_KEY) ?? "[]") as string[];
+  } catch {
+    // Unreadable: treat as nothing seen.
+  }
+  if (seen.includes(screen)) return null;
+  try {
+    store.setItem(SEEN_KEY, JSON.stringify([...seen, screen]));
+  } catch {
+    // Storage blocked: the tip may show again next visit.
+  }
+  return text;
+}

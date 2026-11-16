@@ -148,7 +148,7 @@ import {
 import { listGroup, listRow } from "./listRow";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import type { ClusterRule } from "../lib/rules";
-import { CLUSTER_FIRST_ON, CLUSTER_QUESTIONS, initKaiGuide, type KaiGuide } from "./kaiGuide";
+import { CLUSTER_FIRST_ON, CLUSTER_QUESTIONS, firstVisitTip, initKaiGuide, type KaiGuide } from "./kaiGuide";
 
 const selectedSenderKeys = new Set<string>();
 let currentExpiryBuckets: ExpiryBucket[] = [];
@@ -292,10 +292,23 @@ function fitDetailsTo(_screen: string) {
   if (details?.isOpen()) details.rest(true);
 }
 
+/** Kai's one line the first time a page opens. */
+function showPageTip(screen: string) {
+  if (!ctx.settings.showKai || !kaiGuide) return;
+  let tip: string | null = null;
+  try {
+    tip = firstVisitTip(screen, localStorage);
+  } catch {
+    return; // Storage blocked: no tips rather than the same tip every time.
+  }
+  if (tip) window.setTimeout(() => kaiGuide?.tip(tip), 400);
+}
+
 async function selectScreen(name: string) {
   const target = resolveScreen(name);
   showScreen(target);
   fitDetailsTo(target);
+  showPageTip(target);
   ctx.settings = await updateSettings({ activeTab: target });
 }
 
