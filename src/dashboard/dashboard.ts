@@ -25,15 +25,12 @@ import {
   getMessageMetadata,
   getOrCreateLabel,
   getProfileEmail,
-  getSnippets,
   GmailApiError,
   listLabels,
   listMessageIds,
   listSendAs,
 } from "../lib/gmailApi";
 import { parseAddressList } from "../lib/headerFields";
-import { brandName } from "../lib/verdict";
-import { fillToday, pickByLabel, pickToday, type TodayItem } from "../lib/today";
 import { clearMetadataCache } from "../lib/metadataCache";
 import { openMailIndex } from "../lib/mailIndex";
 import { exportReplay } from "./replayExport";
@@ -132,7 +129,6 @@ import {
   clearedByDay,
   mailByKind,
   paintHomeRead,
-  fillTodaySnippets,
   renderHomeDashboard,
   STALE_SWEEP_MS,
   renderScanCard,
@@ -1500,22 +1496,6 @@ async function refreshInboxUnread(): Promise<void> {
   }
 }
 
-// Today's preview lines, kept in memory only (never written to storage).
-const todaySnippets = new Map<string, string>();
-
-async function loadTodaySnippets(items: readonly TodayItem[]): Promise<void> {
-  const missing = items.filter((t) => t.provider === "gmail" && !todaySnippets.has(t.id)).map((t) => t.id);
-  try {
-    if (missing.length > 0) {
-      const token = await gmailProvider.getAuthToken(false);
-      for (const [id, text] of await getSnippets(token, missing)) todaySnippets.set(id, text);
-    }
-    fillTodaySnippets(overviewContentEl, todaySnippets);
-  } catch (err) {
-    log.error("Today: preview lines failed", err);
-  }
-}
-
 // ── Overview screen (v3) ────────────────────────────────────────────────
 // Home: the total, the kind bar and up to three next steps (homeDashboard.ts).
 function renderOverview(
@@ -1570,14 +1550,6 @@ function renderOverview(
     filed: filedByDay(ctx.settings.actionLog, Date.now()),
     topSenders: topSendersByCompany(allSenders, Date.now()),
     sweptAt: ctx.settings.autoSort.timeLimitsEnabled ? ctx.settings.autoSort.lastSweep.at || undefined : undefined,
-    // Security's own rows, so Overview never lists a sender Security doesn't.
-    suspects: rankFlagged(securitySenders).high.slice(0, 2).map(({ sender: s }) => ({
-      key: s.key,
-      address: s.address,
-      name: s.displayName,
-      subject: [...s.messages].sort((a, b) => b.receivedAt - a.receivedAt)[0]?.subject ?? "",
-      brand: ((k) => (k ? brandName(k) : undefined))(s.threatSignals.find((x) => x.brand)?.brand),
-    })),
     // Until reading is done the total covers only recent mail, so say how far back.
     since: [...indexRuns.values()].some((r) => r.progress?.phase === "reading")
       ? oldestRead(allSenders)
@@ -1586,19 +1558,6 @@ function renderOverview(
   // Day one: the census has counted senders' mail before it is all read.
   const counted = allSenders.reduce((n, s) => n + senderVolume(s), 0);
   if (counted > facts.total) Object.assign(facts, { total: counted, since: undefined });
-  facts.today = fillToday(pickToday(allSenders, knownSenderSet(ctx.settings), Date.now(), 5), allSenders, Date.now(), 5);
-  facts.byLabel = pickByLabel(allSenders, knownSenderSet(ctx.settings), ctx.settings.sortOverrides, Date.now())
-    .filter((d) => !ctx.settings.autoSort.labelsOff.includes(d.bucket))
-    .map((d) => {
-      const label = categoryLabelName(d.bucket, ctx.settings.labelChoices);
-      return {
-        name: showLabel(label),
-        color: CLUSTER_LABEL_COLORS[d.bucket]?.backgroundColor,
-        total: d.total,
-        items: d.items,
-        href: gmailSearchUrl(`label:"${label.replace(/"/g, "")}" newer_than:7d`),
-      };
-    });
   overviewContentEl.appendChild(
     renderHomeDashboard(
       facts,
@@ -1614,7 +1573,6 @@ function renderOverview(
     staleSweepKicked = true;
     void runInboxTimeLimits().catch((err) => log.error("Overview: late inbox run failed", err));
   }
-  void loadTodaySnippets(facts.today);
   lastOverview = [senders, securitySenders, allSenders];
   void refreshInboxUnread();
   if (lastScanCapHit) {

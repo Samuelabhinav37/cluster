@@ -24,7 +24,7 @@ describe("Settings: more groups", () => {
       Array.from(dash.el("settings-keys").querySelectorAll<HTMLButtonElement>("button")).find((b) =>
         b.getAttribute("aria-label")?.startsWith(label),
       )!;
-    keyBtn("Go to Overview").click();
+    keyBtn("Go to Dashboard").click();
     key("o");
     await vi.waitFor(() => expect(dash.storedSettings().keymap).toEqual({ "go-home": "o" }));
     expect(dash.el("settings-keys").textContent).toContain("Same key as another shortcut");

@@ -7,13 +7,11 @@ import { readTimeText } from "../lib/gmailQuotaLedger";
 import { senderTile } from "./senderTile";
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 import { clearedCount, type ActionLogEntry } from "../lib/actionLog";
-import type { TodayItem } from "../lib/today";
 import type { ScanState } from "../lib/scanState";
 import type { SortBucket } from "../lib/sortTaxonomy";
-import { gmailMessageUrl } from "./detailsPanel";
 import { infoButton } from "./ui";
 import { donutChart } from "./overviewCharts";
-import { emailsCell, niceStep } from "./cleanupPage";
+import { niceStep } from "./cleanupPage";
 
 export type HomeKind = "primary" | "trans" | "updates" | "promo";
 
@@ -171,10 +169,6 @@ export interface HomeFacts {
   people?: number;
   /** Gmail's inbox unread count, once it has answered. */
   inboxUnread?: number;
-  /** Each label's last week: how much came and the few worth a look (lib/today.ts pickByLabel). */
-  byLabel?: { name: string; icon?: string; color?: string; total: number; href: string; items: TodayItem[] }[];
-  /** Today's few emails that matter (lib/today.ts pickToday). */
-  today?: TodayItem[];
   /** Unread on each of the last seven days, oldest first; null where not recorded. */
   unreadByDay?: (number | null)[];
   /** Unread a week ago, when recorded. */
@@ -194,8 +188,6 @@ export interface HomeFacts {
   cleared30?: number;
   /** Emails Cluster filed out of the inbox per day. */
   filed?: { cur: number[]; prev: number[] };
-  /** The top two flagged senders: their latest subject and the brand they fake. */
-  suspects?: Array<{ key?: string; address: string; name?: string; subject: string; brand?: string }>;
   /** Companies with the most mail this week, grouped like Cleanup's rows. */
   topSenders?: Array<{ key?: string; address: string; name: string; count: number }>;
 }
@@ -573,53 +565,6 @@ export function renderScanCard(
   return card;
 }
 
-/** Today: one row per email that matters, linking to it in Gmail. The
- * preview line is filled in later by fillTodaySnippets. */
-function todayList(items: readonly TodayItem[]): HTMLElement {
-  const wrap = el("section", "home-today");
-  if (items.length === 0) {
-    wrap.append(el("p", "hint", "Nothing needs you today."));
-    return wrap;
-  }
-  const group = el("div", "ios-group");
-  for (const t of items) {
-    const row = t.provider === "gmail" ? el("a", "ios-row today-row") : el("div", "ios-row today-row");
-    if (row instanceof HTMLAnchorElement) {
-      row.href = gmailMessageUrl(t.id);
-      row.target = "_blank";
-      row.rel = "noopener";
-    }
-    const words = el("span", "today-words");
-    const snippet = el("small", "today-snippet");
-    snippet.dataset.snippetId = t.id;
-    // Two lines, like Security's rows: who, then the subject with Gmail's preview after it.
-    const line = el("span", "today-sub", t.subject);
-    line.append(snippet);
-    words.append(el("b", "", t.name), line);
-    // A time for the last day, the weekday for the week view.
-    const at = new Date(t.receivedAt);
-    const time =
-      Date.now() - t.receivedAt < 24 * 60 * 60 * 1000
-        ? at.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-        : at.toLocaleDateString(undefined, { weekday: "short" });
-    // Why this email is here; "recent" rows only fill the list, so they say nothing.
-    const when = el("span", "ios-value", time);
-    row.append(senderTile(t.address, t.name, "sz-44"), words, when);
-    group.append(row);
-  }
-  wrap.append(group);
-  return wrap;
-}
-
-/** Puts Gmail's preview line under each Today row. Snippets arrive with
- * HTML entities ("&#39;"); DOMParser decodes them without running anything. */
-export function fillTodaySnippets(root: ParentNode, snippets: ReadonlyMap<string, string>): void {
-  for (const node of Array.from(root.querySelectorAll<HTMLElement>("[data-snippet-id]"))) {
-    const raw = snippets.get(node.dataset.snippetId ?? "");
-    if (raw) node.textContent = new DOMParser().parseFromString(raw, "text/html").documentElement.textContent ?? "";
-  }
-}
-
 /** One widget: title, (i), optional badge, then its chart; the whole widget opens its page. */
 function widget(
   title: string,
@@ -653,6 +598,49 @@ function widget(
 
 /** Apple's analytics card (App Store Connect): title and range, the total,
  * then a bar a day with the scale on the right. */
+// Four colored tiles, after Apple's CloudKit console: icon, the number, what it counts.
+function metricTiles(f: HomeFacts, go: Go): HTMLElement {
+  const tiles: Array<[cls: string, ico: string, value: number | undefined, label: string, place?: string]> = [
+    ["mt-blue", "mail", f.thisWeek, "Received this week", "organize"],
+    ["mt-indigo", "inbox", f.inboxUnread, "Unread in inbox"],
+    ["mt-violet", "user-plus", f.waiting, "In the Screener", "screener"],
+    ["mt-gray", "trash", f.clearable, "Ready to clean up", "delete"],
+  ];
+  const row = el("div", "mt-row");
+  for (const [cls, ico, value, label, place] of tiles) {
+    const tile = el(place ? "button" : "div", `mt-tile ${cls}`);
+    if (place) {
+      (tile as HTMLButtonElement).type = "button";
+      tile.onclick = () => go(place);
+    }
+    tile.append(icon(ico), el("b", "mt-num", value === undefined ? "–" : n(value)), el("span", "mt-label", label));
+    row.append(tile);
+  }
+  return row;
+}
+
+/** Top 10 senders this week, beside Received Mails. */
+function topSendersCard(f: HomeFacts, openSender?: (key: string) => void): HTMLElement {
+  const card = el("section", "ov-card ov-top10");
+  const head = el("div", "mr-head");
+  head.append(el("h2", "mr-title", "Top senders"), el("span", "mr-range", "Last 7 days"));
+  const list = el("ol", "t10-list");
+  for (const t of f.topSenders ?? []) {
+    const li = el("li", "");
+    const row = el(t.key && openSender ? "button" : "div", "t10-row");
+    if (t.key && openSender) {
+      (row as HTMLButtonElement).type = "button";
+      row.setAttribute("aria-label", `${t.name}: open their emails`);
+      row.onclick = () => openSender(t.key!);
+    }
+    row.append(senderTile(t.address, t.name, "sz-26"), el("span", "t10-name", t.name), el("span", "t10-n", n(t.count)));
+    li.append(row);
+    list.append(li);
+  }
+  card.append(head, f.topSenders?.length ? list : el("p", "ov-empty", "No mail this week."));
+  return card;
+}
+
 function inboxCard(f: HomeFacts): HTMLElement {
   const card = el("section", "ov-card ov-inbox");
   const days = f.received30 ?? [];
@@ -725,32 +713,11 @@ export function renderHomeDashboard(
     root.append(readHero(f.reading));
     return root;
   }
+  root.append(metricTiles(f, go));
   const head = el("div", "ov-top");
-  head.append(inboxCard(f));
-  const today = el("section", "ov-card ov-today");
-  today.append(el("h2", "ov-card-title", "Today"), todayList(f.today ?? []));
-  head.append(today);
+  head.append(inboxCard(f), topSendersCard(f, openSender));
   root.append(head);
   if (f.sweptAt) root.append(sweepLine(f.sweptAt, Date.now()));
-  // Labelled mail skips the inbox, so this is where it gets seen.
-  if (f.byLabel && f.byLabel.length > 0) {
-    root.append(el("h2", "section-label", "This week"));
-    // One row per label: name and count. The emails are one click away in Gmail.
-    const group = el("div", "ios-group week-labels");
-    for (const d of f.byLabel) {
-      const row = el("a", "ios-row org-row week-label");
-      row.href = d.href;
-      row.target = "_blank";
-      row.rel = "noopener";
-      // The same tag and icon as the Labels page.
-      const words = el("span", "grow");
-      if (d.icon) words.append(icon(d.icon));
-      words.append(d.name);
-      row.append(gmailLabelIcon(d.color), words, el("span", "ios-value", n(d.total)), el("span", "ov-go", "›"));
-      group.append(row);
-    }
-    root.append(group);
-  }
   const since = f.since
     ? ` Read back to ${new Date(f.since).toLocaleDateString(undefined, { month: "short", day: "numeric" })} so far.`
     : "";
@@ -773,39 +740,7 @@ export function renderHomeDashboard(
     widget("Mail by category", `Every email Cluster has read, by kind. Pick a kind to see its emails.${since}`, null, donutBox, () => go("organize"), "Labels"),
   );
 
-  const senderRow = (cls: string, key: string | undefined, name: string) => {
-    if (!key || !openSender) return el("div", cls);
-    const row = el("button", cls);
-    row.type = "button";
-    row.setAttribute("aria-label", `${name}: open their emails`);
-    row.onclick = () => openSender(key);
-    return row;
-  };
-  const sus = el("div", "ov-list");
-  for (const x of f.suspects ?? []) {
-    const row = senderRow("ov-li", x.key, x.name || x.address);
-    const words = el("div", "ov-who");
-    words.append(el("b", "", x.subject || x.name || x.address), el("span", "", x.brand ? `Impersonating ${x.brand}` : x.address));
-    row.append(senderTile(x.address, x.name, "sz-30"), words, el("span", "ov-pill-bad", "High"));
-    sus.append(row);
-  }
-  if (!f.suspects?.length) sus.append(el("p", "ov-empty", "Nothing suspicious."));
-  left.append(widget("Suspicious emails", "Emails that pretend to be a company you know.", null, sus, () => go("impersonation"), "Security"));
-
-  const top = el("div", "ov-list");
-  const cols = el("div", "ov-tr ov-tr-head");
-  cols.append(el("span", "", "Sender"), el("span", "ov-v", "Emails"));
-  if (f.topSenders?.length) top.append(cols);
-  for (const t of f.topSenders ?? []) {
-    const row = senderRow("ov-tr", t.key, t.name);
-    const name = el("div", "ct-name");
-    name.append(senderTile(t.address, t.name, "sz-26"), el("span", "", t.name));
-    row.append(name, emailsCell(t.count, "span"));
-    top.append(row);
-  }
-  if (!f.topSenders?.length) top.append(el("p", "ov-empty", "No mail this week."));
-  grid.append(left, widget("Top senders", "Senders with the most email in the last seven days.", null, top, () => go("subscriptions"), "Mailing lists"));
-
+  grid.append(left);
   root.append(grid);
   return root;
 }

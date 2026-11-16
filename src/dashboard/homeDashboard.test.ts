@@ -149,20 +149,20 @@ const text = (el: Element | null) => el?.textContent ?? "";
 const sections = (el: HTMLElement) => Array.from(el.querySelectorAll("h2.section-label")).map((h) => h.firstChild?.textContent ?? "");
 
 describe("renderHomeDashboard", () => {
-  it("shows no banner, then three widgets that each open their place", () => {
+  it("shows four metric tiles, then Mail by category", () => {
     const go = vi.fn();
-    const el = renderHomeDashboard({ ...calm, suspicious: 3 }, go);
+    const el = renderHomeDashboard({ ...calm, waiting: 2, clearable: 7, inboxUnread: 5 }, go);
     expect(el.querySelector(".home-hero")).toBeNull();
+    const tiles = Array.from(el.querySelectorAll<HTMLElement>(".mt-tile"));
+    expect(tiles.map(text)).toEqual(["12Received this week", "5Unread in inbox", "2In the Screener", "7Ready to clean up"]);
+    tiles[2].click();
+    expect(go).toHaveBeenLastCalledWith("screener");
+    tiles[3].click();
+    expect(go).toHaveBeenLastCalledWith("delete");
     const widgets = Array.from(el.querySelectorAll<HTMLElement>(".ov-w"));
-    expect(widgets.map((w) => w.querySelector(".ov-w-title")?.firstChild?.textContent)).toEqual([
-      "Mail by category",
-      "Suspicious emails",
-      "Top senders",
-    ]);
-    for (const [i, place] of [[0, "organize"], [1, "impersonation"], [2, "subscriptions"]] as const) {
-      widgets[i].click();
-      expect(go).toHaveBeenLastCalledWith(place);
-    }
+    expect(widgets.map((w) => w.querySelector(".ov-w-title")?.firstChild?.textContent)).toEqual(["Mail by category"]);
+    widgets[0].click();
+    expect(go).toHaveBeenLastCalledWith("organize");
   });
 
   it("gives each kind its count, and a kind opens its emails", () => {
@@ -179,18 +179,9 @@ describe("renderHomeDashboard", () => {
     expect(openKind).toHaveBeenCalledWith("primary");
   });
 
-  it("lists suspects by subject with the brand they fake, and senders by mail this week", () => {
-    const el = renderHomeDashboard(
-      {
-        ...calm,
-        suspects: [{ address: "x@evil.test", subject: "Payment declined", brand: "Netflix" }],
-        topSenders: [{ address: "a@shop.test", name: "Shop", count: 4 }],
-      },
-      vi.fn(),
-    );
-    expect(text(el.querySelector(".ov-li"))).toContain("Payment declined");
-    expect(text(el.querySelector(".ov-li"))).toContain("Impersonating Netflix");
-    expect(text(el.querySelector(".ov-tr:not(.ov-tr-head)"))).toContain("Shop4");
+  it("lists top senders beside Received Mails", () => {
+    const el = renderHomeDashboard({ ...calm, topSenders: [{ address: "a@shop.test", name: "Shop", count: 4 }] }, vi.fn());
+    expect(text(el.querySelector(".ov-top10 .t10-row"))).toContain("Shop4");
   });
 
   it("a top sender opens that sender's emails, as in Cleanup", () => {
@@ -201,7 +192,7 @@ describe("renderHomeDashboard", () => {
       undefined,
       openSender,
     );
-    el.querySelector<HTMLButtonElement>("button.ov-tr")!.click();
+    el.querySelector<HTMLButtonElement>("button.t10-row")!.click();
     expect(openSender).toHaveBeenCalledWith("co:shop");
   });
 
