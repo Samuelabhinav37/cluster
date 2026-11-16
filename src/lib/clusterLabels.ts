@@ -219,3 +219,11 @@ export function migrateStoredLabelNames(stored: StoredRecord): StoredRecord {
   if (stored.clusterOwnedLabels !== undefined) out.clusterOwnedLabels = clusterOwnedLabels;
   return out;
 }
+
+/**
+ * A label name ready to show: the saved name, with U+FE0F after a leading
+ * emoji so text-default ones (🏷, 🛍) draw in color on Windows. Never save it.
+ */
+export function showLabel(name: string): string {
+  return name.replace(/^(\p{Extended_Pictographic})(?!️)/u, "$1️");
+}

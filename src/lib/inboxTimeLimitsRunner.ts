@@ -37,7 +37,7 @@ import { knownSenderSet } from "./screener";
 import { buildSenderSummariesFromStubs } from "./senderModel";
 import { getSettings, mutateSettings, type ClusterSettings } from "./settingsStore";
 import { ALL_SORT_BUCKETS, type SortBucket } from "./sortTaxonomy";
-import { clusterLabelName } from "./clusterLabels";
+import { clusterLabelName, showLabel } from "./clusterLabels";
 
 /** Bump when labelling rules change (domains, kinds, phrases): the next run
  * relabels the whole indexed inbox once. */
@@ -533,7 +533,7 @@ export async function learnFromLabelMoves(token: string, moves: LabelMove[]): Pr
       id: makeLogId("sort"),
       at: now,
       kind: "sort" as const,
-      summary: `Learned from Gmail: ${address} goes to ${(bucket === "personal" ? clusterLabelName("personal") : categoryLabelName(bucket, settings.labelChoices)).replace(/^\S+\s/, "")}`,
+      summary: `Learned from Gmail: ${address} goes to ${showLabel(bucket === "personal" ? clusterLabelName("personal") : categoryLabelName(bucket, settings.labelChoices))}`,
     })),
   );
 }

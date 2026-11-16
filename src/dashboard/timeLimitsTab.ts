@@ -8,7 +8,7 @@ import { categoryLabelName, syncGmailCategoryFilters } from "../lib/categoryFilt
 import { runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
 import { HOLD_UNSORTED_HOURS } from "../lib/inboxTimeLimits";
 import { log } from "../lib/log";
-import { CLUSTER_LABEL_COLORS } from "../lib/clusterLabels";
+import { CLUSTER_LABEL_COLORS, showLabel } from "../lib/clusterLabels";
 import { colorClusterLabels, getLabel, listLabels } from "../lib/gmailApi";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { getSettings, mutateSettings, updateSettings } from "../lib/settingsStore";
@@ -186,14 +186,14 @@ export function renderTimeLimits(): void {
   const labelName = (b: SortBucket) => categoryLabelName(b, ctx.settings.labelChoices);
   const buckets = [...ALL_SORT_BUCKETS].sort((a, b) => (labelName(a) < labelName(b) ? -1 : 1));
   const rows = buckets.map((bucket) => {
-    const name = labelName(bucket).replace(/^\S+\s/, "");
+    const name = showLabel(labelName(bucket));
     const row = document.createElement("div");
     row.className = "ios-row org-row";
     row.title = BUCKET_HINT[bucket];
     const mark = gmailLabelIcon(CLUSTER_LABEL_COLORS[bucket]?.backgroundColor);
     const words = document.createElement("span");
     words.className = "grow";
-    words.append(icon(BUCKET_ICON[bucket]), name);
+    words.append(name);
     const count = Object.assign(document.createElement("span"), {
       className: "ios-value",
       id: `time-limit-count-${bucket}`,

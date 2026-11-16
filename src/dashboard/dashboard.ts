@@ -11,7 +11,7 @@ import {
   type ExpiryBucket,
 } from "../lib/expiryTriage";
 import { buildProtectionContext, idsSafeToMoveOut } from "../lib/protectionPolicy";
-import { CLUSTER_LABEL_COLORS, clusterLabelName } from "../lib/clusterLabels";
+import { CLUSTER_LABEL_COLORS, clusterLabelName, showLabel } from "../lib/clusterLabels";
 import { categoryLabelName } from "../lib/categoryFilters";
 import { learnFromLabelMoves, readLabeller, runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
 import { getScan, newScan, onScanChange, setScan, type ScanState } from "../lib/scanState";
@@ -76,7 +76,6 @@ import { activeProviders, ctx, providerById, setBridge } from "./state";
 import { renderSortInbox, wireSortInbox } from "./sortInbox";
 import { maybeShowLabelTidyCard } from "./labelTidy";
 import {
-  BUCKET_ICON,
   presetSwitch,
   gmailCount,
   refreshGmailCounts,
@@ -890,8 +889,7 @@ function paintScanCard() {
     (b) => [b, categoryLabelName(b, ctx.settings.labelChoices)] as const,
   );
   const rows = names.map(([bucket, label]) => ({
-    name: label.replace(/^\S+\s/, ""),
-    icon: BUCKET_ICON[bucket],
+    name: showLabel(label),
     color: CLUSTER_LABEL_COLORS[bucket],
     // Gmail's own totals once the scan is done, so the card matches Labels and Gmail.
     count: (scan!.phase === "done" ? gmailCount(bucket) : undefined) ?? scan!.byBucket[bucket] ?? 0,
@@ -1558,8 +1556,7 @@ function renderOverview(
     .map((d) => {
       const label = categoryLabelName(d.bucket, ctx.settings.labelChoices);
       return {
-        name: label.replace(/^\S+\s/, ""),
-        icon: BUCKET_ICON[d.bucket],
+        name: showLabel(label),
         color: CLUSTER_LABEL_COLORS[d.bucket]?.backgroundColor,
         total: d.total,
         items: d.items,
@@ -2048,7 +2045,7 @@ function wireDetails() {
       labels: ctx.settings.autoSort.timeLimitsEnabled
         ? ALL_SORT_BUCKETS.filter((b) => !ctx.settings.autoSort.labelsOff.includes(b)).map((bucket) => ({
             bucket,
-            name: categoryLabelName(bucket, ctx.settings.labelChoices).replace(/^\S+\s/, ""),
+            name: showLabel(categoryLabelName(bucket, ctx.settings.labelChoices)),
           }))
         : undefined,
       label: (messages, bucket, always, slot) =>
@@ -2075,7 +2072,7 @@ function wireDetails() {
             // Rewrites the Gmail filters so new mail from them lands there too.
             void runInboxTimeLimits().catch((err) => log.error("Label as: filter update failed", err));
           }
-          const short = name.replace(/^\S+\s/, "");
+          const short = showLabel(name);
           await logAction("sort", `Labelled ${ids.size} as ${short} from Details`);
           void refreshView();
           return `Labelled ${ids.size} as ${short} ✓`;

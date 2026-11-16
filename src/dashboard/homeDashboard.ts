@@ -468,7 +468,7 @@ export function paintHomeRead(
 
 export interface ScanRow {
   name: string;
-  icon: string;
+  icon?: string;
   color?: { backgroundColor: string; textColor: string };
   count: number;
   /** The label's inbox mail in Gmail, to check what landed there. */

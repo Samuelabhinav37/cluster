@@ -12,7 +12,7 @@ import {
   type SortPlanMessage,
 } from "../lib/autoSort";
 import { ALL_SORT_BUCKETS, SORT_BUCKET_LABELS, type SortBucket } from "../lib/sortTaxonomy";
-import { SORT_RULE_PREFIX } from "../lib/clusterLabels";
+import { SORT_RULE_PREFIX, showLabel } from "../lib/clusterLabels";
 import { syncGmailCategoryFilters } from "../lib/categoryFilters";
 import { buildBucketRule, bucketMatchTerms, isServerSortBucket } from "../lib/serverSort";
 import { colorClusterLabels, deleteLabel, getOrCreateLabel, listLabels, listMessageIds } from "../lib/gmailApi";
@@ -53,7 +53,7 @@ topSortBtn?.addEventListener("click", () => setTimeout(() => renderSortChoices()
 
 const num = (n: number) => n.toLocaleString();
 /** "📦 Orders & shipping" → "Orders & shipping"; names without an emoji stay whole. */
-const plainLabel = (name: string) => name.replace(/^[^\p{L}\p{N}]+\s/u, "");
+const plainLabel = showLabel;
 
 // ── "Sort my inbox" (Clean up tab) ──────────────────────────────────────
 // Buckets that come from the message kind (subject) rather than the sender's
