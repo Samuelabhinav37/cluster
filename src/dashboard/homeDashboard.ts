@@ -657,9 +657,8 @@ function inboxCard(f: HomeFacts): HTMLElement {
   const card = el("section", "ov-card ov-inbox");
   const days = f.received30 ?? [];
   const head = el("div", "mr-head");
-  head.append(el("h2", "mr-title", "Mail received"), el("span", "mr-range", "Last 30 days"));
-  card.append(head, el("span", "mr-sub", `${n(f.cleared30 ?? 0)} cleared`));
-  card.append(el("b", "mr-total", n(days.reduce((a, b) => a + b, 0))), el("span", "mr-sub", "Total"));
+  head.append(el("h2", "mr-title", "Received Mails"), el("span", "mr-range", "Last 30 days"));
+  card.append(head, el("b", "mr-total", n(days.reduce((a, b) => a + b, 0))));
   card.append(barChart(days, Date.now()));
   return card;
 }
