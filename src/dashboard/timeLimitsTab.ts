@@ -208,16 +208,14 @@ export function renderTimeLimits(): void {
     row.append(mark, words, count, select);
     return row;
   });
-  // Grouped under Overview's kinds, so both screens name mail the same way.
-  const sections = HOME_KINDS.filter((k) => k.key !== "primary").map(({ key, label }) => {
-    const wrap = document.createElement("section");
-    wrap.className = "ios-section";
-    const group = document.createElement("div");
-    group.className = "ios-group";
-    group.append(...rows.filter((_, i) => BUCKET_KIND[buckets[i]] === key));
-    wrap.append(Object.assign(document.createElement("h2"), { className: "ios-head", textContent: label }), group);
-    return wrap;
-  });
+  // One list, no headings (user, Nov 2026); still ordered by Overview's kinds so like sits by like.
+  const wrap = document.createElement("section");
+  wrap.className = "ios-section";
+  const group = document.createElement("div");
+  group.className = "ios-group";
+  for (const { key } of HOME_KINDS.filter((k) => k.key !== "primary")) group.append(...rows.filter((_, i) => BUCKET_KIND[buckets[i]] === key));
+  wrap.append(group);
+  const sections = [wrap];
   const showEmpty = Object.assign(document.createElement("button"), { type: "button", className: "link", id: "labels-show-empty" });
   showEmpty.onclick = () => {
     showAllLabels = true;
