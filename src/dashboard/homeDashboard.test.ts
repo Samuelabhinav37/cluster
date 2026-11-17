@@ -153,10 +153,21 @@ const sections = (el: HTMLElement) => Array.from(el.querySelectorAll("h2.section
 describe("renderHomeDashboard", () => {
   it("shows four metric tiles, then Mail by category", () => {
     const go = vi.fn();
-    const el = renderHomeDashboard({ ...calm, waiting: 2, clearable: 7, inboxUnread: 5 }, go);
+    const el = renderHomeDashboard({ ...calm, lastWeek: 10, waiting: 2, clearable: 7, inboxUnread: 5, unreadWeekAgo: 4 }, go);
     expect(el.querySelector(".home-hero")).toBeNull();
     const tiles = Array.from(el.querySelectorAll<HTMLElement>(".mt-tile"));
-    expect(tiles.map(text)).toEqual(["12Received this week", "5Unread in inbox", "2In the Screener", "7Ready to clean up"]);
+    expect(tiles.map(text)).toEqual([
+      "Received this week1220%from last week",
+      "Unread in inbox525%from last week",
+      "In the Screener2new senders waiting",
+      "Ready to clean up7emails you can clear",
+    ]);
+    expect(tiles[0].classList.contains("is-hero")).toBe(true);
+    // More mail is fine; more unread is not.
+    expect(tiles[0].querySelector(".mt-badge.is-good")).not.toBeNull();
+    expect(tiles[1].querySelector(".mt-badge.is-bad")).not.toBeNull();
+    tiles[0].click();
+    expect(go).toHaveBeenLastCalledWith("organize");
     tiles[2].click();
     expect(go).toHaveBeenLastCalledWith("screener");
     tiles[3].click();
@@ -190,6 +201,18 @@ describe("renderHomeDashboard", () => {
     expect(strokes).toHaveLength(21);
     expect(new Set(strokes).size).toBe(2);
     expect(text(el.querySelector(".mr-stats"))).toBe("Total120Growth+20%Period30 days");
+  });
+
+  it("hovering a kind lights only its bars and shows its count", () => {
+    const el = renderHomeDashboard({ ...calm, kinds: { primary: 10, trans: 0, updates: 10, promo: 0 } }, vi.fn());
+    const updates = Array.from(el.querySelectorAll<HTMLButtonElement>(".ov-legend button"))[2];
+    updates.onmouseenter!(new MouseEvent("mouseenter"));
+    const lines = Array.from(el.querySelectorAll(".ov-gauge line"));
+    expect(lines.filter((l) => l.classList.contains("on")).length).toBeGreaterThan(0);
+    expect(new Set(lines.filter((l) => l.classList.contains("on")).map((l) => l.getAttribute("stroke"))).size).toBe(1);
+    expect(text(el.querySelector(".ov-gauge .ov-mid"))).toBe("10Updates");
+    updates.onmouseleave!(new MouseEvent("mouseleave"));
+    expect(text(el.querySelector(".ov-gauge .ov-mid"))).toBe("20emails");
   });
 
   it("lists top senders beside Received Mails", () => {

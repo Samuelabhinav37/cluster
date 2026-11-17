@@ -1443,7 +1443,7 @@ function fakedBrands(senders: SenderSummary[]): string[] {
   return [...counts].sort((a, b) => b[1] - a[1]).map(([brand]) => brand);
 }
 
-/** Home's Top senders: this week's mail, one row per company as in Cleanup. */
+/** Home's Top senders: the five with the most mail this week, one row per company as in Cleanup. */
 function topSendersByCompany(all: readonly SenderSummary[], now: number) {
   const since = now - 7 * 86_400_000;
   const items = all.map((sender) => ({
@@ -1451,7 +1451,7 @@ function topSendersByCompany(all: readonly SenderSummary[], now: number) {
     ids: sender.messages.filter((m) => m.receivedAt >= since).map((m) => m.id),
   }));
   return pageRows(items, detailRowKey)
-    .slice(0, 10)
+    .slice(0, 5)
     .map((r) => ({ key: r.key, address: r.lead.address, name: senderName(r.lead), count: r.count }));
 }
 

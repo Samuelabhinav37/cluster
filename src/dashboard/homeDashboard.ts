@@ -231,6 +231,9 @@ const ICONS: Record<string, Shape[]> = {
     ["line", { x1: "22", x2: "16", y1: "11", y2: "11" }],
   ],
   check: [["path", { d: "M20 6 9 17l-5-5" }]],
+  "arrow-up-right": [["path", { d: "M7 7h10v10" }], ["path", { d: "M7 17 17 7" }]],
+  "trend-up": [["polyline", { points: "22 7 13.5 15.5 8.5 10.5 2 17" }], ["polyline", { points: "16 7 22 7 22 13" }]],
+  "trend-down": [["polyline", { points: "22 17 13.5 8.5 8.5 13.5 2 7" }], ["polyline", { points: "16 17 22 17 22 11" }]],
   mail: [
     ["rect", { width: "20", height: "16", x: "2", y: "4", rx: "2" }],
     ["path", { d: "m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" }],
@@ -603,23 +606,62 @@ function widget(
 /** Apple's analytics card (App Store Connect): title and range, the total,
  * then a bar a day with the scale on the right. */
 // Four colored tiles, after Apple's CloudKit console: icon, the number, what it counts.
+type Tile = {
+  title: string;
+  value: number | undefined;
+  open: () => void;
+  /** Last week's value, for the badge; `upIsGood` colors its arrow. */
+  prev?: number;
+  upIsGood?: boolean;
+  /** Shown instead of a badge when there is no last week to compare with. */
+  note?: string;
+};
+
+/** The change since last week as a small badge, or the tile's note. */
+function tileFoot(t: Tile): HTMLElement {
+  const foot = el("div", "mt-foot");
+  if (t.value === undefined || !t.prev) {
+    if (t.note) foot.append(el("span", "", t.note));
+    return foot;
+  }
+  const pct = Math.round(((t.value - t.prev) / t.prev) * 100);
+  const up = pct >= 0;
+  const badge = el("span", `mt-badge ${up === (t.upIsGood ?? true) ? "is-good" : "is-bad"}`);
+  badge.append(icon(up ? "trend-up" : "trend-down"), `${Math.abs(pct)}%`);
+  foot.append(badge, el("span", "", "from last week"));
+  return foot;
+}
+
+// Four tiles after the user's sales dashboard: the first a blue hero with a faint
+// mark behind it, the rest plain cards. Each opens its place, arrow included.
 function metricTiles(f: HomeFacts, go: Go): HTMLElement {
-  const tiles: Array<[cls: string, ico: string, value: number | undefined, label: string, place?: string]> = [
-    ["mt-blue", "mail", f.thisWeek, "Received this week", "organize"],
-    ["mt-indigo", "inbox", f.inboxUnread, "Unread in inbox"],
-    ["mt-violet", "user-plus", f.waiting, "In the Screener", "screener"],
-    ["mt-gray", "trash", f.clearable, "Ready to clean up", "delete"],
+  const tiles: Tile[] = [
+    { title: "Received this week", value: f.thisWeek, prev: f.lastWeek, open: () => go("organize") },
+    {
+      title: "Unread in inbox",
+      value: f.inboxUnread,
+      prev: f.unreadWeekAgo,
+      upIsGood: false,
+      open: () => window.open("https://mail.google.com/mail/u/0/#inbox", "_blank", "noopener"),
+    },
+    { title: "In the Screener", value: f.waiting, note: "new senders waiting", open: () => go("screener") },
+    { title: "Ready to clean up", value: f.clearable, note: "emails you can clear", open: () => go("delete") },
   ];
   const row = el("div", "mt-row");
-  for (const [cls, ico, value, label, place] of tiles) {
-    const tile = el(place ? "button" : "div", `mt-tile ${cls}`);
-    if (place) {
-      (tile as HTMLButtonElement).type = "button";
-      tile.onclick = () => go(place);
+  tiles.forEach((t, i) => {
+    const tile = el("button", i === 0 ? "mt-tile is-hero" : "mt-tile");
+    tile.type = "button";
+    tile.onclick = t.open;
+    if (i === 0) {
+      const mark = icon("sparkles");
+      mark.classList.add("mt-mark");
+      tile.append(mark);
     }
-    tile.append(icon(ico), el("b", "mt-num", value === undefined ? "–" : n(value)), el("span", "mt-label", label));
+    const arrow = el("span", "mt-go");
+    arrow.append(icon("arrow-up-right"));
+    tile.append(el("span", "mt-title", t.title), arrow, el("b", "mt-num", t.value === undefined ? "–" : n(t.value)), tileFoot(t));
     row.append(tile);
-  }
+  });
   return row;
 }
 
@@ -707,26 +749,31 @@ function barChart(counts: readonly number[], now: number): HTMLElement {
   return wrap;
 }
 
-// Apple system colors, one per kind so the gauge reads at a glance.
+// Shades of one blue, darkest to lightest, so the kinds differ without new colors.
 const KIND_COLORS: Record<HomeKind, string> = {
-  primary: "#0a84ff",
-  trans: "#30b0c7",
-  updates: "#bf5af2",
-  promo: "#ff9f0a",
+  primary: "#1f5fd6",
+  trans: "#3b88f0",
+  updates: "#74abf6",
+  promo: "#b3d1fb",
 };
 
 /** A half ring of rounded bars, shared out between the kinds by count (largest remainder). */
-function gaugeChart(parts: Array<[count: number, color: string]>): HTMLElement {
+type GaugeEl = HTMLElement & { show: (k: number) => void };
+
+/** A half ring of rounded bars shared out between the parts by count (largest
+ * remainder). Hover lights a part's bars and puts its count in the middle; click picks it. */
+function gaugeChart(parts: Array<{ label: string; count: number; color: string; pick: () => void }>): GaugeEl {
   const N = 21;
-  const total = parts.reduce((a, [c]) => a + c, 0);
-  const shares = parts.map(([c]) => (total ? (c / total) * N : 0));
+  const total = parts.reduce((a, p) => a + p.count, 0);
+  const shares = parts.map((p) => (total ? (p.count / total) * N : 0));
   const bars = shares.map(Math.floor);
   const order = shares.map((v, i) => [v - Math.floor(v), i] as const).sort((a, b) => b[0] - a[0]);
   for (let k = 0; k < N - bars.reduce((a, b) => a + b, 0) && total; k++) bars[order[k][1]] += 1;
-  const colors = parts.flatMap(([, color], i) => Array<string>(bars[i]).fill(color));
+  const owner = parts.flatMap((_, i) => Array<number>(bars[i]).fill(i));
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 240 132");
   svg.setAttribute("aria-hidden", "true");
+  const lines: SVGLineElement[] = [];
   for (let i = 0; i < N; i++) {
     const a = Math.PI - (i * Math.PI) / (N - 1);
     const line = document.createElementNS(SVG_NS, "line");
@@ -737,13 +784,45 @@ function gaugeChart(parts: Array<[count: number, color: string]>): HTMLElement {
     line.setAttribute("y1", y1);
     line.setAttribute("x2", x2);
     line.setAttribute("y2", y2);
-    line.setAttribute("stroke", colors[i] ?? "var(--neutral-fill)");
+    line.setAttribute("stroke", owner[i] === undefined ? "var(--neutral-fill)" : parts[owner[i]].color);
+    lines.push(line);
     svg.append(line);
   }
-  const wrap = el("div", "ov-gauge");
+  const wrap = Object.assign(el("div", "ov-gauge"), { show: (_k: number) => {} });
   const mid = el("div", "ov-mid");
-  mid.append(el("b", "", n(total)), el("span", "", "emails"));
+  const num = el("b", "", n(total));
+  const what = el("span", "", "emails");
+  mid.append(num, what);
   wrap.append(svg, mid);
+  wrap.show = (k: number) => {
+    wrap.classList.toggle("is-picking", k >= 0);
+    lines.forEach((l, i) => l.classList.toggle("on", owner[i] === k));
+    num.textContent = n(k >= 0 ? parts[k].count : total);
+    what.textContent = k >= 0 ? parts[k].label : "emails";
+  };
+  // The bar under the pointer, read from its angle, so the gaps between bars don't flicker.
+  const kindAt = (e: MouseEvent): number => {
+    const r = svg.getBoundingClientRect();
+    if (!r.width) return -1;
+    const x = ((e.clientX - r.left) / r.width) * 240 - 120;
+    const y = 120 - ((e.clientY - r.top) / r.height) * 132;
+    const d = Math.hypot(x, y);
+    if (d < 60 || d > 122 || y < -8) return -1;
+    const i = Math.round(((Math.PI - Math.atan2(Math.max(y, 0), x)) / Math.PI) * (N - 1));
+    return owner[Math.min(N - 1, Math.max(0, i))] ?? -1;
+  };
+  svg.addEventListener("mousemove", (e) => {
+    const k = kindAt(e);
+    wrap.show(k);
+    svg.style.cursor = k >= 0 ? "pointer" : "";
+  });
+  svg.addEventListener("mouseleave", () => wrap.show(-1));
+  svg.addEventListener("click", (e) => {
+    const k = kindAt(e);
+    if (k < 0) return;
+    e.stopPropagation();
+    parts[k].pick();
+  });
   return wrap;
 }
 
@@ -767,7 +846,10 @@ export function renderHomeDashboard(
   const top = el("div", "ov-row ov-row-top");
   top.append(metricTiles(f, go), inboxCard(f));
   const gaugeBox = el("div", "ov-gauge-box");
-  gaugeBox.append(gaugeChart(HOME_KINDS.map((k) => [f.kinds[k.key], KIND_COLORS[k.key]])));
+  const gauge = gaugeChart(
+    HOME_KINDS.map((k) => ({ label: k.label, count: f.kinds[k.key], color: KIND_COLORS[k.key], pick: () => openKind?.(k.key) })),
+  );
+  gaugeBox.append(gauge);
   const legend = el("div", "ov-legend");
   for (const k of HOME_KINDS) {
     const item = el("button", "", k.label);
@@ -777,6 +859,9 @@ export function renderHomeDashboard(
     item.prepend(dot);
     item.append(el("b", "", n(f.kinds[k.key])));
     item.onclick = () => openKind?.(k.key);
+    const at = HOME_KINDS.indexOf(k);
+    item.onmouseenter = item.onfocus = () => gauge.show(at);
+    item.onmouseleave = item.onblur = () => gauge.show(-1);
     legend.append(item);
   }
   gaugeBox.append(legend);
