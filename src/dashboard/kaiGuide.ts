@@ -423,9 +423,10 @@ export function initKaiGuide(doc: Document, options: KaiOptions): KaiGuide {
   });
   const onScreen = () => watch?.section(options.currentScreen());
   onScreen();
-  // screens change from the sidebar; read the new one once it has switched
-  doc.addEventListener("click", (event) => {
-    if ((event.target as Element | null)?.closest?.("#sidebar .nav-item")) win.setTimeout(onScreen, 50);
+  // Every page change (sidebar, keys, tiles, Back) says so: a tip from the last page folds.
+  doc.addEventListener("cluster:screen", () => {
+    if (hint) { hint = false; tagFold(); }
+    onScreen();
   });
   tag.addEventListener("click", show);
   // "Ask Kai" at most once a day, with a wave, then the bubble folds away.

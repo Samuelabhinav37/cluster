@@ -36,7 +36,7 @@ describe("safeRender per-screen isolation (P1.2)", () => {
     // Overview and Recently-done, rendered by unrelated safeRender calls,
     // are unaffected.
     expect(dash.el("overview-headline").textContent).toMatch(/Scanned \d+ sender/);
-    expect(dash.el("recent-list").textContent).toContain("Nothing done yet");
+    expect(dash.el("recent-list").textContent).toContain("What you trash, mute or unsubscribe shows here.");
 
     // The subscriptions screen itself gets the inline failure note instead
     // of silently staying empty.

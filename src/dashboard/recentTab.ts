@@ -161,9 +161,17 @@ export function renderRecentTab() {
 
   const entries = [...ctx.settings.actionLog].reverse();
   if (entries.length === 0) {
-    const p = document.createElement("p");
+    // Says what will land here, and where to start.
+    const p = document.createElement("div");
     p.className = "empty-state";
-    p.textContent = "Nothing done yet.";
+    const words = document.createElement("p");
+    words.textContent = "What you trash, mute or unsubscribe shows here.";
+    const start = document.createElement("button");
+    start.type = "button";
+    start.className = "btn";
+    start.textContent = "Go to Cleanup";
+    start.onclick = () => document.getElementById("nav-delete")?.click();
+    p.append(words, start);
     recentListEl.appendChild(p);
     return;
   }

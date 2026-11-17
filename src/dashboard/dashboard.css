@@ -4899,3 +4899,18 @@ body:not([data-screen="setup"]) .screen { padding-bottom: 128px; }
   #overview-content .ov-card, #overview-content .ov-row .ov-w { padding: 22px 26px; }
   #overview-content .ov-gauge { max-width: 380px; margin: 0 auto; }
 }
+/* The scope a tile or the Filter menu narrowed the table to, with × to show all. */
+.ct-scope { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px 0 12px; border: 0; border-radius: 8px;
+  background: var(--accent-fill); color: var(--accent-fill-text, var(--label)); font: 500 13px var(--font); cursor: pointer; white-space: nowrap; }
+.ct-scope:hover { background: var(--accent-fill-hover); }
+.ct-scope-x { font-size: 15px; line-height: 1; opacity: .8; }
+/* A label's name opens it in Gmail. */
+.org-link { color: inherit; text-decoration: none; }
+.org-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.org-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+/* A tile with nothing to open stays readable, not dimmed. */
+.mt-tile:disabled { opacity: 1; cursor: default; }
+.mt-tile:disabled:hover { transform: none; box-shadow: none; }
+#recent-list > .empty-state { display: grid; justify-items: center; gap: 14px; }
+#recent-list > .empty-state p { margin: 0; }
+.page-back { display: block; margin-bottom: 8px; }

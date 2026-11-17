@@ -662,9 +662,9 @@ function tileFoot(t: Tile): HTMLElement {
 
 // Four tiles after the user's sales dashboard: the first a blue hero with a faint
 // mark behind it, the rest plain cards. Each opens its place, arrow included.
-function metricTiles(f: HomeFacts, go: Go): HTMLElement {
+function metricTiles(f: HomeFacts, go: Go, openThisWeek?: () => void): HTMLElement {
   const tiles: Tile[] = [
-    { title: "Received this week", value: f.thisWeek, prev: f.lastWeek, open: () => go("organize") },
+    { title: "Received this week", value: f.thisWeek, prev: f.lastWeek, open: () => (openThisWeek ? openThisWeek() : go("organize")) },
     {
       title: "Unread in inbox",
       value: f.inboxUnread,
@@ -943,6 +943,8 @@ export function renderHomeDashboard(
   openKind?: (kind: HomeKind) => void,
   /** Opens one sender's emails in Details, as Cleanup's rows do. */
   openSender?: (key: string) => void,
+  /** Opens this week's emails in Details, for the Received this week tile. */
+  openThisWeek?: () => void,
 ): HTMLElement {
   const root = el("div", "home");
   if (f.reading) {
@@ -955,7 +957,7 @@ export function renderHomeDashboard(
   if (!introShown) root.classList.add("ov-intro");
   introShown = true;
   const top = el("div", "ov-row ov-row-top");
-  top.append(metricTiles(f, go), inboxCard(f));
+  top.append(metricTiles(f, go, openThisWeek), inboxCard(f));
   const gaugeBox = el("div", "ov-gauge-box");
   const gauge = gaugeChart(
     HOME_KINDS.map((k) => ({ label: k.label, count: f.kinds[k.key], color: KIND_COLORS[k.key], pick: () => openKind?.(k.key) })),

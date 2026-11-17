@@ -15,7 +15,7 @@ import { domainOf } from "../lib/domainGrouping";
 import { deliverNewsletters, HOLD_HOURS, newsletterDayOn } from "../lib/newsletterDay";
 import type { SenderSummary } from "../lib/senderModel";
 import { ALL_SORT_BUCKETS, effectiveBucket, type SortBucket } from "../lib/sortTaxonomy";
-import { BUCKET_KIND, gmailLabelIcon, HOME_KINDS, icon } from "./homeDashboard";
+import { BUCKET_KIND, gmailLabelIcon, gmailUrl, HOME_KINDS, icon } from "./homeDashboard";
 import { ctx } from "./state";
 
 const rowsEl = document.getElementById("time-limits-rows") as HTMLDivElement | null;
@@ -192,7 +192,16 @@ export function renderTimeLimits(): void {
     const mark = gmailLabelIcon(CLUSTER_LABEL_COLORS[bucket]?.backgroundColor);
     const words = document.createElement("span");
     words.className = "grow";
-    words.append(name);
+    // The count is Gmail's own, so the label opens in Gmail, where the same emails are.
+    const link = Object.assign(document.createElement("a"), {
+      className: "org-link",
+      href: gmailUrl(undefined, `search/${encodeURIComponent(`label:"${labelName(bucket).replace(/"/g, "")}"`)}`),
+      target: "_blank",
+      rel: "noopener",
+      textContent: name,
+    });
+    link.setAttribute("aria-label", `${name}: open in Gmail`);
+    words.append(link);
     const count = Object.assign(document.createElement("span"), {
       className: "ios-value",
       id: `time-limit-count-${bucket}`,

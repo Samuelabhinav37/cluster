@@ -30,7 +30,8 @@ const BUDGET: Record<string, { words: number; controls: number }> = {
   senders: { words: 92, controls: 15 },
   // Redesign 2026-11 (approved): every section on one scrolling page, not one at a time.
   settings: { words: 280, controls: 60 },
-  recent: { words: 15, controls: 1 },
+  // 2026-11-17: the empty state names what lands here and offers Go to Cleanup, plus the Back link.
+  recent: { words: 20, controls: 3 },
 };
 
 // Each action's one home (docs/ui-plan-2026-10-29.md). Elsewhere it may be a

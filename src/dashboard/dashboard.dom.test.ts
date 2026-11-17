@@ -152,7 +152,7 @@ describe("dashboard boot smoke", () => {
   });
 
   it("shows the empty Recently-done state", () => {
-    expect(document.getElementById("recent-list")!.textContent).toContain("Nothing done yet");
+    expect(document.getElementById("recent-list")!.textContent).toContain("What you trash, mute or unsubscribe shows here.");
   });
 
   it("switches to every screen, showing exactly one panel", () => {

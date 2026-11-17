@@ -110,7 +110,7 @@ import { formatRelativeTime, infoButton, pruneSelection, renderConfirmStep, runN
 import { buildCleanupCards } from "../lib/cleanupCards";
 import { createRangePicker } from "./rangePicker";
 import { barsSvg, downloadBytes, emailRows, emailsCsv, emailsXlsx, periodFacts, printReport, reportHtml, wireDownloadMenu, type ReportSpec } from "./reportDownload";
-import { changeChip, dailyCounts, stackChart, pageRows, renderCleanupPage, renderSenderTable, type PageItem } from "./cleanupPage";
+import { changeChip, dailyCounts, stackChart, pageRows, renderCleanupPage, renderSenderTable, setTableFilter, type PageItem } from "./cleanupPage";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { keepNewestExcess, olderReadExcess } from "../lib/keepNewest";
 import { deliveredUpdates } from "../lib/orderEvents";
@@ -145,6 +145,7 @@ import {
   detailSenders,
   idsByProvider,
   initDetailsPanel,
+  WEEKS,
   type DetailsPanel,
 } from "./detailsPanel";
 import { listGroup, listRow } from "./listRow";
@@ -217,6 +218,28 @@ const neverReadTrashBtn = document.getElementById("never-read-trash-btn") as HTM
 
 // ── Sidebar navigation (WAI-ARIA tabs pattern, vertical) ────────────────
 
+/** Pages outside the sidebar light up the section they belong to. */
+const PARENT_SCREEN: Record<string, string> = { subscriptions: "delete", report: "impersonation", sort: "organize" };
+/** The last sidebar section shown, for the Back link on pages outside the sidebar. */
+let lastPlace = "overview";
+
+/** "‹ Back to Security" on a page with no sidebar item of its own; gone on the sidebar's pages. */
+function paintBackLink(target: string) {
+  for (const old of Array.from(document.querySelectorAll(".page-back"))) old.remove();
+  const own = navButtons.some((b) => b.dataset.screen === target && !b.hidden);
+  if (own || target === "subscriptions" || target === "settings" || target === "setup" || target === lastPlace) return;
+  const to = navButtons.find((b) => b.dataset.screen === lastPlace);
+  const panel = screenPanels.find((p) => p.dataset.screen === target);
+  const head = panel?.querySelector(".page-titles") ?? panel?.querySelector(".page-head");
+  if (!to || !head) return;
+  const back = document.createElement("button");
+  back.type = "button";
+  back.className = "cu-back page-back";
+  back.textContent = `‹ ${to.dataset.label ?? to.textContent!.trim()}`;
+  back.onclick = () => void selectScreen(lastPlace);
+  head.prepend(back);
+}
+
 function showScreen(name: string) {
   const target = resolveScreen(name);
   // A new page opens at its top; re-showing the same page keeps the scroll.
@@ -229,7 +252,9 @@ function showScreen(name: string) {
     panel.tabIndex = active ? 0 : -1;
   }
   // Subscriptions is Cleanup's second tab: Cleanup stays lit, and the KPI row and tabs move with it.
-  const place = target === "subscriptions" ? "delete" : target;
+  const place = PARENT_SCREEN[target] ?? target;
+  paintBackLink(target);
+  if (navButtons.some((b) => b.dataset.screen === place && !b.hidden)) lastPlace = place;
   if (place === "delete") {
     const head = document.getElementById("cu-head");
     const panel = screenPanels.find((p) => p.dataset.screen === target);
@@ -262,6 +287,8 @@ function showScreen(name: string) {
       document.querySelector<HTMLButtonElement>(`#account-menu [data-open="${target}"]`) ??
       undefined,
   );
+  // Last, so listeners (Kai) read the page that's now showing.
+  document.dispatchEvent(new CustomEvent("cluster:screen", { detail: target }));
 }
 
 /** "Clean up › Stop mail" above a sub-page: its place, then its own name. */
@@ -1489,10 +1516,13 @@ function renderProtectTiles(scams: number, waiting: number, held: number) {
   put("kpi-held", held);
   put("kpi-threats", scams);
   put("kpi-waiting", waiting);
-  // No link to an empty list.
-  for (const [id, v] of [["kpi-threats", scams], ["kpi-held", held], ["kpi-waiting", waiting]] as const) {
-    const view = document.getElementById(id)?.closest(".sec-item")?.querySelector<HTMLElement>(".sec-view");
-    if (view) view.hidden = v === 0;
+  // No link to an empty list: at 0, Scams and Held lose their arrow and stop scrolling to the table.
+  for (const [id, v] of [["kpi-threats", scams], ["kpi-held", held]] as const) {
+    const tile = document.getElementById(id)?.closest<HTMLButtonElement>("[data-sec-jump]");
+    if (!tile) continue;
+    tile.disabled = v === 0;
+    const go = tile.querySelector<HTMLElement>(".mt-go");
+    if (go) go.hidden = v === 0;
   }
   const sub =
     scams > 0
@@ -1726,6 +1756,7 @@ function renderOverview(
       goAndAct,
       (kind) => details?.open({ kind }),
       (key) => details?.open({ view: "emails", senderKey: key }),
+      () => details?.open({ view: "emails", week: WEEKS - 1 }),
     ),
   );
   paintScanCard();
@@ -1867,6 +1898,9 @@ function renderDeleteScreen(senders: SenderSummary[]) {
     rowKeyOf: detailRowKey,
     openRow: (key) => details?.open({ view: "emails", senderKey: key }),
     act: (merged, picked, slot, reset) => trashFromPage("table", merged, picked, slot, reset),
+    scope: cuKpi
+      ? { label: cuKpi === "never" ? "Unopened" : "Expired", clear: () => document.querySelector<HTMLElement>('.cu-card[data-page="all"]')?.click() }
+      : undefined,
   });
   if (openPage) showCleanupPage(openPage);
 }
@@ -2037,7 +2071,12 @@ function wireCleanupCards() {
     card.classList.add("row-link");
     card.addEventListener("click", () => {
       const page = card.dataset.page;
-      if (page === "lists") return void selectScreen("subscriptions");
+      // The tile counts unused lists, so it opens the tab filtered to them.
+      if (page === "lists") {
+        setTableFilter("lists", "Unused");
+        renderSubscriptionsTab(ctx.senders);
+        return void selectScreen("subscriptions");
+      }
       cuKpi = page === "all" || cuKpi === page ? null : (page as "never" | "old");
       if (document.querySelector('section[data-screen="subscriptions"]:not([hidden])')) void selectScreen("delete");
       renderDeleteScreen(ctx.senders);

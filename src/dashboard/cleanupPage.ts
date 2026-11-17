@@ -370,6 +370,8 @@ export interface SenderTableSpec {
   selected?: Set<string>;
   /** Ids for the bar's slot and button, for callers that drive them. */
   barIds?: { slot: string; button: string };
+  /** What a page tile narrowed the rows to, shown as a chip with × beside the tools. */
+  scope?: { label: string; clear: () => void };
 }
 
 type SortKey = ColumnId | "name";
@@ -397,6 +399,12 @@ const NUMERIC = new Set<ColumnId>(["perMonth", "emails", "size"]);
 
 // Per table for the session; rows per page and hidden columns also survive a reload.
 const views = new Map<string, View>();
+/** Narrows a table to one reason or status (as its Filter menu would), from page 1. */
+export function setTableFilter(id: string, note: string | null): void {
+  const v = viewFor(id);
+  v.filter = note;
+  v.page = 0;
+}
 function viewFor(id: string): View {
   let v = views.get(id);
   if (v) return v;
@@ -619,7 +627,23 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
         const csv = "﻿" + [head, ...body].map((line) => line.map(csvField).join(",")).join("\r\n") + "\r\n";
         downloadBytes(`cluster-${spec.id}.csv`, csv, "text/csv;charset=utf-8");
       };
-      spec.tools.replaceChildren(search, searchBtn, customize, filter, exportBtn);
+      // What the rows are narrowed to, said in words, with a way back to all of them.
+      const scopeLabel = spec.scope?.label ?? view.filter;
+      const scopeChip = scopeLabel ? el("button", "ct-scope", scopeLabel) : null;
+      if (scopeChip) {
+        scopeChip.type = "button";
+        scopeChip.setAttribute("aria-label", `Showing ${scopeLabel}. Show all`);
+        scopeChip.append(el("span", "ct-scope-x", "×"));
+        scopeChip.onclick = () => {
+          if (view.filter) {
+            view.filter = null;
+            view.page = 0;
+          }
+          if (spec.scope) spec.scope.clear();
+          else render();
+        };
+      }
+      spec.tools.replaceChildren(...(scopeChip ? [scopeChip] : []), search, searchBtn, customize, filter, exportBtn);
       if (focusSearch) {
         search.focus();
         search.setSelectionRange(search.value.length, search.value.length);

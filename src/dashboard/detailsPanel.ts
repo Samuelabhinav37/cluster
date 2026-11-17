@@ -16,7 +16,7 @@ import { HOME_KINDS, kindOf, type HomeKind } from "./homeDashboard";
 import { certifiedCompany, senderTile, verifiedTick } from "./senderTile";
 
 const DAY = 24 * 60 * 60 * 1000;
-const WEEKS = 8;
+export const WEEKS = 8;
 const PAGE = 60;
 
 export interface DetailMessage {
