@@ -313,19 +313,10 @@ async function selectScreen(name: string) {
   ctx.settings = await updateSettings({ activeTab: target });
 }
 
-/** Security's tabs: Suspicious or Quarantine. */
+/** Security's Scams and Held tiles scroll to the one table that lists both. */
 function wireSecurityTabs() {
-  const screen = document.querySelector<HTMLElement>('section[data-screen="impersonation"]');
-  if (!screen) return;
-  screen.dataset.tab = "suspicious";
-  for (const b of Array.from(screen.querySelectorAll<HTMLButtonElement>("[data-sec-tab]")))
-    b.addEventListener("click", () => {
-      screen.dataset.tab = b.dataset.secTab!;
-      for (const t of Array.from(screen.querySelectorAll<HTMLElement>(".tab[data-sec-tab]"))) {
-        t.classList.toggle("active", t.dataset.secTab === b.dataset.secTab);
-        t.setAttribute("aria-selected", String(t.dataset.secTab === b.dataset.secTab));
-      }
-    });
+  for (const b of Array.from(document.querySelectorAll<HTMLButtonElement>("[data-sec-jump]")))
+    b.addEventListener("click", () => document.getElementById("security-section")?.scrollIntoView({ behavior: "smooth", block: "start" }));
 }
 
 function wireNav() {
@@ -1077,6 +1068,17 @@ function paintScanCard() {
     count: (scan!.phase === "done" ? gmailCount(bucket) : undefined) ?? scan!.byBucket[bucket] ?? 0,
     href: gmailSearchUrl(`label:"${label.replace(/"/g, "")}"`),
   }));
+  const note =
+    lastRun && lastRun.startedAt >= scan.startedAt && ["partial", "failed", "stalled"].includes(lastRun.status)
+      ? { text: describeRun(lastRun), stuck: lastRun.status === "stalled" }
+      : undefined;
+  // A finished scan that labelled nothing has nothing to say: no card (Rescan stays in the top bar).
+  if (scan.phase === "done" && !note && scan.unsorted === 0 && rows.every((r) => r.count === 0)) {
+    old?.remove();
+    overviewContentEl.classList.remove("is-scanning");
+    document.body.classList.remove("ov-scanning");
+    return;
+  }
   const card = renderScanCard(scan, rows, {
     rescan: () => {
       chrome.permissions?.request({ permissions: ["notifications"] }).catch(() => {});
@@ -1084,10 +1086,7 @@ function paintScanCard() {
     },
     dismiss: () => void setScan({ dismissed: true }),
     reading: indexRuns.size > 0,
-    note:
-      lastRun && lastRun.startedAt >= scan.startedAt && ["partial", "failed", "stalled"].includes(lastRun.status)
-        ? { text: describeRun(lastRun), stuck: lastRun.status === "stalled" }
-        : undefined,
+    note,
     unsortedHref: gmailSearchUrl(`in:inbox ${names.map(([, l]) => `-label:"${l.replace(/"/g, "")}"`).join(" ")}`),
   });
   if (old) old.replaceWith(card);
@@ -1487,8 +1486,6 @@ function renderProtectTiles(scams: number, waiting: number, held: number) {
     const view = document.getElementById(id)?.closest(".sec-item")?.querySelector<HTMLElement>(".sec-view");
     if (view) view.hidden = v === 0;
   }
-  put("tab-count-threats", scams, true);
-  put("tab-count-held", held, true);
   const sub =
     scams > 0
       ? `${scams} ${scams === 1 ? "sender needs" : "senders need"} a look.`

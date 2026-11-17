@@ -37,7 +37,7 @@ describe("Protect brand check", () => {
       );
     // Listed once, under "Look at these"; Check sits in the row's actions.
     expect(row()).toBeUndefined();
-    const card = Array.from(dash.el("security-sender-list").children).find((c) => c.textContent?.includes("paypal-billing.help")) as HTMLElement;
+    const card = Array.from(dash.el("security-table").querySelectorAll("tbody.scam-card")).find((c) => c.textContent?.includes("paypal-billing.help")) as HTMLElement;
     buttonIn(card, "Check").click();
     await vi.waitFor(() => expect(row()!.textContent).toContain("No certificate"));
     buttonIn(row()!, "Trust").click();

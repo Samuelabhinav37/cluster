@@ -98,12 +98,9 @@ let openSender: (key: string) => void = () => {};
 function showProtectPage(page: "held" | "signs" | null): void {
   const screen = document.querySelector<HTMLElement>('section.screen[data-screen="impersonation"]');
   const root = $("protect-page");
-  const held = $("quarantine-review-section");
-  if (!screen || !root || !held) return;
+  if (!screen || !root) return;
   screen.classList.toggle("paged", page !== null);
   root.hidden = page === null;
-  // The held list lives on the Scams page while it's open.
-  if (page !== "held" && held.parentElement === root) $("security-section")?.before(held);
   if (page === null) return root.replaceChildren();
   const back = el("button", "cu-back", "‹ Security");
   (back as HTMLButtonElement).type = "button";
@@ -114,7 +111,7 @@ function showProtectPage(page: "held" | "signs" | null): void {
     chart.classList.remove("row-link");
     chart.querySelector("h2")?.remove();
     for (const n of Array.from(chart.querySelectorAll("[id]"))) n.removeAttribute("id");
-    root.replaceChildren(back, el("h2", "cu-page-title", "Scams per week"), chart, held);
+    root.replaceChildren(back, el("h2", "cu-page-title", "Scams per week"), chart);
     return;
   }
   const groups = [...signSenders].sort((a, b) => b[1].length - a[1].length);

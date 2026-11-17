@@ -540,7 +540,7 @@ export function renderScanCard(
   // What is still in the inbox leads: "labelled" alone read as finished.
   const left = done && scan.unsorted > 0 ? ` · ${n(scan.unsorted)} with no label` : "";
   const sentMail = reading && scan.total > 0 && scan.done >= scan.total;
-  head.append(el("b", "", done ? (sorted === 0 && !left ? "No new mail to label" : `${n(sorted)} labelled${left}`) : sentMail ? "Reading sent mail" : reading ? "Reading your mail" : "Labelling your mail"));
+  head.append(el("b", "", done ? `${n(sorted)} labelled${left}` : sentMail ? "Reading sent mail" : reading ? "Reading your mail" : "Labelling your mail"));
   if (done || on.note?.stuck) {
     const again = el("button", "btn", "Rescan");
     again.type = "button";

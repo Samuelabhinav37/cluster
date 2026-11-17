@@ -434,12 +434,12 @@
             </div>
             <div class="cu-top sec-top" id="sec-kpis" data-state="clean">
               <div class="mt-row cu-cards">
-                <button type="button" class="mt-tile is-hero" data-sec-tab="suspicious">
+                <button type="button" class="mt-tile is-hero" data-sec-jump>
                   <span class="mt-title">Scams</span><span class="mt-go"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"></path></svg></span>
                   <b class="mt-num" id="kpi-threats">0</b>
-                  <span class="mt-foot">senders faking a name</span>
+                  <span class="mt-foot">senders faking a name</span><svg class="mt-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="M12 8v4M12 16h.01"></path></svg>
                 </button>
-                <button type="button" class="mt-tile" data-sec-tab="quarantine">
+                <button type="button" class="mt-tile" data-sec-jump>
                   <span class="mt-title">Held</span><span class="mt-go"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"></path></svg></span>
                   <b class="mt-num" id="kpi-held">0</b>
                   <span class="mt-foot">emails kept out of your inbox</span>
@@ -461,10 +461,6 @@
                 <ol class="sec-checklist" id="report-kinds"></ol>
               </div>
             </div>
-            <div class="tabs" role="tablist" aria-label="Security">
-              <button type="button" role="tab" class="tab active" aria-selected="true" data-sec-tab="suspicious">Suspicious<span class="tab-count" id="tab-count-threats"></span></button>
-              <button type="button" role="tab" class="tab" aria-selected="false" data-sec-tab="quarantine">Held<span class="tab-count" id="tab-count-held"></span></button>
-            </div>
             <div hidden>
               <div class="glass-card chart-card tile-wide" id="report-held-card" hidden>
                 <h2>Scams per week</h2>
@@ -476,21 +472,10 @@
 
             <div id="protect-page" class="cu-page" hidden></div>
 
-            <p class="muted" id="quarantine-review-accuracy" hidden></p>
-            <section id="quarantine-review-section" hidden>
-              <div class="section-head">
-                <h2 class="section-label">Held</h2>
-                <span class="muted" id="quarantine-review-count"></span>
-              </div>
-              <ul id="quarantine-review-list" class="stack"></ul>
-            </section>
-            <p class="empty-state" id="quarantine-empty">Nothing held.</p>
-
-            <section id="security-section" hidden>
-              <div id="security-high" class="tier">
-                <div class="section-head"><h2 class="section-label">Suspicious</h2></div>
-                <div id="security-sender-list" class="stack"></div>
-              </div>
+            <section id="security-section" class="cu-table sec-table" hidden>
+              <table class="ct-table" id="security-table">
+                <thead><tr><th class="sec-c-email">Email</th><th class="sec-c-why col-note">Reason</th><th class="sec-c-risk">Risk</th><th class="sec-c-when col-last">Received</th><th class="sec-c-act"><span class="sr-only">Actions</span></th></tr></thead>
+              </table>
             </section>
             <section id="brand-check"></section>
             <p id="security-empty" class="empty-state">Nothing looks wrong.</p>

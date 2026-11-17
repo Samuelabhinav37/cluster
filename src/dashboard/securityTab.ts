@@ -50,11 +50,80 @@ async function storeBodyCheck(key: string, check: ReturnType<typeof checkLinks>)
 }
 
 const securitySectionEl = document.getElementById("security-section") as HTMLElement;
-const securitySenderListEl = document.getElementById("security-sender-list") as HTMLUListElement;
+const securityTableEl = document.getElementById("security-table") as HTMLTableElement;
 const securityEmptyEl = document.getElementById("security-empty") as HTMLParagraphElement;
-const quarantineReviewSectionEl = document.getElementById("quarantine-review-section") as HTMLElement;
-const quarantineReviewListEl = document.getElementById("quarantine-review-list") as HTMLUListElement;
-const quarantineReviewCountEl = document.getElementById("quarantine-review-count") as HTMLElement | null;
+
+/** Swaps one kind of entry in the table (scams before held) and shows the table when it has any. */
+function putEntries(kind: "scam" | "held", bodies: HTMLElement[]) {
+  for (const old of Array.from(securityTableEl.querySelectorAll(`tbody.is-${kind}`))) old.remove();
+  const firstHeld = securityTableEl.querySelector("tbody.is-held");
+  if (kind === "scam" && firstHeld) for (const b of bodies) securityTableEl.insertBefore(b, firstHeld);
+  else securityTableEl.append(...bodies);
+  securitySectionEl.hidden = !securityTableEl.querySelector("tbody");
+}
+
+/** One sender in the Security table: a row like Cleanup's, then a details row
+ * the chevron (or a click on the row) opens. Sender text goes in as text. */
+function tableEntry(kind: "scam" | "held", tile: HTMLElement, title: string, why: string, chip: HTMLElement, when: string) {
+  const body = document.createElement("tbody");
+  body.className = `scam-card is-${kind}`;
+  const row = document.createElement("tr");
+  row.className = "scam-row";
+  const cell = (cls: string, ...kids: Array<Node | string>) => {
+    const td = document.createElement("td");
+    td.className = cls;
+    td.append(...kids);
+    row.append(td);
+  };
+  const who = document.createElement("span");
+  who.className = "scam-who";
+  const subj = document.createElement("b");
+  subj.className = "scam-subj";
+  subj.textContent = title;
+  who.append(tile, subj);
+  cell("sec-c-email", who);
+  cell("col-note ct-dim scam-why", why);
+  cell("sec-c-risk", chip);
+  cell("col-last ct-dim", when);
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "btn btn-icon scam-chev";
+  toggle.setAttribute("aria-label", "Why");
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.textContent = "›";
+  const acts = document.createElement("div");
+  acts.className = "scam-acts";
+  acts.append(toggle);
+  cell("sec-c-act", acts);
+  const detailRow = document.createElement("tr");
+  detailRow.className = "scam-detail";
+  const td = document.createElement("td");
+  td.colSpan = 5;
+  const detail = document.createElement("div");
+  detail.className = "scam-detail-body";
+  const more = document.createElement("div");
+  more.className = "scam-more";
+  more.hidden = true;
+  detail.append(more);
+  td.append(detail);
+  detailRow.append(td);
+  body.append(row, detailRow);
+  // The details row stays open while it holds a warning outside the reasons (the callback card).
+  const sync = () => {
+    detailRow.hidden = more.hidden && !detail.querySelector(".callback");
+    toggle.setAttribute("aria-expanded", String(!more.hidden));
+  };
+  const open = (on: boolean) => {
+    more.hidden = !on;
+    sync();
+  };
+  toggle.onclick = () => open(more.hidden);
+  row.onclick = (e) => {
+    if (!(e.target instanceof Element && e.target.closest("button, a, input"))) open(more.hidden);
+  };
+  sync();
+  return { body, acts, detail, more, open, sync };
+}
 
 // messageIds is in fetch order, not date order -- pick the genuinely most
 // recent message so "checks the most recent message" is true.
@@ -140,40 +209,32 @@ export function renderQuarantineReview(senders: SenderSummary[] = []) {
     accuracyEl.hidden = reviewed === 0;
     accuracyEl.textContent = `Of ${reviewed} hold${reviewed === 1 ? "" : "s"}, you confirmed ${confirmed}.`;
   }
-  quarantineReviewSectionEl.hidden = entries.length === 0;
-  const heldCount = entries.reduce((n, [, r]) => n + r.messageIds.length, 0);
-  if (quarantineReviewCountEl) {
-    quarantineReviewCountEl.textContent = `${heldCount} email${heldCount === 1 ? "" : "s"} from ${entries.length} sender${entries.length === 1 ? "" : "s"}`;
+  if (entries.length === 0) {
+    putEntries("held", []);
+    return;
   }
-  if (entries.length === 0) return;
   const byKey = new Map(senders.map((s) => [s.key, s]));
   const known = knownSenderSet(ctx.settings);
 
-  quarantineReviewListEl.replaceChildren(
-    ...entries.map(([key, record]) => {
+  putEntries(
+    "held",
+    entries.map(([key, record]) => {
       const { providerId, address } = parseSenderKey(key);
       const provider = providerById.get(providerId as ProviderId);
       const sender = byKey.get(key);
-      const li = document.createElement("li");
-      li.className = "glass-card scam-card";
-
-      const head = document.createElement("div");
-      head.className = "scam-head";
-      const id = document.createElement("div");
-      id.className = "scam-id";
-      const title = document.createElement("div");
-      title.className = "scam-subj";
-      title.textContent = sender?.displayName ? `${sender.displayName} <${address}>` : address;
-      const sub = document.createElement("div");
-      sub.className = "scam-from";
       const n = record.messageIds.length;
-      sub.textContent = `${n} held ${timeAgo(record.at)}, in "${clusterLabelName("suspicious")}"`;
-      id.append(title, sub);
       const chip = document.createElement("span");
       chip.className = "risk-chip hold";
       chip.textContent = "Held";
-      head.append(senderTile(address, sender?.displayName, "sz-34"), id, chip);
-      li.appendChild(head);
+      const entry = tableEntry(
+        "held",
+        senderTile(address, sender?.displayName, "sz-34"),
+        sender?.displayName ? `${sender.displayName} <${address}>` : address,
+        `${n} held in "${clusterLabelName("suspicious")}"`,
+        chip,
+        timeAgo(record.at),
+      );
+      const li = entry.more;
 
       if (sender) {
         const verdict = senderVerdict(sender, {
@@ -235,7 +296,7 @@ export function renderQuarantineReview(senders: SenderSummary[] = []) {
       const report = reportSteps();
       actions.append(releaseBtn, report.button, confirmBtn);
       li.append(report.steps, actions);
-      return li;
+      return entry.body;
     }),
   );
 }
@@ -328,12 +389,9 @@ export function renderSecuritySection(senders: SenderSummary[], autoCheck = true
   const { flagged, high } = rankFlagged(senders);
   // One list: brand-name senders already above aren't listed again below.
   const more = renderBrandCheck(senders, new Set(high.map(({ sender }) => sender.key)));
-  securitySectionEl.hidden = high.length === 0;
-  securityEmptyEl.hidden = high.length > 0 || more > 0;
+  putEntries("scam", high.map(({ sender, verdict }) => buildThreatCard(sender, verdict, senders)));
+  securityEmptyEl.hidden = !securitySectionEl.hidden || more > 0;
   if (high.length === 0) return;
-  securitySenderListEl.replaceChildren(
-    ...high.map(({ sender, verdict }) => buildThreatCard(sender, verdict, senders)),
-  );
   if (autoCheck && !checkingBodies) {
     checkingBodies = true;
     void checkFlaggedBodies(senders, flagged).finally(() => (checkingBodies = false));
@@ -397,54 +455,29 @@ function fakedBrandTile(sender: SenderSummary): HTMLElement {
 }
 
 function buildThreatCard(sender: SenderSummary, verdict: Verdict, allSenders: SenderSummary[]): HTMLElement {
-  const li = document.createElement("li");
-  li.className = "glass-card scam-card";
-
-  // Subject, sender and date, then the risk chip. Everything here comes from
-  // the sender, so it goes in as text, never as HTML.
-  const head = document.createElement("div");
-  head.className = "scam-head";
-  const id = document.createElement("div");
-  id.className = "scam-id";
   const message = headlineMessage(sender, verdict);
-  const title = document.createElement("div");
-  title.className = "scam-subj";
-  title.textContent = message?.subject ? `"${message.subject}"` : `"${sender.displayName || sender.address}"`;
   const when = message ? ` · ${new Date(message.receivedAt).toLocaleDateString()}` : "";
   const fromText = `From ${sender.displayName ? `${sender.displayName} <${sender.address}>` : sender.address}${when}`;
-  // One line under the subject: the strongest reason. The rest sit under ⋯.
-  const why = document.createElement("div");
-  why.className = "scam-from";
-  why.textContent = verdict.reasons[0]?.text ?? fromText;
-  id.append(title, why);
   const [chipClass, chipText] = TIER_CHIP[verdict.tier];
   const chip = document.createElement("span");
   chip.className = `risk-chip ${chipClass}`;
   chip.textContent = chipText;
+  const entry = tableEntry(
+    "scam",
+    fakedBrandTile(sender),
+    message?.subject ? `"${message.subject}"` : `"${sender.displayName || sender.address}"`,
+    // The strongest reason on the row; the rest open below it.
+    verdict.reasons[0]?.text ?? fromText,
+    chip,
+    message ? new Date(message.receivedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "",
+  );
+  const li = entry.body;
+  const more = entry.more;
   const quick = document.createElement("button");
   quick.type = "button";
   quick.className = "btn";
-  // A chevron opens the reasons; ⋯ (added below) holds the other actions.
-  const toggle = document.createElement("button");
-  toggle.type = "button";
-  toggle.className = "btn btn-icon scam-chev";
-  toggle.setAttribute("aria-label", "Why");
-  toggle.setAttribute("aria-expanded", "false");
-  toggle.textContent = "›";
-  const more = document.createElement("div");
-  more.className = "scam-more";
-  more.hidden = true;
-  const expand = () => {
-    more.hidden = false;
-    toggle.setAttribute("aria-expanded", "true");
-  };
-  toggle.onclick = () => {
-    more.hidden = !more.hidden;
-    toggle.setAttribute("aria-expanded", String(!more.hidden));
-  };
-  head.append(fakedBrandTile(sender), id, chip, quick, toggle);
-  li.appendChild(head);
-  li.appendChild(more);
+  entry.acts.prepend(quick);
+  const expand = () => entry.open(true);
 
   const fromLine = document.createElement("p");
   fromLine.className = "scam-from";
@@ -463,7 +496,8 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict, allSenders: Se
     const wrap = document.createElement("div");
     wrap.append(b, text);
     card.appendChild(wrap);
-    li.insertBefore(card, more);
+    entry.detail.insertBefore(card, more);
+    entry.sync();
   }
 
   const report = reportSteps();
@@ -562,7 +596,7 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict, allSenders: Se
   };
   const scanBtn = Array.from(actions.querySelectorAll("button")).find((b) => b.textContent === "Deep scan");
   quick.onclick = () => (target === genuine ? genuine.click() : only(target));
-  head.appendChild(
+  entry.acts.appendChild(
     rowMenu([
       ...(target === genuine ? [] : [{ label: "It's fine", run: () => genuine.click() }]),
       { label: "Report", run: () => only(report.button) },

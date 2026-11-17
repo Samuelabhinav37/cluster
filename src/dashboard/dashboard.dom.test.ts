@@ -142,7 +142,7 @@ describe("dashboard boot smoke", () => {
   });
 
   it("flags the free-mail brand claim in the Security tab", () => {
-    const items = document.querySelectorAll("#security-sender-list li");
+    const items = document.querySelectorAll("#security-table tbody.scam-card");
     expect(items.length).toBeGreaterThan(0);
     expect(Array.from(items).map((li) => li.textContent).join(" ").toLowerCase()).toContain("paypal");
   });

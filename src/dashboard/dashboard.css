@@ -3729,8 +3729,6 @@ body[data-screen="overview"].details-open .screen[data-screen="overview"] { visi
 .kpi span { grid-column: 1 / -1; margin-bottom: 6px; font-size: 13px; font-weight: 500; color: var(--label-3); }
 .kpi b { font-size: 28px; font-weight: 650; }
 .kpi em { font-style: normal; font-size: 14px; color: var(--label-3); }
-[data-screen="impersonation"][data-tab="quarantine"] :is(#security-section, #brand-check, #security-empty, #protect-page) { display: none; }
-[data-screen="impersonation"][data-tab="suspicious"] :is(#quarantine-review-section, #quarantine-review-accuracy, #quarantine-empty) { display: none; }
 #quarantine-review-section:not([hidden]) + #quarantine-empty { display: none; }
 [data-screen="impersonation"] .ios-section:last-child { margin-top: 48px; }
 #security-section .section-head { display: none; }
@@ -4867,17 +4865,42 @@ body[data-screen="subscriptions"] #cu-tools-senders, body:not([data-screen="subs
    page so the last rows' buttons can scroll clear of it. */
 body:not([data-screen="setup"]) .screen { padding-bottom: 128px; }
 
-/* Security uses the Cleanup table's look: pill tabs, 60px rows, hairlines. */
-section[data-screen="impersonation"] > .tabs { display: flex; gap: 0; margin: 0; padding: 0; border: 0; }
-section[data-screen="impersonation"] > .tabs .tab { min-height: 32px; padding: 0 14px; border: 1px solid var(--hairline); border-radius: 0;
-  font: 500 13px/30px var(--font); white-space: nowrap; color: var(--label-2); }
-section[data-screen="impersonation"] > .tabs .tab + .tab { margin-left: -1px; }
-section[data-screen="impersonation"] > .tabs .tab:first-of-type { border-radius: 8px 0 0 8px; }
-section[data-screen="impersonation"] > .tabs .tab:last-of-type { border-radius: 0 8px 8px 0; }
-section[data-screen="impersonation"] > .tabs .tab.active { color: var(--label); background: var(--neutral-fill); border-bottom-color: var(--hairline); }
-section[data-screen="impersonation"] > .tabs .tab-count { margin-left: 6px; }
-#security-sender-list, #quarantine-review-list { gap: 0; border: 1px solid var(--hairline); border-radius: 12px; overflow: hidden; background: var(--glass); }
-:is(#security-section, #quarantine-review-section) .scam-card { min-height: 60px; padding: 12px 16px; justify-content: center;
-  border: 0; border-radius: 0; box-shadow: none; background: none; }
-:is(#security-section, #quarantine-review-section) .scam-card + .scam-card { border-top: 1px solid var(--hairline); }
-:is(#security-section, #quarantine-review-section) .scam-head { gap: 12px; align-items: center; }
+/* Security: one table in the Cleanup table's look; a chevron opens a sender's details row. */
+.sec-table .ct-table thead th { color: var(--label-3); font: 500 12px var(--font); text-align: left; }
+.sec-table .sec-c-email { width: auto; }
+.sec-table .sec-c-why { width: 34%; }
+.sec-table .sec-c-risk { width: 96px; }
+.sec-table .sec-c-when { width: 104px; }
+.sec-table .sec-c-act { width: 168px; }
+.sec-table .scam-row { cursor: pointer; }
+.sec-table .scam-row:hover td { background: var(--row-hover); }
+.sec-table .scam-who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.sec-table .scam-who .scam-subj { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.sec-table .scam-acts { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.sec-table .scam-acts .btn { height: 28px; min-height: 28px; padding: 0 12px; }
+.sec-table .scam-acts .btn-icon { width: 28px; padding: 0; }
+.sec-table .scam-row:has(+ .scam-detail:not([hidden])) td { border-bottom-color: transparent; }
+.sec-table .scam-detail td { height: auto; padding: 0 16px 16px 60px; white-space: normal; overflow: visible; border-bottom: 1px solid var(--hairline); }
+.sec-table .scam-detail-body { display: grid; gap: 12px; }
+.sec-table .scam-chev[aria-expanded="true"] { transform: rotate(90deg); }
+@container cutable (max-width: 760px) { .sec-table .sec-c-act { width: 120px; } }
+.sec-table { padding: 16px 20px 8px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--glass); }
+.sec-table .scam-row:last-child td, .sec-table tbody:last-child .scam-row td { border-bottom: 0; }
+
+/* Dashboard room, 2026-11-17: it no longer squeezes into the window's height.
+   Rows get real heights and wider gaps; the page scrolls when it needs to. */
+@media (min-width: 1101px) {
+  section[data-screen="overview"]:not([hidden]) { height: auto; padding-top: 24px; }
+  section[data-screen="overview"] .page-head { margin: 0 0 24px; }
+  #overview-content > .home { gap: 24px; }
+  #overview-content .ov-row { flex: none; gap: 24px; }
+  #overview-content .ov-row-top { min-height: 380px; }
+  #overview-content .ov-row-bottom { min-height: 400px; }
+  #overview-content .mt-row { gap: 24px; }
+  #overview-content .mt-tile { padding: 20px 24px; }
+  #overview-content .mt-go { top: 16px; right: 16px; }
+  #overview-content .mt-num { font-size: 40px; }
+  #overview-content .ov-card, #overview-content .ov-row .ov-w { padding: 24px 28px; }
+  #overview-content .ov-gauge { min-height: 200px; max-width: 400px; margin: 0 auto; }
+  #overview-content .t10-row { padding: 8px 0; }
+}

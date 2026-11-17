@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { bootDashboard, confirmStep, fixtureMailbox, makeGmailSpy } from "./testHarness";
 
 function findThreatCard(container: HTMLElement, needle: string): HTMLElement {
-  const card = Array.from(container.querySelectorAll("li.glass-card")).find((li) =>
+  const card = Array.from(container.querySelectorAll("tbody.scam-card")).find((li) =>
     li.textContent?.includes(needle),
   );
   if (!card) throw new Error(`no threat card containing "${needle}"`);
@@ -24,9 +24,9 @@ describe("Phishing screen — flagged senders", () => {
     const dash = await bootDashboard();
     dash.showScreen("impersonation");
 
-    const card = findThreatCard(dash.el("security-sender-list"), "paypal-help@gmail.com");
+    const card = findThreatCard(dash.el("security-table"), "paypal-help@gmail.com");
     // The risk reads on the row itself, as a word.
-    expect(card.querySelector(".scam-head .risk-chip")!.textContent).toMatch(/^(High|Medium)$/);
+    expect(card.querySelector(".scam-row .risk-chip")!.textContent).toMatch(/^(High|Medium)$/);
     const blockBtn = Array.from(card.querySelectorAll("button")).find(
       (b) => b.textContent === "Block sender",
     )!;
@@ -53,7 +53,7 @@ describe("Phishing screen — link check on flagged mail", () => {
     const dash = await bootDashboard({ gmail });
     dash.showScreen("impersonation");
     await vi.waitFor(() => {
-      const card = findThreatCard(dash.el("security-sender-list"), "paypal-help@gmail.com");
+      const card = findThreatCard(dash.el("security-table"), "paypal-help@gmail.com");
       expect(card.textContent).toContain("A link says it goes to one website but really goes to another.");
     });
     expect(gmail.getMessageLinks).toHaveBeenCalledWith(expect.anything(), "x1");
@@ -89,8 +89,8 @@ describe("Phishing screen — quarantine review", () => {
     });
     dash.showScreen("impersonation");
 
-    expect(dash.el("quarantine-review-section").hidden).toBe(false);
-    const list = dash.el("quarantine-review-list");
+    // Held senders sit in the one Security table, under the scams.
+    const list = dash.el("security-table").querySelector<HTMLElement>("tbody.is-held")!;
     expect(list.textContent).toContain("spammy@bad.example");
 
     const confirmBtn = Array.from(list.querySelectorAll("button")).find(
@@ -106,7 +106,7 @@ describe("Phishing screen — quarantine review", () => {
     expect(dash.storedSettings().quarantineReview?.["gmail:spammy@bad.example"]).toMatchObject({
       verdict: "confirmed",
     });
-    expect(dash.el("quarantine-review-section").hidden).toBe(true);
+    expect(dash.el("security-table").querySelector("tbody.is-held")).toBeNull();
   });
 
   it("Release calls unlabelSuspicious and drops the entry", async () => {
@@ -119,7 +119,7 @@ describe("Phishing screen — quarantine review", () => {
     });
     dash.showScreen("impersonation");
 
-    const list = dash.el("quarantine-review-list");
+    const list = dash.el("security-table").querySelector<HTMLElement>("tbody.is-held")!;
     const releaseBtn = Array.from(list.querySelectorAll("button")).find(
       (b) => b.textContent === "Not a scam, put it back",
     )!;
@@ -176,7 +176,7 @@ describe("Phishing screen — sender-controlled text", () => {
 
   it("a hostile sender address renders as text on the Phishing screen (fixed in R0 B10)", async () => {
     const dash = await bootWithHostileSender("PayPal Security", hostileAddress);
-    const list = dash.el("security-sender-list");
+    const list = dash.el("security-table");
     expect(list.querySelector("[data-injected]")).toBeNull();
     expect(list.querySelector('img[src^="https://evil.example"]')).toBeNull();
   });
