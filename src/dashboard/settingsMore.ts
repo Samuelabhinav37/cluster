@@ -5,7 +5,7 @@ import { deleteFiltersInto, deleteLabel, getAuthToken, listLabels, revokeGoogleA
 import { forgetGmailSignIn, gmailRefreshToken } from "../lib/gmailWebAuth";
 import { log } from "../lib/log";
 import { clusterLabelIdSet } from "../lib/seedFromExisting";
-import { clashes, GO_SCREENS, keysOf, SHORTCUTS, usableKey } from "../lib/keymap";
+import { clashes, GO_SCREENS, keysOf, numberScreen, SHORTCUTS, usableKey } from "../lib/keymap";
 import { clearSyncedSettings, getSettings, updateSettings } from "../lib/settingsStore";
 import { kindModel, resetKindModel } from "./kindLearning";
 import { ctx } from "./state";
@@ -354,6 +354,8 @@ function showKeysSheet(): void {
   };
   list.append(
     ...SHORTCUTS.map((s) => line(s.label, `${s.afterG ? "G " : ""}${keyLabel(keys[s.id])}`)),
+    line("Dashboard, Cleanup, Labels, Security", "1 2 3 4"),
+    line("Same, while typing", "Alt 1–4"),
     line("Kai", "Ctrl K"),
     line("Close", "Esc"),
   );
@@ -491,9 +493,17 @@ export function wireSettingsMore(showScreen: (name: string) => void, act?: KeyAc
       return;
     }
     const active = document.activeElement as HTMLElement | null;
+    const typing = !!active && (active.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName));
+    const modal = !!document.querySelector("dialog[open], .ask:not([hidden])");
+    const section = numberScreen(e);
+    if (section && !modal && (e.altKey || (!typing && ctx.settings.singleKeys !== false))) {
+      e.preventDefault();
+      goPending = 0;
+      showScreen(section);
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey || ctx.settings.singleKeys === false) return;
-    if (active && (active.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName))) return;
-    if (document.querySelector("dialog[open], .ask:not([hidden])")) return;
+    if (typing || modal) return;
     const key = e.key.toLowerCase();
     const keys = keysOf(ctx.settings.keymap);
     const hit = (afterG: boolean) => SHORTCUTS.find((s) => !!s.afterG === afterG && keys[s.id] === key);

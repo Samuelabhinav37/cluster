@@ -29,6 +29,17 @@ export const GO_SCREENS: Record<string, string> = {
   "go-protect": "impersonation",
 };
 
+/** 1 to 4 open the sidebar's sections in order; Alt adds them while typing.
+ * Not Ctrl/Cmd+number: Chrome keeps those for switching tabs. */
+export const NUMBER_SCREENS: readonly string[] = ["overview", "delete", "organize", "impersonation"];
+
+/** The section a number key opens: 1-4 alone, or Alt+1-4 (by key position, so Option on a Mac works too). */
+export function numberScreen(e: Pick<KeyboardEvent, "code" | "altKey" | "ctrlKey" | "metaKey" | "shiftKey">): string | undefined {
+  if (e.ctrlKey || e.metaKey || e.shiftKey) return undefined;
+  const m = /^(?:Digit|Numpad)([1-4])$/.exec(e.code);
+  return m ? NUMBER_SCREENS[Number(m[1]) - 1] : undefined;
+}
+
 /** Each shortcut's key, the user's choice over the default. */
 export function keysOf(overrides: Readonly<Record<string, string>> = {}): Record<string, string> {
   return Object.fromEntries(SHORTCUTS.map((s) => [s.id, (overrides[s.id] ?? s.key).toLowerCase()]));

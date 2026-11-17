@@ -3,7 +3,7 @@
 //
 // Protect's brand check: a sender using PayPal's name from its own domain is listed
 // under Look at these; Check with no certificate offers Trust and Block, and
-// Trust moves it to Checked for good.
+// Trust settles it for good (it leaves the list).
 import { describe, expect, it, vi } from "vitest";
 import { bootDashboard, fixtureMailbox } from "./testHarness";
 
@@ -41,8 +41,10 @@ describe("Protect brand check", () => {
     buttonIn(card, "Check").click();
     await vi.waitFor(() => expect(row()!.textContent).toContain("No certificate"));
     buttonIn(row()!, "Trust").click();
-    await vi.waitFor(() => expect(row()!.textContent).toContain("Real"));
-    const stored = await chrome.storage.local.get("clusterSettings");
-    expect(JSON.stringify(stored)).toContain('"verdict":"real"');
+    await vi.waitFor(async () => {
+      const stored = await chrome.storage.local.get("clusterSettings");
+      expect(JSON.stringify(stored)).toContain('"verdict":"real"');
+    });
+    await vi.waitFor(() => expect(row()).toBeUndefined());
   });
 });

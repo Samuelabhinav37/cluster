@@ -1,6 +1,5 @@
 // Protect's brand check: senders that use a company's name from an address the
-// brand registry doesn't list (listed under "Look at these"), what the user or a mark
-// certificate settled ("Checked"). Check reads the one domain's BIMI certificate
+// brand registry doesn't list (listed under "Look at these"). Check reads the one domain's BIMI certificate
 // (markCheck.ts); Trust and Block are the user's call when there is none.
 import { applyBrandVerdicts } from "../lib/brandRegistry";
 import { checkMark, type MarkCheckResult } from "../lib/markCheck";
@@ -177,18 +176,6 @@ function mismatchRow(sender: SenderSummary, redraw: () => void): HTMLElement {
   return row;
 }
 
-function checkedRow(domain: string, v: BrandVerdict): HTMLElement {
-  const row = el("div", "mm-row");
-  const who = el("div", "mm-who");
-  who.append(el("b", "", title(v.brand)), el("span", "mm-addr", domain));
-  const acts = el("div", "mm-acts");
-  acts.append(
-    el("span", v.verdict === "fake" ? "chip chip-danger" : "chip", v.verdict === "fake" ? "Blocked" : "Real"),
-  );
-  row.append(senderTile(`no-reply@${domain}`, title(v.brand), "sz-30"), who, el("span", "mm-num"), acts);
-  return row;
-}
-
 /** Fills #brand-check: the brand-name senders "Look at these" doesn't already
  * list (`shown`), as more rows of that one list. Returns how many it drew. */
 export function renderBrandCheck(senders: SenderSummary[], shown: ReadonlySet<string> = new Set()): number {
@@ -219,13 +206,6 @@ export function renderBrandCheck(senders: SenderSummary[], shown: ReadonlySet<st
     const card = el("div", "glass-card mm-card");
     card.append(...mismatched.map((s) => mismatchRow(s, redraw)));
     parts.push(head, pop, card);
-  }
-
-  const checked = Object.entries(ctx.settings.brandVerdicts ?? {}).sort((a, b) => b[1].at - a[1].at);
-  if (checked.length > 0) {
-    const card = el("div", "glass-card mm-card");
-    card.append(...checked.slice(0, 20).map(([d, v]) => checkedRow(d, v)));
-    parts.push(el("h2", "section-label", "Checked"), card);
   }
 
   root.replaceChildren(...parts);

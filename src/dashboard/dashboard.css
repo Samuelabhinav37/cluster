@@ -4887,20 +4887,15 @@ body:not([data-screen="setup"]) .screen { padding-bottom: 128px; }
 .sec-table { padding: 16px 20px 8px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--glass); }
 .sec-table .scam-row:last-child td, .sec-table tbody:last-child .scam-row td { border-bottom: 0; }
 
-/* Dashboard room, 2026-11-17: it no longer squeezes into the window's height.
-   Rows get real heights and wider gaps; the page scrolls when it needs to. */
+/* Dashboard room, 2026-11-17: still one window (no page scroll), with wider gaps and
+   roomier cards than the fit-to-height rules above; the charts shrink to make room. */
 @media (min-width: 1101px) {
-  section[data-screen="overview"]:not([hidden]) { height: auto; padding-top: 24px; }
-  section[data-screen="overview"] .page-head { margin: 0 0 24px; }
-  #overview-content > .home { gap: 24px; }
-  #overview-content .ov-row { flex: none; gap: 24px; }
-  #overview-content .ov-row-top { min-height: 380px; }
-  #overview-content .ov-row-bottom { min-height: 400px; }
-  #overview-content .mt-row { gap: 24px; }
-  #overview-content .mt-tile { padding: 20px 24px; }
-  #overview-content .mt-go { top: 16px; right: 16px; }
-  #overview-content .mt-num { font-size: 40px; }
-  #overview-content .ov-card, #overview-content .ov-row .ov-w { padding: 24px 28px; }
-  #overview-content .ov-gauge { min-height: 200px; max-width: 400px; margin: 0 auto; }
-  #overview-content .t10-row { padding: 8px 0; }
+  section[data-screen="overview"]:not([hidden]) { padding-top: 20px; padding-bottom: 20px; }
+  section[data-screen="overview"] .page-head { margin: 0 0 20px; }
+  #overview-content > .home { gap: 20px; }
+  #overview-content .ov-row, #overview-content .mt-row { gap: 20px; }
+  #overview-content .mt-tile { padding: 18px 22px; }
+  #overview-content .mt-go { top: 14px; right: 14px; }
+  #overview-content .ov-card, #overview-content .ov-row .ov-w { padding: 22px 26px; }
+  #overview-content .ov-gauge { max-width: 380px; margin: 0 auto; }
 }

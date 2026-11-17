@@ -51,7 +51,6 @@ async function storeBodyCheck(key: string, check: ReturnType<typeof checkLinks>)
 
 const securitySectionEl = document.getElementById("security-section") as HTMLElement;
 const securityTableEl = document.getElementById("security-table") as HTMLTableElement;
-const securityEmptyEl = document.getElementById("security-empty") as HTMLParagraphElement;
 
 /** Swaps one kind of entry in the table (scams before held) and shows the table when it has any. */
 function putEntries(kind: "scam" | "held", bodies: HTMLElement[]) {
@@ -388,9 +387,8 @@ export function renderSecuritySection(senders: SenderSummary[], autoCheck = true
   renderQuarantineReview(senders);
   const { flagged, high } = rankFlagged(senders);
   // One list: brand-name senders already above aren't listed again below.
-  const more = renderBrandCheck(senders, new Set(high.map(({ sender }) => sender.key)));
+  renderBrandCheck(senders, new Set(high.map(({ sender }) => sender.key)));
   putEntries("scam", high.map(({ sender, verdict }) => buildThreatCard(sender, verdict, senders)));
-  securityEmptyEl.hidden = !securitySectionEl.hidden || more > 0;
   if (high.length === 0) return;
   if (autoCheck && !checkingBodies) {
     checkingBodies = true;

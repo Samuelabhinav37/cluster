@@ -1,3 +1,4 @@
+import { NUMBER_SCREENS } from "../lib/keymap";
 import { scanCheckCounts, scanFound } from "../lib/securityScan";
 import { correctionKey } from "../lib/addressIdentity";
 import { executeBulkDeleteDomains, filterOutProtected } from "../lib/bulkActions";
@@ -185,6 +186,13 @@ const athenaConnectBtn = document.getElementById("athena-connect-btn") as HTMLBu
 const athenaStatusEl = document.getElementById("athena-status") as HTMLSpanElement;
 
 const navButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("#sidebar button[data-screen]"));
+// Each section's number key (1-4) in its tooltip and for screen readers.
+for (const [i, screen] of NUMBER_SCREENS.entries()) {
+  const b = navButtons.find((n) => n.dataset.screen === screen);
+  if (!b) continue;
+  b.title = `${b.dataset.label ?? b.textContent!.trim()} (${i + 1})`;
+  b.setAttribute("aria-keyshortcuts", `${i + 1} Alt+${i + 1}`);
+}
 const screenPanels = Array.from(document.querySelectorAll<HTMLElement>("section.screen[data-screen]"));
 const allSendersListEl = document.getElementById("all-senders-list") as HTMLDivElement | null;
 
