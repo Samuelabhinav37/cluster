@@ -527,7 +527,7 @@ export function renderScanCard(
     unsortedHref: string;
     reading?: boolean;
     /** The last run's report when it failed or stalled (runReport.describeRun).
-     * A stalled run gets Rescan and × even mid-scan, so the card can't stick. */
+     * A stalled run gets Label again and × even mid-scan, so the card can't stick. */
     note?: { text: string; stuck?: boolean };
   },
 ): HTMLElement {
@@ -542,7 +542,8 @@ export function renderScanCard(
   const sentMail = reading && scan.total > 0 && scan.done >= scan.total;
   head.append(el("b", "", done ? `${n(sorted)} labelled${left}` : sentMail ? "Reading sent mail" : reading ? "Reading your mail" : "Labelling your mail"));
   if (done || on.note?.stuck) {
-    const again = el("button", "btn", "Rescan");
+    // It labels the mail again (a sort), not Check mail, so it says so.
+    const again = el("button", "btn", "Label again");
     again.type = "button";
     again.onclick = on.rescan;
     const close = el("button", "scan-close", "×");

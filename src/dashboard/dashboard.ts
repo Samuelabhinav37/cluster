@@ -57,7 +57,7 @@ import { buildSenderProfiles } from "../lib/senderProfile";
 import { groupKeyFor, isPerson, senderName } from "../lib/senderListView";
 import { ALL_MAIL_DAYS, getSettings, mutateSettings, pullSyncedSettings, updateSettings, type ClusterSettings } from "../lib/settingsStore";
 import { activeProviders, ctx, providerById, setBridge } from "./state";
-import { renderSortInbox, wireSortInbox } from "./sortInbox";
+import { mailStatus, renderSortInbox, wireSortInbox } from "./sortInbox";
 import { maybeShowLabelTidyCard } from "./labelTidy";
 import {
   presetSwitch,
@@ -1448,7 +1448,7 @@ function safeRender(screen: string, fn: () => void) {
     if (el && !el.querySelector(".screen-error")) {
       const note = document.createElement("p");
       note.className = "screen-error empty-state";
-      note.textContent = "Part of this screen didn't load. Try Rescan, or reload the page.";
+      note.textContent = "Part of this screen didn't load. Try Check mail, or reload the page.";
       el.appendChild(note);
     }
   }
@@ -1538,8 +1538,20 @@ function paintLastScan() {
   const when = new Date(last.at);
   const day = when.toDateString() === new Date().toDateString() ? "today" : when.toLocaleDateString();
   el.textContent = `Last scan ${day} at ${when.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
-  document.getElementById("top-rescan")?.setAttribute("title", `Rescan. ${el.textContent}`);
+  document.getElementById("top-rescan")?.setAttribute("title", `Check for new mail. ${el.textContent}`);
 }
+
+/** When Check mail last finished; the status line reads "Updated 5 min ago" from it, as Mail does. */
+let checkedAt = 0;
+function paintUpdated(fresh = false) {
+  const line = document.getElementById("mail-status");
+  // Another message (a sort, an error) holds the line until the next check.
+  if (!checkedAt || !line || (!fresh && line.dataset.updated !== "1")) return;
+  const mins = Math.floor((Date.now() - checkedAt) / 60_000);
+  mailStatus(mins < 1 ? "Updated just now" : `Updated ${mins} min ago`);
+  line.dataset.updated = "1";
+}
+setInterval(paintUpdated, 60_000);
 
 /** Security's Scan now: reads new mail into the index, then walks each check
  * over it in turn. The background runs the same scan once a day. */
@@ -1551,7 +1563,8 @@ function wireScanNow() {
   btn.onclick = async () => {
     btn.disabled = true;
     btn.classList.add("is-busy");
-    if (word) word.textContent = "Scanning";
+    if (word) word.textContent = "Checking";
+    mailStatus("Checking for new mail…");
     const list = document.getElementById("report-kinds");
     if (list) paintChecks(list, null);
     const last = document.getElementById("sec-last");
@@ -1566,13 +1579,16 @@ function wireScanNow() {
         lastSecurityScan: { at: Date.now(), found: scanFound(senders, known) },
       });
       paintLastScan();
+      checkedAt = Date.now();
+      paintUpdated(true);
     } catch (err) {
       log.error("Rescan failed", err);
       if (last) last.textContent = "Scan failed, try again.";
+      mailStatus("Couldn't check for mail.", { label: "Try again", run: () => btn.click() });
     } finally {
       btn.disabled = false;
       btn.classList.remove("is-busy");
-      if (word) word.textContent = "Rescan";
+      if (word) word.textContent = "Check mail";
     }
   };
 }
@@ -1807,9 +1823,9 @@ function showScanError(err: unknown) {
     /rateLimitExceeded|RATE_LIMIT_EXCEEDED/i.test(err.message)
   ) {
     const text = document.createElement("span");
-    text.textContent = "Gmail is rate-limiting the scan. Wait about a minute, then rescan. ";
+    text.textContent = "Gmail is rate-limiting Cluster. Wait about a minute, then check again. ";
     const retryBtn = document.createElement("button");
-    retryBtn.textContent = "Rescan";
+    retryBtn.textContent = "Check again";
     retryBtn.onclick = () => scanAndRender();
     statusEl.append(text, retryBtn);
     return;
@@ -2336,14 +2352,14 @@ function wireScanSettings() {
     scanWindowInput.value = String(scanWindowDays);
 
     applyScanSettingsBtn.disabled = true;
-    applyScanSettingsBtn.textContent = "Rescanning…";
+    applyScanSettingsBtn.textContent = "Reading…";
     try {
       ctx.settings = await updateSettings({ scanWindowDays });
       // A new window re-lists the index; known mail isn't read again.
       await scanAndRender({ refresh: true });
     } finally {
       applyScanSettingsBtn.disabled = false;
-      applyScanSettingsBtn.textContent = "Rescan";
+      applyScanSettingsBtn.textContent = "Read again";
     }
   };
 }

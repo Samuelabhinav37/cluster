@@ -108,12 +108,11 @@ export function showLabelPage(bucket: SortBucket | null, hint: string): void {
   back.type = "button";
   back.onclick = () => showLabelPage(null, "");
   const head = el("div", "lp-head");
-  // The emoji sits in a square tinted with the label's color; name and line stack beside it on one edge.
+  // The emoji large beside the name and its line, both on one edge.
   const [, emoji = "", rest = name] = /^(\p{Extended_Pictographic}️?)\s*(.*)$/u.exec(name) ?? [];
   const ident = el("div", "lp-ident");
   if (emoji) {
     const tile = el("span", "lp-icon", emoji);
-    tile.style.setProperty("--tint", color);
     tile.setAttribute("aria-hidden", "true");
     ident.append(tile);
   }

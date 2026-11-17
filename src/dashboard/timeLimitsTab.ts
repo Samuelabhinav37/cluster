@@ -71,22 +71,6 @@ const BUCKET_HINT: Record<SortBucket, string> = {
   jobs: "Job alerts and applications",
 };
 
-export const BUCKET_ICON: Record<SortBucket, string> = {
-  otp: "key",
-  receipt: "receipt",
-  shipping: "package",
-  newsletter: "news",
-  social: "users",
-  promotions: "tag",
-  shopping: "bag",
-  travel: "plane",
-  finance: "card",
-  productivity: "briefcase",
-  education: "cap",
-  accounts: "shield-check",
-  jobs: "user",
-};
-
 function choiceValue(hours: number | null): string {
   return hours === null ? "stay" : String(hours);
 }

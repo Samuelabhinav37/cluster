@@ -61,7 +61,7 @@ export async function eraseEverything(): Promise<void> {
   });
 }
 
-const RUN_KIND_WORDS: Record<RunReport["kind"], string> = { sweep: "Sort", read: "Read mail", rescan: "Rescan" };
+const RUN_KIND_WORDS: Record<RunReport["kind"], string> = { sweep: "Sort", read: "Read mail", rescan: "Check mail" };
 
 /** Diagnostics: the last runs, newest first, each in one sentence, and Copy
  * for a bug report. Quiet 5-minute sweeps collapse into one row. */

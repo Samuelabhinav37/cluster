@@ -47,9 +47,24 @@ const sortInboxBtn = document.getElementById("sort-inbox-btn") as HTMLButtonElem
 const sortInboxSlot = document.getElementById("sort-inbox-slot") as HTMLSpanElement;
 const sortInboxCountEl = document.getElementById("sort-inbox-count") as HTMLSpanElement;
 const sortInboxPreviewEl = document.getElementById("sort-inbox-preview") as HTMLDivElement;
-// The top bar's Sort inbox opens its page (data-open-screen) and builds the plan there.
+// The top bar's Sort inbox files new mail where you are, its progress in the sidebar's status line.
+// Sort everything again (Labels) opens the page, a rarer and longer job.
 const topSortBtn = document.getElementById("top-sort") as HTMLButtonElement | null;
-topSortBtn?.addEventListener("click", () => setTimeout(() => renderSortChoices(), 0));
+topSortBtn?.addEventListener("click", () => void runSort("new", true));
+document.getElementById("sort-all-link")?.addEventListener("click", () => setTimeout(() => renderSortChoices(), 0));
+
+/** The sidebar's one status line, with an optional link after it ("Undo", "Open Labels"). */
+export function mailStatus(text: string, action?: { label: string; run: () => void }): void {
+  const line = document.getElementById("mail-status");
+  if (!line) return;
+  line.textContent = text;
+  delete line.dataset.updated;
+  if (action) {
+    const b = Object.assign(document.createElement("button"), { type: "button", className: "link", textContent: action.label });
+    b.onclick = action.run;
+    line.append(" ", b);
+  }
+}
 
 const num = (n: number) => n.toLocaleString();
 /** "📦 Orders & shipping" → "Orders & shipping"; names without an emoji stay whole. */
@@ -168,60 +183,27 @@ async function reuseClashingLabels(conflicts: PlanLabelConflict[]) {
 // and draws a check at the end. Reduced motion keeps only the numbers.
 type SortMode = "new" | "all";
 let busy = false;
+/** This run started from the top bar: report in the status line, not on the page. */
+let quietRun = false;
 // Fed by the Everything run while the background relabel reports progress.
 let scanProgress: ((scan: ScanState) => void) | null = null;
 onScanChange((scan) => scanProgress?.(scan));
 
-/** The ring the run lives in: `looking` turns a short arc, `set` fills it. */
+/** The thin bar the run fills: `set` takes the share done; `looking` marks the read before a count. */
 function sortRing() {
   const ring = document.createElement("div");
   ring.className = "sort-ring";
-  const middle = document.createElement("div");
-  middle.className = "sort-ring-mid";
-  ring.append(middle);
   return {
     ring,
-    middle,
     looking: (on: boolean) => ring.classList.toggle("is-looking", on),
     set: (share: number) => ring.style.setProperty("--p", String(Math.min(1, Math.max(0, share)))),
   };
 }
 
-/** Counts `el` up from what it shows to `to` over half a second (at once with reduced motion). */
-function rollTo(el: HTMLElement, to: number) {
-  const from = Number(el.dataset.n ?? 0);
-  el.dataset.n = String(to);
-  const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (still || from === to || typeof requestAnimationFrame !== "function") {
-    el.textContent = num(to);
-    return;
-  }
-  const start = performance.now();
-  const step = (t: number) => {
-    if (el.dataset.n !== String(to)) return; // a newer value took over
-    const k = Math.min(1, (t - start) / 500);
-    el.textContent = num(Math.round(from + (to - from) * (1 - (1 - k) ** 3)));
-    if (k < 1) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
-}
-
-/** A check that draws itself (stroke-dashoffset), for the finished ring. */
-function drawnCheck(): SVGSVGElement {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 52 52");
-  svg.setAttribute("class", "sort-check");
-  svg.setAttribute("aria-hidden", "true");
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", "M15 27l7 7 15-16");
-  path.setAttribute("pathLength", "1");
-  svg.append(path);
-  return svg;
-}
-
-/** The page during a run: the ring, a headline, one line, the actions, then rows. */
-function sortStage() {
-  const { ring, middle, looking, set } = sortRing();
+/** The page during a run: a headline, one line, a thin bar, the actions, then rows.
+ * Quiet (top bar Sort inbox): nothing is drawn on the page; the status line says it. */
+function sortStage(quiet = false) {
+  const { ring, looking, set } = sortRing();
   const big = document.createElement("b");
   big.className = "sort-big";
   const sub = document.createElement("p");
@@ -240,8 +222,11 @@ function sortStage() {
   const panel = document.createElement("div");
   panel.className = "sort-panel";
   panel.append(hero, list);
-  sortInboxPreviewEl.replaceChildren(panel);
-  sortInboxPreviewEl.classList.add("sorting");
+  if (!quiet) {
+    sortInboxPreviewEl.replaceChildren(panel);
+    sortInboxPreviewEl.classList.add("sorting");
+  }
+  const say = (text: string) => quiet && mailStatus(text);
 
   const stage = {
     ring,
@@ -252,30 +237,23 @@ function sortStage() {
     /** Working out what to do: the arc turns, no number yet. */
     look(title: string, line: string) {
       looking(true);
-      middle.replaceChildren(gmailLabelIcon());
       big.textContent = title;
       sub.textContent = line;
+      say(`${line}…`);
     },
     /** A question: the arc stops and waits for an answer. */
     ask(title: string, line: string) {
       looking(false);
-      middle.replaceChildren(gmailLabelIcon());
       big.textContent = title;
       sub.textContent = line;
     },
     /** Sorting: the ring fills to done/total and shows the count. */
     progress(done: number, total: number, line: string) {
       looking(false);
-      let count = middle.querySelector<HTMLElement>("b.sort-n");
-      if (!count) {
-        count = Object.assign(document.createElement("b"), { className: "sort-n", textContent: "0" });
-        middle.replaceChildren(count, document.createElement("span"));
-      }
-      middle.querySelector("span")!.textContent = `of ${num(total)}`;
-      rollTo(count, done);
       set(done / Math.max(1, total));
-      big.textContent = "Sorting…";
+      big.textContent = `Sorting ${num(done)} of ${num(total)}`;
       sub.textContent = line;
+      say(`Sorting ${num(done)} of ${num(total)}…`);
     },
     /** Finished: a full ring with a check, the result, and Done. */
     finish(title: string, line: string) {
@@ -283,9 +261,9 @@ function sortStage() {
       looking(false);
       set(1);
       ring.classList.add("is-done");
-      middle.replaceChildren(drawnCheck());
       big.textContent = title;
       sub.textContent = line;
+      say(title);
       const doneBtn = document.createElement("button");
       doneBtn.className = "btn btn-accent-solid";
       doneBtn.textContent = "Done";
@@ -296,13 +274,13 @@ function sortStage() {
     idle() {
       set(0);
       ring.classList.remove("is-done");
-      middle.replaceChildren(gmailLabelIcon());
     },
     fail() {
       sortInboxPreviewEl.classList.remove("sorting");
       looking(false);
       big.textContent = "Sort stopped";
       sub.textContent = "Something went wrong. What finished stays sorted.";
+      say("Sort stopped. What finished stays sorted.");
       const again = document.createElement("button");
       again.className = "btn btn-accent-solid";
       again.textContent = "Try again";
@@ -331,16 +309,14 @@ function lineIcon(paths: string[]): SVGSVGElement {
 function renderSortChoices() {
   if (busy) return;
   clearSortPreview();
-  const { ring, middle } = sortRing();
-  middle.append(gmailLabelIcon());
-  const big = Object.assign(document.createElement("b"), { className: "sort-big", textContent: "Sort your inbox" });
-  const sub = Object.assign(document.createElement("p"), { className: "sort-sub", textContent: "Cluster files each email under its label." });
+  const big = Object.assign(document.createElement("b"), { className: "sort-big", textContent: "Choose what to sort" });
+  const sub = Object.assign(document.createElement("p"), { className: "sort-sub", textContent: "Files every email under its label in Gmail." });
   const words = document.createElement("div");
   words.className = "sort-words";
   words.append(big, sub);
   const hero = document.createElement("div");
   hero.className = "sort-hero";
-  hero.append(ring, words);
+  hero.append(words);
   const wrap = document.createElement("div");
   wrap.className = "sort-choices";
   const choice = (mode: SortMode, title: string, line: string, icon: string[]) => {
@@ -369,10 +345,12 @@ function renderSortChoices() {
   sortInboxPreviewEl.replaceChildren(panel);
 }
 
-async function runSort(mode: SortMode) {
+async function runSort(mode: SortMode, quiet = false) {
   if (busy) return;
   busy = true;
-  const stage = sortStage();
+  quietRun = quiet;
+  if (topSortBtn) topSortBtn.disabled = true;
+  const stage = sortStage(quiet);
   stage.look("Scanning", "Reading your inbox");
   try {
     // Everything means every email, not just the scan window. Mail already in
@@ -398,6 +376,7 @@ async function runSort(mode: SortMode) {
         document.querySelector<HTMLButtonElement>('#sidebar .nav-item[data-screen="organize"]')?.click();
       stage.actions.append(open);
       stage.idle();
+      if (quiet) mailStatus("No labels are on.", { label: "Open Labels", run: () => open.click() });
       return;
     }
     if (plan.chosen.length === 0) {
@@ -413,6 +392,8 @@ async function runSort(mode: SortMode) {
     stage.fail();
   } finally {
     busy = false;
+    quietRun = false;
+    if (topSortBtn) topSortBtn.disabled = false;
     scanProgress = null;
   }
 }
@@ -484,7 +465,6 @@ async function sortWithPlan(
     const row = document.createElement("div");
     row.className = "sort-preview-bucket";
     row.dataset.key = bucket;
-    row.style.setProperty("--i", String(stage.list.childElementCount));
     const count = group.reduce((n, e) => n + e.count, 0);
     row.append(
       document.createElement("i"),
@@ -659,13 +639,27 @@ function renderSortReport(summary: string, started: number) {
   const countOf = (e: ActionLogEntry) =>
     e.undo?.ids.length ?? Number(/Sorted (\d+)/.exec(e.summary)?.[1] ?? 0);
   const total = logged.reduce((n, e) => n + countOf(e), 0);
+  if (quietRun) {
+    const undoable = logged.filter((e) => e.undo);
+    const undo = async () => {
+      mailStatus("Undoing…");
+      try {
+        for (const e of undoable) await undoEntry(e);
+        mailStatus("Sort undone.");
+      } catch (err) {
+        log.error(err);
+        mailStatus("Undo failed.", { label: "Try again", run: () => void undo() });
+      }
+    };
+    mailStatus(`Sorted ${num(total)} email${total === 1 ? "" : "s"}.`, undoable.length ? { label: "Undo", run: () => void undo() } : undefined);
+    return;
+  }
   const secs = Math.max(1, Math.round((Date.now() - started) / 1000));
   const report = document.createElement("div");
   report.className = "sort-report sort-panel";
-  const { ring, middle, set } = sortRing();
+  const { ring, set } = sortRing();
   ring.classList.add("is-done");
   set(1);
-  middle.append(drawnCheck());
   const big = document.createElement("b");
   big.className = "sort-big";
   big.textContent = `${num(total)} email${total === 1 ? "" : "s"} sorted`;

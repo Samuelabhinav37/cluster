@@ -106,13 +106,6 @@ export function niceStep(max: number): number {
   return Math.max(1, m * pow);
 }
 
-export interface StackSeries {
-  key: string;
-  label: string;
-  color: string;
-  counts: readonly number[];
-}
-
 /** Plausible's change chip: a small arrow and the % against the period before.
  * For clutter, more is worse, so up is red and down is green. */
 export function changeChip(now: number, before: number): HTMLElement | null {

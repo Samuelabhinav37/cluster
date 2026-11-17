@@ -81,7 +81,8 @@ describe("Organize screen — Sort my inbox", () => {
       const big = dash.el("sort-inbox-preview").querySelector(".sort-big");
       if (big?.textContent !== "Everything is sorted") throw new Error("not done yet: " + dash.el("sort-inbox-preview").textContent);
     });
-    expect(dash.el("sort-inbox-preview").querySelector(".sort-check")).toBeTruthy();
+    // The bar ends full; no check mark or other motion (2026-11-17).
+    expect(dash.el("sort-inbox-preview").querySelector<HTMLElement>(".sort-ring")!.style.getPropertyValue("--p")).toBe("1");
     expect(dash.el("sort-inbox-preview").querySelectorAll(".sort-report-row").length).toBe(0);
     // Everything reads back to the first email, not just the last 180 days.
     expect(dash.storedSettings().scanWindowDays).toBe(36500);
