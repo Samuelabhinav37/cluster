@@ -4028,7 +4028,7 @@ section[data-screen="impersonation"] > .tabs .tab-count { margin-left: 6px; padd
 /* Sort inbox, laid out like a scan (research/2026-11-06-panels-and-scans.md): a ring with one
    number and one button; while sorting the ring fills per finished label and each row goes
    gray, then pulses, then ticks (the scan-steps look); the report keeps the same frame. */
-#sort-inbox-preview { max-width: 860px; }
+#sort-inbox-preview { max-width: none; }
 @property --p { syntax: "<number>"; inherits: true; initial-value: 0; }
 .sort-hero { display: flex; align-items: center; gap: 40px; margin: 8px 0 32px; }
 .sort-ring { --p: 0; position: relative; flex: none; display: grid; place-items: center; width: 168px; height: 168px; transition: --p .6s cubic-bezier(.2, .7, .2, 1); }
@@ -4709,3 +4709,44 @@ section.screen:is([data-screen="delete"], [data-screen="subscriptions"], [data-s
 .sort-choice.mt-tile { gap: 0; padding: 22px; border-radius: 18px; text-align: left; }
 .sort-choice .mt-num { font-size: 30px; font-weight: 600; }
 [data-screen="impersonation"] .page-head .sec-run { margin: 0 0 0 auto; flex-direction: row-reverse; }
+
+/* Round 13: every page (not setup) at the Dashboard's width, title and top spacing. */
+section.screen:not([data-screen="setup"]) { max-width: 1320px; }
+@media (min-width: 1101px) {
+  section.screen:not([data-screen="setup"], [data-screen="overview"]) { padding-top: 12px; }
+  section.screen:not([data-screen="setup"], [data-screen="overview"]) .page-head { margin: 4px 0 24px; }
+  section.screen:not([data-screen="setup"]) .page-title { font-size: 26px; }
+}
+@media (min-width: 1101px) and (max-width: 1700px) {
+  section.screen:not([data-screen="setup"]):not([hidden]) { padding-right: 116px; }
+}
+
+/* Rescan in the top bar: the icon turns while it runs. */
+#top-rescan.is-busy svg { animation: sort-turn .9s linear infinite; }
+#top-rescan:disabled { cursor: progress; }
+
+/* Security's Checks card: one row per check, green when it passed, red when it caught someone. */
+.sec-checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.sec-checklist li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--hairline); font-size: 14px; }
+.sec-checklist li:first-child { border-top: 0; }
+.sec-checklist i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #30d158; }
+.sec-checklist .is-found i { background: #ff453a; }
+.sec-checklist .is-running i { background: var(--label-4); animation: scan-pulse 1.2s ease-in-out infinite; }
+.sec-check-name { flex: 1; min-width: 0; color: var(--label-2); }
+.sec-checklist b { font-weight: 500; color: var(--label-3); font-variant-numeric: tabular-nums; }
+.sec-checklist .is-found b { color: #ff453a; font-weight: 600; }
+.sec-signs { gap: 10px; }
+
+/* Cleanup's chart: the app's own type, no monospace caps. */
+.sc-chart { --sc-mono: var(--font); }
+.sc-title { font: 600 15px var(--font); letter-spacing: 0; text-transform: none; }
+
+/* Sort inbox: wider, taller tiles; the running view sits in Dashboard cards. */
+.sort-choices.mt-row { max-width: none; }
+.sort-choice.mt-tile { min-height: 220px; padding: 26px 28px; }
+.sort-choice .mt-num { margin: auto 0 10px; font-size: 40px; }
+.sort-choice .mt-foot { font-size: 15px; }
+.sort-hero { gap: 32px; margin: 8px 0 20px; padding: 28px 32px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--glass); }
+.sort-ring { width: 128px; height: 128px; }
+.sort-big { font-size: 28px; }
+.sort-plan:not(:empty) { border: 1px solid var(--hairline); border-radius: 12px; background: var(--glass); padding: 4px 20px; }

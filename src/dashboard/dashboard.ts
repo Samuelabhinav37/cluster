@@ -1,4 +1,4 @@
-import { SCAN_CHECKS, scanCheckCounts, scanFound } from "../lib/securityScan";
+import { scanCheckCounts, scanFound } from "../lib/securityScan";
 import { correctionKey } from "../lib/addressIdentity";
 import { executeBulkDeleteDomains, filterOutProtected } from "../lib/bulkActions";
 import { loadPublicSuffixList } from "../lib/publicSuffix";
@@ -117,7 +117,7 @@ import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
 import { openRuleSheetFor, renderRulesTab, saveRules, wireRulesTab } from "./rulesTab";
 import { renderLearned, SIGNED_OUT_KEY, wireSettingsMore } from "./settingsMore";
 import { initBodyChecks, rankFlagged, renderSecuritySection } from "./securityTab";
-import { renderScamReport, wireProtectPages } from "./reportTab";
+import { paintChecks, renderScamReport, wireProtectPages } from "./reportTab";
 import { heldByWeek } from "../lib/scamHistory";
 import { setupSignedIn, wireSetup } from "./setupTab";
 import { firstName, showWelcome } from "./welcome";
@@ -1502,52 +1502,41 @@ function paintLastScan() {
   const when = new Date(last.at);
   const day = when.toDateString() === new Date().toDateString() ? "today" : when.toLocaleDateString();
   el.textContent = `Last scan ${day} at ${when.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  document.getElementById("top-rescan")?.setAttribute("title", `Rescan. ${el.textContent}`);
 }
 
 /** Security's Scan now: reads new mail into the index, then walks each check
  * over it in turn. The background runs the same scan once a day. */
 function wireScanNow() {
-  const btn = document.getElementById("sec-scan-now") as HTMLButtonElement | null;
-  const list = document.getElementById("sec-checks");
-  if (!btn || !list) return;
+  const btn = document.getElementById("top-rescan") as HTMLButtonElement | null;
+  if (!btn) return;
+  const word = btn.querySelector("span");
   paintLastScan();
   btn.onclick = async () => {
     btn.disabled = true;
-    btn.textContent = "Scanning…";
-    list.hidden = false;
-    list.replaceChildren(
-      ...SCAN_CHECKS.map(({ label }) => {
-        const li = document.createElement("li");
-        li.append(label, Object.assign(document.createElement("span"), { textContent: "–" }));
-        return li;
-      }),
-    );
+    btn.classList.add("is-busy");
+    if (word) word.textContent = "Scanning";
+    const list = document.getElementById("report-kinds");
+    if (list) paintChecks(list, null);
+    const last = document.getElementById("sec-last");
     try {
-      const last = document.getElementById("sec-last");
-      if (last) last.textContent = "Reading new mail…";
+      if (last) last.textContent = "Reading new mail";
       await refreshView();
       const senders = lastOverview?.[1] ?? [];
       const known = knownSenderSet(ctx.settings);
       const counts = scanCheckCounts(senders, known);
-      for (const [i, n] of counts.entries()) {
-        const li = list.children[i] as HTMLElement;
-        li.lastElementChild!.textContent = n === 0 ? "✓" : `${n} ${n === 1 ? "sender" : "senders"}`;
-        if (n > 0) li.dataset.found = "";
-        // Let each row paint before the next check runs.
-        await new Promise(requestAnimationFrame);
-      }
+      if (list) paintChecks(list, counts);
       ctx.settings = await updateSettings({
         lastSecurityScan: { at: Date.now(), found: scanFound(senders, known) },
       });
       paintLastScan();
     } catch (err) {
-      log.error("Scan now failed", err);
-      list.hidden = true;
-      const last = document.getElementById("sec-last");
+      log.error("Rescan failed", err);
       if (last) last.textContent = "Scan failed, try again.";
     } finally {
       btn.disabled = false;
-      btn.textContent = "Scan now";
+      btn.classList.remove("is-busy");
+      if (word) word.textContent = "Rescan";
     }
   };
 }

@@ -7,6 +7,7 @@
 import { heldByWeek } from "../lib/scamHistory";
 import type { SenderSummary } from "../lib/senderModel";
 import { knownSenderSet } from "../lib/screener";
+import { SCAN_CHECKS, scanCheckCounts } from "../lib/securityScan";
 import type { ThreatSignalKind } from "../lib/threatSignals";
 import { brandName, senderVerdict } from "../lib/verdict";
 import { senderName } from "../lib/senderListView";
@@ -69,25 +70,6 @@ function wireTooltips(): void {
     tip.style.left = `${Math.min(event.clientX + 12, innerWidth - tip.offsetWidth - 8)}px`;
     tip.style.top = `${event.clientY - 36}px`;
   });
-}
-
-function hbars(container: HTMLElement, rows: [string, number][], unit: string, empty: string): void {
-  container.replaceChildren();
-  if (rows.length === 0) {
-    container.appendChild(el("p", "lead-sm", empty));
-    return;
-  }
-  const max = Math.max(...rows.map(([, n]) => n));
-  for (const [label, n] of rows) {
-    const row = el("div", "hbar");
-    row.dataset.tip = `${label}: ${n} ${unit}`;
-    const track = el("div", "track");
-    const fill = el("div", "fill");
-    fill.style.width = `${(n / max) * 100}%`;
-    track.appendChild(fill);
-    row.append(el("span", undefined, label), track, el("span", "n", String(n)));
-    container.appendChild(row);
-  }
 }
 
 function table(caption: string, rows: [string, number][]): HTMLTableElement {
@@ -275,7 +257,7 @@ export function renderScamReport(securitySenders: SenderSummary[]): void {
   }
   const kindRows: [string, number][] = [...kindCounts].sort((a, b) => b[1] - a[1]).map(([k, n]) => [KIND_NAME[k], n]);
   const kindsEl = $("report-kinds");
-  if (kindsEl) hbars(kindsEl, kindRows, "senders", "No warning signs in this scan.");
+  if (kindsEl) paintChecks(kindsEl, scanCheckCounts(securitySenders, known));
   if (!$("protect-page")?.hidden && $("protect-page")?.querySelector(".cu-page-title")?.textContent === "Warning signs")
     showProtectPage("signs");
 
@@ -288,3 +270,16 @@ export function renderScamReport(securitySenders: SenderSummary[]): void {
     );
   }
 }
+
+/** Security's Checks card: every check Cluster runs and what it found. `null` while a scan runs. */
+export function paintChecks(list: HTMLElement, counts: readonly number[] | null): void {
+  list.replaceChildren(
+    ...SCAN_CHECKS.map(({ label }, i) => {
+      const n = counts?.[i];
+      const li = el("li", n === undefined ? "is-running" : n > 0 ? "is-found" : "is-ok");
+      li.append(el("i"), el("span", "sec-check-name", label), el("b", undefined, n === undefined ? "Checking" : n === 0 ? "Passed" : `${n} ${n === 1 ? "sender" : "senders"}`));
+      return li;
+    }),
+  );
+}
+

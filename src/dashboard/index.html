@@ -134,6 +134,9 @@
                 <kbd aria-hidden="true">/</kbd>
               </button>
               <div class="top-tools">
+                <button type="button" class="top-tool" id="top-rescan" title="Rescan" aria-label="Rescan">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36L21 8M21 3v5h-5"></path></svg><span>Rescan</span>
+                </button>
                 <button type="button" class="top-tool" id="top-sort" data-open-screen="sort" title="Sort inbox" aria-label="Sort inbox">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M7 12h10M10 18h4"></path></svg><span>Sort inbox</span>
                 </button>
@@ -436,12 +439,7 @@
               <div class="page-titles">
                 <h1 class="page-title">Security</h1>
               </div>
-              <div class="sec-run">
-                <button type="button" class="btn" id="sec-scan-now">Scan now</button>
-                <span class="sec-last" id="sec-last" aria-live="polite"></span>
-              </div>
             </div>
-            <ol class="sec-checks" id="sec-checks" hidden></ol>
             <div class="cu-top sec-top" id="sec-kpis" data-state="clean">
               <div class="mt-row cu-cards">
                 <button type="button" class="mt-tile is-hero" data-sec-tab="suspicious">
@@ -467,8 +465,8 @@
                 </button>
               </div>
               <div class="ov-card sec-signs" id="report-signs-card">
-                <div class="mr-head"><h2 class="mr-title">Warning signs</h2><span class="mr-range">This scan</span></div>
-                <div class="hbars" id="report-kinds"></div>
+                <div class="mr-head"><h2 class="mr-title">Checks</h2><span class="mr-range" id="sec-last" aria-live="polite">This scan</span></div>
+                <ol class="sec-checklist" id="report-kinds"></ol>
               </div>
             </div>
             <div class="tabs" role="tablist" aria-label="Security">
