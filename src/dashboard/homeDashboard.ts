@@ -540,7 +540,7 @@ export function renderScanCard(
   // What is still in the inbox leads: "labelled" alone read as finished.
   const left = done && scan.unsorted > 0 ? ` · ${n(scan.unsorted)} with no label` : "";
   const sentMail = reading && scan.total > 0 && scan.done >= scan.total;
-  head.append(el("b", "", done ? `${n(sorted)} labelled${left}` : sentMail ? "Reading sent mail" : reading ? "Reading your mail" : "Labelling your mail"));
+  head.append(el("b", "", done ? (sorted === 0 && !left ? "No new mail to label" : `${n(sorted)} labelled${left}`) : sentMail ? "Reading sent mail" : reading ? "Reading your mail" : "Labelling your mail"));
   if (done || on.note?.stuck) {
     const again = el("button", "btn", "Rescan");
     again.type = "button";
@@ -846,10 +846,11 @@ function barChart(counts: readonly number[], now: number, openDay?: (dayStart: n
 
 // Shades of one blue, darkest to lightest, so the kinds differ without new colors.
 const KIND_COLORS: Record<HomeKind, string> = {
-  primary: "#1f5fd6",
-  trans: "#3b88f0",
-  updates: "#74abf6",
-  promo: "#b3d1fb",
+  // Four hues, not four blues: shades alone were hard to tell apart.
+  primary: "#0a84ff",
+  trans: "#5e5ce6",
+  updates: "#40c8e0",
+  promo: "#ff9f0a",
 };
 
 /** A half ring of rounded bars, shared out between the kinds by count (largest remainder). */

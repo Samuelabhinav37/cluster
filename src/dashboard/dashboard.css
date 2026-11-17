@@ -3390,8 +3390,8 @@ select:not([multiple]):hover { background-color: var(--neutral-fill-hover); }
 .instead-strip select { display: none; }
 /* Scam rows: the faked brand's logo with a red badge; a chevron opens the reasons. */
 .faked-brand { position: relative; display: inline-flex; flex: none; }
-.faked-badge { position: absolute; right: -4px; bottom: -4px; width: 15px; height: 15px; border-radius: 50%;
-  display: grid; place-items: center; background: var(--danger-text); color: #fff; font: 800 9px/1 var(--font);
+.faked-badge { position: absolute; right: -4px; bottom: -4px; width: 16px; height: 16px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--danger-text); color: #fff; font: 800 11px/1 var(--font);
   box-shadow: 0 0 0 2px var(--glass); }
 .scam-chev { font-size: 18px; transition: transform 0.15s ease; }
 .scam-chev[aria-expanded="true"] { transform: rotate(90deg); }
@@ -3774,7 +3774,7 @@ section[data-screen="settings"] .set-row > :not(.grow):not(.set-ic) { grid-colum
 .ct-name { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 8px; }
 tr:hover .ct-name::before { background: color-mix(in srgb, var(--label-4) 30%, transparent); }
 .ct-name > * { position: relative; }
-.ct-name .logo-tile, .paid-card .logo-tile { width: 20px; height: 20px; border-radius: 5px; font-size: 9px; }
+.ct-name .logo-tile, .paid-card .logo-tile { width: 20px; height: 20px; border-radius: 5px; font-size: 10px; }
 .ct-emails b { font-weight: 600; }
 .ct-emails span { display: inline-block; width: 48px; margin-left: 8px; color: var(--label-3); text-align: right; }
 
@@ -4088,7 +4088,7 @@ section[data-screen="impersonation"] > .tabs .tab-count { margin-left: 6px; padd
   .details .sheet.emails th:nth-child(2) { width: 56px; }
   .details .sheet.emails th:nth-child(3) { width: 38%; }
   .details .sheet th:first-child, .details .sheet .c { width: 24px; }
-  .details .sheet .logo-tile { width: 22px; height: 22px; margin-right: 8px; font-size: 9px; }
+  .details .sheet .logo-tile { width: 22px; height: 22px; margin-right: 8px; font-size: 10px; }
   /* Room for the logo and its gap, or a long name drops to a hidden second line. */
   .details .sheet .who { max-width: calc(100% - 32px); }
 }
@@ -4369,9 +4369,10 @@ body.ov-scanning[data-screen="overview"] #index-status { display: none; }
 .mt-badge svg.i { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .mt-badge.is-good { background: rgb(52 199 89 / .14); color: #30b157; }
 .mt-badge.is-bad { background: rgb(255 69 58 / .14); color: #ff453a; }
-.mt-tile.is-hero { border-color: transparent; background: #3b82f6; color: #fff; }
-.mt-tile.is-hero .mt-title, .mt-tile.is-hero .mt-foot { color: rgb(255 255 255 / .88); }
-.mt-tile.is-hero .mt-go { background: #fff; color: #3b82f6; }
+/* #2563eb: white text 5.17:1 (the old #3b82f6 was 3.68:1). One hero color on every page. */
+.mt-tile.is-hero { border-color: transparent; background: #2563eb; color: #fff; }
+.mt-tile.is-hero .mt-title, .mt-tile.is-hero .mt-foot { color: #fff; }
+.mt-tile.is-hero .mt-go { background: #fff; color: #2563eb; }
 .mt-tile.is-hero .mt-badge { background: #fff; color: #2563eb; }
 .mt-mark { position: absolute; right: -30px; bottom: -46px; width: 132px; height: 132px; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; opacity: .14; pointer-events: none; }
 @media (max-width: 1100px) { .mt-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -4574,9 +4575,6 @@ button.ov-range:hover { background: var(--neutral-fill); }
 :is(#cu-head, .sec-top) .mt-tile { min-height: 150px; padding: 18px 22px; gap: 0; }
 :is(#cu-head, .sec-top) .mt-num { margin: auto 0; padding: 0; font-size: 42px; font-weight: 600; letter-spacing: -.025em; }
 :is(#cu-head, .sec-top) .mt-foot { font-size: 13px; color: var(--label-3); }
-#cu-head .mt-tile.is-hero { background: #e8572f; }
-#cu-head .mt-tile.is-hero .mt-go { color: #e8572f; }
-#cu-head .mt-tile.is-hero .mt-foot { color: rgb(255 255 255 / .88); }
 #cu-head .mt-tile.selected:not(.is-hero) { border-color: var(--label-3); box-shadow: inset 0 0 0 1px var(--label-3); }
 #cu-head .mt-foot .pl-change { margin: 0; }
 #cu-chart.ov-card { display: flex; padding: 0; background: #0b0b0c; }
@@ -4657,7 +4655,7 @@ section.screen:is([data-screen="delete"], [data-screen="subscriptions"], [data-s
 .sec-top { margin-top: 8px; }
 .sec-signs { display: flex; flex-direction: column; gap: 16px; padding: 22px 24px; }
 .sec-signs .hbars { align-content: start; }
-.sec-top .mt-tile.is-hero .mt-foot { color: rgb(255 255 255 / .88); }
+:is(#cu-head, .sec-top) .mt-tile.is-hero .mt-foot { color: #fff; }
 .sec-top .mt-tile:not(button) { cursor: default; }
 .sec-top .mt-tile:not(button):hover { transform: none; box-shadow: none; }
 .sec-run { margin: 0 0 16px; }
@@ -4787,7 +4785,9 @@ body[data-screen="subscriptions"] #cu-tools-senders, body:not([data-screen="subs
 .cu-table .ct-c-read { width: 176px; }
 .cu-table :is(.ct-c-emails, .ct-c-perMonth, .ct-c-size) { width: 108px; }
 .cu-table .ct-c-last { width: 148px; }
-.cu-table .ct-name { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0; }
+.cu-table .ct-name { display: flex; align-items: center; gap: 12px; min-width: 0; max-width: 100%; padding: 0;
+  border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 6px; }
+.cu-table .ct-name:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .cu-table .ct-name b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cu-table tr:hover .ct-name::before { background: none; }
 .cu-table .ct-name .logo-tile { flex: none; width: 36px; height: 36px; border-radius: 8px; font-size: 13px; }
@@ -4837,3 +4837,47 @@ body[data-screen="subscriptions"] #cu-tools-senders, body:not([data-screen="subs
 .details .sheet.senders .who { max-width: calc(100% - 70px); }
 .details .sheet tr.group td, .details .sheet tr.sub td { height: 36px; }
 .details .sheet.emails th:nth-child(2) { width: 84px; }
+
+/* Increase Contrast (prefers-contrast: more): darker secondary text and lines in
+   light, brighter in dark. html:root out-ranks the theme blocks above. */
+@media (prefers-contrast: more) {
+  html:root:not([data-cx]) {
+    --label-3: #3a3a3c; --label-4: #48484a;
+    --hairline: #a1a1a6; --separator: #a1a1a6;
+    --neutral-fill: rgba(120, 120, 128, 0.32);
+  }
+  .mt-tile, .ov-w, .cu-table .ct-table th { outline: 1px solid var(--hairline); outline-offset: -1px; }
+}
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+  html:root:not([data-theme="light"]) {
+    --label-3: #d1d1d6; --label-4: #c7c7cc;
+    --hairline: #636366; --separator: #636366;
+    --neutral-fill: rgba(120, 120, 128, 0.44);
+  }
+}
+@media (prefers-contrast: more) {
+  html:root[data-theme="dark"] {
+    --label-3: #d1d1d6; --label-4: #c7c7cc;
+    --hairline: #636366; --separator: #636366;
+    --neutral-fill: rgba(120, 120, 128, 0.44);
+  }
+}
+
+/* Kai floats bottom right (about 100px tall): leave that much room under every
+   page so the last rows' buttons can scroll clear of it. */
+body:not([data-screen="setup"]) .screen { padding-bottom: 128px; }
+
+/* Security uses the Cleanup table's look: pill tabs, 60px rows, hairlines. */
+section[data-screen="impersonation"] > .tabs { display: flex; gap: 0; margin: 0; padding: 0; border: 0; }
+section[data-screen="impersonation"] > .tabs .tab { min-height: 32px; padding: 0 14px; border: 1px solid var(--hairline); border-radius: 0;
+  font: 500 13px/30px var(--font); white-space: nowrap; color: var(--label-2); }
+section[data-screen="impersonation"] > .tabs .tab + .tab { margin-left: -1px; }
+section[data-screen="impersonation"] > .tabs .tab:first-of-type { border-radius: 8px 0 0 8px; }
+section[data-screen="impersonation"] > .tabs .tab:last-of-type { border-radius: 0 8px 8px 0; }
+section[data-screen="impersonation"] > .tabs .tab.active { color: var(--label); background: var(--neutral-fill); border-bottom-color: var(--hairline); }
+section[data-screen="impersonation"] > .tabs .tab-count { margin-left: 6px; }
+#security-sender-list, #quarantine-review-list { gap: 0; border: 1px solid var(--hairline); border-radius: 12px; overflow: hidden; background: var(--glass); }
+:is(#security-section, #quarantine-review-section) .scam-card { min-height: 60px; padding: 12px 16px; justify-content: center;
+  border: 0; border-radius: 0; box-shadow: none; background: none; }
+:is(#security-section, #quarantine-review-section) .scam-card + .scam-card { border-top: 1px solid var(--hairline); }
+:is(#security-section, #quarantine-review-section) .scam-head { gap: 12px; align-items: center; }

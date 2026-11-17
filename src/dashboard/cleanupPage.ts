@@ -715,7 +715,10 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
         td0.append(box);
       }
       const who = el("td", "ct-who");
-      const name = el("span", "ct-name");
+      // A button, so Tab reaches the row and Enter opens Details.
+      const name = el("button", "ct-name");
+      name.type = "button";
+      name.onclick = () => spec.openRow(r.key, r.lead);
       name.append(senderTile(r.lead.address, r.lead.displayName, "sz-34"), el("b", "", senderName(r.lead)));
       const badge = spec.badge?.(r.senders);
       if (badge) name.append(el("span", "ct-dim ct-badge", badge));

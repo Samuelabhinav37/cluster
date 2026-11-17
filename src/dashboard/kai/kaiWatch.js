@@ -196,6 +196,8 @@
         if (live) { current = id; reversals = []; hesitations = []; }
         var prev = sections.length ? sections[sections.length - 1].id : null;
         if (prev === id) return;
+        // a bubble names the page it was shown on: fold it when the page changes
+        if (live && showing) fold(false);
         sections.push({ id: id, t: t });
         sections = within(sections, Math.max(L.loopMs, L.hopMs));
         var loop = within(sections, L.loopMs).slice(-4), ids = {};
