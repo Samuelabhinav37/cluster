@@ -67,7 +67,7 @@
     getManifest: () => ({ version: "0.1.0", oauth2: { scopes: [] } }),
   };
 
-  function consentOverlay() {
+  function consentOverlay(scope) {
     return new Promise((resolve) => {
       const o = document.createElement("div");
       o.id = "__consent";
@@ -75,7 +75,7 @@
       o.innerHTML = `<div style="background:#fff;color:#202124;width:420px;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.4);padding:24px">
         <div style="font-size:11px;letter-spacing:.08em;color:#c5221f;font-weight:700">SIMULATED SIGN-IN (preview harness)</div>
         <h2 style="margin:10px 0 6px;font-size:20px;font-weight:500">Allow Cluster to access Gmail?</h2>
-        <p style="margin:0 0 10px;color:#5f6368">Scopes requested: gmail.modify, gmail.settings.basic</p>
+        <p style="margin:0 0 10px;color:#5f6368">Scopes requested: ${scope.split(" ").map((s) => s.replace(/.*\//, "")).join(", ")}</p>
         <p style="margin:0 0 16px;color:#5f6368;font-size:12px">(Real flow: account picker → "Google hasn't verified this app" warning while in Testing → scope consent.)</p>
         <div style="display:flex;gap:8px;justify-content:flex-end"><button id="__deny">Cancel</button><button id="__allow" style="background:#1a73e8;color:#fff;border:0;padding:8px 16px;border-radius:4px">Allow</button></div></div>`;
       document.body.appendChild(o);
@@ -99,7 +99,7 @@
     }
     if (qs.has("consent")) {
       await new Promise((r) => setTimeout(r, 600));
-      if (!(await consentOverlay())) {
+      if (!(await consentOverlay(url.searchParams.get("scope") || ""))) {
         back.searchParams.set("error", "access_denied");
         return back.toString();
       }

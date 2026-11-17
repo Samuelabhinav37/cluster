@@ -1183,6 +1183,8 @@ body[data-state="connect"] .screen {
 
 .connect-btn:hover {
   opacity: 0.9;
+  /* The global button:hover gray outranks .connect-btn; keep the fill. */
+  background: var(--label);
 }
 
 .connect-btn:active {
@@ -1877,7 +1879,7 @@ input.switch:disabled {
   overflow: auto;
 }
 
-body[data-screen="setup"] .kai-guide { display: none; }
+body[data-screen="setup"] .kai-guide, body:has(> .tour) .kai-guide { display: none; }
 
 body[data-screen="setup"] .index-status {
   position: fixed;
@@ -1896,8 +1898,9 @@ body[data-screen="setup"] .index-status {
 
 .connect-logo span { font: 700 20px/1 var(--font); letter-spacing: -0.02em; }
 
-.onb-side { display: flex; flex-direction: column; padding: 20px 40px; }
-.onb-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+/* Lined up with the sign-in screens (.wel): same top, same centred 600px header. */
+.onb-side { display: flex; flex-direction: column; align-items: center; padding: 8px 0 0; }
+.onb-top { align-self: center; width: min(640px, 100%); }
 .onb-skip { min-height: 0; padding: 6px 10px; border: 0; border-radius: 8px; background: none; font: 500 13px/1 var(--font); color: var(--label-4); }
 .onb-skip:hover { color: var(--label); background: var(--neutral-fill); }
 /* A fixed top, so rows leaving the practice inbox don't move the buttons. */
@@ -4026,7 +4029,6 @@ body.ov-scanning[data-screen="overview"] #index-status { display: none; }
 
 /* Setup: the welcome's layout. Bar, Kai asking, the screen, one big button. Room to breathe. */
 .onb-pane { width: min(640px, 100%); margin: clamp(20px, 5vh, 56px) auto 48px; }
-.onb-pane > .wel-bar { display: block; flex: none; width: 100%; margin-bottom: 40px; }
 .onb-pane .onb-body { gap: 28px; }
 .onb-pane .onb-title { margin: 0; font-size: clamp(30px, 3.6vw, 40px); }
 /* Kai's drawing runs past its box (antenna, shadow): keep clear of the title. */
@@ -4109,7 +4111,8 @@ body.ov-scanning[data-screen="overview"] #index-status { display: none; }
   .lbl-tag.in { transition: opacity 0.2s; }
 }
 /* The answer buttons stay in reach at the bottom, like Duolingo's footer. */
-.onb-pane .onb-actions { position: sticky; bottom: 0; z-index: 1; padding: 20px 0 24px; margin-top: 0; background: linear-gradient(to bottom, transparent, var(--canvas) 22px); }
+/* -64px: past .onb's bottom padding, so no cards show under the buttons. */
+.onb-pane .onb-actions { position: sticky; bottom: -64px; z-index: 1; padding: 20px 0 24px; margin-top: 0; background: linear-gradient(to bottom, transparent, var(--canvas) 22px); }
 .tour-hole { outline: 2px solid var(--label); outline-offset: 2px; }
 
 /* Account, 2026-11-16: outline person icon, full name, chevron (user's reference). */
@@ -4799,3 +4802,7 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 @media (max-width: 700px) { .cu-safe { flex-direction: column; align-items: stretch; } }
 .ct-tools .ct-all, .ct-tools .ct-all:hover:not(:disabled) { border-color: transparent; background: var(--neutral-fill); color: var(--danger-text); }
 .ct-tools .ct-all:hover:not(:disabled) { background: var(--neutral-fill-hover); }
+
+/* A click meant for the last screen's button can't land on this screen's buttons as they appear. */
+.onb-in .onb-actions, .onb-in > .wel-go { animation: onb-arm 0s 0.4s backwards; }
+@keyframes onb-arm { from { pointer-events: none; } }

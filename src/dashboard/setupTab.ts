@@ -243,11 +243,9 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   const skip = el("button", "onb-skip", "I'll set it up myself");
   skip.type = "button";
   skip.id = "setup-not-now";
-  const top = el("div", "onb-top");
-  const logo =
-    document.querySelector("#connect-gate .connect-logo")?.cloneNode(true) ??
-    el("div", "connect-logo", "Cluster");
-  top.append(logo, skip);
+  // The sign-in screens' header (wel-top): the bar in the same place, so moving into setup doesn't jump.
+  const top = el("div", "wel-top onb-top");
+  top.append(skip);
   const side = el("div", "onb-side");
   side.append(top, pane);
   root.replaceChildren(side);
@@ -602,7 +600,8 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     const body = el("div", newStep ? "onb-body onb-in" : "onb-body");
     ({ hello: renderHello, label: renderLabel, scan: renderScan, found: renderFound })[step](body);
     pane.className = `onb-pane is-${step}`;
-    pane.replaceChildren(progressBar(BEFORE + at + 1), kai.row, body);
+    top.replaceChildren(progressBar(BEFORE + at + 1), skip);
+    pane.replaceChildren(kai.row, body);
     if (newStep) guide(step);
   }
 

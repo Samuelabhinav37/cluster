@@ -122,6 +122,13 @@ describe("filter permission", () => {
     expect(get.mock.calls[0][1]).toBe(false);
   });
 
+  it("asks for filters in the sign-in window, never on a silent call", async () => {
+    const get = stubIdentity([MODIFY, FILTER]);
+    await getAuthToken_(true);
+    await getAuthToken_(false);
+    expect(get.mock.calls.map((c) => c[0])).toEqual([[MODIFY, FILTER], [MODIFY]]);
+  });
+
   it("refuses a main token without gmail.modify", async () => {
     stubIdentity([FILTER]);
     await expect(getAuthToken_(false)).rejects.toThrow(/read and organize/);

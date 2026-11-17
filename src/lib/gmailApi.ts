@@ -68,7 +68,10 @@ export class FilterPermissionError extends Error {
 }
 
 export async function getAuthToken(interactive = true): Promise<string> {
-  const token = await getGmailToken([MODIFY_SCOPE], interactive);
+  // Only sign-in opens Google's window; it asks for filters too, since setup's labels need them
+  // minutes later and a second window right after the first looked like a glitch.
+  // Unticking filters still signs in; they are asked again when first needed.
+  const token = await getGmailToken(interactive ? [MODIFY_SCOPE, FILTER_SCOPE] : [MODIFY_SCOPE], interactive);
   // Google's consent screen lets the user untick a scope; a token still comes back.
   const granted = await grantedGmailScopes();
   if (granted.length > 0 && !granted.includes(MODIFY_SCOPE)) {
