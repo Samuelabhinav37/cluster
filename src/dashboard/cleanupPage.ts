@@ -126,18 +126,24 @@ export function stackChart(
   const tools = el("div", "sc-tools");
   tools.append(...(o.tools ?? []));
   head.append(el("h2", "sc-title", "Breakdown"), tools);
-  const legend = el("div", "sc-legend");
+  // Dots like Mail by category: hover lights one kind's bars, click picks it.
+  const legend = el("div", "ov-legend sc-legend");
+  const focus = (key: string | null) => {
+    for (const seg of Array.from(wrap.querySelectorAll<HTMLElement>(".sc-seg"))) seg.classList.toggle("is-dim", key !== null && seg.dataset.key !== key);
+  };
   for (const s of series) {
-    const item = el("button", "sc-key");
+    const item = el("button", "sc-key", s.label);
     item.type = "button";
     item.dataset.key = s.key;
     item.classList.toggle("is-off", !!o.active && o.active !== s.key);
     item.setAttribute("aria-pressed", String(o.active === s.key));
-    const dot = el("i", "sc-dot");
+    const dot = el("i", "");
     dot.style.background = s.color;
-    const sum = s.counts.reduce((a, b) => a + b, 0);
-    item.append(dot, el("span", "sc-name", s.label), el("b", "sc-sum", sum.toLocaleString()));
+    item.prepend(dot);
+    item.append(el("b", "", s.counts.reduce((a, b) => a + b, 0).toLocaleString()));
     if (o.onPick) item.onclick = () => o.onPick!(s.key);
+    item.onmouseenter = item.onfocus = () => focus(s.key);
+    item.onmouseleave = item.onblur = () => focus(null);
     legend.append(item);
   }
   const plot = el("div", "sc-plot");

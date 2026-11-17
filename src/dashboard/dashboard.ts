@@ -108,7 +108,7 @@ import { isAuthCancelled } from "../lib/chromeError";
 import { formatRelativeTime, infoButton, pruneSelection, renderConfirmStep, runNow } from "./ui";
 import { buildCleanupCards } from "../lib/cleanupCards";
 import { createRangePicker } from "./rangePicker";
-import { downloadText, emailsCsv, printReport, wireDownloadMenu } from "./reportDownload";
+import { barsSvg, downloadBytes, emailRows, emailsCsv, emailsXlsx, periodFacts, printReport, reportHtml, wireDownloadMenu, type ReportSpec } from "./reportDownload";
 import { changeChip, dailyCounts, stackChart, pageRows, renderCleanupPage, renderSenderTable, type PageItem } from "./cleanupPage";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { keepNewestExcess, olderReadExcess } from "../lib/keepNewest";
@@ -130,6 +130,7 @@ import { initAskKai, type AskFacts } from "./askKai";
 import {
   clearedByDay,
   mailByKind,
+  HOME_KINDS,
   receivedInRange,
   paintHomeRead,
   renderHomeDashboard,
@@ -605,15 +606,77 @@ function wireRangePicker(): void {
   const dl = document.getElementById("overview-dl") as HTMLButtonElement | null;
   const menu = document.getElementById("overview-dl-menu");
   if (!dl || !menu) return;
+  const rows = () => {
+    const end = new Date(range.end);
+    end.setDate(end.getDate() + 1);
+    return emailRows((lastOverview?.[2] ?? []).map((sender) => ({ sender })), range.start, end.getTime());
+  };
+  const name = () => `cluster-emails-${isoDay(range.start)}-to-${isoDay(range.end)}`;
   wireDownloadMenu(dl, menu, {
-    pdf: () => printReport("Mail report", rangeText(range)),
-    csv: () => {
-      const end = new Date(range.end);
-      end.setDate(end.getDate() + 1);
-      const senders = lastOverview?.[2] ?? [];
-      downloadText(`cluster-emails-${isoDay(range.start)}-to-${isoDay(range.end)}.csv`, emailsCsv(senders.map((sender) => ({ sender })), range.start, end.getTime()), "text/csv");
-    },
+    pdf: () => printReport(reportHtml(mailReportSpec(), brandSvg())),
+    xlsx: () => downloadBytes(`${name()}.xlsx`, emailsXlsx(rows(), "Emails"), XLSX_TYPE),
+    csv: () => downloadBytes(`${name()}.csv`, emailsCsv(rows()), "text/csv;charset=utf-8"),
   });
+}
+
+const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const brandSvg = () => document.querySelector(".panel-brand .brand-mark")?.outerHTML ?? "";
+const REPORT_SOURCE = "Counts come from the mail Cluster has read in this Gmail account, on this computer. Nothing in this report left your device.";
+const pct = (part: number, whole: number) => (whole ? `${Math.round((part / whole) * 100)}%` : "0%");
+
+/** The Dashboard's report: the picked range's mail, then the inbox as it is today. */
+function mailReportSpec(): ReportSpec {
+  const senders = lastOverview?.[2] ?? [];
+  const len = rangeLength(range);
+  const end = new Date(range.end);
+  end.setDate(end.getDate() + 1);
+  const f = periodFacts(senders, range.start, end.getTime());
+  const before = periodFacts(senders, new Date(range.start).setDate(new Date(range.start).getDate() - len), range.start);
+  const change = before.total && !lastFacts?.since ? Math.round(((f.total - before.total) / before.total) * 100) : null;
+  const n = (v: number) => v.toLocaleString();
+  return {
+    title: "Mail report",
+    period: rangeText(range),
+    account: accountEmail,
+    sections: [
+      {
+        kind: "kpis",
+        items: [
+          { label: "Emails received", value: n(f.total), note: change === null ? undefined : `${change > 0 ? "+" : ""}${change}% on the ${len} days before` },
+          { label: "Per day", value: (Math.round(f.perDay * 10) / 10).toLocaleString(), note: `Over ${len} days` },
+          { label: "Busiest day", value: f.total ? `${f.busiest}s` : "None", note: "Most mail on average" },
+          { label: "Still unread", value: n(f.unread), note: `${pct(f.unread, f.total)} of the period's mail` },
+          { label: "Senders", value: n(f.senders.length), note: "Wrote to you in this period" },
+          { label: "From people", value: n(f.kinds.primary), note: `${pct(f.kinds.primary, f.total)} of the period's mail` },
+        ],
+      },
+      { kind: "chart", title: "Emails received each day", svg: barsSvg([{ color: "#1f5fd6", counts: f.daily }], range.start) },
+      {
+        kind: "table",
+        title: "By category",
+        columns: [{ label: "Category" }, { label: "Emails", num: true }, { label: "Share", num: true }],
+        rows: HOME_KINDS.map((k) => [k.label, n(f.kinds[k.key]), pct(f.kinds[k.key], f.total)]),
+      },
+      {
+        kind: "table",
+        title: "Top senders",
+        note: `The ${Math.min(15, f.senders.length)} senders with the most mail in this period.`,
+        columns: [{ label: "#", num: true }, { label: "Sender" }, { label: "Address" }, { label: "Emails", num: true }, { label: "Unread", num: true }],
+        rows: f.senders.slice(0, 15).map((t, i) => [String(i + 1), t.name, t.address, n(t.count), n(t.unread)]),
+      },
+      {
+        kind: "table",
+        title: "Inbox today",
+        columns: [{ label: "" }, { label: "Emails", num: true }],
+        rows: [
+          ...(lastFacts?.inboxUnread !== undefined ? [["Unread in the inbox", n(lastFacts.inboxUnread)]] : []),
+          ["Waiting in the Screener", n(lastFacts?.waiting ?? 0)],
+          ["Ready to clean up", n(lastFacts?.clearable ?? 0)],
+        ],
+      },
+    ],
+    source: REPORT_SOURCE,
+  };
 }
 
 const isoDay = (ms: number) => {
@@ -1564,6 +1627,8 @@ function oldestRead(senders: SenderSummary[]): number | undefined {
 let inboxUnread: number | undefined;
 let unreadAt = 0;
 let lastOverview: Parameters<typeof renderOverview> | null = null;
+/** The Dashboard's last numbers, for its report. */
+let lastFacts: HomeFacts | null = null;
 let staleSweepKicked = false;
 async function refreshInboxUnread(): Promise<void> {
   if (Date.now() - unreadAt < 5 * 60 * 1000 || !providerById.has("gmail")) return;
@@ -1652,6 +1717,7 @@ function renderOverview(
   // Day one: the census has counted senders' mail before it is all read.
   const counted = allSenders.reduce((n, s) => n + senderVolume(s), 0);
   if (counted > facts.total) Object.assign(facts, { total: counted, since: undefined });
+  lastFacts = facts;
   overviewContentEl.appendChild(
     renderHomeDashboard(
       facts,
@@ -1826,14 +1892,7 @@ function paintCleanupChart(kpi: "never" | "old" | "lists" | null) {
     const foot = card.querySelector<HTMLElement>(".cu-num")!;
     foot.replaceChildren(...(chip ? [chip, "from 4 weeks before"] : [foot.dataset.note ?? ""]));
   }
-  // Each email once, in the first kind that holds it.
-  const seen = new Set<string>();
-  const only = (items: PageItem[]) => items.map((it) => ({ ...it, ids: it.ids.filter((id) => !seen.has(id) && seen.add(id)) }));
-  const kinds = [
-    { key: "never", label: "Unopened", color: "#e5452b", items: only(cleanupItems("never")) },
-    { key: "old", label: "Expired", color: "#f2853a", items: only(cleanupItems("old")) },
-    { key: "lists", label: "Mailing lists", color: "#f7c948", items: only(cleanupItems("lists")) },
-  ];
+  const kinds = cleanupKinds();
   const pickDays = document.createElement("select");
   pickDays.className = "sc-pick";
   pickDays.setAttribute("aria-label", "Days shown");
@@ -1858,20 +1917,83 @@ function cleanupDownload(): HTMLElement {
   wrap.className = "dl-wrap";
   wrap.id = "cu-dl-wrap";
   wrap.innerHTML = `<button type="button" class="sc-btn" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 10l5 5 5-5M5 21h14"></path></svg>Download</button>
-    <div class="dl-menu" role="menu" hidden><button type="button" role="menuitem" data-dl="pdf">Report<span>PDF</span></button><button type="button" role="menuitem" data-dl="csv">Emails to clean up<span>CSV</span></button></div>`;
+    <div class="dl-menu" role="menu" hidden><button type="button" role="menuitem" data-dl="pdf">Report<span>PDF</span></button><button type="button" role="menuitem" data-dl="xlsx">Emails to clean up<span>Excel</span></button><button type="button" role="menuitem" data-dl="csv">Emails to clean up<span>CSV</span></button></div>`;
+  const rows = () =>
+    emailRows(
+      cleanupKinds().flatMap((k) => k.items.map((it) => ({ sender: it.sender, ids: new Set(it.ids), reason: k.reason }))),
+      0,
+      Infinity,
+    );
+  const name = `cluster-cleanup-${isoDay(Date.now())}`;
   wireDownloadMenu(wrap.querySelector("button")!, wrap.querySelector(".dl-menu")!, {
-    pdf: () => printReport("Cleanup report", "Mail you can clear"),
-    csv: () => {
-      const reasons: Array<[string, PageItem[]]> = [
-        ["Unopened", cleanupItems("never")],
-        ["Expired", cleanupItems("old")],
-        ["Unused mailing list", cleanupItems("lists")],
-      ];
-      const rows = reasons.flatMap(([reason, items]) => items.map((it) => ({ sender: it.sender, ids: new Set(it.ids), reason })));
-      downloadText(`cluster-cleanup-${isoDay(Date.now())}.csv`, emailsCsv(rows, 0, Infinity), "text/csv");
-    },
+    pdf: () => printReport(reportHtml(cleanupReportSpec(), brandSvg())),
+    xlsx: () => downloadBytes(`${name}.xlsx`, emailsXlsx(rows(), "Cleanup"), XLSX_TYPE),
+    csv: () => downloadBytes(`${name}.csv`, emailsCsv(rows()), "text/csv;charset=utf-8"),
   });
   return wrap;
+}
+
+/** Cleanup's three kinds, each email once (in the first kind that holds it). */
+function cleanupKinds() {
+  const seen = new Set<string>();
+  const only = (items: PageItem[]) => items.map((it) => ({ ...it, ids: it.ids.filter((id) => !seen.has(id) && seen.add(id)) })).filter((it) => it.ids.length);
+  return [
+    { key: "never", label: "Unopened", reason: "Unopened", color: "#e5452b", items: only(cleanupItems("never")) },
+    { key: "old", label: "Expired", reason: "Expired", color: "#f2853a", items: only(cleanupItems("old")) },
+    { key: "lists", label: "Mailing lists", reason: "Unused mailing list", color: "#f7c948", items: only(cleanupItems("lists")) },
+  ];
+}
+
+function cleanupReportSpec(): ReportSpec {
+  const now = Date.now();
+  const kinds = cleanupKinds();
+  const n = (v: number) => v.toLocaleString();
+  const count = (items: PageItem[]) => items.reduce((t, it) => t + it.ids.length, 0);
+  const days = 28;
+  const first = new Date(now).setHours(0, 0, 0, 0) - (days - 1) * 86_400_000;
+  const rows = kinds
+    .filter((k) => k.key !== "lists")
+    .flatMap((k) => k.items.map((it) => ({ name: senderName(it.sender), address: it.sender.address, reason: k.reason, count: it.ids.length })))
+    .sort((a, b) => b.count - a.count);
+  const lists = kinds[2].items.map((it) => ({ name: senderName(it.sender), address: it.sender.address, count: it.ids.length })).sort((a, b) => b.count - a.count);
+  return {
+    title: "Cleanup report",
+    period: `As of ${new Date(now).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`,
+    account: accountEmail,
+    sections: [
+      {
+        kind: "kpis",
+        items: [
+          { label: "Ready to clean up", value: n((lastPlan?.neverReadMsgs ?? 0) + (lastPlan?.expiryTotal ?? 0)), note: "Unopened and expired emails" },
+          { label: "Unopened", value: n(lastPlan?.neverReadMsgs ?? 0), note: "From senders you never open" },
+          { label: "Expired", value: n(lastPlan?.expiryTotal ?? 0), note: "Old codes, deliveries and news" },
+          { label: "Unused mailing lists", value: n(lastPlan?.lists.length ?? 0), note: `${n(count(kinds[2].items))} emails` },
+        ],
+      },
+      {
+        kind: "chart",
+        title: `Arrivals each day, last ${days} days`,
+        legend: kinds.map((k) => ({ label: k.label, color: k.color })),
+        svg: barsSvg(kinds.map((k) => ({ color: k.color, counts: dailyCounts(k.items, now, days) })), first),
+      },
+      {
+        kind: "table",
+        title: "Senders to clean up",
+        note: rows.length > 30 ? `The 30 largest of ${n(rows.length)}. The Excel download lists every email.` : undefined,
+        columns: [{ label: "Sender" }, { label: "Address" }, { label: "Reason" }, { label: "Emails", num: true }],
+        rows: rows.slice(0, 30).map((r) => [r.name, r.address, r.reason, n(r.count)]),
+        empty: "Nothing to clean up.",
+      },
+      {
+        kind: "table",
+        title: "Unused mailing lists",
+        columns: [{ label: "List" }, { label: "Address" }, { label: "Emails", num: true }],
+        rows: lists.slice(0, 30).map((r) => [r.name, r.address, n(r.count)]),
+        empty: "No unused lists.",
+      },
+    ],
+    source: REPORT_SOURCE,
+  };
 }
 let openPage: "never" | "old" | null = null;
 

@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
-import { csvField, emailsCsv } from "./reportDownload";
+import { csvField, emailRows, emailsCsv, emailsXlsx, periodFacts, reportHtml } from "./reportDownload";
+import { crc32 } from "./xlsx";
 import { createRangePicker, monthCells, orderRange, presetRanges } from "./rangePicker";
 
 const msg = (id: string, receivedAt: number, subject: string): MessageRecord =>
@@ -9,23 +10,67 @@ const msg = (id: string, receivedAt: number, subject: string): MessageRecord =>
 const sender = (address: string, messages: MessageRecord[]): SenderSummary => ({ key: `gmail:${address}`, provider: "gmail", address, displayName: "Shop", messages }) as unknown as SenderSummary;
 
 describe("emailsCsv", () => {
-  it("quotes fields and makes formula-looking subjects inert", () => {
+  it("quotes only when needed and makes formula-looking subjects inert", () => {
+    expect(csvField("Sale")).toBe("Sale");
     expect(csvField('say "hi", ok')).toBe('"say ""hi"", ok"');
-    expect(csvField("=HYPERLINK(1)")).toBe(`"'=HYPERLINK(1)"`);
-    expect(csvField("-5")).toBe(`"'-5"`);
+    expect(csvField("=HYPERLINK(1)")).toBe("'=HYPERLINK(1)");
+    expect(csvField("-5, off")).toBe(`"'-5, off"`);
   });
 
-  it("lists only the range's (and picked ids') emails, newest first, with a reason column when given", () => {
+  it("lists only the range's (and picked ids') emails, newest first, one line each, with a reason column when given", () => {
     const d = (day: number) => new Date(2026, 10, day, 9, 5).getTime();
-    const s = sender("shop@example.com", [msg("a", d(3), "Old"), msg("b", d(10), "Sale"), msg("c", d(12), "=1+1")]);
-    const csv = emailsCsv([{ sender: s, ids: new Set(["b", "c"]), reason: "Unopened" }], d(1), d(20));
-    const lines = csv.replace("﻿", "").trim().split("\r\n");
-    expect(lines[0]).toBe('"Date","Sender","Address","Subject","Category","Unread","Reason"');
-    expect(lines.slice(1)).toEqual([
-      `"2026-11-12 09:05","Shop","shop@example.com","'=1+1","People","Yes","Unopened"`,
-      `"2026-11-10 09:05","Shop","shop@example.com","Sale","People","Yes","Unopened"`,
-    ]);
-    expect(emailsCsv([{ sender: s }], d(9), d(11)).trim().split("\r\n")).toHaveLength(2);
+    const s = sender("shop@example.com", [msg("a", d(3), "Old"), msg("b", d(10), "Big\r\nsale"), msg("c", d(12), "=1+1")]);
+    const rows = emailRows([{ sender: s, ids: new Set(["b", "c"]), reason: "Unopened" }], d(1), d(20));
+    const lines = emailsCsv(rows).replace("﻿", "").trim().split("\r\n");
+    expect(lines[0]).toBe("Date,Time,Sender,Address,Subject,Category,Status,Reason");
+    expect(lines.slice(1)).toEqual(["2026-11-12,09:05,Shop,shop@example.com,'=1+1,People,Unread,Unopened", "2026-11-10,09:05,Shop,shop@example.com,Big sale,People,Unread,Unopened"]);
+    expect(emailRows([{ sender: s }], d(9), d(11))).toHaveLength(1);
+  });
+});
+
+describe("emailsXlsx", () => {
+  it("is a zip of the workbook parts with a frozen, filtered header and real dates", () => {
+    const bytes = emailsXlsx(emailRows([{ sender: sender("a@b.co", [msg("x", new Date(2026, 0, 2, 12).getTime(), "Hi <there> & you")]) }], 0, Infinity), "Emails");
+    expect([bytes[0], bytes[1]]).toEqual([0x50, 0x4b]);
+    const text = new TextDecoder().decode(bytes);
+    for (const part of ["[Content_Types].xml", "xl/workbook.xml", "xl/worksheets/sheet1.xml", "xl/styles.xml"]) expect(text).toContain(part);
+    expect(text).toContain('state="frozen"');
+    expect(text).toContain('<autoFilter ref="A1:F2"/>');
+    expect(text).toContain("Hi &lt;there&gt; &amp; you");
+    expect(text).toContain("<v>46024.5</v>");
+    expect(crc32(new TextEncoder().encode("123456789"))).toBe(0xcbf43926);
+  });
+});
+
+describe("report", () => {
+  it("is its own document: logo, title, period, numbers, escaped tables, page numbers", () => {
+    const html = reportHtml(
+      {
+        title: "Mail report",
+        period: "Oct 18 to Nov 16",
+        account: "sam@gmail.com",
+        sections: [
+          { kind: "kpis", items: [{ label: "Emails received", value: "1,260" }] },
+          { kind: "table", title: "Top senders", columns: [{ label: "Sender" }, { label: "Emails", num: true }], rows: [["<b>Shop</b>", "40"]] },
+        ],
+        source: "From mail on this computer.",
+      },
+      '<svg class="brand-mark"></svg>',
+    );
+    expect(html).toContain("<title>Cluster Mail report Oct 18 to Nov 16</title>");
+    expect(html).toContain('<div class="brand"><svg class="brand-mark"></svg>Cluster</div>');
+    expect(html).toContain("&lt;b&gt;Shop&lt;/b&gt;");
+    expect(html).toContain('counter(page) " of " counter(pages)');
+    expect(html).not.toContain("<b>Shop</b>");
+  });
+
+  it("counts a period by day, category and sender", () => {
+    const start = new Date(2026, 10, 1).getTime();
+    const end = new Date(2026, 10, 4).getTime();
+    const f = periodFacts([sender("a@b.co", [msg("1", new Date(2026, 10, 1, 8).getTime(), "x"), msg("2", new Date(2026, 10, 3, 23).getTime(), "y"), msg("3", end, "z")])], start, end);
+    expect(f.daily).toEqual([1, 0, 1]);
+    expect(f.total).toBe(2);
+    expect(f.senders).toEqual([{ name: "Shop", address: "a@b.co", count: 2, unread: 2 }]);
   });
 });
 

@@ -9,7 +9,6 @@
     <div class="ambient" aria-hidden="true"></div>
 
     <div class="app-shell">
-      <div class="print-head" id="print-head"><h1></h1><p></p></div>
       <div class="app-body">
         <!-- ── Panel: search and every page ──────────────────────────── -->
         <div class="side-panel">
@@ -175,7 +174,6 @@
             <div class="account-menu" id="account-menu" role="menu" aria-label="Account" hidden>
               <span class="email menu-head" id="account-email">Account</span>
               <button type="button" class="menu-item" role="menuitem" data-open="recent">Activity</button>
-              <button type="button" class="menu-item" role="menuitem" data-open="settings">Settings</button>
               <button type="button" class="menu-item" role="menuitem" id="menu-signout">Sign out</button>
             </div>
           </div>
@@ -233,6 +231,7 @@
                 </button>
                 <div class="dl-menu" id="overview-dl-menu" role="menu" hidden>
                   <button type="button" role="menuitem" data-dl="pdf">Report<span>PDF</span></button>
+                  <button type="button" role="menuitem" data-dl="xlsx">Emails in this range<span>Excel</span></button>
                   <button type="button" role="menuitem" data-dl="csv">Emails in this range<span>CSV</span></button>
                 </div>
               </div>
@@ -551,7 +550,7 @@
           </section>
 
           <!-- ══ Settings ══════════════════════════════════════════════ -->
-          <section class="screen" data-screen="settings" role="tabpanel" hidden>
+          <section class="screen" data-screen="settings" role="tabpanel" aria-label="Settings" hidden>
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Settings</h1>
