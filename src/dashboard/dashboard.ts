@@ -128,6 +128,7 @@ import { initAskKai, type AskFacts } from "./askKai";
 import {
   clearedByDay,
   mailByKind,
+  receivedInRange,
   paintHomeRead,
   renderHomeDashboard,
   STALE_SWEEP_MS,
@@ -383,6 +384,18 @@ function wireNav() {
   });
 
   wireCleanupCards();
+  wireRangePicker();
+  // The logo always goes back to the Dashboard.
+  const brand = document.getElementById("brand-home");
+  if (brand) {
+    brand.onclick = () => void selectScreen("overview");
+    brand.onkeydown = (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        void selectScreen("overview");
+      }
+    };
+  }
 
   void showReloadBanner();
 
@@ -541,9 +554,95 @@ function paintGreeting(now = new Date()) {
   const part = h < 5 ? "evening" : h < 12 ? "morning" : h < 17 ? "afternoon" : "evening";
   const greeting = document.getElementById("overview-greeting");
   if (greeting) greeting.textContent = greetName ? `Good ${part}, ${greetName}!` : `Good ${part}!`;
-  const range = document.getElementById("overview-range");
-  const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  if (range) range.textContent = `${fmt(new Date(now.getTime() - 29 * 86_400_000))} to ${fmt(now)}`;
+  const label = document.getElementById("overview-range");
+  if (label) label.textContent = rangeText(range);
+}
+
+// ── Dashboard date range: the picker under the date pill drives Received Mails ──
+const DAY_MS = 86_400_000;
+/** Local midnights of the first and last day shown (both included). */
+let range = lastDays(30);
+
+function lastDays(n: number): { start: number; end: number } {
+  const end = new Date().setHours(0, 0, 0, 0);
+  return { start: new Date(end).setDate(new Date(end).getDate() - (n - 1)), end };
+}
+
+function rangeLength(r: { start: number; end: number }): number {
+  return Math.round((r.end - r.start) / DAY_MS) + 1;
+}
+
+function rangeText(r: { start: number; end: number }): string {
+  const year = new Date(r.start).getFullYear() !== new Date(r.end).getFullYear();
+  const fmt = (ms: number) => new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric", ...(year ? { year: "numeric" } : {}) });
+  return `${fmt(r.start)} to ${fmt(r.end)}`;
+}
+
+/** "Last 30 days" while the range ends today, else the dates. */
+function rangeLabel(r: { start: number; end: number }): string {
+  return r.end === new Date().setHours(0, 0, 0, 0) ? `Last ${rangeLength(r)} days` : rangeText(r);
+}
+
+const toInput = (ms: number) => {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+const fromInput = (v: string) => {
+  const [y, m, d] = v.split("-").map(Number);
+  return new Date(y, m - 1, d).getTime();
+};
+
+function wireRangePicker(): void {
+  const btn = document.getElementById("overview-range-btn") as HTMLButtonElement | null;
+  const pop = document.getElementById("range-pop");
+  const from = document.getElementById("range-from") as HTMLInputElement | null;
+  const to = document.getElementById("range-to") as HTMLInputElement | null;
+  if (!btn || !pop || !from || !to) return;
+  const close = () => {
+    pop.hidden = true;
+    btn.setAttribute("aria-expanded", "false");
+  };
+  const apply = (r: { start: number; end: number }) => {
+    range = r;
+    close();
+    paintGreeting();
+    if (lastOverview) renderOverview(...lastOverview);
+  };
+  btn.onclick = () => {
+    if (!pop.hidden) return close();
+    const today = toInput(new Date().setHours(0, 0, 0, 0));
+    // Only days Cluster has read can be picked.
+    const oldest = lastOverview ? oldestRead(lastOverview[2]) : undefined;
+    for (const input of [from, to]) {
+      input.max = today;
+      input.min = oldest ? toInput(oldest) : "";
+    }
+    from.value = toInput(range.start);
+    to.value = toInput(range.end);
+    pop.hidden = false;
+    btn.setAttribute("aria-expanded", "true");
+    from.focus();
+  };
+  for (const b of Array.from(pop.querySelectorAll<HTMLButtonElement>("[data-range-days]"))) {
+    b.onclick = () => apply(lastDays(Number(b.dataset.rangeDays)));
+  }
+  document.getElementById("range-apply")!.onclick = () => {
+    if (!from.value || !to.value) return;
+    const a = fromInput(from.value);
+    const b = fromInput(to.value);
+    // shortcut: a range is capped at two years of bars, longer would be hairlines.
+    const start = Math.max(Math.min(a, b), new Date(Math.max(a, b)).setFullYear(new Date(Math.max(a, b)).getFullYear() - 2));
+    apply({ start, end: Math.max(a, b) });
+  };
+  document.addEventListener("click", (e) => {
+    if (!pop.hidden && e.target instanceof Node && !pop.contains(e.target) && !btn.contains(e.target)) close();
+  });
+  pop.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      close();
+      btn.focus();
+    }
+  });
 }
 
 async function showAccountPill(token: string) {
@@ -1529,8 +1628,13 @@ function renderOverview(
 
   overviewContentEl.innerHTML = "";
   paintGreeting();
+  const received = receivedInRange(allSenders, range.end, rangeLength(range));
   const facts: HomeFacts = {
     account: accountEmail,
+    receivedDays: received.days,
+    receivedPrev: received.prev,
+    rangeEnd: range.end,
+    rangeLabel: rangeLabel(range),
     // All mail read, so Clean up's part and the total share one population.
     ...mailByKind(allSenders, Date.now()),
     suspicious: rankFlagged(securitySenders).high.length,

@@ -65,8 +65,6 @@ export function mailByKind(
   peopleWeek: number;
   receivedByDay: number[];
   receivedPrevByDay: number[];
-  received30: number[];
-  receivedPrev30: number;
 } {
   const kinds: Record<HomeKind, number> = { primary: 0, trans: 0, updates: 0, promo: 0 };
   let total = 0;
@@ -75,13 +73,9 @@ export function mailByKind(
   let peopleWeek = 0;
   const receivedByDay = [0, 0, 0, 0, 0, 0, 0];
   const receivedPrevByDay = [0, 0, 0, 0, 0, 0, 0];
-  const received30 = new Array<number>(30).fill(0);
-  let receivedPrev30 = 0;
   for (const s of senders) {
     for (const m of s.messages) {
       const ago = daysAgo(m.receivedAt, now);
-      if (ago >= 0 && ago < 30) received30[29 - ago] += 1;
-      else if (ago >= 30 && ago < 60) receivedPrev30 += 1;
       if (ago >= 0 && ago < 7) receivedByDay[6 - ago] += 1;
       else if (ago >= 7 && ago < 14) receivedPrevByDay[13 - ago] += 1;
       const kind = kindOf(m);
@@ -94,7 +88,22 @@ export function mailByKind(
       else if (now - m.receivedAt < 2 * WEEK_MS) lastWeek += 1;
     }
   }
-  return { kinds, total, thisWeek, lastWeek, peopleWeek, receivedByDay, receivedPrevByDay, received30, receivedPrev30 };
+  return { kinds, total, thisWeek, lastWeek, peopleWeek, receivedByDay, receivedPrevByDay,  };
+}
+
+/** Arrivals on each of the `n` days ending on `end`'s day (oldest first), and the
+ * total in the `n` days before them, for the change. */
+export function receivedInRange(senders: readonly SenderSummary[], end: number, n: number): { days: number[]; prev: number } {
+  const days = new Array<number>(n).fill(0);
+  let prev = 0;
+  for (const s of senders) {
+    for (const m of s.messages) {
+      const ago = daysAgo(m.receivedAt, end);
+      if (ago >= 0 && ago < n) days[n - 1 - ago] += 1;
+      else if (ago >= n && ago < 2 * n) prev += 1;
+    }
+  }
+  return { days, prev };
 }
 
 /** Whole calendar days between `at` and `now` (0 = today). Round, not floor:
@@ -200,10 +209,13 @@ export interface HomeFacts {
   /** Arrivals per day, this week and the week before, oldest first. */
   receivedByDay?: number[];
   receivedPrevByDay?: number[];
-  /** Arrivals on each of the last 30 days, oldest first. */
-  received30?: number[];
-  /** Arrivals in the 30 days before those. */
-  receivedPrev30?: number;
+  /** Arrivals on each day of the chosen range, oldest first. */
+  receivedDays?: number[];
+  /** Arrivals in the same number of days before the range. */
+  receivedPrev?: number;
+  /** The range's last day, and how the card names the range ("Last 30 days"). */
+  rangeEnd?: number;
+  rangeLabel?: string;
   /** Emails cleared in the last 30 days. */
   cleared30?: number;
   /** Emails Cluster filed out of the inbox per day. */
@@ -727,12 +739,13 @@ export function receivedStats(days: readonly number[], now: number): { total: nu
 
 function inboxCard(f: HomeFacts): HTMLElement {
   const card = el("section", "ov-card ov-inbox");
-  const days = f.received30 ?? [];
+  const days = f.receivedDays ?? [];
+  const end = f.rangeEnd ?? Date.now();
   const head = el("div", "mr-head");
-  head.append(el("h2", "mr-title", "Received Mails"), el("span", "mr-range", "Last 30 days"));
+  head.append(el("h2", "mr-title", "Received Mails"), el("span", "mr-range", f.rangeLabel ?? "Last 30 days"));
   // What mail-analytics tools put beside volume (Email Meter, EmailAnalytics): the
   // total with its change, the daily average and the busiest day of the week.
-  const s = receivedStats(days, Date.now());
+  const s = receivedStats(days, end);
   const stats = el("dl", "mr-stats");
   const stat = (k: string, v: string, extra?: HTMLElement) => {
     const dd = el("dd", "", v);
@@ -741,16 +754,16 @@ function inboxCard(f: HomeFacts): HTMLElement {
   };
   // The change only once the 30 days before are read too, or it would be made up.
   let change: HTMLElement | undefined;
-  if (f.receivedPrev30 && !f.since) {
-    const pct = Math.round(((s.total - f.receivedPrev30) / f.receivedPrev30) * 100);
+  if (f.receivedPrev && !f.since) {
+    const pct = Math.round(((s.total - f.receivedPrev) / f.receivedPrev) * 100);
     change = el("span", "mr-change", `${pct > 0 ? "+" : pct < 0 ? "−" : ""}${Math.abs(pct)}%`);
-    change.title = "Compared with the 30 days before";
+    change.title = `Compared with the ${days.length} days before`;
   }
   stat("Total", n(s.total), change);
   stat("Per day", n(s.perDay));
   if (s.busiest) stat("Busiest day", s.busiest);
   const body = el("div", "mr-body");
-  body.append(stats, barChart(days, Date.now(), (start) => window.open(gmailDayUrl(f.account, start), "_blank", "noopener")));
+  body.append(stats, barChart(days, end, (start) => window.open(gmailDayUrl(f.account, start), "_blank", "noopener")));
   card.append(head, body);
   return card;
 }
@@ -776,6 +789,7 @@ function barChart(counts: readonly number[], now: number, openDay?: (dayStart: n
   const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   const xs = el("div", "mr-xs");
   const bars: HTMLElement[] = [];
+  const tickEvery = Math.max(1, Math.round(counts.length / 7.5));
   counts.forEach((c, i) => {
     const day = new Date(now - (last - i) * 24 * 60 * 60 * 1000);
     const bar = el("i", "mr-bar");
@@ -784,8 +798,8 @@ function barChart(counts: readonly number[], now: number, openDay?: (dayStart: n
     bar.style.setProperty("--i", String(i));
     bars.push(bar);
     plot.append(bar);
-    // A date every four days, counted back from today, with a dashed line up.
-    if ((last - i) % 4 !== 2) return;
+    // About eight dates across the range, counted back from its last day, with a dashed line up.
+    if ((last - i) % tickEvery !== tickEvery >> 1) return;
     const x = `${((i + 0.5) / counts.length) * 100}%`;
     const tick = el("i", "mr-tick");
     tick.style.left = x;

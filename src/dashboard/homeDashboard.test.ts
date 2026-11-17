@@ -12,6 +12,7 @@ import {
   renderHomeDashboard,
   renderScanCard,
   sweepLine,
+  receivedInRange,
   gmailDayUrl,
   gmailUrl,
   receivedStats,
@@ -103,9 +104,15 @@ describe("mailByKind", () => {
       peopleWeek: 1,
       receivedByDay: [0, 0, 0, 0, 0, 2, 0],
       receivedPrevByDay: [0, 0, 0, 0, 1, 0, 0],
-      received30: [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0],
-      receivedPrev30: 1,
     });
+    const range = receivedInRange(
+      [sender("shop@example.com", [msg({ receivedAt: NOW - 40 * DAY }), msg({ receivedAt: NOW - 9 * DAY }), msg({ receivedAt: NOW - 20 * DAY })]), sender("friend@example.com", [msg()])],
+      NOW,
+      30,
+    );
+    expect(range.days).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0]);
+    expect(range.prev).toBe(1);
+    expect(receivedInRange([sender("friend@example.com", [msg()])], NOW, 7).days).toEqual([0, 0, 0, 0, 0, 1, 0]);
   });
 });
 
@@ -197,7 +204,7 @@ describe("renderHomeDashboard", () => {
 
   it("shares the gauge's 21 bars between the kinds, and shows Received Mails' growth", () => {
     const el = renderHomeDashboard(
-      { ...calm, kinds: { primary: 10, trans: 0, updates: 10, promo: 0 }, received30: Array(30).fill(4), receivedPrev30: 100 },
+      { ...calm, kinds: { primary: 10, trans: 0, updates: 10, promo: 0 }, receivedDays: Array(30).fill(4), receivedPrev: 100 },
       vi.fn(),
     );
     const strokes = Array.from(el.querySelectorAll(".ov-gauge line")).map((l) => l.getAttribute("stroke"));
@@ -213,7 +220,7 @@ describe("renderHomeDashboard", () => {
   });
 
   it("hovering Received Mails lights that day's bar and names its count and date", () => {
-    const el = renderHomeDashboard({ ...calm, received30: Array.from({ length: 30 }, (_, i) => i) }, vi.fn());
+    const el = renderHomeDashboard({ ...calm, receivedDays: Array.from({ length: 30 }, (_, i) => i) }, vi.fn());
     const plot = el.querySelector<HTMLElement>(".mr-plot")!;
     plot.getBoundingClientRect = () => ({ left: 0, width: 300, top: 0, height: 100 }) as DOMRect;
     plot.dispatchEvent(new MouseEvent("mousemove", { clientX: 295 }));
@@ -236,7 +243,7 @@ describe("renderHomeDashboard", () => {
 
   it("clicking a day's bar opens that day in Gmail", () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
-    const el = renderHomeDashboard({ ...calm, account: "sam@gmail.com", received30: Array.from({ length: 30 }, () => 3) }, vi.fn());
+    const el = renderHomeDashboard({ ...calm, account: "sam@gmail.com", receivedDays: Array.from({ length: 30 }, () => 3) }, vi.fn());
     const plot = el.querySelector<HTMLElement>(".mr-plot")!;
     plot.getBoundingClientRect = () => ({ left: 0, width: 300, top: 0, height: 100 }) as DOMRect;
     plot.dispatchEvent(new MouseEvent("click", { clientX: 295 }));
