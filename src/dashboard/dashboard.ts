@@ -57,7 +57,7 @@ import { buildSenderProfiles } from "../lib/senderProfile";
 import { groupKeyFor, isPerson, senderName } from "../lib/senderListView";
 import { ALL_MAIL_DAYS, getSettings, mutateSettings, pullSyncedSettings, updateSettings, type ClusterSettings } from "../lib/settingsStore";
 import { activeProviders, ctx, providerById, setBridge } from "./state";
-import { mailStatus, renderSortInbox, wireSortInbox } from "./sortInbox";
+import { jobCard, renderSortInbox, wireSortInbox } from "./sortInbox";
 import { maybeShowLabelTidyCard } from "./labelTidy";
 import {
   presetSwitch,
@@ -1127,14 +1127,17 @@ function paintScanCard() {
 /** Says reading finished, and marks the tab with a dot until you look at it. */
 function showReadDone() {
   paintScanCard();
-  indexStatusEl.replaceChildren("✓ All your mail is read");
-  indexStatusEl.classList.add("done");
-  indexStatusEl.hidden = false;
-  setTimeout(() => {
-    if (indexRuns.size > 0) return;
-    indexStatusEl.hidden = true;
-    indexStatusEl.classList.remove("done");
-  }, 8_000);
+  // A running Check mail or sort keeps the card; the tab dot below still says reading finished.
+  if (indexStatusEl.dataset.job !== "run") {
+    indexStatusEl.replaceChildren("✓ All your mail is read");
+    indexStatusEl.classList.add("done");
+    indexStatusEl.hidden = false;
+    setTimeout(() => {
+      if (indexRuns.size > 0) return;
+      indexStatusEl.hidden = true;
+      indexStatusEl.classList.remove("done");
+    }, 8_000);
+  }
   if (document.visibilityState === "visible" && document.hasFocus()) return;
   const title = document.title.replace(/^● /, "");
   document.title = `● ${title}`;
@@ -1156,10 +1159,14 @@ function updateIndexStatus() {
   const active = [...indexRuns.values()]
     .map((run) => run.progress)
     .filter((p): p is SyncProgress => p?.phase === "reading" || p?.phase === "sent" || p?.phase === "detail");
+  // A running Check mail or sort owns the card until it finishes.
+  if (indexStatusEl.dataset.job === "run") return;
   if (active.length === 0 || !statusEl.hidden) {
-    indexStatusEl.hidden = true;
+    // A finished job's card stays for its few seconds.
+    if (!indexStatusEl.dataset.job) indexStatusEl.hidden = true;
     return;
   }
+  delete indexStatusEl.dataset.job;
   const done = active.reduce((sum, p) => sum + p.done, 0);
   const total = Math.max(
     done,
@@ -1263,7 +1270,8 @@ function refreshWhenDone(run: IndexRun) {
 async function scanAndRender({
   refresh = false,
   quiet = false,
-}: { refresh?: boolean; quiet?: boolean } = {}) {
+  fresh = false,
+}: { refresh?: boolean; quiet?: boolean; fresh?: boolean } = {}) {
   if (!quiet) {
     statusEl.hidden = false;
     indexStatusEl.hidden = true;
@@ -1315,7 +1323,8 @@ async function scanAndRender({
       runs.map(({ run, wasRunning, builtBefore: built }) =>
         // A built index only needs the changes since last time, which is
         // usually a moment. Wait briefly for them so an action's result shows.
-        built && !wasRunning ? Promise.race([run.done, delay(CHANGES_WAIT_MS)]) : run.quick,
+        // Check mail (fresh) waits for all of them, however long Gmail takes.
+        built && !wasRunning ? (fresh ? run.done : Promise.race([run.done, delay(CHANGES_WAIT_MS)])) : run.quick,
       ),
     );
   } finally {
@@ -1541,18 +1550,6 @@ function paintLastScan() {
   document.getElementById("top-rescan")?.setAttribute("title", `Check for new mail. ${el.textContent}`);
 }
 
-/** When Check mail last finished; the status line reads "Updated 5 min ago" from it, as Mail does. */
-let checkedAt = 0;
-function paintUpdated(fresh = false) {
-  const line = document.getElementById("mail-status");
-  // Another message (a sort, an error) holds the line until the next check.
-  if (!checkedAt || !line || (!fresh && line.dataset.updated !== "1")) return;
-  const mins = Math.floor((Date.now() - checkedAt) / 60_000);
-  mailStatus(mins < 1 ? "Updated just now" : `Updated ${mins} min ago`);
-  line.dataset.updated = "1";
-}
-setInterval(paintUpdated, 60_000);
-
 /** Security's Scan now: reads new mail into the index, then walks each check
  * over it in turn. The background runs the same scan once a day. */
 function wireScanNow() {
@@ -1564,13 +1561,17 @@ function wireScanNow() {
     btn.disabled = true;
     btn.classList.add("is-busy");
     if (word) word.textContent = "Checking";
-    mailStatus("Checking for new mail…");
+    jobCard({ title: "Checking for new mail" });
     const list = document.getElementById("report-kinds");
     if (list) paintChecks(list, null);
     const last = document.getElementById("sec-last");
     try {
       if (last) last.textContent = "Reading new mail";
-      await refreshView();
+      // Waits for Gmail's changes in full, then redraws every screen (refreshView can skip or
+      // stop waiting after 4 s, which left Check mail showing the old mail).
+      const scroll = window.scrollY;
+      await scanAndRender({ quiet: true, fresh: true });
+      window.scrollTo(0, scroll);
       const senders = lastOverview?.[1] ?? [];
       const known = knownSenderSet(ctx.settings);
       const counts = scanCheckCounts(senders, known);
@@ -1579,12 +1580,11 @@ function wireScanNow() {
         lastSecurityScan: { at: Date.now(), found: scanFound(senders, known) },
       });
       paintLastScan();
-      checkedAt = Date.now();
-      paintUpdated(true);
+      jobCard({ title: "Up to date", line: "Updated just now", finished: true });
     } catch (err) {
       log.error("Rescan failed", err);
       if (last) last.textContent = "Scan failed, try again.";
-      mailStatus("Couldn't check for mail.", { label: "Try again", run: () => btn.click() });
+      jobCard({ title: "Couldn't check for mail", finished: true, action: { label: "Try again", run: () => btn.click() } });
     } finally {
       btn.disabled = false;
       btn.classList.remove("is-busy");

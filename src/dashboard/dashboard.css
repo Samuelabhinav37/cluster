@@ -4774,8 +4774,7 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .top-tool.is-labelled { width: auto; gap: 8px; padding: 0 12px; }
 .top-tool.is-labelled span { display: inline; }
 @media (max-width: 700px) { .top-tool.is-labelled { width: 36px; padding: 0; } .top-tool.is-labelled span { display: none; } }
-/* The status line at the sidebar's foot. */
-.mail-status { margin: auto 12px 8px; padding-top: 12px; font-size: 12px; line-height: 1.4; color: var(--label-3); }
-.mail-status:empty { display: none; }
-.mail-status .link { padding: 0; border: 0; background: none; color: var(--accent-text); font: 500 12px var(--font); cursor: pointer; }
+/* Check mail and Sort inbox share the reading card; its link (Undo) sits in the line. */
+.read-card .rc-act { padding: 0; border: 0; background: none; color: var(--accent-text); font: 500 12px var(--font); cursor: pointer; }
+.read-card .rc-head span { font-variant-numeric: tabular-nums; }
 .sort-all-link { margin-left: auto; align-self: center; padding: 0; border: 0; background: none; color: var(--accent-text); font: 500 14px var(--font); cursor: pointer; }

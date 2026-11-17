@@ -53,17 +53,59 @@ const topSortBtn = document.getElementById("top-sort") as HTMLButtonElement | nu
 topSortBtn?.addEventListener("click", () => void runSort("new", true));
 document.getElementById("sort-all-link")?.addEventListener("click", () => setTimeout(() => renderSortChoices(), 0));
 
-/** The sidebar's one status line, with an optional link after it ("Undo", "Open Labels"). */
-export function mailStatus(text: string, action?: { label: string; run: () => void }): void {
-  const line = document.getElementById("mail-status");
-  if (!line) return;
-  line.textContent = text;
-  delete line.dataset.updated;
-  if (action) {
-    const b = Object.assign(document.createElement("button"), { type: "button", className: "link", textContent: action.label });
-    b.onclick = action.run;
-    line.append(" ", b);
+let jobTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** The card at the sidebar's foot (the one reading uses) for Check mail and Sort inbox:
+ * a title, how far as a percent and a bar, a line, and an optional link ("Undo").
+ * A finished job shows a tick and leaves after a few seconds. */
+export function jobCard(job: {
+  title: string;
+  done?: number;
+  total?: number;
+  line?: string;
+  action?: { label: string; run: () => void };
+  finished?: boolean;
+}): void {
+  const card = document.getElementById("index-status");
+  if (!card) return;
+  clearTimeout(jobTimer);
+  // While a job runs, the reading progress leaves the card alone (dashboard.ts updateIndexStatus).
+  card.dataset.job = job.finished ? "done" : "run";
+  card.classList.toggle("done", !!job.finished);
+  const head = document.createElement("div");
+  head.className = "rc-head";
+  const counted = job.total !== undefined && job.total > 0 && job.done !== undefined;
+  head.append(
+    Object.assign(document.createElement("b"), { textContent: `${job.finished ? "✓ " : ""}${job.title}` }),
+    Object.assign(document.createElement("span"), { textContent: counted ? `${Math.floor((job.done! / job.total!) * 100)}%` : "" }),
+  );
+  const parts: Node[] = [head];
+  if (counted) {
+    const track = document.createElement("div");
+    track.className = "scan-track";
+    const fill = document.createElement("div");
+    fill.style.width = `${Math.round((job.done! / job.total!) * 100)}%`;
+    track.append(fill);
+    parts.push(track);
   }
+  const lineText = job.line ?? (counted ? `${num(job.done!)} of ${num(job.total!)}` : "");
+  if (lineText || job.action) {
+    const line = Object.assign(document.createElement("span"), { className: "rc-eta", textContent: lineText });
+    if (job.action) {
+      const b = Object.assign(document.createElement("button"), { type: "button", className: "link rc-act", textContent: job.action.label });
+      b.onclick = job.action.run;
+      line.append(lineText ? " " : "", b);
+    }
+    parts.push(line);
+  }
+  card.replaceChildren(...parts);
+  card.hidden = false;
+  if (job.finished)
+    jobTimer = setTimeout(() => {
+      card.hidden = true;
+      card.classList.remove("done");
+      delete card.dataset.job;
+    }, job.action ? 15_000 : 6_000);
 }
 
 const num = (n: number) => n.toLocaleString();
@@ -226,7 +268,7 @@ function sortStage(quiet = false) {
     sortInboxPreviewEl.replaceChildren(panel);
     sortInboxPreviewEl.classList.add("sorting");
   }
-  const say = (text: string) => quiet && mailStatus(text);
+  const say = (job: Parameters<typeof jobCard>[0]) => quiet && jobCard(job);
 
   const stage = {
     ring,
@@ -239,7 +281,7 @@ function sortStage(quiet = false) {
       looking(true);
       big.textContent = title;
       sub.textContent = line;
-      say(`${line}…`);
+      say({ title: line });
     },
     /** A question: the arc stops and waits for an answer. */
     ask(title: string, line: string) {
@@ -253,7 +295,7 @@ function sortStage(quiet = false) {
       set(done / Math.max(1, total));
       big.textContent = `Sorting ${num(done)} of ${num(total)}`;
       sub.textContent = line;
-      say(`Sorting ${num(done)} of ${num(total)}…`);
+      say({ title: "Sorting your inbox", done, total });
     },
     /** Finished: a full ring with a check, the result, and Done. */
     finish(title: string, line: string) {
@@ -263,7 +305,7 @@ function sortStage(quiet = false) {
       ring.classList.add("is-done");
       big.textContent = title;
       sub.textContent = line;
-      say(title);
+      say({ title, line, finished: true });
       const doneBtn = document.createElement("button");
       doneBtn.className = "btn btn-accent-solid";
       doneBtn.textContent = "Done";
@@ -280,7 +322,7 @@ function sortStage(quiet = false) {
       looking(false);
       big.textContent = "Sort stopped";
       sub.textContent = "Something went wrong. What finished stays sorted.";
-      say("Sort stopped. What finished stays sorted.");
+      say({ title: "Sort stopped", line: "What finished stays sorted.", finished: true });
       const again = document.createElement("button");
       again.className = "btn btn-accent-solid";
       again.textContent = "Try again";
@@ -376,7 +418,7 @@ async function runSort(mode: SortMode, quiet = false) {
         document.querySelector<HTMLButtonElement>('#sidebar .nav-item[data-screen="organize"]')?.click();
       stage.actions.append(open);
       stage.idle();
-      if (quiet) mailStatus("No labels are on.", { label: "Open Labels", run: () => open.click() });
+      if (quiet) jobCard({ title: "No labels are on", finished: true, action: { label: "Open Labels", run: () => open.click() } });
       return;
     }
     if (plan.chosen.length === 0) {
@@ -632,6 +674,9 @@ function labelCells(label: string, bucket: string | undefined, count: number, wh
   return [name, n, w];
 }
 
+/** How many labels a run's log entries touched. */
+const groupsOf = (logged: ActionLogEntry[]) => new Set(logged.map((e) => e.undo?.labelName ?? e.summary)).size;
+
 /** After a sort: the total, then one row per label with its own Undo (from the action log). */
 function renderSortReport(summary: string, started: number) {
   sortInboxPreviewEl.classList.remove("sorting");
@@ -642,16 +687,21 @@ function renderSortReport(summary: string, started: number) {
   if (quietRun) {
     const undoable = logged.filter((e) => e.undo);
     const undo = async () => {
-      mailStatus("Undoing…");
+      jobCard({ title: "Undoing the sort" });
       try {
         for (const e of undoable) await undoEntry(e);
-        mailStatus("Sort undone.");
+        jobCard({ title: "Sort undone", finished: true });
       } catch (err) {
         log.error(err);
-        mailStatus("Undo failed.", { label: "Try again", run: () => void undo() });
+        jobCard({ title: "Undo failed", finished: true, action: { label: "Try again", run: () => void undo() } });
       }
     };
-    mailStatus(`Sorted ${num(total)} email${total === 1 ? "" : "s"}.`, undoable.length ? { label: "Undo", run: () => void undo() } : undefined);
+    jobCard({
+      title: `Sorted ${num(total)} email${total === 1 ? "" : "s"}`,
+      line: `Into ${groupsOf(logged)} label${groupsOf(logged) === 1 ? "" : "s"}`,
+      finished: true,
+      action: undoable.length ? { label: "Undo", run: () => void undo() } : undefined,
+    });
     return;
   }
   const secs = Math.max(1, Math.round((Date.now() - started) / 1000));
