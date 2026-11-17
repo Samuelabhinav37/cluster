@@ -14,17 +14,19 @@ const BUDGET: Record<string, { words: number; controls: number }> = {
   // Raised for Home v2 (verdict, this week, next up, inbox), approved 2026-10-29.
   overview: { words: 96, controls: 10 },
   // 2026-11-17 (user asked, Everbee reference): a line under the title, Search/Customize/Filter/Export, pages.
-  delete: { words: 100, controls: 34 },
+  // 2026-11-17: Breakdown gains the Dashboard chart\'s Total, Per day and Most column.
+  delete: { words: 110, controls: 34 },
   // Redesign 2026-11: Cleanup's Senders and Subscriptions tabs.
   // 2026-11-06 Plausible panels: an Emails column head beside Opened.
   // 2026-11-16: the 2x2 tiles, the chart legend, its day picker and Download move in with the tabs.
   // 2026-11-17: the same line, toolbar and pages on Mailing lists.
-  subscriptions: { words: 100, controls: 40 },
+  subscriptions: { words: 110, controls: 40 },
   // Round 2 (approved 2026-10-30): a five-step picker on each kind card.
   organize: { words: 300, controls: 75 },
   // Redesign 2026-11: KPI row and Suspicious and Quarantine tabs.
   // +Scan now (2026-11-06).
-  impersonation: { words: 84, controls: 13 },
+  // 2026-11-17 (asked for): a one-line intro, the Threats chart and Who they pretend to be.
+  impersonation: { words: 145, controls: 20 },
   screener: { words: 60, controls: 6 },
   // Redesign 2026-11 (approved): every section on one scrolling page, not one at a time.
   settings: { words: 280, controls: 60 },

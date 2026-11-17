@@ -3503,7 +3503,7 @@ body[data-screen="overview"] #ask-kai-open > svg { display: block; }
 body[data-state="connect"] .top-bar { display: none; }
 
 /* A Protect tile's page replaces the rest of the screen until Back. */
-section.screen.paged > :not(.page-head):not(#protect-page) { display: none !important; }
+section.screen.paged > :not(.page-head):not(#protect-page):not(#label-page) { display: none !important; }
 
 /* Settings: search on top; keys change in place. */
 .set-row .sub.warn { color: var(--danger-label); }
@@ -4496,55 +4496,12 @@ button.ov-range:hover { background: var(--neutral-fill); }
 :is(#cu-head, .sec-top) .mt-foot { font-size: 13px; color: var(--label-3); }
 #cu-head .mt-tile.selected:not(.is-hero) { border-color: var(--label-3); box-shadow: inset 0 0 0 1px var(--label-3); }
 #cu-head .mt-foot .pl-change { margin: 0; }
-#cu-chart.ov-card { display: flex; padding: 0; background: #0b0b0c; }
+#cu-chart.ov-card { display: flex; flex-direction: column; min-width: 0; }
 @media (max-width: 1100px) { .cu-top { grid-template-columns: 1fr; } }
 
-/* The breakdown: the reference's look. Black panel, mono type, brackets, warm stacks. */
-.sc-chart { --sc-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace; display: flex; flex-direction: column; flex: 1; min-width: 0; color: #e5e5e5; font-family: var(--sc-mono); }
-.sc-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid #2a2a2c; }
-.sc-title { flex: 1; margin: 0; font: 500 15px var(--sc-mono); letter-spacing: .06em; text-transform: uppercase; color: #f2f2f2; }
-.sc-tools { display: flex; gap: 8px; }
-.sc-pick, .sc-btn { height: 30px; padding: 0 10px; border: 0; border-radius: 4px; background: #1d1d1f; color: #e5e5e5; font: 500 13px var(--sc-mono); cursor: pointer; }
-.sc-pick:hover, .sc-btn:hover { background: #2a2a2c; }
-.sc-pick option { background: #1d1d1f; color: #e5e5e5; }
-.sc-btn { display: inline-flex; align-items: center; gap: 6px; }
-.sc-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.sc-chart .dl-menu { font-family: var(--font); }
-.sc-legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 4px 16px; padding: 10px 18px; border-bottom: 1px solid #2a2a2c; }
-.sc-key { display: flex; align-items: center; gap: 8px; padding: 4px 0; border: 0; background: none; color: #a1a1a6; font: 400 13px var(--sc-mono); text-align: left; cursor: pointer; }
-.sc-key:hover .sc-name, .sc-key[aria-pressed="true"] .sc-name { color: #f2f2f2; }
-.sc-key.is-off { opacity: .45; }
-.sc-name { flex: 1; }
-.sc-sum { color: #f2f2f2; font-weight: 600; font-variant-numeric: tabular-nums; }
-.sc-dot { flex: none; width: 8px; height: 8px; }
-.sc-plot { position: relative; flex: 1; min-height: 150px; margin: 12px 14px 0; }
-.sc-grid { position: absolute; left: 0; right: 0; height: 0; border-top: 1px solid #222224; }
-.sc-bars { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); align-items: end; column-gap: clamp(1px, .4vw, 4px); }
-.sc-col { display: flex; flex-direction: column-reverse; min-height: 0; transition: opacity .15s ease; transform-origin: bottom; animation: ov-grow .6s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 12ms); }
-.sc-seg { display: block; min-height: 1px; flex-basis: 0; }
-.sc-seg.is-off { opacity: .22; }
-.sc-plot.is-picking .sc-col:not(.on) { opacity: .35; }
-.sc-xs { position: relative; height: 26px; margin: 0 14px 6px; }
-.sc-x { position: absolute; top: 6px; transform: translateX(-50%); color: #8e8e93; font: 400 12px var(--sc-mono); font-variant-numeric: tabular-nums; }
-.sc-tip { position: absolute; top: 4px; z-index: 2; display: grid; gap: 4px; min-width: 170px; padding: 8px 10px; transform: translateX(12px); border: 1px solid #2a2a2c; background: #141415;
-  color: #a1a1a6; font: 400 12px var(--sc-mono); pointer-events: none; }
-.sc-tip.flip { transform: translateX(calc(-100% - 12px)); }
-.sc-tip[hidden] { display: none; }
-.sc-tip-day { color: #f2f2f2; }
-.sc-tip-row { display: flex; align-items: center; gap: 8px; }
-.sc-tip-row b { margin-left: auto; color: #f2f2f2; font-weight: 600; }
-@media (prefers-reduced-motion: reduce) { .sc-col { animation: none; } }
 
 :is(#cu-head, .sec-top) .mt-title { padding-right: 40px; }
 
-/* Breakdown legend: the Mail by category dots, on the black panel. */
-.sc-legend.ov-legend { display: flex; justify-content: flex-start; gap: 6px 18px; padding: 12px 18px; }
-.sc-legend.ov-legend button { color: #c7c7cc; font: 500 13px var(--font); }
-.sc-legend.ov-legend button:hover, .sc-legend.ov-legend button[aria-pressed="true"] { background: #1d1d1f; color: #f2f2f2; }
-.sc-legend.ov-legend b { color: #f2f2f2; }
-.sc-legend.ov-legend .is-off { opacity: .45; }
-.sc-seg { transition: opacity .15s ease; }
-.sc-seg.is-dim { opacity: .18; }
 
 /* Search in the middle of the page: full-width bar, equal side columns. Where the
    tools' words would push the search off center, they show as icons (title and
@@ -4612,8 +4569,6 @@ section.screen:not([data-screen="setup"]) { max-width: 1320px; }
 .sec-signs { gap: 10px; }
 
 /* Cleanup's chart: the app's own type, no monospace caps. */
-.sc-chart { --sc-mono: var(--font); }
-.sc-title { font: 600 15px var(--font); letter-spacing: 0; text-transform: none; }
 
 /* Sort inbox: wider, taller tiles; the running view sits in Dashboard cards. */
 .sort-choices.mt-row { max-width: none; }
@@ -4825,3 +4780,71 @@ body:not([data-screen="setup"]) .screen { padding-bottom: 128px; }
 #recent-list > .empty-state { display: grid; justify-items: center; gap: 14px; }
 #recent-list > .empty-state p { margin: 0; }
 .page-back { display: block; margin-bottom: 8px; }
+/* A new build is waiting: one quiet line above the page, not a banner. */
+.update-toast { position: fixed; z-index: 60; left: 50%; bottom: 24px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px;
+  max-width: calc(100vw - 32px); padding: 8px 8px 8px 14px; border: 1px solid var(--hairline); border-radius: 14px; background: var(--glass-solid, #2c2c2e);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .28); color: var(--label); font: 500 14px/1.3 var(--font); }
+.update-toast[hidden] { display: none; }
+.update-toast svg { flex: none; width: 18px; height: 18px; fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.update-toast p { margin: 0; }
+.update-toast .btn { height: 30px; padding: 0 14px; border-radius: 9px; background: var(--accent); color: #fff; font-weight: 600; }
+#status[data-loading] { display: none; }
+
+/* Chart cards' tools: the Dashboard's pills, one height for menus and buttons. */
+.chart-tools { display: flex; gap: 8px; }
+.chart-tools .chart-tool, .chart-tools .dl-wrap > .chart-tool { display: inline-flex; box-sizing: border-box; min-height: 0; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--hairline); border-radius: 999px;
+  background: transparent; color: var(--label); font: 500 13px var(--font); cursor: pointer; }
+.chart-tools select.chart-tool { padding-right: 28px; appearance: none; background: no-repeat right 10px center / 12px
+  url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%238e8e93%27 stroke-width=%272.5%27 stroke-linecap=%27round%27%3E%3Cpath d=%27m6 9 6 6 6-6%27/%3E%3C/svg%3E"); }
+select.chart-tool option { background: var(--glass-solid, #2c2c2e); color: var(--label); }
+.chart-tools .chart-tool:hover { background-color: var(--neutral-fill); }
+.chart-tool svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* Stacked bars: kinds piled in their colors, the tip lists each. */
+.mr-bar.is-stack { display: flex; flex-direction: column-reverse; overflow: hidden; background: none; }
+.mr-seg { display: block; min-height: 1px; flex-basis: 0; transition: opacity .15s ease; }
+.mr-seg.is-off, .mr-seg.is-dim { opacity: .25; }
+.mr-tip-rows { display: grid; gap: 3px; margin-top: 6px; min-width: 140px; }
+.mr-tip-row { display: flex; align-items: center; gap: 7px; color: var(--label-2); }
+.mr-tip-row i { width: 8px; height: 8px; border-radius: 50%; }
+.mr-tip-row b { margin-left: auto; padding-left: 12px; }
+/* The kinds as dots under the chart. */
+.mr-legend { justify-content: flex-start; padding-top: 4px; }
+.mr-key { display: inline-flex; align-items: center; gap: 7px; padding: 4px 8px; border: 0; border-radius: 8px; background: none; color: var(--label-2); font: 500 13px var(--font); }
+button.mr-key { cursor: pointer; }
+button.mr-key:hover, .mr-key[aria-pressed="true"] { background: var(--neutral-fill); color: var(--label); }
+.mr-key i { width: 8px; height: 8px; border-radius: 50%; }
+.mr-key b { color: var(--label); font-weight: 600; }
+.mr-key.is-off { opacity: .45; }
+#cu-chart .mr-body { flex: 1; }
+#cu-chart .mr-chart { margin-bottom: 8px; }
+/* Labels: bigger tags, emoji in one fixed box, names as buttons, counts in words. */
+[data-screen="organize"] .org-row .gl-tag { width: 34px; height: 34px; }
+[data-screen="organize"] .org-row .gl-tag svg { width: 26px; height: 26px; }
+.org-row.is-link { cursor: pointer; }
+.org-row.is-link:hover { background: var(--neutral-fill); }
+button.org-link { display: inline-flex; align-items: center; gap: 10px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.org-emoji { display: inline-grid; place-items: center; width: 26px; height: 26px; flex: none; font-size: 20px; line-height: 1; }
+/* A label's page: title and tools, the chart card, then who sends it. */
+#label-page { display: grid; gap: 20px; }
+#label-page[hidden] { display: none; }
+.lp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.lp-title { margin: 0; font: 700 28px/1.2 var(--font-display); letter-spacing: -.01em; color: var(--label); }
+.lp-lead { margin: 4px 0 0; color: var(--label-3); font-size: 15px; }
+a.chart-tool { text-decoration: none; }
+.lp-card .mr-chart { margin: 8px 0 0; }
+.lp-table .ct-table { width: 100%; }
+.lp-table th.num, .lp-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.lp-table .ct-name { display: inline-flex; align-items: center; gap: 12px; }
+.lp-share-h { width: 34%; }
+.lp-share { display: flex; align-items: center; gap: 12px; }
+.lp-share .lp-bar { display: block; height: 8px; min-width: 2px; max-width: 60%; border-radius: 4px; background: var(--label-4); opacity: .6; }
+.lp-share span { margin-left: auto; font-variant-numeric: tabular-nums; }
+.lp-track { flex: 0 1 240px; height: 8px; border-radius: 4px; background: var(--neutral-fill); overflow: hidden; }
+.lp-share .lp-bar { max-width: none; height: 100%; opacity: 1; background: var(--label-3); }
+/* A label's page has its own title, so the list's heading steps aside. */
+section[data-screen="organize"].paged > .page-head { display: none !important; }
+/* Security's Threats chart and faked brands, in the Dashboard's card style. */
+#sec-kpis:has(+ #sec-trend) { margin-bottom: 0; }
+#sec-trend { margin: -8px 0 0; }
+#sec-trend .ov-card { display: flex; flex-direction: column; min-width: 0; }
+#sec-trend .mr-body { flex: 1; }

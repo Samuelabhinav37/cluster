@@ -770,15 +770,47 @@ function inboxCard(f: HomeFacts): HTMLElement {
 
 const compact = new Intl.NumberFormat(undefined, { notation: "compact" });
 
+/** One kind of mail in a stacked chart. */
+export interface ChartSeries {
+  key: string;
+  label: string;
+  color: string;
+  counts: readonly number[];
+}
+
+export interface ChartOptions {
+  /** Clicking a day: its start. The tip then says what the click does. */
+  openDay?: (dayStart: number) => void;
+  /** Words under the tip's numbers for a click, e.g. "Open in Gmail". */
+  openLabel?: string;
+  /** Only this kind is lit; the others fade. */
+  active?: string | null;
+}
+
 function barChart(counts: readonly number[], now: number, openDay?: (dayStart: number) => void): HTMLElement {
+  return dayChart([{ key: "all", label: "Emails", color: "", counts }], now, { openDay, openLabel: "Open in Gmail" });
+}
+
+/** Emails each day as bars, stacked by kind when there is more than one, with
+ * the Dashboard's axes, dates and hover tip. Shared by Dashboard, Cleanup,
+ * Labels and Security so every chart reads the same way. */
+export function dayChart(series: readonly ChartSeries[], now: number, o: ChartOptions = {}): HTMLElement {
+  const days = series[0]?.counts.length ?? 0;
+  const totals = Array.from({ length: days }, (_, i) => series.reduce((sum, s) => sum + (s.counts[i] ?? 0), 0));
+  const stacked = series.length > 1 || series.some((s) => s.color);
   const wrap = el("div", "mr-chart");
   wrap.setAttribute("role", "img");
-  wrap.setAttribute("aria-label", `Emails each day, last ${counts.length} days: ${counts.join(", ")}`);
-  const step = niceStep(Math.max(...counts, 0));
-  const top = step * Math.max(1, Math.ceil(Math.max(...counts, 1) / step));
-  const last = counts.length - 1;
+  wrap.setAttribute(
+    "aria-label",
+    stacked
+      ? `Emails each day, last ${days} days: ${series.map((s) => `${s.label} ${s.counts.reduce((x, y) => x + y, 0)}`).join(", ")}`
+      : `Emails each day, last ${days} days: ${totals.join(", ")}`,
+  );
+  const step = niceStep(Math.max(...totals, 0));
+  const top = step * Math.max(1, Math.ceil(Math.max(...totals, 1) / step));
+  const last = days - 1;
   const plot = el("div", "mr-plot");
-  plot.style.setProperty("--n", String(counts.length));
+  plot.style.setProperty("--n", String(days));
   for (let v = 0; v <= top; v += step) {
     const line = el("i", "mr-grid");
     line.style.bottom = `${(v / top) * 100}%`;
@@ -786,53 +818,78 @@ function barChart(counts: readonly number[], now: number, openDay?: (dayStart: n
     label.style.bottom = `${(v / top) * 100}%`;
     plot.append(line, label);
   }
+  const dayAt = (i: number) => new Date(now - (last - i) * 86_400_000);
   const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   const xs = el("div", "mr-xs");
   const bars: HTMLElement[] = [];
-  const tickEvery = Math.max(1, Math.round(counts.length / 7.5));
-  counts.forEach((c, i) => {
-    const day = new Date(now - (last - i) * 24 * 60 * 60 * 1000);
-    const bar = el("i", "mr-bar");
+  const tickEvery = Math.max(1, Math.round(days / 7.5));
+  for (let i = 0; i < days; i++) {
+    const day = dayAt(i);
+    const bar = el("i", stacked ? "mr-bar is-stack" : "mr-bar");
     bar.style.gridColumn = String(i + 1);
-    bar.style.height = `${(c / top) * 100}%`;
+    bar.style.height = `${(totals[i] / top) * 100}%`;
     bar.style.setProperty("--i", String(i));
+    if (stacked)
+      for (const s of series) {
+        if (!s.counts[i]) continue;
+        const seg = el("i", "mr-seg");
+        seg.dataset.key = s.key;
+        seg.style.background = s.color;
+        seg.style.flexGrow = String(s.counts[i]);
+        if (o.active && o.active !== s.key) seg.classList.add("is-off");
+        bar.append(seg);
+      }
     bars.push(bar);
     plot.append(bar);
     // About eight dates across the range, counted back from its last day, with a dashed line up.
-    if ((last - i) % tickEvery !== tickEvery >> 1) return;
-    const x = `${((i + 0.5) / counts.length) * 100}%`;
+    if ((last - i) % tickEvery !== tickEvery >> 1) continue;
+    const x = `${((i + 0.5) / days) * 100}%`;
     const tick = el("i", "mr-tick");
     tick.style.left = x;
     plot.append(tick);
     const label = el("span", day.getDate() === 1 ? "mr-x is-first" : "mr-x", fmt(day));
     label.style.left = x;
     xs.append(label);
-  });
+  }
   // Each day owns its whole column, so moving across the gaps doesn't flicker.
   const tip = el("div", "mr-tip");
   tip.hidden = true;
   plot.append(tip);
-  plot.addEventListener("mousemove", (e) => {
+  const dayFrom = (e: MouseEvent) => {
     const r = plot.getBoundingClientRect();
-    if (!r.width) return;
-    const i = Math.min(last, Math.max(0, Math.floor(((e.clientX - r.left) / r.width) * counts.length)));
+    return r.width ? Math.min(last, Math.max(0, Math.floor(((e.clientX - r.left) / r.width) * days))) : -1;
+  };
+  plot.addEventListener("mousemove", (e) => {
+    const i = dayFrom(e);
+    if (i < 0) return;
     plot.classList.add("is-picking");
     bars.forEach((b, j) => b.classList.toggle("on", j === i));
-    const c = counts[i];
+    const c = totals[i];
     tip.textContent = "";
-    tip.append(el("b", "", n(c)), ` email${c === 1 ? "" : "s"} · ${fmt(new Date(now - (last - i) * 86_400_000))}`);
-    if (openDay && c > 0) tip.append(el("span", "mr-tip-go", "Open in Gmail"));
-    tip.style.left = `${((i + 0.5) / counts.length) * 100}%`;
+    tip.append(el("b", "", n(c)), ` email${c === 1 ? "" : "s"} · ${fmt(dayAt(i))}`);
+    // Several kinds: one line per kind that had mail that day, with its color.
+    if (series.length > 1 && c > 0) {
+      const list = el("span", "mr-tip-rows");
+      for (const s of series) {
+        if (!s.counts[i]) continue;
+        const row = el("span", "mr-tip-row");
+        const dot = el("i", "");
+        dot.style.background = s.color;
+        row.append(dot, el("span", "", s.label), el("b", "", n(s.counts[i])));
+        list.append(row);
+      }
+      tip.append(list);
+    }
+    if (o.openDay && c > 0) tip.append(el("span", "mr-tip-go", o.openLabel ?? "Open"));
+    tip.style.left = `${((i + 0.5) / days) * 100}%`;
     tip.style.bottom = `calc(${(c / top) * 100}% + 8px)`;
     tip.hidden = false;
   });
-  if (openDay) {
+  if (o.openDay) {
     plot.classList.add("is-link");
     plot.addEventListener("click", (e) => {
-      const r = plot.getBoundingClientRect();
-      if (!r.width) return;
-      const i = Math.min(last, Math.max(0, Math.floor(((e.clientX - r.left) / r.width) * counts.length)));
-      if (counts[i] > 0) openDay(new Date(now - (last - i) * 86_400_000).setHours(0, 0, 0, 0));
+      const i = dayFrom(e);
+      if (i >= 0 && totals[i] > 0) o.openDay!(dayAt(i).setHours(0, 0, 0, 0));
     });
   }
   plot.addEventListener("mouseleave", () => {
@@ -842,6 +899,43 @@ function barChart(counts: readonly number[], now: number, openDay?: (dayStart: n
   });
   wrap.append(plot, xs);
   return wrap;
+}
+
+/** Dots under a chart, one per kind with its total. Hover lights that kind; click picks it. */
+export function chartLegend(series: readonly ChartSeries[], chart: HTMLElement, o: { active?: string | null; onPick?: (key: string) => void } = {}): HTMLElement {
+  const legend = el("div", "ov-legend mr-legend");
+  const focus = (key: string | null) => {
+    for (const seg of Array.from(chart.querySelectorAll<HTMLElement>(".mr-seg"))) seg.classList.toggle("is-dim", key !== null && seg.dataset.key !== key);
+  };
+  for (const s of series) {
+    const item = el(o.onPick ? "button" : "span", "mr-key", s.label);
+    if (item instanceof HTMLButtonElement) {
+      item.type = "button";
+      item.setAttribute("aria-pressed", String(o.active === s.key));
+      item.onclick = () => o.onPick!(s.key);
+    }
+    item.dataset.key = s.key;
+    item.classList.toggle("is-off", !!o.active && o.active !== s.key);
+    const dot = el("i", "");
+    dot.style.background = s.color;
+    item.prepend(dot);
+    item.append(el("b", "", n(s.counts.reduce((x, y) => x + y, 0))));
+    item.onmouseenter = item.onfocus = () => focus(s.key);
+    item.onmouseleave = item.onblur = () => focus(null);
+    legend.append(item);
+  }
+  return legend;
+}
+
+/** A chart card's left column: label above a big number, as on Received Mails. */
+export function chartStats(rows: ReadonlyArray<[label: string, value: string, extra?: HTMLElement]>): HTMLElement {
+  const stats = el("dl", "mr-stats");
+  for (const [k, v, extra] of rows) {
+    const dd = el("dd", "", v);
+    if (extra) dd.append(extra);
+    stats.append(el("dt", "", k), dd);
+  }
+  return stats;
 }
 
 // Shades of one blue, darkest to lightest, so the kinds differ without new colors.

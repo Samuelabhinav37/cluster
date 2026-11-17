@@ -15,13 +15,14 @@ import { domainOf } from "../lib/domainGrouping";
 import { deliverNewsletters, HOLD_HOURS, newsletterDayOn } from "../lib/newsletterDay";
 import type { SenderSummary } from "../lib/senderModel";
 import { ALL_SORT_BUCKETS, effectiveBucket, type SortBucket } from "../lib/sortTaxonomy";
-import { BUCKET_KIND, gmailLabelIcon, gmailUrl, HOME_KINDS, icon } from "./homeDashboard";
+import { BUCKET_KIND, gmailLabelIcon, HOME_KINDS, icon } from "./homeDashboard";
+import { showLabelPage } from "./labelPage";
 import { ctx } from "./state";
 
 const rowsEl = document.getElementById("time-limits-rows") as HTMLDivElement | null;
 const statusEl = document.getElementById("time-limits-status") as HTMLParagraphElement | null;
 
-/** Menu choices after Off: hours, or null for "label only". */
+/** Every time a label can wait in the inbox: hours, or null for "label only". */
 export const LIMIT_CHOICES: { label: string; hours: number | null }[] = [
   { label: "Label only", hours: null },
   { label: "Skip the inbox", hours: 0 },
@@ -35,6 +36,11 @@ export const LIMIT_CHOICES: { label: string; hours: number | null }[] = [
   { label: "Move after 2 weeks", hours: 336 },
   { label: "Move after 30 days", hours: 720 },
 ];
+
+/** What a label's menu offers: Gmail's and Superhuman's two moves (label it, or
+ * skip the inbox) plus a day and a week. Any other stored time is added back
+ * to that one menu so it never silently changes. */
+const MENU_HOURS = new Set<number | null>([null, 0, 24, 168]);
 
 /** "Keep in inbox": one menu that sets every label's time at once. */
 const WINDOW_CHOICES = [
@@ -151,6 +157,17 @@ export function labelCount(bucket: SortBucket): number {
   return gmailCounts.get(bucket) ?? nowByBucket.get(bucket) ?? 0;
 }
 
+/** Hides the menu's extra times except the one chosen, so a stored 3 hours still shows. */
+function trimMenu(select: HTMLSelectElement): void {
+  for (const option of Array.from(select.options)) if ("extra" in option.dataset) option.hidden = !option.selected;
+}
+
+/** A label's own page, from the senders Labels last drew with. */
+function openLabel(bucket: SortBucket): void {
+  showLabelPage(bucket, presetSenders.length ? presetSenders : ctx.senders, BUCKET_HINT[bucket]);
+  window.scrollTo(0, 0);
+}
+
 /** Labels with no mail are hidden (Superhuman hides empty splits) until asked. */
 let showAllLabels = false;
 
@@ -159,7 +176,10 @@ function renderKindSubs(): void {
   let empty = 0;
   for (const bucket of ALL_SORT_BUCKETS) {
     const count = document.getElementById(`time-limit-count-${bucket}`);
-    if (count) count.textContent = labelCount(bucket).toLocaleString();
+    // "13 emails": Gmail's count of mail under the label, said in words.
+    const menu = selectFor(bucket);
+    if (menu) trimMenu(menu);
+    if (count) count.textContent = `${labelCount(bucket).toLocaleString()} email${labelCount(bucket) === 1 ? "" : "s"}`;
     const row = count?.closest<HTMLElement>(".ios-row");
     if (row) {
       row.hidden = !showAllLabels && labelCount(bucket) === 0;
@@ -192,16 +212,18 @@ export function renderTimeLimits(): void {
     const mark = gmailLabelIcon(CLUSTER_LABEL_COLORS[bucket]?.backgroundColor);
     const words = document.createElement("span");
     words.className = "grow";
-    // The count is Gmail's own, so the label opens in Gmail, where the same emails are.
-    const link = Object.assign(document.createElement("a"), {
-      className: "org-link",
-      href: gmailUrl(undefined, `search/${encodeURIComponent(`label:"${labelName(bucket).replace(/"/g, "")}"`)}`),
-      target: "_blank",
-      rel: "noopener",
-      textContent: name,
-    });
-    link.setAttribute("aria-label", `${name}: open in Gmail`);
-    words.append(link);
+    // The name opens the label's own page; its emoji sits in a fixed box so every row lines up.
+    const open = Object.assign(document.createElement("button"), { type: "button", className: "org-link" });
+    const [, emoji = "", rest = name] = /^(\p{Extended_Pictographic}\uFE0F?)\s*(.*)$/u.exec(name) ?? [];
+    if (emoji) open.append(Object.assign(document.createElement("span"), { className: "org-emoji", textContent: emoji }));
+    open.append(rest);
+    open.onclick = () => openLabel(bucket);
+    words.append(open);
+    // The rest of the row opens it too; the menu keeps its own clicks.
+    row.classList.add("is-link");
+    row.onclick = (e) => {
+      if (!(e.target instanceof Element && e.target.closest("select, button"))) openLabel(bucket);
+    };
     const count = Object.assign(document.createElement("span"), {
       className: "ios-value",
       id: `time-limit-count-${bucket}`,
@@ -211,8 +233,15 @@ export function renderTimeLimits(): void {
     select.className = "kind-pick";
     select.setAttribute("aria-label", `${name}: where it goes`);
     select.add(new Option("Off", OFF));
-    for (const choice of LIMIT_CHOICES) select.add(new Option(choice.label, choiceValue(choice.hours)));
+    for (const choice of LIMIT_CHOICES) {
+      const option = new Option(choice.label, choiceValue(choice.hours));
+      // Every time stays settable (Time in inbox, setup and presets use them); the menu lists four.
+      if (!MENU_HOURS.has(choice.hours)) option.dataset.extra = "";
+      select.add(option);
+    }
     select.value = storedValue(bucket);
+    trimMenu(select);
+    select.addEventListener("change", () => trimMenu(select));
     select.onchange = () => void queueSave();
     row.append(mark, words, count, select);
     return row;

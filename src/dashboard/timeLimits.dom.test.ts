@@ -40,7 +40,7 @@ describe("Where each kind of mail goes", () => {
     expect(icon.style.color).not.toBe("");
 
     // A muted count sits on each row; the weekly rate is on hover.
-    expect(dash.el("time-limit-count-travel").textContent).toMatch(/^\d+$/);
+    expect(dash.el("time-limit-count-travel").textContent).toMatch(/^\d+ emails?$/);
     // Every label can skip the inbox.
     const values = (id: string) => Array.from((dash.el(id) as HTMLSelectElement).options).map((o) => o.value);
     expect(values("time-limit-otp")).toEqual(expect.arrayContaining(["off", "stay", "0", "24"]));
@@ -112,7 +112,7 @@ describe("Where each kind of mail goes", () => {
     expect(dash.el("sort-inbox-bar").hidden).toBe(true);
 
     // The fixture's mail is all older than 10 minutes, so all of a kind moves.
-    const count = (k: HTMLSelectElement) => Number(dash.el(k.id.replace("time-limit-", "time-limit-count-")).textContent);
+    const count = (k: HTMLSelectElement) => parseInt(dash.el(k.id.replace("time-limit-", "time-limit-count-")).textContent!, 10);
     const busy = kinds.find((k) => count(k) > 0)!;
     const n = count(busy);
     const emails = `${n} email${n === 1 ? "" : "s"}`;

@@ -93,9 +93,10 @@
 
         <!-- ── Main ──────────────────────────────────────────────────── -->
         <main class="app-main">
-          <div id="reload-banner" class="banner" role="alert" hidden>
-            <p>Cluster was updated. Reload it so the new version runs.</p>
-            <button type="button" id="reload-btn" class="btn btn-accent">Reload Cluster</button>
+          <div id="reload-banner" class="update-toast" role="status" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 4v7h-7"></path></svg>
+            <p>A new version of Cluster is ready.</p>
+            <button type="button" id="reload-btn" class="btn">Reload</button>
           </div>
           <div class="top-bar">
               <span aria-hidden="true"></span>
@@ -303,8 +304,10 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Labels</h1>
+                <p class="page-sub">What Cluster files in Gmail, and how long each label stays in your inbox.</p>
               </div>
             </div>
+            <div id="label-page" class="cu-page" hidden></div>
 
             <section id="sort-inbox-section">
               <div id="time-limits-rows" class="org-list"></div>
@@ -342,6 +345,7 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Security</h1>
+                <p class="page-sub">Senders faking a name, mail held back, and the checks Cluster runs on every sender.</p>
               </div>
             </div>
             <div class="cu-top sec-top" id="sec-kpis" data-state="clean">
@@ -373,6 +377,7 @@
                 <ol class="sec-checklist" id="report-kinds"></ol>
               </div>
             </div>
+            <div class="ov-row ov-row-bottom" id="sec-trend"></div>
             <div hidden>
               <div class="glass-card chart-card tile-wide" id="report-held-card" hidden>
                 <h2>Scams per week</h2>

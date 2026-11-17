@@ -94,7 +94,7 @@ import { pruneSelection, renderConfirmStep, runNow } from "./ui";
 import { buildCleanupCards } from "../lib/cleanupCards";
 import { createRangePicker } from "./rangePicker";
 import { barsSvg, downloadBytes, emailRows, emailsCsv, emailsXlsx, periodFacts, printReport, reportHtml, wireDownloadMenu, type ReportSpec } from "./reportDownload";
-import { changeChip, dailyCounts, stackChart, pageRows, renderCleanupPage, renderSenderTable, setTableFilter, type PageItem } from "./cleanupPage";
+import { changeChip, dailyCounts, pageRows, renderCleanupPage, renderSenderTable, setTableFilter, type PageItem } from "./cleanupPage";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { keepNewestExcess, olderReadExcess } from "../lib/keepNewest";
 import { deliveredUpdates } from "../lib/orderEvents";
@@ -103,6 +103,8 @@ import { renderRulesTab, wireRulesTab } from "./rulesTab";
 import { renderLearned, SIGNED_OUT_KEY, wireSettingsMore } from "./settingsMore";
 import { initBodyChecks, rankFlagged, renderSecuritySection } from "./securityTab";
 import { paintChecks, renderSecurityCharts, wireProtectPages } from "./reportTab";
+import { wireLabelPage } from "./labelPage";
+import { renderSecurityTrend } from "./securityTrend";
 import { heldByWeek } from "../lib/scamHistory";
 import { setupSignedIn, wireSetup } from "./setupTab";
 import { firstName, showWelcome } from "./welcome";
@@ -123,6 +125,9 @@ import {
   filedByDay,
   type HomeAct,
   type HomeFacts,
+  chartLegend,
+  chartStats,
+  dayChart,
 } from "./homeDashboard";
 import {
   detailSenders,
@@ -815,6 +820,7 @@ async function main() {
     { details: (filter) => details?.open(filter), go: goAndAct },
   );
   wireProtectPages((key) => details?.open({ view: "emails", senderKey: key }));
+  wireLabelPage((key) => details?.open({ view: "emails", senderKey: key }));
   autoQuarantineToggle.checked = ctx.settings.autoQuarantineHighRisk;
   autoQuarantineToggle.onchange = async () => {
     ctx.settings = await updateSettings({ autoQuarantineHighRisk: autoQuarantineToggle.checked });
@@ -905,6 +911,7 @@ function wireOfflineHandling() {
   };
 
   window.addEventListener("offline", () => {
+    delete statusEl.dataset.loading;
     statusEl.hidden = false;
     statusEl.textContent = "You're offline. Reconnect to continue.";
     setActionsDisabled(true);
@@ -1256,6 +1263,8 @@ async function scanAndRender({
     statusEl.hidden = false;
     indexStatusEl.hidden = true;
     statusEl.textContent = "Getting your mailbox ready…";
+    // Still "busy" for the guards that read it, but out of sight: the Dashboard's scan card shows reading.
+    statusEl.dataset.loading = "";
   }
 
   const store = await openMailIndex();
@@ -1412,6 +1421,7 @@ async function scanAndRender({
   safeRender("delete", () => renderExpirySection(senders));
   safeRender("impersonation", () => renderSecuritySection(securitySenders));
   safeRender("security charts", () => renderSecurityCharts(securitySenders));
+  safeRender("security trend", () => renderSecurityTrend(securitySenders, (key) => details?.open({ view: "emails", senderKey: key })));
   safeRender("subscriptions", () => renderSubscriptionsTab(senders));
   safeRender("delete", () => renderNeverReadSection(senders));
   safeRender("organize", () => renderSortInbox(senders));
@@ -1758,6 +1768,7 @@ function showScanError(err: unknown) {
   // Settings-derived tabs don't need scan data — keep them populated even
   // when the scan itself failed.
   renderRulesTab();
+  delete statusEl.dataset.loading;
   statusEl.hidden = false;
   statusEl.innerHTML = "";
 
@@ -1908,8 +1919,10 @@ function paintCleanupChart(kpi: "never" | "old" | "lists" | null) {
     foot.replaceChildren(...(chip ? [chip, "from 4 weeks before"] : [foot.dataset.note ?? ""]));
   }
   const kinds = cleanupKinds();
+  // The Dashboard's Received Mails card, stacked by kind: title and tools, numbers
+  // left, chart right, the kinds as dots underneath.
   const pickDays = document.createElement("select");
-  pickDays.className = "sc-pick";
+  pickDays.className = "chart-tool";
   pickDays.setAttribute("aria-label", "Days shown");
   for (const d of [14, 28, 90]) pickDays.add(new Option(`${d} days`, String(d), false, d === cuDays));
   pickDays.onchange = () => {
@@ -1917,13 +1930,32 @@ function paintCleanupChart(kpi: "never" | "old" | "lists" | null) {
     paintCleanupChart(kpi);
   };
   const dl = document.getElementById("cu-dl-wrap") ?? cleanupDownload();
-  document.getElementById("cu-chart")?.replaceChildren(
-    stackChart(
-      kinds.map((k) => ({ key: k.key, label: k.label, color: k.color, counts: dailyCounts(k.items, now, cuDays) })),
-      now,
-      { active: kpi, onPick: (key) => document.querySelector<HTMLElement>(`.cu-card[data-page="${key}"]`)?.click(), tools: [pickDays, dl] },
-    ),
+  const series = kinds.map((k) => ({ key: k.key, label: k.label, color: k.color, counts: dailyCounts(k.items, now, cuDays) }));
+  const chart = dayChart(series, now, { active: kpi });
+  const pick = (key: string) => document.querySelector<HTMLElement>(`.cu-card[data-page="${key}"]`)?.click();
+  const totals = series.map((x) => x.counts.reduce((a, b) => a + b, 0));
+  const total = totals.reduce((a, b) => a + b, 0);
+  const most = series[totals.indexOf(Math.max(...totals))];
+  const head = document.createElement("div");
+  head.className = "mr-head";
+  const title = document.createElement("h2");
+  title.className = "mr-title";
+  title.textContent = "Breakdown";
+  const tools = document.createElement("div");
+  tools.className = "chart-tools";
+  tools.append(pickDays, dl);
+  head.append(title, tools);
+  const body = document.createElement("div");
+  body.className = "mr-body";
+  body.append(
+    chartStats([
+      ["Total", total.toLocaleString()],
+      ["Per day", Math.round(total / cuDays).toLocaleString()],
+      ...(total ? [["Most", most.label] as [string, string]] : []),
+    ]),
+    chart,
   );
+  document.getElementById("cu-chart")?.replaceChildren(head, body, chartLegend(series, chart, { active: kpi, onPick: pick }));
 }
 
 /** Cleanup's Download: the page as a report, or every email it lists as a CSV. */
@@ -1931,7 +1963,7 @@ function cleanupDownload(): HTMLElement {
   const wrap = document.createElement("div");
   wrap.className = "dl-wrap";
   wrap.id = "cu-dl-wrap";
-  wrap.innerHTML = `<button type="button" class="sc-btn" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 10l5 5 5-5M5 21h14"></path></svg>Download</button>
+  wrap.innerHTML = `<button type="button" class="chart-tool" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 10l5 5 5-5M5 21h14"></path></svg>Download</button>
     <div class="dl-menu" role="menu" hidden><button type="button" role="menuitem" data-dl="pdf">Report<span>PDF</span></button><button type="button" role="menuitem" data-dl="xlsx">Emails to clean up<span>Excel</span></button><button type="button" role="menuitem" data-dl="csv">Emails to clean up<span>CSV</span></button></div>`;
   const rows = () =>
     emailRows(
@@ -2585,6 +2617,7 @@ main().catch((err) => {
       : typeof (err as { message?: unknown })?.message === "string"
         ? (err as { message: string }).message
         : "unknown error";
+  delete statusEl.dataset.loading;
   statusEl.hidden = false;
   statusEl.innerHTML = "";
   const text = document.createElement("span");
