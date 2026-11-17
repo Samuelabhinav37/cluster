@@ -107,7 +107,9 @@ import { markLearnedTransactional } from "../lib/kindModel";
 import { isAuthCancelled } from "../lib/chromeError";
 import { formatRelativeTime, infoButton, pruneSelection, renderConfirmStep, runNow } from "./ui";
 import { buildCleanupCards } from "../lib/cleanupCards";
-import { changeChip, dailyCounts, lineChart, pageRows, renderCleanupPage, renderSenderTable, type PageItem } from "./cleanupPage";
+import { createRangePicker } from "./rangePicker";
+import { downloadText, emailsCsv, printReport, wireDownloadMenu } from "./reportDownload";
+import { changeChip, dailyCounts, stackChart, pageRows, renderCleanupPage, renderSenderTable, type PageItem } from "./cleanupPage";
 import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { keepNewestExcess, olderReadExcess } from "../lib/keepNewest";
 import { deliveredUpdates } from "../lib/orderEvents";
@@ -583,67 +585,41 @@ function rangeLabel(r: { start: number; end: number }): string {
   return r.end === new Date().setHours(0, 0, 0, 0) ? `Last ${rangeLength(r)} days` : rangeText(r);
 }
 
-const toInput = (ms: number) => {
+function wireRangePicker(): void {
+  const button = document.getElementById("overview-range-btn") as HTMLButtonElement | null;
+  const pop = document.getElementById("range-pop");
+  if (!button || !pop) return;
+  createRangePicker({
+    button,
+    pop,
+    current: () => range,
+    // Only days Cluster has read can be picked.
+    oldest: () => (lastOverview ? oldestRead(lastOverview[2]) : undefined),
+    onPick: (r) => {
+      range = r;
+      paintGreeting();
+      if (lastOverview) renderOverview(...lastOverview);
+    },
+  });
+  // Download: the Dashboard as a report, or the range's emails as a CSV.
+  const dl = document.getElementById("overview-dl") as HTMLButtonElement | null;
+  const menu = document.getElementById("overview-dl-menu");
+  if (!dl || !menu) return;
+  wireDownloadMenu(dl, menu, {
+    pdf: () => printReport("Mail report", rangeText(range)),
+    csv: () => {
+      const end = new Date(range.end);
+      end.setDate(end.getDate() + 1);
+      const senders = lastOverview?.[2] ?? [];
+      downloadText(`cluster-emails-${isoDay(range.start)}-to-${isoDay(range.end)}.csv`, emailsCsv(senders.map((sender) => ({ sender })), range.start, end.getTime()), "text/csv");
+    },
+  });
+}
+
+const isoDay = (ms: number) => {
   const d = new Date(ms);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
-const fromInput = (v: string) => {
-  const [y, m, d] = v.split("-").map(Number);
-  return new Date(y, m - 1, d).getTime();
-};
-
-function wireRangePicker(): void {
-  const btn = document.getElementById("overview-range-btn") as HTMLButtonElement | null;
-  const pop = document.getElementById("range-pop");
-  const from = document.getElementById("range-from") as HTMLInputElement | null;
-  const to = document.getElementById("range-to") as HTMLInputElement | null;
-  if (!btn || !pop || !from || !to) return;
-  const close = () => {
-    pop.hidden = true;
-    btn.setAttribute("aria-expanded", "false");
-  };
-  const apply = (r: { start: number; end: number }) => {
-    range = r;
-    close();
-    paintGreeting();
-    if (lastOverview) renderOverview(...lastOverview);
-  };
-  btn.onclick = () => {
-    if (!pop.hidden) return close();
-    const today = toInput(new Date().setHours(0, 0, 0, 0));
-    // Only days Cluster has read can be picked.
-    const oldest = lastOverview ? oldestRead(lastOverview[2]) : undefined;
-    for (const input of [from, to]) {
-      input.max = today;
-      input.min = oldest ? toInput(oldest) : "";
-    }
-    from.value = toInput(range.start);
-    to.value = toInput(range.end);
-    pop.hidden = false;
-    btn.setAttribute("aria-expanded", "true");
-    from.focus();
-  };
-  for (const b of Array.from(pop.querySelectorAll<HTMLButtonElement>("[data-range-days]"))) {
-    b.onclick = () => apply(lastDays(Number(b.dataset.rangeDays)));
-  }
-  document.getElementById("range-apply")!.onclick = () => {
-    if (!from.value || !to.value) return;
-    const a = fromInput(from.value);
-    const b = fromInput(to.value);
-    // shortcut: a range is capped at two years of bars, longer would be hairlines.
-    const start = Math.max(Math.min(a, b), new Date(Math.max(a, b)).setFullYear(new Date(Math.max(a, b)).getFullYear() - 2));
-    apply({ start, end: Math.max(a, b) });
-  };
-  document.addEventListener("click", (e) => {
-    if (!pop.hidden && e.target instanceof Node && !pop.contains(e.target) && !btn.contains(e.target)) close();
-  });
-  pop.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      close();
-      btn.focus();
-    }
-  });
-}
 
 async function showAccountPill(token: string) {
   try {
@@ -1802,29 +1778,10 @@ function updateSenderState(senders: SenderSummary[]) {
 function renderDeleteScreen(senders: SenderSummary[]) {
   const plan = clearOutPlan(senders);
   const n = (v: number) => v.toLocaleString();
-  document.getElementById("never-opened-card")!.hidden = plan.neverRead.length === 0;
   document.getElementById("never-opened-fact")!.textContent = n(plan.neverReadMsgs);
-  document.getElementById("past-date-card")!.hidden = plan.expiryTotal === 0;
   document.getElementById("past-date-fact")!.textContent = n(plan.expiryTotal);
-  // Name, a bar against the biggest, and the count; the rest fold into "N more".
-  const list = (id: string, rows: Array<[string, number]>) => {
-    rows.sort((a, b) => b[1] - a[1]);
-    const top = Math.max(1, rows[0]?.[1] ?? 1);
-    const shown: HTMLElement[] = rows.slice(0, 4).map(([name, count]) => {
-      const li = document.createElement("li");
-      const bar = document.createElement("i");
-      bar.style.width = `${Math.max(4, (count / top) * 100)}%`;
-      li.append(textEl("span", name), bar, textEl("em", n(count)));
-      return li;
-    });
-    if (rows.length > 4) shown.push(textEl("li", `${rows.length - 4} more senders`, "cu-more"));
-    document.getElementById(id)!.replaceChildren(...shown);
-  };
-  list("never-opened-top", plan.neverRead.map((s) => [senderName(s.sender), s.safeMessageIds.length]));
-  list("past-date-top", plan.expiry.filter((b) => b.count > 0).map((b) => [b.label, b.count]));
-  document.getElementById("lists-card")!.hidden = plan.lists.length === 0;
   document.getElementById("lists-fact")!.textContent = n(plan.lists.length);
-  list("lists-top", plan.lists.map((s) => [senderName(s), senderVolume(s)]));
+  document.getElementById("cu-total-fact")!.textContent = n(plan.neverReadMsgs + plan.expiryTotal);
   lastPlan = plan;
   document.getElementById("tab-count-subs")!.textContent = plan.lists.length ? n(plan.lists.length) : "";
   paintCleanupChart(cuKpi);
@@ -1853,21 +1810,68 @@ function cleanupItems(kpi: "never" | "old" | "lists" | null): PageItem[] {
   return kpi ? pageItems(kpi) : [...pageItems("never"), ...pageItems("old")];
 }
 
+/** Days the Cleanup chart covers, picked in its header. */
+let cuDays = 28;
+
 function paintCleanupChart(kpi: "never" | "old" | "lists" | null) {
   const now = Date.now();
   for (const card of Array.from(document.querySelectorAll<HTMLElement>(".cu-card[data-page]"))) {
-    const page = card.dataset.page as "never" | "old" | "lists";
-    card.classList.toggle("selected", page === kpi);
-    // This 28 days against the 28 before, from the same mail the KPI counts.
+    const page = card.dataset.page as "never" | "old" | "lists" | "all";
+    card.classList.toggle("selected", page === kpi || (page === "all" && kpi === null));
+    if (page === "all") continue;
+    // This 4 weeks against the 4 before, from the same mail the tile counts.
     const days = dailyCounts(cleanupItems(page), now, 56);
     const sum = (a: number[]) => a.reduce((n, v) => n + v, 0);
     const chip = changeChip(sum(days.slice(28)), sum(days.slice(0, 28)));
-    const num = card.querySelector(".cu-num")!;
-    num.querySelector(".pl-change")?.remove();
-    if (chip) num.append(chip);
+    const foot = card.querySelector<HTMLElement>(".cu-num")!;
+    foot.replaceChildren(...(chip ? [chip, "from 4 weeks before"] : [foot.dataset.note ?? ""]));
   }
-  const title = kpi ? ({ never: "Unopened", old: "Expired", lists: "Unused mailing lists" } as const)[kpi] : "Unopened and expired";
-  document.getElementById("cu-chart")?.replaceChildren(lineChart(dailyCounts(cleanupItems(kpi), now), now, "emails", title));
+  // Each email once, in the first kind that holds it.
+  const seen = new Set<string>();
+  const only = (items: PageItem[]) => items.map((it) => ({ ...it, ids: it.ids.filter((id) => !seen.has(id) && seen.add(id)) }));
+  const kinds = [
+    { key: "never", label: "Unopened", color: "#e5452b", items: only(cleanupItems("never")) },
+    { key: "old", label: "Expired", color: "#f2853a", items: only(cleanupItems("old")) },
+    { key: "lists", label: "Mailing lists", color: "#f7c948", items: only(cleanupItems("lists")) },
+  ];
+  const pickDays = document.createElement("select");
+  pickDays.className = "sc-pick";
+  pickDays.setAttribute("aria-label", "Days shown");
+  for (const d of [14, 28, 90]) pickDays.add(new Option(`${d} days`, String(d), false, d === cuDays));
+  pickDays.onchange = () => {
+    cuDays = Number(pickDays.value);
+    paintCleanupChart(kpi);
+  };
+  const dl = document.getElementById("cu-dl-wrap") ?? cleanupDownload();
+  document.getElementById("cu-chart")?.replaceChildren(
+    stackChart(
+      kinds.map((k) => ({ key: k.key, label: k.label, color: k.color, counts: dailyCounts(k.items, now, cuDays) })),
+      now,
+      { active: kpi, onPick: (key) => document.querySelector<HTMLElement>(`.cu-card[data-page="${key}"]`)?.click(), tools: [pickDays, dl] },
+    ),
+  );
+}
+
+/** Cleanup's Download: the page as a report, or every email it lists as a CSV. */
+function cleanupDownload(): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "dl-wrap";
+  wrap.id = "cu-dl-wrap";
+  wrap.innerHTML = `<button type="button" class="sc-btn" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 10l5 5 5-5M5 21h14"></path></svg>Download</button>
+    <div class="dl-menu" role="menu" hidden><button type="button" role="menuitem" data-dl="pdf">Report<span>PDF</span></button><button type="button" role="menuitem" data-dl="csv">Emails to clean up<span>CSV</span></button></div>`;
+  wireDownloadMenu(wrap.querySelector("button")!, wrap.querySelector(".dl-menu")!, {
+    pdf: () => printReport("Cleanup report", "Mail you can clear"),
+    csv: () => {
+      const reasons: Array<[string, PageItem[]]> = [
+        ["Unopened", cleanupItems("never")],
+        ["Expired", cleanupItems("old")],
+        ["Unused mailing list", cleanupItems("lists")],
+      ];
+      const rows = reasons.flatMap(([reason, items]) => items.map((it) => ({ sender: it.sender, ids: new Set(it.ids), reason })));
+      downloadText(`cluster-cleanup-${isoDay(Date.now())}.csv`, emailsCsv(rows, 0, Infinity), "text/csv");
+    },
+  });
+  return wrap;
 }
 let openPage: "never" | "old" | null = null;
 
@@ -1905,11 +1909,10 @@ function showCleanupPage(page: "never" | "old" | null) {
 function wireCleanupCards() {
   for (const card of Array.from(document.querySelectorAll<HTMLElement>(".cu-card[data-page]"))) {
     card.classList.add("row-link");
-    card.addEventListener("click", (e) => {
-      if (e.target instanceof HTMLElement && e.target.closest("button, a, input, label, .confirm-slot")) return;
+    card.addEventListener("click", () => {
       const page = card.dataset.page;
       if (page === "lists") return void selectScreen("subscriptions");
-      cuKpi = cuKpi === page ? null : (page as "never" | "old");
+      cuKpi = page === "all" || cuKpi === page ? null : (page as "never" | "old");
       if (document.querySelector('section[data-screen="subscriptions"]:not([hidden])')) void selectScreen("delete");
       renderDeleteScreen(ctx.senders);
     });

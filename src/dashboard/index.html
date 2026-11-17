@@ -9,6 +9,7 @@
     <div class="ambient" aria-hidden="true"></div>
 
     <div class="app-shell">
+      <div class="print-head" id="print-head"><h1></h1><p></p></div>
       <div class="app-body">
         <!-- ── Panel: search and every page ──────────────────────────── -->
         <div class="side-panel">
@@ -224,18 +225,15 @@
                   <svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg><span id="overview-range"></span>
                   <svg class="ov-range-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
                 </button>
-                <div class="range-pop" id="range-pop" role="dialog" aria-label="Date range" hidden>
-                  <div class="range-presets">
-                    <button type="button" data-range-days="7">Last 7 days</button>
-                    <button type="button" data-range-days="30">Last 30 days</button>
-                    <button type="button" data-range-days="90">Last 90 days</button>
-                    <button type="button" data-range-days="365">Last year</button>
-                  </div>
-                  <div class="range-fields">
-                    <label>From<input type="date" id="range-from" /></label>
-                    <label>To<input type="date" id="range-to" /></label>
-                  </div>
-                  <button type="button" class="btn" id="range-apply">Show</button>
+                <div class="range-pop" id="range-pop" role="dialog" aria-label="Date range" hidden></div>
+              </div>
+              <div class="dl-wrap">
+                <button type="button" class="ov-range" id="overview-dl" aria-haspopup="menu" aria-expanded="false" aria-controls="overview-dl-menu">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 10l5 5 5-5M5 21h14"></path></svg>Download
+                </button>
+                <div class="dl-menu" id="overview-dl-menu" role="menu" hidden>
+                  <button type="button" role="menuitem" data-dl="pdf">Report<span>PDF</span></button>
+                  <button type="button" role="menuitem" data-dl="csv">Emails in this range<span>CSV</span></button>
                 </div>
               </div>
             </div>
@@ -253,51 +251,36 @@
             </div>
 
             <div id="cu-head">
-            <div class="pl-card">
-            <div class="cu-cards">
-              <div class="glass-card cu-card" id="never-opened-card" data-page="never" hidden>
-                <h3 class="cu-head">
-                  <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h9"></path>
-                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
-                    <path d="m17 17 4 4"></path>
-                    <path d="m21 17-4 4"></path></svg
-                  >Unopened
-                </h3>
-                <p class="cu-num"><b id="never-opened-fact"></b> emails</p>
-                <ul class="cu-list" id="never-opened-top"></ul>
-                <div class="cu-acts" hidden>
-                  <span id="never-read-trash-slot"><button id="never-read-trash-btn" class="btn btn-accent-solid">Trash</button></span>
-                </div>
+            <div class="cu-top">
+              <div class="mt-row cu-cards">
+                <button type="button" class="mt-tile cu-card is-hero" id="cu-total-card" data-page="all">
+                  <span class="mt-title">Ready to clean up</span><span class="mt-go"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"></path></svg></span>
+                  <b class="mt-num" id="cu-total-fact">0</b>
+                  <span class="mt-foot cu-num" data-note="emails you can clear">emails you can clear</span><svg class="mt-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg>
+                </button>
+                <button type="button" class="mt-tile cu-card" id="never-opened-card" data-page="never">
+                  <span class="mt-title">Unopened</span><span class="mt-go"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"></path></svg></span>
+                  <b class="mt-num" id="never-opened-fact">0</b>
+                  <span class="mt-foot cu-num" data-note="emails you never open">emails you never open</span>
+                </button>
+                <button type="button" class="mt-tile cu-card" id="past-date-card" data-page="old">
+                  <span class="mt-title">Expired</span><span class="mt-go"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"></path></svg></span>
+                  <b class="mt-num" id="past-date-fact">0</b>
+                  <span class="mt-foot cu-num" data-note="old codes and news">old codes and news</span>
+                </button>
+                <button type="button" class="mt-tile cu-card" id="lists-card" data-page="lists">
+                  <span class="mt-title">Unused mailing lists</span><span class="mt-go"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"></path></svg></span>
+                  <b class="mt-num" id="lists-fact">0</b>
+                  <span class="mt-foot cu-num" data-note="lists you never read">lists you never read</span>
+                </button>
               </div>
-              <div class="glass-card cu-card" id="past-date-card" data-page="old" hidden>
-                <h3 class="cu-head">
-                  <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <polyline points="12 6 12 12 16 14"></polyline></svg
-                  >Expired
-                </h3>
-                <p class="cu-num"><b id="past-date-fact"></b> emails</p>
-                <ul class="cu-list" id="past-date-top"></ul>
-                <div class="cu-acts" hidden>
-                  <span id="expiry-cleanup-slot"><button id="expiry-cleanup-btn" class="btn btn-accent-solid">Trash</button></span>
-                </div>
-              </div>
-              <div class="glass-card cu-card" id="lists-card" data-page="lists" hidden>
-                <h3 class="cu-head">
-                  <svg class="i" viewBox="0 0 24 24" aria-hidden="true">
-                    <circle cx="12" cy="12" r="9"></circle>
-                    <path d="M5.6 5.6l12.8 12.8"></path></svg
-                  >Unused mailing lists
-                </h3>
-                <p class="cu-num"><b id="lists-fact"></b> lists</p>
-                <ul class="cu-list" id="lists-top"></ul>
-                <div class="cu-acts" hidden>
-                  <button type="button" id="lists-unsub-btn" class="btn btn-accent-solid">Unsubscribe</button>
-                </div>
-              </div>
+              <div id="cu-chart" class="ov-card"></div>
             </div>
-            <div id="cu-chart"></div>
+            <!-- The cards' confirms, kept for their wiring; actions live in the table and tabs. -->
+            <div hidden>
+              <span id="never-read-trash-slot"><button id="never-read-trash-btn" class="btn btn-accent-solid">Trash</button></span>
+              <span id="expiry-cleanup-slot"><button id="expiry-cleanup-btn" class="btn btn-accent-solid">Trash</button></span>
+              <button type="button" id="lists-unsub-btn" class="btn btn-accent-solid">Unsubscribe</button>
             </div>
             <div class="tabs" role="tablist" aria-label="Cleanup">
               <button type="button" role="tab" class="tab" data-open-screen="delete" data-tab-for="delete">Senders<span class="tab-count" id="tab-count-senders"></span></button>

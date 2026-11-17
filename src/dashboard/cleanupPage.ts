@@ -104,76 +104,109 @@ export function niceStep(max: number): number {
   return Math.max(1, m * pow);
 }
 
-/** Apple's analytics line card: title and range, a line over a soft fill,
- * solid rules across with the scale on the right, dashed lines up from each date. */
-export function lineChart(counts: readonly number[], now: number, noun = "emails", title = ""): HTMLElement {
-  const wrap = el("div", "pl-chart");
-  const head = el("div", "mr-head");
-  head.append(el("h2", "mr-title", title), el("span", "mr-range", `Last ${counts.length} days`));
-  const plot = el("div", "pl-plot");
+export interface StackSeries {
+  key: string;
+  label: string;
+  color: string;
+  counts: readonly number[];
+}
+
+/** Cleanup's breakdown: a stacked bar per day, one warm hue per kind, a bracketed
+ * legend, and a column readout on hover (the "Resource overview" reference, 2026-11-16).
+ * `active` dims the other kinds; `tools` sits at the right of the header. */
+export function stackChart(
+  series: readonly StackSeries[],
+  now: number,
+  o: { active?: string | null; onPick?: (key: string) => void; tools?: HTMLElement[] } = {},
+): HTMLElement {
+  const days = series[0]?.counts.length ?? 0;
+  const totals = Array.from({ length: days }, (_, i) => series.reduce((n, s) => n + s.counts[i], 0));
+  const wrap = el("div", "sc-chart");
+  const head = el("div", "sc-head");
+  const tools = el("div", "sc-tools");
+  tools.append(...(o.tools ?? []));
+  head.append(el("h2", "sc-title", "Breakdown"), tools);
+  const legend = el("div", "sc-legend");
+  for (const s of series) {
+    const item = el("button", "sc-key");
+    item.type = "button";
+    item.dataset.key = s.key;
+    item.classList.toggle("is-off", !!o.active && o.active !== s.key);
+    item.setAttribute("aria-pressed", String(o.active === s.key));
+    const dot = el("i", "sc-dot");
+    dot.style.background = s.color;
+    const sum = s.counts.reduce((a, b) => a + b, 0);
+    item.append(dot, el("span", "sc-name", s.label), el("b", "sc-sum", sum.toLocaleString()));
+    if (o.onPick) item.onclick = () => o.onPick!(s.key);
+    legend.append(item);
+  }
+  const plot = el("div", "sc-plot");
   plot.setAttribute("role", "img");
-  plot.setAttribute("aria-label", `${title ? `${title}: ` : ""}${noun} each day, last ${counts.length} days: ${counts.join(", ")}`);
-  const last = Math.max(1, counts.length - 1);
-  const step = niceStep(Math.max(...counts, 0));
-  const top = step * Math.max(1, Math.ceil(Math.max(...counts, 1) / step));
-  const y = (n: number) => 100 - (n / top) * 100;
+  plot.setAttribute("aria-label", `Emails each day, last ${days} days: ${series.map((s) => `${s.label} ${s.counts.reduce((a, b) => a + b, 0)}`).join(", ")}`);
+  const step = niceStep(Math.max(...totals, 0));
+  const top = step * Math.max(1, Math.ceil(Math.max(...totals, 1) / step));
   for (let v = 0; v <= top; v += step) {
-    const line = el("i", "mr-grid");
-    line.style.top = `${y(v)}%`;
-    const label = el("span", "pl-y", v.toLocaleString());
-    label.setAttribute("aria-hidden", "true");
-    label.style.top = `${y(v)}%`;
-    plot.append(line, label);
+    const line = el("i", "sc-grid");
+    line.style.bottom = `${(v / top) * 100}%`;
+    plot.append(line);
   }
-  const dayOf = (i: number) => new Date(now - (counts.length - 1 - i) * DAY);
+  const dayOf = (i: number) => new Date(now - (days - 1 - i) * DAY);
   const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  const xs = el("div", "mr-xs");
-  // The plot's label reads every day; the axis is for the eye.
-  xs.setAttribute("aria-hidden", "true");
-  // A date every four days, counted back from today, with a dashed line up.
-  for (let i = counts.length - 1; i >= 0; i -= 4) {
-    const x = `${(i / last) * 100}%`;
-    const tick = el("i", "mr-tick");
-    tick.style.left = x;
-    const label = el("span", "mr-x", fmt(dayOf(i)));
-    label.style.left = x;
-    plot.append(tick);
-    xs.append(label);
+  const cols: HTMLElement[] = [];
+  const bars = el("div", "sc-bars");
+  bars.style.setProperty("--n", String(days));
+  for (let i = 0; i < days; i++) {
+    const col = el("div", "sc-col");
+    col.style.setProperty("--i", String(i));
+    col.style.height = `${(totals[i] / top) * 100}%`;
+    for (const s of series) {
+      if (!s.counts[i]) continue;
+      const seg = el("i", "sc-seg");
+      seg.dataset.key = s.key;
+      seg.style.background = s.color;
+      seg.style.flexGrow = String(s.counts[i]);
+      seg.classList.toggle("is-off", !!o.active && o.active !== s.key);
+      col.append(seg);
+    }
+    cols.push(col);
+    bars.append(col);
   }
-  const svg = document.createElementNS(SVG, "svg");
-  svg.setAttribute("viewBox", `0 0 ${last} 100`);
-  svg.setAttribute("preserveAspectRatio", "none");
-  const node = (tag: string, attrs: Record<string, string | number>) => {
-    const n = document.createElementNS(SVG, tag);
-    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, String(v));
-    return n;
-  };
-  const defs = node("defs", {});
-  const grad = node("linearGradient", { id: "pl-fade", x1: 0, x2: 0, y1: 0, y2: 1 });
-  grad.append(node("stop", { offset: "0%", class: "pl-fade-top" }), node("stop", { offset: "100%", class: "pl-fade-end" }));
-  defs.append(grad);
-  const pts = counts.map((n, i) => `${i},${y(n)}`).join(" L");
-  svg.append(defs, node("path", { d: `M0,100 L${pts} L${last},100 Z`, class: "pl-area" }), node("path", { d: `M${pts}`, class: "pl-line" }));
-  plot.append(svg);
-  const guide = el("i", "pl-guide");
-  const dot = el("i", "pl-dot");
-  const tip = el("div", "pl-tip");
-  guide.hidden = dot.hidden = tip.hidden = true;
-  plot.append(guide, dot, tip);
-  plot.onmousemove = (e) => {
+  plot.append(bars);
+  const xs = el("div", "sc-xs");
+  xs.setAttribute("aria-hidden", "true");
+  const every = Math.max(1, Math.round(days / 10));
+  for (let i = days - 1; i >= 0; i -= every) {
+    const x = el("span", "sc-x", String(dayOf(i).getDate()));
+    x.style.left = `${((i + 0.5) / days) * 100}%`;
+    xs.append(x);
+  }
+  const tip = el("div", "sc-tip");
+  tip.hidden = true;
+  plot.append(tip);
+  plot.addEventListener("mousemove", (e) => {
     const r = plot.getBoundingClientRect();
-    const i = Math.max(0, Math.min(counts.length - 1, Math.round(((e.clientX - r.left) / Math.max(1, r.width)) * last)));
-    const x = `${(i / last) * 100}%`;
-    guide.style.left = dot.style.left = tip.style.left = x;
-    dot.style.top = `${y(counts[i])}%`;
-    tip.classList.toggle("flip", i > last / 2);
-    tip.replaceChildren(el("span", "", fmt(dayOf(i))), el("b", "", `${counts[i].toLocaleString()} ${noun}`));
-    guide.hidden = dot.hidden = tip.hidden = false;
-  };
-  plot.onmouseleave = () => {
-    guide.hidden = dot.hidden = tip.hidden = true;
-  };
-  wrap.append(head, plot, xs);
+    if (!r.width) return;
+    const i = Math.min(days - 1, Math.max(0, Math.floor(((e.clientX - r.left) / r.width) * days)));
+    plot.classList.add("is-picking");
+    cols.forEach((c, j) => c.classList.toggle("on", j === i));
+    tip.replaceChildren(el("span", "sc-tip-day", fmt(dayOf(i))));
+    for (const s of series) {
+      const row = el("span", "sc-tip-row");
+      const dot = el("i", "sc-dot");
+      dot.style.background = s.color;
+      row.append(dot, s.label, el("b", "", s.counts[i].toLocaleString()));
+      tip.append(row);
+    }
+    tip.style.left = `${((i + 0.5) / days) * 100}%`;
+    tip.classList.toggle("flip", i > days / 2);
+    tip.hidden = false;
+  });
+  plot.addEventListener("mouseleave", () => {
+    plot.classList.remove("is-picking");
+    cols.forEach((c) => c.classList.remove("on"));
+    tip.hidden = true;
+  });
+  wrap.append(head, legend, plot, xs);
   return wrap;
 }
 
@@ -183,7 +216,7 @@ export function changeChip(now: number, before: number): HTMLElement | null {
   if (before === 0) return null;
   const pct = Math.round(((now - before) / before) * 100);
   const chip = el("span", `pl-change ${pct > 0 ? "worse" : pct < 0 ? "better" : ""}`);
-  chip.title = "Against the 28 days before";
+  chip.title = "Against the 4 weeks before";
   if (pct !== 0) {
     const svg = document.createElementNS(SVG, "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
