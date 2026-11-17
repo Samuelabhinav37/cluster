@@ -1,27 +1,19 @@
-// Subscriptions tab: every sender in the scan with an unsubscribe option,
-// ranked by outcome, plus per-row Unsubscribe / Unsubscribe+clean / Read
-// later and the one-click "Unsubscribe all" bulk action.
+// Cleanup's Mailing lists tab: every list in the scan in the Senders table's
+// design (one row per domain, a Status column), Unsubscribe in the selection
+// bar, and each list's other actions in its ⋯ menu.
 // recordUnsubscribeRequests is exported because the Clean-up tab's sender
 // table also records a request when its inline Unsubscribe button fires.
-import { senderUnread, senderVolume } from "../lib/census";
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
 import { executeBulkUnsubscribe, filterOutProtected } from "../lib/bulkActions";
-import {
-  unsubscribeOutcomeRank,
-  unsubscribeTally,
-  type UnsubscribeOutcomeState,
-} from "../lib/unsubscribeOutcome";
+import { unsubscribeOutcomeRank } from "../lib/unsubscribeOutcome";
 import { buildProtectionContext, buildSenderCleanupPlan } from "../lib/protectionPolicy";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import type { SenderSummary } from "../lib/senderModel";
 import { domainOf } from "../lib/domainGrouping";
 import { registrableDomain } from "../lib/registrableDomain";
-import { companyName, senderName } from "../lib/senderListView";
-import { formatRelativeTime, headerRow, pruneSelection, renderConfirmStep, runNow } from "./ui";
-import { emailsCell } from "./cleanupPage";
-import { listGroup, listRow } from "./listRow";
-import { menuForControls } from "./rowMenu";
-import { senderTile } from "./senderTile";
+import { formatRelativeTime, headerRow, renderConfirmStep, runNow } from "./ui";
+import { renderSenderTable } from "./cleanupPage";
+import { leavableList } from "../lib/cleanupCards";
 import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
 import { clusterLabelName } from "../lib/clusterLabels";
@@ -37,17 +29,9 @@ import { openUnsubscribeSheet } from "./unsubscribeSheet";
 
 const READ_LATER_LABEL = clusterLabelName("readLater");
 
-const selectedSubKeys = new Set<string>();
+/** Ticked rows (registrable domains), kept across re-renders. */
+const selectedListKeys = new Set<string>();
 
-function subTile(sender: SenderSummary, size: "sz-30" | "sz-34" = "sz-34"): HTMLElement {
-  return senderTile(sender.address, sender.displayName, size);
-}
-
-const subsBulkBar = document.getElementById("subscriptions-bulk-bar") as HTMLDivElement;
-const subsCountEl = document.getElementById("subs-count") as HTMLSpanElement;
-const subsUnsubAllSlot = document.getElementById("subs-unsub-all-slot") as HTMLSpanElement;
-const subsUnsubAllBtn = document.getElementById("subs-unsub-all-btn") as HTMLButtonElement;
-const subsOutcomeFilter = document.getElementById("subs-outcome-filter") as HTMLSelectElement;
 const subscriptionsListEl = document.getElementById("subscriptions-list") as HTMLDivElement;
 
 export { recordUnsubscribeRequests };
@@ -286,12 +270,11 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
     button.onclick = () => void openUnsubscribeSheet([sender], () => renderSubscriptionsTab(ctx.senders));
     cell.appendChild(button);
   } else if (u.httpUrl) {
-    const a = document.createElement("a");
-    a.href = u.httpUrl;
-    a.textContent = "Open page";
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    cell.appendChild(a);
+    const page = document.createElement("button");
+    page.textContent = "Open unsubscribe page";
+    const url = u.httpUrl;
+    page.onclick = () => window.open(url, "_blank", "noopener,noreferrer");
+    cell.appendChild(page);
   }
 
   const readLaterPlan = buildSenderCleanupPlan(sender, buildProtectionContext(ctx.settings));
@@ -345,344 +328,165 @@ function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
   return cell;
 }
 
-/** A domain with several lists: one row whose tick and Unsubscribe cover all of
- * them, through the same confirm as the bulk button. */
-function domainRow(domain: string, members: SenderSummary[]): HTMLElement {
-  const total = members.reduce((n, s) => n + senderVolume(s), 0);
-  const unread = members.reduce((n, s) => n + senderUnread(s), 0);
-  const lead = members.reduce((a, b) => (senderVolume(b) > senderVolume(a) ? b : a));
-  const oneClick = members.filter((s) => s.unsubscribe.postUrl).map((s) => s.key);
-  const cols = document.createElement("span");
-  cols.className = "pl-cols";
-  const pct = Math.round(((total - unread) / Math.max(1, total)) * 100);
-  const opened = document.createElement("span");
-  opened.className = "ct-dim";
-  opened.textContent = `${pct}%`;
-  opened.title = "Opened";
-  cols.append(emailsCell(total, "span"), opened);
-  const unsub = document.createElement("button");
-  unsub.className = "btn";
-  unsub.textContent = "Unsubscribe";
-  unsub.disabled = oneClick.length === 0;
-  unsub.onclick = () => {
-    preselectLists(oneClick);
-    subsBulkBar.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  };
-  const row = listRow({
-    selectable: {
-      checked: oneClick.length > 0 && oneClick.every((k) => selectedSubKeys.has(k)),
-      disabled: oneClick.length === 0,
-      label: `Select every list from ${domain}`,
-      onChange: (on) => {
-        for (const k of oneClick) {
-          if (on) selectedSubKeys.add(k);
-          else selectedSubKeys.delete(k);
-        }
-        renderSubscriptionsTab(ctx.senders);
-      },
-    },
-    lead: subTile(lead),
-    title: companyName({ key: domain, senders: members }),
-    titleBadges: [Object.assign(document.createElement("span"), { className: "ct-dim pl-count", textContent: `${members.length} lists` })],
-    meta: cols,
-    // A spacer where single rows have ⋯, so every Unsubscribe lines up.
-    actions: [unsub, Object.assign(document.createElement("span"), { className: "row-menu-spacer" })],
-  });
-  row.title = members.map((s) => s.address).join(", ");
-  return row;
-}
-
-function selectedUnsubscribeOutcome(): "all" | UnsubscribeOutcomeState {
-  const value = subsOutcomeFilter.value;
-  return value === "quiet" || value === "still-sending" ? value : "all";
-}
-
 function senderAddressFromKey(key: string): string {
   const separator = key.indexOf(":");
   return separator >= 0 ? key.slice(separator + 1) : key;
 }
 
-const LIST_PREVIEW = 10;
-// Stays open for the session once you ask for the whole list.
-let showAllSubscriptions = false;
+/** One row per domain: "Suhas via LinkedIn" and LinkedIn's own lists are one LinkedIn row. */
+const listRowKey = (s: SenderSummary) => registrableDomain(domainOf(s.address));
+
+/** Where a list stands, for the Status column. Blank when there's nothing to say. */
+function listStatus(group: SenderSummary[]): string {
+  const asked = group.map((s) => unsubscribeOutcomeFor(s.key, s)).find((o) => o.requestAt);
+  if (asked) return asked.label;
+  if (group.every((s) => ctx.profiles.get(s.key)?.stillSending === false)) return "Stopped sending";
+  const protection = buildProtectionContext(ctx.settings);
+  if (group.some((s) => leavableList(s, ctx.profiles.get(s.key), protection))) return "Unused";
+  if (!group.some((s) => s.unsubscribe.postUrl) && group.some((s) => s.unsubscribe.mailto)) return "By email";
+  return "";
+}
+
+/** The bar's Unsubscribe can send these: not yet asked, with a one-click or email way out. */
+const canUnsubscribe = (s: SenderSummary) =>
+  !ctx.settings.unsubscribeRequests[s.key] && Boolean(s.unsubscribe.postUrl || s.unsubscribe.mailto);
+
+/** A single list's ⋯ menu: its way out, the old-mail actions, and Undo once asked. */
+function listControls(group: SenderSummary[]): HTMLElement[] {
+  if (group.length !== 1) return [];
+  const [sender] = group;
+  const outcome = unsubscribeOutcomeFor(sender.key, sender);
+  const quiet = !outcome.requestAt && ctx.profiles.get(sender.key)?.stillSending === false;
+  const clear = quiet ? clearOldMailButton(sender) : null;
+  const controls = Array.from(subUnsubscribeCell(sender).children) as HTMLElement[];
+  if (clear) controls.unshift(clear);
+  if (outcome.requestAt) controls.push(...requestActions(sender.key, sender.provider, outcome.state));
+  return controls;
+}
+
+/** Asks once, then sends the one-click requests; lists that only take email open the email sheet. */
+function unsubscribeMany(picked: SenderSummary[], slot: HTMLElement, reset: () => void) {
+  const targets = picked.filter(canUnsubscribe);
+  const oneClick = targets.filter((s) => s.unsubscribe.postUrl);
+  const byEmail = targets.filter((s) => !s.unsubscribe.postUrl);
+  const rerender = () => renderSubscriptionsTab(ctx.senders);
+  if (oneClick.length === 0) {
+    if (byEmail.length > 0) void openUnsubscribeSheet(byEmail, rerender);
+    return;
+  }
+  const names = oneClick.map((s) => s.displayName || s.address).join(", ");
+  renderConfirmStep(
+    slot,
+    reset,
+    `Unsubscribe from ${oneClick.length} sender${oneClick.length === 1 ? "" : "s"}? ${names}. Only future mail stops. Anyone still sending in 14 days gets muted.`,
+    false,
+    async (summary) => {
+      summary.textContent = "Requesting permission…";
+      const granted = await ensureOriginsPermission(oneClick.map((s) => s.unsubscribe.postUrl!));
+      if (!granted) return "Permission denied, so nothing was sent";
+      summary.textContent = "Unsubscribing…";
+      const { succeeded, failed } = await executeBulkUnsubscribe(oneClick, fireOneClickUnsubscribe);
+      await recordUnsubscribeRequests(succeeded);
+      if (succeeded.length > 0) await logAction("unsubscribe", `Bulk unsubscribed from ${succeeded.length} senders`);
+      selectedListKeys.clear();
+      rerender();
+      if (byEmail.length > 0) void openUnsubscribeSheet(byEmail, rerender);
+      return `Unsubscribed ${succeeded.length}, failed ${failed.length}`;
+    },
+  );
+}
+
+const tabCount = document.getElementById("tab-count-subs");
+let openSender: (key: string) => void = () => {};
 
 export function renderSubscriptionsTab(senders: SenderSummary[]) {
   const senderByKey = new Map(senders.map((sender) => [sender.key, sender]));
   const available = senders.filter(
     (sender) => sender.unsubscribe.postUrl || sender.unsubscribe.httpUrl || sender.unsubscribe.mailto,
   );
-  pruneSelection(
-    selectedSubKeys,
-    available.map((sender) => sender.key),
-  );
-
-  const currentRows = available
-    .map((sender) => ({
-      sender,
-      outcome: unsubscribeOutcomeFor(sender.key, sender),
-    }))
-    .sort(
-      (a, b) =>
-        unsubscribeOutcomeRank(a.outcome.state) - unsubscribeOutcomeRank(b.outcome.state) ||
-        senderVolume(b.sender) - senderVolume(a.sender),
-    );
   const availableKeys = new Set(available.map((sender) => sender.key));
   const trackedOnlyRows = Object.entries(ctx.settings.unsubscribeRequests)
     .filter(([key]) => !availableKeys.has(key))
-    .map(([key, request]) => ({
-      key,
-      request,
-      sender: senderByKey.get(key),
-      outcome: unsubscribeOutcomeFor(key, senderByKey.get(key)),
-    }))
+    .map(([key, request]) => ({ key, request, outcome: unsubscribeOutcomeFor(key, senderByKey.get(key)) }))
     .sort(
       (a, b) =>
         unsubscribeOutcomeRank(a.outcome.state) - unsubscribeOutcomeRank(b.outcome.state) ||
         b.request.requestedAt - a.request.requestedAt,
     );
-  const selectedOutcome = selectedUnsubscribeOutcome();
-  const matchesFilter = (state: UnsubscribeOutcomeState) =>
-    selectedOutcome === "all" || state === selectedOutcome;
-  const visibleCurrentRows = currentRows.filter(({ outcome }) => matchesFilter(outcome.state));
-  const visibleTrackedOnlyRows = trackedOnlyRows.filter(({ outcome }) => matchesFilter(outcome.state));
-  const allOutcomes = [...currentRows, ...trackedOnlyRows].map(({ outcome }) => outcome);
-  const trackedCount = Object.keys(ctx.settings.unsubscribeRequests).length;
-  const oneClick = available.filter((sender) => sender.unsubscribe.postUrl);
 
-  subscriptionsListEl.innerHTML = "";
-  subsBulkBar.hidden = available.length === 0 && trackedCount === 0;
-  const tally = unsubscribeTally(allOutcomes);
-  subsCountEl.textContent = tally;
-  subsUnsubAllBtn.disabled = oneClick.length === 0;
-  subsUnsubAllBtn.textContent = selectedSubKeys.size > 0 ? `Unsubscribe (${selectedSubKeys.size})` : "Unsubscribe";
+  const statusByRow = new Map<string, string>();
+  const groups = new Map<string, SenderSummary[]>();
+  for (const s of available) groups.set(listRowKey(s), [...(groups.get(listRowKey(s)) ?? []), s]);
+  for (const [k, g] of groups) statusByRow.set(k, listStatus(g));
 
-  if (available.length === 0 && trackedCount === 0) {
-    const empty = document.createElement("p");
-    empty.className = "empty-state";
-    empty.textContent = "No senders with an unsubscribe option or tracked request in the current scan.";
-    subscriptionsListEl.appendChild(empty);
-    return;
-  }
+  const table = document.createElement("div");
+  const rowCount = renderSenderTable(table, {
+    items: available.map((sender) => ({
+      sender,
+      ids: sender.messages.map((m) => m.id),
+      reason: statusByRow.get(listRowKey(sender)) ?? "",
+    })),
+    rowKeyOf: listRowKey,
+    openRow: (_key, lead) => openSender(lead.key),
+    act: (_ids, picked, slot, reset) => unsubscribeMany(picked, slot, reset),
+    noteHead: "Status",
+    verb: "Unsubscribe",
+    canTick: (group) => group.some(canUnsubscribe),
+    controls: listControls,
+    badge: (group) => (group.length > 1 ? `${group.length} lists` : ""),
+    selected: selectedListKeys,
+    barIds: { slot: "subs-unsub-all-slot", button: "subs-unsub-all-btn" },
+  });
+  if (tabCount) tabCount.textContent = rowCount ? rowCount.toLocaleString() : "";
 
+  const parts: HTMLElement[] = [];
   const offer = siblingOffer(available);
-  if (offer) subscriptionsListEl.appendChild(offer);
-
-  if (visibleCurrentRows.length > 0) {
-    // Select-all header — not itself a list item (no title/media), so it
-    // reuses the check-media-actions grid class directly rather than going
-    // through listRow(), whose spec always expects a title.
-    const hdr = document.createElement("div");
-    hdr.className = "list-row list-row--check-media-actions";
-
-    const selAllLabel = document.createElement("label");
-    selAllLabel.className = "check-label";
-    const selAll = document.createElement("input");
-    selAll.type = "checkbox";
-    selAll.className = "check";
-    selAll.setAttribute("aria-label", "Select all subscriptions");
-    const oneClickKeys = visibleCurrentRows
-      .filter(({ sender }) => sender.unsubscribe.postUrl)
-      .map(({ sender }) => sender.key);
-    selAll.checked = oneClickKeys.length > 0 && oneClickKeys.every((k) => selectedSubKeys.has(k));
-    selAll.onchange = () => {
-      for (const k of oneClickKeys) {
-        if (selAll.checked) selectedSubKeys.add(k);
-        else selectedSubKeys.delete(k);
-      }
-      renderSubscriptionsTab(ctx.senders);
-    };
-    selAllLabel.appendChild(selAll);
-    const selCount = document.createElement("span");
-    selCount.className = "row-sub";
-    selCount.textContent = "Domain";
-    const heads = document.createElement("span");
-    heads.className = "pl-cols";
-    for (const t of ["Emails", "Opened"]) {
-      const h = document.createElement("span");
-      h.textContent = t;
-      heads.append(h);
-    }
-    hdr.classList.add("pl-head");
-    hdr.append(selAllLabel, selCount, heads);
-
-    // One row per domain: "Suhas via LinkedIn" and LinkedIn's own lists are one LinkedIn row.
-    const byDomain = new Map<string, typeof visibleCurrentRows>();
-    for (const r of visibleCurrentRows) {
-      const d = registrableDomain(domainOf(r.sender.address));
-      byDomain.set(d, [...(byDomain.get(d) ?? []), r]);
-    }
-    const rows = [...byDomain].map(([domain, group]) =>
-      group.length > 1 ? domainRow(domain, group.map((g) => g.sender)) : singleRow(group[0]),
-    );
-    function singleRow({ sender, outcome }: (typeof visibleCurrentRows)[number]): HTMLElement {
-      // Round 2: name and how much gets opened; only a sent request earns a line.
-      const subLine = outcome.requestAt ? outcome.label : "";
-      const total = senderVolume(sender);
-      // Plausible's columns: emails (with share) and how much gets opened.
-      const opened = document.createElement("span");
-      opened.className = "pl-cols";
-      const pct = Math.round(((total - senderUnread(sender)) / Math.max(1, total)) * 100);
-      const openedPct = document.createElement("span");
-      openedPct.className = "ct-dim";
-      openedPct.textContent = `${pct}%`;
-      openedPct.title = "Opened";
-      opened.append(emailsCell(total, "span"), openedPct);
-
-      // One visible button (the way to stop the mail); the rest sit in ⋯.
-      // A sender that already stopped gets "Clear out old mail" first.
-      const cell = subUnsubscribeCell(sender);
-      const controls = Array.from(cell.children) as HTMLElement[];
-      const quiet = !outcome.requestAt && ctx.profiles.get(sender.key)?.stillSending === false;
-      const clear = quiet ? clearOldMailButton(sender) : null;
-      if (clear) controls.unshift(clear);
-      const primary = controls.shift();
-      const primaryBtn = primary?.matches("button") ? primary : primary?.querySelector("button");
-      if (primaryBtn) primaryBtn.className = "btn";
-      if (outcome.requestAt) controls.push(...requestActions(sender.key, sender.provider, outcome.state));
-      const keep = document.createElement("button");
-      keep.className = "btn";
-      keep.textContent = "Keep";
-      controls.push(keep);
-      const strip = document.createElement("div");
-      strip.className = "instead-strip";
-      const menu = menuForControls(controls, strip);
-
-      const row = listRow({
-        // Every row keeps the checkbox column even without a one-click
-        // unsubscribe (disabled instead of omitted) so titles stay aligned
-        // under the select-all header's checkbox column.
-        selectable: sender.unsubscribe.postUrl
-          ? {
-              checked: selectedSubKeys.has(sender.key),
-              label: `Select ${sender.displayName || sender.address}`,
-              onChange: (checked) => {
-                if (checked) selectedSubKeys.add(sender.key);
-                else selectedSubKeys.delete(sender.key);
-                renderSubscriptionsTab(ctx.senders);
-              },
-            }
-          : {
-              checked: false,
-              disabled: true,
-              label: "No one-click unsubscribe to select",
-              onChange: () => {},
-            },
-        lead: subTile(sender),
-        title: senderName(sender),
-        sub: subLine || undefined,
-        meta: opened,
-        actions: primary ? [primary, menu] : [menu],
-        disclosure: strip,
-      });
-      keep.onclick = () => {
-        row.hidden = true;
-        strip.hidden = true;
-        // listGroup() puts an anonymous row-sep before every row but the
-        // first; hide it too so a dismissed row doesn't leave a stray line.
-        const sep = row.previousElementSibling;
-        if (sep instanceof HTMLElement && sep.classList.contains("row-sep")) sep.hidden = true;
-      };
-      return row;
-    }
-
-    subscriptionsListEl.appendChild(hdr);
-    const shown = showAllSubscriptions ? rows : rows.slice(0, LIST_PREVIEW);
-    subscriptionsListEl.appendChild(listGroup(shown, { inset: true }));
-    if (shown.length < rows.length) {
-      const more = document.createElement("button");
-      more.className = "btn-link";
-      more.textContent = `Show all ${rows.length}`;
-      more.onclick = () => {
-        showAllSubscriptions = true;
-        renderSubscriptionsTab(ctx.senders);
-      };
-      subscriptionsListEl.appendChild(more);
-    }
+  if (offer) parts.push(offer);
+  if (rowCount > 0) parts.push(table);
+  else if (trackedOnlyRows.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "hint";
+    empty.textContent = "No mailing lists in your mail.";
+    parts.push(empty);
   }
 
-  if (visibleTrackedOnlyRows.length > 0) {
+  if (trackedOnlyRows.length > 0) {
     const heading = document.createElement("h3");
     heading.className = "section-label";
     heading.style.margin = "24px 0 10px";
-    heading.textContent = "Tracked requests without a current unsubscribe option";
-    subscriptionsListEl.appendChild(heading);
-    const table = document.createElement("table");
+    heading.textContent = "Unsubscribed, no mail left";
+    const old = document.createElement("table");
     const thead = document.createElement("thead");
-    thead.appendChild(headerRow(["Sender", "Provider", "Requested", "Outcome", "Evidence", ""]));
-    table.appendChild(thead);
+    thead.appendChild(headerRow(["Sender", "Requested", "Status", ""]));
     const tbody = document.createElement("tbody");
-    for (const { key, request, outcome } of visibleTrackedOnlyRows) {
+    for (const { key, request, outcome } of trackedOnlyRows) {
       const row = document.createElement("tr");
-      const addressCell = document.createElement("td");
-      addressCell.textContent = senderAddressFromKey(key);
-      const providerCell = document.createElement("td");
-      providerCell.textContent = request.provider;
-      const requestedCell = document.createElement("td");
-      requestedCell.textContent = formatRelativeTime(request.requestedAt);
-      const outcomeCell = document.createElement("td");
-      outcomeCell.textContent = outcome.label;
-      const evidenceCell = document.createElement("td");
-      evidenceCell.className = "hint";
-      evidenceCell.textContent = outcome.detail;
+      const cells = [senderAddressFromKey(key), formatRelativeTime(request.requestedAt), outcome.label].map((t) =>
+        Object.assign(document.createElement("td"), { textContent: t }),
+      );
       const actionCell = document.createElement("td");
       actionCell.append(...requestActions(key, request.provider, outcome.state));
-      row.append(addressCell, providerCell, requestedCell, outcomeCell, evidenceCell, actionCell);
+      row.append(...cells, actionCell);
       tbody.appendChild(row);
     }
-    table.appendChild(tbody);
-    subscriptionsListEl.appendChild(table);
+    old.append(thead, tbody);
+    parts.push(heading, old);
   }
-
-  if (visibleCurrentRows.length === 0 && visibleTrackedOnlyRows.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "empty-state";
-    empty.textContent = "No subscriptions match this outcome filter.";
-    subscriptionsListEl.appendChild(empty);
-  }
+  subscriptionsListEl.replaceChildren(...parts);
 }
 
-export function wireSubscriptionsTab() {
-  subsOutcomeFilter.onchange = () => renderSubscriptionsTab(ctx.senders);
-
-  const resetSubsUnsubAllSlot = () => {
-    subsUnsubAllSlot.innerHTML = "";
-    subsUnsubAllSlot.appendChild(subsUnsubAllBtn);
-  };
-
-  subsUnsubAllBtn.onclick = () => {
-    const oneClick = ctx.senders.filter(
-      (s) => s.unsubscribe.postUrl && (selectedSubKeys.size === 0 || selectedSubKeys.has(s.key)),
-    );
-    if (oneClick.length === 0) return;
-    const names = oneClick.map((s) => s.displayName || s.address).join(", ");
-    renderConfirmStep(
-      subsUnsubAllSlot,
-      resetSubsUnsubAllSlot,
-      `Unsubscribe from ${oneClick.length} sender${oneClick.length === 1 ? "" : "s"}? ${names}. Only future mail stops. Anyone still sending in 14 days gets muted.`,
-      false,
-      async (summary) => {
-        summary.textContent = "Requesting permission…";
-        const granted = await ensureOriginsPermission(oneClick.map((s) => s.unsubscribe.postUrl!));
-        if (!granted) return "Permission denied, so nothing was sent";
-        summary.textContent = "Unsubscribing…";
-        const { succeeded, failed } = await executeBulkUnsubscribe(oneClick, fireOneClickUnsubscribe);
-        await recordUnsubscribeRequests(succeeded);
-        if (succeeded.length > 0) {
-          await logAction("unsubscribe", `Bulk unsubscribed from ${succeeded.length} senders`);
-        }
-        renderSubscriptionsTab(ctx.senders);
-        return `Unsubscribed ${succeeded.length}, failed ${failed.length}`;
-      },
-    );
-  };
+export function wireSubscriptionsTab(open: (senderKey: string) => void) {
+  openSender = open;
 }
 
-/** Ticks these lists (those with one-click unsubscribe) and opens the
- * Unsubscribe confirm, for Clean up's "Lists you can leave" button. */
+/** Ticks these lists and opens the Unsubscribe confirm, for Home's "Stop mail you never open". */
 export function preselectLists(keys: string[]) {
-  const oneClick = new Set(ctx.senders.filter((s) => s.unsubscribe.postUrl).map((s) => s.key));
-  selectedSubKeys.clear();
-  for (const k of keys) if (oneClick.has(k)) selectedSubKeys.add(k);
+  const byKey = new Map(ctx.senders.map((s) => [s.key, s]));
+  selectedListKeys.clear();
+  for (const k of keys) {
+    const s = byKey.get(k);
+    if (s && canUnsubscribe(s)) selectedListKeys.add(listRowKey(s));
+  }
   renderSubscriptionsTab(ctx.senders);
-  if (selectedSubKeys.size > 0) subsUnsubAllBtn.click();
+  if (selectedListKeys.size > 0) document.getElementById("subs-unsub-all-btn")?.click();
 }

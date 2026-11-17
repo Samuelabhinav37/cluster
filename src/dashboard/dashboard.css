@@ -3516,14 +3516,6 @@ body[data-screen="overview"] #ask-kai-open > svg { display: block; }
 .paid-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
 .paid-card { display: flex; flex-direction: row; text-align: left; align-items: center; gap: 10px; padding: 12px 14px; }
 .paid-card b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-#subscriptions-list { container-type: inline-size; }
-@container (min-width: 960px) {
-  #subscriptions-list .grouped-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  #subscriptions-list .grouped-list > .row-sep { display: none; }
-  #subscriptions-list .grouped-list > * { border-top: 1px solid var(--separator); }
-  #subscriptions-list .grouped-list > :nth-child(odd of :not(.row-sep)) { border-right: 1px solid var(--separator); }
-  #subscriptions-list .list-row--check-media-meta-actions { grid-template-columns: 22px minmax(0, 1fr) 40px max-content; gap: 10px; padding: 10px 12px; }
-}
 /* Organize, round 2: a card per kind with a five-step picker. */
 .kind-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
 .kind-card { display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; }
@@ -3709,6 +3701,8 @@ body[data-screen="overview"].details-open .screen[data-screen="overview"] { visi
 .ct-selbar span { opacity: .7; }
 .ct-sel-slot { display: flex; gap: 8px; align-items: center; margin-left: auto; opacity: 1 !important; }
 .ct-clear { border: 0; background: none; color: inherit; font: 500 13px var(--font); cursor: pointer; }
+/* The bar is the inverse of the page, so its button is too. */
+.ct-selbar .btn { min-height: 28px; padding: 0 12px; border: 0; background: var(--glass); color: var(--label); font: 500 13px var(--font); }
 .ct-table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .ct-table th { padding: 10px 12px; text-align: left; font-size: 12px; font-weight: 500; color: var(--label-3); background: var(--neutral-fill); border-block: 1px solid var(--hairline); }
 .ct-table td { padding: 12px; border-bottom: 1px solid var(--hairline); }
@@ -3776,50 +3770,25 @@ section[data-screen="settings"] .set-row > :not(.grow):not(.set-ic) { grid-colum
 .pl-body .section-label { margin: 0; font: 600 12px/16px var(--font); letter-spacing: .02em; text-transform: uppercase; color: var(--label-3); }
 
 /* Senders: a table with its own column widths. */
-#cu-senders-table .ct-selbar { margin: 12px 0 4px; }
-#cu-senders-table .ct-table { table-layout: fixed; }
-#cu-senders-table .ct-table th { height: 32px; padding: 12px 8px 0; background: none; border: 0; font: 500 12px/16px var(--font); color: var(--label-3); vertical-align: top; }
-#cu-senders-table .ct-tick { width: 36px; padding-left: 0; vertical-align: middle !important; padding-top: 0 !important; }
-#cu-senders-table .ct-c-reason { width: 112px; }
-#cu-senders-table .ct-c-emails { width: 128px; }
-#cu-senders-table .ct-c-last { width: 120px; }
-#cu-senders-table .ct-c-opened { width: 80px; }
-#cu-senders-table .ct-table td { padding: 2px 8px; border: 0; font-size: 14px; }
-#cu-senders-table .ct-table tbody tr:hover { background: color-mix(in srgb, var(--neutral-fill) 60%, transparent); }
-#cu-senders-table .ct-table tbody tr:hover .ct-name b { text-decoration: underline; text-underline-offset: 3px; }
-#cu-senders-table .ct-who b { margin-left: 0; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#cu-senders-table .ct-more { margin-top: 12px; }
+.cu-table .ct-selbar { margin: 12px 0 4px; }
+.cu-table .ct-table { table-layout: fixed; }
+.cu-table .ct-table th { height: 32px; padding: 12px 8px 0; background: none; border: 0; font: 500 12px/16px var(--font); color: var(--label-3); vertical-align: top; }
+.cu-table .ct-tick { width: 36px; padding-left: 0; vertical-align: middle !important; padding-top: 0 !important; }
+.cu-table .ct-c-reason { width: 144px; }
+.cu-table .ct-c-emails { width: 128px; }
+.cu-table .ct-c-last { width: 120px; }
+.cu-table .ct-c-opened { width: 80px; }
+.cu-table .ct-table td { padding: 2px 8px; border: 0; font-size: 14px; }
+.cu-table .ct-table tbody tr:hover { background: color-mix(in srgb, var(--neutral-fill) 60%, transparent); }
+.cu-table .ct-table tbody tr:hover .ct-name b { text-decoration: underline; text-underline-offset: 3px; }
+.cu-table .ct-who b { margin-left: 0; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cu-table .ct-more { margin-top: 12px; }
 .ct-name { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 8px; }
-tr:hover .ct-name::before, #subscriptions-list .list-row:hover .row-media::before { background: color-mix(in srgb, var(--label-4) 30%, transparent); }
+tr:hover .ct-name::before { background: color-mix(in srgb, var(--label-4) 30%, transparent); }
 .ct-name > * { position: relative; }
-.ct-name .logo-tile, #subscriptions-list .row-media .logo-tile, .paid-card .logo-tile { width: 20px; height: 20px; border-radius: 5px; font-size: 9px; }
+.ct-name .logo-tile, .paid-card .logo-tile { width: 20px; height: 20px; border-radius: 5px; font-size: 9px; }
 .ct-emails b { font-weight: 600; }
 .ct-emails span { display: inline-block; width: 48px; margin-left: 8px; color: var(--label-3); text-align: right; }
-
-/* Subscriptions: one column, the same bar layer, Emails + Opened columns, actions last. */
-#subscriptions-bulk-bar { display: flex; align-items: center; gap: 12px; margin: 8px 0 0; padding: 0; background: none; border: 0; font-size: 13px; color: var(--label-3); }
-#subscriptions-bulk-bar[hidden] { display: none; }
-#subscriptions-bulk-bar #subs-unsub-all-slot { margin-left: auto; }
-#subscriptions-bulk-bar #subs-unsub-all-btn { min-height: 32px; padding: 0 12px; border-radius: 6px; background: var(--neutral-fill); border: 0; color: var(--label); font: 500 13px var(--font); }
-#subscriptions-bulk-bar select { min-height: 32px; border-radius: 6px; }
-#subscriptions-list .grouped-list { display: block; border: 0; background: none; box-shadow: none; }
-#subscriptions-list .grouped-list > * { border: 0 !important; }
-#subscriptions-list .grouped-list > .row-sep { display: none; }
-#subscriptions-list .list-row { grid-template-columns: 28px minmax(0, 1fr) 176px 190px; gap: 8px; min-height: 0; margin-top: 4px; padding: 0; border-radius: 4px; background: none; }
-#subscriptions-list .list-row:hover { background: color-mix(in srgb, var(--neutral-fill) 60%, transparent); }
-#subscriptions-list .list-row.pl-head { margin: 0; padding-top: 12px; font: 500 12px/16px var(--font); color: var(--label-3); }
-#subscriptions-list .list-row.pl-head:hover { background: none; }
-#subscriptions-list .list-row.pl-head .row-sub { color: var(--label-3) !important; font-size: 12px; }
-#subscriptions-list .row-media { position: relative; gap: 8px; padding: 6px 8px; }
-#subscriptions-list .row-media > * { position: relative; }
-#subscriptions-list .row-title { font-size: 14px; font-weight: 400; }
-#subscriptions-list .list-row:hover .row-title { text-decoration: underline; text-underline-offset: 3px; }
-.pl-cols { display: grid; grid-template-columns: 112px 64px; text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; }
-.pl-head .pl-cols { font-size: 12px; }
-#subscriptions-list .row-actions { justify-content: flex-end; gap: 4px; }
-#subscriptions-list .row-actions .btn:not(.btn-icon) { min-height: 28px; padding: 0 10px; background: none; border: 0; box-shadow: none; color: var(--label-2); font-size: 13px; font-weight: 500; }
-#subscriptions-list .row-actions .btn:not(.btn-icon):hover { color: var(--label); text-decoration: underline; text-underline-offset: 3px; }
-#subscriptions-list .btn-link { margin-top: 12px; }
 
 /* Paid subscriptions: rows, the kind of renewal as gray text on the right. */
 .pl-body .paid-grid { display: flex; flex-direction: column; gap: 4px; }
@@ -3830,13 +3799,19 @@ tr:hover .ct-name::before, #subscriptions-list .list-row:hover .row-media::befor
 /* Cleanup and Mailing lists: the card sits 20px under the title, not 52. */
 .screen:is([data-screen="delete"], [data-screen="subscriptions"]) .page-head { margin-bottom: -8px; }
 /* Ticks in the Plausible panels: 16px rounded squares, not 22px dots. */
-:is(#cu-senders-table, #subscriptions-list) .check { width: 16px; height: 16px; border-radius: 4px; border-width: 1px; }
-:is(#cu-senders-table, #subscriptions-list) .check:checked::after { width: 4px; height: 8px; margin: 2px 0 0 5px; border-width: 0 1.5px 1.5px 0; }
+.cu-table .check { width: 16px; height: 16px; border-radius: 4px; border-width: 1px; }
+.cu-table .check:checked::after { width: 4px; height: 8px; margin: 2px 0 0 5px; border-width: 0 1.5px 1.5px 0; }
 /* Kai's chat keeps the system font it was designed in (Moat), not the app's Inter Tight. */
 .kai-guide { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, "Segoe UI", sans-serif; font-size: 15px; letter-spacing: -0.008em; }
 .row-menu-spacer { display: inline-block; width: 28px; flex: none; }
-#subscriptions-list .pl-count { margin-left: 8px; font-size: 13px; white-space: nowrap; }
-#cu-senders-table th.ct-tick { padding-top: 10px !important; vertical-align: top !important; }
+/* Mailing lists: "5 lists" after the name, the ⋯ column, and a picked action's confirm under its row. */
+.ct-name .ct-badge { font-size: 13px; white-space: nowrap; }
+.cu-table .ct-c-menu { width: 40px; }
+.cu-table td.ct-menu { padding: 0; text-align: right; }
+.cu-table tr.ct-strip:hover { background: none; cursor: default; }
+.cu-table tr.ct-strip td { padding: 4px 8px 12px 44px; }
+.cu-table tr.ct-strip .instead-strip { margin: 0; padding: 0; border: 0; }
+.cu-table th.ct-tick { padding-top: 10px !important; vertical-align: top !important; }
 
 /* Labels: Gmail's tag mark in the label's color, as in Gmail's sidebar. */
 .gl-tag { display: inline-grid; place-items: center; width: 30px; height: 30px; flex: none; color: var(--label-4); }

@@ -282,7 +282,6 @@
             <div hidden>
               <span id="never-read-trash-slot"><button id="never-read-trash-btn" class="btn btn-accent-solid">Trash</button></span>
               <span id="expiry-cleanup-slot"><button id="expiry-cleanup-btn" class="btn btn-accent-solid">Trash</button></span>
-              <button type="button" id="lists-unsub-btn" class="btn btn-accent-solid">Unsubscribe</button>
             </div>
             <div class="tabs" role="tablist" aria-label="Cleanup">
               <button type="button" role="tab" class="tab" data-open-screen="delete" data-tab-for="delete">Senders<span class="tab-count" id="tab-count-senders"></span></button>
@@ -414,21 +413,7 @@
             <div id="subs-panel" class="pl-body">
 
             <section>
-              <div id="subscriptions-bulk-bar" class="toolbar" hidden>
-                <span id="subs-count">0 senders</span>
-                <span id="subs-unsub-all-slot"
-                  ><button id="subs-unsub-all-btn" class="btn-accent-solid">Unsubscribe</button></span
-                >
-                <label>
-                  Show
-                  <select id="subs-outcome-filter">
-                    <option value="all">All</option>
-                    <option value="still-sending">Active</option>
-                    <option value="quiet">Unsubscribed</option>
-                  </select>
-                </label>
-              </div>
-              <div id="subscriptions-list" class="scroll-x"></div>
+              <div id="subscriptions-list" class="cu-table"></div>
             </section>
             </div>
           </section>

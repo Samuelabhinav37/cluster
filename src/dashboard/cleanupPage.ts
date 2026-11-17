@@ -4,6 +4,7 @@ import type { ProviderId } from "../lib/providers/emailProvider";
 import type { SenderSummary } from "../lib/senderModel";
 import { senderName } from "../lib/senderListView";
 import { listGroup, listRow } from "./listRow";
+import { menuForControls } from "./rowMenu";
 import { senderTile } from "./senderTile";
 
 export interface PageItem {
@@ -333,15 +334,30 @@ export function renderCleanupPage(root: HTMLElement, spec: CleanupPageSpec, now 
 }
 
 export interface SenderTableItem extends PageItem {
-  /** Why this sender is here: "Unopened", "Expired". */
+  /** The note column: why it's here ("Unopened") or where it stands ("Stopped"). */
   reason: string;
 }
 
 export interface SenderTableSpec {
   items: SenderTableItem[];
   rowKeyOf: (s: SenderSummary) => string;
-  openRow: (key: string) => void;
-  trash: (ids: Map<ProviderId, string[]>, senders: SenderSummary[], slot: HTMLElement, reset: () => void) => void;
+  openRow: (key: string, lead: SenderSummary) => void;
+  /** What the selection bar's button does to the ticked rows; renders its confirm into `slot`. */
+  act: (ids: Map<ProviderId, string[]>, senders: SenderSummary[], slot: HTMLElement, reset: () => void) => void;
+  /** The note column's header. Default "Reason". */
+  noteHead?: string;
+  /** The selection bar's button. Default "Trash". */
+  verb?: string;
+  /** Rows that can't take the bar's action get no tick. */
+  canTick?: (senders: SenderSummary[]) => boolean;
+  /** A row's other actions for its ⋯ menu; the picked one's confirm opens under the row. */
+  controls?: (senders: SenderSummary[]) => HTMLElement[];
+  /** Gray text after the name, e.g. "5 lists". */
+  badge?: (senders: SenderSummary[]) => string;
+  /** Ticked row keys, owned by the caller so a re-render or preselect keeps them. */
+  selected?: Set<string>;
+  /** Ids for the bar's slot and button, for callers that drive them. */
+  barIds?: { slot: string; button: string };
 }
 
 const PAGE = 10;
@@ -362,16 +378,20 @@ export function emailsCell(count: number, tag: "td" | "span" = "td"): HTMLElemen
   return cell;
 }
 
-/** Cleanup's Senders tab: one table of every sender worth clearing, with
- * the reason, a tick per row, and a selection bar that trashes what's ticked. */
-export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now = Date.now()): void {
+/** Cleanup's Senders and Mailing lists tabs: one table with a note column, a
+ * tick per row, and a selection bar whose one button acts on what's ticked.
+ * Returns the number of rows. */
+export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now = Date.now()): number {
   const rows = pageRows(spec.items, spec.rowKeyOf);
   const reasons = new Map<string, string>();
   for (const it of spec.items) {
     const k = spec.rowKeyOf(it.sender);
     if (!reasons.has(k)) reasons.set(k, it.reason);
   }
-  const selected = new Set<string>();
+  const tickable = new Set(rows.filter((r) => spec.canTick?.(r.senders) ?? true));
+  const selected = spec.selected ?? new Set<string>();
+  const tickKeys = new Set([...tickable].map((r) => r.key));
+  for (const k of Array.from(selected)) if (!tickKeys.has(k)) selected.delete(k);
   let shown = PAGE;
 
   const render = () => {
@@ -382,59 +402,69 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
     bar.hidden = ticked.length === 0;
     const what = el("b", "", `${ticked.length} selected`);
     bar.append(what, el("span", "", `${n.toLocaleString()} emails`));
-    const slot = el("span", "ct-sel-slot");
     const clear = el("button", "ct-clear", "Clear");
     clear.type = "button";
     clear.onclick = () => {
       selected.clear();
       render();
     };
-    const trashBtn = el("button", "btn", "Trash");
-    trashBtn.type = "button";
-    trashBtn.onclick = () => {
+    const slot = el("span", "ct-sel-slot");
+    const go = el("button", "btn", spec.verb ?? "Trash");
+    go.type = "button";
+    if (spec.barIds) {
+      slot.id = spec.barIds.slot;
+      go.id = spec.barIds.button;
+    }
+    go.onclick = () => {
       const merged = new Map<ProviderId, string[]>();
       for (const r of ticked) for (const [p, ids] of r.ids) merged.set(p, [...(merged.get(p) ?? []), ...ids]);
-      spec.trash(merged, ticked.flatMap((r) => r.senders), slot, render);
+      spec.act(merged, ticked.flatMap((r) => r.senders), slot, render);
     };
-    slot.append(clear, trashBtn);
-    bar.append(slot);
+    slot.append(go);
+    bar.append(clear, slot);
 
     const table = el("table", "ct-table");
     const head = el("tr");
     const all = el("input", "check");
     all.type = "checkbox";
     all.setAttribute("aria-label", "Select all");
-    all.checked = rows.length > 0 && ticked.length === rows.length;
-    all.indeterminate = ticked.length > 0 && ticked.length < rows.length;
+    all.checked = tickable.size > 0 && ticked.length === tickable.size;
+    all.indeterminate = ticked.length > 0 && ticked.length < tickable.size;
+    all.disabled = tickable.size === 0;
     all.onchange = () => {
-      if (all.checked) for (const r of rows) selected.add(r.key);
+      if (all.checked) for (const r of tickable) selected.add(r.key);
       else selected.clear();
       render();
     };
     const th0 = el("th", "ct-tick");
     th0.append(all);
     head.append(th0);
-    for (const [t, c] of [["Sender", "ct-c-who"], ["Reason", "ct-c-reason"], ["Emails", "num ct-c-emails"], ["Last received", "ct-c-last"], ["Opened", "num ct-c-opened"]])
-      head.append(el("th", c, t));
+    const cols = [["Sender", "ct-c-who"], [spec.noteHead ?? "Reason", "ct-c-reason"], ["Emails", "num ct-c-emails"], ["Last received", "ct-c-last"], ["Opened", "num ct-c-opened"]];
+    if (spec.controls) cols.push(["", "ct-c-menu"]);
+    for (const [t, c] of cols) head.append(el("th", c, t));
     const thead = el("thead");
     thead.append(head);
     const body = el("tbody");
     for (const r of rows.slice(0, shown)) {
       const tr = el("tr", "row-link");
-      const box = el("input", "check");
-      box.type = "checkbox";
-      box.checked = selected.has(r.key);
-      box.setAttribute("aria-label", `Select ${senderName(r.lead)}`);
-      box.onchange = () => {
-        if (box.checked) selected.add(r.key);
-        else selected.delete(r.key);
-        render();
-      };
       const td0 = el("td", "ct-tick");
-      td0.append(box);
+      if (tickable.has(r)) {
+        const box = el("input", "check");
+        box.type = "checkbox";
+        box.checked = selected.has(r.key);
+        box.setAttribute("aria-label", `Select ${senderName(r.lead)}`);
+        box.onchange = () => {
+          if (box.checked) selected.add(r.key);
+          else selected.delete(r.key);
+          render();
+        };
+        td0.append(box);
+      }
       const who = el("td", "ct-who");
       const name = el("span", "ct-name");
       name.append(senderTile(r.lead.address, r.lead.displayName, "sz-26"), el("b", "", senderName(r.lead)));
+      const badge = spec.badge?.(r.senders);
+      if (badge) name.append(el("span", "ct-dim ct-badge", badge));
       who.append(name);
       const reason = el("td", "ct-dim ct-reason", reasons.get(r.key) ?? "");
       const latest = Math.max(0, ...r.senders.flatMap((s) => s.messages.map((m) => m.receivedAt)));
@@ -448,9 +478,25 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
         el("td", "num ct-dim", `${pct}%`),
       );
       tr.onclick = (e) => {
-        if (!(e.target instanceof Element && e.target.closest("input, label, button"))) spec.openRow(r.key);
+        if (!(e.target instanceof Element && e.target.closest("input, label, button, .row-menu"))) spec.openRow(r.key, r.lead);
       };
       body.append(tr);
+      if (!spec.controls) continue;
+      const menuCell = el("td", "ct-menu");
+      tr.append(menuCell);
+      const controls = spec.controls(r.senders);
+      if (controls.length === 0) continue;
+      // The picked action's confirm shows in a full-width row under this one.
+      const stripRow = el("tr", "ct-strip");
+      const stripCell = el("td");
+      stripCell.colSpan = cols.length + 1;
+      const strip = el("div", "instead-strip");
+      stripCell.append(strip);
+      stripRow.append(stripCell);
+      menuCell.append(menuForControls(controls, strip));
+      stripRow.hidden = true;
+      new MutationObserver(() => (stripRow.hidden = strip.hidden)).observe(strip, { attributes: true, attributeFilter: ["hidden"] });
+      body.append(stripRow);
     }
     table.append(thead, body);
     const wrap = el("div", "scroll-x");
@@ -470,4 +516,5 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
     root.replaceChildren(...parts);
   };
   render();
+  return rows.length;
 }

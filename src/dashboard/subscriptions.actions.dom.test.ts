@@ -9,11 +9,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { bootDashboard, confirmStep, fixtureMailbox } from "./testHarness";
 
 function findSubRow(container: HTMLElement, title: string): HTMLElement {
-  const titleEl = Array.from(container.querySelectorAll(".row-title")).find(
-    (t) => t.textContent === title,
-  );
-  if (!titleEl) throw new Error(`no subscription row titled "${title}"`);
-  return titleEl.closest(".list-row") as HTMLElement;
+  const titleEl = Array.from(container.querySelectorAll(".ct-name b")).find((t) => t.textContent === title);
+  if (!titleEl) throw new Error(`no mailing list row titled "${title}"`);
+  return titleEl.closest("tr") as HTMLElement;
+}
+
+/** The control behind a row's ⋯ menu item (it lives in the strip row under it). */
+function rowControl(row: HTMLElement, label: string): HTMLButtonElement {
+  const strip = row.nextElementSibling as HTMLElement;
+  const btn = Array.from(strip.querySelectorAll("button")).find((b) => b.textContent === label);
+  if (!btn) throw new Error(`no "${label}" in the row's menu`);
+  return btn;
+}
+
+function pickMenuItem(row: HTMLElement, label: string) {
+  const item = Array.from(row.querySelectorAll<HTMLButtonElement>("[role=menuitem]")).find((b) => b.textContent === label);
+  if (!item) throw new Error(`no "${label}" menu item`);
+  item.click();
 }
 
 /** dashboard.ts also fetches the signed-in account's email off
@@ -52,10 +64,7 @@ describe("Subscriptions screen — one-click unsubscribe", () => {
     dash.showScreen("subscriptions");
 
     const row = findSubRow(dash.el("subscriptions-list"), "Shop");
-    const unsubBtn = Array.from(row.querySelectorAll("button")).find(
-      (b) => b.textContent === "Unsubscribe",
-    )!;
-    unsubBtn.click();
+    pickMenuItem(row, "Unsubscribe");
 
     // The request waits out the 3 s Undo grace first.
     await vi.waitFor(
@@ -86,10 +95,8 @@ describe("Subscriptions screen — one-click unsubscribe", () => {
     dash.showScreen("subscriptions");
 
     const row = findSubRow(dash.el("subscriptions-list"), "Shop");
-    const unsubBtn = Array.from(row.querySelectorAll("button")).find(
-      (b) => b.textContent === "Unsubscribe",
-    )!;
-    unsubBtn.click();
+    const unsubBtn = rowControl(row, "Unsubscribe");
+    pickMenuItem(row, "Unsubscribe");
 
     await vi.waitFor(() => expect(unsubBtn.textContent).toBe("Failed, retry"), { timeout: 5000 });
 
@@ -119,11 +126,12 @@ describe("Mailing lists — one row per domain", () => {
     const dash = await bootDashboard({ grantOrigins: true, fetchImpl, mailbox: [...mailbox, ...news] });
     dash.showScreen("subscriptions");
     const list = dash.el("subscriptions-list");
-    const shopRows = Array.from(list.querySelectorAll(".row-title")).filter((t) => /shop/i.test(t.textContent ?? ""));
+    const shopRows = Array.from(list.querySelectorAll(".ct-name b")).filter((t) => /shop/i.test(t.textContent ?? ""));
     expect(shopRows).toHaveLength(1);
-    const row = shopRows[0].closest<HTMLElement>(".list-row")!;
+    const row = shopRows[0].closest<HTMLElement>("tr")!;
     expect(row.textContent).toContain("2 lists");
-    Array.from(row.querySelectorAll("button")).find((b) => b.textContent === "Unsubscribe")!.click();
+    row.querySelector<HTMLInputElement>("input.check")!.click();
+    dash.el("subs-unsub-all-btn").click();
     await confirmStep(dash.el("subs-unsub-all-slot"));
     await vi.waitFor(() => {
       const urls = unsubscribeCalls(fetchImpl).map((c) => c[0]);
@@ -139,8 +147,8 @@ describe("Subscriptions screen — Undo before the request goes out", () => {
     const dash = await bootDashboard({ grantOrigins: true, fetchImpl });
     dash.showScreen("subscriptions");
     const row = findSubRow(dash.el("subscriptions-list"), "Shop");
-    Array.from(row.querySelectorAll("button")).find((b) => b.textContent === "Unsubscribe")!.click();
-    Array.from(row.querySelectorAll("button")).find((b) => b.textContent === "Undo")!.click();
+    pickMenuItem(row, "Unsubscribe");
+    Array.from((row.nextElementSibling as HTMLElement).querySelectorAll("button")).find((b) => b.textContent === "Undo")!.click();
     await new Promise((r) => setTimeout(r, 3200));
     expect(unsubscribeCalls(fetchImpl)).toHaveLength(0);
     expect(dash.storedSettings().unsubscribeRequests?.["gmail:deals@shop.example"]).toBeUndefined();
@@ -154,9 +162,7 @@ describe("Subscriptions screen — Stop and archive old", () => {
     dash.showScreen("subscriptions");
     const list = dash.el("subscriptions-list");
     const row = findSubRow(list, "Shop");
-    Array.from(row.querySelectorAll<HTMLButtonElement>("[role=menuitem]"))
-      .find((b) => b.textContent === "Stop and archive old")!
-      .click();
+    pickMenuItem(row, "Stop and archive old");
     const confirm = Array.from(list.querySelectorAll(".instead-strip button")).find((b) => b.textContent === "Confirm")!;
     const result = await confirmStep(confirm.parentElement as HTMLElement);
     expect(result).toContain("to the archive");
@@ -166,7 +172,7 @@ describe("Subscriptions screen — Stop and archive old", () => {
 });
 
 describe("Subscriptions screen — senders that already stopped", () => {
-  it("offers Clear out old mail first, not Unsubscribe", async () => {
+  it("says they stopped and offers Clear out old mail first", async () => {
     const now = Date.now();
     const old = fixtureMailbox(now).find((m) => m.id === "s1")!;
     const quiet = [60, 90, 120].map((days, i) => ({
@@ -182,8 +188,9 @@ describe("Subscriptions screen — senders that already stopped", () => {
     const dash = await bootDashboard({ mailbox: [...fixtureMailbox(now), ...quiet] });
     dash.showScreen("subscriptions");
     const row = findSubRow(dash.el("subscriptions-list"), "Quiet Letters");
-    expect(row.querySelector(".row-actions button, button")?.textContent).toBe("Clear out old mail");
-    expect(findSubRow(dash.el("subscriptions-list"), "Shop").querySelector("button")?.textContent).toBe("Unsubscribe");
+    expect(row.querySelector(".ct-reason")?.textContent).toBe("Stopped sending");
+    expect(row.querySelector("[role=menuitem]")?.textContent).toBe("Clear out old mail");
+    expect(findSubRow(dash.el("subscriptions-list"), "Shop").querySelector("[role=menuitem]")?.textContent).toBe("Unsubscribe");
   });
 });
 
@@ -193,8 +200,8 @@ describe("Subscriptions screen — bulk unsubscribe all", () => {
     const dash = await bootDashboard({ grantOrigins: true, fetchImpl });
     dash.showScreen("subscriptions");
 
-    const allBtn = dash.el("subs-unsub-all-btn") as HTMLButtonElement;
-    allBtn.click();
+    dash.el("subscriptions-list").querySelector<HTMLInputElement>("thead input.check")!.click();
+    dash.el("subs-unsub-all-btn").click();
     const resultText = await confirmStep(dash.el("subs-unsub-all-slot"));
 
     // Only deals@shop.example has a postUrl in the fixture mailbox.

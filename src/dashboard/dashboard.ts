@@ -870,7 +870,7 @@ async function main() {
   };
 
   wireBulkHandlers();
-  wireSubscriptionsTab();
+  wireSubscriptionsTab((key) => details?.open({ view: "emails", senderKey: key }));
   wireSortInbox();
   wireTimeLimits();
   setPresetActions(() =>
@@ -1838,7 +1838,6 @@ function renderDeleteScreen(senders: SenderSummary[]) {
   document.getElementById("lists-fact")!.textContent = n(plan.lists.length);
   document.getElementById("cu-total-fact")!.textContent = n(plan.neverReadMsgs + plan.expiryTotal);
   lastPlan = plan;
-  document.getElementById("tab-count-subs")!.textContent = plan.lists.length ? n(plan.lists.length) : "";
   paintCleanupChart(cuKpi);
   const tableItems = [
     ...(cuKpi !== "old" ? pageItems("never").map((it) => ({ ...it, reason: "Unopened" })) : []),
@@ -1851,7 +1850,7 @@ function renderDeleteScreen(senders: SenderSummary[]) {
     items: tableItems,
     rowKeyOf: detailRowKey,
     openRow: (key) => details?.open({ view: "emails", senderKey: key }),
-    trash: (merged, picked, slot, reset) => trashFromPage("table", merged, picked, slot, reset),
+    act: (merged, picked, slot, reset) => trashFromPage("table", merged, picked, slot, reset),
   });
   if (openPage) showCleanupPage(openPage);
 }
@@ -2028,10 +2027,6 @@ function wireCleanupCards() {
       renderDeleteScreen(ctx.senders);
     });
   }
-  document.getElementById("lists-unsub-btn")?.addEventListener("click", () => {
-    const keys = (lastPlan?.lists ?? []).map((s) => s.key);
-    void selectScreen("subscriptions").then(() => preselectLists(keys));
-  });
 }
 
 function trashFromPage(
