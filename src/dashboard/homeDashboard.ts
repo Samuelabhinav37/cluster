@@ -120,19 +120,16 @@ export function filedByDay(log: readonly ActionLogEntry[], now: number): { cur: 
 /** How long without a run before the Overview says the inbox isn't being checked. */
 export const STALE_SWEEP_MS = 30 * 60 * 1000;
 
-/** One line that proves the background run is alive: a week of labelled
- * mail sat in the inbox (Nov 2026) and nothing on screen said so. */
-export function sweepLine(sweptAt: number, now: number): HTMLElement {
+/** A warning when the background run has stalled: a week of labelled mail once
+ * sat in the inbox (Nov 2026) and nothing on screen said so. A healthy run says nothing. */
+export function sweepLine(sweptAt: number, now: number): HTMLElement | null {
   const age = now - sweptAt;
-  if (age > STALE_SWEEP_MS) {
-    const day = age > 24 * 60 * 60 * 1000;
-    const when = new Date(sweptAt).toLocaleString(undefined, day ? { month: "short", day: "numeric" } : { hour: "numeric", minute: "2-digit" });
-    const line = el("p", "text-meta ov-stale", `Inbox not checked since ${when}.`);
-    line.setAttribute("role", "status");
-    return line;
-  }
-  const mins = Math.floor(age / 60000);
-  return el("p", "text-meta ov-health", mins < 1 ? "Inbox checked just now." : `Inbox checked ${mins} min ago.`);
+  if (age <= STALE_SWEEP_MS) return null;
+  const day = age > 24 * 60 * 60 * 1000;
+  const when = new Date(sweptAt).toLocaleString(undefined, day ? { month: "short", day: "numeric" } : { hour: "numeric", minute: "2-digit" });
+  const line = el("p", "text-meta ov-stale", `Inbox not checked since ${when}.`);
+  line.setAttribute("role", "status");
+  return line;
 }
 
 export interface HomeFacts {
@@ -671,6 +668,7 @@ function topSendersCard(f: HomeFacts, openSender?: (key: string) => void): HTMLE
   const head = el("div", "mr-head");
   head.append(el("h2", "mr-title", "Top senders"), el("span", "mr-range", "Last 7 days"));
   const list = el("ol", "t10-list");
+  const top = Math.max(1, ...(f.topSenders ?? []).map((t) => t.count));
   for (const t of f.topSenders ?? []) {
     const li = el("li", "");
     const row = el(t.key && openSender ? "button" : "div", "t10-row");
@@ -679,7 +677,11 @@ function topSendersCard(f: HomeFacts, openSender?: (key: string) => void): HTMLE
       row.setAttribute("aria-label", `${t.name}: open their emails`);
       row.onclick = () => openSender(t.key!);
     }
-    row.append(senderTile(t.address, t.name, "sz-26"), el("span", "t10-name", t.name), el("span", "t10-n", n(t.count)));
+    const who = el("span", "t10-who");
+    const bar = el("i", "t10-bar");
+    bar.style.width = `${Math.max(4, (t.count / top) * 100)}%`;
+    who.append(el("span", "t10-name", t.name), bar);
+    row.append(senderTile(t.address, t.name, "sz-30"), who, el("span", "t10-n", n(t.count)));
     li.append(row);
     list.append(li);
   }
@@ -687,21 +689,47 @@ function topSendersCard(f: HomeFacts, openSender?: (key: string) => void): HTMLE
   return card;
 }
 
+/** Received Mails' numbers: the total, the average a day, and the weekday with the
+ * most mail on average (undefined until a weekday has any). `days` ends today. */
+export function receivedStats(days: readonly number[], now: number): { total: number; perDay: number; busiest?: string } {
+  const total = days.reduce((a, b) => a + b, 0);
+  const sum = new Array<number>(7).fill(0);
+  const seen = new Array<number>(7).fill(0);
+  days.forEach((c, i) => {
+    const wd = new Date(now - (days.length - 1 - i) * 86_400_000).getDay();
+    sum[wd] += c;
+    seen[wd] += 1;
+  });
+  const avg = sum.map((v, i) => (seen[i] ? v / seen[i] : 0));
+  const top = avg.indexOf(Math.max(...avg));
+  const busiest = total ? new Date(2024, 0, 7 + top).toLocaleDateString(undefined, { weekday: "long" }) + "s" : undefined;
+  return { total, perDay: Math.round(total / Math.max(days.length, 1)), busiest };
+}
+
 function inboxCard(f: HomeFacts): HTMLElement {
   const card = el("section", "ov-card ov-inbox");
   const days = f.received30 ?? [];
   const head = el("div", "mr-head");
   head.append(el("h2", "mr-title", "Received Mails"), el("span", "mr-range", "Last 30 days"));
-  const total = days.reduce((a, b) => a + b, 0);
+  // What mail-analytics tools put beside volume (Email Meter, EmailAnalytics): the
+  // total with its change, the daily average and the busiest day of the week.
+  const s = receivedStats(days, Date.now());
   const stats = el("dl", "mr-stats");
-  const stat = (k: string, v: string) => stats.append(el("dt", "", k), el("dd", "", v));
-  stat("Total", n(total));
-  // Only once the previous 30 days are read too, or growth would be made up.
+  const stat = (k: string, v: string, extra?: HTMLElement) => {
+    const dd = el("dd", "", v);
+    if (extra) dd.append(extra);
+    stats.append(el("dt", "", k), dd);
+  };
+  // The change only once the 30 days before are read too, or it would be made up.
+  let change: HTMLElement | undefined;
   if (f.receivedPrev30 && !f.since) {
-    const pct = Math.round(((total - f.receivedPrev30) / f.receivedPrev30) * 100);
-    stat("Growth", `${pct > 0 ? "+" : pct < 0 ? "−" : ""}${Math.abs(pct)}%`);
+    const pct = Math.round(((s.total - f.receivedPrev30) / f.receivedPrev30) * 100);
+    change = el("span", "mr-change", `${pct > 0 ? "+" : pct < 0 ? "−" : ""}${Math.abs(pct)}%`);
+    change.title = "Compared with the 30 days before";
   }
-  stat("Period", "30 days");
+  stat("Total", n(s.total), change);
+  stat("Per day", n(s.perDay));
+  if (s.busiest) stat("Busiest day", s.busiest);
   const body = el("div", "mr-body");
   body.append(stats, barChart(days, Date.now()));
   card.append(head, body);
@@ -871,6 +899,7 @@ export function renderHomeDashboard(
     topSendersCard(f, openSender),
   );
   root.append(top, bottom);
-  if (f.sweptAt) root.append(sweepLine(f.sweptAt, Date.now()));
+  const stale = f.sweptAt ? sweepLine(f.sweptAt, Date.now()) : null;
+  if (stale) root.prepend(stale);
   return root;
 }

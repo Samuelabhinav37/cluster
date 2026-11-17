@@ -12,6 +12,7 @@ import {
   renderHomeDashboard,
   renderScanCard,
   sweepLine,
+  receivedStats,
   type HomeFacts,
 } from "./homeDashboard";
 import { newScan } from "../lib/scanState";
@@ -200,7 +201,7 @@ describe("renderHomeDashboard", () => {
     const strokes = Array.from(el.querySelectorAll(".ov-gauge line")).map((l) => l.getAttribute("stroke"));
     expect(strokes).toHaveLength(21);
     expect(new Set(strokes).size).toBe(2);
-    expect(text(el.querySelector(".mr-stats"))).toBe("Total120Growth+20%Period30 days");
+    expect(text(el.querySelector(".mr-stats"))).toMatch(/^Total120\+20%Per day4Busiest day\w+days$/);
   });
 
   it("hovering a kind lights only its bars and shows its count", () => {
@@ -271,10 +272,23 @@ describe("renderHomeDashboard", () => {
   });
 });
 
+describe("receivedStats", () => {
+  it("averages a day and names the weekday with the most mail on average", () => {
+    // 14 days ending on a Wednesday (2024-01-17); Mondays get 10, other days 1.
+    const now = new Date(2024, 0, 17, 12).getTime();
+    const days = Array.from({ length: 14 }, (_, i) => (new Date(now - (13 - i) * 86_400_000).getDay() === 1 ? 10 : 1));
+    const got = receivedStats(days, now);
+    expect(got.total).toBe(32);
+    expect(got.perDay).toBe(2);
+    expect(got.busiest).toBe(new Date(2024, 0, 8).toLocaleDateString(undefined, { weekday: "long" }) + "s");
+    expect(receivedStats([0, 0, 0], now).busiest).toBeUndefined();
+  });
+});
+
 describe("sweepLine", () => {
-  it("says when the inbox was last checked, and warns after 30 minutes without a run", () => {
-    expect(sweepLine(NOW - 4 * 60000, NOW).textContent).toBe("Inbox checked 4 min ago.");
-    const stale = sweepLine(NOW - 31 * 60000, NOW);
+  it("says nothing while the run is healthy, and warns after 30 minutes without one", () => {
+    expect(sweepLine(NOW - 4 * 60000, NOW)).toBeNull();
+    const stale = sweepLine(NOW - 31 * 60000, NOW)!;
     expect(stale.className).toContain("ov-stale");
     expect(stale.textContent).toMatch(/^Inbox not checked since /);
   });
