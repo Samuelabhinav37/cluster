@@ -86,20 +86,22 @@ describe("mailByKind", () => {
           msg({ tab: "promotions" }),
           msg({ tab: "promotions", receivedAt: NOW - 9 * DAY }),
           msg({ tab: "promotions", receivedAt: NOW - 20 * DAY }),
+          msg({ tab: "promotions", receivedAt: NOW - 40 * DAY }),
         ]),
         sender("friend@example.com", [msg()]),
       ],
       NOW,
     );
     expect(got).toEqual({
-      kinds: { primary: 1, trans: 0, updates: 0, promo: 3 },
-      total: 4,
+      kinds: { primary: 1, trans: 0, updates: 0, promo: 4 },
+      total: 5,
       thisWeek: 2,
       lastWeek: 1,
       peopleWeek: 1,
       receivedByDay: [0, 0, 0, 0, 0, 2, 0],
       receivedPrevByDay: [0, 0, 0, 0, 1, 0, 0],
       received30: [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0],
+      receivedPrev30: 1,
     });
   });
 });
@@ -177,6 +179,17 @@ describe("renderHomeDashboard", () => {
     expect(text(el.querySelector(".ov-mid b"))).toBe("60");
     el.querySelector<HTMLButtonElement>(".ov-legend button")!.click();
     expect(openKind).toHaveBeenCalledWith("primary");
+  });
+
+  it("shares the gauge's 21 bars between the kinds, and shows Received Mails' growth", () => {
+    const el = renderHomeDashboard(
+      { ...calm, kinds: { primary: 10, trans: 0, updates: 10, promo: 0 }, received30: Array(30).fill(4), receivedPrev30: 100 },
+      vi.fn(),
+    );
+    const strokes = Array.from(el.querySelectorAll(".ov-gauge line")).map((l) => l.getAttribute("stroke"));
+    expect(strokes).toHaveLength(21);
+    expect(new Set(strokes).size).toBe(2);
+    expect(text(el.querySelector(".mr-stats"))).toBe("Total120Growth+20%Period30 days");
   });
 
   it("lists top senders beside Received Mails", () => {

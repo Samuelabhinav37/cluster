@@ -10,7 +10,6 @@ import { clearedCount, type ActionLogEntry } from "../lib/actionLog";
 import type { ScanState } from "../lib/scanState";
 import type { SortBucket } from "../lib/sortTaxonomy";
 import { infoButton } from "./ui";
-import { donutChart } from "./overviewCharts";
 import { niceStep } from "./cleanupPage";
 
 export type HomeKind = "primary" | "trans" | "updates" | "promo";
@@ -67,6 +66,7 @@ export function mailByKind(
   receivedByDay: number[];
   receivedPrevByDay: number[];
   received30: number[];
+  receivedPrev30: number;
 } {
   const kinds: Record<HomeKind, number> = { primary: 0, trans: 0, updates: 0, promo: 0 };
   let total = 0;
@@ -76,10 +76,12 @@ export function mailByKind(
   const receivedByDay = [0, 0, 0, 0, 0, 0, 0];
   const receivedPrevByDay = [0, 0, 0, 0, 0, 0, 0];
   const received30 = new Array<number>(30).fill(0);
+  let receivedPrev30 = 0;
   for (const s of senders) {
     for (const m of s.messages) {
       const ago = daysAgo(m.receivedAt, now);
       if (ago >= 0 && ago < 30) received30[29 - ago] += 1;
+      else if (ago >= 30 && ago < 60) receivedPrev30 += 1;
       if (ago >= 0 && ago < 7) receivedByDay[6 - ago] += 1;
       else if (ago >= 7 && ago < 14) receivedPrevByDay[13 - ago] += 1;
       const kind = kindOf(m);
@@ -92,7 +94,7 @@ export function mailByKind(
       else if (now - m.receivedAt < 2 * WEEK_MS) lastWeek += 1;
     }
   }
-  return { kinds, total, thisWeek, lastWeek, peopleWeek, receivedByDay, receivedPrevByDay, received30 };
+  return { kinds, total, thisWeek, lastWeek, peopleWeek, receivedByDay, receivedPrevByDay, received30, receivedPrev30 };
 }
 
 /** Whole calendar days between `at` and `now` (0 = today). Round, not floor:
@@ -184,6 +186,8 @@ export interface HomeFacts {
   receivedPrevByDay?: number[];
   /** Arrivals on each of the last 30 days, oldest first. */
   received30?: number[];
+  /** Arrivals in the 30 days before those. */
+  receivedPrev30?: number;
   /** Emails cleared in the last 30 days. */
   cleared30?: number;
   /** Emails Cluster filed out of the inbox per day. */
@@ -646,8 +650,19 @@ function inboxCard(f: HomeFacts): HTMLElement {
   const days = f.received30 ?? [];
   const head = el("div", "mr-head");
   head.append(el("h2", "mr-title", "Received Mails"), el("span", "mr-range", "Last 30 days"));
-  card.append(head, el("b", "mr-total", n(days.reduce((a, b) => a + b, 0))));
-  card.append(barChart(days, Date.now()));
+  const total = days.reduce((a, b) => a + b, 0);
+  const stats = el("dl", "mr-stats");
+  const stat = (k: string, v: string) => stats.append(el("dt", "", k), el("dd", "", v));
+  stat("Total", n(total));
+  // Only once the previous 30 days are read too, or growth would be made up.
+  if (f.receivedPrev30 && !f.since) {
+    const pct = Math.round(((total - f.receivedPrev30) / f.receivedPrev30) * 100);
+    stat("Growth", `${pct > 0 ? "+" : pct < 0 ? "−" : ""}${Math.abs(pct)}%`);
+  }
+  stat("Period", "30 days");
+  const body = el("div", "mr-body");
+  body.append(stats, barChart(days, Date.now()));
+  card.append(head, body);
   return card;
 }
 
@@ -692,12 +707,45 @@ function barChart(counts: readonly number[], now: number): HTMLElement {
   return wrap;
 }
 
+// Apple system colors, one per kind so the gauge reads at a glance.
 const KIND_COLORS: Record<HomeKind, string> = {
-  primary: "var(--k1)",
-  trans: "var(--k2)",
-  updates: "var(--k3)",
-  promo: "var(--k4)",
+  primary: "#0a84ff",
+  trans: "#30b0c7",
+  updates: "#bf5af2",
+  promo: "#ff9f0a",
 };
+
+/** A half ring of rounded bars, shared out between the kinds by count (largest remainder). */
+function gaugeChart(parts: Array<[count: number, color: string]>): HTMLElement {
+  const N = 21;
+  const total = parts.reduce((a, [c]) => a + c, 0);
+  const shares = parts.map(([c]) => (total ? (c / total) * N : 0));
+  const bars = shares.map(Math.floor);
+  const order = shares.map((v, i) => [v - Math.floor(v), i] as const).sort((a, b) => b[0] - a[0]);
+  for (let k = 0; k < N - bars.reduce((a, b) => a + b, 0) && total; k++) bars[order[k][1]] += 1;
+  const colors = parts.flatMap(([, color], i) => Array<string>(bars[i]).fill(color));
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 240 132");
+  svg.setAttribute("aria-hidden", "true");
+  for (let i = 0; i < N; i++) {
+    const a = Math.PI - (i * Math.PI) / (N - 1);
+    const line = document.createElementNS(SVG_NS, "line");
+    const at = (r: number) => [(120 + r * Math.cos(a)).toFixed(1), (120 - r * Math.sin(a)).toFixed(1)];
+    const [x1, y1] = at(72);
+    const [x2, y2] = at(108);
+    line.setAttribute("x1", x1);
+    line.setAttribute("y1", y1);
+    line.setAttribute("x2", x2);
+    line.setAttribute("y2", y2);
+    line.setAttribute("stroke", colors[i] ?? "var(--neutral-fill)");
+    svg.append(line);
+  }
+  const wrap = el("div", "ov-gauge");
+  const mid = el("div", "ov-mid");
+  mid.append(el("b", "", n(total)), el("span", "", "emails"));
+  wrap.append(svg, mid);
+  return wrap;
+}
 
 /** Overview: today's emails, then three widgets that each open their page
  * (research/2026-11-05-redesign-mockup.html). The greeting is the page title. */
@@ -713,34 +761,31 @@ export function renderHomeDashboard(
     root.append(readHero(f.reading));
     return root;
   }
-  root.append(metricTiles(f, go));
-  const head = el("div", "ov-top");
-  head.append(inboxCard(f), topSendersCard(f, openSender));
-  root.append(head);
-  if (f.sweptAt) root.append(sweepLine(f.sweptAt, Date.now()));
   const since = f.since
     ? ` Read back to ${new Date(f.since).toLocaleDateString(undefined, { month: "short", day: "numeric" })} so far.`
     : "";
-  const grid = el("div", "ov-grid");
-
-  const donutBox = el("div", "ov-donut-box");
-  donutBox.append(donutChart(HOME_KINDS.map((k) => [k.label, f.kinds[k.key], KIND_COLORS[k.key]]), "emails"));
+  const top = el("div", "ov-row ov-row-top");
+  top.append(metricTiles(f, go), inboxCard(f));
+  const gaugeBox = el("div", "ov-gauge-box");
+  gaugeBox.append(gaugeChart(HOME_KINDS.map((k) => [f.kinds[k.key], KIND_COLORS[k.key]])));
   const legend = el("div", "ov-legend");
   for (const k of HOME_KINDS) {
     const item = el("button", "", k.label);
     item.type = "button";
-    item.prepend(el("i", `kind-${k.key}`));
+    const dot = el("i", "");
+    dot.style.background = KIND_COLORS[k.key];
+    item.prepend(dot);
     item.append(el("b", "", n(f.kinds[k.key])));
     item.onclick = () => openKind?.(k.key);
     legend.append(item);
   }
-  donutBox.append(legend);
-  const left = el("div", "ov-col");
-  left.append(
-    widget("Mail by category", `Every email Cluster has read, by kind. Pick a kind to see its emails.${since}`, null, donutBox, () => go("organize"), "Labels"),
+  gaugeBox.append(legend);
+  const bottom = el("div", "ov-row ov-row-bottom");
+  bottom.append(
+    widget("Mail by category", `Every email Cluster has read, by kind. Pick a kind to see its emails.${since}`, null, gaugeBox, () => go("organize"), "Labels"),
+    topSendersCard(f, openSender),
   );
-
-  grid.append(left);
-  root.append(grid);
+  root.append(top, bottom);
+  if (f.sweptAt) root.append(sweepLine(f.sweptAt, Date.now()));
   return root;
 }

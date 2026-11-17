@@ -532,6 +532,18 @@ async function showPinTip() {
   }
 }
 
+let greetName = "";
+/** "Good morning, Samuel!" by the hour, and the dates the Dashboard's charts cover. */
+function paintGreeting(now = new Date()) {
+  const h = now.getHours();
+  const part = h < 5 ? "evening" : h < 12 ? "morning" : h < 17 ? "afternoon" : "evening";
+  const greeting = document.getElementById("overview-greeting");
+  if (greeting) greeting.textContent = greetName ? `Good ${part}, ${greetName}!` : `Good ${part}!`;
+  const range = document.getElementById("overview-range");
+  const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (range) range.textContent = `${fmt(new Date(now.getTime() - 29 * 86_400_000))} to ${fmt(now)}`;
+}
+
 async function showAccountPill(token: string) {
   try {
     const email = await getProfileEmail(token);
@@ -550,12 +562,9 @@ async function showAccountPill(token: string) {
     const nameEl = document.getElementById("account-name");
     if (nameEl) nameEl.textContent = name || email;
     pill.title = email;
-    const greeting = document.getElementById("overview-greeting");
-    // "back" only once Cluster has seen this inbox before, not on day one.
-    const back = ctx.settings.healthHistory.length > 0 ? " back" : "";
     // The name they gave Kai beats the one Gmail sends under.
-    const first = ctx.settings.userName || (name ? firstName(name) : "");
-    if (greeting) greeting.textContent = first ? `Welcome${back}, ${first}!` : `Welcome${back}!`;
+    greetName = ctx.settings.userName || (name ? firstName(name) : "");
+    paintGreeting();
   } catch (err) {
     log.error("Could not load the account email", err);
   }
@@ -1516,6 +1525,7 @@ function renderOverview(
     .map((x) => x.sender.key);
 
   overviewContentEl.innerHTML = "";
+  paintGreeting();
   const facts: HomeFacts = {
     // All mail read, so Clean up's part and the total share one population.
     ...mailByKind(allSenders, Date.now()),

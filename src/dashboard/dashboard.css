@@ -3664,9 +3664,6 @@ body[data-screen="overview"].details-open .screen[data-screen="overview"] { visi
 .ov-empty { margin: 8px 0 0; color: var(--label-4); }
 .ov-health, .ov-stale { margin: 10px 2px 0; }
 .ov-stale { color: var(--danger-text); }
-/* Donut */
-.ov-donut { position: relative; width: 170px; height: 170px; margin: 8px auto 12px; }
-.ov-donut svg { width: 100%; height: 100%; }
 .ov-mid { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .ov-mid b { font-size: 26px; font-weight: 650; }
 .ov-mid span { font-size: 12px; color: var(--label-4); }
@@ -4459,3 +4456,29 @@ button.t10-row:hover .t10-name { text-decoration: underline; text-underline-offs
 .t10-n { color: var(--label-2); font-variant-numeric: tabular-nums; }
 .ov-inbox .mr-chart { flex: 1; display: flex; flex-direction: column; }
 .ov-inbox .mr-plot { flex: 1; min-height: 220px; height: auto; }
+
+/* Dashboard grid, 2026-11-16 (user's sales-dashboard reference): tiles 2x2 beside
+   Received Mails; Mail by category beside Top senders. */
+.page-head .ov-range { display: inline-flex; align-items: center; gap: 8px; align-self: center; height: 38px; padding: 0 16px; border: 1px solid var(--hairline); border-radius: 999px; color: var(--label-2); font: 500 14px var(--font); white-space: nowrap; }
+.ov-range svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ov-row { display: grid; gap: 20px; margin: 0 0 20px; }
+.ov-row-top { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); }
+.ov-row-bottom { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+.ov-row .mt-row { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+.ov-row .mt-tile { min-height: 0; }
+.ov-row-top .ov-inbox { padding-bottom: 20px; }
+.mr-body { flex: 1; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 28px; margin-top: 8px; }
+.mr-stats { display: flex; flex-direction: column; justify-content: center; margin: 0; }
+.mr-stats dt:not(:first-child) { margin-top: 22px; }
+.mr-stats dt { color: var(--label-3); font: 500 13px var(--font); }
+.mr-stats dd { margin: 2px 0 0; color: var(--label); font: 650 26px/1.15 var(--font); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.ov-row-top .mr-chart { margin: 16px 0 0; }
+.ov-row .ov-w { min-height: 0; padding: 24px 28px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--glass); }
+.ov-gauge-box { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; }
+.ov-gauge { position: relative; width: min(100%, 380px); }
+.ov-gauge svg { display: block; width: 100%; height: auto; }
+.ov-gauge line { stroke-width: 9.5; stroke-linecap: round; }
+.ov-gauge .ov-mid { inset: auto 0 0; justify-content: flex-end; }
+.ov-gauge .ov-mid b { font: 700 32px/1.1 var(--font); letter-spacing: -.02em; }
+.ov-gauge .ov-mid span { font-size: 13px; color: var(--label-3); }
+@media (max-width: 1100px) { .ov-row-top, .ov-row-bottom { grid-template-columns: 1fr; } }
