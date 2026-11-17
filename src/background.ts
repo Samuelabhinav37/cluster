@@ -42,9 +42,12 @@ import { notify, weeklySummary } from "./lib/notices";
 import { describeRun, markStalled } from "./lib/runReport";
 import { gmailSignInExpired, markSignInWarned } from "./lib/gmailWebAuth";
 import { holdWorkerLease } from "./lib/workerLease";
+import { continueMailRead } from "./lib/backgroundRead";
+
+const DASHBOARD_URL = chrome.runtime.getURL("src/dashboard/index.html");
 
 async function openDashboard() {
-  const url = chrome.runtime.getURL("src/dashboard/index.html");
+  const url = DASHBOARD_URL;
   const existing = await chrome.tabs.query({ url });
   if (existing[0]?.id) {
     chrome.tabs.update(existing[0].id, { active: true });
@@ -75,6 +78,9 @@ const INBOX_LIMITS_ALARM = "cluster-inbox-limits";
 // unsubscribed from, is filed within about 10 to 15 minutes. With the mail
 // index, a tick with no new mail costs a couple of quota units.
 const INBOX_SWEEP_MINUTES = 5;
+// The first mail read goes on while Cluster's window is closed (backgroundRead.ts).
+// Each minute picks it up again if Chrome stopped the worker.
+const READ_ALARM = "cluster-read";
 const SECURITY_SCAN_WINDOW_DAYS = 30;
 const SECURITY_SCAN_MAX_MESSAGES = 100;
 const providerById = new Map<ProviderId, EmailProvider>([
@@ -99,6 +105,7 @@ chrome.runtime.onInstalled.addListener((details) => {
   chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(DATASET_ALARM, { delayInMinutes: 10, periodInMinutes: 1440 });
   chrome.alarms.create(INBOX_LIMITS_ALARM, { delayInMinutes: 2, periodInMinutes: INBOX_SWEEP_MINUTES });
+  chrome.alarms.create(READ_ALARM, { delayInMinutes: 1, periodInMinutes: 1 });
   // A fresh install used to open nothing, leaving the user to find an
   // unpinned icon in the puzzle menu. Open the dashboard, whose connect gate
   // is the welcome screen. Updates and Chrome updates stay silent.
@@ -111,6 +118,7 @@ chrome.runtime.onStartup.addListener(() => {
   chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
   chrome.alarms.create(DATASET_ALARM, { delayInMinutes: 10, periodInMinutes: 1440 });
   chrome.alarms.create(INBOX_LIMITS_ALARM, { delayInMinutes: 2, periodInMinutes: INBOX_SWEEP_MINUTES });
+  chrome.alarms.create(READ_ALARM, { delayInMinutes: 1, periodInMinutes: 1 });
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -125,6 +133,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 function handleAlarm(alarm: chrome.alarms.Alarm): void {
+  if (alarm.name === READ_ALARM) void readInBackground();
   if (alarm.name === TRIAGE_ALARM) {
     resurfaceDueSnoozed(gmailProvider).catch((err) => log.error("Resurfacing snoozed mail failed", err));
     gmailProvider
@@ -598,3 +607,32 @@ async function runBackgroundTriage() {
     log.error("Background triage failed", err);
   }
 }
+
+const dashboardOpen = async () => (await chrome.tabs.query({ url: DASHBOARD_URL })).length > 0;
+let backgroundReading = false;
+
+/** Carries on an unfinished mail read while no dashboard is open. */
+async function readInBackground(): Promise<void> {
+  if (backgroundReading) return;
+  backgroundReading = true;
+  try {
+    const settings = await getSettings();
+    for (const provider of providerById.values()) {
+      if (!(await provider.isConnected().catch(() => false))) continue;
+      const outcome = await continueMailRead(provider, settings, { pageOpen: dashboardOpen });
+      if (outcome !== "idle") log.info(`Background mail read for ${provider.id}: ${outcome}`);
+    }
+  } catch (err) {
+    log.error("Background mail read failed", err);
+  } finally {
+    backgroundReading = false;
+  }
+}
+
+// Closing the last Cluster tab hands its read to the worker straight away.
+chrome.tabs.onRemoved.addListener(() => {
+  void dashboardOpen().then((open) => {
+    if (!open) void readInBackground();
+  });
+});
+

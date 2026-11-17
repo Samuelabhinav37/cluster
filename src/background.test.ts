@@ -154,7 +154,7 @@ beforeEach(async () => {
       create: alarmsCreate,
       onAlarm: { addListener: (fn: AlarmCb) => (alarmListener = fn) },
     },
-    tabs: { query: async () => [], create: tabsCreate, update: () => {} },
+    tabs: { query: async () => [], create: tabsCreate, update: () => {}, onRemoved: { addListener: () => {} } },
   };
 
   vi.resetModules();
@@ -186,6 +186,8 @@ describe("alarm routing", () => {
     expect(alarmsCreate).toHaveBeenCalledWith("cluster-athena-flush", expect.any(Object));
     expect(alarmsCreate).toHaveBeenCalledWith("cluster-jobs", expect.any(Object));
     expect(alarmsCreate).toHaveBeenCalledWith("cluster-dataset-refresh", expect.any(Object));
+    // The first mail read goes on with the window closed, checked every minute.
+    expect(alarmsCreate).toHaveBeenCalledWith("cluster-read", { delayInMinutes: 1, periodInMinutes: 1 });
   });
 
   it("the triage alarm resurfaces due snoozes and starts a triage pass", async () => {
