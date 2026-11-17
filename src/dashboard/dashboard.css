@@ -2580,7 +2580,7 @@ body {
 /* the dashboard's own button look (40px tall, filled) is not Kai's */
 .kai-guide button { min-height: 0; transition: none; }
 .kai-guide .kg-tag:hover { background: var(--glass-solid); }
-.kg-launch { --kg-kai: 56px; position: relative; width: var(--kg-kai); }
+.kg-launch { --kg-kai: 76px; position: relative; width: var(--kg-kai); }
 .kai-guide .kai-button { display: block; padding: 0; border: 0; background: none; box-shadow: none; min-width: 0; min-height: 0; cursor: pointer; border-radius: 16px; }
 .kai-guide .kai-button:hover, .kai-guide .kai-button:active { background: none; box-shadow: none; transform: none; }
 .kai-button:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 4px; }
@@ -4550,3 +4550,27 @@ section.screen[data-screen="overview"] { max-width: 1320px; }
 .t10-bar { display: block; height: 4px; border-radius: 2px; background: #3b82f6; opacity: .75; }
 .t10-row .t10-name { flex: none; font-size: 13px; }
 .t10-n { font-size: 13px; }
+/* Dashboard round 6, 2026-11-16: air under the greeting, the tile number centered, the
+   ring's total inside the SVG, hover and a first-paint grow-in on both charts. */
+.panel-brand { margin-bottom: 18px; }
+@media (min-width: 1101px) {
+  section[data-screen="overview"] .page-head { margin: 4px 0 24px; }
+  #overview-content .mt-num { margin: auto 0; padding: 0; font-size: clamp(32px, 5vh, 46px); font-weight: 600; letter-spacing: -.025em; }
+}
+.ov-gauge-num { fill: var(--label); font: 700 30px var(--font); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.ov-gauge-label { fill: var(--label-3); font: 500 11px var(--font); }
+.mr-bar { transition: opacity .15s ease; }
+.mr-plot.is-picking .mr-bar:not(.on) { opacity: .3; }
+.mr-plot { cursor: default; }
+.mr-tip { position: absolute; z-index: 2; transform: translateX(-50%); padding: 5px 9px; border-radius: 8px; background: var(--glass-solid, #2c2c2e);
+  box-shadow: 0 4px 14px rgb(0 0 0 / .3); color: var(--label-2); font: 500 12px/1.3 var(--font); white-space: nowrap; pointer-events: none; }
+.mr-tip b { color: var(--label); font-weight: 650; }
+@keyframes ov-grow { from { transform: scaleY(0); } }
+@keyframes ov-fade { from { opacity: 0; } }
+.ov-intro .mr-bar { transform-origin: bottom; animation: ov-grow .55s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 14ms); }
+.ov-intro .ov-gauge line { animation: ov-fade .4s ease-out both; animation-delay: calc(var(--i) * 28ms); }
+.ov-intro .t10-bar { transform-origin: left; animation: ov-grow-x .6s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes ov-grow-x { from { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .ov-intro .mr-bar, .ov-intro .ov-gauge line, .ov-intro .t10-bar { animation: none; } }
+/* Kai (76px, fixed bottom right) would sit on the cards' right edge on narrower screens: keep a gutter for him. */
+@media (min-width: 1101px) and (max-width: 1700px) { section[data-screen="overview"]:not([hidden]) { padding-right: 116px; } }

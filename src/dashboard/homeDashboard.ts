@@ -756,12 +756,14 @@ function barChart(counts: readonly number[], now: number): HTMLElement {
   }
   const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   const xs = el("div", "mr-xs");
+  const bars: HTMLElement[] = [];
   counts.forEach((c, i) => {
     const day = new Date(now - (last - i) * 24 * 60 * 60 * 1000);
     const bar = el("i", "mr-bar");
     bar.style.gridColumn = String(i + 1);
     bar.style.height = `${(c / top) * 100}%`;
-    bar.title = `${fmt(day)}: ${n(c)} email${c === 1 ? "" : "s"}`;
+    bar.style.setProperty("--i", String(i));
+    bars.push(bar);
     plot.append(bar);
     // A date every four days, counted back from today, with a dashed line up.
     if ((last - i) % 4 !== 2) return;
@@ -772,6 +774,28 @@ function barChart(counts: readonly number[], now: number): HTMLElement {
     const label = el("span", day.getDate() === 1 ? "mr-x is-first" : "mr-x", fmt(day));
     label.style.left = x;
     xs.append(label);
+  });
+  // Each day owns its whole column, so moving across the gaps doesn't flicker.
+  const tip = el("div", "mr-tip");
+  tip.hidden = true;
+  plot.append(tip);
+  plot.addEventListener("mousemove", (e) => {
+    const r = plot.getBoundingClientRect();
+    if (!r.width) return;
+    const i = Math.min(last, Math.max(0, Math.floor(((e.clientX - r.left) / r.width) * counts.length)));
+    plot.classList.add("is-picking");
+    bars.forEach((b, j) => b.classList.toggle("on", j === i));
+    const c = counts[i];
+    tip.textContent = "";
+    tip.append(el("b", "", n(c)), ` email${c === 1 ? "" : "s"} · ${fmt(new Date(now - (last - i) * 86_400_000))}`);
+    tip.style.left = `${((i + 0.5) / counts.length) * 100}%`;
+    tip.style.bottom = `calc(${(c / top) * 100}% + 8px)`;
+    tip.hidden = false;
+  });
+  plot.addEventListener("mouseleave", () => {
+    plot.classList.remove("is-picking");
+    bars.forEach((b) => b.classList.remove("on"));
+    tip.hidden = true;
   });
   wrap.append(plot, xs);
   return wrap;
@@ -796,7 +820,8 @@ function gaugeChart(parts: Array<{ label: string; count: number; color: string; 
   const shares = parts.map((p) => (total ? (p.count / total) * N : 0));
   const bars = shares.map(Math.floor);
   const order = shares.map((v, i) => [v - Math.floor(v), i] as const).sort((a, b) => b[0] - a[0]);
-  for (let k = 0; k < N - bars.reduce((a, b) => a + b, 0) && total; k++) bars[order[k][1]] += 1;
+  const left = total ? N - bars.reduce((a, b) => a + b, 0) : 0;
+  for (let k = 0; k < left; k++) bars[order[k][1]] += 1;
   const owner = parts.flatMap((_, i) => Array<number>(bars[i]).fill(i));
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 240 132");
@@ -813,15 +838,24 @@ function gaugeChart(parts: Array<{ label: string; count: number; color: string; 
     line.setAttribute("x2", x2);
     line.setAttribute("y2", y2);
     line.setAttribute("stroke", owner[i] === undefined ? "var(--neutral-fill)" : parts[owner[i]].color);
+    line.style.setProperty("--i", String(i));
     lines.push(line);
     svg.append(line);
   }
+  const label = (cls: string, y: string, text: string) => {
+    const t = document.createElementNS(SVG_NS, "text");
+    t.setAttribute("class", cls);
+    t.setAttribute("x", "120");
+    t.setAttribute("y", y);
+    t.setAttribute("text-anchor", "middle");
+    t.textContent = text;
+    svg.append(t);
+    return t;
+  };
+  const num = label("ov-gauge-num", "106", n(total));
+  const what = label("ov-gauge-label", "124", "emails");
   const wrap = Object.assign(el("div", "ov-gauge"), { show: (_k: number) => {} });
-  const mid = el("div", "ov-mid");
-  const num = el("b", "", n(total));
-  const what = el("span", "", "emails");
-  mid.append(num, what);
-  wrap.append(svg, mid);
+  wrap.append(svg);
   wrap.show = (k: number) => {
     wrap.classList.toggle("is-picking", k >= 0);
     lines.forEach((l, i) => l.classList.toggle("on", owner[i] === k));
@@ -856,6 +890,9 @@ function gaugeChart(parts: Array<{ label: string; count: number; color: string; 
 
 /** Overview: today's emails, then three widgets that each open their page
  * (research/2026-11-05-redesign-mockup.html). The greeting is the page title. */
+// The charts animate in once per page load, not on every repaint.
+let introShown = false;
+
 export function renderHomeDashboard(
   f: HomeFacts,
   go: Go,
@@ -871,6 +908,8 @@ export function renderHomeDashboard(
   const since = f.since
     ? ` Read back to ${new Date(f.since).toLocaleDateString(undefined, { month: "short", day: "numeric" })} so far.`
     : "";
+  if (!introShown) root.classList.add("ov-intro");
+  introShown = true;
   const top = el("div", "ov-row ov-row-top");
   top.append(metricTiles(f, go), inboxCard(f));
   const gaugeBox = el("div", "ov-gauge-box");

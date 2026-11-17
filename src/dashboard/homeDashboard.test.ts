@@ -188,7 +188,7 @@ describe("renderHomeDashboard", () => {
       "Updates20",
       "Offers30",
     ]);
-    expect(text(el.querySelector(".ov-mid b"))).toBe("60");
+    expect(text(el.querySelector(".ov-gauge-num"))).toBe("60");
     el.querySelector<HTMLButtonElement>(".ov-legend button")!.click();
     expect(openKind).toHaveBeenCalledWith("primary");
   });
@@ -204,6 +204,24 @@ describe("renderHomeDashboard", () => {
     expect(text(el.querySelector(".mr-stats"))).toMatch(/^Total120\+20%Per day4Busiest day\w+days$/);
   });
 
+  it("gives out all 21 gauge bars when the shares round unevenly", () => {
+    const el = renderHomeDashboard({ ...calm, kinds: { primary: 640, trans: 1220, updates: 1480, promo: 1526 } }, vi.fn());
+    const strokes = Array.from(el.querySelectorAll(".ov-gauge line")).map((l) => l.getAttribute("stroke"));
+    expect(strokes.filter((c) => c === "var(--neutral-fill)")).toEqual([]);
+  });
+
+  it("hovering Received Mails lights that day's bar and names its count and date", () => {
+    const el = renderHomeDashboard({ ...calm, received30: Array.from({ length: 30 }, (_, i) => i) }, vi.fn());
+    const plot = el.querySelector<HTMLElement>(".mr-plot")!;
+    plot.getBoundingClientRect = () => ({ left: 0, width: 300, top: 0, height: 100 }) as DOMRect;
+    plot.dispatchEvent(new MouseEvent("mousemove", { clientX: 295 }));
+    const lit = Array.from(plot.querySelectorAll(".mr-bar")).findIndex((b) => b.classList.contains("on"));
+    expect(lit).toBe(29);
+    expect(text(plot.querySelector(".mr-tip"))).toMatch(/^29 emails · \w+ \d+$/);
+    plot.dispatchEvent(new MouseEvent("mouseleave"));
+    expect(plot.querySelector<HTMLElement>(".mr-tip")!.hidden).toBe(true);
+  });
+
   it("hovering a kind lights only its bars and shows its count", () => {
     const el = renderHomeDashboard({ ...calm, kinds: { primary: 10, trans: 0, updates: 10, promo: 0 } }, vi.fn());
     const updates = Array.from(el.querySelectorAll<HTMLButtonElement>(".ov-legend button"))[2];
@@ -211,9 +229,9 @@ describe("renderHomeDashboard", () => {
     const lines = Array.from(el.querySelectorAll(".ov-gauge line"));
     expect(lines.filter((l) => l.classList.contains("on")).length).toBeGreaterThan(0);
     expect(new Set(lines.filter((l) => l.classList.contains("on")).map((l) => l.getAttribute("stroke"))).size).toBe(1);
-    expect(text(el.querySelector(".ov-gauge .ov-mid"))).toBe("10Updates");
+    expect(text(el.querySelector(".ov-gauge-num")) + text(el.querySelector(".ov-gauge-label"))).toBe("10Updates");
     updates.onmouseleave!(new MouseEvent("mouseleave"));
-    expect(text(el.querySelector(".ov-gauge .ov-mid"))).toBe("20emails");
+    expect(text(el.querySelector(".ov-gauge-num")) + text(el.querySelector(".ov-gauge-label"))).toBe("20emails");
   });
 
   it("lists top senders beside Received Mails", () => {
