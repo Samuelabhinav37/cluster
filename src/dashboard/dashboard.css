@@ -4750,3 +4750,34 @@ section.screen:not([data-screen="setup"]) { max-width: 1320px; }
 .sort-ring { width: 128px; height: 128px; }
 .sort-big { font-size: 28px; }
 .sort-plan:not(:empty) { border: 1px solid var(--hairline); border-radius: 12px; background: var(--glass); padding: 4px 20px; }
+
+/* Round 14: the last old screens in Dashboard cards.
+   Screener: both switches in one card, each list a card with its title as the header. */
+.scr-switches { padding: 0 24px; }
+.scr-switches .toggle-card { margin: 0; padding: 18px 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.scr-switches .toggle-card + .toggle-card { border-top: 1px solid var(--hairline); }
+.scr-switches .toggle-card b { font: 600 15px var(--font); }
+.scr-card { margin-top: 20px; padding: 20px 24px; }
+.scr-card .section-head { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; }
+.scr-card .section-label { margin: 0; font: 600 15px var(--font); color: var(--label); }
+/* Inside a card an empty list is one quiet line, not a box in a box. */
+.scr-card .empty-state { margin: 0; padding: 4px 0 2px; border: 0; background: none; text-align: left; font-size: 14px; color: var(--label-3); }
+.scr-card .ios-group, .scr-card .grouped-list { border: 0; border-radius: 0; background: none; box-shadow: none; }
+
+/* Settings: full width; each group of rows is a card, notes are cards too. */
+.settings-list { max-width: none; }
+.settings-list .set-rows { padding: 0 24px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--glass); }
+.settings-list .set-rows > .set-row + .set-row { border-top: 1px solid var(--hairline); }
+.settings-list .set-rows > .set-row { padding-block: 18px; border-bottom: 0; }
+section[data-screen="settings"] .banner { margin: 0 0 20px; padding: 16px 20px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--glass); }
+
+/* Contacts: a quiet picked row and one blue button on the sender card. */
+#all-senders-list .list-row.picked { background: var(--neutral-fill); }
+#all-senders-list .grouped-list { border-color: var(--hairline); border-radius: 12px; background: var(--glass); }
+.contacts .search input { border: 1px solid var(--hairline); border-radius: 10px; background: var(--glass); }
+.contacts .search input:focus { border-color: var(--label-4); }
+.scr-card .section-label { padding: 0; }
+.sender-card { border-radius: 12px; border-color: var(--hairline); background: var(--glass); }
+.sender-card .card-acts .btn:not(.btn-accent-solid) { background: var(--neutral-fill); color: var(--label); }
+.sender-card .card-facts b { font-size: 17px; }
+.contacts .lists-head { display: none; }

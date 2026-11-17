@@ -510,11 +510,11 @@
           <section class="screen" data-screen="screener" role="tabpanel" hidden>
             <div class="page-head">
               <div class="page-titles">
-                <h1 class="page-title">Security</h1>
-                <p class="lead" data-protect-sub></p>
+                <h1 class="page-title">Screener</h1>
               </div>
             </div>
 
+            <div class="ov-card scr-switches">
             <label class="toggle-card" id="screener-toggle-row">
               <span class="tc-text">
                 <b>Hold mail from new senders</b>
@@ -526,9 +526,10 @@
               <span class="tc-text"><b>Hold people too</b></span>
               <input type="checkbox" class="switch" role="switch" id="screener-people" checked />
             </label>
+            </div>
 
             <div id="screener-backlog" class="banner" hidden></div>
-            <section>
+            <section class="ov-card scr-card">
               <div class="section-head">
                 <h2 class="section-label">Waiting</h2>
                 <span class="muted" id="screener-queue-count"></span>
@@ -536,7 +537,7 @@
               <div id="screener-queue"></div>
             </section>
 
-            <section>
+            <section class="ov-card scr-card">
               <div class="section-head"><h2 class="section-label">People you let in by hand</h2></div>
               <div id="screener-allowlist"></div>
             </section>
