@@ -1,33 +1,29 @@
 // Cleanup's Mailing lists tab: every list in the scan in the Senders table's
-// design (one row per domain, a Status column), Unsubscribe in the selection
-// bar, and each list's other actions in its ⋯ menu.
+// design (one row per domain), with Unsubscribe in the selection bar. Each
+// list's status feeds the Filter menu.
 // recordUnsubscribeRequests is exported because the Clean-up tab's sender
 // table also records a request when its inline Unsubscribe button fires.
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
-import { executeBulkUnsubscribe, filterOutProtected } from "../lib/bulkActions";
+import { executeBulkUnsubscribe } from "../lib/bulkActions";
 import { unsubscribeOutcomeRank } from "../lib/unsubscribeOutcome";
-import { buildProtectionContext, buildSenderCleanupPlan } from "../lib/protectionPolicy";
-import { createDurableJob, runDurableJob } from "../lib/durableJobs";
+import { buildProtectionContext } from "../lib/protectionPolicy";
 import type { SenderSummary } from "../lib/senderModel";
 import { domainOf } from "../lib/domainGrouping";
 import { registrableDomain } from "../lib/registrableDomain";
-import { formatRelativeTime, headerRow, renderConfirmStep, runNow } from "./ui";
+import { formatRelativeTime, headerRow, renderConfirmStep } from "./ui";
 import { renderSenderTable } from "./cleanupPage";
 import { leavableList } from "../lib/cleanupCards";
-import { ctx, providerById } from "./state";
+import { ctx } from "./state";
 import { logAction } from "./recentTab";
-import { clusterLabelName } from "../lib/clusterLabels";
 import {
   recordUnsubscribeRequests,
   trashStillSending,
   undoUnsubscribe,
   UNDO_UNSUBSCRIBE_COPY,
-  unsubscribeButtonText,
   unsubscribeOutcomeFor,
 } from "./unsubscribeRecord";
 import { openUnsubscribeSheet } from "./unsubscribeSheet";
 
-const READ_LATER_LABEL = clusterLabelName("readLater");
 
 /** Ticked rows (registrable domains), kept across re-renders. */
 const selectedListKeys = new Set<string>();
@@ -77,257 +73,6 @@ function requestActions(key: string, provider: string, state: string): HTMLEleme
   return out;
 }
 
-/** The sender just unsubscribed from, so the screen can offer the same
- * company's other list addresses. */
-let justStopped: SenderSummary | null = null;
-
-/** "Shop also mails you from 2 other addresses. Stop those too?" */
-function siblingOffer(available: SenderSummary[]): HTMLElement | null {
-  const company = justStopped && ctx.profiles.get(justStopped.key)?.companyKey;
-  if (!justStopped || !company) return null;
-  const others = available.filter(
-    (s) =>
-      s.key !== justStopped!.key &&
-      s.unsubscribe.postUrl &&
-      !ctx.settings.unsubscribeRequests[s.key] &&
-      ctx.profiles.get(s.key)?.companyKey === company,
-  );
-  if (others.length === 0) return null;
-  const name = justStopped.displayName || company;
-  const banner = document.createElement("div");
-  banner.className = "banner";
-  const text = document.createElement("span");
-  text.textContent = `${name} also mails you from ${others.length} other address${others.length === 1 ? "" : "es"}.`;
-  const stop = document.createElement("button");
-  stop.className = "btn btn-accent-solid btn-sm";
-  stop.textContent = "Stop those too";
-  stop.onclick = async () => {
-    stop.disabled = true;
-    const granted = await ensureOriginsPermission(others.map((s) => s.unsubscribe.postUrl!));
-    if (!granted) {
-      text.textContent = "Permission denied, so nothing was sent.";
-      stop.disabled = false;
-      return;
-    }
-    const { succeeded } = await executeBulkUnsubscribe(others, fireOneClickUnsubscribe);
-    await recordUnsubscribeRequests(succeeded);
-    if (succeeded.length > 0)
-      await logAction("unsubscribe", `Unsubscribed from ${succeeded.length} more ${name} addresses`);
-    justStopped = null;
-    renderSubscriptionsTab(ctx.senders);
-  };
-  const later = document.createElement("button");
-  later.className = "btn btn-sm";
-  later.textContent = "Not now";
-  later.onclick = () => {
-    justStopped = null;
-    banner.remove();
-  };
-  banner.append(text, stop, later);
-  return banner;
-}
-
-/** Moves a sender's old list mail to Trash (or archives it), re-checking protection live. */
-async function trashOldMail(
-  sender: SenderSummary,
-  ids: string[],
-  kept: number,
-  op: "trash" | "archive" = "trash",
-): Promise<string> {
-  const provider = providerById.get(sender.provider);
-  if (!provider) return "Couldn't reach your mail, so nothing was moved";
-  const { safe, skipped } = await filterOutProtected(new Map([[sender.provider, ids]]), providerById);
-  const targetIds = safe.get(sender.provider) ?? [];
-  if (targetIds.length === 0)
-    return skipped > 0 ? `Skipped ${skipped} you starred since the scan` : "Nothing left to move";
-  const job = await createDurableJob({ provider: sender.provider, operation: op, targetIds });
-  const result = await runDurableJob(job.id, providerById);
-  const where = op === "trash" ? "to Trash" : "to the archive";
-  if (result.succeededIds.length > 0) {
-    const undo = op === "trash" ? provider.untrashMessages : provider.unarchiveMessages;
-    await logAction(
-      op,
-      `Moved ${result.succeededIds.length} old message${result.succeededIds.length === 1 ? "" : "s"} from ${sender.address} ${where}`,
-      undo
-        ? {
-            provider: sender.provider,
-            ids: result.succeededIds,
-            via: op === "trash" ? "untrash" : "unarchive",
-          }
-        : undefined,
-    );
-  }
-  const skippedNote = skipped > 0 ? `, skipped ${skipped} you starred since the scan` : "";
-  return result.failures.length > 0
-    ? `Moved ${result.succeededIds.length}, failed ${result.failures.length}, kept ${kept}${skippedNote}`
-    : `Moved ${result.succeededIds.length} ${where}, kept ${kept}${skippedNote}`;
-}
-
-const UNSUBSCRIBE_GRACE_MS = 3000;
-
-/** "Unsubscribing… Undo" for a moment before the request goes out. True when it should go. */
-function graceWithUndo(cell: HTMLElement): Promise<boolean> {
-  const before = Array.from(cell.childNodes);
-  return new Promise((resolve) => {
-    const undo = Object.assign(document.createElement("button"), {
-      type: "button",
-      className: "btn",
-      textContent: "Undo",
-    });
-    const timer = setTimeout(() => {
-      cell.replaceChildren(...before);
-      resolve(true);
-    }, UNSUBSCRIBE_GRACE_MS);
-    undo.onclick = () => {
-      clearTimeout(timer);
-      cell.replaceChildren(...before);
-      resolve(false);
-    };
-    cell.replaceChildren("Unsubscribing… ", undo);
-  });
-}
-
-/** They stopped on their own: nothing to unsubscribe from, only old mail to clear. */
-function clearOldMailButton(sender: SenderSummary): HTMLElement | null {
-  const cleanup = buildSenderCleanupPlan(sender, buildProtectionContext(ctx.settings));
-  const n = cleanup.safeNewsletterIds.length;
-  if (n === 0) return null;
-  const slot = document.createElement("span");
-  const btn = document.createElement("button");
-  btn.textContent = "Clear out old mail";
-  const reset = () => slot.replaceChildren(btn);
-  btn.onclick = () => {
-    const kept = cleanup.protectedIds.length + cleanup.retainedOtherIds.length;
-    renderConfirmStep(
-      slot,
-      reset,
-      `Move ${n} old message${n === 1 ? "" : "s"} to Trash? ${kept} stay.`,
-      true,
-      () => trashOldMail(sender, cleanup.safeNewsletterIds, kept),
-    );
-  };
-  reset();
-  return slot;
-}
-
-function subUnsubscribeCell(sender: SenderSummary): HTMLTableCellElement {
-  const cell = document.createElement("td");
-  const u = sender.unsubscribe;
-  if (u.postUrl) {
-    const btn = document.createElement("button");
-    btn.textContent = unsubscribeButtonText(sender);
-    btn.onclick = async () => {
-      const host = btn.parentElement;
-      if (host && !(await graceWithUndo(host))) return;
-      btn.disabled = true;
-      btn.textContent = "Requesting…";
-      const ok = await fireOneClickUnsubscribe(u.postUrl!);
-      if (ok) {
-        await recordUnsubscribeRequests([sender]);
-        await logAction("unsubscribe", `Unsubscribed from ${sender.address}`);
-        justStopped = sender;
-        renderSubscriptionsTab(ctx.senders);
-      } else {
-        btn.disabled = false;
-        btn.textContent = "Failed, retry";
-      }
-    };
-    cell.appendChild(btn);
-
-    const cleanup = buildSenderCleanupPlan(sender, buildProtectionContext(ctx.settings));
-    const n = cleanup.safeNewsletterIds.length;
-    const kept = cleanup.protectedIds.length + cleanup.retainedOtherIds.length;
-    const stopAnd = (label: string, op: "trash" | "archive") => {
-      const slot = document.createElement("span");
-      const button = Object.assign(document.createElement("button"), {
-        textContent: label,
-        className: op === "trash" ? "danger" : "",
-      });
-      const reset = () => slot.replaceChildren(button);
-      button.onclick = () =>
-        renderConfirmStep(
-          slot,
-          reset,
-          `Unsubscribe from ${sender.address} and move ${n} old message${n === 1 ? "" : "s"} ${op === "trash" ? "to Trash" : "out of your inbox"}? ${kept} stay.`,
-          op === "trash",
-          async () => {
-            const ok = await fireOneClickUnsubscribe(u.postUrl!);
-            if (!ok) return "Unsubscribe failed, so no mail was moved";
-            await recordUnsubscribeRequests([sender]);
-            return `Unsubscribed. ${await trashOldMail(sender, cleanup.safeNewsletterIds, kept, op)}`;
-          },
-        );
-      reset();
-      cell.append(" ", slot);
-    };
-    if (n > 0) {
-      stopAnd("Stop and trash old", "trash");
-      if (providerById.get(sender.provider)?.archiveMessages) stopAnd("Stop and archive old", "archive");
-    }
-  } else if (u.mailto) {
-    const button = document.createElement("button");
-    button.textContent = "Unsubscribe by email";
-    button.onclick = () => void openUnsubscribeSheet([sender], () => renderSubscriptionsTab(ctx.senders));
-    cell.appendChild(button);
-  } else if (u.httpUrl) {
-    const page = document.createElement("button");
-    page.textContent = "Open unsubscribe page";
-    const url = u.httpUrl;
-    page.onclick = () => window.open(url, "_blank", "noopener,noreferrer");
-    cell.appendChild(page);
-  }
-
-  const readLaterPlan = buildSenderCleanupPlan(sender, buildProtectionContext(ctx.settings));
-  const provider = providerById.get(sender.provider);
-  if (readLaterPlan.safeNewsletterIds.length > 0 && provider?.labelMessages && provider.unlabelMessages) {
-    const slot = document.createElement("span");
-    const button = document.createElement("button");
-    button.textContent = "Read later";
-    const reset = () => slot.replaceChildren(button);
-    button.onclick = () => {
-      const kept = readLaterPlan.protectedIds.length + readLaterPlan.retainedOtherIds.length;
-      runNow(slot, async () => {
-          const { safe, skipped } = await filterOutProtected(
-            new Map([[sender.provider, readLaterPlan.safeNewsletterIds]]),
-            providerById,
-          );
-          const targetIds = safe.get(sender.provider) ?? [];
-          if (targetIds.length === 0) {
-            return skipped > 0 ? `Skipped ${skipped} you starred since the scan` : "Nothing to move";
-          }
-          const job = await createDurableJob({
-            provider: sender.provider,
-            operation: "label",
-            targetIds,
-            labelName: READ_LATER_LABEL,
-            keepInInbox: false,
-          });
-          const result = await runDurableJob(job.id, providerById);
-          if (result.succeededIds.length > 0) {
-            await logAction(
-              "sort",
-              `Moved ${result.succeededIds.length} newsletter message${result.succeededIds.length === 1 ? "" : "s"} from ${sender.address} to "${READ_LATER_LABEL}"${skipped > 0 ? `, skipped ${skipped} you starred since the scan` : ""}`,
-              {
-                provider: sender.provider,
-                ids: result.succeededIds,
-                via: "unsort",
-                labelName: READ_LATER_LABEL,
-                wasFiledOut: true,
-              },
-            );
-          }
-          return result.failures.length > 0
-            ? `Moved ${result.succeededIds.length}; failed ${result.failures.length}; kept ${kept}`
-            : `Moved ${result.succeededIds.length} to "${READ_LATER_LABEL}"; kept ${kept}`;
-        },
-      );
-    };
-    reset();
-    cell.append(" ", slot);
-  }
-  return cell;
-}
-
 function senderAddressFromKey(key: string): string {
   const separator = key.indexOf(":");
   return separator >= 0 ? key.slice(separator + 1) : key;
@@ -350,19 +95,6 @@ function listStatus(group: SenderSummary[]): string {
 /** The bar's Unsubscribe can send these: not yet asked, with a one-click or email way out. */
 const canUnsubscribe = (s: SenderSummary) =>
   !ctx.settings.unsubscribeRequests[s.key] && Boolean(s.unsubscribe.postUrl || s.unsubscribe.mailto);
-
-/** A single list's ⋯ menu: its way out, the old-mail actions, and Undo once asked. */
-function listControls(group: SenderSummary[]): HTMLElement[] {
-  if (group.length !== 1) return [];
-  const [sender] = group;
-  const outcome = unsubscribeOutcomeFor(sender.key, sender);
-  const quiet = !outcome.requestAt && ctx.profiles.get(sender.key)?.stillSending === false;
-  const clear = quiet ? clearOldMailButton(sender) : null;
-  const controls = Array.from(subUnsubscribeCell(sender).children) as HTMLElement[];
-  if (clear) controls.unshift(clear);
-  if (outcome.requestAt) controls.push(...requestActions(sender.key, sender.provider, outcome.state));
-  return controls;
-}
 
 /** Asks once, then sends the one-click requests; lists that only take email open the email sheet. */
 function unsubscribeMany(picked: SenderSummary[], slot: HTMLElement, reset: () => void) {
@@ -422,7 +154,7 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
   const table = document.createElement("div");
   const rowCount = renderSenderTable(table, {
     id: "lists",
-    columns: ["note", "read", "perMonth", "emails", "last"],
+    columns: ["read", "emails", "perMonth", "last"],
     tools: document.getElementById("cu-tools-lists"),
     nameHead: "Mailing list",
     perMonth: (group) => group.reduce((n, s) => n + (ctx.profiles.get(s.key)?.perMonth ?? 0), 0),
@@ -437,7 +169,6 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
     noteHead: "Status",
     verb: "Unsubscribe",
     canTick: (group) => group.some(canUnsubscribe),
-    controls: listControls,
     badge: (group) => (group.length > 1 ? `${group.length} lists` : ""),
     selected: selectedListKeys,
     barIds: { slot: "subs-unsub-all-slot", button: "subs-unsub-all-btn" },
@@ -445,8 +176,6 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
   if (tabCount) tabCount.textContent = rowCount ? rowCount.toLocaleString() : "";
 
   const parts: HTMLElement[] = [];
-  const offer = siblingOffer(available);
-  if (offer) parts.push(offer);
   if (rowCount > 0) parts.push(table);
   else if (trackedOnlyRows.length === 0) {
     const empty = document.createElement("p");

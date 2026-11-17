@@ -4,7 +4,7 @@ import type { ProviderId } from "../lib/providers/emailProvider";
 import type { SenderSummary } from "../lib/senderModel";
 import { senderName } from "../lib/senderListView";
 import { listGroup, listRow } from "./listRow";
-import { menuForControls, rowMenu, type MenuEntry } from "./rowMenu";
+import { rowMenu, type MenuEntry } from "./rowMenu";
 import { csvField, downloadBytes } from "./csv";
 import { senderTile } from "./senderTile";
 
@@ -364,8 +364,6 @@ export interface SenderTableSpec {
   verb?: string;
   /** Rows that can't take the bar's action get no tick. */
   canTick?: (senders: SenderSummary[]) => boolean;
-  /** A row's other actions for its ⋯ menu; the picked one's confirm opens under the row. */
-  controls?: (senders: SenderSummary[]) => HTMLElement[];
   /** Gray text after the name, e.g. "5 lists". */
   badge?: (senders: SenderSummary[]) => string;
   /** Ticked row keys, owned by the caller so a re-render or preselect keeps them. */
@@ -695,8 +693,7 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
       return th;
     };
     head.append(sortHead("name", spec.nameHead ?? "Sender", "ct-c-who"));
-    for (const c of columns) head.append(sortHead(c, headOf(c), `ct-c-${c}${NUMERIC.has(c) ? " num" : ""}`));
-    if (spec.controls) head.append(el("th", "ct-c-menu"));
+    for (const c of columns) head.append(sortHead(c, headOf(c), `ct-c-${c} col-${c}${NUMERIC.has(c) ? " num" : ""}`));
     const thead = el("thead");
     thead.append(head);
 
@@ -725,41 +722,28 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
       who.append(name);
       tr.append(td0, who);
       for (const c of columns) {
-        if (c === "note") tr.append(el("td", "ct-dim ct-reason", r.note));
+        let cell: HTMLElement;
+        if (c === "note") cell = el("td", "ct-dim ct-reason", r.note);
         else if (c === "read") {
           const pct = Math.round(r.opened * 100);
-          const cell = el("td", "ct-read");
+          cell = el("td", "ct-read");
           const track = el("span", "ct-bar");
           const fill = el("i");
           fill.style.width = `${pct}%`;
           track.append(fill);
           cell.append(track, el("b", "", `${pct}%`));
-          tr.append(cell);
-        } else if (c === "perMonth") tr.append(el("td", "num ct-dim", perMonthText(r.perMonth)));
-        else if (c === "emails") tr.append(emailsCell(r.count));
-        else if (c === "size") tr.append(el("td", "num ct-dim", r.bytes ? formatBytes(r.bytes) : ""));
-        else tr.append(el("td", "ct-dim", r.latest ? lastReceived(r.latest, now) : ""));
+        } else if (c === "perMonth") cell = el("td", "num ct-dim", perMonthText(r.perMonth));
+        else if (c === "emails") cell = emailsCell(r.count);
+        else if (c === "size") cell = el("td", "num ct-dim", r.bytes ? formatBytes(r.bytes) : "");
+        else cell = el("td", "ct-dim", r.latest ? lastReceived(r.latest, now) : "");
+        // col-* lets the table drop a column when it gets narrow (CSS).
+        cell.classList.add(`col-${c}`);
+        tr.append(cell);
       }
       tr.onclick = (e) => {
-        if (!(e.target instanceof Element && e.target.closest("input, label, button, .row-menu"))) spec.openRow(r.key, r.lead);
+        if (!(e.target instanceof Element && e.target.closest("input, label, button"))) spec.openRow(r.key, r.lead);
       };
       body.append(tr);
-      if (!spec.controls) continue;
-      const menuCell = el("td", "ct-menu");
-      tr.append(menuCell);
-      const controls = spec.controls(r.senders);
-      if (controls.length === 0) continue;
-      // The picked action's confirm shows in a full-width row under this one.
-      const stripRow = el("tr", "ct-strip");
-      const stripCell = el("td");
-      stripCell.colSpan = columns.length + 3;
-      const strip = el("div", "instead-strip");
-      stripCell.append(strip);
-      stripRow.append(stripCell);
-      menuCell.append(menuForControls(controls, strip));
-      stripRow.hidden = true;
-      new MutationObserver(() => (stripRow.hidden = strip.hidden)).observe(strip, { attributes: true, attributeFilter: ["hidden"] });
-      body.append(stripRow);
     }
     table.append(thead, body);
     const wrap = el("div", "scroll-x");
