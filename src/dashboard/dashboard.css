@@ -4613,10 +4613,10 @@ button.ov-range:hover { background: var(--neutral-fill); }
 
 /* Cleanup: 2x2 tiles left, the breakdown chart right, like the Dashboard's top row. */
 .cu-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 20px; margin: 0 0 24px; }
-#cu-head .cu-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0; }
-#cu-head .mt-tile { min-height: 150px; padding: 18px 22px; gap: 0; }
-#cu-head .mt-num { margin: auto 0; padding: 0; font-size: 42px; font-weight: 600; letter-spacing: -.025em; }
-#cu-head .mt-foot { font-size: 13px; color: var(--label-3); }
+:is(#cu-head, .sec-top) .cu-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0; }
+:is(#cu-head, .sec-top) .mt-tile { min-height: 150px; padding: 18px 22px; gap: 0; }
+:is(#cu-head, .sec-top) .mt-num { margin: auto 0; padding: 0; font-size: 42px; font-weight: 600; letter-spacing: -.025em; }
+:is(#cu-head, .sec-top) .mt-foot { font-size: 13px; color: var(--label-3); }
 #cu-head .mt-tile.is-hero { background: #e8572f; }
 #cu-head .mt-tile.is-hero .mt-go { color: #e8572f; }
 #cu-head .mt-tile.is-hero .mt-foot { color: rgb(255 255 255 / .88); }
@@ -4661,7 +4661,7 @@ button.ov-range:hover { background: var(--neutral-fill); }
 .sc-tip-row b { margin-left: auto; color: #f2f2f2; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .sc-col { animation: none; } }
 
-#cu-head .mt-title { padding-right: 40px; }
+:is(#cu-head, .sec-top) .mt-title { padding-right: 40px; }
 
 /* Breakdown legend: the Mail by category dots, on the black panel. */
 .sc-legend.ov-legend { display: flex; justify-content: flex-start; gap: 6px 18px; padding: 12px 18px; }
@@ -4680,3 +4680,32 @@ button.ov-range:hover { background: var(--neutral-fill); }
   .top-tool:has(span) { width: 36px; padding: 0; justify-content: center; }
   .top-tool span { display: none; }
 }
+
+/* Round 12: Cleanup, Labels, Security and Sort inbox sit at the Dashboard's width and title size. */
+section.screen:is([data-screen="delete"], [data-screen="subscriptions"], [data-screen="organize"], [data-screen="impersonation"], [data-screen="sort"]) { max-width: 1320px; }
+@media (min-width: 1101px) {
+  section.screen:is([data-screen="delete"], [data-screen="subscriptions"], [data-screen="organize"], [data-screen="impersonation"], [data-screen="sort"]) { padding-top: 12px; }
+  section.screen:is([data-screen="delete"], [data-screen="subscriptions"], [data-screen="organize"], [data-screen="impersonation"], [data-screen="sort"]) .page-head { margin: 4px 0 24px; }
+  section.screen:is([data-screen="delete"], [data-screen="subscriptions"], [data-screen="organize"], [data-screen="impersonation"], [data-screen="sort"]) .page-title { font-size: 26px; }
+}
+@media (min-width: 1101px) and (max-width: 1700px) {
+  section.screen:is([data-screen="delete"], [data-screen="subscriptions"], [data-screen="organize"], [data-screen="impersonation"], [data-screen="sort"]):not([hidden]) { padding-right: 116px; }
+}
+/* Labels: bigger rows, on this page only. */
+[data-screen="organize"] .org-list .org-row { min-height: 68px; padding-block: 14px; font-size: 17px; }
+[data-screen="organize"] .org-list .org-row .grow { font-size: 17px; font-weight: 500; }
+[data-screen="organize"] .org-list .org-row .gl-tag { transform: scale(1.25); }
+[data-screen="organize"] .org-list .org-row :is(.ios-value, .kind-pick) { font-size: 15px; }
+/* Security: the Cleanup layout, tiles left, Warning signs right. */
+.sec-top { margin-top: 8px; }
+.sec-signs { display: flex; flex-direction: column; gap: 16px; padding: 22px 24px; }
+.sec-signs .hbars { align-content: start; }
+.sec-top .mt-tile.is-hero .mt-foot { color: rgb(255 255 255 / .88); }
+.sec-top .mt-tile:not(button) { cursor: default; }
+.sec-top .mt-tile:not(button):hover { transform: none; box-shadow: none; }
+.sec-run { margin: 0 0 16px; }
+/* Sort inbox: the two choices as Dashboard tiles. */
+.sort-choices.mt-row { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 640px; margin-top: 8px; }
+.sort-choice.mt-tile { gap: 0; padding: 22px; border-radius: 18px; text-align: left; }
+.sort-choice .mt-num { font-size: 30px; font-weight: 600; }
+[data-screen="impersonation"] .page-head .sec-run { margin: 0 0 0 auto; flex-direction: row-reverse; }

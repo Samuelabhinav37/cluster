@@ -436,58 +436,53 @@
               <div class="page-titles">
                 <h1 class="page-title">Security</h1>
               </div>
-            </div>
-            <div class="sec-scan" id="sec-kpis" data-state="clean">
-              <div class="sec-ring" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path class="sec-ok" d="m9 12 2 2 4-4"></path><path class="sec-warn" d="M12 8v4M12 16h.01"></path></svg>
+              <div class="sec-run">
+                <button type="button" class="btn" id="sec-scan-now">Scan now</button>
+                <span class="sec-last" id="sec-last" aria-live="polite"></span>
               </div>
-              <div class="sec-body">
-                <h2 class="sec-title" id="sec-title">Nothing looks wrong</h2>
-                <div class="sec-run">
-                  <button type="button" class="btn" id="sec-scan-now">Scan now</button>
-                  <span class="sec-last" id="sec-last" aria-live="polite"></span>
+            </div>
+            <ol class="sec-checks" id="sec-checks" hidden></ol>
+            <div class="cu-top sec-top" id="sec-kpis" data-state="clean">
+              <div class="mt-row cu-cards">
+                <button type="button" class="mt-tile is-hero" data-sec-tab="suspicious">
+                  <span class="mt-title">Scams</span><span class="mt-go"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"></path></svg></span>
+                  <b class="mt-num" id="kpi-threats">0</b>
+                  <span class="mt-foot">senders faking a name</span>
+                </button>
+                <button type="button" class="mt-tile" data-sec-tab="quarantine">
+                  <span class="mt-title">Held</span><span class="mt-go"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"></path></svg></span>
+                  <b class="mt-num" id="kpi-held">0</b>
+                  <span class="mt-foot">emails kept out of your inbox</span>
+                </button>
+                <div class="mt-tile">
+                  <span class="mt-title">Sender checks</span>
+                  <b class="mt-num" id="report-checks-pct">–</b>
+                  <span class="mt-foot" id="report-checks-sub"></span>
+                  <div class="gauge-ticks" id="report-checks-gauge" role="img" hidden></div>
                 </div>
-                <ol class="sec-checks" id="sec-checks" hidden></ol>
-                <div class="sec-items">
-                  <div class="sec-item">
-                    <span class="sec-item-words"><b>Scams</b><span><span id="kpi-threats">0</span> senders</span></span>
-                    <button type="button" class="sec-view" data-sec-tab="suspicious">View details</button>
-                  </div>
-                  <div class="sec-item">
-                    <span class="sec-item-words"><b>Held</b><span><span id="kpi-held">0</span> emails</span></span>
-                    <button type="button" class="sec-view" data-sec-tab="quarantine">View details</button>
-                  </div>
-                  <div class="sec-item">
-                    <span class="sec-item-words"><b>New senders</b><span><span id="kpi-waiting">0</span> senders</span></span>
-                    <button type="button" class="sec-view" data-open-screen="screener">View details</button>
-                  </div>
-                </div>
+                <button type="button" class="mt-tile" data-open-screen="screener">
+                  <span class="mt-title">New senders</span><span class="mt-go"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"></path></svg></span>
+                  <b class="mt-num" id="kpi-waiting">0</b>
+                  <span class="mt-foot">waiting in the Screener</span>
+                </button>
+              </div>
+              <div class="ov-card sec-signs" id="report-signs-card">
+                <div class="mr-head"><h2 class="mr-title">Warning signs</h2><span class="mr-range">This scan</span></div>
+                <div class="hbars" id="report-kinds"></div>
               </div>
             </div>
             <div class="tabs" role="tablist" aria-label="Security">
               <button type="button" role="tab" class="tab active" aria-selected="true" data-sec-tab="suspicious">Suspicious<span class="tab-count" id="tab-count-threats"></span></button>
               <button type="button" role="tab" class="tab" aria-selected="false" data-sec-tab="quarantine">Held<span class="tab-count" id="tab-count-held"></span></button>
             </div>
-            <section class="ios-section" hidden>
-              <h2 class="ios-head">This scan</h2>
-              <div class="bento protect-bento">
-                <div class="glass-card chart-card tile-wide" id="report-held-card" hidden>
-                  <h2>Scams per week</h2>
-                  <p class="lead-sm" id="report-held-sub">Last 8 weeks</p>
-                  <div class="vbars" id="report-held-bars" role="img"></div>
-                  <div class="vlabels" id="report-held-labels" aria-hidden="true"></div>
-                </div>
-                <div class="glass-card chart-card">
-                  <h2>Sender checks</h2>
-                  <p class="tile-stat"><b id="report-checks-pct">–</b><span id="report-checks-sub"></span></p>
-                  <div class="gauge-ticks" id="report-checks-gauge" role="img"></div>
-                </div>
-                <div class="glass-card chart-card tile-wide" id="report-signs-card">
-                  <h2>Warning signs</h2>
-                  <div class="hbars" id="report-kinds"></div>
-                </div>
+            <div hidden>
+              <div class="glass-card chart-card tile-wide" id="report-held-card" hidden>
+                <h2>Scams per week</h2>
+                <p class="lead-sm" id="report-held-sub">Last 8 weeks</p>
+                <div class="vbars" id="report-held-bars" role="img"></div>
+                <div class="vlabels" id="report-held-labels" aria-hidden="true"></div>
               </div>
-            </section>
+            </div>
 
             <div id="protect-page" class="cu-page" hidden></div>
 

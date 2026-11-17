@@ -295,23 +295,24 @@ function renderSortChoices() {
   if (busy) return;
   clearSortPreview();
   const wrap = document.createElement("div");
-  wrap.className = "sort-choices";
-  const choice = (mode: SortMode, title: string, line: string) => {
+  wrap.className = "mt-row sort-choices";
+  // Same tile as the Dashboard's: name big, what it does underneath.
+  const choice = (mode: SortMode, title: string, label: string, line: string, hero = false) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "sort-choice";
+    btn.className = hero ? "mt-tile is-hero sort-choice" : "mt-tile sort-choice";
     btn.dataset.mode = mode;
-    const t = document.createElement("b");
-    t.textContent = title;
-    const l = document.createElement("span");
-    l.textContent = line;
-    btn.append(t, l);
+    const span = (cls: string, text = "") => Object.assign(document.createElement("span"), { className: cls, textContent: text });
+    const go = span("mt-go");
+    go.innerHTML = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"></path></svg>';
+    const t = Object.assign(document.createElement("b"), { className: "mt-num", textContent: title });
+    btn.append(span("mt-title", label), go, t, span("mt-foot", line));
     btn.onclick = () => void runSort(mode);
     return btn;
   };
   wrap.append(
-    choice("new", "New mail", "Sort mail that has no label yet."),
-    choice("all", "Everything", "Sort the whole inbox again, labelled or not."),
+    choice("new", "New mail", "Quick", "Sort mail that has no label yet.", true),
+    choice("all", "Everything", "Full", "Sort the whole inbox again, labelled or not."),
   );
   sortInboxPreviewEl.replaceChildren(wrap);
 }

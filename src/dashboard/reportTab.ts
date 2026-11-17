@@ -276,8 +276,6 @@ export function renderScamReport(securitySenders: SenderSummary[]): void {
   const kindRows: [string, number][] = [...kindCounts].sort((a, b) => b[1] - a[1]).map(([k, n]) => [KIND_NAME[k], n]);
   const kindsEl = $("report-kinds");
   if (kindsEl) hbars(kindsEl, kindRows, "senders", "No warning signs in this scan.");
-  const signsCard = $("report-signs-card");
-  if (signsCard) signsCard.hidden = kindRows.length === 0;
   if (!$("protect-page")?.hidden && $("protect-page")?.querySelector(".cu-page-title")?.textContent === "Warning signs")
     showProtectPage("signs");
 
