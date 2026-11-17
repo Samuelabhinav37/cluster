@@ -4,8 +4,10 @@
 //
 // 1. hello: Kai says hi by name and offers to show how it sorts.
 // 2. label: "This is a label": one example email gets its label.
-// 3. scan: the newest 100 emails are read (10 s cap) under a radar, and the
-//    companies pop in as they're found.
+// 3. scan: the newest 100 emails are read (10 s cap). The screen shows that
+//    work: a plain bar with the count, and the mail itself streaming in, each
+//    one getting its label as in step 2 (Buell & Norton 2011: showing the work
+//    makes a wait feel worth it). Kai explains what is happening.
 // 4. found: "I found these", grouped under Cluster's labels. "Yes, use these"
 //    (Tidy for me), "Change some" (drag or tap to move), or "No, ask me first".
 // Then Kai heads to the dashboard and gives a short tour (dashboardTour.ts).
@@ -17,10 +19,10 @@ import { updateSettings } from "../lib/settingsStore";
 import { log } from "../lib/log";
 import { buildOnboardingPlan, type OnboardingAnswers } from "../lib/onboardingPlan";
 import { ctx } from "./state";
-import { gmailLabelIcon, icon } from "./homeDashboard";
+import { icon } from "./homeDashboard";
 import { senderTile } from "./senderTile";
 import { mapWithConcurrency } from "../lib/concurrency";
-import { boardOverride, isCompanyMail, pickPracticeSenders, type BoardSpot, type PracticeMail, type PracticeSender } from "../lib/practiceSenders";
+import { boardOverride, pickPracticeSenders, practiceGuess, type BoardSpot, type PracticeMail, type PracticeSender } from "../lib/practiceSenders";
 import type { SortOverride } from "../lib/sortTaxonomy";
 import { renderTimeLimits, turnOnTimeLimits } from "./timeLimitsTab";
 import { countMailbox } from "../lib/gmailApi";
@@ -28,9 +30,8 @@ import { readTimeText } from "../lib/gmailQuotaLedger";
 import { MAIL_INDEX_CAP, MAIL_INDEX_MAX } from "../lib/mailIndex";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { categoryLabelName } from "../lib/categoryFilters";
-import { CLUSTER_LABEL_COLORS, showLabel } from "../lib/clusterLabels";
+import { showLabel } from "../lib/clusterLabels";
 import { progressBar } from "./welcome";
-import { registrableDomain } from "../lib/registrableDomain";
 import { startDashboardTour } from "./dashboardTour";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
@@ -58,11 +59,12 @@ const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
 const SPRING = "linear(0, 0.062, 0.198, 0.356, 0.509, 0.642, 0.75, 0.833, 0.895, 0.938, 0.967, 0.985, 0.996, 1.003, 1.005, 1.006, 1)";
 
 /** Reads the newest mail one message at a time (each one reported as it lands), for at most 10 s. */
-async function scanNewest(onMail: (m: PracticeMail, read: number) => void): Promise<PracticeMail[]> {
+async function scanNewest(onMail: (m: PracticeMail, read: number, total: number) => void): Promise<PracticeMail[]> {
   const mail: PracticeMail[] = [];
   const read = (async () => {
     const token = await gmailProvider.getAuthToken(false);
     const stubs = await gmailProvider.listCandidateMessages(token, SCAN_MAX, 30);
+    const total = Math.min(stubs.length, SCAN_MAX);
     await mapWithConcurrency(stubs.slice(0, SCAN_MAX), 6, async (stub) => {
       const m = await gmailProvider.getMessageMetadata(token, stub.id).catch(() => null);
       if (!m) return;
@@ -74,7 +76,7 @@ async function scanNewest(onMail: (m: PracticeMail, read: number) => void): Prom
         listMail: Boolean(m.unsubscribe?.postUrl || m.unsubscribe?.httpUrl || m.unsubscribe?.mailto),
       };
       mail.push(one);
-      onMail(one, mail.length);
+      onMail(one, mail.length, total);
     });
   })().catch((err: unknown) => log.error("Setup could not read recent senders", err));
   await Promise.race([read, wait(SCAN_MS)]);
@@ -261,9 +263,10 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   // over 20,000 gets the question; smaller ones are read in full.
   let mailCount: number | null | undefined;
   let readAll = false;
-  // The scan: companies as they're found, then the board's senders.
-  const seen = new Map<string, { address: string; name: string }>();
+  // The scan: every email read, in order; the screen streams a few of them.
+  const readMail: PracticeMail[] = [];
   let readSoFar = 0;
+  let scanTotal = SCAN_MAX;
   let scanned = false;
   let scanEnteredAt = 0;
   let signedIn = false;
@@ -318,54 +321,91 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     const words = el("span", "onb-words");
     words.append(el("b", "", "Amazon"), el("small", "", "Your order has shipped"));
     const tag = el("span", "lbl-tag");
-    tag.append(gmailLabelIcon(CLUSTER_LABEL_COLORS.shipping?.backgroundColor), showLabel(categoryLabelName("shipping", ctx.settings.labelChoices)));
+    tag.append(showLabel(categoryLabelName("shipping", ctx.settings.labelChoices)));
     mail.append(senderTile("ship-confirm@amazon.com", "Amazon", "sz-44"), words, tag);
     demo.append(mail);
     body.append(demo, primary("Got it", () => goTo(at + 1)));
   }
 
-  /** One company tile for the scan grid. */
-  const scanTile = (address: string, label: string) => {
-    const li = el("li", "scan-tile");
-    li.append(senderTile(address, label, "sz-44"), el("span", "", label));
-    return li;
+  /** One email as step 2 showed it: logo, sender and subject, and the label it gets. */
+  const scanRow = (m: PracticeMail) => {
+    const spot: BoardSpot = practiceGuess(m) ?? "keep";
+    const li = el("li", "lbl-mail ss-row");
+    const words = el("span", "onb-words");
+    const sender = m.fromDisplayName.trim() || m.fromAddress;
+    words.append(el("b", "", sender), el("small", "", m.subject || "(no subject)"));
+    const tag = el("span", `lbl-tag ss-tag${spot === "keep" ? " is-keep" : ""}`);
+    const { emoji, name: labelName } = spotParts(spot);
+    tag.append(`${emoji} ${labelName}`);
+    li.append(senderTile(m.fromAddress, sender, "sz-34"), words, tag);
+    return { li, tag, spot, emoji };
   };
 
-  function renderScan(body: HTMLElement) {
-    body.append(el("h1", "onb-title", "Scanning your emails"));
-    const radar = el("div", "scan-radar");
-    radar.setAttribute("aria-hidden", "true");
-    radar.append(el("span", "scan-sweep"), el("span", "scan-ring"), el("span", "scan-ring r2"));
-    const count = el("p", "onb-count");
-    count.id = "scan-count";
-    count.textContent = `${readSoFar} emails`;
-    const head = el("div", "scan-head");
-    const words = el("div", "");
-    words.append(count, el("p", "scan-sub", "read so far"));
-    head.append(radar, words);
-    const grid = el("ul", "scan-grid");
-    grid.id = "scan-grid";
-    // Finished before this screen opened: the logos land one by one anyway.
-    [...seen.values()].forEach((s, i) => {
-      const tile = scanTile(s.address, s.name);
-      tile.style.setProperty("--i", String(i));
-      grid.append(tile);
-    });
-    body.append(head, grid);
+  /** The bar and "38 of 100". */
+  function paintScanCount(n: number) {
+    const count = pane.querySelector("#scan-count");
+    if (count) count.textContent = `${n.toLocaleString()} of ${scanTotal.toLocaleString()}`;
+    pane.querySelector<HTMLElement>("#scan-fill")?.style.setProperty("width", `${Math.min(100, (n / Math.max(1, scanTotal)) * 100)}%`);
   }
 
-  /** A message read mid-scan: count up, and a new company pops into the grid. */
-  function onScanned(m: PracticeMail, read: number) {
+  function renderScan(body: HTMLElement) {
+    body.append(el("h1", "onb-title", "Reading your mail"));
+    const progress = el("div", "ss-progress");
+    const track = el("div", "ss-track");
+    track.setAttribute("aria-hidden", "true");
+    const fill = el("i", "");
+    fill.id = "scan-fill";
+    track.append(fill);
+    const count = el("span", "ss-count");
+    count.id = "scan-count";
+    count.setAttribute("role", "status");
+    progress.append(track, count);
+    const list = el("ul", "ss-list");
+    list.id = "scan-list";
+    body.append(progress, list);
+    queueMicrotask(() => paintScanCount(scanned ? 0 : readSoFar));
+  }
+
+  // The stream: one email every 450 ms, one per sender, newest on top, five on screen.
+  let streamTimer = 0;
+  let streamAt = 0;
+  const streamed = new Set<string>();
+  let keptOne = false;
+  let labelledOne = false;
+  function streamNext() {
+    const list = pane.querySelector("#scan-list");
+    if (!list || STEPS[at] !== "scan") return;
+    while (streamAt < readMail.length) {
+      const m = readMail[streamAt++];
+      const key = m.fromAddress.toLowerCase();
+      if (streamed.has(key)) continue;
+      streamed.add(key);
+      const { li, tag, spot, emoji } = scanRow(m);
+      list.prepend(li);
+      while (list.children.length > 5) list.lastElementChild?.remove();
+      requestAnimationFrame(() => tag.classList.add("in"));
+      // Kai explains the first label and the first person, once each.
+      if (spot !== "keep" && !labelledOne) {
+        labelledOne = true;
+        later(500, () => {
+          kai.react(tag, "hop", emoji, "joyful");
+          kai.say("Each company gets its own label.");
+        });
+      } else if (spot === "keep" && !keptOne && labelledOne) {
+        keptOne = true;
+        later(400, () => kai.say("People you know stay in your inbox."));
+      }
+      break;
+    }
+    streamTimer = window.setTimeout(streamNext, 450);
+  }
+
+  /** A message read mid-scan: the count moves; the stream picks it up. */
+  function onScanned(m: PracticeMail, read: number, total: number) {
     readSoFar = read;
-    const count = pane.querySelector("#scan-count");
-    if (count) count.textContent = `${read} emails`;
-    if (!isCompanyMail(m)) return;
-    const key = registrableDomain(m.fromAddress.toLowerCase().split("@")[1] ?? "");
-    if (seen.has(key) || seen.size >= 12) return;
-    const label = m.fromDisplayName.trim() || key;
-    seen.set(key, { address: m.fromAddress, name: label });
-    pane.querySelector("#scan-grid")?.append(scanTile(m.fromAddress, label));
-    if (STEPS[at] === "scan" && seen.size === 4) kai.say("Ooh, I know these.");
+    scanTotal = total;
+    readMail.push(m);
+    if (STEPS[at] === "scan") paintScanCount(read);
   }
 
   /** "I found these": companies under Cluster's labels. In change mode they move. */
@@ -622,9 +662,11 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       });
       later(3200, () => kai.say("I'll do this for all your mail."));
     } else if (step === "scan") {
-      kai.say("Now let's look at your mail.");
+      kai.say("Now I'm reading your newest emails and labelling each one.");
       kai.do("tilt");
       scanEnteredAt = Date.now();
+      window.clearTimeout(streamTimer);
+      streamNext();
       if (scanned) countUp();
       scanDone();
     } else if (found.length === 0) {
@@ -661,23 +703,23 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
 
   /** The count runs up to what was read, for a scan that finished before its screen. */
   function countUp() {
-    const count = pane.querySelector("#scan-count");
-    if (!count || reducedMotion()) return;
+    if (reducedMotion()) return paintScanCount(readSoFar);
     const t0 = performance.now();
     const tick = (now: number) => {
-      const k = Math.min(1, (now - t0) / 2200);
-      count.textContent = `${Math.round(readSoFar * k)} emails`;
+      const k = Math.min(1, (now - t0) / 4000);
+      paintScanCount(Math.round(readSoFar * k));
       if (k < 1 && STEPS[at] === "scan") requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
   }
 
-  /** Leaves the scan screen once the scan is done and it has shown for 3.5 s. */
+  /** Leaves the scan screen once the scan is done and it has shown for 5 s (time for Kai's lines). */
   function scanDone() {
     if (!scanned || STEPS[at] !== "scan" || ctx.settings.setupDone) return;
-    later(Math.max(0, 3500 - (Date.now() - scanEnteredAt)), () => {
-      kai.say("Done!", "joyful");
-      later(800, () => goTo(at + 1));
+    later(Math.max(0, 5000 - (Date.now() - scanEnteredAt)), () => {
+      window.clearTimeout(streamTimer);
+      kai.say("Done! Let me group them for you.", "joyful");
+      later(1400, () => goTo(at + 1));
     });
   }
 }

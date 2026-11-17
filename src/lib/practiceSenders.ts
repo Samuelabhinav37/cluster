@@ -26,7 +26,8 @@ export interface PracticeSender {
 /** A board column: a label, or Keep in inbox. */
 export type BoardSpot = SortBucket | "keep";
 
-function guessFor(m: PracticeMail): SortBucket | null {
+/** The label Cluster would put on one email, or null for people, free mail and unknowns. */
+export function practiceGuess(m: PracticeMail): SortBucket | null {
   const address = m.fromAddress.toLowerCase();
   const host = address.split("@")[1] ?? "";
   if (!host) return null;
@@ -35,13 +36,13 @@ function guessFor(m: PracticeMail): SortBucket | null {
 }
 
 /** A company Cluster would label; free mail, people and unknowns aren't. */
-export const isCompanyMail = (m: PracticeMail) => guessFor(m) !== null;
+export const isCompanyMail = (m: PracticeMail) => practiceGuess(m) !== null;
 
 /** Up to `n` companies the user hears from most, one per domain, different guesses first. */
 export function pickPracticeSenders(mail: PracticeMail[], n = 8): PracticeSender[] {
   const byDomain = new Map<string, { sender: PracticeSender; count: number }>();
   for (const m of mail) {
-    const guess = guessFor(m);
+    const guess = practiceGuess(m);
     if (!guess) continue;
     const address = m.fromAddress.toLowerCase();
     const host = address.split("@")[1];

@@ -15,14 +15,19 @@ const setupSection = (dash: Dash) => dash.el("setup-flow").closest("section")!;
 const title = () => document.querySelector(".onb-title")?.textContent;
 const click = (id: string) => (document.getElementById(id) as HTMLButtonElement).click();
 
-/** Show me, Got it, then wait out the scan (it shows for at least 3.5 s). */
-async function toFound(dash: Dash) {
+/** Show me, Got it, then wait out the scan (it shows for at least 5 s). */
+async function toFound(dash: Dash, hasMail = true) {
   expect(setupSection(dash).hidden).toBe(false);
   click("setup-next");
   expect(title()).toBe("This is a label");
   click("setup-next");
-  expect(title()).toBe("Scanning your emails");
-  await vi.waitFor(() => expect(title()).toMatch(/^(I found these|Ready to sort)$/), { timeout: 8000 });
+  expect(title()).toBe("Reading your mail");
+  // The mail streams in with its label, and the count says how far.
+  if (hasMail) {
+    await vi.waitFor(() => expect(document.querySelector("#scan-list .ss-row .ss-tag")).not.toBeNull());
+    expect(document.getElementById("scan-count")?.textContent).toMatch(/^\d+ of \d+$/);
+  }
+  await vi.waitFor(() => expect(title()).toMatch(/^(I found these|Ready to sort)$/), { timeout: 10000 });
 }
 
 /** No company mail: the last screen has no board, just Yes or Ask me first. */
@@ -84,13 +89,13 @@ describe("first-run setup", () => {
 
   it("asks how much to read only when the mailbox is over 20,000, with a time for each", async () => {
     const small = await bootEmpty({ mailboxCount: 12_000 });
-    await toFound(small);
+    await toFound(small, false);
     click("setup-go");
     await vi.waitFor(() => expect(small.storedSettings().setupDone).toBe(true));
     expect(small.storedSettings().readCap).toBe(20_000);
 
     const big = await bootEmpty({ mailboxCount: 48_210 });
-    await toFound(big);
+    await toFound(big, false);
     await vi.waitFor(() => expect(document.querySelector(".onb-read-title")?.textContent).toBe("You have 48,210 emails"));
     const all = document.querySelector<HTMLButtonElement>('[data-pick="read-all"]')!;
     expect(all.textContent).toContain("All 48,210");
@@ -102,7 +107,7 @@ describe("first-run setup", () => {
 
   it("Yes turns everything on: filters for every label, every label waits an hour in the inbox, scams held", async () => {
     const dash = await bootEmpty();
-    await toFound(dash);
+    await toFound(dash, false);
     click("setup-go");
     await vi.waitFor(() => expect(Object.keys(dash.storedSettings().autoSort.filterIdsByBucket)).toHaveLength(13));
     const stored = dash.storedSettings();
@@ -119,7 +124,7 @@ describe("first-run setup", () => {
 
   it("No, ask me first saves the answers but never turns on Gmail filters", async () => {
     const dash = await bootEmpty();
-    await toFound(dash);
+    await toFound(dash, false);
     click("setup-ask");
     await vi.waitFor(() => expect(dash.storedSettings().persona).toBe("calm"));
     expect(dash.storedSettings().setupDone).toBe(true);
