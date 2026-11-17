@@ -533,6 +533,8 @@ async function showPinTip() {
 }
 
 let greetName = "";
+/** The signed-in Gmail address, so Dashboard links open this account. */
+let accountEmail: string | undefined;
 /** "Good morning, Samuel!" by the hour, and the dates the Dashboard's charts cover. */
 function paintGreeting(now = new Date()) {
   const h = now.getHours();
@@ -552,6 +554,7 @@ async function showAccountPill(token: string) {
     const emailEl = document.getElementById("account-email");
     if (!pill || !emailEl) return;
     emailEl.textContent = email;
+    accountEmail = email;
     pill.hidden = false;
     // Overview greets by first name, from the name Gmail sends under.
     const name =
@@ -1527,6 +1530,7 @@ function renderOverview(
   overviewContentEl.innerHTML = "";
   paintGreeting();
   const facts: HomeFacts = {
+    account: accountEmail,
     // All mail read, so Clean up's part and the total share one population.
     ...mailByKind(allSenders, Date.now()),
     suspicious: rankFlagged(securitySenders).high.length,

@@ -132,7 +132,26 @@ export function sweepLine(sweptAt: number, now: number): HTMLElement | null {
   return line;
 }
 
+/** A Gmail page in this account: `authuser` picks the signed-in account by address,
+ * so a second Google account in Chrome doesn't get the link. */
+export function gmailUrl(account: string | undefined, hash: string): string {
+  return account
+    ? `https://mail.google.com/mail/?authuser=${encodeURIComponent(account)}#${hash}`
+    : `https://mail.google.com/mail/u/0/#${hash}`;
+}
+
+/** Gmail search for one local day's received mail. Epoch seconds, not dates:
+ * Gmail reads after:/before: dates in Pacific time, which shifts the day elsewhere. */
+export function gmailDayUrl(account: string | undefined, dayStart: number): string {
+  const end = new Date(dayStart);
+  end.setDate(end.getDate() + 1);
+  const q = `after:${Math.floor(dayStart / 1000)} before:${Math.floor(end.getTime() / 1000)} -from:me`;
+  return gmailUrl(account, `search/${encodeURIComponent(q)}`);
+}
+
 export interface HomeFacts {
+  /** The Gmail address, so links open the right account. */
+  account?: string;
   /** When the background run last looked at the inbox; unset when labels are off. */
   sweptAt?: number;
   kinds: Record<HomeKind, number>;
@@ -639,7 +658,7 @@ function metricTiles(f: HomeFacts, go: Go): HTMLElement {
       value: f.inboxUnread,
       prev: f.unreadWeekAgo,
       upIsGood: false,
-      open: () => window.open("https://mail.google.com/mail/u/0/#inbox", "_blank", "noopener"),
+      open: () => window.open(gmailUrl(f.account, "inbox"), "_blank", "noopener"),
     },
     { title: "In the Screener", value: f.waiting, note: "new senders waiting", open: () => go("screener") },
     { title: "Ready to clean up", value: f.clearable, note: "emails you can clear", open: () => go("delete") },
@@ -731,14 +750,14 @@ function inboxCard(f: HomeFacts): HTMLElement {
   stat("Per day", n(s.perDay));
   if (s.busiest) stat("Busiest day", s.busiest);
   const body = el("div", "mr-body");
-  body.append(stats, barChart(days, Date.now()));
+  body.append(stats, barChart(days, Date.now(), (start) => window.open(gmailDayUrl(f.account, start), "_blank", "noopener")));
   card.append(head, body);
   return card;
 }
 
 const compact = new Intl.NumberFormat(undefined, { notation: "compact" });
 
-function barChart(counts: readonly number[], now: number): HTMLElement {
+function barChart(counts: readonly number[], now: number, openDay?: (dayStart: number) => void): HTMLElement {
   const wrap = el("div", "mr-chart");
   wrap.setAttribute("role", "img");
   wrap.setAttribute("aria-label", `Emails each day, last ${counts.length} days: ${counts.join(", ")}`);
@@ -788,10 +807,20 @@ function barChart(counts: readonly number[], now: number): HTMLElement {
     const c = counts[i];
     tip.textContent = "";
     tip.append(el("b", "", n(c)), ` email${c === 1 ? "" : "s"} · ${fmt(new Date(now - (last - i) * 86_400_000))}`);
+    if (openDay && c > 0) tip.append(el("span", "mr-tip-go", "Open in Gmail"));
     tip.style.left = `${((i + 0.5) / counts.length) * 100}%`;
     tip.style.bottom = `calc(${(c / top) * 100}% + 8px)`;
     tip.hidden = false;
   });
+  if (openDay) {
+    plot.classList.add("is-link");
+    plot.addEventListener("click", (e) => {
+      const r = plot.getBoundingClientRect();
+      if (!r.width) return;
+      const i = Math.min(last, Math.max(0, Math.floor(((e.clientX - r.left) / r.width) * counts.length)));
+      if (counts[i] > 0) openDay(new Date(now - (last - i) * 86_400_000).setHours(0, 0, 0, 0));
+    });
+  }
   plot.addEventListener("mouseleave", () => {
     plot.classList.remove("is-picking");
     bars.forEach((b) => b.classList.remove("on"));

@@ -4574,3 +4574,10 @@ section.screen[data-screen="overview"] { max-width: 1320px; }
 @media (prefers-reduced-motion: reduce) { .ov-intro .mr-bar, .ov-intro .ov-gauge line, .ov-intro .t10-bar { animation: none; } }
 /* Kai (76px, fixed bottom right) would sit on the cards' right edge on narrower screens: keep a gutter for him. */
 @media (min-width: 1101px) and (max-width: 1700px) { section[data-screen="overview"]:not([hidden]) { padding-right: 116px; } }
+.mr-plot.is-link { cursor: pointer; }
+.mr-tip-go { display: block; margin-top: 2px; color: var(--accent); font-size: 11px; }
+/* Automation's switch cards, now in Settings. */
+.settings-list .cu-auto .ios-group { margin-top: 8px; }
+/* Rows moved into Settings without an icon still put their switch or menu at the right. */
+.settings-list .set-row:has(> .switch), .settings-list .set-row:has(> select.kind-pick) { grid-template-columns: minmax(0, 1fr) auto; }
+.settings-list #auto-quarantine-row { padding: 20px 0; border-radius: 0; }

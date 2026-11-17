@@ -270,16 +270,10 @@ function renderWindow(): void {
       void queueSave();
     };
     const row = document.createElement("div");
-    row.className = "ios-row org-row";
-    const mark = Object.assign(document.createElement("span"), { className: "app-ic label-ic" });
-    mark.append(icon("clock"));
-    row.append(mark, Object.assign(document.createElement("span"), { className: "grow", textContent: "Time in inbox" }), select);
-    const group = Object.assign(document.createElement("div"), { className: "ios-group" });
-    group.append(row, holdRow());
-    const wrap = Object.assign(document.createElement("section"), { className: "ios-section org-window" });
-    wrap.append(group);
-    // Below the labels: the labels are what this page is for.
-    rowsEl.after(wrap);
+    row.className = "set-row";
+    row.append(settingWords("Time in inbox", "How long labelled mail stays before it moves"), select);
+    // In Settings with the other switches; Labels keeps just the labels.
+    document.getElementById("settings-sorting")?.append(row, holdRow());
   }
   if (!select) return;
   const on = windowTargets().filter((m) => m.value !== OFF);
@@ -288,18 +282,22 @@ function renderWindow(): void {
 
 /** "Hold mail with no label": unsorted inbox mail goes to the Screener. */
 function holdRow(): HTMLElement {
-  const row = Object.assign(document.createElement("label"), { className: "ios-row org-row" });
-  const mark = Object.assign(document.createElement("span"), { className: "app-ic label-ic" });
-  mark.append(icon("inbox"));
+  const row = Object.assign(document.createElement("label"), { className: "set-row" });
   const toggle = Object.assign(document.createElement("input"), { type: "checkbox", className: "switch", id: "hold-unsorted" });
   toggle.setAttribute("role", "switch");
   toggle.checked = ctx.settings.autoSort.holdUnsorted;
   toggle.onchange = async () => {
     ctx.settings = await updateSettings({ autoSort: { ...ctx.settings.autoSort, holdUnsorted: toggle.checked } });
   };
-  row.title = "Mail from new senders waits in the Screener for you";
-  row.append(mark, Object.assign(document.createElement("span"), { className: "grow", textContent: "Hold mail with no label" }), toggle);
+  row.append(settingWords("Hold mail with no label", "Mail from new senders waits in the Screener"), toggle);
   return row;
+}
+
+/** A Settings row's name with its short line underneath. */
+function settingWords(name: string, sub: string): HTMLElement {
+  const words = Object.assign(document.createElement("span"), { className: "grow", textContent: name });
+  words.append(Object.assign(document.createElement("span"), { className: "sub", textContent: sub }));
+  return words;
 }
 
 function limitsFromMenus(): Record<string, number | null> {

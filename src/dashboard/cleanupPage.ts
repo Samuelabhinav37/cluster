@@ -20,8 +20,6 @@ export interface CleanupPageSpec {
   /** Ask, then trash these. Renders its confirm into `slot`. */
   trash: (ids: Map<ProviderId, string[]>, senders: SenderSummary[], slot: HTMLElement, reset: () => void) => void;
   back: () => void;
-  /** Switches that belong to this card ("Do this automatically"). */
-  auto?: HTMLElement | null;
 }
 
 interface PageRow {
@@ -292,12 +290,6 @@ export function renderCleanupPage(root: HTMLElement, spec: CleanupPageSpec, now 
   renderList();
 
   const parts: HTMLElement[] = [back, title, num, bars, bar, list];
-  if (spec.auto) {
-    const auto = el("section", "ios-section cu-auto");
-    auto.append(el("h2", "ios-head", "Do this automatically"), spec.auto);
-    auto.hidden = spec.auto.childElementCount === 0;
-    parts.push(auto);
-  }
   root.replaceChildren(...parts);
 }
 

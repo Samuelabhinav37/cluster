@@ -12,6 +12,8 @@ import {
   renderHomeDashboard,
   renderScanCard,
   sweepLine,
+  gmailDayUrl,
+  gmailUrl,
   receivedStats,
   type HomeFacts,
 } from "./homeDashboard";
@@ -217,9 +219,29 @@ describe("renderHomeDashboard", () => {
     plot.dispatchEvent(new MouseEvent("mousemove", { clientX: 295 }));
     const lit = Array.from(plot.querySelectorAll(".mr-bar")).findIndex((b) => b.classList.contains("on"));
     expect(lit).toBe(29);
-    expect(text(plot.querySelector(".mr-tip"))).toMatch(/^29 emails · \w+ \d+$/);
+    expect(text(plot.querySelector(".mr-tip"))).toMatch(/^29 emails · \w+ \d+Open in Gmail$/);
     plot.dispatchEvent(new MouseEvent("mouseleave"));
     expect(plot.querySelector<HTMLElement>(".mr-tip")!.hidden).toBe(true);
+  });
+
+  it("links a day to Gmail in this account, midnight to midnight, mail sent to you", () => {
+    const start = new Date(2026, 10, 12).getTime();
+    const url = gmailDayUrl("sam@gmail.com", start);
+    expect(url.startsWith("https://mail.google.com/mail/?authuser=sam%40gmail.com#search/")).toBe(true);
+    const q = decodeURIComponent(url.split("#search/")[1]);
+    const end = new Date(2026, 10, 13).getTime();
+    expect(q).toBe(`after:${start / 1000} before:${end / 1000} -from:me`);
+    expect(gmailUrl(undefined, "inbox")).toBe("https://mail.google.com/mail/u/0/#inbox");
+  });
+
+  it("clicking a day's bar opens that day in Gmail", () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const el = renderHomeDashboard({ ...calm, account: "sam@gmail.com", received30: Array.from({ length: 30 }, () => 3) }, vi.fn());
+    const plot = el.querySelector<HTMLElement>(".mr-plot")!;
+    plot.getBoundingClientRect = () => ({ left: 0, width: 300, top: 0, height: 100 }) as DOMRect;
+    plot.dispatchEvent(new MouseEvent("click", { clientX: 295 }));
+    expect(open).toHaveBeenCalledWith(expect.stringContaining("authuser=sam%40gmail.com#search/after%3A"), "_blank", "noopener");
+    open.mockRestore();
   });
 
   it("hovering a kind lights only its bars and shows its count", () => {
