@@ -1041,7 +1041,9 @@ onScanChange((s) => {
 let lastRun: RunReport | undefined;
 const pickLastRun = (all: RunReport[]) => {
   lastRun = [...all].reverse().find((r) => !r.quiet);
+  sortRunning = all.some((r) => r.kind === "sweep" && r.status === "running");
   paintScanCard();
+  updateIndexStatus();
 };
 void getRunReports().then(pickLastRun);
 onRunReportsChange(pickLastRun);
@@ -1156,6 +1158,8 @@ const VIEW_REFRESH_EVERY = 500;
 
 /** When the current read began, so a short catch-up never shows the card. */
 let readSince = 0;
+/** A sort is labelling the inbox; it shares Gmail's per-minute budget, so the read waits between steps. */
+let sortRunning = false;
 
 /** Bar pinned to the bottom while mail is still being read. */
 function updateIndexStatus() {
@@ -1192,7 +1196,8 @@ function updateIndexStatus() {
           : `about ${minutes} min left`
         : "";
   const parts = [
-    phase === "sent" ? "Reading your sent mail" : "Reading your mail",
+    // Between steps with no count to show, say what is using the time instead of looking stuck.
+    done >= total && sortRunning ? "Putting labels on your inbox" : phase === "sent" ? "Reading your sent mail" : "Reading your mail",
     // Between phases the last one reads "150 of 150", which looks finished.
     done < total ? `${done.toLocaleString()} of ${total.toLocaleString()}` : "",
     eta,
@@ -2186,6 +2191,23 @@ function trashFromPage(
       undoableGmailIds.length > 0 ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" } : undefined,
     );
     await scanAndRender();
+    // The table redraws over the confirm slot, so the result and Undo live in the sidebar card too.
+    const undo = async () => {
+      jobCard({ title: "Restoring" });
+      try {
+        await gmailProvider.untrashMessages?.(await gmailProvider.getAuthToken(false), undoableGmailIds);
+        await scanAndRender({ quiet: true, fresh: true });
+        jobCard({ title: "Restored", finished: true });
+      } catch (err) {
+        log.error(err);
+        jobCard({ title: "Undo failed", finished: true, action: { label: "Try again", run: () => void undo() } });
+      }
+    };
+    jobCard({
+      title: message.replace(" ✓", ""),
+      finished: true,
+      action: undoableGmailIds.length > 0 ? { label: "Undo", run: () => void undo() } : undefined,
+    });
     return message;
   });
 }
@@ -2433,7 +2455,10 @@ function skippedNote(skipped: number): string {
 // Always Trash: every bulk delete stays undoable (Gmail empties Trash after 30 days).
 async function executeSmartDelete(merged: Map<ProviderId, string[]>): Promise<SmartDeleteResult> {
   const total = [...merged.values()].reduce((n, ids) => n + ids.length, 0);
-  const { skipped } = await executeBulkDeleteDomains(merged, providerById);
+  const { skipped, trashed } = await executeBulkDeleteDomains(merged, providerById);
+  // Drop them from the index now, so every count shows the change at once instead of after Gmail's change feed.
+  const store = await openMailIndex();
+  for (const [provider, ids] of trashed) await store.remove(provider, ids);
   return {
     message: `Moved ${total - skipped} to Trash ✓${skippedNote(skipped)}`,
     undoableGmailIds: (merged.get("gmail") ?? []).filter(Boolean),

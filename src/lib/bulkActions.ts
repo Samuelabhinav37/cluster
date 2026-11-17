@@ -172,7 +172,7 @@ export async function filterOutProtected(
 export async function executeBulkDeleteDomains(
   mergedIds: Map<ProviderId, string[]>,
   providerById: Map<ProviderId, EmailProvider>,
-): Promise<{ skipped: number }> {
+): Promise<{ skipped: number; trashed: Map<ProviderId, string[]> }> {
   const { safe, skipped } = await filterOutProtected(mergedIds, providerById);
   await Promise.all(
     [...safe.entries()].map(async ([providerId, ids]) => {
@@ -182,5 +182,5 @@ export async function executeBulkDeleteDomains(
       await provider.trashMessages(token, ids);
     }),
   );
-  return { skipped };
+  return { skipped, trashed: safe };
 }

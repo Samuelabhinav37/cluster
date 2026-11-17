@@ -225,6 +225,17 @@ async function startPlan(
   return { tidyFailed };
 }
 
+/** Runs `go` once Home has left its first-read screen: a tour over "Reading your mail" points at nothing. */
+function afterFirstRead(go: () => void): void {
+  if (!document.querySelector(".home-read")) return go();
+  const watch = new MutationObserver(() => {
+    if (document.querySelector(".home-read")) return;
+    watch.disconnect();
+    go();
+  });
+  watch.observe(document.body, { childList: true, subtree: true });
+}
+
 export function wireSetup(select: (screen: string) => Promise<void>): void {
   const root = $("setup-flow");
   if (!root) return;
@@ -575,7 +586,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       kai.do("celebrate");
       await wait(1600);
       await select("overview");
-      startDashboardTour();
+      afterFirstRead(() => startDashboardTour());
     } catch (err) {
       log.error("Setup could not be saved", err);
       busy = false;

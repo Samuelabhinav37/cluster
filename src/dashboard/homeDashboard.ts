@@ -556,9 +556,9 @@ export function renderScanCard(
   if (on.note) card.append(el("p", "scan-line scan-note", on.note.text));
   if (!done) {
     // One big count, the bar, and the time left. Sent mail has no total to show.
-    if (!sentMail) {
+    if (!sentMail && scan.total > 0) {
       const nums = el("div", "read-nums");
-      nums.append(el("b", "read-done", n(scan.done)), el("span", "read-of", scan.total > 0 ? `of ${n(scan.total)} emails` : "emails"));
+      nums.append(el("b", "read-done", n(scan.done)), el("span", "read-of", `of ${n(scan.total)} emails`));
       card.append(nums);
     }
     const track = el("div", "read-track");

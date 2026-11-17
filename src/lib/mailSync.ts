@@ -238,7 +238,8 @@ async function backfillSent(
   const ids = await provider.listSentMessageIds(token, limit);
   const known = await store.sentIds(provider.id);
   const toRead = ids.filter((id) => !known.has(id));
-  const read = await readSentInto(provider, token, store, toRead, options, true);
+  // Only the first few hundred hold up the first read; the full backfill is background work, like detail.
+  const read = await readSentInto(provider, token, store, toRead, options, true, limit < SENT_CAP ? "sent" : "detail");
   if (limit >= SENT_CAP) {
     state.sentComplete = true;
     await store.setState(state);
@@ -254,6 +255,7 @@ async function readSentInto(
   ids: string[],
   options: SyncOptions,
   paced: boolean,
+  phase: SyncPhase,
 ): Promise<number> {
   if (!provider.getSentRecord) return 0;
   let doneCount = 0;
@@ -270,7 +272,7 @@ async function readSentInto(
     });
     await store.putSent(rows.filter((row): row is SentRecord => Boolean(row)));
     doneCount += batch.length;
-    options.onProgress?.({ phase: "sent", done: doneCount, total: ids.length });
+    options.onProgress?.({ phase, done: doneCount, total: ids.length });
   }
   return doneCount;
 }
@@ -435,7 +437,7 @@ async function applyChanges(
     return Boolean(labelIds && provider.isSentLabels?.(labelIds));
   });
   await store.removeSent(provider.id, [...removed]);
-  const sentRead = await readSentInto(provider, token, store, sentAdded, options, false);
+  const sentRead = await readSentInto(provider, token, store, sentAdded, options, false, "detail");
   return { mode: "changes", read: read + sentRead, removed: dropped.length, updated: updates.length };
 }
 
