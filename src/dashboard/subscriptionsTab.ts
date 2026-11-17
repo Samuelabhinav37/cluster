@@ -421,6 +421,11 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
 
   const table = document.createElement("div");
   const rowCount = renderSenderTable(table, {
+    id: "lists",
+    columns: ["note", "read", "perMonth", "emails", "last"],
+    tools: document.getElementById("cu-tools-lists"),
+    nameHead: "Mailing list",
+    perMonth: (group) => group.reduce((n, s) => n + (ctx.profiles.get(s.key)?.perMonth ?? 0), 0),
     items: available.map((sender) => ({
       sender,
       ids: sender.messages.map((m) => m.id),

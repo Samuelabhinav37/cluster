@@ -1173,7 +1173,15 @@ function updateIndexStatus() {
   track.className = "scan-track";
   track.appendChild(fill);
   indexStatusEl.classList.remove("done");
-  indexStatusEl.replaceChildren(parts.join(" · "), ...(done < total ? [track] : []));
+  // The card: what's being read and how far, the bar, then "1,240 of 5,000 · about 6 min left".
+  const head = document.createElement("div");
+  head.className = "rc-head";
+  const pct = document.createElement("span");
+  pct.textContent = done < total && total > 0 ? `${Math.floor((done / total) * 100)}%` : "";
+  head.append(Object.assign(document.createElement("b"), { textContent: parts[0] }), pct);
+  const line = parts.slice(1).join(" · ");
+  const left = Object.assign(document.createElement("span"), { className: "rc-eta", textContent: line });
+  indexStatusEl.replaceChildren(head, ...(done < total ? [track] : []), ...(line ? [left] : []));
   indexStatusEl.hidden = false;
   // A new phase counts from zero again.
   if (done < viewDone) viewDone = done;
@@ -1847,6 +1855,9 @@ function renderDeleteScreen(senders: SenderSummary[]) {
   const senderRows = new Set(tableItems.map((it) => detailRowKey(it.sender))).size;
   document.getElementById("tab-count-senders")!.textContent = senderRows ? n(senderRows) : "";
   renderSenderTable(document.getElementById("cu-senders-table")!, {
+    id: "senders",
+    columns: ["note", "read", "emails", "size", "last"],
+    tools: document.getElementById("cu-tools-senders"),
     items: tableItems,
     rowKeyOf: detailRowKey,
     openRow: (key) => details?.open({ view: "emails", senderKey: key }),

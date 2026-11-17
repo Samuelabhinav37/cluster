@@ -13,11 +13,13 @@ import { bootDashboard, type BootedDashboard } from "./testHarness";
 const BUDGET: Record<string, { words: number; controls: number }> = {
   // Raised for Home v2 (verdict, this week, next up, inbox), approved 2026-10-29.
   overview: { words: 96, controls: 10 },
-  delete: { words: 80, controls: 16 },
+  // 2026-11-17 (user asked, Everbee reference): a line under the title, Search/Customize/Filter/Export, pages.
+  delete: { words: 100, controls: 34 },
   // Redesign 2026-11: Cleanup's Senders and Subscriptions tabs.
   // 2026-11-06 Plausible panels: an Emails column head beside Opened.
   // 2026-11-16: the 2x2 tiles, the chart legend, its day picker and Download move in with the tabs.
-  subscriptions: { words: 54, controls: 18 },
+  // 2026-11-17: the same line, toolbar and pages on Mailing lists.
+  subscriptions: { words: 100, controls: 40 },
   // Round 2 (approved 2026-10-30): a five-step picker on each kind card.
   organize: { words: 300, controls: 75 },
   // Redesign 2026-11: KPI row and Suspicious and Quarantine tabs.

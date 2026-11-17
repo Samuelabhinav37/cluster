@@ -4,6 +4,9 @@ import type { SenderSummary } from "../lib/senderModel";
 import { senderName } from "../lib/senderListView";
 import { HOME_KINDS, kindOf, type HomeKind } from "./homeDashboard";
 import { xlsxBytes, type XlsxColumn } from "./xlsx";
+import { csvField, downloadBytes } from "./csv";
+
+export { csvField, downloadBytes };
 import interTight from "@fontsource-variable/inter-tight/files/inter-tight-latin-wght-normal.woff2?url";
 
 // Absolute: the report is a blob: document, which can't resolve a root-relative path.
@@ -63,13 +66,6 @@ const isoTime = (ms: number) => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-/** RFC 4180: quoted only when it holds a comma, quote or line break. A leading
- * = + - @ gets a ' so a spreadsheet shows a stranger's subject instead of running it. */
-export function csvField(v: string): string {
-  const safe = /^[=+\-@]/.test(v) ? `'${v}` : v;
-  return /[",\r\n]|^\s|\s$/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
-}
-
 const withReason = (rows: readonly EmailRow[]) => rows.some((r) => r.reason);
 
 export function emailsCsv(rows: readonly EmailRow[]): string {
@@ -98,13 +94,6 @@ export function emailsXlsx(rows: readonly EmailRow[], sheet: string): Uint8Array
   );
 }
 
-export function downloadBytes(name: string, data: BlobPart, type: string): void {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([data], { type }));
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 0);
-}
 
 // ── The report document ─────────────────────────────────────────────────
 

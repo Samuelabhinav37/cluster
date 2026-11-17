@@ -4,7 +4,8 @@ import type { ProviderId } from "../lib/providers/emailProvider";
 import type { SenderSummary } from "../lib/senderModel";
 import { senderName } from "../lib/senderListView";
 import { listGroup, listRow } from "./listRow";
-import { menuForControls } from "./rowMenu";
+import { menuForControls, rowMenu, type MenuEntry } from "./rowMenu";
+import { csvField, downloadBytes } from "./csv";
 import { senderTile } from "./senderTile";
 
 export interface PageItem {
@@ -338,14 +339,27 @@ export interface SenderTableItem extends PageItem {
   reason: string;
 }
 
+/** The columns a table can show after the name. */
+export type ColumnId = "note" | "read" | "perMonth" | "emails" | "size" | "last";
+
 export interface SenderTableSpec {
+  /** Names this table's saved view (sort, rows per page, hidden columns). */
+  id: string;
   items: SenderTableItem[];
   rowKeyOf: (s: SenderSummary) => string;
   openRow: (key: string, lead: SenderSummary) => void;
   /** What the selection bar's button does to the ticked rows; renders its confirm into `slot`. */
   act: (ids: Map<ProviderId, string[]>, senders: SenderSummary[], slot: HTMLElement, reset: () => void) => void;
+  /** The columns after the name, in order. */
+  columns: ColumnId[];
+  /** Where Search, Customize, Filter and Export go (the tabs row). */
+  tools?: HTMLElement | null;
+  /** The name column's header. Default "Sender". */
+  nameHead?: string;
   /** The note column's header. Default "Reason". */
   noteHead?: string;
+  /** Emails a month, for the Per month column. */
+  perMonth?: (senders: SenderSummary[]) => number;
   /** The selection bar's button. Default "Trash". */
   verb?: string;
   /** Rows that can't take the bar's action get no tick. */
@@ -360,7 +374,59 @@ export interface SenderTableSpec {
   barIds?: { slot: string; button: string };
 }
 
-const PAGE = 10;
+type SortKey = ColumnId | "name";
+
+interface View {
+  sort: SortKey;
+  desc: boolean;
+  page: number;
+  per: number;
+  query: string;
+  filter: string | null;
+  hidden: ColumnId[];
+}
+
+const PER_PAGE = [10, 25, 50];
+const HEADS: Record<ColumnId, string> = {
+  note: "Reason",
+  read: "Read rate",
+  perMonth: "Per month",
+  emails: "Emails",
+  size: "Size",
+  last: "Last received",
+};
+const NUMERIC = new Set<ColumnId>(["perMonth", "emails", "size"]);
+
+// Per table for the session; rows per page and hidden columns also survive a reload.
+const views = new Map<string, View>();
+function viewFor(id: string): View {
+  let v = views.get(id);
+  if (v) return v;
+  let saved: Partial<View> = {};
+  try {
+    saved = JSON.parse(localStorage.getItem(`cluster.table.${id}`) ?? "{}") as Partial<View>;
+  } catch {
+    // No storage (private window): the defaults are fine.
+  }
+  v = {
+    sort: "emails",
+    desc: true,
+    page: 0,
+    per: PER_PAGE.includes(saved.per ?? 0) ? saved.per! : PER_PAGE[0],
+    query: "",
+    filter: null,
+    hidden: Array.isArray(saved.hidden) ? saved.hidden : [],
+  };
+  views.set(id, v);
+  return v;
+}
+function saveView(id: string, v: View) {
+  try {
+    localStorage.setItem(`cluster.table.${id}`, JSON.stringify({ per: v.per, hidden: v.hidden }));
+  } catch {
+    // Not saved; the table still works.
+  }
+}
 
 function lastReceived(ms: number, now: number): string {
   const days = Math.round((new Date(now).setHours(0, 0, 0, 0) - new Date(ms).setHours(0, 0, 0, 0)) / DAY);
@@ -371,6 +437,28 @@ function lastReceived(ms: number, now: number): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+export function formatBytes(bytes: number): string {
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;
+  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1e3))} KB`;
+}
+
+const perMonthText = (n: number) => (n >= 1 ? Math.round(n).toLocaleString() : "<1");
+
+/** Page numbers to show, with "…" for gaps: 1 2 … 8 9 10. Exported for tests. */
+export function pageList(current: number, pages: number): (number | "…")[] {
+  if (pages <= 7) return Array.from({ length: pages }, (_, i) => i);
+  const keep = new Set([0, 1, current - 1, current, current + 1, pages - 2, pages - 1].filter((p) => p >= 0 && p < pages));
+  const out: (number | "…")[] = [];
+  let prev = -1;
+  for (const p of [...keep].sort((a, b) => a - b)) {
+    if (p - prev > 1) out.push("…");
+    out.push(p);
+    prev = p;
+  }
+  return out;
+}
+
 /** The Emails cell: the count alone. */
 export function emailsCell(count: number, tag: "td" | "span" = "td"): HTMLElement {
   const cell = el(tag, "num ct-emails");
@@ -378,30 +466,172 @@ export function emailsCell(count: number, tag: "td" | "span" = "td"): HTMLElemen
   return cell;
 }
 
-/** Cleanup's Senders and Mailing lists tabs: one table with a note column, a
- * tick per row, and a selection bar whose one button acts on what's ticked.
- * Returns the number of rows. */
+// Toolbar icons as path data, drawn with DOM calls (no innerHTML).
+const ICONS = {
+  search: ["M18 11a7 7 0 1 1-14 0a7 7 0 1 1 14 0", "m20 20-4-4"],
+  customize: ["M4 7h10M18 7h2M4 17h4M12 17h8", "M18 7a2 2 0 1 1-4 0a2 2 0 1 1 4 0", "M12 17a2 2 0 1 1-4 0a2 2 0 1 1 4 0"],
+  filter: ["M4 5h16l-6 8v6l-4-2v-4z"],
+  export: ["M12 4v11M7 10l5 5 5-5M5 20h14"],
+};
+function toolIcon(icon: keyof typeof ICONS): SVGSVGElement {
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("class", "i");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  for (const d of ICONS[icon]) {
+    const path = document.createElementNS(NS, "path");
+    path.setAttribute("d", d);
+    svg.append(path);
+  }
+  return svg;
+}
+function toolButton(icon: keyof typeof ICONS, label: string, iconOnly = false): HTMLButtonElement {
+  const b = el("button", "btn ct-tool");
+  b.type = "button";
+  b.append(toolIcon(icon));
+  if (iconOnly) b.setAttribute("aria-label", label);
+  else b.append(label);
+  return b;
+}
+/** A toolbar button that opens a menu (the row menu's, so keys and Escape match). */
+function toolMenu(icon: keyof typeof ICONS, label: string, entries: MenuEntry[]): HTMLElement {
+  const menu = rowMenu(entries, label);
+  menu.classList.add("ct-tool-menu");
+  const b = menu.querySelector("button")!;
+  b.className = "btn ct-tool";
+  b.removeAttribute("aria-label");
+  b.replaceChildren(toolIcon(icon), label);
+  return menu;
+}
+
+/** Cleanup's Senders and Mailing lists tabs: a toolbar (Search, Customize,
+ * Filter, Export), sortable columns, a tick per row with a selection bar whose
+ * one button acts on what's ticked, and pages. Returns the number of rows. */
 export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now = Date.now()): number {
-  const rows = pageRows(spec.items, spec.rowKeyOf);
-  const reasons = new Map<string, string>();
+  const view = viewFor(spec.id);
+  const notes = new Map<string, string>();
   for (const it of spec.items) {
     const k = spec.rowKeyOf(it.sender);
-    if (!reasons.has(k)) reasons.set(k, it.reason);
+    if (!notes.has(k)) notes.set(k, it.reason);
   }
+  const rows = pageRows(spec.items, spec.rowKeyOf).map((r) => {
+    const ids = new Set([...r.ids.values()].flat());
+    const mail = r.senders.flatMap((s) => s.messages);
+    return {
+      ...r,
+      note: notes.get(r.key) ?? "",
+      latest: Math.max(0, ...mail.map((m) => m.receivedAt)),
+      bytes: mail.filter((m) => ids.has(m.id)).reduce((n, m) => n + (m.sizeBytes || 0), 0),
+      perMonth: spec.perMonth?.(r.senders) ?? 0,
+    };
+  });
+  type Row = (typeof rows)[number];
   const tickable = new Set(rows.filter((r) => spec.canTick?.(r.senders) ?? true));
   const selected = spec.selected ?? new Set<string>();
   const tickKeys = new Set([...tickable].map((r) => r.key));
   for (const k of Array.from(selected)) if (!tickKeys.has(k)) selected.delete(k);
-  let shown = PAGE;
+  if (view.filter && !rows.some((r) => r.note === view.filter)) view.filter = null;
+  const headOf = (c: ColumnId) => (c === "note" ? (spec.noteHead ?? HEADS.note) : HEADS[c]);
+  const sortValue = (r: Row, k: SortKey): number | string =>
+    k === "name" ? senderName(r.lead).toLowerCase()
+    : k === "note" ? r.note
+    : k === "read" ? r.opened
+    : k === "perMonth" ? r.perMonth
+    : k === "emails" ? r.count
+    : k === "size" ? r.bytes
+    : r.latest;
+  let focusSearch = false;
 
   const render = () => {
+    const columns = spec.columns.filter((c) => !view.hidden.includes(c));
+    const q = view.query.trim().toLowerCase();
+    const shownRows = rows
+      .filter((r) => !view.filter || r.note === view.filter)
+      .filter((r) => !q || r.senders.some((s) => `${s.displayName ?? ""} ${s.address}`.toLowerCase().includes(q)))
+      .sort((a, b) => {
+        const x = sortValue(a, view.sort);
+        const y = sortValue(b, view.sort);
+        const c = typeof x === "string" ? x.localeCompare(y as string) : x - (y as number);
+        return (view.desc ? -c : c) || b.count - a.count;
+      });
+    const pages = Math.max(1, Math.ceil(shownRows.length / view.per));
+    view.page = Math.min(view.page, pages - 1);
+    const pageRowsNow = shownRows.slice(view.page * view.per, (view.page + 1) * view.per);
     const ticked = rows.filter((r) => selected.has(r.key));
     const n = ticked.reduce((sum, r) => sum + r.count, 0);
 
+    // ── Toolbar ──
+    if (spec.tools) {
+      const search = el("input", "ct-search");
+      search.type = "search";
+      search.placeholder = "Search";
+      search.setAttribute("aria-label", `Search ${(spec.nameHead ?? "Sender").toLowerCase()}s`);
+      search.value = view.query;
+      search.hidden = !view.query && !focusSearch;
+      search.oninput = () => {
+        view.query = search.value;
+        view.page = 0;
+        focusSearch = true;
+        render();
+      };
+      search.onblur = () => {
+        focusSearch = false;
+        if (!view.query) search.hidden = true;
+      };
+      const searchBtn = toolButton("search", "Search", true);
+      searchBtn.onclick = () => {
+        search.hidden = false;
+        search.focus();
+      };
+      const customize = toolMenu(
+        "customize",
+        "Customize",
+        spec.columns.map((c) => ({
+          label: `${view.hidden.includes(c) ? "   " : "✓ "}${headOf(c)}`,
+          run: () => {
+            view.hidden = view.hidden.includes(c) ? view.hidden.filter((h) => h !== c) : [...view.hidden, c];
+            saveView(spec.id, view);
+            render();
+          },
+        })),
+      );
+      const counts = new Map<string, number>();
+      for (const r of rows) if (r.note) counts.set(r.note, (counts.get(r.note) ?? 0) + 1);
+      const filter = toolMenu("filter", view.filter ? `Filter: ${view.filter}` : "Filter", [
+        { label: `${view.filter ? "   " : "✓ "}All`, run: () => ((view.filter = null), (view.page = 0), render()) },
+        ...[...counts].map(([note, count]) => ({
+          label: `${view.filter === note ? "✓ " : "   "}${note} (${count})`,
+          run: () => ((view.filter = note), (view.page = 0), render()),
+        })),
+      ]);
+      if (view.filter) filter.classList.add("on");
+      const exportBtn = toolButton("export", "Export");
+      exportBtn.onclick = () => {
+        const head = [spec.nameHead ?? "Sender", "Addresses", ...columns.map(headOf)];
+        const cellText = (r: Row, c: ColumnId) =>
+          c === "note" ? r.note
+          : c === "read" ? `${Math.round(r.opened * 100)}%`
+          : c === "perMonth" ? perMonthText(r.perMonth)
+          : c === "emails" ? String(r.count)
+          : c === "size" ? formatBytes(r.bytes)
+          : r.latest ? new Date(r.latest).toISOString().slice(0, 10) : "";
+        const body = shownRows.map((r) => [senderName(r.lead), r.senders.map((s) => s.address).join(" "), ...columns.map((c) => cellText(r, c))]);
+        // The BOM tells Excel the file is UTF-8.
+        const csv = "﻿" + [head, ...body].map((line) => line.map(csvField).join(",")).join("\r\n") + "\r\n";
+        downloadBytes(`cluster-${spec.id}.csv`, csv, "text/csv;charset=utf-8");
+      };
+      spec.tools.replaceChildren(search, searchBtn, customize, filter, exportBtn);
+      if (focusSearch) {
+        search.focus();
+        search.setSelectionRange(search.value.length, search.value.length);
+      }
+    }
+
+    // ── Selection bar ──
     const bar = el("div", "ct-selbar");
     bar.hidden = ticked.length === 0;
-    const what = el("b", "", `${ticked.length} selected`);
-    bar.append(what, el("span", "", `${n.toLocaleString()} emails`));
+    bar.append(el("b", "", `${ticked.length} selected`), el("span", "", `${n.toLocaleString()} emails`));
     const clear = el("button", "ct-clear", "Clear");
     clear.type = "button";
     clear.onclick = () => {
@@ -423,29 +653,56 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
     slot.append(go);
     bar.append(clear, slot);
 
+    // ── Header ──
     const table = el("table", "ct-table");
     const head = el("tr");
     const all = el("input", "check");
     all.type = "checkbox";
     all.setAttribute("aria-label", "Select all");
-    all.checked = tickable.size > 0 && ticked.length === tickable.size;
-    all.indeterminate = ticked.length > 0 && ticked.length < tickable.size;
-    all.disabled = tickable.size === 0;
+    const visibleTickable = shownRows.filter((r) => tickable.has(r));
+    const tickedVisible = visibleTickable.filter((r) => selected.has(r.key)).length;
+    all.checked = visibleTickable.length > 0 && tickedVisible === visibleTickable.length;
+    all.indeterminate = tickedVisible > 0 && tickedVisible < visibleTickable.length;
+    all.disabled = visibleTickable.length === 0;
     all.onchange = () => {
-      if (all.checked) for (const r of tickable) selected.add(r.key);
-      else selected.clear();
+      for (const r of visibleTickable) {
+        if (all.checked) selected.add(r.key);
+        else selected.delete(r.key);
+      }
       render();
     };
     const th0 = el("th", "ct-tick");
     th0.append(all);
     head.append(th0);
-    const cols = [["Sender", "ct-c-who"], [spec.noteHead ?? "Reason", "ct-c-reason"], ["Emails", "num ct-c-emails"], ["Last received", "ct-c-last"], ["Opened", "num ct-c-opened"]];
-    if (spec.controls) cols.push(["", "ct-c-menu"]);
-    for (const [t, c] of cols) head.append(el("th", c, t));
+    const sortHead = (key: SortKey, text: string, cls: string) => {
+      const th = el("th", cls);
+      const b = el("button", "ct-sort", text);
+      b.type = "button";
+      const on = view.sort === key;
+      th.setAttribute("aria-sort", on ? (view.desc ? "descending" : "ascending") : "none");
+      if (on) {
+        b.classList.add("on");
+        b.append(el("span", "ct-arrow", view.desc ? "⌄" : "⌃"));
+      }
+      b.onclick = () => {
+        // Numbers start biggest first, names A to Z.
+        view.desc = on ? !view.desc : key !== "name" && key !== "note";
+        view.sort = key;
+        view.page = 0;
+        render();
+      };
+      th.append(b);
+      return th;
+    };
+    head.append(sortHead("name", spec.nameHead ?? "Sender", "ct-c-who"));
+    for (const c of columns) head.append(sortHead(c, headOf(c), `ct-c-${c}${NUMERIC.has(c) ? " num" : ""}`));
+    if (spec.controls) head.append(el("th", "ct-c-menu"));
     const thead = el("thead");
     thead.append(head);
+
+    // ── Rows ──
     const body = el("tbody");
-    for (const r of rows.slice(0, shown)) {
+    for (const r of pageRowsNow) {
       const tr = el("tr", "row-link");
       const td0 = el("td", "ct-tick");
       if (tickable.has(r)) {
@@ -462,21 +719,27 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
       }
       const who = el("td", "ct-who");
       const name = el("span", "ct-name");
-      name.append(senderTile(r.lead.address, r.lead.displayName, "sz-26"), el("b", "", senderName(r.lead)));
+      name.append(senderTile(r.lead.address, r.lead.displayName, "sz-34"), el("b", "", senderName(r.lead)));
       const badge = spec.badge?.(r.senders);
       if (badge) name.append(el("span", "ct-dim ct-badge", badge));
       who.append(name);
-      const reason = el("td", "ct-dim ct-reason", reasons.get(r.key) ?? "");
-      const latest = Math.max(0, ...r.senders.flatMap((s) => s.messages.map((m) => m.receivedAt)));
-      const pct = Math.round(r.opened * 100);
-      tr.append(
-        td0,
-        who,
-        reason,
-        emailsCell(r.count),
-        el("td", "ct-dim", latest ? lastReceived(latest, now) : ""),
-        el("td", "num ct-dim", `${pct}%`),
-      );
+      tr.append(td0, who);
+      for (const c of columns) {
+        if (c === "note") tr.append(el("td", "ct-dim ct-reason", r.note));
+        else if (c === "read") {
+          const pct = Math.round(r.opened * 100);
+          const cell = el("td", "ct-read");
+          const track = el("span", "ct-bar");
+          const fill = el("i");
+          fill.style.width = `${pct}%`;
+          track.append(fill);
+          cell.append(track, el("b", "", `${pct}%`));
+          tr.append(cell);
+        } else if (c === "perMonth") tr.append(el("td", "num ct-dim", perMonthText(r.perMonth)));
+        else if (c === "emails") tr.append(emailsCell(r.count));
+        else if (c === "size") tr.append(el("td", "num ct-dim", r.bytes ? formatBytes(r.bytes) : ""));
+        else tr.append(el("td", "ct-dim", r.latest ? lastReceived(r.latest, now) : ""));
+      }
       tr.onclick = (e) => {
         if (!(e.target instanceof Element && e.target.closest("input, label, button, .row-menu"))) spec.openRow(r.key, r.lead);
       };
@@ -489,7 +752,7 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
       // The picked action's confirm shows in a full-width row under this one.
       const stripRow = el("tr", "ct-strip");
       const stripCell = el("td");
-      stripCell.colSpan = cols.length + 1;
+      stripCell.colSpan = columns.length + 3;
       const strip = el("div", "instead-strip");
       stripCell.append(strip);
       stripRow.append(stripCell);
@@ -502,17 +765,54 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
     const wrap = el("div", "scroll-x");
     wrap.append(table);
 
-    const parts: HTMLElement[] = [bar, wrap];
-    if (rows.length > shown) {
-      const more = el("button", "btn ct-more", `Show ${Math.min(PAGE, rows.length - shown)} more`);
-      more.type = "button";
-      more.onclick = () => {
-        shown += PAGE;
-        render();
-      };
-      parts.push(more);
+    // ── Footer: how many, pages, rows per page ──
+    const foot = el("div", "ct-foot");
+    const showing = el("span", "ct-showing", "Showing ");
+    showing.append(el("b", "", pageRowsNow.length.toLocaleString()), ` of ${shownRows.length.toLocaleString()}`);
+    const pager = el("nav", "ct-pager");
+    pager.setAttribute("aria-label", "Pages");
+    const go2 = (p: number) => () => {
+      view.page = p;
+      render();
+    };
+    const prev = el("button", "ct-page", "‹");
+    prev.type = "button";
+    prev.setAttribute("aria-label", "Previous page");
+    prev.disabled = view.page === 0;
+    prev.onclick = go2(view.page - 1);
+    pager.append(prev);
+    for (const p of pageList(view.page, pages)) {
+      if (p === "…") {
+        pager.append(el("span", "ct-gap", "…"));
+        continue;
+      }
+      const b = el("button", "ct-page", String(p + 1));
+      b.type = "button";
+      if (p === view.page) b.setAttribute("aria-current", "page");
+      b.onclick = go2(p);
+      pager.append(b);
     }
-    if (rows.length === 0) parts.push(el("p", "hint", "Nothing to clear."));
+    const next = el("button", "ct-page", "›");
+    next.type = "button";
+    next.setAttribute("aria-label", "Next page");
+    next.disabled = view.page >= pages - 1;
+    next.onclick = go2(view.page + 1);
+    pager.append(next);
+    const perWrap = el("label", "ct-per", "Rows per page");
+    const per = el("select");
+    for (const v of PER_PAGE) per.append(Object.assign(el("option", "", String(v)), { value: String(v), selected: v === view.per }));
+    per.onchange = () => {
+      view.per = Number(per.value);
+      view.page = 0;
+      saveView(spec.id, view);
+      render();
+    };
+    perWrap.append(per);
+    foot.append(showing, pager, perWrap);
+
+    const parts: HTMLElement[] = [bar, wrap];
+    if (shownRows.length === 0) parts.push(el("p", "hint ct-empty", rows.length === 0 ? "Nothing to clear." : "Nothing matches."));
+    if (rows.length > 0) parts.push(foot);
     root.replaceChildren(...parts);
   };
   render();

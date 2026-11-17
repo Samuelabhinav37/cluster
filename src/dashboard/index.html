@@ -105,6 +105,8 @@
             </div>
 
             <span class="sidebar-spacer"></span>
+            <!-- Reading progress and "done": a card at the foot of the sidebar. -->
+            <div id="index-status" class="index-status read-card" role="status" hidden></div>
           </nav>
         </div>
 
@@ -249,6 +251,7 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Cleanup</h1>
+                <p class="page-sub">Mail you never open, old codes and lists you can leave.</p>
               </div>
             </div>
 
@@ -286,6 +289,9 @@
             <div class="tabs" role="tablist" aria-label="Cleanup">
               <button type="button" role="tab" class="tab" data-open-screen="delete" data-tab-for="delete">Senders<span class="tab-count" id="tab-count-senders"></span></button>
               <button type="button" role="tab" class="tab" data-open-screen="subscriptions" data-tab-for="subscriptions">Mailing lists<span class="tab-count" id="tab-count-subs"></span></button>
+              <!-- Each table fills its own toolbar; the open tab's shows (CSS). -->
+              <div class="ct-tools" id="cu-tools-senders"></div>
+              <div class="ct-tools" id="cu-tools-lists"></div>
             </div>
             </div>
 
@@ -407,6 +413,7 @@
             <div class="page-head">
               <div class="page-titles">
                 <h1 class="page-title">Cleanup</h1>
+                <p class="page-sub">Mail you never open, old codes and lists you can leave.</p>
               </div>
             </div>
 
@@ -866,9 +873,8 @@
             </div>
             <div id="recent-list"></div>
           </section>
-          <!-- Loading, reading progress and "done" all show in this one place at the bottom. -->
+          <!-- Loading shows at the bottom; reading progress is the sidebar card. -->
           <p id="status" class="status-line index-status" role="status">Loading your senders…</p>
-          <div id="index-status" class="index-status" role="status" hidden></div>
         </main>
         <!-- Details: the sheet where you work on the mail behind any number (detailsPanel.ts) -->
         <aside class="details" id="details" aria-label="Details" hidden></aside>

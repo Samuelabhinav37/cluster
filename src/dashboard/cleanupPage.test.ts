@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import type { SenderSummary } from "../lib/senderModel";
-import { changeChip, dailyCounts } from "./cleanupPage";
+import { changeChip, dailyCounts, formatBytes, pageList } from "./cleanupPage";
 
 const DAY = 86_400_000;
 const NOW = new Date(2026, 10, 5, 15).getTime();
@@ -33,5 +33,22 @@ describe("changeChip", () => {
     expect(changeChip(15, 10)!.textContent).toBe("50%");
     expect(changeChip(5, 10)!.className).toContain("better");
     expect(changeChip(5, 0)).toBeNull();
+  });
+});
+
+describe("pageList", () => {
+  it("shows every page up to 7, then ends and neighbours with gaps", () => {
+    expect(pageList(0, 3)).toEqual([0, 1, 2]);
+    expect(pageList(0, 10)).toEqual([0, 1, "…", 8, 9]);
+    expect(pageList(5, 10)).toEqual([0, 1, "…", 4, 5, 6, "…", 8, 9]);
+    expect(pageList(9, 10)).toEqual([0, 1, "…", 8, 9]);
+  });
+});
+
+describe("formatBytes", () => {
+  it("picks KB, MB or GB", () => {
+    expect(formatBytes(43_000)).toBe("43 KB");
+    expect(formatBytes(1_300_000)).toBe("1.3 MB");
+    expect(formatBytes(2_500_000_000)).toBe("2.5 GB");
   });
 });
