@@ -1154,6 +1154,9 @@ let paceSample: { phase: string; at: number; done: number } | undefined;
 let viewDone = 0;
 const VIEW_REFRESH_EVERY = 500;
 
+/** When the current read began, so a short catch-up never shows the card. */
+let readSince = 0;
+
 /** Bar pinned to the bottom while mail is still being read. */
 function updateIndexStatus() {
   const active = [...indexRuns.values()]
@@ -1161,6 +1164,7 @@ function updateIndexStatus() {
     .filter((p): p is SyncProgress => p?.phase === "reading" || p?.phase === "sent" || p?.phase === "detail");
   // A running Check mail or sort owns the card until it finishes.
   if (indexStatusEl.dataset.job === "run") return;
+  if (active.length === 0) readSince = 0;
   if (active.length === 0 || !statusEl.hidden) {
     // A finished job's card stays for its few seconds.
     if (!indexStatusEl.dataset.job) indexStatusEl.hidden = true;
@@ -1213,8 +1217,13 @@ function updateIndexStatus() {
   head.append(Object.assign(document.createElement("b"), { textContent: parts[0] }), pct);
   const line = parts.slice(1).join(" · ");
   const left = Object.assign(document.createElement("span"), { className: "rc-eta", textContent: line });
-  indexStatusEl.replaceChildren(head, ...(done < total ? [track] : []), ...(line ? [left] : []));
-  indexStatusEl.hidden = false;
+  readSince ||= Date.now();
+  // Opening Cluster fetches the few emails since last time in a moment; the card is for reads that take a while.
+  const longRead = Date.now() - readSince > 5_000 || total - done >= 300;
+  if (longRead) {
+    indexStatusEl.replaceChildren(head, ...(done < total ? [track] : []), ...(line ? [left] : []));
+    indexStatusEl.hidden = false;
+  } else if (!indexStatusEl.dataset.job) indexStatusEl.hidden = true;
   // A new phase counts from zero again.
   if (done < viewDone) viewDone = done;
   if (phase === "mail" && done - viewDone >= VIEW_REFRESH_EVERY) void refreshView();
@@ -1894,9 +1903,10 @@ function renderDeleteScreen(senders: SenderSummary[]) {
   lastPlan = plan;
   paintCleanupChart(cuKpi);
   const tableItems = [
-    ...(cuKpi !== "old" ? pageItems("never").map((it) => ({ ...it, reason: "Unopened" })) : []),
-    ...(cuKpi !== "never" ? pageItems("old").map((it) => ({ ...it, reason: "Expired" })) : []),
+    ...(cuKpi !== "old" ? pageItems("never").map((it) => ({ ...it, reason: whyNever(it.sender) })) : []),
+    ...(cuKpi !== "never" ? pageItems("old").map((it) => ({ ...it, reason: "Past its date" })) : []),
   ];
+  paintSafe(plan.neverReadMsgs + plan.expiryTotal);
   renderSenderTable(document.getElementById("cu-senders-table")!, {
     id: "senders",
     columns: ["note", "read", "emails", "size", "last"],
@@ -1911,6 +1921,51 @@ function renderDeleteScreen(senders: SenderSummary[]) {
       : undefined,
   });
   if (openPage) showCleanupPage(openPage);
+}
+
+/** The table's reason, short: what this sender's mail shows about you. */
+function whyNever(sender: SenderSummary): string {
+  const p = ctx.profiles.get(sender.key);
+  if (!p) return "Never opened";
+  if (!p.stillSending) return "Stopped sending";
+  const opened = Math.round((p.openRate ?? 0) * p.judged);
+  return opened === 0 ? "Never opened" : `Opened ${opened} of ${p.judged}`;
+}
+
+/** Above the table: how much is safe to trash, why, and one button for it (the table's Trash all). */
+let safeTotal = 0;
+// The card belongs to the Senders tab; Mailing lists shares the page head but trashes nothing.
+document.addEventListener("cluster:screen", (e) => {
+  const box = document.getElementById("cu-safe");
+  if (box) box.hidden = safeTotal === 0 || (e as CustomEvent<string>).detail !== "delete";
+});
+
+function paintSafe(total: number) {
+  const box = document.getElementById("cu-safe");
+  if (!box) return;
+  safeTotal = total;
+  box.hidden = total === 0 || document.body.dataset.screen === "subscriptions";
+  if (total === 0) return box.replaceChildren();
+  const words = document.createElement("div");
+  words.className = "cs-words";
+  words.append(
+    Object.assign(document.createElement("b"), { textContent: `${total.toLocaleString()} email${total === 1 ? " is" : "s are"} safe to trash` }),
+    Object.assign(document.createElement("p"), {
+      // Every Cleanup list leaves out protected mail (protectionPolicy.ts); Gmail empties Trash after 30 days.
+      textContent: "None are starred, important or from people you write to, and Gmail keeps Trash for 30 days.",
+    }),
+  );
+  const review = Object.assign(document.createElement("button"), { type: "button", className: "btn", textContent: "Review" });
+  review.onclick = () => document.getElementById("cu-senders-table")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const trash = Object.assign(document.createElement("button"), { type: "button", className: "btn btn-accent-solid", textContent: "Trash" });
+  trash.onclick = () => {
+    review.click();
+    document.querySelector<HTMLButtonElement>("#cu-tools-senders .ct-all")?.click();
+  };
+  const acts = document.createElement("div");
+  acts.className = "cs-acts";
+  acts.append(review, trash);
+  box.replaceChildren(words, acts);
 }
 
 let lastPlan: ReturnType<typeof clearOutPlan> | null = null;

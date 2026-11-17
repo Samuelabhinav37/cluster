@@ -4778,3 +4778,23 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .read-card .rc-act { padding: 0; border: 0; background: none; color: var(--accent-text); font: 500 12px var(--font); cursor: pointer; }
 .read-card .rc-head span { font-variant-numeric: tabular-nums; }
 .sort-all-link { margin-left: auto; align-self: center; padding: 0; border: 0; background: none; color: var(--accent-text); font: 500 14px var(--font); cursor: pointer; }
+
+/* Danger zone and other destructive buttons, Apple-style: the usual gray button, red words. */
+.btn.danger { border-color: transparent; background: var(--neutral-fill); color: var(--danger-text); }
+.btn.danger:hover:not(:disabled) { background: var(--neutral-fill-hover); color: var(--danger-text); }
+
+/* Diagnostics: what ran and what it did on the left, when on the right. */
+#settings-runs .run-row { grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; align-items: center; }
+#settings-runs .run-row .grow { grid-area: auto; justify-self: start; display: flex; flex-direction: column; gap: 2px; text-align: left; }
+#settings-runs .run-row .grow b { font-weight: 500; color: var(--label); }
+#settings-runs .run-row .run-when { grid-area: auto; justify-self: end; font-size: 13px; color: var(--label-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* Cleanup: what is safe to trash and why, above the table. */
+.cu-safe { display: flex; align-items: center; gap: 20px; margin: 24px 0 8px; padding: 18px 20px; border-radius: 16px; background: var(--card, #1c1c1e); box-shadow: inset 0 0 0 1px var(--hairline); }
+.cu-safe .cs-words { flex: 1; min-width: 0; }
+.cu-safe .cs-words b { display: block; font: 600 17px/1.3 var(--font); color: var(--label); }
+.cu-safe .cs-words p { margin: 4px 0 0; font-size: 14px; color: var(--label-3); }
+.cu-safe .cs-acts { display: flex; gap: 8px; flex: none; }
+@media (max-width: 700px) { .cu-safe { flex-direction: column; align-items: stretch; } }
+.ct-tools .ct-all, .ct-tools .ct-all:hover:not(:disabled) { border-color: transparent; background: var(--neutral-fill); color: var(--danger-text); }
+.ct-tools .ct-all:hover:not(:disabled) { background: var(--neutral-fill-hover); }

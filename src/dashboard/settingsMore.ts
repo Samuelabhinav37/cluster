@@ -69,16 +69,24 @@ export async function renderRuns(): Promise<void> {
   const host = $("settings-runs");
   if (!host) return;
   const reports = await getRunReports();
-  const rows = [...reports].reverse().map((r) => {
-    const row = Object.assign(document.createElement("div"), { className: "set-row plain" });
+  // Runs that said the same thing one after another are one row ("Sort · 6 times").
+  const groups: { r: RunReport; said: string; times: number }[] = [];
+  for (const r of [...reports].reverse()) {
+    const said = describeRun(r);
+    const last = groups.at(-1);
+    if (last && last.r.kind === r.kind && last.said === said) last.times += 1;
+    else groups.push({ r, said, times: 1 });
+  }
+  const rows = groups.slice(0, 8).map(({ r, said, times }) => {
+    const row = Object.assign(document.createElement("div"), { className: "set-row plain run-row" });
     row.dataset.status = r.status;
     const when = new Date(r.startedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
     const name = Object.assign(document.createElement("span"), { className: "grow" });
     name.append(
-      `${RUN_KIND_WORDS[r.kind]} · ${when}`,
-      Object.assign(document.createElement("span"), { className: "sub", textContent: describeRun(r) }),
+      Object.assign(document.createElement("b"), { textContent: RUN_KIND_WORDS[r.kind] + (times > 1 ? ` · ${times} times` : "") }),
+      Object.assign(document.createElement("span"), { className: "sub", textContent: said }),
     );
-    row.append(name);
+    row.append(name, Object.assign(document.createElement("span"), { className: "run-when", textContent: when }));
     return row;
   });
   const foot = Object.assign(document.createElement("div"), { className: "set-row plain" });

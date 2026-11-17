@@ -38,7 +38,7 @@ describe("Clean up — KPIs pick what the table shows", () => {
     dash.el("past-date-card").click();
     expect(dash.el("past-date-card").classList.contains("selected")).toBe(true);
     expect(rowNames().length).toBeGreaterThan(0);
-    expect(new Set(rowNames())).toEqual(new Set(["Expired"]));
+    expect(new Set(rowNames())).toEqual(new Set(["Past its date"]));
     expect(dash.el("cu-chart").querySelector(".mr-chart")).not.toBeNull();
 
     document.querySelector<HTMLInputElement>("#cu-senders-table tbody input")!.click();

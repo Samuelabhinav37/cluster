@@ -15,7 +15,8 @@ const BUDGET: Record<string, { words: number; controls: number }> = {
   overview: { words: 96, controls: 10 },
   // 2026-11-17 (user asked, Everbee reference): a line under the title, Search/Customize/Filter/Export, pages.
   // 2026-11-17: Breakdown gains the Dashboard chart\'s Total, Per day and Most column.
-  delete: { words: 110, controls: 34 },
+  // 2026-11-17 (user asked): the safe-to-trash card says why, with Review and Trash.
+  delete: { words: 140, controls: 36 },
   // Redesign 2026-11: Cleanup's Senders and Subscriptions tabs.
   // 2026-11-06 Plausible panels: an Emails column head beside Opened.
   // 2026-11-16: the 2x2 tiles, the chart legend, its day picker and Download move in with the tabs.
