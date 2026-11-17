@@ -103,7 +103,7 @@ import { renderRulesTab, wireRulesTab } from "./rulesTab";
 import { renderLearned, SIGNED_OUT_KEY, wireSettingsMore } from "./settingsMore";
 import { initBodyChecks, rankFlagged, renderSecuritySection } from "./securityTab";
 import { paintChecks, renderSecurityCharts, wireProtectPages } from "./reportTab";
-import { wireLabelPage } from "./labelPage";
+import { setLabelSenders, wireLabelPage } from "./labelPage";
 import { renderSecurityTrend } from "./securityTrend";
 import { heldByWeek } from "../lib/scamHistory";
 import { setupSignedIn, wireSetup } from "./setupTab";
@@ -820,7 +820,12 @@ async function main() {
     { details: (filter) => details?.open(filter), go: goAndAct },
   );
   wireProtectPages((key) => details?.open({ view: "emails", senderKey: key }));
-  wireLabelPage((key) => details?.open({ view: "emails", senderKey: key }));
+  wireLabelPage({
+    open: (key) => details?.open({ view: "emails", senderKey: key }),
+    rowKeyOf: detailRowKey,
+    trash: (merged, picked, slot, reset) => trashFromPage("table", merged, picked, slot, reset),
+    archive: archiveFromPage,
+  });
   autoQuarantineToggle.checked = ctx.settings.autoQuarantineHighRisk;
   autoQuarantineToggle.onchange = async () => {
     ctx.settings = await updateSettings({ autoQuarantineHighRisk: autoQuarantineToggle.checked });
@@ -1427,6 +1432,7 @@ async function scanAndRender({
   safeRender("organize", () => renderSortInbox(senders));
   safeRender("organize", () => renderTimeLimits());
   safeRender("organize", () => renderPresets(securitySenders));
+  safeRender("label page", () => setLabelSenders(allSenders));
   safeRender("screener", () => renderScreenerTab(senders));
   safeRender("overview", () => updateNavCounts(senders, securitySenders, allSenders));
 }
@@ -1875,9 +1881,6 @@ function renderDeleteScreen(senders: SenderSummary[]) {
     ...(cuKpi !== "old" ? pageItems("never").map((it) => ({ ...it, reason: "Unopened" })) : []),
     ...(cuKpi !== "never" ? pageItems("old").map((it) => ({ ...it, reason: "Expired" })) : []),
   ];
-  // The tab says Senders, so it counts the table's rows, not their emails.
-  const senderRows = new Set(tableItems.map((it) => detailRowKey(it.sender))).size;
-  document.getElementById("tab-count-senders")!.textContent = senderRows ? n(senderRows) : "";
   renderSenderTable(document.getElementById("cu-senders-table")!, {
     id: "senders",
     columns: ["note", "read", "emails", "size", "last"],
@@ -1886,6 +1889,7 @@ function renderDeleteScreen(senders: SenderSummary[]) {
     rowKeyOf: detailRowKey,
     openRow: (key) => details?.open({ view: "emails", senderKey: key }),
     act: (merged, picked, slot, reset) => trashFromPage("table", merged, picked, slot, reset),
+    allVerb: "Trash all",
     scope: cuKpi
       ? { label: cuKpi === "never" ? "Unopened" : "Expired", clear: () => document.querySelector<HTMLElement>('.cu-card[data-page="all"]')?.click() }
       : undefined,
@@ -2110,6 +2114,16 @@ function trashFromPage(
       `Moved ${total} to Trash from ${page === "never" ? "Unopened" : page === "old" ? "Expired" : "Cleanup"}`,
       undoableGmailIds.length > 0 ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" } : undefined,
     );
+    await scanAndRender();
+    return message;
+  });
+}
+
+/** Archive from a table's selection bar: ask, move them out of the inbox, log with Undo. */
+function archiveFromPage(merged: Map<ProviderId, string[]>, _senders: SenderSummary[], slot: HTMLElement, reset: () => void) {
+  const total = [...merged.values()].reduce((n, ids) => n + ids.length, 0);
+  renderConfirmStep(slot, reset, `Move ${total.toLocaleString()} out of the inbox?`, false, async () => {
+    const message = await archiveAndLog(merged, (moved) => `Moved out ${moved} from a label`);
     await scanAndRender();
     return message;
   });

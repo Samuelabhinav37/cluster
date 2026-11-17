@@ -4848,3 +4848,33 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 #sec-trend { margin: -8px 0 0; }
 #sec-trend .ov-card { display: flex; flex-direction: column; min-width: 0; }
 #sec-trend .mr-body { flex: 1; }
+/* Kai sits bottom right: the pages keep clear of it. */
+@media (min-width: 1101px) {
+  body:not([data-screen="setup"]) section.screen:is([data-screen="overview"], [data-screen="delete"], [data-screen="subscriptions"], [data-screen="organize"], [data-screen="impersonation"]) { padding-right: 120px; }
+}
+/* Chart cards on Cleanup, Labels and Security: the title leads, the numbers sit under it in size. */
+:is(#cu-chart, .lp-card, .sec-chart) .mr-title { font-size: 17px; }
+:is(#cu-chart, .lp-card, .sec-chart) .mr-stats dt { font-size: 12px; }
+:is(#cu-chart, .lp-card, .sec-chart) .mr-stats dd { font-size: 17px; font-weight: 600; }
+:is(#cu-chart, .lp-card, .sec-chart) .mr-stats dt:not(:first-child) { margin-top: 16px; }
+:is(#cu-chart, .lp-card, .sec-chart) .mr-legend { justify-content: center; }
+/* Trash all: the table's one filled button. */
+.ct-tools .ct-all { height: 32px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--danger, #ff453a); color: #fff; font: 600 13px var(--font); white-space: nowrap; }
+.ct-tools .ct-all:hover { filter: brightness(1.08); }
+.lp-table .lp-tools { justify-content: flex-end; margin: 0 0 12px; }
+.lp-head .lp-where { max-width: 15em; }
+/* Details, tidied (2026-11-17): one 16px edge for title, chips and table; chips wrap
+   instead of running off the side; ticks always show so their column isn't an empty gap;
+   drawn icons in the header. */
+#details .details-head { padding: 16px 16px 12px; }
+#details .chips { flex-wrap: wrap; overflow: visible; gap: 8px; padding: 0 16px 14px; }
+#details .sheet.emails { margin: 0; width: 100%; table-layout: fixed; }
+#details .sheet.emails th:first-child { width: 36px; }
+#details .sheet.emails th:nth-child(2) { width: 72px; }
+#details .sheet.emails th.from-h { width: 40%; }
+#details .sheet .tick { opacity: .5; }
+#details .sheet tr:hover .tick, #details .sheet .tick:checked, #details .sheet .tick:focus-visible { opacity: 1; }
+#details .sheet .tick:disabled { opacity: .2; }
+#details .icon-btn { display: inline-grid; place-items: center; }
+#details .icon-btn .line-icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#details .sheet td.subj { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

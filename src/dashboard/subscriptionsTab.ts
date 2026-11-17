@@ -128,7 +128,6 @@ function unsubscribeMany(picked: SenderSummary[], slot: HTMLElement, reset: () =
   );
 }
 
-const tabCount = document.getElementById("tab-count-subs");
 let openSender: (key: string) => void = () => {};
 
 export function renderSubscriptionsTab(senders: SenderSummary[]) {
@@ -173,7 +172,6 @@ export function renderSubscriptionsTab(senders: SenderSummary[]) {
     selected: selectedListKeys,
     barIds: { slot: "subs-unsub-all-slot", button: "subs-unsub-all-btn" },
   });
-  if (tabCount) tabCount.textContent = rowCount ? rowCount.toLocaleString() : "";
 
   const parts: HTMLElement[] = [];
   if (rowCount > 0) parts.push(table);

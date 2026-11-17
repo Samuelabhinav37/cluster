@@ -1,28 +1,42 @@
-// One label's own page (Labels › a row): its name, what belongs in it, a chart of
-// its emails each day and a table of who sends them. After iCloud's CloudKit
-// telemetry page: a title, a range, the chart, then the rows behind it.
+// One label's own page (Labels › a row): its name, what belongs in it, where it
+// goes, a chart of its emails each day and the Cleanup table of who sends them,
+// with Trash and Archive. After iCloud's CloudKit telemetry page: a title, a
+// range, the chart, then the rows behind it.
 import { CLUSTER_LABEL_COLORS, showLabel } from "../lib/clusterLabels";
 import { categoryLabelName } from "../lib/categoryFilters";
 import { domainOf } from "../lib/domainGrouping";
-import { senderName } from "../lib/senderListView";
 import type { SenderSummary } from "../lib/senderModel";
 import { effectiveBucket, type SortBucket } from "../lib/sortTaxonomy";
+import { renderSenderTable, type SenderTableSpec } from "./cleanupPage";
 import { chartStats, dayChart, gmailUrl, receivedStats } from "./homeDashboard";
-import { senderTile } from "./senderTile";
 import { ctx } from "./state";
 
 const DAY = 86_400_000;
-const RANGES = [7, 30, 90] as const;
+const RANGES = [7, 30, 90, 365] as const;
 
-let days: number = 30;
-let openSender: (key: string) => void = () => {};
+let days = 90;
+/** Every sender Cluster has read (not only the newest mail), set on each refresh. */
+let allSenders: readonly SenderSummary[] = [];
+let actions: {
+  open: (senderKey: string) => void;
+  rowKeyOf: (s: SenderSummary) => string;
+  trash: SenderTableSpec["act"];
+  archive?: SenderTableSpec["act"];
+} | null = null;
+let shown: { bucket: SortBucket; hint: string } | null = null;
 
-export function wireLabelPage(open: (senderKey: string) => void): void {
-  openSender = open;
+export function wireLabelPage(a: NonNullable<typeof actions>): void {
+  actions = a;
   // Leaving Labels closes the page, so coming back shows the list.
   document.addEventListener("cluster:screen", () => {
-    if (document.getElementById("label-page")?.hidden === false) showLabelPage(null, [], "");
+    if (document.getElementById("label-page")?.hidden === false) showLabelPage(null, "");
   });
+}
+
+/** New mail read: keep the page's numbers current. */
+export function setLabelSenders(senders: readonly SenderSummary[]): void {
+  allSenders = senders;
+  if (shown) showLabelPage(shown.bucket, shown.hint);
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text?: string): HTMLElementTagNameMap[K] {
@@ -32,18 +46,16 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text?
   return node;
 }
 
-/** Each sender's emails in this label, newest first, within `range` days of `now`. */
+/** Each sender's emails in this label within `range` days of `now`, most first. */
 export function labelMail(senders: readonly SenderSummary[], bucket: SortBucket, now: number, range: number) {
-  const out: { sender: SenderSummary; at: number[] }[] = [];
+  const out: { sender: SenderSummary; ids: string[]; at: number[] }[] = [];
   for (const s of senders) {
-    const at = s.messages
-      .filter(
-        (m) =>
-          now - m.receivedAt < range * DAY &&
-          effectiveBucket(m.kind, domainOf(s.address), s.address, ctx.settings.sortOverrides, m.promotion ?? m.tab === "promotions") === bucket,
-      )
-      .map((m) => m.receivedAt);
-    if (at.length) out.push({ sender: s, at });
+    const mail = s.messages.filter(
+      (m) =>
+        now - m.receivedAt < range * DAY &&
+        effectiveBucket(m.kind, domainOf(s.address), s.address, ctx.settings.sortOverrides, m.promotion ?? m.tab === "promotions") === bucket,
+    );
+    if (mail.length) out.push({ sender: s, ids: mail.map((m) => m.id), at: mail.map((m) => m.receivedAt) });
   }
   return out.sort((a, b) => b.at.length - a.at.length);
 }
@@ -62,11 +74,27 @@ export function perDay(rows: ReadonlyArray<{ at: readonly number[] }>, now: numb
 
 const labelSearch = (name: string, extra = "") => gmailUrl(undefined, `search/${encodeURIComponent(`label:"${name.replace(/"/g, "")}"${extra}`)}`);
 
+/** The label's menu from the list, mirrored here: a change goes through the list's menu so it saves the same way. */
+function whereItGoes(bucket: SortBucket, name: string): HTMLSelectElement | null {
+  const source = document.getElementById(`time-limit-${bucket}`) as HTMLSelectElement | null;
+  if (!source) return null;
+  const pick = el("select", "chart-tool lp-where");
+  pick.setAttribute("aria-label", `${name}: where it goes`);
+  // On its own, "Off" says nothing; here it names what is off.
+  for (const o of Array.from(source.options)) if (!o.hidden) pick.add(new Option(o.text === "Off" ? "Sorting off" : o.text, o.value, false, o.selected));
+  pick.onchange = () => {
+    source.value = pick.value;
+    source.dispatchEvent(new Event("change"));
+  };
+  return pick;
+}
+
 /** Draws `bucket`'s page into the Labels screen, or closes it (null). */
-export function showLabelPage(bucket: SortBucket | null, senders: readonly SenderSummary[], hint: string): void {
+export function showLabelPage(bucket: SortBucket | null, hint: string): void {
   const screen = document.querySelector<HTMLElement>('section.screen[data-screen="organize"]');
   const root = document.getElementById("label-page");
   if (!screen || !root) return;
+  shown = bucket ? { bucket, hint } : null;
   screen.classList.toggle("paged", bucket !== null);
   root.hidden = bucket === null;
   if (bucket === null) return root.replaceChildren();
@@ -74,27 +102,28 @@ export function showLabelPage(bucket: SortBucket | null, senders: readonly Sende
   const gmailName = categoryLabelName(bucket, ctx.settings.labelChoices);
   const name = showLabel(gmailName);
   const color = CLUSTER_LABEL_COLORS[bucket]?.backgroundColor ?? "var(--accent)";
-  const redraw = () => showLabelPage(bucket, senders, hint);
+  const senders = allSenders.length ? allSenders : ctx.senders;
 
   const back = el("button", "cu-back", "‹ Labels");
   back.type = "button";
-  back.onclick = () => showLabelPage(null, senders, hint);
+  back.onclick = () => showLabelPage(null, "");
   const head = el("div", "lp-head");
   const titles = el("div", "lp-titles");
   titles.append(el("h2", "lp-title", name), el("p", "lp-lead", `${hint}.`));
   const tools = el("div", "chart-tools");
+  const where = whereItGoes(bucket, name);
   const range = el("select", "chart-tool");
   range.setAttribute("aria-label", "Days shown");
-  for (const d of RANGES) range.add(new Option(`${d} days`, String(d), false, d === days));
+  for (const d of RANGES) range.add(new Option(d === 365 ? "1 year" : `${d} days`, String(d), false, d === days));
   range.onchange = () => {
     days = Number(range.value);
-    redraw();
+    showLabelPage(bucket, hint);
   };
   const gmail = el("a", "chart-tool", "Open in Gmail");
   gmail.href = labelSearch(gmailName);
   gmail.target = "_blank";
   gmail.rel = "noopener";
-  tools.append(range, gmail);
+  tools.append(...(where ? [where] : []), range, gmail);
   head.append(titles, tools);
 
   const rows = labelMail(senders, bucket, now, days);
@@ -118,47 +147,25 @@ export function showLabelPage(bucket: SortBucket | null, senders: readonly Sende
   );
   card.append(body);
 
-  root.replaceChildren(back, head, card, senderTable(rows, stats.total, days));
-}
-
-/** Who sends this label's mail: per week, total, a share bar and the percent. */
-function senderTable(rows: ReturnType<typeof labelMail>, total: number, range: number): HTMLElement {
-  const wrap = el("section", "cu-table lp-table");
+  // Who sends it, as Cleanup's table: tick rows, or Trash all, then confirm. A row opens its emails in Details.
+  const table = el("section", "cu-table lp-table");
+  const tableTools = el("div", "ct-tools lp-tools");
+  const tableBody = el("div");
+  table.append(tableTools, tableBody);
   if (rows.length === 0) {
-    wrap.append(el("p", "empty-state", `No emails in the last ${range} days.`));
-    return wrap;
+    tableBody.append(el("p", "empty-state", `Nothing Cluster has read in the last ${range.selectedOptions[0].text.toLowerCase()} belongs here. Older mail with this label is in Gmail.`));
+  } else if (actions) {
+    renderSenderTable(tableBody, {
+      id: "label",
+      columns: ["read", "emails", "last"],
+      tools: tableTools,
+      items: rows.map((r) => ({ sender: r.sender, ids: r.ids, reason: name })),
+      rowKeyOf: actions.rowKeyOf,
+      openRow: (key) => actions!.open(key),
+      act: actions.trash,
+      allVerb: "Trash all",
+      more: actions.archive ? [{ verb: "Archive", act: actions.archive }] : [],
+    });
   }
-  const table = el("table", "ct-table");
-  const head = table.createTHead().insertRow();
-  for (const [text, cls] of [["Sender", ""], ["Per week", "num"], ["Emails", "num"], ["Share", "lp-share-h"]] as const) {
-    const th = el("th", cls, text);
-    th.scope = "col";
-    head.append(th);
-  }
-  const tbody = table.createTBody();
-  const top = rows[0].at.length;
-  for (const { sender, at } of rows.slice(0, 50)) {
-    const tr = tbody.insertRow();
-    const who = el("button", "ct-name");
-    who.type = "button";
-    who.append(senderTile(sender.address, sender.displayName, "sz-30"), el("span", "", senderName(sender)));
-    who.onclick = () => openSender(sender.key);
-    tr.insertCell().append(who);
-    const perWeek = at.length / (range / 7);
-    const c2 = tr.insertCell();
-    c2.className = "num ct-dim";
-    c2.textContent = perWeek >= 10 ? Math.round(perWeek).toLocaleString() : perWeek.toFixed(1);
-    const c3 = tr.insertCell();
-    c3.className = "num";
-    c3.textContent = at.length.toLocaleString();
-    const share = tr.insertCell();
-    share.className = "lp-share";
-    const track = el("span", "lp-track");
-    const bar = el("i", "lp-bar");
-    bar.style.width = `${(at.length / top) * 100}%`;
-    track.append(bar);
-    share.append(track, el("span", "ct-dim", `${((at.length / total) * 100).toFixed(1)}%`));
-  }
-  wrap.append(table);
-  return wrap;
+  root.replaceChildren(back, head, card, table);
 }

@@ -52,7 +52,8 @@ const mailbox = () => [
 const rows = (root: HTMLElement) =>
   Array.from(root.querySelectorAll("tbody tr:not(.group)"))
     .filter((tr) => tr.querySelector(".subj"))
-    .map((tr) => `${tr.querySelector(".who")!.textContent} ${tr.querySelector(".subj")!.textContent}`);
+    // One sender picked drops the From column; the name is then the panel's title.
+    .map((tr) => `${tr.querySelector(".who")?.textContent ?? root.querySelector(".details-title")!.textContent!.replace(/\s*\d[\d,]* emails?$/, "")} ${tr.querySelector(".subj")!.textContent}`);
 const click = (root: HTMLElement, selector: string, text: string) =>
   Array.from(root.querySelectorAll<HTMLButtonElement>(selector)).find((b) => b.textContent!.includes(text))!.click();
 

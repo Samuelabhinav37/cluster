@@ -267,6 +267,10 @@ export interface SenderTableSpec {
   barIds?: { slot: string; button: string };
   /** What a page tile narrowed the rows to, shown as a chip with × beside the tools. */
   scope?: { label: string; clear: () => void };
+  /** A toolbar button that ticks every row shown and asks, e.g. "Trash all" (Gmail's "Select all conversations"). */
+  allVerb?: string;
+  /** More buttons in the selection bar after the main one, e.g. Archive. */
+  more?: Array<{ verb: string; act: SenderTableSpec["act"] }>;
 }
 
 type SortKey = ColumnId | "name";
@@ -538,7 +542,20 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
           else render();
         };
       }
-      spec.tools.replaceChildren(...(scopeChip ? [scopeChip] : []), search, searchBtn, customize, filter, exportBtn);
+      // Everything shown at once, one confirm away: the selection bar asks before anything moves.
+      const tickableShown = shownRows.filter((r) => tickable.has(r));
+      const allEmails = tickableShown.reduce((sum, r) => sum + r.count, 0);
+      const allBtn = spec.allVerb && allEmails > 0 ? el("button", "btn ct-all", `${spec.allVerb} ${allEmails.toLocaleString()}`) : null;
+      if (allBtn) {
+        allBtn.type = "button";
+        allBtn.setAttribute("aria-label", `${spec.allVerb} ${allEmails.toLocaleString()} emails`);
+        allBtn.onclick = () => {
+          for (const r of tickableShown) selected.add(r.key);
+          render();
+          root.querySelector<HTMLButtonElement>(".ct-selbar .ct-sel-slot > .btn")?.click();
+        };
+      }
+      spec.tools.replaceChildren(...(scopeChip ? [scopeChip] : []), search, searchBtn, customize, filter, exportBtn, ...(allBtn ? [allBtn] : []));
       if (focusSearch) {
         search.focus();
         search.setSelectionRange(search.value.length, search.value.length);
@@ -562,12 +579,19 @@ export function renderSenderTable(root: HTMLElement, spec: SenderTableSpec, now 
       slot.id = spec.barIds.slot;
       go.id = spec.barIds.button;
     }
-    go.onclick = () => {
-      const merged = new Map<ProviderId, string[]>();
-      for (const r of ticked) for (const [p, ids] of r.ids) merged.set(p, [...(merged.get(p) ?? []), ...ids]);
-      spec.act(merged, ticked.flatMap((r) => r.senders), slot, render);
+    const merged = () => {
+      const out = new Map<ProviderId, string[]>();
+      for (const r of ticked) for (const [p, ids] of r.ids) out.set(p, [...(out.get(p) ?? []), ...ids]);
+      return out;
     };
+    go.onclick = () => spec.act(merged(), ticked.flatMap((r) => r.senders), slot, render);
     slot.append(go);
+    for (const m of spec.more ?? []) {
+      const b = el("button", "btn", m.verb);
+      b.type = "button";
+      b.onclick = () => m.act(merged(), ticked.flatMap((r) => r.senders), slot, render);
+      slot.append(b);
+    }
     bar.append(clear, slot);
 
     // ── Header ──

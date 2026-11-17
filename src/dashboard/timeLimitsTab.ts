@@ -164,7 +164,7 @@ function trimMenu(select: HTMLSelectElement): void {
 
 /** A label's own page, from the senders Labels last drew with. */
 function openLabel(bucket: SortBucket): void {
-  showLabelPage(bucket, presetSenders.length ? presetSenders : ctx.senders, BUCKET_HINT[bucket]);
+  showLabelPage(bucket, BUCKET_HINT[bucket]);
   window.scrollTo(0, 0);
 }
 

@@ -17,6 +17,20 @@ import { certifiedCompany, senderTile, verifiedTick } from "./senderTile";
 
 const DAY = 24 * 60 * 60 * 1000;
 export const WEEKS = 8;
+
+/** A 24px line icon from path data, drawn in the current text color. */
+function lineIcon(paths: string[]): SVGSVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.classList.add("line-icon");
+  for (const d of paths) {
+    const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    p.setAttribute("d", d);
+    svg.append(p);
+  }
+  return svg;
+}
 const PAGE = 60;
 
 export interface DetailMessage {
@@ -253,16 +267,24 @@ export function initDetailsPanel(
   tabs.setAttribute("role", "group");
   tabs.setAttribute("aria-label", "Show");
   const spacer = h("span", "spacer");
-  const wideBtn = button("icon-btn", "⇤", () => {
+  // Drawn icons, not arrow characters: expand or shrink, and hide the panel to its edge strip.
+  const WIDER = ["M15 3h6v6", "M9 21H3v-6", "M21 3l-7 7", "M3 21l7-7"];
+  const NARROWER = ["M4 14h6v6", "M20 10h-6V4", "M14 10l7-7", "M3 21l7-7"];
+  const wideBtn = button("icon-btn", "", () => {
     wide = !wide;
     root.classList.toggle("wide", wide);
-    wideBtn.textContent = wide ? "⇥" : "⇤";
+    wideBtn.replaceChildren(lineIcon(wide ? NARROWER : WIDER));
     wideBtn.setAttribute("aria-label", wide ? "Narrower" : "Wider");
+    wideBtn.title = wide ? "Narrower" : "Wider";
     render();
   });
+  wideBtn.replaceChildren(lineIcon(WIDER));
   wideBtn.setAttribute("aria-label", "Wider");
-  const closeBtn = button("icon-btn", "⇥", () => panel.close());
-  closeBtn.setAttribute("aria-label", "Minimize details");
+  wideBtn.title = "Wider";
+  const closeBtn = button("icon-btn", "", () => panel.close());
+  closeBtn.replaceChildren(lineIcon(["M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z", "M15 3v18", "M8 9l3 3-3 3"]));
+  closeBtn.setAttribute("aria-label", "Hide details");
+  closeBtn.title = "Hide details";
   // Minimized, the panel stays as a strip at the edge; clicking it opens it again.
   const tab = button("details-tab", "Details", () => panel.open());
   // What the panel shows now, e.g. "Groupon 14 emails". Search lives in the top bar.
@@ -431,13 +453,16 @@ export function initDetailsPanel(
   function renderEmails() {
     const rows = baseMessages().filter(inWeek);
     const shown = rows.slice(0, limit);
-    const span = 5;
     const pickable = shown.filter((m) => !m.isProtected).map((m) => m.id);
     table.className = "sheet emails";
+    // One sender picked: their name is the title, so From would repeat it on every row.
+    const oneSender = Boolean(st.senderKey);
     table.replaceChildren(
       // Mercury's transactions table: the date is a column, not a group row.
-      headRow([selectAll(pickable), "Date ↓", "From", "Subject", "Kind"]),
+      headRow([selectAll(pickable), "Date ↓", ...(oneSender ? [] : ["From"]), "Subject", ...(wide ? ["Kind"] : [])]),
     );
+    // Spans exactly the columns shown; a wider span adds an empty column to a fixed table.
+    const span = table.tHead?.rows[0]?.cells.length ?? 4;
     const body = h("tbody");
     for (const m of shown) {
       const tr = h("tr", `${selected.has(m.id) ? "sel " : ""}${m.unread ? "unread" : ""}`);
@@ -459,7 +484,8 @@ export function initDetailsPanel(
       }
       const date = h("td", "date", new Date(m.at).toLocaleDateString(undefined, { month: "short", day: "numeric" }));
       date.title = `${fmtDay(m.at)}, ${new Date(m.at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
-      tr.append(c, date, from, subj, h("td", "kind", kindLabel(m.kind)));
+      // Narrow, Kind gives its room to Subject; Wider brings it back.
+      tr.append(c, date, ...(oneSender ? [] : [from]), subj, ...(wide ? [h("td", "kind", kindLabel(m.kind))] : []));
       tr.onclick = () => {
         const box = c.querySelector("input")!;
         if (box.disabled) return;
@@ -494,7 +520,7 @@ export function initDetailsPanel(
   function emptyRow(): HTMLTableRowElement {
     const tr = h("tr");
     const td = h("td", "empty", "Nothing here.");
-    td.colSpan = cols() + 1;
+    td.colSpan = table.tHead?.rows[0]?.cells.length ?? cols() + 1;
     tr.append(td);
     return tr;
   }
