@@ -147,7 +147,7 @@ describe("Kai's guide in Cluster", () => {
   });
 
   it("every question that opens a screen names a real screen", () => {
-    const screens = new Set(["overview", "delete", "senders", "subscriptions", "organize", "impersonation", "screener", "recent", "settings"]);
+    const screens = new Set(["overview", "delete", "subscriptions", "organize", "impersonation", "screener", "recent", "settings"]);
     for (const q of CLUSTER_QUESTIONS) if (q.screen) expect(screens.has(q.screen), q.id).toBe(true);
     for (const ids of Object.values(CLUSTER_FIRST_ON)) for (const id of ids) expect(CLUSTER_QUESTIONS.some((q) => q.id === id), id).toBe(true);
   });

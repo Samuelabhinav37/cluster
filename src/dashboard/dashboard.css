@@ -2081,36 +2081,6 @@ body[data-screen="setup"] .index-status {
   .onb-side { padding: 10px 6px; }
 }
 
-/* ══ v4 Scam report (stage 4c): single-series charts in one hue ═══════════ */
-
-.report-kpis {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
-  gap: 16px;
-}
-
-.report-kpi {
-  padding: 16px 20px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-lg);
-  background: var(--glass);
-}
-
-.report-kpi .k {
-  font: 600 13px/1.3 var(--font);
-  color: var(--label-4);
-}
-
-.report-kpi .v {
-  font: 700 30px/1.2 var(--font-display);
-  letter-spacing: -0.02em;
-}
-
-.report-kpi .d {
-  font: 400 13px/1.3 var(--font);
-  color: var(--label-4);
-}
-
 .chart-card {
   gap: 4px;
 }
@@ -2744,12 +2714,6 @@ body {
   gap: 8px;
   padding-top: 6px;
 }
-
-/* Senders screen: seven filters wrap instead of overflowing; sort menu. */
-#sender-filter {
-  flex: 0 1 auto;
-  flex-wrap: wrap;
-}
 .sender-sort select {
   min-height: 44px;
 }
@@ -2964,8 +2928,7 @@ body {
   color: var(--label-4);
 }
 
-/* Senders has its own list and card; Details' sender list would repeat it. */
-body[data-screen="senders"] .details[data-view="senders"],
+/* Before sign-in there is no mail to show. */
 body[data-state="connect"] .details,
 body[data-state="connect"] .side-panel,
 body[data-state="connect"] .crumbs {
@@ -3227,11 +3190,7 @@ table.sheet { font-size: 12px; }
 .page-title svg.nav-icon { flex: none; width: 34px; height: 34px; padding: 6px; border-radius: 22.5%; color: #fff;
   box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25); }
 .page-title svg.nav-icon * { stroke: #fff; stroke-width: 2; }
-
-/* Senders as iCloud Contacts: a Lists column, then search and the list. */
-.contacts { display: grid; grid-template-columns: 180px minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
 .lists { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 4px; }
-.lists-head { margin: 0 0 6px 8px; font-size: 20px; font-weight: 700; }
 .list-group { display: flex; flex-direction: column; gap: 2px; }
 .list-group button { display: flex; align-items: center; gap: 10px; min-height: 0; padding: 7px 10px; border: 0; border-radius: 8px;
   background: none; color: var(--label-2); font-size: 14px; text-align: left; }
@@ -3239,36 +3198,8 @@ table.sheet { font-size: 12px; }
 .list-group [aria-pressed="true"] { background: var(--neutral-fill); color: var(--label); font-weight: 600; }
 .list-group .li { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--accent-text); stroke-width: 1.8; stroke-linecap: round;
   stroke-linejoin: round; }
-.contacts-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.contacts-main .toolbar-row { display: flex; gap: 10px; margin: 0; }
-.contacts-main .search { flex: 1; }
-/* Senders card (Contacts' detail pane). */
-.sender-card { position: sticky; top: 16px; display: flex; flex-direction: column; padding: 18px; border: 1px solid var(--separator);
-  border-radius: 14px; background: var(--glass); }
-.card-who { display: flex; flex-direction: column; align-items: center; gap: 6px; padding-bottom: 14px; text-align: center;
-  border-bottom: 1px solid var(--separator); overflow-wrap: anywhere; }
-.card-who b { font-size: 17px; }
-.card-who span { font-size: 12.5px; color: var(--label-4); }
-.card-facts { display: grid; grid-template-columns: repeat(3, 1fr); padding: 14px 0; text-align: center; border-bottom: 1px solid var(--separator); }
-.card-facts b { display: block; font-size: 16px; }
-.card-facts span { font-size: 11.5px; color: var(--label-4); }
-.card-acts { display: flex; flex-direction: column; gap: 8px; padding-top: 14px; }
-.card-acts .btn { width: 100%; }
-.card-acts .hint { margin: 0; text-align: center; }
-.sender-card .instead-strip { margin-top: 10px; padding: 0; border: 0; }
-.card-list { display: flex; flex-direction: column; padding-top: 10px; }
-.card-list-row { display: flex; justify-content: space-between; gap: 8px; min-height: 0; padding: 8px 6px; border: 0; border-radius: 8px;
-  background: none; color: var(--label-2); font: 13px var(--font); text-align: left; cursor: pointer; overflow-wrap: anywhere; }
-.card-list-row:hover { background: var(--neutral-fill); }
-#all-senders-list .list-row { cursor: pointer; }
-#all-senders-list .list-row.picked { background: var(--accent-fill); }
-@media (max-width: 1100px) {
-  .contacts { grid-template-columns: 180px minmax(0, 1fr); }
-  .sender-card { grid-column: 2; position: static; }
-}
+
 @media (max-width: 760px) {
-  .contacts { grid-template-columns: minmax(0, 1fr); }
-  .sender-card { grid-column: auto; }
   .lists { position: static; }
   .list-group { flex-direction: row; overflow-x: auto; }
 }
@@ -3463,7 +3394,6 @@ body[data-screen="overview"] #index-status.home-shows { display: none; }
 
 .home-hero .home-words { flex: 1; }
 .home-verdict { font-size: clamp(20px, 2.2vw, 24px); font-weight: 600; letter-spacing: -0.01em; }
-#sender-filter .list-count { margin-left: auto; color: var(--label-3); font-size: 12px; font-variant-numeric: tabular-nums; }
 .chip-danger { color: var(--danger); }
 .verified-tick { flex: none; width: 15px; height: 15px; color: var(--accent); vertical-align: -2px; }
 .chip-verified { display: inline-flex; align-items: center; gap: 4px; }
@@ -3542,15 +3472,6 @@ body[data-screen="overview"] #ask-kai-open > svg { display: block; }
 .cu-selbar { display: flex; align-items: center; gap: 12px; margin: 6px 0 8px; padding: 0 14px; }
 .cu-auto { margin-top: 22px; }
 .list-row--check-media-meta { grid-template-columns: 22px minmax(0, 1fr) max-content; }
-
-/* Contacts › Subscriptions: one card per list. */
-.sub-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-.sub-card { cursor: pointer; }
-.sub-words { display: flex; flex: 1; min-width: 0; flex-direction: column; }
-.sub-words b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-.sub-facts { font-size: 12px; color: var(--label-4); }
-.sub-unsub .unsubscribe-status { display: none; }
-.sub-card.picked { box-shadow: 0 0 0 2px var(--accent-solid); }
 
 /* Organize: icon, name, a muted count, then where it goes. */
 .ios-row.org-row { grid-template-columns: 30px minmax(0, 1fr) auto auto; }
@@ -4723,17 +4644,7 @@ section.screen:not([data-screen="setup"]) { max-width: 1320px; }
 .settings-list .set-rows > .set-row + .set-row { border-top: 1px solid var(--hairline); }
 .settings-list .set-rows > .set-row { padding-block: 18px; border-bottom: 0; }
 section[data-screen="settings"] .banner { margin: 0 0 20px; padding: 16px 20px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--glass); }
-
-/* Contacts: a quiet picked row and one blue button on the sender card. */
-#all-senders-list .list-row.picked { background: var(--neutral-fill); }
-#all-senders-list .grouped-list { border-color: var(--hairline); border-radius: 12px; background: var(--glass); }
-.contacts .search input { border: 1px solid var(--hairline); border-radius: 10px; background: var(--glass); }
-.contacts .search input:focus { border-color: var(--label-4); }
 .scr-card .section-label { padding: 0; }
-.sender-card { border-radius: 12px; border-color: var(--hairline); background: var(--glass); }
-.sender-card .card-acts .btn:not(.btn-accent-solid) { background: var(--neutral-fill); color: var(--label); }
-.sender-card .card-facts b { font-size: 17px; }
-.contacts .lists-head { display: none; }
 
 /* Cleanup, Everbee-style: a line under the title, segmented tabs with a
    toolbar, a gray header band, tall rows, a read-rate bar, and pages.

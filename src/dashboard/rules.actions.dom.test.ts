@@ -159,16 +159,3 @@ describe("Rules screen — natural-language draft (deterministic fallback)", () 
   });
 });
 
-describe("Rules — from a sender", () => {
-  it("the Senders card's New rule… fills the sheet in for that sender", async () => {
-    const dash = await bootDashboard();
-    dash.showScreen("senders");
-    dash.el("sender-filter").querySelector<HTMLButtonElement>('[data-filter="subs"]')!.click();
-    dash.el("all-senders-list").querySelector<HTMLElement>('[data-pick="sender:gmail:deals@shop.example"]')!.click();
-    Array.from(dash.el("sender-card").querySelectorAll<HTMLButtonElement>("button"))
-      .find((b) => b.textContent === "Add rule")!
-      .click();
-    expect((dash.el("rule-from-address") as HTMLInputElement).value).toBe("deals@shop.example");
-    expect(dash.el("rule-existing-text").textContent).toBe("Also do this to the 3 you have now");
-  });
-});

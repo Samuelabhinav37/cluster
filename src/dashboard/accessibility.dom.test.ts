@@ -8,7 +8,7 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { bootDashboard, type BootedDashboard } from "./testHarness";
 
-const SCREENS = ["overview", "delete", "organize", "subscriptions", "impersonation", "senders", "screener", "recent"];
+const SCREENS = ["overview", "delete", "organize", "subscriptions", "impersonation", "screener", "recent"];
 
 let dash: BootedDashboard;
 beforeAll(async () => {

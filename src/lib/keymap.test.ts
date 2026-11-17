@@ -8,7 +8,7 @@ describe("keymap", () => {
   });
 
   it("marks both shortcuts that share a key, but not a plain key and a G jump", () => {
-    expect([...clashes(keysOf({ "go-home": "s" }))].sort()).toEqual(["go-contacts", "go-home"]);
+    expect([...clashes(keysOf({ "go-home": "c" }))].sort()).toEqual(["go-cleanup", "go-home"]);
     expect(clashes(keysOf({ search: "h" })).size).toBe(0);
     expect(clashes(keysOf({ help: "g" }))).toEqual(new Set(["help"]));
   });

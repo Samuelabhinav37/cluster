@@ -30,15 +30,6 @@
                 Dashboard
               </button>
             </div>
-            <button type="button" class="nav-item" data-screen="senders" hidden>
-              <svg class="nav-icon ni-people" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="9" cy="9" r="3.2"></circle>
-                <path d="M3.5 19c.9-3 3-4.5 5.5-4.5s4.6 1.5 5.5 4.5"></path>
-                <path d="M15.5 6.2a3 3 0 0 1 0 5.6"></path>
-                <path d="M17 14.8c1.7.5 2.9 1.9 3.5 4.2"></path>
-              </svg>
-              Contacts
-            </button>
             <div class="nav-area" data-area="clear">
               <button type="button" class="nav-item" data-screen="delete">
                 <svg class="nav-icon ni-bin" viewBox="0 0 24 24" aria-hidden="true">
@@ -90,16 +81,6 @@
                   </svg>
                   New senders
                   <span class="nav-count accent" id="nav-count-screener"></span>
-                </button>
-                <button type="button" class="nav-item nav-child" data-screen="report" hidden>
-                  <svg class="nav-icon ni-chart" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M5 19V5"></path>
-                    <path d="M5 19h14"></path>
-                    <path d="M9 15v-4"></path>
-                    <path d="M13 15V8"></path>
-                    <path d="M17 15v-6"></path>
-                  </svg>
-                  Scam report
                 </button>
               </div>
             </div>
@@ -338,75 +319,6 @@
           </section>
 
           <!-- ══ All senders ═══════════════════════════════════════════ -->
-          <section class="screen" data-screen="senders" role="tabpanel" hidden>
-            <div class="page-head">
-              <div class="page-titles">
-                <h1 class="page-title">Contacts</h1>
-              </div>
-            </div>
-
-            <div class="contacts">
-              <nav class="lists" aria-label="Lists">
-                <h2 class="lists-head">Lists</h2>
-                <div class="list-group" id="sender-filter" role="group" aria-label="Filter senders">
-                  <button type="button" data-filter="people" aria-pressed="true">
-                    <svg class="li" viewBox="0 0 24 24" aria-hidden="true">
-                      <circle cx="12" cy="8" r="4"></circle>
-                      <path d="M5 21a7 7 0 0 1 14 0"></path></svg
-                    >People
-                  </button>
-                  <button type="button" data-filter="companies" aria-pressed="false">
-                    <svg class="li" viewBox="0 0 24 24" aria-hidden="true">
-                      <rect width="16" height="20" x="4" y="2" rx="2"></rect>
-                      <path
-                        d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"
-                      ></path></svg
-                    >Companies
-                  </button>
-                  <button type="button" data-filter="subs" aria-pressed="false">
-                    <svg class="li" viewBox="0 0 24 24" aria-hidden="true">
-                      <rect width="18" height="16" x="3" y="4" rx="2"></rect>
-                      <path d="M7 8h10M7 12h10M7 16h6"></path></svg
-                    >Subscriptions
-                  </button>
-                </div>
-              </nav>
-              <div class="contacts-main">
-                <div class="toolbar-row">
-                  <label class="search">
-                    <svg
-                      viewBox="0 0 20 20"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.7"
-                      stroke-linecap="round"
-                      aria-hidden="true"
-                    >
-                      <circle cx="9" cy="9" r="5.4"></circle>
-                      <path d="M13 13l4 4"></path>
-                    </svg>
-                    <input
-                      type="search"
-                      id="sender-search"
-                      placeholder="Search senders"
-                      aria-label="Search senders"
-                    />
-                  </label>
-                  <label class="sender-sort">
-                    <select id="sender-sort" aria-label="Sort senders">
-                      <option value="volume">Most mail</option>
-                      <option value="unread">Most unread</option>
-                      <option value="newest">Newest</option>
-                      <option value="leastOpened">Least opened</option>
-                      <option value="lastOpened">Longest since opened</option>
-                      <option value="people">People first</option>
-                    </select>
-                  </label>
-                </div>
-                <div id="all-senders-list"></div>
-              </div>
-            </div>
-          </section>
 
           <!-- ══ Stop mail (screen id: subscriptions) ══════════════════ -->
           <section class="screen" data-screen="subscriptions" role="tabpanel" hidden>
@@ -691,16 +603,8 @@
                 <h2>Advanced</h2>
                 <div class="set-rows">
                   <div class="set-row">
-                    <span class="grow">Contacts</span>
-                    <button type="button" class="btn" data-open-screen="senders">Open</button>
-                  </div>
-                  <div class="set-row">
                     <span class="grow">New senders</span>
                     <button type="button" class="btn" data-open-screen="screener">Open</button>
-                  </div>
-                  <div class="set-row">
-                    <span class="grow">Scam report</span>
-                    <button type="button" class="btn" data-open-screen="report">Open</button>
                   </div>
                   <div class="set-row">
                     <span class="grow">Outlook</span>
@@ -833,19 +737,6 @@
           </section>
 
           <!-- ══ Scam report ═══════════════════════════════════════════ -->
-          <section class="screen" data-screen="report" role="tabpanel" hidden>
-            <div class="page-head">
-              <div class="page-titles">
-                <h1 class="page-title">Security</h1>
-                <p class="lead" data-protect-sub></p>
-              </div>
-            </div>
-            <div class="report-kpis" id="report-kpis"></div>
-            <details class="disclosure">
-              <summary>Show the numbers as a table</summary>
-              <div id="report-table"></div>
-            </details>
-          </section>
 
           <!-- ══ Recently done ═════════════════════════════════════════ -->
           <section class="screen" data-screen="recent" role="tabpanel" hidden>

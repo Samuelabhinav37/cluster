@@ -182,10 +182,10 @@ describe("Phishing screen — sender-controlled text", () => {
   });
 });
 
-describe("Scam report — sender checks gauge", () => {
+describe("Security — sender checks gauge", () => {
   it("shows the share that passed with 20 ticks filled to it", async () => {
     const dash = await bootDashboard();
-    dash.showScreen("report");
+    dash.showScreen("impersonation");
     const pct = parseInt(dash.el("report-checks-pct").textContent!, 10);
     const ticks = dash.el("report-checks-gauge").querySelectorAll("i");
     expect(ticks).toHaveLength(20);

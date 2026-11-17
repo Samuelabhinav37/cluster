@@ -159,9 +159,9 @@ describe("dashboard boot smoke", () => {
     const buttons = Array.from(
       document.querySelectorAll<HTMLButtonElement>("#sidebar button[data-screen]"),
     );
-    // Four places; Subscriptions is a Cleanup tab, and Contacts, New senders and Scam report open from Settings > Advanced.
-    expect(buttons.length).toBe(8);
-    expect(buttons.filter((b) => b.hidden).map((b) => b.dataset.screen)).toEqual(["senders", "subscriptions", "screener", "report"]);
+    // Four places; Subscriptions is a Cleanup tab, and New senders opens from Settings > Advanced.
+    expect(buttons.length).toBe(6);
+    expect(buttons.filter((b) => b.hidden).map((b) => b.dataset.screen)).toEqual(["subscriptions", "screener"]);
     for (const button of buttons.filter((b) => !b.hidden)) {
       button.click();
       const shown = Array.from(
@@ -200,8 +200,8 @@ describe("dashboard boot smoke", () => {
     ).toBe(false);
   });
 
-  it("opens Contacts, New senders and Scam report from Settings > Advanced", () => {
-    for (const screen of ["senders", "screener", "report"]) {
+  it("opens New senders from Settings > Advanced", () => {
+    for (const screen of ["screener"]) {
       document.querySelector<HTMLButtonElement>(`[data-open-screen='${screen}']`)!.click();
       expect(document.querySelector<HTMLElement>(`section.screen[data-screen='${screen}']`)!.hidden).toBe(false);
     }

@@ -14,7 +14,6 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: "search", label: "Search", key: "/" },
   { id: "help", label: "Show all shortcuts", key: "?" },
   { id: "go-home", label: "Go to Dashboard", key: "h", afterG: true },
-  { id: "go-contacts", label: "Go to Contacts", key: "s", afterG: true },
   { id: "go-cleanup", label: "Go to Cleanup", key: "c", afterG: true },
   { id: "go-organize", label: "Go to Labels", key: "o", afterG: true },
   { id: "go-protect", label: "Go to Security", key: "p", afterG: true },
@@ -23,7 +22,6 @@ export const SHORTCUTS: readonly Shortcut[] = [
 /** The screen each "go" shortcut opens. */
 export const GO_SCREENS: Record<string, string> = {
   "go-home": "overview",
-  "go-contacts": "senders",
   "go-cleanup": "delete",
   "go-organize": "organize",
   "go-protect": "impersonation",

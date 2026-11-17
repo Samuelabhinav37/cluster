@@ -45,7 +45,6 @@ const PLACES: ReadonlyArray<[screen: string, label: string]> = [
   ["subscriptions", "Mailing lists"],
   ["organize", "Labels"],
   ["impersonation", "Security"],
-  ["senders", "Contacts"],
   ["recent", "Activity"],
   ["settings", "Settings"],
 ];

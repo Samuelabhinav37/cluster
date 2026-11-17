@@ -209,7 +209,7 @@ describe("Details starts closed", () => {
     const root = document.getElementById("details")!;
     const go = (screen: string) =>
       document.querySelector<HTMLButtonElement>(`#sidebar [data-screen="${screen}"], #account-menu [data-open="${screen}"]`)!.click();
-    go("senders");
+    go("recent");
     expect(root.classList.contains("min")).toBe(true);
     document.querySelector<HTMLButtonElement>(".top-tool[data-details]")!.click();
     expect(root.classList.contains("min")).toBe(false);

@@ -26,8 +26,6 @@ const BUDGET: Record<string, { words: number; controls: number }> = {
   // +Scan now (2026-11-06).
   impersonation: { words: 84, controls: 13 },
   screener: { words: 60, controls: 6 },
-  report: { words: 45, controls: 5 },
-  senders: { words: 92, controls: 15 },
   // Redesign 2026-11 (approved): every section on one scrolling page, not one at a time.
   settings: { words: 280, controls: 60 },
   // 2026-11-17: the empty state names what lands here and offers Go to Cleanup, plus the Back link.
@@ -39,8 +37,8 @@ const BUDGET: Record<string, { words: number; controls: number }> = {
 const HOME: Record<string, string[]> = {
   // Round 2 (approved 2026-10-30): Home's next steps and the Senders card act in place.
   Trash: ["delete", "overview"],
-  Unsubscribe: ["subscriptions", "senders"],
-  Mute: ["subscriptions", "senders"],
+  Unsubscribe: ["subscriptions"],
+  Mute: ["subscriptions"],
   Block: ["impersonation", "screener"],
 };
 

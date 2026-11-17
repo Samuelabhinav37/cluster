@@ -52,23 +52,9 @@ import { gmailProvider } from "../lib/providers/gmailProvider";
 import { outlookProvider } from "../lib/providers/outlookProvider";
 import { OutlookReauthRequired } from "../lib/providers/msalAuth";
 import { summarizeCombined, type SenderSummary } from "../lib/senderModel";
-import { applyCensus, senderUnread, senderVolume } from "../lib/census";
+import { applyCensus, senderVolume } from "../lib/census";
 import { buildSenderProfiles } from "../lib/senderProfile";
-import {
-  companyName,
-  foldByCompany,
-  type CompanyGroup,
-  groupKeyFor,
-  isPerson,
-  type ListEntry,
-  profileLine,
-  senderName,
-  sendFrequency,
-  sortSenders,
-  senderGroup,
-  type SenderGroup,
-  type SenderSortId,
-} from "../lib/senderListView";
+import { groupKeyFor, isPerson, senderName } from "../lib/senderListView";
 import { ALL_MAIL_DAYS, getSettings, mutateSettings, pullSyncedSettings, updateSettings, type ClusterSettings } from "../lib/settingsStore";
 import { activeProviders, ctx, providerById, setBridge } from "./state";
 import { renderSortInbox, wireSortInbox } from "./sortInbox";
@@ -85,11 +71,9 @@ import {
 } from "./timeLimitsTab";
 import { excludeSnoozedMessages } from "../lib/snoozeFilter";
 import { resurfaceDueSnoozed } from "../lib/snoozeResurface";
-import { fireOneClickUnsubscribe } from "../lib/unsubscribe";
 import { athenaOriginPatterns, getAthenaConfig } from "../lib/athenaIntegration";
 import { recordEngagementFeedback, type EngagementFeedback } from "../lib/engagementModel";
-import { openUnsubscribeSheet } from "./unsubscribeSheet";
-import { readUnsubscribeReplies, unsubscribeButtonText, unsubscribeOutcomeFor } from "./unsubscribeRecord";
+import { readUnsubscribeReplies } from "./unsubscribeRecord";
 import {
   buildSuggestions,
   unopenedSuggestions,
@@ -106,7 +90,7 @@ import { initSuggestionModel, learnFromFeedback, suggestionModel } from "./sugge
 import { initKindModel, kindModel } from "./kindLearning";
 import { markLearnedTransactional } from "../lib/kindModel";
 import { isAuthCancelled } from "../lib/chromeError";
-import { formatRelativeTime, infoButton, pruneSelection, renderConfirmStep, runNow } from "./ui";
+import { pruneSelection, renderConfirmStep, runNow } from "./ui";
 import { buildCleanupCards } from "../lib/cleanupCards";
 import { createRangePicker } from "./rangePicker";
 import { barsSvg, downloadBytes, emailRows, emailsCsv, emailsXlsx, periodFacts, printReport, reportHtml, wireDownloadMenu, type ReportSpec } from "./reportDownload";
@@ -115,17 +99,16 @@ import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { keepNewestExcess, olderReadExcess } from "../lib/keepNewest";
 import { deliveredUpdates } from "../lib/orderEvents";
 import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
-import { openRuleSheetFor, renderRulesTab, saveRules, wireRulesTab } from "./rulesTab";
+import { renderRulesTab, wireRulesTab } from "./rulesTab";
 import { renderLearned, SIGNED_OUT_KEY, wireSettingsMore } from "./settingsMore";
 import { initBodyChecks, rankFlagged, renderSecuritySection } from "./securityTab";
-import { paintChecks, renderScamReport, wireProtectPages } from "./reportTab";
+import { paintChecks, renderSecurityCharts, wireProtectPages } from "./reportTab";
 import { heldByWeek } from "../lib/scamHistory";
 import { setupSignedIn, wireSetup } from "./setupTab";
 import { firstName, showWelcome } from "./welcome";
 import { renderScreenerTab, wireScreenerTab } from "./screenerTab";
-import { preselectLists, recordUnsubscribeRequests, renderSubscriptionsTab, wireSubscriptionsTab } from "./subscriptionsTab";
+import { preselectLists, renderSubscriptionsTab, wireSubscriptionsTab } from "./subscriptionsTab";
 import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib/inboxHealth";
-import { certifiedCompany, senderTile, verifiedTick, type TileSize } from "./senderTile";
 import { wireAccountMenu } from "./accountMenu";
 import { initAskKai, type AskFacts } from "./askKai";
 import {
@@ -148,9 +131,7 @@ import {
   WEEKS,
   type DetailsPanel,
 } from "./detailsPanel";
-import { listGroup, listRow } from "./listRow";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
-import type { ClusterRule } from "../lib/rules";
 import { CLUSTER_FIRST_ON, CLUSTER_QUESTIONS, firstVisitTip, initKaiGuide, type KaiGuide } from "./kaiGuide";
 
 const selectedSenderKeys = new Set<string>();
@@ -195,7 +176,6 @@ for (const [i, screen] of NUMBER_SCREENS.entries()) {
   b.setAttribute("aria-keyshortcuts", `${i + 1} Alt+${i + 1}`);
 }
 const screenPanels = Array.from(document.querySelectorAll<HTMLElement>("section.screen[data-screen]"));
-const allSendersListEl = document.getElementById("all-senders-list") as HTMLDivElement | null;
 
 // Old stored activeTab values → the new screen ids they map to.
 const SCREEN_ALIASES: Record<string, string> = {
@@ -219,7 +199,7 @@ const neverReadTrashBtn = document.getElementById("never-read-trash-btn") as HTM
 // ── Sidebar navigation (WAI-ARIA tabs pattern, vertical) ────────────────
 
 /** Pages outside the sidebar light up the section they belong to. */
-const PARENT_SCREEN: Record<string, string> = { subscriptions: "delete", report: "impersonation", sort: "organize" };
+const PARENT_SCREEN: Record<string, string> = { subscriptions: "delete", sort: "organize" };
 /** The last sidebar section shown, for the Back link on pages outside the sidebar. */
 let lastPlace = "overview";
 
@@ -834,7 +814,6 @@ async function main() {
     () => askFacts,
     { details: (filter) => details?.open(filter), go: goAndAct },
   );
-  wireAllSendersControls();
   wireProtectPages((key) => details?.open({ view: "emails", senderKey: key }));
   autoQuarantineToggle.checked = ctx.settings.autoQuarantineHighRisk;
   autoQuarantineToggle.onchange = async () => {
@@ -1429,11 +1408,10 @@ async function scanAndRender({
   safeRender("overview", () => renderOverview(senders, securitySenders, allSenders));
   safeRender("details", () => details?.update(allSenders));
   safeRender("delete", () => renderDeleteScreen(senders));
-  safeRender("senders", () => renderAllSenders(senders));
   safeRender("rules", () => renderRulesTab());
   safeRender("delete", () => renderExpirySection(senders));
   safeRender("impersonation", () => renderSecuritySection(securitySenders));
-  safeRender("report", () => renderScamReport(securitySenders));
+  safeRender("security charts", () => renderSecurityCharts(securitySenders));
   safeRender("subscriptions", () => renderSubscriptionsTab(senders));
   safeRender("delete", () => renderNeverReadSection(senders));
   safeRender("organize", () => renderSortInbox(senders));
@@ -1486,7 +1464,6 @@ function updateNavCounts(
   // Security's own row count, so the badge, Ask Kai and the tile agree with its list.
   const scams = rankFlagged(securitySenders).high.length;
   setNavCount("delete", clearOutPlan(senders).total, true, "emails to clear out");
-  setNavCount("senders", senders.length);
   setNavCount("subscriptions", byId.get("unsubscribe-capable") ?? 0, true);
   setNavCount("impersonation", scams);
   setPhishingNavSeverity(securitySenders);
@@ -2106,136 +2083,6 @@ function trashFromPage(
   });
 }
 
-function buildActionGroups(sender: SenderSummary): Array<{ act: string; label: string; el: HTMLDivElement }> {
-  return [
-    { act: "trash", label: "Trash", el: buildTrashCell(sender) },
-    { act: "unsubscribe", label: "Unsubscribe", el: buildUnsubscribeCell(sender) },
-    { act: "keepSorted", label: "Move to a label", el: buildKeepSortedCell(sender) },
-    { act: "mute", label: "Mute", el: buildMuteCell(sender) },
-    { act: "snooze", label: "Snooze", el: buildSnoozeCell(sender) },
-  ];
-}
-
-/** A confirm area for one sender's actions: a chosen action's two-step
- * confirm needs the full width, so only that action shows. */
-function actionArea(sender: SenderSummary) {
-  const area = document.createElement("div");
-  area.className = "instead-strip";
-  area.hidden = true;
-  const groups = buildActionGroups(sender);
-  for (const g of groups) {
-    g.el.dataset.act = g.act;
-    area.appendChild(g.el);
-  }
-  const run = (act: string, snoozeDays?: number) => {
-    area.hidden = false;
-    const target = groups.find((g) => g.act === act);
-    for (const g of groups) g.el.hidden = g !== target;
-    const days = target?.el.querySelector("select");
-    if (days && snoozeDays) days.value = String(snoozeDays);
-    target?.el.querySelector("button")?.click();
-    target?.el.scrollIntoView?.({ block: "nearest" });
-  };
-  return { area, groups, run };
-}
-
-/** "Always do this": a rule that trashes this sender's new mail from now on. */
-function alwaysDoThis(sender: SenderSummary): HTMLButtonElement {
-  const btn = Object.assign(document.createElement("button"), {
-    type: "button",
-    className: "btn btn-sm",
-    textContent: "Always do this",
-  });
-  btn.onclick = async () => {
-    btn.disabled = true;
-    const rule: ClusterRule = {
-      id: crypto.randomUUID(),
-      name: `Trash mail from ${sender.displayName || sender.address}`,
-      enabled: true,
-      conditions: { fromAddress: sender.address },
-      action: "trash",
-      appliesFrom: Date.now(),
-    };
-    await saveRules([...ctx.settings.rules, rule]);
-    renderRulesTab();
-    btn.textContent = "Rule saved ✓";
-  };
-  return btn;
-}
-
-/** Trash a sender's mail, minus what protection keeps, with Undo. */
-function buildTrashCell(sender: SenderSummary): HTMLDivElement {
-  const cell = document.createElement("div");
-  const ids = idsSafeToMoveOut(sender);
-  const btn = Object.assign(document.createElement("button"), { textContent: "Trash" });
-  btn.disabled = ids.length === 0;
-  const reset = () => cell.replaceChildren(btn);
-  btn.onclick = () => {
-    const kept = senderVolume(sender) - ids.length;
-    renderConfirmStep(
-      cell,
-      reset,
-      `Move ${ids.length} email${ids.length === 1 ? "" : "s"} from ${sender.address} to Trash?${kept > 0 ? ` ${kept} protected stay.` : ""}`,
-      true,
-      async () => {
-        const merged = new Map([[sender.provider, ids]]);
-        const { message, undoableGmailIds } = await executeSmartDelete(merged);
-        appendUndoButton(cell, undoableGmailIds);
-        cell.append(alwaysDoThis(sender));
-        await logAction(
-          "trash",
-          `Moved ${ids.length} from ${sender.address} to Trash`,
-          undoableGmailIds.length > 0
-            ? { provider: "gmail", ids: undoableGmailIds, via: "untrash" }
-            : undefined,
-        );
-        void refreshView();
-        return message;
-      },
-    );
-  };
-  reset();
-  return cell;
-}
-
-// ── Mute (local BlackHole) ───────────────────────────────────────────────
-// A standing from:<address> filter hiding all mail from this sender, now and
-// future — independent of whether they honour unsubscribe. Gmail-only.
-function buildMuteCell(sender: SenderSummary): HTMLDivElement {
-  const cell = document.createElement("div");
-  const provider = providerById.get(sender.provider);
-  if (!provider?.muteSender) {
-    cell.textContent = "";
-    return cell;
-  }
-
-  const btn = document.createElement("button");
-  const isMuted = () => ctx.settings.mutedSenders.includes(sender.address);
-  btn.textContent = isMuted() ? "Muted ✓" : "Mute";
-  btn.disabled = isMuted();
-
-  const reset = () => {
-    cell.innerHTML = "";
-    cell.appendChild(btn);
-  };
-
-  btn.onclick = () => {
-    renderConfirmStep(
-      cell,
-      reset,
-      `Hide all mail from ${sender.address}, now and in future?`,
-      false,
-      async () => {
-        await muteOneSender(sender);
-        return "Muted ✓";
-      },
-    );
-  };
-
-  cell.appendChild(btn);
-  return cell;
-}
-
 /** Mute one sender: the provider's filter, the settings record and the log. */
 async function muteOneSender(sender: SenderSummary) {
   const provider = providerById.get(sender.provider);
@@ -2409,375 +2256,6 @@ function wireDetails() {
   }
 }
 
-// ── All senders screen ──────────────────────────────────────────────────
-// A flat, searchable, filterable list of every scanned sender. The pixel
-// exact "engagement bar + one action" row treatment lands in the All-senders
-// screen commit; this keeps the screen populated and the controls live.
-let allSendersFilter: SenderGroup = "people";
-let allSendersSort: SenderSortId = "volume";
-let allSendersQuery = "";
-let allSendersLimit = 25;
-
-/** The sender or company shown in the Senders card. */
-let senderCardPick: { company: CompanyGroup } | { sender: SenderSummary } | null = null;
-
-/** One row for a company; its addresses are listed in the card. */
-function buildCompanyEntry(group: CompanyGroup): HTMLElement {
-  const row = listRow({
-    lead: makeLogoTile(group.senders[0], "sz-34"),
-    title: companyName(group),
-    titleBadges: group.senders.some(doesntMatch) ? rowBadges(group.senders.find(doesntMatch)!) : rowBadges(group.senders[0]),
-    meta: rowCount(group.total),
-    href: () => pickSenderCard({ company: group }),
-  });
-  row.dataset.pick = `company:${group.key}`;
-  return row;
-}
-
-function rowCount(n: number): HTMLElement {
-  return Object.assign(document.createElement("span"), {
-    className: "ios-value",
-    textContent: n.toLocaleString(),
-  });
-}
-
-function textEl(tag: string, text: string, className = ""): HTMLElement {
-  return Object.assign(document.createElement(tag), { textContent: text, className });
-}
-
-function pickSenderCard(pick: NonNullable<typeof senderCardPick>) {
-  senderCardPick = pick;
-  const key = "company" in pick ? `company:${pick.company.key}` : `sender:${pick.sender.key}`;
-  allSendersListEl
-    ?.querySelectorAll<HTMLElement>("[data-pick]")
-    .forEach((r) => r.classList.toggle("picked", r.dataset.pick === key));
-  renderSenderCard();
-}
-
-/** Contacts-style card beside the list: who it is, three facts, the actions. */
-function renderSenderCard() {
-  let card = document.getElementById("sender-card");
-  if (!card) {
-    card = Object.assign(document.createElement("aside"), { id: "sender-card", className: "sender-card" });
-    card.setAttribute("aria-live", "polite");
-    document.querySelector("[data-screen=senders] .contacts")?.append(card);
-  }
-  card.replaceChildren();
-  const pick = senderCardPick;
-  if (!pick) return;
-  const who = textEl("div", "", "card-who");
-  const facts = textEl("div", "", "card-facts");
-  const fact = (n: string, label: string) => {
-    const f = document.createElement("div");
-    f.append(textEl("b", n), textEl("span", label));
-    facts.append(f);
-  };
-  const acts = textEl("div", "", "card-acts");
-  const btn = (label: string, cls: string, onclick: () => void) => {
-    const b = Object.assign(document.createElement("button"), {
-      type: "button",
-      className: cls,
-      textContent: label,
-    });
-    b.onclick = onclick;
-    acts.append(b);
-  };
-
-  if ("company" in pick) {
-    const g = pick.company;
-    who.append(makeLogoTile(g.senders[0], "sz-44"), textEl("b", companyName(g)));
-    fact(g.total.toLocaleString(), "emails");
-    fact(g.openRate === null ? "None" : `${Math.round(g.openRate * 100)}%`, "opened");
-    fact(String(g.senders.length), "addresses");
-    const list = textEl("div", "", "card-list");
-    for (const sender of g.senders) {
-      const r = Object.assign(document.createElement("button"), {
-        type: "button",
-        className: "card-list-row",
-      });
-      r.append(textEl("span", sender.address), rowCount(senderVolume(sender)));
-      r.onclick = () => pickSenderCard({ sender });
-      list.append(r);
-    }
-    const canMute = g.senders.filter(
-      (s) => providerById.get(s.provider)?.muteSender && !ctx.settings.mutedSenders.includes(s.address),
-    );
-    const slot = textEl("div", "", "card-acts");
-    const muteAll = Object.assign(document.createElement("button"), {
-      type: "button",
-      className: "btn",
-      textContent: "Mute",
-    });
-    const reset = () => slot.replaceChildren(muteAll);
-    muteAll.onclick = () =>
-      renderConfirmStep(
-        slot,
-        reset,
-        `Hide all mail from ${companyName(g)}'s ${canMute.length} addresses, now and in future?`,
-        false,
-        async () => {
-          let done = 0;
-          for (const s of canMute) if (await muteOneSender(s)) done += 1;
-          return `Muted ${done} ✓`;
-        },
-      );
-    if (canMute.length > 0) reset();
-    card.append(who, facts, slot, list);
-    return;
-  }
-
-  const sender = pick.sender;
-  const total = senderVolume(sender);
-  who.append(
-    makeLogoTile(sender, "sz-44"),
-    textEl("b", sender.displayName || sender.address),
-    textEl("span", sender.displayName ? sender.address : ""),
-  );
-  fact(total.toLocaleString(), total === 1 ? "email" : "emails");
-  fact(total > 0 ? `${Math.round((1 - senderUnread(sender) / total) * 100)}%` : "None", "opened");
-  const profile = ctx.profiles.get(sender.key);
-  fact(profileLine(profile) || "Now and then", "how often");
-  if (profile?.via) who.append(textEl("span", `via ${profile.via}`));
-  const certified = certifiedCompany(sender.address);
-  if (certified) {
-    const chip = textEl("span", "Verified", "chip chip-verified");
-    chip.prepend(verifiedTick());
-    who.append(chip, ...infoButton(`Certified to ${certified.name}`, "About Verified"));
-  }
-
-  // The card decides where a sender goes; stopping and sorting live in their own places.
-  const { area, run } = actionArea(sender);
-  if (sender.protectedMessageIds.length > 0)
-    acts.append(textEl("p", "Starred mail keeps this sender out of cleanup.", "hint"));
-  else if (ctx.settings.mutedSenders.includes(sender.address))
-    acts.append(textEl("p", "Muted. New mail skips your inbox.", "hint"));
-  else if (hasAnyUnsubscribe(sender.unsubscribe))
-    btn("Unsubscribe", "btn btn-accent-solid", () => void selectScreen("subscriptions"));
-  // No unsubscribe, so Stop mail can't list it: Mute stays here.
-  else if (providerById.get(sender.provider)?.muteSender)
-    btn("Mute", "btn btn-accent-solid", () => run("mute"));
-  btn("Add rule", "btn", () => openRuleSheetFor(sender));
-  btn("Show", "btn", () => details?.open({ view: "emails", senderKey: sender.key }));
-  if (profile) {
-    const person = isPerson(profile);
-    btn(person ? "Not a person" : "This is a person", "btn", async () => {
-      ctx.settings = await mutateSettings((s) => ({
-        ...s,
-        personOverrides: { ...s.personOverrides, [sender.key]: !person },
-      }));
-      profile.personOverride = !person;
-      renderAllSenders(ctx.senders);
-    });
-  }
-  card.append(who, facts, acts, area);
-}
-
-function hasAnyUnsubscribe(u: SenderSummary["unsubscribe"]): boolean {
-  return Boolean(u.postUrl || u.httpUrl || u.mailto);
-}
-
-function wireAllSendersControls() {
-  const search = document.getElementById("sender-search") as HTMLInputElement | null;
-  search?.addEventListener("input", () => {
-    allSendersQuery = search.value.trim().toLowerCase();
-    allSendersLimit = 25;
-    renderAllSenders(ctx.senders);
-  });
-  const sort = document.getElementById("sender-sort") as HTMLSelectElement | null;
-  sort?.addEventListener("change", () => {
-    allSendersSort = sort.value as SenderSortId;
-    allSendersLimit = 25;
-    renderAllSenders(ctx.senders);
-  });
-  const seg = document.getElementById("sender-filter");
-  seg?.querySelectorAll<HTMLButtonElement>("button[data-filter]").forEach((btn) => {
-    btn.onclick = () => {
-      allSendersFilter = btn.dataset.filter as SenderGroup;
-      allSendersLimit = 25;
-      seg
-        .querySelectorAll<HTMLButtonElement>("button[data-filter]")
-        .forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
-      renderAllSenders(ctx.senders);
-    };
-  });
-}
-
-/** One list's senders; a search looks through all three lists. */
-function filteredSenders(senders: SenderSummary[], filter: SenderGroup = allSendersFilter): SenderSummary[] {
-  return senders.filter((s) => {
-    if (allSendersQuery) return `${s.displayName ?? ""} ${s.address}`.toLowerCase().includes(allSendersQuery);
-    return senderGroup(s, ctx.profiles.get(s.key)) === filter;
-  });
-}
-
-/** Each list's count, as the list would show it (a company's addresses fold
- * into one). An empty list hides, and the screen never opens on one. */
-function paintSenderListCounts(senders: SenderSummary[]) {
-  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("#sender-filter button[data-filter]"));
-  const counts = new Map<SenderGroup, number>();
-  for (const btn of buttons) {
-    const group = btn.dataset.filter as SenderGroup;
-    const count = foldByCompany(
-      senders.filter((s) => senderGroup(s, ctx.profiles.get(s.key)) === group),
-      ctx.profiles,
-    ).length;
-    counts.set(group, count);
-    btn.hidden = count === 0;
-    let badge = btn.querySelector<HTMLElement>(".list-count");
-    if (!badge) btn.append((badge = Object.assign(document.createElement("span"), { className: "list-count" })));
-    badge.textContent = count.toLocaleString();
-  }
-  if ((counts.get(allSendersFilter) ?? 0) > 0) return;
-  const first = buttons.find((b) => !b.hidden);
-  if (!first) return;
-  allSendersFilter = first.dataset.filter as SenderGroup;
-  for (const b of buttons) b.setAttribute("aria-pressed", String(b === first));
-}
-
-/** A brand-claim warning the user hasn't settled: the row says so where it stands. */
-function doesntMatch(sender: SenderSummary): boolean {
-  const domain = sender.address.slice(sender.address.lastIndexOf("@") + 1).toLowerCase();
-  return (
-    !ctx.settings.brandVerdicts?.[domain] &&
-    sender.threatSignals.some((t) => t.kind === "brand-impersonation")
-  );
-}
-
-function rowBadges(sender: SenderSummary): HTMLElement[] {
-  if (doesntMatch(sender)) return [textEl("span", "Doesn't match", "chip chip-danger")];
-  return certifiedCompany(sender.address) ? [verifiedTick()] : [];
-}
-
-function renderAllSenders(senders: SenderSummary[]) {
-  if (!allSendersListEl) return;
-  paintSenderListCounts(senders);
-  const sorted = sortSenders(filteredSenders(senders), ctx.profiles, allSendersSort);
-  // A company's addresses fold into one row (LinkedIn, not five LinkedIns), as in Clean up and Details.
-  const rows: ListEntry[] = foldByCompany(sorted, ctx.profiles);
-  // A folded company counts all its addresses, so re-rank by the total.
-  if (allSendersSort === "volume") {
-    const size = (e: (typeof rows)[number]) => (e.kind === "sender" ? senderVolume(e.sender) : e.group.total);
-    rows.sort((a, b) => size(b) - size(a));
-  }
-  const shown = rows.slice(0, allSendersLimit);
-
-  allSendersListEl.innerHTML = "";
-  if (allSendersFilter === "subs" && !allSendersQuery) {
-    // Subscriptions as cards, like Stop mail's paid ones: how often, how much you open, and a way out.
-    const payers = companiesYouPay();
-    const grid = document.createElement("div");
-    grid.className = "paid-grid sub-grid";
-    grid.append(...shown.map((e) => buildSubCard(e, payers)));
-    allSendersListEl.appendChild(grid);
-  } else {
-    allSendersListEl.appendChild(
-      listGroup(
-        shown.flatMap((entry) =>
-          entry.kind === "sender" ? [buildAllSendersRow(entry.sender)] : [buildCompanyEntry(entry.group)],
-        ),
-      ),
-    );
-  }
-
-  const pickKey = (e: (typeof shown)[number]) =>
-    e.kind === "sender" ? `sender:${e.sender.key}` : `company:${e.group.key}`;
-  const current =
-    senderCardPick &&
-    ("company" in senderCardPick
-      ? `company:${senderCardPick.company.key}`
-      : `sender:${senderCardPick.sender.key}`);
-  const keep = shown.find((e) => pickKey(e) === current) ?? shown[0];
-  if (keep) pickSenderCard(keep.kind === "sender" ? { sender: keep.sender } : { company: keep.group });
-
-  if (rows.length > shown.length) {
-    const more = document.createElement("div");
-    more.className = "confirm-slot";
-    more.style.padding = "14px 18px";
-    const info = document.createElement("span");
-    info.className = "hint";
-    info.textContent = `Showing ${shown.length} of ${rows.length}`;
-    const btn = document.createElement("button");
-    btn.className = "btn";
-    btn.textContent = "Load 25 more";
-    btn.onclick = () => {
-      allSendersLimit += 25;
-      renderAllSenders(senders);
-    };
-    more.append(info, btn);
-    allSendersListEl.appendChild(more);
-  } else if (rows.length > 0) {
-    const info = document.createElement("div");
-    info.className = "hint";
-    info.style.padding = "14px 18px 0";
-    info.textContent = `Showing all ${rows.length}`;
-    allSendersListEl.appendChild(info);
-  } else {
-    const empty = document.createElement("p");
-    empty.className = "empty-state";
-    empty.textContent = "No senders match this filter.";
-    allSendersListEl.appendChild(empty);
-  }
-}
-
-/** Companies that also send you receipts: you pay them. */
-function companiesYouPay(): Set<string> {
-  const out = new Set<string>();
-  for (const p of ctx.profiles.values()) if (p.kind === "receipt" && p.companyKey) out.add(p.companyKey);
-  return out;
-}
-
-/** One subscription: logo, name, how often and how much you open, and Unsubscribe. */
-function buildSubCard(entry: ListEntry, payers: Set<string>): HTMLElement {
-  const members = entry.kind === "sender" ? [entry.sender] : entry.group.senders;
-  const lead = members.reduce((a, b) => (senderVolume(b) > senderVolume(a) ? b : a));
-  const profile = ctx.profiles.get(lead.key);
-  const total = members.reduce((n, s) => n + senderVolume(s), 0);
-  const unread = members.reduce((n, s) => n + senderUnread(s), 0);
-  const card = document.createElement("div");
-  card.className = "glass-card paid-card sub-card row-link";
-  const words = document.createElement("span");
-  words.className = "sub-words";
-  const name = textEl("b", entry.kind === "sender" ? senderName(lead) : companyName(entry.group));
-  const facts = textEl(
-    "span",
-    `${sendFrequency(profile?.usualGapMs)} · Opened ${Math.round(((total - unread) / Math.max(1, total)) * 100)}%`,
-    "sub-facts",
-  );
-  words.append(name, facts);
-  card.append(makeLogoTile(lead, "sz-30"), words);
-  if (profile?.companyKey && payers.has(profile.companyKey)) card.append(textEl("span", "You pay", "chip"));
-  const unsub = buildUnsubscribeCell(lead);
-  unsub.classList.add("sub-unsub");
-  card.append(unsub);
-  card.addEventListener("click", (e) => {
-    if (e.target instanceof HTMLElement && e.target.closest("button, a, input, select")) return;
-    pickSenderCard(entry.kind === "sender" ? { sender: entry.sender } : { company: entry.group });
-  });
-  card.dataset.pick = entry.kind === "sender" ? `sender:${entry.sender.key}` : `company:${entry.group.key}`;
-  return card;
-}
-
-function buildAllSendersRow(sender: SenderSummary): HTMLElement {
-  // The name and one value; the card holds the rest.
-  const row = listRow({
-    lead: makeLogoTile(sender, "sz-34"),
-    title: senderName(sender),
-    titleBadges: rowBadges(sender),
-    meta: rowCount(senderVolume(sender)),
-    href: () => pickSenderCard({ sender }),
-  });
-  row.dataset.pick = `sender:${sender.key}`;
-  return row;
-}
-
-/** Sender tile: favicon over a coloured monogram fallback (see senderTile.ts). */
-function makeLogoTile(
-  sender: Pick<SenderSummary, "address" | "displayName">,
-  sizeClass: TileSize,
-): HTMLElement {
-  return senderTile(sender.address, sender.displayName, sizeClass);
-}
-
 async function saveEngagementFeedback(senderKeys: string[], feedback: EngagementFeedback) {
   if (senderKeys.length === 0) return;
   void learnFromFeedback(senderKeys, feedback);
@@ -2785,157 +2263,6 @@ async function saveEngagementFeedback(senderKeys: string[], feedback: Engagement
     ...current,
     senderEngagement: recordEngagementFeedback(current.senderEngagement, senderKeys, feedback),
   }));
-}
-
-function buildUnsubscribeCell(sender: SenderSummary): HTMLDivElement {
-  const cell = document.createElement("div");
-
-  if (sender.unsubscribe.postUrl) {
-    const statusEl = document.createElement("div");
-    statusEl.className = "unsubscribe-status";
-
-    const btn = document.createElement("button");
-    const applyState = () => {
-      const tracked = ctx.settings.unsubscribeRequests[sender.key];
-      if (tracked) {
-        const outcome = unsubscribeOutcomeFor(sender.key, sender);
-        statusEl.textContent = `${outcome.label} · requested ${formatRelativeTime(tracked.requestedAt)}`;
-        statusEl.title = outcome.detail;
-        btn.textContent = outcome.state === "still-sending" ? "Retry unsubscribe" : "Request again";
-      } else {
-        statusEl.textContent = "";
-        statusEl.title = "";
-        btn.textContent = "Unsubscribe";
-      }
-    };
-
-    btn.onclick = async () => {
-      btn.disabled = true;
-      btn.textContent = "Requesting…";
-      const ok = await fireOneClickUnsubscribe(sender.unsubscribe.postUrl!);
-      if (ok) {
-        await recordUnsubscribeRequests([sender]);
-        await logAction("unsubscribe", `Unsubscribed from ${sender.address}`);
-        applyState();
-      } else {
-        statusEl.textContent = "Request failed, try again";
-        btn.textContent = unsubscribeButtonText(sender);
-      }
-      btn.disabled = false;
-    };
-
-    applyState();
-    cell.append(statusEl, btn);
-  } else if (sender.unsubscribe.mailto) {
-    const button = document.createElement("button");
-    button.textContent = "Unsubscribe by email";
-    button.onclick = () => void openUnsubscribeSheet([sender], () => renderDeleteScreen(ctx.senders));
-    cell.appendChild(button);
-  } else if (sender.unsubscribe.httpUrl) {
-    const link = document.createElement("a");
-    link.href = sender.unsubscribe.httpUrl;
-    link.textContent = "Open unsubscribe page";
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    cell.appendChild(link);
-  } else {
-    cell.textContent = "No unsubscribe link found";
-  }
-
-  return cell;
-}
-
-function buildKeepSortedCell(sender: SenderSummary): HTMLDivElement {
-  const cell = document.createElement("div");
-  const btn = document.createElement("button");
-  btn.textContent = "Move to a label";
-  const labelName = sender.displayName || sender.address;
-  btn.title = `New mail from ${sender.address} skips your inbox and goes to "${labelName}".`;
-  btn.onclick = async () => {
-    const provider = providerById.get(sender.provider);
-    if (!provider?.keepSorted) {
-      btn.textContent = "Not supported for this provider";
-      return;
-    }
-    btn.disabled = true;
-    btn.textContent = "Setting up…";
-    try {
-      const token = await provider.getAuthToken(false);
-      await provider.keepSorted(token, sender.address, labelName, idsSafeToMoveOut(sender));
-      await logAction("keepSorted", `Kept ${sender.address} sorted into "${labelName}"`);
-      btn.textContent = "Sorted ✓";
-    } catch (err) {
-      btn.textContent = "Failed, try again";
-      btn.disabled = false;
-      log.error(err);
-    }
-  };
-  cell.appendChild(btn);
-  return cell;
-}
-
-// ── Snooze (Gmail-only) ──────────────────────────────────────────────────
-// Moves mail out of the inbox under a dedicated label and remembers when to
-// bring it back (settingsStore.snoozedMessages, checked by the background
-// alarm and on dashboard load — see snoozeResurface.ts). Never offered for
-// Outlook: Graph has no snooze primitive, and a folder-move approximation
-// would silently go stale if the user reorganizes mail elsewhere.
-async function recordSnoozedMessages(ids: string[], provider: ProviderId, resurfaceAt: number) {
-  if (ids.length === 0) return;
-  const snoozedMessages = { ...ctx.settings.snoozedMessages };
-  for (const id of ids) snoozedMessages[id] = { resurfaceAt, provider };
-  ctx.settings = await updateSettings({ snoozedMessages });
-}
-
-function buildSnoozeCell(sender: SenderSummary): HTMLDivElement {
-  const cell = document.createElement("div");
-
-  if (!providerById.get(sender.provider)?.snoozeMessages) {
-    cell.textContent = "Not supported for this provider";
-    return cell;
-  }
-
-  const select = document.createElement("select");
-  for (const [days, label] of [
-    [1, "1 day"],
-    [7, "1 week"],
-    [30, "1 month"],
-  ] as const) {
-    const option = document.createElement("option");
-    option.value = String(days);
-    option.textContent = label;
-    if (days === 7) option.selected = true;
-    select.appendChild(option);
-  }
-
-  const btn = document.createElement("button");
-  btn.textContent = "Snooze";
-  btn.onclick = async () => {
-    const provider = providerById.get(sender.provider);
-    if (!provider?.snoozeMessages) return;
-    btn.disabled = true;
-    select.disabled = true;
-    btn.textContent = "Snoozing…";
-    try {
-      const token = await provider.getAuthToken(false);
-      await provider.snoozeMessages(token, sender.messageIds);
-      const resurfaceAt = Date.now() + Number(select.value) * 24 * 60 * 60 * 1000;
-      await recordSnoozedMessages(sender.messageIds, sender.provider, resurfaceAt);
-      await logAction(
-        "snooze",
-        `Snoozed ${sender.messageIds.length} from ${sender.address} until ${new Date(resurfaceAt).toLocaleDateString()}`,
-      );
-      btn.textContent = `Snoozed until ${new Date(resurfaceAt).toLocaleDateString()} ✓`;
-    } catch (err) {
-      btn.textContent = "Failed, try again";
-      btn.disabled = false;
-      select.disabled = false;
-      log.error(err);
-    }
-  };
-
-  cell.append(select, btn);
-  return cell;
 }
 
 // ── Ready-to-clean-up (retention expiry) section ────────────────────────

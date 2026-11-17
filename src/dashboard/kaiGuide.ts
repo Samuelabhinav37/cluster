@@ -583,7 +583,7 @@ export const CLUSTER_QUESTIONS: KaiQuestion[] = [
     phrases: ["stop a scammer", "mark as spam", "get rid of phishing mail", "block this sender"] },
   { id: "find", ask: "How do I find an email?", answer: "Use the search at the top, or press /. Pick a company or person, or Search all of Gmail for older mail.", target: "#ask-kai-open", follow: ["contacts"],
     phrases: ["search my mail", "look for a message", "where is the search bar", "find mail from someone"] },
-  { id: "contacts", ask: "Where are the people who email me?", answer: "Contacts lists everyone who writes to you: People, Companies and Subscriptions. Press a row to see its emails.", screen: "senders", follow: ["find"],
+  { id: "contacts", ask: "Where are the people who email me?", answer: "Details lists everyone who writes to you. Open it from the top bar and pick Senders.", target: ".top-tool[data-details]", follow: ["find"],
     phrases: ["list of senders", "who sends me the most mail", "see all companies", "my subscriptions"] },
   { id: "keys", ask: "What are the keyboard shortcuts?", answer: "Press ? to see them all. You can change any key in Settings, under Advanced.", screen: "settings", follow: ["find"],
     phrases: ["change a hotkey", "turn off shortcuts", "keyboard keys"] },
@@ -595,7 +595,6 @@ export const CLUSTER_QUESTIONS: KaiQuestion[] = [
 export const CLUSTER_FIRST_ON: Record<string, string[]> = {
   overview: ["read", "sort"],
   delete: ["cleanup", "undo", "starred"],
-  senders: ["contacts", "unsub"],
   subscriptions: ["unsub", "undo"],
   settings: ["keys", "read"],
   organize: ["sort", "rules", "keep"],
