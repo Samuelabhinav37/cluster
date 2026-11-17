@@ -187,6 +187,25 @@ function sortRing() {
   };
 }
 
+/** Counts `el` up from what it shows to `to` over half a second (at once with reduced motion). */
+function rollTo(el: HTMLElement, to: number) {
+  const from = Number(el.dataset.n ?? 0);
+  el.dataset.n = String(to);
+  const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (still || from === to || typeof requestAnimationFrame !== "function") {
+    el.textContent = num(to);
+    return;
+  }
+  const start = performance.now();
+  const step = (t: number) => {
+    if (el.dataset.n !== String(to)) return; // a newer value took over
+    const k = Math.min(1, (t - start) / 500);
+    el.textContent = num(Math.round(from + (to - from) * (1 - (1 - k) ** 3)));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 /** A check that draws itself (stroke-dashoffset), for the finished ring. */
 function drawnCheck(): SVGSVGElement {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -218,7 +237,10 @@ function sortStage() {
   hero.append(ring, words);
   const list = document.createElement("div");
   list.className = "sort-plan";
-  sortInboxPreviewEl.replaceChildren(hero, list);
+  const panel = document.createElement("div");
+  panel.className = "sort-panel";
+  panel.append(hero, list);
+  sortInboxPreviewEl.replaceChildren(panel);
   sortInboxPreviewEl.classList.add("sorting");
 
   const stage = {
@@ -244,11 +266,13 @@ function sortStage() {
     /** Sorting: the ring fills to done/total and shows the count. */
     progress(done: number, total: number, line: string) {
       looking(false);
-      const count = document.createElement("b");
-      count.textContent = num(done);
-      const of = document.createElement("span");
-      of.textContent = `of ${num(total)}`;
-      middle.replaceChildren(count, of);
+      let count = middle.querySelector<HTMLElement>("b.sort-n");
+      if (!count) {
+        count = Object.assign(document.createElement("b"), { className: "sort-n", textContent: "0" });
+        middle.replaceChildren(count, document.createElement("span"));
+      }
+      middle.querySelector("span")!.textContent = `of ${num(total)}`;
+      rollTo(count, done);
       set(done / Math.max(1, total));
       big.textContent = "Sorting…";
       sub.textContent = line;
@@ -290,31 +314,59 @@ function sortStage() {
 }
 type SortStage = ReturnType<typeof sortStage>;
 
-/** The start of the page: two ways to sort. Picking one starts it. */
+/** A 24px line icon from path data, in the current text color. */
+function lineIcon(paths: string[]): SVGSVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  for (const d of paths) {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    svg.append(path);
+  }
+  return svg;
+}
+
+/** The start of the page: one panel, the empty ring, and two ways to sort as rows. Picking one starts it. */
 function renderSortChoices() {
   if (busy) return;
   clearSortPreview();
+  const { ring, middle } = sortRing();
+  middle.append(gmailLabelIcon());
+  const big = Object.assign(document.createElement("b"), { className: "sort-big", textContent: "Sort your inbox" });
+  const sub = Object.assign(document.createElement("p"), { className: "sort-sub", textContent: "Cluster files each email under its label." });
+  const words = document.createElement("div");
+  words.className = "sort-words";
+  words.append(big, sub);
+  const hero = document.createElement("div");
+  hero.className = "sort-hero";
+  hero.append(ring, words);
   const wrap = document.createElement("div");
-  wrap.className = "mt-row sort-choices";
-  // Same tile as the Dashboard's: name big, what it does underneath.
-  const choice = (mode: SortMode, title: string, label: string, line: string, hero = false) => {
+  wrap.className = "sort-choices";
+  const choice = (mode: SortMode, title: string, line: string, icon: string[]) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = hero ? "mt-tile is-hero sort-choice" : "mt-tile sort-choice";
+    btn.className = "sort-choice";
     btn.dataset.mode = mode;
     const span = (cls: string, text = "") => Object.assign(document.createElement("span"), { className: cls, textContent: text });
-    const go = span("mt-go");
-    go.innerHTML = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"></path></svg>';
-    const t = Object.assign(document.createElement("b"), { className: "mt-num", textContent: title });
-    btn.append(span("mt-title", label), go, t, span("mt-foot", line));
+    const tile = span("sc-icon");
+    tile.append(lineIcon(icon));
+    const text = span("sc-text");
+    text.append(Object.assign(document.createElement("b"), { textContent: title }), span("sc-line", line));
+    const go = span("sc-go");
+    go.append(lineIcon(["M9 6l6 6-6 6"]));
+    btn.append(tile, text, go);
     btn.onclick = () => void runSort(mode);
     return btn;
   };
   wrap.append(
-    choice("new", "New mail", "Quick", "Sort mail that has no label yet.", true),
-    choice("all", "Everything", "Full", "Sort the whole inbox again, labelled or not."),
+    choice("new", "New mail", "Only mail without a label yet. Takes seconds.", ["M22 12h-6l-2 3h-4l-2-3H2", "M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"]),
+    choice("all", "Everything", "Every email again, labelled or not.", ["M12 2 2 7l10 5 10-5-10-5z", "M2 17l10 5 10-5", "M2 12l10 5 10-5"]),
   );
-  sortInboxPreviewEl.replaceChildren(wrap);
+  const panel = document.createElement("div");
+  panel.className = "sort-panel";
+  panel.append(hero, wrap);
+  sortInboxPreviewEl.replaceChildren(panel);
 }
 
 async function runSort(mode: SortMode) {
@@ -432,6 +484,7 @@ async function sortWithPlan(
     const row = document.createElement("div");
     row.className = "sort-preview-bucket";
     row.dataset.key = bucket;
+    row.style.setProperty("--i", String(stage.list.childElementCount));
     const count = group.reduce((n, e) => n + e.count, 0);
     row.append(
       document.createElement("i"),
@@ -608,7 +661,7 @@ function renderSortReport(summary: string, started: number) {
   const total = logged.reduce((n, e) => n + countOf(e), 0);
   const secs = Math.max(1, Math.round((Date.now() - started) / 1000));
   const report = document.createElement("div");
-  report.className = "sort-report";
+  report.className = "sort-report sort-panel";
   const { ring, middle, set } = sortRing();
   ring.classList.add("is-done");
   set(1);

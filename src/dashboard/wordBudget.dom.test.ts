@@ -29,7 +29,8 @@ const BUDGET: Record<string, { words: number; controls: number }> = {
   impersonation: { words: 145, controls: 20 },
   screener: { words: 60, controls: 6 },
   // Redesign 2026-11 (approved): every section on one scrolling page, not one at a time.
-  settings: { words: 280, controls: 60 },
+  // 2026-11-17 (user asked): Settings is one scrolling page, so every section counts at once.
+  settings: { words: 360, controls: 60 },
   // 2026-11-17: the empty state names what lands here and offers Go to Cleanup, plus the Back link.
   recent: { words: 20, controls: 3 },
 };

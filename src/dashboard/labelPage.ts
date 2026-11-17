@@ -108,8 +108,18 @@ export function showLabelPage(bucket: SortBucket | null, hint: string): void {
   back.type = "button";
   back.onclick = () => showLabelPage(null, "");
   const head = el("div", "lp-head");
+  // The emoji sits in a square tinted with the label's color; name and line stack beside it on one edge.
+  const [, emoji = "", rest = name] = /^(\p{Extended_Pictographic}️?)\s*(.*)$/u.exec(name) ?? [];
+  const ident = el("div", "lp-ident");
+  if (emoji) {
+    const tile = el("span", "lp-icon", emoji);
+    tile.style.setProperty("--tint", color);
+    tile.setAttribute("aria-hidden", "true");
+    ident.append(tile);
+  }
   const titles = el("div", "lp-titles");
-  titles.append(el("h2", "lp-title", name), el("p", "lp-lead", `${hint}.`));
+  titles.append(el("h2", "lp-title", rest), el("p", "lp-lead", `${hint}.`));
+  ident.append(titles);
   const tools = el("div", "chart-tools");
   const where = whereItGoes(bucket, name);
   const range = el("select", "chart-tool");
@@ -124,7 +134,7 @@ export function showLabelPage(bucket: SortBucket | null, hint: string): void {
   gmail.target = "_blank";
   gmail.rel = "noopener";
   tools.append(...(where ? [where] : []), range, gmail);
-  head.append(titles, tools);
+  head.append(ident, tools);
 
   const rows = labelMail(senders, bucket, now, days);
   const counts = perDay(rows, now, days);

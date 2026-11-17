@@ -235,20 +235,21 @@ function wireRemoveFromGmail() {
   };
 }
 
-// Mercury-style groups for the sidebar while Settings is open.
+// Groups for the sidebar while Settings is open, in page order; Danger zone last, as Apple and GitHub keep it.
 const SETTINGS_GROUPS: Array<[group: string, sections: string[]]> = [
-  ["Account", ["Account", "Notifications", "Privacy & data", "Danger zone"]],
-  ["Mail", ["Mail", "What Cluster learned", "Advanced"]],
-  ["App", ["General", "Kai"]],
+  ["Account", ["Account", "Notifications", "Privacy & data"]],
+  ["Mail", ["Mail", "Sorting", "Automation", "Security", "What Cluster learned"]],
+  ["App", ["General", "Kai", "Advanced", "Diagnostics"]],
+  ["", ["Danger zone"]],
 ];
 
-/** Settings, Mercury-style: the sidebar turns into "‹ Settings" and the
- * section list, and the page shows one section at a time under its name. */
+/** Settings on one scrolling page: every section shows under its own heading, and
+ * the sidebar's list jumps to one and lights the one you are reading. */
 function wireSettingsNav(showScreen: (name: string) => void): (inside: Element | null) => void {
+  const list = document.querySelector<HTMLElement>(".settings-list");
   const secs = Array.from(document.querySelectorAll<HTMLElement>(".settings-list > .set-sec"));
   const sidebar = document.getElementById("sidebar");
-  const title = document.querySelector<HTMLElement>('[data-screen="settings"] .page-title');
-  if (!sidebar || secs.length === 0) return () => {};
+  if (!list || !sidebar || secs.length === 0) return () => {};
   const nameOf = (sec: HTMLElement) => sec.querySelector("h2")?.textContent?.trim() ?? "";
   const nav = document.createElement("div");
   nav.className = "settings-nav";
@@ -259,37 +260,61 @@ function wireSettingsNav(showScreen: (name: string) => void): (inside: Element |
   back.onclick = () => showScreen("overview");
   nav.append(back);
   const buttons = new Map<HTMLElement, HTMLButtonElement>();
-  const show = (sec: HTMLElement) => {
-    for (const s of secs) s.hidden = s !== sec;
-    for (const [s, b] of buttons) b.setAttribute("aria-current", String(s === sec));
-    if (title) title.textContent = nameOf(sec);
-    window.scrollTo?.({ top: 0 });
+  const light = (sec: HTMLElement) => {
+    for (const [s, btn] of buttons) btn.setAttribute("aria-current", String(s === sec));
+  };
+  const jump = (sec: HTMLElement) => {
+    light(sec);
+    sec.scrollIntoView?.({ behavior: matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  };
+  const item = (sec: HTMLElement) => {
+    const btn = Object.assign(document.createElement("button"), { type: "button", className: "sn-item", textContent: nameOf(sec) });
+    btn.onclick = () => jump(sec);
+    buttons.set(sec, btn);
+    nav.append(btn);
+    // The page follows the list's order.
+    list.append(sec);
   };
   const listed = new Set<HTMLElement>();
   for (const [group, names] of SETTINGS_GROUPS) {
-    const items = names.map((n) => secs.find((s) => nameOf(s) === n)).filter((s): s is HTMLElement => !!s);
+    const items = names.map((n) => secs.find((x) => nameOf(x) === n)).filter((x): x is HTMLElement => !!x);
     if (items.length === 0) continue;
-    nav.append(Object.assign(document.createElement("h3"), { textContent: group }));
+    if (group) nav.append(Object.assign(document.createElement("h3"), { textContent: group }));
+    else nav.append(Object.assign(document.createElement("hr"), { className: "sn-rule" }));
     for (const sec of items) {
-      const b = Object.assign(document.createElement("button"), { type: "button", className: "sn-item", textContent: nameOf(sec) });
-      b.onclick = () => show(sec);
-      buttons.set(sec, b);
+      item(sec);
       listed.add(sec);
-      nav.append(b);
     }
   }
-  // A section not in the groups still gets a place, at the end.
-  for (const sec of secs.filter((s) => !listed.has(s))) {
-    const b = Object.assign(document.createElement("button"), { type: "button", className: "sn-item", textContent: nameOf(sec) });
-    b.onclick = () => show(sec);
-    buttons.set(sec, b);
-    nav.append(b);
+  // A section not in the groups still gets a place, before Danger zone.
+  const danger = secs.find((x) => nameOf(x) === "Danger zone");
+  for (const sec of secs.filter((x) => !listed.has(x))) {
+    item(sec);
+    if (danger) {
+      list.append(danger);
+      const dangerBtn = buttons.get(danger);
+      if (dangerBtn) nav.append(dangerBtn);
+    }
   }
+  for (const sec of secs) sec.hidden = false;
   sidebar.querySelector(".nav-area")?.before(nav);
-  show(buttons.keys().next().value!);
+  // Lights the section nearest the top of the window as you scroll.
+  if (typeof IntersectionObserver !== "undefined") {
+    const seen = new Map<HTMLElement, number>();
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) seen.set(e.target as HTMLElement, e.isIntersecting ? e.boundingClientRect.top : Infinity);
+        const top = [...seen].filter(([, y]) => y !== Infinity).sort((x, y) => x[1] - y[1])[0];
+        if (top) light(top[0]);
+      },
+      { rootMargin: "-80px 0px -55% 0px" },
+    );
+    for (const sec of secs) io.observe(sec);
+  }
+  light(buttons.keys().next().value!);
   return (inside) => {
     const sec = inside?.closest<HTMLElement>(".settings-list > .set-sec");
-    if (sec) show(sec);
+    if (sec) jump(sec);
   };
 }
 
