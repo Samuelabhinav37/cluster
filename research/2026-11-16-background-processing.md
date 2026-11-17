@@ -89,3 +89,13 @@ B now: the smallest change that keeps work going after the last window
 closes. Then C: move whatever a Gmail filter can express into filters, since
 those run on Google's servers for free. D only if running with the computer
 off matters more than the on-device promise, as a separate product decision.
+
+## Done (2026-11-16)
+
+- B for everyone, not optional: `"background"` is in the manifest.
+- C, first pass: newsletters held for their delivery day are filed by their
+  Gmail filter on arrival. A stranger caught as a scam gets a Gmail filter
+  that holds their future mail as Suspicious; "It's fine", "Not a scam" and
+  Undo remove only that filter. Still needing Chrome: the timed inbox sweep,
+  Screener detection of brand-new senders, scam checks of first emails,
+  the unsubscribe backstop for senders without a List-Id, the Today email.

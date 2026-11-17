@@ -7,6 +7,7 @@
 // of the inbox only when that category's time limit is 0 ("straight to the
 // label"); otherwise mail stays in the inbox and the time sweep
 // (inboxTimeLimits.ts) moves it out once the limit passes.
+import { newsletterDayOn } from "./newsletterDay";
 import { categoryQueries } from "./categoryQueries";
 import type { GmailFilterAction, GmailFilterCriteria, GmailFilterResource } from "./gmailApi";
 import type { ClusterSettings } from "./settingsStore";
@@ -43,6 +44,9 @@ export function filteredCategories(settings: ClusterSettings): SortBucket[] {
  * plain "keep sorting" keeps its per-category file-out choice. */
 function fileOutOnArrival(settings: ClusterSettings, bucket: SortBucket): boolean {
   const { autoSort } = settings;
+  // Newsletters held for their delivery day never need the inbox, so Gmail
+  // files them on arrival rather than the 10-minute sweep (which needs Chrome).
+  if (bucket === "newsletter" && newsletterDayOn(settings)) return true;
   if (autoSort.timeLimitsEnabled) return autoSort.inboxHoursByBucket[bucket] === 0;
   return autoSort.fileOutByBucket[bucket] ?? DEFAULT_FILE_OUT_OF_INBOX[bucket];
 }

@@ -6,6 +6,7 @@ import {
   deleteFilter,
   deleteFiltersInto,
   deleteSenderFilters,
+  deleteSenderFiltersAdding,
   FilterPermissionError,
   getAuthToken as getAuthToken_,
   getFilterAuthToken,
@@ -214,6 +215,27 @@ describe("Gmail filter API request shape", () => {
     expect(call(fetchMock, 1).method).toBe("DELETE");
     expect(call(fetchMock, 1).url).toContain("/filters/match-1");
     expect(call(fetchMock, 2).url).toContain("/filters/match-2");
+  });
+
+  it("deleteSenderFiltersAdding removes only that sender's filter for that label, so a Mute stays", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        json({
+          filter: [
+            { id: "hold", criteria: { from: "Scam@X.com" }, action: { addLabelIds: ["L_SUS"] } },
+            { id: "mute", criteria: { from: "scam@x.com" }, action: { addLabelIds: ["L_MUTED"] } },
+            { id: "other", criteria: { from: "a@b.com" }, action: { addLabelIds: ["L_SUS"] } },
+          ],
+        }),
+      )
+      .mockResolvedValue(noContent());
+    vi.stubGlobal("fetch", fetchMock);
+
+    await deleteSenderFiltersAdding("t", "scam@x.com", "L_SUS");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2); // 1 list + 1 delete
+    expect(call(fetchMock, 1).url).toContain("/filters/hold");
   });
 
   it("getOrCreateLabel reuses an existing label case-insensitively, else creates one", async () => {

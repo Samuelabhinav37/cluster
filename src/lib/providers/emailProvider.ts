@@ -239,6 +239,11 @@ export interface EmailProvider {
    * files the messages back into the inbox. Gmail-only, used by the
    * Recently-done Undo for auto-quarantine. */
   unlabelSuspicious?(token: string, ids: string[]): Promise<void>;
+  /** A Gmail filter holds this sender's future mail as Suspicious on arrival,
+   * so it works with Chrome closed. Gmail-only. */
+  holdSender?(token: string, fromAddress: string): Promise<void>;
+  /** Removes holdSender's filter, leaving any other filter on the address. */
+  releaseSender?(token: string, fromAddress: string): Promise<void>;
   /**
    * Fetches one message's full HTML body and returns its links -- Gmail
    * only, deliberately manual (see the dashboard's "Deep scan" button, the

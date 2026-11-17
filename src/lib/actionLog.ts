@@ -33,6 +33,8 @@ export interface ActionLogUndo {
    * were also filed out of the inbox (so undo can put them back). */
   labelName?: string;
   wasFiledOut?: boolean;
+  /** For via: "unlabel-suspicious": senders whose hold filter undo removes. */
+  fromAddresses?: string[];
   /** Sender keys whose accepted suggestion should be corrected if undone. */
   senderKeys?: string[];
 }

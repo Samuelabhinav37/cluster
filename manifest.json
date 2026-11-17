@@ -28,7 +28,7 @@
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; base-uri 'none'"
   },
-  "permissions": ["identity", "storage", "unlimitedStorage", "tabs", "alarms"],
+  "permissions": ["identity", "storage", "unlimitedStorage", "tabs", "alarms", "background"],
   "host_permissions": [
     "https://gmail.googleapis.com/*",
     "https://oauth2.googleapis.com/*",

@@ -145,7 +145,8 @@ export interface ClusterSettings {
    * (see quarantineReview.ts). Keyed by SenderSummary.key. Written by
    * background.ts's runQuarantine, cleared by the Security tab's
    * confirm/release actions. */
-  quarantinedSenders: Record<string, { at: number; messageIds: string[] }>;
+  /** `filtered`: a Gmail filter also holds their future mail (holdSender). */
+  quarantinedSenders: Record<string, { at: number; messageIds: string[]; filtered?: boolean }>;
   /** Durable confirm/release verdict history feeding
    * quarantineReview.quarantineScoreAdjustment, so a released (false-
    * positive) sender isn't immediately re-quarantined next alarm cycle. */

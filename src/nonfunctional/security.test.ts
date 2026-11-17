@@ -22,7 +22,9 @@ describe("manifest: permission surface", () => {
   // Any addition here is a store-review and user-trust event. Change this
   // list deliberately, in the same commit as the reason.
   it("requests exactly the expected API permissions", () => {
-    expect([...manifest.permissions].sort()).toEqual(["alarms", "identity", "storage", "tabs", "unlimitedStorage"]);
+    // "background" (2026-11-16): Chrome keeps running in the tray after its last
+    // window closes, so the mail read and inbox sweeps carry on for everyone.
+    expect([...manifest.permissions].sort()).toEqual(["alarms", "background", "identity", "storage", "tabs", "unlimitedStorage"]);
   });
 
   it("requests exactly the expected install-time host permissions", () => {

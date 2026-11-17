@@ -924,6 +924,16 @@ export async function createSenderFilter(
   });
 }
 
+/** Removes only the filters from this address that add `labelId`, so a
+ * Mute or Screener filter on the same address stays. */
+export async function deleteSenderFiltersAdding(token: string, fromAddress: string, labelId: string): Promise<void> {
+  const target = fromAddress.toLowerCase();
+  for (const f of await listFilters(token)) {
+    if ((f.criteria?.from ?? "").toLowerCase() !== target || !f.action?.addLabelIds?.includes(labelId)) continue;
+    await gmailFetch(`/users/me/settings/filters/${f.id}`, token, { method: "DELETE" });
+  }
+}
+
 const BATCH_MODIFY_CHUNK_SIZE = 1000;
 
 export async function batchModify(

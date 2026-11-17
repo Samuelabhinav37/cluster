@@ -13,6 +13,7 @@ import {
   listSentMessageIds as apiListSentMessageIds,
   listMailboxChangesSince,
   deleteSenderFilters,
+  deleteSenderFiltersAdding,
   findLabelIds,
   getOrCreateLabel,
   labelMessages as apiLabelMessages,
@@ -370,6 +371,16 @@ export const gmailProvider: EmailProvider = {
   async unlabelSuspicious(token, ids) {
     const labelIds = await findLabelIds(token, SUSPICIOUS_LABEL_NAME);
     await batchModify(token, ids, ["INBOX"], [...labelIds, "SPAM"]);
+  },
+
+  async holdSender(token, fromAddress) {
+    // Gmail filters can't send to Spam, so arrivals go to Suspicious, out of the inbox.
+    await createSenderFilter(token, fromAddress, await getOrCreateLabel(token, SUSPICIOUS_LABEL_NAME));
+  },
+
+  async releaseSender(token, fromAddress) {
+    for (const labelId of await findLabelIds(token, SUSPICIOUS_LABEL_NAME))
+      await deleteSenderFiltersAdding(token, fromAddress, labelId);
   },
 
   async getMessageLinks(token, id) {

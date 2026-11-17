@@ -78,6 +78,7 @@ export async function undoEntry(entry: ActionLogEntry) {
   } else if (entry.undo.via === "unlabel-suspicious") {
     if (!provider.unlabelSuspicious) throw new Error("This provider cannot remove security labels");
     await provider.unlabelSuspicious(token, entry.undo.ids);
+    for (const address of entry.undo.fromAddresses ?? []) await provider.releaseSender?.(token, address);
   } else if (entry.undo.via === "unsort" && entry.undo.labelName) {
     if (!provider.unlabelMessages) throw new Error("This provider cannot remove labels");
     if (entry.undo.fromAddress) await provider.unkeepSorted?.(token, entry.undo.fromAddress);

@@ -102,6 +102,7 @@ vi.mock("./lib/providers/gmailProvider", () => ({
     getAuthToken: () => Promise.resolve("gmail-token"),
     screenSender: vi.fn(),
     labelSuspicious: vi.fn(),
+    holdSender: vi.fn(),
   },
 }));
 vi.mock("./lib/providers/outlookProvider", () => ({
@@ -360,6 +361,23 @@ describe("auto-quarantine (opt-in)", () => {
       for (const k of Object.keys(SETTINGS)) delete (SETTINGS as Record<string, unknown>)[k];
       Object.assign(SETTINGS, saved);
     }
+  });
+
+  it("adds a Gmail filter so a stranger's next scam is held on arrival, with Chrome closed", async () => {
+    const { gmailProvider } = await import("./lib/providers/gmailProvider");
+    const holdSender = (gmailProvider as unknown as { holdSender: ReturnType<typeof vi.fn> }).holdSender;
+    holdSender.mockClear();
+    await triageWith(highRiskSender("stranger@gmail.com"), []);
+    expect(holdSender).toHaveBeenCalledWith("gmail-token", "stranger@gmail.com");
+    // Already filtered: no second filter.
+    holdSender.mockClear();
+    await triageWith(highRiskSender("stranger@gmail.com"), [], {
+      quarantinedSenders: { "gmail:stranger@gmail.com": { at: 1, messageIds: ["old"], filtered: true } },
+    });
+    expect(holdSender).not.toHaveBeenCalled();
+    // Someone the user writes to never gets a sender-wide filter.
+    await triageWith(highRiskSender("friend@gmail.com"), ["friend@gmail.com"]);
+    expect(holdSender).not.toHaveBeenCalled();
   });
 
   it("also sends held mail to Spam when that rule is on", async () => {

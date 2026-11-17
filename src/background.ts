@@ -355,6 +355,20 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
 
     try {
       await provider.labelSuspicious(token, ids, rules.toSpam);
+      // Their next email is held by Gmail itself on arrival, Chrome open or not.
+      // Only strangers: a contact's hijacked email is held message by message.
+      // shortcut: no cap on these filters (Gmail allows 1,000), add one if scam senders pile up.
+      const filtered: SenderSummary[] = [];
+      for (const sender of providerTargets) {
+        if (!provider.holdSender || known.has(sender.address.toLowerCase())) continue;
+        if (settings.quarantinedSenders[sender.key]?.filtered) continue;
+        try {
+          await provider.holdSender(token, sender.address);
+          filtered.push(sender);
+        } catch (err) {
+          log.error("Could not add a hold filter", sender.address, err);
+        }
+      }
       const now = Date.now();
       await appendActionLog([
         {
@@ -362,7 +376,7 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
           at: now,
           kind: "labelSuspicious",
           summary: `Auto-quarantined ${ids.length} message${ids.length === 1 ? "" : "s"} from ${providerTargets.length} high-risk sender${providerTargets.length === 1 ? "" : "s"}`,
-          undo: { provider: providerId, ids, via: "unlabel-suspicious" },
+          undo: { provider: providerId, ids, via: "unlabel-suspicious", fromAddresses: filtered.map((f) => f.address) },
         },
       ]);
       const batch = heldBatch(providerTargets, idsBySender);
@@ -375,7 +389,11 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
             [...idsBySender].map(([key, senderIds]) => [
               key,
               // Keep earlier holds for this sender: the review queue releases all of them.
-              { at: now, messageIds: [...new Set([...(current.quarantinedSenders[key]?.messageIds ?? []), ...senderIds])] },
+              {
+                at: now,
+                messageIds: [...new Set([...(current.quarantinedSenders[key]?.messageIds ?? []), ...senderIds])],
+                filtered: current.quarantinedSenders[key]?.filtered || filtered.some((f) => f.key === key),
+              },
             ]),
           ),
         },

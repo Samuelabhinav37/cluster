@@ -8,11 +8,13 @@ import {
 } from "./categoryFilters";
 import type { ClusterSettings } from "./settingsStore";
 import { DEFAULT_INBOX_HOURS } from "./sortTaxonomy";
+import { HOLD_HOURS } from "./newsletterDay";
 
 function settings(autoSort: Partial<ClusterSettings["autoSort"]> = {}, extra: Partial<ClusterSettings> = {}) {
   return {
     sortOverrides: {},
     labelChoices: {},
+    newsletterDay: { enabled: false, lastDelivered: 0 },
     ...extra,
     autoSort: {
       enabledBuckets: [],
@@ -50,6 +52,18 @@ describe("desiredCategoryFilters", () => {
     expect(specs.map((s) => s.bucket)).toContain("otp");
     expect(specs.find((s) => s.bucket === "otp")).toMatchObject({ labelName: "🔑 One-time codes", fileOut: false });
     expect(specs.find((s) => s.bucket === "promotions")?.fileOut).toBe(true);
+  });
+
+  it("files newsletters held for their delivery day on arrival, with no sweep needed", () => {
+    const hold = (enabled: boolean) =>
+      desiredCategoryFilters(
+        settings(
+          { timeLimitsEnabled: true, inboxHoursByBucket: { ...DEFAULT_INBOX_HOURS, newsletter: HOLD_HOURS } },
+          { newsletterDay: { enabled, lastDelivered: 0 } } as Partial<ClusterSettings>,
+        ),
+      ).find((s) => s.bucket === "newsletter")?.fileOut;
+    expect(hold(true)).toBe(true);
+    expect(hold(false)).toBe(false);
   });
 
   it("lets any label skip the inbox on arrival, and a label kept in the inbox stay", () => {

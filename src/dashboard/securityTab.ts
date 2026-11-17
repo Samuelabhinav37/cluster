@@ -203,6 +203,7 @@ export function renderQuarantineReview(senders: SenderSummary[] = []) {
         try {
           const token = await provider.getAuthToken(false);
           await provider.unlabelSuspicious(token, record.messageIds);
+          await provider.releaseSender?.(token, address);
           ctx.settings = await mutateSettings((current) => ({
             ...current,
             quarantineReview: recordQuarantineVerdict(current.quarantineReview, key, "released"),
@@ -478,6 +479,9 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict, allSenders: Se
   genuine.title = "Cluster will remember this sender";
   genuine.onclick = async () => {
     genuine.disabled = true;
+    // A hold filter would keep catching them after "It's fine".
+    const token = await provider?.getAuthToken(false).catch(() => null);
+    if (token) await provider?.releaseSender?.(token, sender.address).catch((err) => log.error("Could not remove a hold filter", err));
     ctx.settings = await mutateSettings((current) => ({
       ...current,
       quarantineReview: recordQuarantineVerdict(current.quarantineReview, sender.key, "released"),
