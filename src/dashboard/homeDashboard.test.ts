@@ -10,7 +10,6 @@ import {
   mailByKind,
   paintHomeRead,
   renderHomeDashboard,
-  renderScanCard,
   sweepLine,
   receivedInRange,
   gmailDayUrl,
@@ -18,7 +17,6 @@ import {
   receivedStats,
   type HomeFacts,
 } from "./homeDashboard";
-import { newScan } from "../lib/scanState";
 
 const NOW = Date.UTC(2026, 9, 17);
 const DAY = 24 * 60 * 60 * 1000;
@@ -338,52 +336,6 @@ describe("sweepLine", () => {
     const stale = sweepLine(NOW - 31 * 60000, NOW)!;
     expect(stale.className).toContain("ov-stale");
     expect(stale.textContent).toMatch(/^Inbox not checked since /);
-  });
-});
-
-describe("renderScanCard", () => {
-  const rows = [
-    { name: "Receipts", icon: "receipt", count: 12, href: "https://mail.google.com/r" },
-    { name: "Shopping", icon: "bag", count: 40, href: "https://mail.google.com/s" },
-    { name: "Travel", icon: "plane", count: 0, href: "https://mail.google.com/t" },
-  ];
-  const on = () => ({ rescan: vi.fn(), dismiss: vi.fn(), unsortedHref: "https://mail.google.com/u" });
-
-  it("while labelling: a title, the count, a bar, no Rescan", () => {
-    const card = renderScanCard({ ...newScan(NOW), phase: "labelling", done: 30, total: 120 }, rows, on());
-    expect(card.querySelector(".scan-head")!.textContent).toBe("Labelling your mail");
-    expect(card.querySelector(".read-nums")!.textContent).toBe("30of 120 emails");
-    expect(card.querySelector(".read-track")!.getAttribute("aria-valuenow")).toBe("30");
-    expect(card.querySelector("button")).toBeNull();
-    expect(card.querySelector(".scan-rows")).toBeNull();
-  });
-
-  it("with every email read, says sent mail is being read rather than sitting at 120 of 120", () => {
-    const card = renderScanCard({ ...newScan(NOW), phase: "reading", done: 120, total: 120 }, rows, on());
-    expect(card.querySelector(".scan-head")!.textContent).toBe("Reading sent mail");
-    expect(card.querySelector(".read-nums")).toBeNull();
-  });
-
-  it("a stalled run says why and gets Rescan and close mid-scan, so the card can't stick", () => {
-    const actions = on();
-    const text = "Stopped while labelling new mail, with no sign of life for 10 minutes.";
-    const card = renderScanCard({ ...newScan(NOW), phase: "labelling" }, rows, { ...actions, note: { text, stuck: true } });
-    expect(card.querySelector(".scan-note")!.textContent).toBe(text);
-    card.querySelector<HTMLButtonElement>(".scan-close")!.click();
-    expect(actions.dismiss).toHaveBeenCalled();
-  });
-
-  it("when done: the total, label rows biggest first linking to Gmail, No label, Rescan and close", () => {
-    const actions = on();
-    const card = renderScanCard({ ...newScan(NOW), phase: "done", unsorted: 7 }, rows, actions);
-    expect(card.querySelector(".scan-head b")!.textContent).toBe("52 labelled · 7 with no label");
-    const names = Array.from(card.querySelectorAll(".scan-rows .grow")).map((x) => x.textContent);
-    expect(names).toEqual(["Shopping", "Receipts", "No label"]);
-    expect(card.querySelector<HTMLAnchorElement>(".scan-rows a")!.href).toBe("https://mail.google.com/s");
-    card.querySelector<HTMLButtonElement>(".scan-head .btn")!.click();
-    card.querySelector<HTMLButtonElement>(".scan-close")!.click();
-    expect(actions.rescan).toHaveBeenCalled();
-    expect(actions.dismiss).toHaveBeenCalled();
   });
 });
 

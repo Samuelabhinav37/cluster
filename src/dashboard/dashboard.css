@@ -1900,7 +1900,7 @@ body[data-screen="setup"] .index-status {
 
 /* Lined up with the sign-in screens (.wel): same top, same centred 600px header. */
 .onb-side { display: flex; flex-direction: column; align-items: center; padding: 8px 0 0; }
-.onb-top { align-self: center; width: min(640px, 100%); }
+.onb-top { align-self: center; width: min(560px, 100%); }
 .onb-skip { min-height: 0; padding: 6px 10px; border: 0; border-radius: 8px; background: none; font: 500 13px/1 var(--font); color: var(--label-4); }
 .onb-skip:hover { color: var(--label); background: var(--neutral-fill); }
 /* A fixed top, so rows leaving the practice inbox don't move the buttons. */
@@ -3227,15 +3227,15 @@ select:not([multiple]):hover { background-color: var(--neutral-fill-hover); }
 .read-track { height: 8px; border-radius: 4px; background: var(--neutral-fill); overflow: hidden; }
 .read-track i { display: block; height: 100%; border-radius: 4px; background: var(--accent); transition: width 0.4s linear; }
 .home-read .home-words { flex: 1; max-width: 640px; }
-.scan-line { margin: 10px 0 0; color: var(--label-2); font-size: 13px; font-variant-numeric: tabular-nums; }
+
 @keyframes scan-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent); } }
-.scan-card { margin-bottom: 18px; padding: 18px; border: 1px solid var(--separator); border-radius: 16px; background: var(--glass); }
-.scan-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.scan-head b { flex: 1; font: 600 20px/1.2 var(--font-display); font-variant-numeric: tabular-nums; }
-.scan-close { width: 28px; height: 28px; border: 0; border-radius: 50%; background: var(--neutral-fill); color: var(--label-2); font-size: 16px; cursor: pointer; }
-.scan-rows { margin-top: 12px; }
-.scan-rows .ios-row { color: inherit; text-decoration: none; }
-.scan-rows .ios-value { font-variant-numeric: tabular-nums; }
+
+
+
+
+
+
+
 body[data-screen="overview"] #index-status.home-shows { display: none; }
 @media (max-width: 760px) {
   
@@ -3589,8 +3589,8 @@ tr:hover .ct-name::before { background: color-mix(in srgb, var(--label-4) 30%, t
 /* Labels: Gmail's tag mark in the label's color, as in Gmail's sidebar. */
 .gl-tag { display: inline-grid; place-items: center; width: 30px; height: 30px; flex: none; color: var(--label-4); }
 .gl-tag svg { width: 22px; height: 22px; fill: currentColor; }
-.scan-rows .gl-tag { width: 24px; height: 24px; }
-.scan-rows .gl-tag svg { width: 20px; height: 20px; }
+
+
 /* Sort inbox lives in the top bar; Labels only shows its confirm and progress. */
 #sort-inbox-count, #sort-inbox-slot > #sort-inbox-btn { display: none; }
 #sort-inbox-bar:has(#sort-inbox-slot > #sort-inbox-btn:only-child) { display: none; }
@@ -3948,12 +3948,10 @@ body { background: var(--canvas); }
 .ios-row select:hover, .ios-row select:focus-visible { background-color: var(--neutral-fill); color: var(--label); }
 
 /* Overview while reading or labelling: the progress card alone, no second bar. */
-.is-scanning > :not(#scan-card) { display: none; }
-body.ov-scanning[data-screen="overview"] #index-status { display: none; }
-.scan-card .read-nums, .home-read .read-nums { display: flex; align-items: baseline; gap: 6px; margin: 4px 0 12px; }
-.scan-card .read-done, .home-read .read-done { font: 700 34px/1.1 var(--font-display); letter-spacing: -0.025em; font-variant-numeric: tabular-nums; }
-.scan-card .read-of, .home-read .read-of { color: var(--label-4); font-size: 15px; }
-.scan-card .scan-line { color: var(--label-4); }
+.home-read .read-nums { display: flex; align-items: baseline; gap: 6px; margin: 4px 0 12px; }
+.home-read .read-done { font: 700 34px/1.1 var(--font-display); letter-spacing: -0.025em; font-variant-numeric: tabular-nums; }
+.home-read .read-of { color: var(--label-4); font-size: 15px; }
+
 
 /* Mail received, after Apple's analytics cards: title and range, the total,
    a bar a day, solid rules across with the scale on the right, dashed lines
@@ -3974,7 +3972,7 @@ body.ov-scanning[data-screen="overview"] #index-status { display: none; }
 .mr-x.is-first { color: var(--label); font-weight: 600; }
 
 /* This week rows carry the Labels page's tag and icon. */
-.scan-card { border-color: transparent; border-radius: 12px; padding: 20px 24px; }
+
 
 
 /* The first read uses the same card as a sort. */
@@ -4814,3 +4812,39 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
   .ss-row { animation-name: onb-fade; }
   .ss-tag, .ss-tag.in { transform: none; transition: opacity 0.2s; }
 }
+
+/* Setup, quieter (after thentherewasus.co.uk): one screen fits without scrolling,
+   a small Kai beside its words, medium weights, small buttons, lists not cards. */
+.onb-pane { width: min(560px, 100%); margin: clamp(16px, 5vh, 48px) auto 24px; }
+.onb-pane .onb-body { gap: 20px; }
+.onb-pane .onb-title { font: 500 30px/1.15 var(--font); letter-spacing: -0.015em; }
+.onb-kai-row { margin: 0 0 32px; gap: 12px; align-items: center; }
+.onb-pane .wel-kai { width: 72px; height: 72px; }
+.onb-pane.is-hello .onb-kai-row { margin: 4vh 0 56px; }
+.onb-pane.is-hello .wel-kai { width: 120px; height: 120px; margin-top: 8px; }
+.onb-pane .onb-bubble { font-size: 15px; }
+.onb-pane .wel-go, .onb-pane.is-hello .wel-go { width: auto; min-width: 0; height: 44px; padding: 0 22px; border-radius: 10px; font: 500 15px/1 var(--font); box-shadow: none; align-self: flex-start; }
+.onb-pane.is-hello .wel-go { align-self: center; }
+.onb-pane .wel-go:active:not(:disabled) { transform: scale(0.98); }
+.onb-pane .onb-actions { position: static; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; padding: 4px 0 0; background: none; }
+.onb-pane .onb-btn.onb-wide { width: auto; height: 44px; padding: 0 18px; border-radius: 10px; font: 500 15px/1 var(--font); }
+.onb-pane .onb-link { margin-left: 4px; }
+.onb-pane .lbl-demo { padding: 4px 0; }
+
+/* "I found these": one line per label, its companies beside it. */
+.onb-pane .board { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--separator); }
+.onb-pane .board-col { display: grid; grid-template-columns: minmax(150px, 38%) 1fr; align-items: center; gap: 12px; min-height: 0; padding: 9px 8px; border: 0; border-bottom: 1px solid var(--separator); border-radius: 0; background: none; animation: onb-rise 0.4s var(--ease-out) both; }
+.onb-pane .board-col:nth-child(2) { animation-delay: 50ms; } .onb-pane .board-col:nth-child(3) { animation-delay: 100ms; }
+.onb-pane .board-col:nth-child(4) { animation-delay: 150ms; } .onb-pane .board-col:nth-child(5) { animation-delay: 200ms; }
+.onb-pane .board-col:nth-child(6) { animation-delay: 250ms; } .onb-pane .board-col:nth-child(n + 7) { animation-delay: 300ms; }
+.onb-pane .board.editing .board-col { border-color: var(--separator); }
+.onb-pane .board-col.over, .onb-pane .board.picking .board-col:hover { background: var(--neutral-fill); border-radius: 8px; }
+.onb-pane .board-head { font: 500 14px/1.2 var(--font); color: var(--label-2); }
+.onb-pane .board-emoji { font-size: 15px; }
+.onb-pane .board-chips { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+.onb-pane .board-chip { gap: 7px; padding: 3px 10px 3px 3px; border-radius: 999px; font: 500 13px/1.2 var(--font); background: var(--glass); }
+
+/* The scan list a little tighter, so it fits with Kai and the bar. */
+.ss-list { min-height: 300px; gap: 6px; }
+.ss-row { padding: 10px 14px; }
+@media (max-height: 760px) { .onb-kai-row { margin-bottom: 16px; } .onb-pane .onb-body { gap: 16px; } }

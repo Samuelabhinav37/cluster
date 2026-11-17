@@ -113,11 +113,15 @@ function kaiNarrator() {
   row.append(kaiHost, words);
   const kai: KaiInstance | null =
     ctx.settings.showKai && typeof window.Kai === "function"
-      ? window.Kai(kaiHost, { src: "/characters/", imgWidth: 320, calm: true })
+      ? // Not calm: in setup Kai floats, breathes and glances around while it talks.
+        window.Kai(kaiHost, { src: "/characters/", imgWidth: 320 })
       : null;
   if (!kai) kaiHost.hidden = true;
   let typing = 0;
   let last = "";
+  // A small move with each line, so Kai talks with its body as well as the bubble.
+  const GESTURES: KaiAction[] = ["nodSmall", "tilt", "nod", "lookAround"];
+  let gesture = 0;
 
   const speak = (text: string) => {
     if (!canSpeak || !voiceOn) return;
@@ -149,6 +153,7 @@ function kaiNarrator() {
       if (kai) {
         if (mood) kai.setMood(mood, 2400);
         kai.talk(Math.min(3000, text.length * 45));
+        if (!reduced) kai.do(GESTURES[gesture++ % GESTURES.length]);
       }
       speak(text);
       bubble.classList.remove("pop");
@@ -179,6 +184,9 @@ function kaiNarrator() {
     },
     pointAt(target: Element | null) {
       if (target) kai?.pointAt(target);
+    },
+    look(target: Element) {
+      kai?.lookAt(target);
     },
     stop() {
       clearInterval(typing);
@@ -309,7 +317,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   };
 
   function renderHello(body: HTMLElement) {
-    body.append(el("h1", "onb-title", name() ? `You're in, ${name()}!` : "You're in!"));
+    body.append(el("h1", "onb-title", name() ? `You're in, ${name()}.` : "You're in."));
     body.append(primary("Show me", () => goTo(at + 1)));
   }
 
@@ -382,6 +390,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       streamed.add(key);
       const { li, tag, spot, emoji } = scanRow(m);
       list.prepend(li);
+      kai.look(li);
       while (list.children.length > 5) list.lastElementChild?.remove();
       requestAnimationFrame(() => tag.classList.add("in"));
       // Kai explains the first label and the first person, once each.
@@ -471,7 +480,8 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   }
 
   function renderBoard(): HTMLElement {
-    const spots: BoardSpot[] = [...new Set(found.map((p) => p.guess)), "keep"];
+    const keepUsed = changing || found.some((p) => spotOf(p) === "keep");
+    const spots: BoardSpot[] = [...new Set(found.map((p) => p.guess)), ...(keepUsed ? (["keep"] as const) : [])];
     const board = el("div", `board${changing ? " editing" : ""}${selected ? " picking" : ""}`);
     for (const spot of spots) {
       const { emoji, name: label } = spotParts(spot);
@@ -718,7 +728,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     if (!scanned || STEPS[at] !== "scan" || ctx.settings.setupDone) return;
     later(Math.max(0, 5000 - (Date.now() - scanEnteredAt)), () => {
       window.clearTimeout(streamTimer);
-      kai.say("Done! Let me group them for you.", "joyful");
+      kai.say("Done. Let me group them for you.", "joyful");
       later(1400, () => goTo(at + 1));
     });
   }

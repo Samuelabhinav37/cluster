@@ -3,11 +3,9 @@
 // Facts are computed here from the scan; the dashboard supplies the counts it
 // already has.
 
-import { readTimeText } from "../lib/gmailQuotaLedger";
 import { senderTile } from "./senderTile";
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 import { clearedCount, type ActionLogEntry } from "../lib/actionLog";
-import type { ScanState } from "../lib/scanState";
 import type { SortBucket } from "../lib/sortTaxonomy";
 import { infoButton } from "./ui";
 import { niceStep } from "./cleanupPage";
@@ -493,15 +491,6 @@ export function paintHomeRead(
     `${total > 0 ? Math.min(100, (done / total) * 100) : 0}%`;
 }
 
-export interface ScanRow {
-  name: string;
-  icon?: string;
-  color?: { backgroundColor: string; textColor: string };
-  count: number;
-  /** The label's inbox mail in Gmail, to check what landed there. */
-  href: string;
-}
-
 /** Gmail's own label mark: the Material "label" tag (Apache-2.0), filled in
  * the label's Gmail color, as in Gmail's sidebar. */
 export function gmailLabelIcon(color?: string): HTMLElement {
@@ -515,90 +504,6 @@ export function gmailLabelIcon(color?: string): HTMLElement {
   svg.append(path);
   mark.append(svg);
   return mark;
-}
-
-/** Labelling after a read: live counts per label, then what landed where. */
-export function renderScanCard(
-  scan: ScanState,
-  rows: readonly ScanRow[],
-  on: {
-    rescan(): void;
-    dismiss(): void;
-    unsortedHref: string;
-    reading?: boolean;
-    /** The last run's report when it failed or stalled (runReport.describeRun).
-     * A stalled run gets Label again and × even mid-scan, so the card can't stick. */
-    note?: { text: string; stuck?: boolean };
-  },
-): HTMLElement {
-  const card = el("section", "scan-card");
-  card.id = "scan-card";
-  const done = scan.phase === "done";
-  const reading = scan.phase === "reading";
-  const sorted = rows.reduce((sum, r) => sum + r.count, 0);
-  const head = el("div", "scan-head");
-  // What is still in the inbox leads: "labelled" alone read as finished.
-  const left = done && scan.unsorted > 0 ? ` · ${n(scan.unsorted)} with no label` : "";
-  const sentMail = reading && scan.total > 0 && scan.done >= scan.total;
-  head.append(el("b", "", done ? `${n(sorted)} labelled${left}` : sentMail ? "Reading sent mail" : reading ? "Reading your mail" : "Labelling your mail"));
-  if (done || on.note?.stuck) {
-    // It labels the mail again (a sort), not Check mail, so it says so.
-    const again = el("button", "btn", "Label again");
-    again.type = "button";
-    again.onclick = on.rescan;
-    const close = el("button", "scan-close", "×");
-    close.type = "button";
-    close.setAttribute("aria-label", "Close");
-    close.onclick = on.dismiss;
-    head.append(again, close);
-  }
-  card.append(head);
-  if (on.note) card.append(el("p", "scan-line scan-note", on.note.text));
-  if (!done) {
-    // One big count, the bar, and the time left. Sent mail has no total to show.
-    if (!sentMail && scan.total > 0) {
-      const nums = el("div", "read-nums");
-      nums.append(el("b", "read-done", n(scan.done)), el("span", "read-of", `of ${n(scan.total)} emails`));
-      card.append(nums);
-    }
-    const track = el("div", "read-track");
-    track.setAttribute("role", "progressbar");
-    track.setAttribute("aria-label", reading ? "Emails read" : "Emails labelled");
-    track.setAttribute("aria-valuenow", String(scan.done));
-    track.setAttribute("aria-valuemax", String(Math.max(scan.done, scan.total)));
-    const fill = el("i", "");
-    fill.style.width = `${scan.total > 0 ? Math.min(100, (scan.done / scan.total) * 100) : 0}%`;
-    track.append(fill);
-    card.append(track);
-    if (reading && scan.total > scan.done) {
-      const t = readTimeText(scan.total - scan.done);
-      card.append(el("p", "scan-line", `${t.charAt(0).toUpperCase()}${t.slice(1)} left`));
-    }
-    // Rows popping in and reordering mid-run looked messy: show them once, at the end.
-    return card;
-  }
-  const list = el("div", "ios-group scan-rows");
-  for (const r of [...rows].filter((x) => x.count > 0).sort((a, b) => b.count - a.count)) {
-    const row = el("a", "ios-row");
-    row.href = r.href;
-    row.target = "_blank";
-    row.rel = "noopener";
-    const mark = gmailLabelIcon(r.color?.backgroundColor);
-    row.append(mark, el("span", "grow", r.name), el("span", "ios-value", n(r.count)));
-    list.append(row);
-  }
-  if (done && scan.unsorted > 0) {
-    const row = el("a", "ios-row");
-    row.href = on.unsortedHref;
-    row.target = "_blank";
-    row.rel = "noopener";
-    const mark = el("span", "app-ic");
-    mark.append(icon("inbox"));
-    row.append(mark, el("span", "grow", "No label"), el("span", "ios-value", n(scan.unsorted)));
-    list.append(row);
-  }
-  if (list.childElementCount > 0) card.append(list);
-  return card;
 }
 
 /** One widget: title, (i), optional badge, then its chart; the whole widget opens its page. */

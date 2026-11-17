@@ -133,8 +133,6 @@ export async function refreshGmailCounts(): Promise<boolean> {
   }
 }
 
-/** Gmail's count of a label, once it has answered. */
-export const gmailCount = (bucket: SortBucket): number | undefined => gmailCounts.get(bucket);
 
 /** The muted number on a label's row: Gmail's count, else what Sort would label now. */
 export function labelCount(bucket: SortBucket): number {

@@ -12,7 +12,7 @@ import {
   type ExpiryBucket,
 } from "../lib/expiryTriage";
 import { buildProtectionContext, idsSafeToMoveOut } from "../lib/protectionPolicy";
-import { CLUSTER_LABEL_COLORS, clusterLabelName, showLabel } from "../lib/clusterLabels";
+import { clusterLabelName, showLabel } from "../lib/clusterLabels";
 import { categoryLabelName } from "../lib/categoryFilters";
 import { learnFromLabelMoves, readLabeller, runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
 import { getScan, newScan, onScanChange, setScan, type ScanState } from "../lib/scanState";
@@ -61,8 +61,6 @@ import { jobCard, renderSortInbox, wireSortInbox } from "./sortInbox";
 import { maybeShowLabelTidyCard } from "./labelTidy";
 import {
   presetSwitch,
-  gmailCount,
-  refreshGmailCounts,
   renderPresets,
   renderTimeLimits,
   setPresetActions,
@@ -121,7 +119,6 @@ import {
   paintHomeRead,
   renderHomeDashboard,
   STALE_SWEEP_MS,
-  renderScanCard,
   filedByDay,
   type HomeAct,
   type HomeFacts,
@@ -1072,58 +1069,30 @@ async function readFinished(): Promise<boolean> {
   return state?.complete === true;
 }
 
-function gmailSearchUrl(q: string): string {
-  return `https://mail.google.com/mail/u/0/#search/${encodeURIComponent(q)}`;
-}
-
 function paintScanCard() {
-  const old = document.getElementById("scan-card");
-  // The first-read block already shows this read: one progress bar, not two.
-  const firstRead = scan?.phase === "reading" && overviewContentEl.querySelector(".home-read");
-  if (!scan || !ctx.settings || scan.dismissed || !overviewContentEl.isConnected || firstRead) {
-    old?.remove();
-    overviewContentEl.classList.remove("is-scanning");
-    document.body.classList.remove("ov-scanning");
-    return;
-  }
-  const names =ALL_SORT_BUCKETS.filter((b) => !ctx.settings.autoSort.labelsOff.includes(b)).map(
-    (b) => [b, categoryLabelName(b, ctx.settings.labelChoices)] as const,
-  );
-  const rows = names.map(([bucket, label]) => ({
-    name: showLabel(label),
-    color: CLUSTER_LABEL_COLORS[bucket],
-    // Gmail's own totals once the scan is done, so the card matches Labels and Gmail.
-    count: (scan!.phase === "done" ? gmailCount(bucket) : undefined) ?? scan!.byBucket[bucket] ?? 0,
-    href: gmailSearchUrl(`label:"${label.replace(/"/g, "")}"`),
-  }));
+  // Labelling reports in the sidebar card, like Check mail and Sort; the Dashboard stays as it is.
+  if (!scan || !ctx.settings || scan.dismissed || scan.phase === "reading") return;
   const note =
-    lastRun && lastRun.startedAt >= scan.startedAt && ["partial", "failed", "stalled"].includes(lastRun.status)
-      ? { text: describeRun(lastRun), stuck: lastRun.status === "stalled" }
-      : undefined;
-  // A finished scan that labelled nothing has nothing to say: no card (Rescan stays in the top bar).
-  if (scan.phase === "done" && !note && scan.unsorted === 0 && rows.every((r) => r.count === 0)) {
-    old?.remove();
-    overviewContentEl.classList.remove("is-scanning");
-    document.body.classList.remove("ov-scanning");
+    lastRun && lastRun.startedAt >= scan.startedAt && lastRun.status === "stalled" ? describeRun(lastRun) : undefined;
+  if (note) {
+    jobCard({
+      title: "Labelling stopped",
+      line: note,
+      finished: true,
+      action: { label: "Label again", run: () => void startLabelScan() },
+    });
     return;
   }
-  const card = renderScanCard(scan, rows, {
-    rescan: () => {
-      chrome.permissions?.request({ permissions: ["notifications"] }).catch(() => {});
-      void startLabelScan();
-    },
-    dismiss: () => void setScan({ dismissed: true }),
-    reading: indexRuns.size > 0,
-    note,
-    unsortedHref: gmailSearchUrl(`in:inbox ${names.map(([, l]) => `-label:"${l.replace(/"/g, "")}"`).join(" ")}`),
+  if (scan.phase !== "done") return;
+  const labelled = Object.values(scan.byBucket).reduce((n, c) => n + (c ?? 0), 0);
+  // Said once, then closed, so opening Cluster later doesn't repeat it.
+  void setScan({ dismissed: true });
+  if (labelled === 0 || Date.now() - scan.finishedAt > 60_000) return;
+  jobCard({
+    title: `Labelled ${labelled.toLocaleString()} email${labelled === 1 ? "" : "s"}`,
+    line: scan.unsorted > 0 ? `${scan.unsorted.toLocaleString()} have no label` : undefined,
+    finished: true,
   });
-  if (old) old.replaceWith(card);
-  else overviewContentEl.prepend(card);
-  const busy = scan.phase !== "done";
-  overviewContentEl.classList.toggle("is-scanning", busy);
-  document.body.classList.toggle("ov-scanning", busy);
-  // Resolves false inside its 5-minute window, so this repaints once per read.
-  if (scan.phase === "done") void refreshGmailCounts().then((fresh) => fresh && paintScanCard());
 }
 
 /** Says reading finished, and marks the tab with a dot until you look at it. */

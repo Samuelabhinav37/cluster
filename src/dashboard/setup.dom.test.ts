@@ -59,7 +59,7 @@ describe("first-run setup", () => {
         mail("f1", "friend@gmail.com", "Friend", "dinner?"),
       ],
     });
-    expect(title()).toBe("You're in, Samuel!");
+    expect(title()).toBe("You're in, Samuel.");
     await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toContain("Hi Samuel! I'm Kai."), { timeout: 3000 });
     await toFound(dash);
     expect(title()).toBe("I found these");
