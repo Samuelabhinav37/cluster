@@ -195,5 +195,5 @@ Kept in the code, no new work: Outlook, Athena events, the Today email, newslett
 ## Decisions for you
 
 - **A. Categories on Overview:** show the labels themselves, or four groups (People, Receipts and orders, Updates, Marketing) that each list their labels?
-- **B. Phishing hold default:** on for every new user (recommended), or asked in setup?
-- **C. Screener:** keep holding first-time senders (HEY style), or label them by rule and only screen strangers on free mail?
+- **B. Phishing hold default:** DECIDED 2026-11-18: on for every new user (step 3.1).
+- **C. Screener:** DECIDED 2026-11-18: hold every first-time sender for now (HEY style).
