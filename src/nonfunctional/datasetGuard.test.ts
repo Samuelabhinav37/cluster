@@ -15,10 +15,10 @@ describe("weekly list refresh guard (plan step 3.5)", () => {
     ]);
   });
 
-  it("stops a block list that would catch a known-good domain or its subdomain", () => {
-    const after = [...list(10), "gmail.com", "mail.paypal.com"];
-    expect(guardProblems({ Spam: { before: list(10), after, block: true } }, ["gmail.com", "paypal.com"])).toEqual([
-      "Spam would block known-good domains: gmail.com, mail.paypal.com",
+  it("stops a block list entry that is a known-good domain or covers one", () => {
+    const after = [...list(10), "gmail.com", "co.uk", "agent.qq.com"];
+    expect(guardProblems({ Spam: { before: list(10), after, block: true } }, ["gmail.com", "bbc.co.uk", "qq.com"])).toEqual([
+      "Spam would block known-good domains: gmail.com, co.uk",
     ]);
   });
 

@@ -24,7 +24,13 @@ export function guardProblems(lists, protectedDomains) {
       problems.push(`${name} shrank from ${before.length} to ${after.length} (more than ${MAX_SHRINK * 100}%)`);
     }
     if (!block) continue;
-    const bad = after.filter((d) => keep.has(d.toLowerCase()) || [...keep].some((k) => d.toLowerCase().endsWith(`.${k}`)));
+    // An entry blocks itself and its subdomains (spamList walks parents), so
+    // it's bad when it is a protected domain or a parent of one. agent.qq.com
+    // listed doesn't touch qq.com.
+    const bad = after.filter((d) => {
+      const entry = d.toLowerCase();
+      return keep.has(entry) || [...keep].some((k) => k.endsWith(`.${entry}`));
+    });
     if (bad.length > 0) problems.push(`${name} would block known-good domains: ${bad.slice(0, 10).join(", ")}`);
   }
   return problems;
