@@ -8,6 +8,8 @@ import type { MessageKind } from "./messageKind";
 import type { SenderSummary } from "./senderModel";
 import { ALL_SORT_BUCKETS, type SortBucket, type SortOverride } from "./sortTaxonomy";
 import { senderVerdict, type VerdictTier } from "./verdict";
+import { wroteToSet } from "./screener";
+import type { ClusterSettings } from "./settingsStore";
 
 /** Where an email goes. null: it stays in the inbox. */
 export type Place = SortBucket | "personal" | "screener" | "spam" | null;
@@ -71,4 +73,20 @@ function decideWith(sender: SenderSummary, lctx: LimitContext): Map<string, Emai
     }
   }
   return new Map(sender.messages.map((m) => [m.id, { kind: m.kind, place: place.get(m.id) ?? null, risk: verdict.tier }]));
+}
+
+/** The engine's context from the user's settings. */
+export function engineContext(settings: ClusterSettings): EngineContext {
+  return {
+    wrote: wroteToSet(settings),
+    letIn: new AddressSet(settings.screenerAllowlist),
+    overrides: settings.sortOverrides,
+    holdPeople: settings.screenerHoldPeople,
+  };
+}
+
+/** The sort label an email gets, or null (Personal, the Screener, Spam, the inbox). */
+export function sortLabelOf(decision: EmailDecision | undefined): SortBucket | null {
+  const place = decision?.place ?? null;
+  return place === "personal" || place === "screener" || place === "spam" ? null : place;
 }

@@ -2,11 +2,11 @@
 // goes, a chart of its emails each day and the Cleanup table of who sends them,
 // with Trash and Archive. After iCloud's CloudKit telemetry page: a title, a
 // range, the chart, then the rows behind it.
+import { decideAll, engineContext, sortLabelOf } from "../lib/mailEngine";
 import { CLUSTER_LABEL_COLORS, showLabel } from "../lib/clusterLabels";
 import { categoryLabelName } from "../lib/categoryFilters";
-import { domainOf } from "../lib/domainGrouping";
 import type { SenderSummary } from "../lib/senderModel";
-import { effectiveBucket, type SortBucket } from "../lib/sortTaxonomy";
+import type { SortBucket } from "../lib/sortTaxonomy";
 import { renderSenderTable, type SenderTableSpec } from "./cleanupPage";
 import { chartStats, dayChart, gmailUrl, receivedStats } from "./homeDashboard";
 import { ctx } from "./state";
@@ -49,12 +49,10 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text?
 /** Each sender's emails in this label within `range` days of `now`, most first. */
 export function labelMail(senders: readonly SenderSummary[], bucket: SortBucket, now: number, range: number) {
   const out: { sender: SenderSummary; ids: string[]; at: number[] }[] = [];
+  // The engine's label, the one the labeller gives in Gmail (engine step 3).
+  const decided = decideAll(senders, engineContext(ctx.settings));
   for (const s of senders) {
-    const mail = s.messages.filter(
-      (m) =>
-        now - m.receivedAt < range * DAY &&
-        effectiveBucket(m.kind, domainOf(s.address), s.address, ctx.settings.sortOverrides, m.promotion ?? m.tab === "promotions", m) === bucket,
-    );
+    const mail = s.messages.filter((m) => now - m.receivedAt < range * DAY && sortLabelOf(decided.get(m.id)) === bucket);
     if (mail.length) out.push({ sender: s, ids: mail.map((m) => m.id), at: mail.map((m) => m.receivedAt) });
   }
   return out.sort((a, b) => b.at.length - a.at.length);

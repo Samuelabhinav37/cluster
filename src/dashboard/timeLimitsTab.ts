@@ -4,6 +4,7 @@
 // straight away; the background alarm repeats it every 5
 // minutes (see lib/inboxTimeLimits.ts). Sort my inbox (sortInbox.ts) reads
 // the same menus for mail already here.
+import { decideAll, engineContext, sortLabelOf } from "../lib/mailEngine";
 import { categoryLabelName, syncGmailCategoryFilters } from "../lib/categoryFilters";
 import { runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
 import { log } from "../lib/log";
@@ -11,10 +12,9 @@ import { CLUSTER_LABEL_COLORS, showLabel } from "../lib/clusterLabels";
 import { colorClusterLabels, getLabel, listLabels } from "../lib/gmailApi";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { getSettings, mutateSettings, updateSettings } from "../lib/settingsStore";
-import { domainOf } from "../lib/domainGrouping";
 import { deliverNewsletters, HOLD_HOURS, newsletterDayOn } from "../lib/newsletterDay";
 import type { SenderSummary } from "../lib/senderModel";
-import { ALL_SORT_BUCKETS, effectiveBucket, type SortBucket } from "../lib/sortTaxonomy";
+import { ALL_SORT_BUCKETS, type SortBucket } from "../lib/sortTaxonomy";
 import { BUCKET_KIND, gmailLabelIcon, HOME_KINDS, icon } from "./homeDashboard";
 import { showLabelPage } from "./labelPage";
 import { ctx } from "./state";
@@ -400,10 +400,12 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 /** How many of each kind arrived in the last 7 days, by the sort taxonomy. */
 export function weeklyByBucket(senders: readonly SenderSummary[], now: number): Map<SortBucket, number> {
   const out = new Map<SortBucket, number>();
+  // The engine's label, the one the labeller gives in Gmail (engine step 3).
+  const decided = decideAll(senders, engineContext(ctx.settings));
   for (const s of senders) {
     for (const m of s.messages) {
       if (now - m.receivedAt >= WEEK_MS) continue;
-      const bucket = effectiveBucket(m.kind, domainOf(s.address), s.address, ctx.settings.sortOverrides, m.promotion ?? m.tab === "promotions", m);
+      const bucket = sortLabelOf(decided.get(m.id));
       if (bucket) out.set(bucket, (out.get(bucket) ?? 0) + 1);
     }
   }
