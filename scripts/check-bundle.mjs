@@ -55,7 +55,8 @@ const BUDGETS = {
   // 2026-11-06: 94 -> 125 KB for the Nov redesign (Plausible/Mercury pages), after
   // deleting 93 unused rules (129 -> 122 KB). What's left is all in use.
   // 2026-11-06: 125 -> 150 KB, room to keep building without raising it each round.
-  "dashboard CSS": 150 * KB,
+  // 2026-11-17: 150 -> 180 KB, user asked for room (was 149.5 KB).
+  "dashboard CSS": 180 * KB,
 };
 
 function file(name) {
