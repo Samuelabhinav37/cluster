@@ -3969,6 +3969,9 @@ body { background: var(--canvas); }
 .mr-bar { grid-row: 1; justify-self: center; width: 62%; min-height: 0; border-radius: 2px 2px 0 0; background: var(--accent); position: relative; z-index: 1; }
 .mr-bar:hover { filter: brightness(1.15); }
 .mr-xs { position: relative; height: 22px; margin-top: 6px; }
+/* A narrow chart (the Dashboard at laptop width) keeps every other date, so labels don't run together. */
+.mr-xs { container-type: inline-size; }
+@container (max-width: 380px) { .mr-x:nth-child(even) { display: none; } }
 .mr-x { position: absolute; transform: translateX(-50%); white-space: nowrap; color: var(--label-4); font-size: 12px; }
 .mr-x.is-first { color: var(--label); font-weight: 600; }
 
@@ -4053,7 +4056,7 @@ body { background: var(--canvas); }
 .lbl-mail { display: flex; align-items: center; gap: 14px; padding: 18px 20px; border-radius: 16px; background: var(--glass); box-shadow: 0 1px 0 var(--separator); }
 .lbl-mail .onb-words b { font-size: 16px; }
 .lbl-mail .onb-words small { font-size: 14px; color: var(--label-3); }
-.lbl-tag { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 8px 12px 8px 10px; border-radius: 999px; background: var(--neutral-fill); color: var(--label); font: 600 14px/1 var(--font); opacity: 0; transform: translateY(-48px) scale(1.25) rotate(-6deg); }
+.lbl-tag { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 8px 12px 8px 10px; border-radius: 999px; background: var(--neutral-fill); color: var(--label); font: 600 14px/1 var(--font); opacity: 0; transform: translateY(-18px) scale(1.2) rotate(-6deg); }
 .lbl-tag.in { opacity: 1; transform: none; transition: transform 0.6s var(--spring-snappy), opacity 0.25s; }
 .lbl-tag .gl-tag, .lbl-tag svg { width: 16px; height: 16px; }
 
@@ -4851,3 +4854,13 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .ss-list { min-height: 300px; gap: 6px; }
 .ss-row { padding: 10px 14px; }
 @media (max-height: 760px) { .onb-kai-row { margin-bottom: 16px; } .onb-pane .onb-body { gap: 16px; } }
+
+/* Page messages (offline, errors, Gmail limits): a small note centred at the bottom,
+   like .update-toast, not a full-width band that runs under Kai. */
+#status.index-status { position: fixed; z-index: 40; left: 50%; bottom: 24px; transform: translateX(-50%); width: max-content;
+  min-width: 280px; max-width: min(560px, calc(100vw - 240px)); margin: 0; padding: 10px 16px; border: 1px solid var(--hairline); border-radius: 12px;
+  background: var(--glass-solid, #2c2c2e); backdrop-filter: none; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28); font: 500 14px/1.4 var(--font); color: var(--label); }
+/* "I found these" fits a 720px screen: rows 32px tall instead of the 40px button default (still above 24px). */
+.onb-pane .board-head, .onb-pane .board-chip { min-height: 32px; }
+.onb-pane .board-col { padding: 4px 8px; }
+.onb:has(.board) { padding-bottom: 24px; }
