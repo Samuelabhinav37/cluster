@@ -93,7 +93,7 @@ import { isAuthCancelled } from "../lib/chromeError";
 import { pruneSelection, renderConfirmStep, runNow } from "./ui";
 import { buildCleanupCards } from "../lib/cleanupCards";
 import { createRangePicker } from "./rangePicker";
-import { barsSvg, downloadBytes, emailRows, emailsCsv, emailsXlsx, periodFacts, printReport, reportHtml, wireDownloadMenu, type ReportSpec } from "./reportDownload";
+import { barsSvg, downloadBytes, emailRows, emailsCsv, emailsXlsx, oneLine, periodFacts, printReport, reportHtml, wireDownloadMenu, type ReportSpec } from "./reportDownload";
 import { changeChip, dailyCounts, pageRows, renderCleanupPage, renderSenderTable, setTableFilter, type PageItem } from "./cleanupPage";
 import { keepNewestExcess, olderReadExcess } from "../lib/keepNewest";
 import { deliveredUpdates } from "../lib/orderEvents";
@@ -643,8 +643,10 @@ function mailReportSpec(): ReportSpec {
   const decided = decisions(senders);
   const f = periodFacts(senders, range.start, end.getTime(), decided);
   const before = periodFacts(senders, new Date(range.start).setDate(new Date(range.start).getDate() - len), range.start, decided);
-  const change = before.total && !lastFacts?.since ? Math.round(((f.total - before.total) / before.total) * 100) : null;
+  // Same rule as Overview's tile: no change until the days before are read.
+  const change = before.total && lastFacts?.receivedPrev !== undefined ? Math.round(((f.total - before.total) / before.total) * 100) : null;
   const n = (v: number) => v.toLocaleString();
+  const top = topSendersByCompany(senders, range.start, end.getTime(), 15);
   return {
     title: "Mail report",
     period: rangeText(range),
@@ -671,9 +673,9 @@ function mailReportSpec(): ReportSpec {
       {
         kind: "table",
         title: "Top senders",
-        note: `The ${Math.min(15, f.senders.length)} senders with the most mail in this period.`,
+        note: `The ${top.length} senders with the most mail in this period, grouped by company as on the Dashboard.`,
         columns: [{ label: "#", num: true }, { label: "Sender" }, { label: "Address" }, { label: "Emails", num: true }, { label: "Unread", num: true }],
-        rows: f.senders.slice(0, 15).map((t, i) => [String(i + 1), t.name, t.address, n(t.count), n(t.unread)]),
+        rows: top.map((t, i) => [String(i + 1), oneLine(t.name), t.address, n(t.count), n(t.unread)]),
       },
       {
         kind: "table",
@@ -1627,14 +1629,19 @@ function fakedBrands(senders: SenderSummary[]): string[] {
 }
 
 /** Home's Top senders: the five with the most mail in the picked range, one row per company as in Cleanup. */
-function topSendersByCompany(all: readonly SenderSummary[], start: number, end: number) {
-  const items = all.map((sender) => ({
-    sender,
-    ids: sender.messages.filter((m) => m.receivedAt >= start && m.receivedAt < end).map((m) => m.id),
-  }));
+/** Top senders grouped by company, as Overview and the report both show them. */
+function topSendersByCompany(all: readonly SenderSummary[], start: number, end: number, limit = 5) {
+  const inRange = (m: { receivedAt: number }) => m.receivedAt >= start && m.receivedAt < end;
+  const items = all.map((sender) => ({ sender, ids: sender.messages.filter(inRange).map((m) => m.id) }));
   return pageRows(items, detailRowKey)
-    .slice(0, 5)
-    .map((r) => ({ key: r.key, address: r.lead.address, name: senderName(r.lead), count: r.count }));
+    .slice(0, limit)
+    .map((r) => ({
+      key: r.key,
+      address: r.lead.address,
+      name: senderName(r.lead),
+      count: r.count,
+      unread: r.senders.reduce((n, s) => n + s.messages.filter((m) => inRange(m) && m.unread).length, 0),
+    }));
 }
 
 /** Today's sweep entries: what Cluster filed out of the inbox since midnight. */

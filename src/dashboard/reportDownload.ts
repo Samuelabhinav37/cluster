@@ -34,7 +34,7 @@ export interface EmailRow {
 }
 
 /** One line of text: control characters and runs of spaces become one space. */
-const oneLine = (v: string) => v.replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, " ").replace(/\s{2,}/g, " ").trim();
+export const oneLine = (v: string) => v.replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, " ").replace(/\s{2,}/g, " ").trim();
 
 /** Emails received from `start` (inclusive) to `end` (exclusive), newest first. */
 export function emailRows(items: readonly CsvEmail[], start: number, end: number, decided: ReadonlyMap<string, EmailDecision>): EmailRow[] {
