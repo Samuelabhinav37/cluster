@@ -123,3 +123,23 @@ Sources: [SaneBox: how do I train](https://www.sanebox.com/help/140-how-do-i-tra
    - This turns "add a phrase" commits into data the user generates by using the app, and keeps the metadata-only promise.
 6. **Learn faster from moves (B11, SaneBox).** One move into the inbox or Personal counts at once. Moves between labels save per-kind corrections.
 7. **Bound memory (B8).** Relabel in pages of 5,000 with progress saved between pages.
+
+## 9. Status (2026-11-18, end of day)
+
+| Bug | State | Commit |
+|---|---|---|
+| B1 filter overflow, delete-before-create | Fixed | 0709e61 |
+| B2 filters looser than the client | Fixed: phrase filters skip Primary, social needs the Social tab | f89a669 |
+| B3 relabel never removes a label | Fixed for people's mail; company mail left to B2 | b744bff |
+| B4 let-in treated as written-to | Fixed (`LimitContext.wrote`) | b744bff |
+| B5 search labelling spreads filter mistakes | Fixed by B2 (same queries) | f89a669 |
+| B6 accuracy not asserted | Fixed: floors on filters, client, and both together | f89a669, 50ca605 |
+| B7 harness ignores filters | Filters + client scored together; relabel still not simulated | 50ca605 |
+| B8 relabel memory | Paged by 5,000 at sender boundaries | 64b1cf1 |
+| B9 flaky suite | Fixed, 10/10 green | b347079 |
+| B10 tagger slots | Personal mail left out of the list | a437c08 |
+| B11 move learning whole-sender | Fixed: scoped kinds learn per kind | 7f0c0cb |
+
+Filters now: 0 people and 0 scams labelled on all five mailboxes; held-out wrong 0%; tuned 9.5% (was 16.7%), mostly newsletters in the Promotions tab, which the relabel swaps. Filters then Cluster's pass: tuned 92.8%, held-out 100% acceptable.
+
+Open: the newsletter/Promotions filter gap (59 newsletter domains don't fit in the Promotions query); the one-record engine; the per-user learning model; a real-mailbox scorecard.
