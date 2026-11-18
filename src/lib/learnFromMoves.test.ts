@@ -21,6 +21,27 @@ describe("learn from Gmail moves", () => {
     ).toEqual([["news@brew.com", "shopping"]]);
   });
 
+  it("audit B11: a move of a scoped kind teaches that kind only; other mail the whole sender", () => {
+    expect(
+      movedTo(
+        [
+          { address: "ship@amazon.com", kind: "shipping", added: ["L2"], removed: ["L1"] },
+          { address: "deals@amazon.com", kind: "other", added: ["L2"], removed: ["L1"] },
+        ],
+        bucketOf,
+      ),
+    ).toEqual([
+      ["ship@amazon.com|shipping", "shopping"],
+      ["deals@amazon.com", "shopping"],
+    ]);
+  });
+
+  it("counts a sweep by sender, however many kinds of its mail moved", () => {
+    const kinds = ["otp", "receipt", "shipping"] as const;
+    const moves = Array.from({ length: SWEEP_SENDERS - 1 }, (_, i) => kinds.map((kind) => ({ address: `s${i}@x.com`, kind, added: ["L2"], removed: ["L1"] }))).flat();
+    expect(movedTo(moves, bucketOf)).toHaveLength((SWEEP_SENDERS - 1) * kinds.length);
+  });
+
   it("learns on the second swap to the same label, and restarts on a different one", () => {
     const one = tallyMoves({}, [["a@x.com", "shopping"]], {}, 0);
     expect(one).toEqual({ votes: { "a@x.com": { bucket: "shopping", n: 1, at: 0 } }, learned: [] });

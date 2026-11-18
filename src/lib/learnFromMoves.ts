@@ -2,7 +2,8 @@
 // swap one of a sender's Cluster labels for another twice, Cluster saves that
 // as a correction, so its filters and relabelling follow you from then on.
 import { correctionKey } from "./addressIdentity";
-import type { SortBucket, SortOverride } from "./sortTaxonomy";
+import type { MessageKind } from "./messageKind";
+import { kindKey, SCOPED_KINDS, type SortBucket, type SortOverride } from "./sortTaxonomy";
 
 /** Where a move can teach a sender to go. */
 export type MoveTarget = SortBucket | "personal";
@@ -10,6 +11,9 @@ export type MoveTarget = SortBucket | "personal";
 /** A message whose labels changed in Gmail, from the change feed. */
 export interface LabelMove {
   address: string;
+  /** The email's kind: a move of a code, receipt or other scoped kind
+   * teaches that kind of the sender's mail only, as Details does (audit B11). */
+  kind?: MessageKind;
   added: string[];
   removed: string[];
 }
@@ -37,14 +41,17 @@ export function movedTo(
   bucketOf: ReadonlyMap<string, MoveTarget>,
   fromIds: ReadonlySet<string> = new Set(bucketOf.keys()),
 ): Array<[string, MoveTarget]> {
-  const swaps: Array<{ key: string; to: MoveTarget; from: string[] }> = [];
+  const swaps: Array<{ key: string; sender: string; to: MoveTarget; from: string[] }> = [];
   for (const m of moves) {
     const to = m.added.flatMap((id) => bucketOf.get(id) ?? []);
     const from = m.removed.filter((id) => fromIds.has(id));
-    if (to.length === 1 && from.length > 0 && m.address) swaps.push({ key: correctionKey(m.address), to: to[0], from });
+    if (to.length === 1 && from.length > 0 && m.address) {
+      const key = correctionKey(m.address);
+      swaps.push({ key: m.kind && SCOPED_KINDS.includes(m.kind) ? kindKey(key, m.kind) : key, sender: key, to: to[0], from });
+    }
   }
   const sendersOff = new Map<string, Set<string>>();
-  for (const sw of swaps) for (const id of sw.from) sendersOff.set(id, (sendersOff.get(id) ?? new Set()).add(sw.key));
+  for (const sw of swaps) for (const id of sw.from) sendersOff.set(id, (sendersOff.get(id) ?? new Set()).add(sw.sender));
   const swept = (sw: (typeof swaps)[number]) => sw.from.some((id) => sendersOff.get(id)!.size >= SWEEP_SENDERS);
   // One vote per sender per pass, however many of its emails moved.
   const out = new Map<string, MoveTarget>();

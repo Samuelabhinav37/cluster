@@ -611,7 +611,7 @@ export async function learnFromLabelMoves(token: string, moves: LabelMove[]): Pr
       id: makeLogId("sort"),
       at: now,
       kind: "sort" as const,
-      summary: `Learned from Gmail: ${address} goes to ${showLabel(bucket === "personal" ? clusterLabelName("personal") : categoryLabelName(bucket, settings.labelChoices))}`,
+      summary: `Learned from Gmail: ${address.replace("|", "'s ")}${address.includes("|") ? " mail" : ""} goes to ${showLabel(bucket === "personal" ? clusterLabelName("personal") : categoryLabelName(bucket, settings.labelChoices))}`,
     })),
   );
 }

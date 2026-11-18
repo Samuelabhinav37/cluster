@@ -15,6 +15,7 @@
 // Interrupted runs resume: rows are written in small batches and the change
 // cursor captured before the first attempt is kept until a build finishes.
 import type { LabelMove } from "./learnFromMoves";
+import { messageKindOf } from "./senderModel";
 import { mapWithConcurrency } from "./concurrency";
 import { log } from "./log";
 import {
@@ -423,7 +424,7 @@ async function applyChanges(
       const after = new Set(next.labelIds ?? []);
       const added = [...after].filter((l) => !before.has(l));
       const removed = [...before].filter((l) => !after.has(l));
-      if (added.length > 0 && removed.length > 0) moves.push({ address: row.fromAddress, added, removed });
+      if (added.length > 0 && removed.length > 0) moves.push({ address: row.fromAddress, kind: messageKindOf(row), added, removed });
     }
   }
   if (moves.length > 0) await options.onLabelMoves?.(moves);

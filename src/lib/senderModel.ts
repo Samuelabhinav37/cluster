@@ -166,6 +166,19 @@ function mergeVerdicts(into: AuthenticationVerdicts, next: AuthenticationVerdict
   }
 }
 
+/** What one email is (a code, a receipt…), from its metadata alone. */
+export function messageKindOf(meta: NormalizedMessageMetadata): MessageKind {
+  return withPurchase(
+    // A list or bulk-service header is list mail even with no unsubscribe
+    // link: mail from before Gmail's 2024 sender rules often had none.
+    classifyMessageKind(meta.subject, hasUnsubscribe(meta.unsubscribe) || Boolean(meta.listId || meta.feedbackId), {
+      address: meta.fromAddress,
+      displayName: meta.fromDisplayName,
+    }),
+    meta.gmailPurchase,
+  );
+}
+
 function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessageMetadata) {
   if (!meta.fromAddress) return;
   const key = `${meta.provider}:${meta.fromAddress}`;
@@ -174,15 +187,7 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
     subject: meta.subject,
     receivedAt: meta.receivedAt,
     threadId: meta.threadId,
-    kind: withPurchase(
-      // A list or bulk-service header is list mail even with no unsubscribe
-      // link: mail from before Gmail's 2024 sender rules often had none.
-      classifyMessageKind(meta.subject, hasUnsubscribe(meta.unsubscribe) || Boolean(meta.listId || meta.feedbackId), {
-        address: meta.fromAddress,
-        displayName: meta.fromDisplayName,
-      }),
-      meta.gmailPurchase,
-    ),
+    kind: messageKindOf(meta),
     purchase: meta.gmailPurchase || undefined,
     reservation: meta.gmailReservation || undefined,
     isProtected: meta.isProtected,

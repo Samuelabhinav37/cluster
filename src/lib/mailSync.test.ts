@@ -202,7 +202,7 @@ describe("syncMailIndex: changes after the first build", () => {
     const onLabelMoves = vi.fn();
     await syncMailIndex(provider, "t", store, { ...options, onLabelMoves });
     const [row] = await store.get("gmail", ["a"]);
-    expect(onLabelMoves).toHaveBeenCalledWith([{ address: row.fromAddress, added: ["Label_2"], removed: ["Label_1"] }]);
+    expect(onLabelMoves).toHaveBeenCalledWith([{ address: row.fromAddress, kind: expect.any(String), added: ["Label_2"], removed: ["Label_1"] }]);
   });
 
   it("reads new mail, drops trashed and deleted mail, and ignores new spam", async () => {
