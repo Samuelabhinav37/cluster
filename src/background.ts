@@ -1,4 +1,5 @@
 import { sortLabelNames } from "./lib/categoryFilters";
+import { tryWithStorageLock } from "./lib/storageLock";
 import { openMailIndex, runSnapshot, type MailIndexStore } from "./lib/mailIndex";
 import { buildProtectionContext, idsSafeToMoveOut } from "./lib/protectionPolicy";
 import { log } from "./lib/log";
@@ -83,7 +84,11 @@ const INBOX_SWEEP_MINUTES = 5;
 // Each minute picks it up again if Chrome stopped the worker.
 const READ_ALARM = "cluster-read";
 const SECURITY_SCAN_WINDOW_DAYS = 30;
-const SECURITY_SCAN_MAX_MESSAGES = 100;
+// Every email in the window: the index is local, so this costs no Gmail quota.
+// The newest 100 let a scam through on a busy day (plan step 3.2).
+const SECURITY_SCAN_MAX_MESSAGES = Infinity;
+// Without an index each email is a Gmail read, so that path keeps its cap.
+const API_SECURITY_SCAN_MAX = 100;
 const providerById = new Map<ProviderId, EmailProvider>([
   [gmailProvider.id, gmailProvider],
   [outlookProvider.id, outlookProvider],
@@ -100,26 +105,25 @@ void Promise.resolve(chrome.storage?.local?.set({ workerBuild: __BUILD__ })).cat
 followSyncedSettings();
 void pullSyncedSettings().catch((err) => log.error("Settings sync pull failed", err));
 
+const ALARMS: [string, chrome.alarms.AlarmCreateInfo][] = [
+  [TRIAGE_ALARM, { delayInMinutes: 5, periodInMinutes: 360 }],
+  [ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 }],
+  [JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 }],
+  [DATASET_ALARM, { delayInMinutes: 10, periodInMinutes: 1440 }],
+  [INBOX_LIMITS_ALARM, { delayInMinutes: 2, periodInMinutes: INBOX_SWEEP_MINUTES }],
+  [READ_ALARM, { delayInMinutes: 1, periodInMinutes: 1 }],
+];
+
+// Every worker start puts back an alarm that went missing, keeping the
+// schedule of ones still there. Installs and updates set them all fresh.
+void Promise.all(ALARMS.map(([name, info]) => ensureAlarm(name, info))).catch((err) => log.error("Alarm check failed", err));
+
 chrome.runtime.onInstalled.addListener((details) => {
-  chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 5, periodInMinutes: 360 });
-  chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
-  chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
-  chrome.alarms.create(DATASET_ALARM, { delayInMinutes: 10, periodInMinutes: 1440 });
-  chrome.alarms.create(INBOX_LIMITS_ALARM, { delayInMinutes: 2, periodInMinutes: INBOX_SWEEP_MINUTES });
-  chrome.alarms.create(READ_ALARM, { delayInMinutes: 1, periodInMinutes: 1 });
+  for (const [name, info] of ALARMS) chrome.alarms.create(name, info);
   // A fresh install used to open nothing, leaving the user to find an
   // unpinned icon in the puzzle menu. Open the dashboard, whose connect gate
   // is the welcome screen. Updates and Chrome updates stay silent.
   if (details?.reason === "install") void openDashboard();
-});
-
-chrome.runtime.onStartup.addListener(() => {
-  chrome.alarms.create(TRIAGE_ALARM, { delayInMinutes: 5, periodInMinutes: 360 });
-  chrome.alarms.create(ATHENA_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
-  chrome.alarms.create(JOBS_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
-  chrome.alarms.create(DATASET_ALARM, { delayInMinutes: 10, periodInMinutes: 1440 });
-  chrome.alarms.create(INBOX_LIMITS_ALARM, { delayInMinutes: 2, periodInMinutes: INBOX_SWEEP_MINUTES });
-  chrome.alarms.create(READ_ALARM, { delayInMinutes: 1, periodInMinutes: 1 });
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -153,6 +157,8 @@ function handleAlarm(alarm: chrome.alarms.Alarm): void {
   if (alarm.name === JOBS_ALARM) {
     void resumeInterruptedJobs(providerById).catch((err) => log.error("Resuming durable jobs failed", err));
     void resumeUnsubscribeQueue().catch((err) => log.error("Resuming unsubscribe emails failed", err));
+    // Starts the minute read again after a dashboard read was cut off (tab closed).
+    void readInBackground();
   }
   if (alarm.name === DATASET_ALARM) void refreshPublicDatasets();
   if (alarm.name === INBOX_LIMITS_ALARM) {
@@ -165,12 +171,15 @@ function handleAlarm(alarm: chrome.alarms.Alarm): void {
       .catch((err) => log.error("Watchdog failed", err));
     // One index read shared by the steps after labelling (runSnapshot).
     const store = openMailIndex().then(runSnapshot).catch(() => undefined);
-    void runInboxTimeLimitsIfQuota()
-      .then(async () => holdScamsFromIndex(await store).catch((err) => log.error("Scam hold failed", err)))
-      .then(async () => sendTodayEmail(await store).catch((err) => log.error("Today email failed", err)))
-      .then(async () => runUnsubscribedSweep(await store).catch((err) => log.error("Unsubscribed sweep failed", err)))
-      .then(async () => runAutoMute(await store).catch((err) => log.error("Auto-mute failed", err)))
-      .then(() => deliverNewsletters().catch((err) => log.error("Newsletter delivery failed", err)));
+    // One chain at a time: a run longer than 5 minutes used to overlap the next.
+    void tryWithStorageLock("sweep-chain", () =>
+      runInboxTimeLimitsIfQuota()
+        .then(async () => holdScamsFromIndex(await store).catch((err) => log.error("Scam hold failed", err)))
+        .then(async () => sendTodayEmail(await store).catch((err) => log.error("Today email failed", err)))
+        .then(async () => runUnsubscribedSweep(await store).catch((err) => log.error("Unsubscribed sweep failed", err)))
+        .then(async () => runAutoMute(await store).catch((err) => log.error("Auto-mute failed", err)))
+        .then(() => deliverNewsletters().catch((err) => log.error("Newsletter delivery failed", err))),
+    );
   }
 }
 
@@ -528,7 +537,7 @@ async function runBackgroundTriage() {
       securitySync = await buildIncrementalSenderSummaries(
         scanned,
         settings.incrementalSyncCursors,
-        Math.min(settings.maxMessagesPerProvider, SECURITY_SCAN_MAX_MESSAGES),
+        Math.min(settings.maxMessagesPerProvider, API_SECURITY_SCAN_MAX),
         Math.min(settings.scanWindowDays, SECURITY_SCAN_WINDOW_DAYS),
         "security",
         undefined,

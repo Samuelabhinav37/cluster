@@ -257,6 +257,13 @@ describe("the minute read alarm", () => {
     await vi.waitFor(() => expect(alarmsCreate).toHaveBeenCalledWith("cluster-read", { delayInMinutes: 1, periodInMinutes: 1 }));
     expect(alarmsClear).not.toHaveBeenCalled();
   });
+
+  it("the 5-minute jobs alarm starts it again after a read was cut off", async () => {
+    alarmsCreate.mockClear();
+    continueMailRead.mockResolvedValue("handed-off");
+    alarmListener!({ name: "cluster-jobs" });
+    await vi.waitFor(() => expect(alarmsCreate).toHaveBeenCalledWith("cluster-read", { delayInMinutes: 1, periodInMinutes: 1 }));
+  });
 });
 
 describe("runBackgroundTriage guard rails", () => {
