@@ -338,6 +338,41 @@ const HOLD_MAX = 100;
 // A forwarded or answered invite ("Fwd: Invitation: Sync") is still one.
 const CALENDAR_RE = /^((re|fwd?|fw):\s*)*((updated )?invitation|accepted|declined|tentatively accepted|new event|canceled event|cancelled event):/i;
 
+/** Where each inbox email with no sort label goes: "risky" (the scam hold's,
+ * or the Screener), "user-label" (filed under a label by the user: the
+ * tagger labels it), "personal", "label" (the tagger will label it; it just
+ * hasn't yet) or "screener". Pure: holdUnsortedInbox does the moving. */
+export type InboxFate = "risky" | "user-label" | "personal" | "label" | "screener";
+
+export function inboxFates(sender: SenderSummary, ctx: LimitContext): Map<string, InboxFate> {
+  const fates = new Map<string, InboxFate>();
+  const all = (fate: InboxFate) => {
+    for (const msg of sender.messages) fates.set(msg.id, fate);
+    return fates;
+  };
+  if (scamTier(sender, ctx.known) !== "none") return all("risky");
+  const known = ctx.known.has(sender.address.toLowerCase());
+  const domain = domainOf(sender.address);
+  const override = overrideFor(sender.address, domain, ctx.overrides);
+  if (isBucket(override)) return all("user-label");
+  const buckets = senderBuckets(sender, domain, ctx.overrides);
+  for (const msg of sender.messages) {
+    const personal =
+      override === "personal" ||
+      (override !== "never" &&
+        (known ||
+          msg.fromYou ||
+          msg.repliesToYou ||
+          withYourContacts(msg, ctx.known) ||
+          // A stranger on free mail waits in the Screener until you say yes (HEY's Screener).
+          ((ctx.holdPeople === false || !isFreeMailDomain(domain)) &&
+            ((writtenByPerson(msg, sender.address, sender.displayName) && !sender.threatSignals.some((t) => t.kind === "lure-language")) ||
+              (CALENDAR_RE.test(msg.subject ?? "") && !msg.fakeReply)))));
+    fates.set(msg.id, personal ? "personal" : buckets.get(msg.id) ? "label" : "screener");
+  }
+  return fates;
+}
+
 /**
  * Cleans what the labels left in the inbox. Anything that looks personal
  * (mail a person wrote, replies to you, anyone you've written to, calendar
@@ -370,40 +405,24 @@ export async function holdUnsortedInbox(
   let oldest = Infinity;
   for (const sender of await api.readSenders(ids)) {
     for (const msg of sender.messages) oldest = Math.min(oldest, msg.receivedAt);
-    const tier = scamTier(sender, ctx.known);
-    // The hold takes the messages that earn it; the rest of a risky sender's
-    // mail goes to the Screener, never back to the inbox.
-    if (tier !== "none") {
-      if (hold) for (const msg of sender.messages) heldIds.push(msg.id);
-      if (hold) senders.add(sender.address.toLowerCase());
-      continue;
-    }
-    const known = ctx.known.has(sender.address.toLowerCase());
-    const domain = domainOf(sender.address);
-    const override = overrideFor(sender.address, domain, ctx.overrides);
-    // Filed under a label by the user: the tagger labels it.
-    if (isBucket(override)) continue;
-    const buckets = senderBuckets(sender, domain, ctx.overrides);
+    const fates = inboxFates(sender, ctx);
     for (const msg of sender.messages) {
-      const personal =
-        override === "personal" ||
-        (override !== "never" &&
-          (known ||
-            msg.fromYou ||
-            msg.repliesToYou ||
-            withYourContacts(msg, ctx.known) ||
-            // A stranger on free mail waits in the Screener until you say yes (HEY's Screener).
-            ((ctx.holdPeople === false || !isFreeMailDomain(domain)) &&
-              ((writtenByPerson(msg, sender.address, sender.displayName) && !sender.threatSignals.some((t) => t.kind === "lure-language")) ||
-                (CALENDAR_RE.test(msg.subject ?? "") && !msg.fakeReply)))));
-      if (personal) {
+      const fate = fates.get(msg.id);
+      // The hold takes the messages that earn it; the rest of a risky
+      // sender's mail goes to the Screener, never back to the inbox.
+      if (fate === "risky") {
+        if (hold) heldIds.push(msg.id);
+        if (hold) senders.add(sender.address.toLowerCase());
+        continue;
+      }
+      if (fate === "user-label") continue;
+      if (fate === "personal") {
         if (personalLabelName) personalIds.push(msg.id);
         continue;
       }
       // Without a Personal label (old callers) starred and protected mail stays.
       if (!hold || (!personalLabelName && msg.isProtected)) continue;
-      // The tagger will label it; it just hasn't yet.
-      if (buckets.get(msg.id)) continue;
+      if (fate === "label") continue;
       heldIds.push(msg.id);
       senders.add(sender.address.toLowerCase());
     }

@@ -1,6 +1,6 @@
 # One decision per email: engine design (2026-11-18)
 
-Status: proposal, awaiting review. Implements "One engine under all six" in `docs/product-plan-2026-11-18.md`.
+Status: approved 2026-11-18 with all three recommendations (compute on demand; let-in only skips the Screener; .edu person unless a role address). Implements "One engine under all six" in `docs/product-plan-2026-11-18.md`.
 
 ## Problem
 

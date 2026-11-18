@@ -23,7 +23,7 @@ export interface MailboxSetup {
 }
 
 /** Sender records as the background builds them, with replies and name checks marked. */
-async function sendersOf(metas: NormalizedMessageMetadata[], setup: MailboxSetup) {
+export async function sendersOf(metas: NormalizedMessageMetadata[], setup: MailboxSetup) {
   const cache = new Map(metas.map((m) => [`gmail:${m.id}`, m]));
   const provider = { id: "gmail", getMessageMetadata: () => Promise.reject(new Error("not cached")) };
   const stubs = metas.map((m) => ({ id: m.id, provider: "gmail" as const }));
