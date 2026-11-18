@@ -403,7 +403,7 @@ export function weeklyByBucket(senders: readonly SenderSummary[], now: number): 
   for (const s of senders) {
     for (const m of s.messages) {
       if (now - m.receivedAt >= WEEK_MS) continue;
-      const bucket = effectiveBucket(m.kind, domainOf(s.address), s.address, ctx.settings.sortOverrides, m.promotion ?? m.tab === "promotions");
+      const bucket = effectiveBucket(m.kind, domainOf(s.address), s.address, ctx.settings.sortOverrides, m.promotion ?? m.tab === "promotions", m);
       if (bucket) out.set(bucket, (out.get(bucket) ?? 0) + 1);
     }
   }

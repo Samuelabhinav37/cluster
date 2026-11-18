@@ -337,7 +337,7 @@ describe("readMailIndex", () => {
   it("applies Gmail's Purchases ids from the last sync", async () => {
     const store = createMemoryMailIndex();
     await store.put([message("a", ["INBOX"]), message("b", ["INBOX"])]);
-    await store.setState({ provider: "gmail", complete: true, purchaseIds: ["a"] });
+    await store.setState({ provider: "gmail", complete: true, purchaseIds: ["a"], reservationIds: ["b"] });
     const { provider } = fakeGmail([]);
 
     const rows = await readMailIndex(store, [provider]);
@@ -345,6 +345,7 @@ describe("readMailIndex", () => {
     expect(rows.find((r) => r.id === "a")?.gmailPurchase).toBe(true);
     expect(rows.find((r) => r.id === "a")?.hasRiskyAttachment).toBeUndefined();
     expect(rows.find((r) => r.id === "b")?.gmailPurchase).toBeUndefined();
+    expect(rows.find((r) => r.id === "b")?.gmailReservation).toBe(true);
   });
 });
 

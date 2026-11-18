@@ -58,6 +58,8 @@ export interface MailIndexState {
   /** Message ids in Gmail's Purchases view, from the last sync. Applied the
    * same way as riskyIds. */
   purchaseIds?: string[];
+  /** Message ids in Gmail's Reservations view, applied the same way. */
+  reservationIds?: string[];
 }
 
 /** One sender's mail as counted with a search ("fetch one, count many"):

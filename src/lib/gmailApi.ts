@@ -255,6 +255,12 @@ export async function listPurchaseMessageIds(
   return new Set(stubs.map((s) => s.id));
 }
 
+/** Ids in Gmail's own Reservations view (flights, hotels, tickets, tables). */
+export async function listReservationMessageIds(token: string, windowDays: number, maxResults = 2000): Promise<Set<string>> {
+  const stubs = await listMessageIds(token, `category:reservations newer_than:${windowDays}d`, maxResults);
+  return new Set(stubs.map((s) => s.id));
+}
+
 /** Every currently-starred message id — one `messages.list` (5 units/page,
  * usually one page since a starred set is small), not a per-id fetch. Used by
  * the bulk-delete safety re-check (see EmailProvider.listProtectedMessageIds). */

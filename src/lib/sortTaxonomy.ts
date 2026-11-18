@@ -128,6 +128,8 @@ export interface SortHints {
   /** Domains whose DKIM signature passed: the company that really sent it. */
   dkimDomains?: string[];
   sentBy?: SendingEvidence;
+  /** Gmail lists it under Reservations (flights, hotels, tickets). */
+  reservation?: boolean;
 }
 
 export function classifySortBucket(
@@ -140,6 +142,8 @@ export function classifySortBucket(
   // A free-mail address is a person or someone posing as a company: an
   // "invoice" or "order" from one goes to the Screener, never a label.
   if (isFreeMailDomain(senderDomain)) return null;
+  // Gmail read the booking on its side: Travel, even from a hotel on no list.
+  if (hints.reservation && kind !== "otp" && kind !== "accounts") return "travel";
   const byCategory = CATEGORY_BUCKET[serviceCategory(senderAddress) ?? senderCategory(senderDomain, hints.dkimDomains)];
   // Any list mail has an unsubscribe link, so "newsletter" alone can't tell
   // an ad from news; Gmail's Promotions tab can.

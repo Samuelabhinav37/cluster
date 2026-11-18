@@ -23,6 +23,7 @@ import {
   listMessageIds,
   listRiskyAttachmentMessageIds as apiListRiskyAttachmentMessageIds,
   listPurchaseMessageIds as apiListPurchaseMessageIds,
+  listReservationMessageIds as apiListReservationMessageIds,
   listStarredMessageIds as apiListStarredMessageIds,
   listInboxMessageIdsSince,
   listSentCorrespondents as apiListSentCorrespondents,
@@ -302,6 +303,10 @@ export const gmailProvider: EmailProvider = {
 
   async listPurchaseMessageIds(token, windowDays) {
     return await apiListPurchaseMessageIds(token, windowDays);
+  },
+
+  async listReservationMessageIds(token, windowDays) {
+    return await apiListReservationMessageIds(token, windowDays);
   },
 
   async trashMessages(token, ids) {

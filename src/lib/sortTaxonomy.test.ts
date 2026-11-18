@@ -193,3 +193,15 @@ describe("kind-scoped corrections", () => {
     expect(effectiveBucket("newsletter", "amazon.com", "ship@amazon.com", both)).toBe("promotions");
   });
 });
+
+describe("Gmail Reservations", () => {
+  it("files a booking under Travel, even from a hotel on no list", () => {
+    expect(classifySortBucket("receipt", "smallhotel.example", false, "stay@smallhotel.example", { reservation: true })).toBe("travel");
+    expect(classifySortBucket("other", "tickets.example", false, "", { reservation: true })).toBe("travel");
+  });
+  it("leaves codes, account notices and free mail alone", () => {
+    expect(classifySortBucket("otp", "airline.example", false, "", { reservation: true })).toBe("otp");
+    expect(classifySortBucket("accounts", "airline.example", false, "", { reservation: true })).toBe("accounts");
+    expect(classifySortBucket("receipt", "gmail.com", false, "a@gmail.com", { reservation: true })).toBeNull();
+  });
+});

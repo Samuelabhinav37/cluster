@@ -60,6 +60,8 @@ export interface MessageRecord {
   /** Gmail lists it under Purchases; its kind then holds against the
    * sender's usual kind. */
   purchase?: boolean;
+  /** Gmail lists it under Reservations: a booking, so Travel. */
+  reservation?: boolean;
   /** The Gmail inbox tab it sits in. Unset for providers without tabs. */
   tab?: InboxTab;
   /** "Re:" with no In-Reply-To or References: no thread behind it. Cold
@@ -182,6 +184,7 @@ function addToSenders(senders: Map<string, SenderSummary>, meta: NormalizedMessa
       meta.gmailPurchase,
     ),
     purchase: meta.gmailPurchase || undefined,
+    reservation: meta.gmailReservation || undefined,
     isProtected: meta.isProtected,
     unread: meta.unread,
     sizeBytes: meta.sizeBytes,

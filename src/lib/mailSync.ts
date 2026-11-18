@@ -657,6 +657,13 @@ async function refreshSearchFlags(
       // Same: sorting falls back to Cluster's own receipt checks.
     }
   }
+  if (provider.listReservationMessageIds) {
+    try {
+      state.reservationIds = [...(await provider.listReservationMessageIds(token, windowDays))];
+    } catch {
+      // Same: travel falls back to the sender's domain.
+    }
+  }
 }
 
 /** Drops rows past the scan window, then the oldest rows past the cap. */
@@ -685,13 +692,15 @@ export async function readMailIndex(
     const [rows, state] = await Promise.all([store.all(provider.id), store.getState(provider.id)]);
     const risky = new Set(state?.riskyIds ?? []);
     const purchases = new Set(state?.purchaseIds ?? []);
+    const reservations = new Set(state?.reservationIds ?? []);
     for (const row of rows) {
-      if (!risky.has(row.id) && !purchases.has(row.id)) out.push(row);
+      if (!risky.has(row.id) && !purchases.has(row.id) && !reservations.has(row.id)) out.push(row);
       else
         out.push({
           ...row,
           ...(risky.has(row.id) && { hasRiskyAttachment: true }),
           ...(purchases.has(row.id) && { gmailPurchase: true }),
+          ...(reservations.has(row.id) && { gmailReservation: true }),
         });
     }
   }

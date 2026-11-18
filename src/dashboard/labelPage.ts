@@ -53,7 +53,7 @@ export function labelMail(senders: readonly SenderSummary[], bucket: SortBucket,
     const mail = s.messages.filter(
       (m) =>
         now - m.receivedAt < range * DAY &&
-        effectiveBucket(m.kind, domainOf(s.address), s.address, ctx.settings.sortOverrides, m.promotion ?? m.tab === "promotions") === bucket,
+        effectiveBucket(m.kind, domainOf(s.address), s.address, ctx.settings.sortOverrides, m.promotion ?? m.tab === "promotions", m) === bucket,
     );
     if (mail.length) out.push({ sender: s, ids: mail.map((m) => m.id), at: mail.map((m) => m.receivedAt) });
   }
