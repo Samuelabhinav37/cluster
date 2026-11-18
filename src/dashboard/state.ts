@@ -13,6 +13,7 @@ import { outlookProvider } from "../lib/providers/outlookProvider";
 import type { SenderSummary } from "../lib/senderModel";
 import type { SenderProfile } from "../lib/senderProfile";
 import type { ReplyKind } from "../lib/unsubscribeReplies";
+import { decideAll, engineContext, type EmailDecision } from "../lib/mailEngine";
 import type { ClusterSettings } from "../lib/settingsStore";
 
 export const providerById = new Map<ProviderId, EmailProvider>([
@@ -54,3 +55,13 @@ export function setBridge(bridge: { rescan: () => Promise<void>; logAction: LogA
 
 export const rescan = (): Promise<void> => rescanImpl();
 export const logAction: LogActionFn = (kind, summary, undo) => logActionImpl(kind, summary, undo);
+
+let decided: { senders: readonly SenderSummary[]; settings: ClusterSettings; map: ReadonlyMap<string, EmailDecision> } | undefined;
+
+/** The engine's decision for each email of `senders`, kept until the senders
+ * or the settings change, so one redraw decides each email once. */
+export function decisions(senders: readonly SenderSummary[]): ReadonlyMap<string, EmailDecision> {
+  if (decided?.senders !== senders || decided.settings !== ctx.settings)
+    decided = { senders, settings: ctx.settings, map: decideAll(senders, engineContext(ctx.settings)) };
+  return decided.map;
+}

@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { labelMail } from "./labelPage";
 import { weeklyByBucket } from "./timeLimitsTab";
+import { BUCKET_KIND, mailByKind } from "./homeDashboard";
 import { ctx } from "./state";
 import { decideAll, sortLabelOf } from "../lib/mailEngine";
 import type { ClusterSettings } from "../lib/settingsStore";
@@ -39,5 +40,14 @@ describe("every screen shows the engine's label", () => {
       const page = labelMail(senders, bucket, NOW, 7).reduce((n, r) => n + r.ids.length, 0);
       expect(page, bucket).toBe(want.get(bucket) ?? 0);
     }
+
+    // Engine step 6: Overview's four kinds count labelled mail under its
+    // label's kind, the grouping the Labels page uses, email for email.
+    const labelled = senders
+      .map((x) => ({ ...x, messages: x.messages.filter((m) => sortLabelOf(decided.get(m.id))) }))
+      .filter((x) => x.messages.length > 0);
+    const byLabels = { primary: 0, trans: 0, updates: 0, promo: 0 };
+    for (const x of labelled) for (const m of x.messages) byLabels[BUCKET_KIND[sortLabelOf(decided.get(m.id))!]] += 1;
+    expect(mailByKind(labelled, NOW, decided).kinds).toEqual(byLabels);
   });
 });

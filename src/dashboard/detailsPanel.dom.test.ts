@@ -82,7 +82,7 @@ describe("weekOf", () => {
 
 describe("detailSenders", () => {
   it("gives each sender its volume, opens and main kind, most mail first", () => {
-    const got = detailSenders(mailbox()).map((s) => [s.name, s.emails, s.opened, s.kind]);
+    const got = detailSenders(mailbox(), new Map()).map((s) => [s.name, s.emails, s.opened, s.kind]);
     expect(got).toEqual([["Shop", 2, 0, "promo"], ["Mom", 1, 1, "primary"]]);
   });
 });

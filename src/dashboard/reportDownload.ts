@@ -7,6 +7,7 @@ import { xlsxBytes, type XlsxColumn } from "./xlsx";
 import { csvField, downloadBytes } from "./csv";
 
 export { csvField, downloadBytes };
+import type { EmailDecision } from "../lib/mailEngine";
 import interTight from "@fontsource-variable/inter-tight/files/inter-tight-latin-wght-normal.woff2?url";
 
 // Absolute: the report is a blob: document, which can't resolve a root-relative path.
@@ -36,7 +37,7 @@ export interface EmailRow {
 const oneLine = (v: string) => v.replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, " ").replace(/\s{2,}/g, " ").trim();
 
 /** Emails received from `start` (inclusive) to `end` (exclusive), newest first. */
-export function emailRows(items: readonly CsvEmail[], start: number, end: number): EmailRow[] {
+export function emailRows(items: readonly CsvEmail[], start: number, end: number, decided: ReadonlyMap<string, EmailDecision>): EmailRow[] {
   const rows: EmailRow[] = [];
   for (const { sender, ids, reason } of items) {
     for (const m of sender.messages) {
@@ -47,7 +48,7 @@ export function emailRows(items: readonly CsvEmail[], start: number, end: number
         sender: oneLine(senderName(sender)),
         address: sender.address,
         subject: oneLine(m.subject ?? ""),
-        category: KIND_NAME.get(kindOf(m)) ?? "",
+        category: KIND_NAME.get(kindOf(m, decided.get(m.id)?.place)) ?? "",
         unread: m.unread,
         reason,
       });
@@ -234,7 +235,7 @@ function niceStep(max: number): number {
 }
 
 /** What the mail report counts for a period: totals, categories, busiest weekday, top senders. */
-export function periodFacts(senders: readonly SenderSummary[], start: number, end: number) {
+export function periodFacts(senders: readonly SenderSummary[], start: number, end: number, decided: ReadonlyMap<string, EmailDecision>) {
   const days = Math.max(1, Math.round((end - start) / 86_400_000));
   const daily = new Array<number>(days).fill(0);
   const kinds: Record<HomeKind, number> = { primary: 0, trans: 0, updates: 0, promo: 0 };
@@ -248,7 +249,7 @@ export function periodFacts(senders: readonly SenderSummary[], start: number, en
       if (m.receivedAt < start || m.receivedAt >= end) continue;
       const i = Math.floor((new Date(m.receivedAt).setHours(0, 0, 0, 0) - start) / 86_400_000 + 0.5);
       if (i >= 0 && i < days) daily[i] += 1;
-      kinds[kindOf(m)] += 1;
+      kinds[kindOf(m, decided.get(m.id)?.place)] += 1;
       count += 1;
       if (m.unread) un += 1;
     }

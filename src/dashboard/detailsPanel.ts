@@ -13,6 +13,8 @@ import type { SortBucket } from "../lib/sortTaxonomy";
 import { SMART_VIEWS } from "../lib/smartViews";
 import { companyName, senderName } from "../lib/senderListView";
 import { HOME_KINDS, kindOf, type HomeKind } from "./homeDashboard";
+import type { EmailDecision } from "../lib/mailEngine";
+import { decisions } from "./state";
 import { certifiedCompany, senderTile, verifiedTick } from "./senderTile";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -122,7 +124,7 @@ const BLANK: State = {
 };
 
 /** Messages, newest first, from the whole inbox. */
-export function detailMessages(senders: readonly SenderSummary[], rowKeyOf: RowKeyOf = ownRow): DetailMessage[] {
+export function detailMessages(senders: readonly SenderSummary[], decided: ReadonlyMap<string, EmailDecision>, rowKeyOf: RowKeyOf = ownRow): DetailMessage[] {
   const out: DetailMessage[] = [];
   for (const s of senders)
     for (const m of s.messages)
@@ -135,7 +137,7 @@ export function detailMessages(senders: readonly SenderSummary[], rowKeyOf: RowK
         subject: m.subject ?? "",
         at: m.receivedAt,
         unread: m.unread,
-        kind: kindOf(m),
+        kind: kindOf(m, decided.get(m.id)?.place),
         isProtected: m.isProtected,
         views: SMART_VIEWS.filter((v) => v.match(m)).map((v) => v.id),
       });
@@ -143,7 +145,7 @@ export function detailMessages(senders: readonly SenderSummary[], rowKeyOf: RowK
 }
 
 /** One row per company (or per sender outside one): volume, how much was opened, its main kind. */
-export function detailSenders(senders: readonly SenderSummary[], rowKeyOf: RowKeyOf = ownRow): DetailSender[] {
+export function detailSenders(senders: readonly SenderSummary[], decided: ReadonlyMap<string, EmailDecision>, rowKeyOf: RowKeyOf = ownRow): DetailSender[] {
   const rows = new Map<string, SenderSummary[]>();
   for (const s of senders) {
     if (s.messages.length === 0) continue;
@@ -154,7 +156,10 @@ export function detailSenders(senders: readonly SenderSummary[], rowKeyOf: RowKe
     .map(([key, members]) => {
       const all = members.flatMap((s) => s.messages);
       const tally = new Map<HomeKind, number>();
-      for (const m of all) tally.set(kindOf(m), (tally.get(kindOf(m)) ?? 0) + 1);
+      for (const m of all) {
+        const kind = kindOf(m, decided.get(m.id)?.place);
+        tally.set(kind, (tally.get(kind) ?? 0) + 1);
+      }
       const kind = [...tally].sort((a, b) => b[1] - a[1])[0][0];
       const top = [...members].sort((a, b) => b.messages.length - a.messages.length)[0];
       return {
@@ -237,8 +242,10 @@ export function initDetailsPanel(
   const gone = new Set<string>();
   const rebuild = () => {
     const live = raw.map((s) => ({ ...s, messages: s.messages.filter((m) => !gone.has(m.id)) }));
-    messages = detailMessages(live, rowKeyOf);
-    senders = detailSenders(live, rowKeyOf);
+    // Decided on the raw list (stable between rebuilds); gone mail just isn't looked up.
+    const decided = decisions(raw);
+    messages = detailMessages(live, decided, rowKeyOf);
+    senders = detailSenders(live, decided, rowKeyOf);
   };
   const settle: Settle = {
     gone(ids) {

@@ -56,7 +56,7 @@ import { applyCensus, senderVolume } from "../lib/census";
 import { buildSenderProfiles } from "../lib/senderProfile";
 import { groupKeyFor, isPerson, senderName } from "../lib/senderListView";
 import { ALL_MAIL_DAYS, getSettings, mutateSettings, pullSyncedSettings, updateSettings, type ClusterSettings } from "../lib/settingsStore";
-import { activeProviders, ctx, providerById, setBridge } from "./state";
+import { activeProviders, ctx, decisions, providerById, setBridge } from "./state";
 import { jobCard, renderSortInbox, wireSortInbox } from "./sortInbox";
 import { maybeShowLabelTidyCard } from "./labelTidy";
 import {
@@ -617,7 +617,8 @@ function wireRangePicker(): void {
   const rows = () => {
     const end = new Date(range.end);
     end.setDate(end.getDate() + 1);
-    return emailRows((lastOverview?.[2] ?? []).map((sender) => ({ sender })), range.start, end.getTime());
+    const senders = lastOverview?.[2] ?? [];
+    return emailRows(senders.map((sender) => ({ sender })), range.start, end.getTime(), decisions(senders));
   };
   const name = () => `cluster-emails-${isoDay(range.start)}-to-${isoDay(range.end)}`;
   wireDownloadMenu(dl, menu, {
@@ -638,8 +639,9 @@ function mailReportSpec(): ReportSpec {
   const len = rangeLength(range);
   const end = new Date(range.end);
   end.setDate(end.getDate() + 1);
-  const f = periodFacts(senders, range.start, end.getTime());
-  const before = periodFacts(senders, new Date(range.start).setDate(new Date(range.start).getDate() - len), range.start);
+  const decided = decisions(senders);
+  const f = periodFacts(senders, range.start, end.getTime(), decided);
+  const before = periodFacts(senders, new Date(range.start).setDate(new Date(range.start).getDate() - len), range.start, decided);
   const change = before.total && !lastFacts?.since ? Math.round(((f.total - before.total) / before.total) * 100) : null;
   const n = (v: number) => v.toLocaleString();
   return {
@@ -1483,9 +1485,9 @@ function updateNavCounts(
     allSenders.filter((s) => isPerson(ctx.profiles.get(s.key))).map((s) => detailRowKey(s)),
   );
   askFacts = {
-    senders: detailSenders(allSenders, detailRowKey),
+    senders: detailSenders(allSenders, decisions(allSenders), detailRowKey),
     people,
-    kinds: mailByKind(allSenders, Date.now()).kinds,
+    kinds: mailByKind(allSenders, Date.now(), decisions(allSenders)).kinds,
     scams,
     waiting: byId.get("screener-queue") ?? 0,
   };
@@ -1704,7 +1706,7 @@ function renderOverview(
     rangeEnd: range.end,
     rangeLabel: rangeLabel(range),
     // All mail read, so Clean up's part and the total share one population.
-    ...mailByKind(allSenders, Date.now()),
+    ...mailByKind(allSenders, Date.now(), decisions(allSenders)),
     suspicious: rankFlagged(securitySenders).high.length,
     waiting: byId.get("screener-queue") ?? 0,
     neverOpened: {
@@ -1985,6 +1987,7 @@ function cleanupDownload(): HTMLElement {
       cleanupKinds().flatMap((k) => k.items.map((it) => ({ sender: it.sender, ids: new Set(it.ids), reason: k.reason }))),
       0,
       Infinity,
+      decisions(ctx.senders),
     );
   const name = `cluster-cleanup-${isoDay(Date.now())}`;
   wireDownloadMenu(wrap.querySelector("button")!, wrap.querySelector(".dl-menu")!, {

@@ -20,17 +20,17 @@ describe("emailsCsv", () => {
   it("lists only the range's (and picked ids') emails, newest first, one line each, with a reason column when given", () => {
     const d = (day: number) => new Date(2026, 10, day, 9, 5).getTime();
     const s = sender("shop@example.com", [msg("a", d(3), "Old"), msg("b", d(10), "Big\r\nsale"), msg("c", d(12), "=1+1")]);
-    const rows = emailRows([{ sender: s, ids: new Set(["b", "c"]), reason: "Unopened" }], d(1), d(20));
+    const rows = emailRows([{ sender: s, ids: new Set(["b", "c"]), reason: "Unopened" }], d(1), d(20), new Map());
     const lines = emailsCsv(rows).replace("﻿", "").trim().split("\r\n");
     expect(lines[0]).toBe("Date,Time,Sender,Address,Subject,Category,Status,Reason");
     expect(lines.slice(1)).toEqual(["2026-11-12,09:05,Shop,shop@example.com,'=1+1,People,Unread,Unopened", "2026-11-10,09:05,Shop,shop@example.com,Big sale,People,Unread,Unopened"]);
-    expect(emailRows([{ sender: s }], d(9), d(11))).toHaveLength(1);
+    expect(emailRows([{ sender: s }], d(9), d(11), new Map())).toHaveLength(1);
   });
 });
 
 describe("emailsXlsx", () => {
   it("is a zip of the workbook parts with a frozen, filtered header and real dates", () => {
-    const bytes = emailsXlsx(emailRows([{ sender: sender("a@b.co", [msg("x", new Date(2026, 0, 2, 12).getTime(), "Hi <there> & you")]) }], 0, Infinity), "Emails");
+    const bytes = emailsXlsx(emailRows([{ sender: sender("a@b.co", [msg("x", new Date(2026, 0, 2, 12).getTime(), "Hi <there> & you")]) }], 0, Infinity, new Map()), "Emails");
     expect([bytes[0], bytes[1]]).toEqual([0x50, 0x4b]);
     const text = new TextDecoder().decode(bytes);
     for (const part of ["[Content_Types].xml", "xl/workbook.xml", "xl/worksheets/sheet1.xml", "xl/styles.xml"]) expect(text).toContain(part);
@@ -67,7 +67,7 @@ describe("report", () => {
   it("counts a period by day, category and sender", () => {
     const start = new Date(2026, 10, 1).getTime();
     const end = new Date(2026, 10, 4).getTime();
-    const f = periodFacts([sender("a@b.co", [msg("1", new Date(2026, 10, 1, 8).getTime(), "x"), msg("2", new Date(2026, 10, 3, 23).getTime(), "y"), msg("3", end, "z")])], start, end);
+    const f = periodFacts([sender("a@b.co", [msg("1", new Date(2026, 10, 1, 8).getTime(), "x"), msg("2", new Date(2026, 10, 3, 23).getTime(), "y"), msg("3", end, "z")])], start, end, new Map());
     expect(f.daily).toEqual([1, 0, 1]);
     expect(f.total).toBe(2);
     expect(f.senders).toEqual([{ name: "Shop", address: "a@b.co", count: 2, unread: 2 }]);

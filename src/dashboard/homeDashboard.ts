@@ -8,6 +8,7 @@ import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 import { clearedCount, type ActionLogEntry } from "../lib/actionLog";
 import type { SortBucket } from "../lib/sortTaxonomy";
 import { infoButton } from "./ui";
+import type { EmailDecision, Place } from "../lib/mailEngine";
 import { niceStep } from "./cleanupPage";
 
 export type HomeKind = "primary" | "trans" | "updates" | "promo";
@@ -38,10 +39,15 @@ export const BUCKET_KIND: Record<SortBucket, Exclude<HomeKind, "primary">> = {
   shopping: "promo",
 };
 
-/** Apple Mail's four kinds: receipts and shipping are Transactions, Gmail's
- * Promotions tab is Promotions, codes, lists, social and Gmail's other tabs
- * are Updates, and the rest is Primary. */
-export function kindOf(m: MessageRecord): HomeKind {
+/** Apple Mail's four kinds. An email the engine labels takes its label's kind
+ * (BUCKET_KIND), and one it files as Personal is People, so Overview counts
+ * exactly what the labels hold (engine step 6). Mail with no label (the
+ * Screener, risky, left in the inbox) goes by its own signals: receipts and
+ * shipping are Transactions, Gmail's Promotions tab is Offers, codes, lists,
+ * social and Gmail's other tabs are Updates, and the rest is People. */
+export function kindOf(m: MessageRecord, place: Place | undefined): HomeKind {
+  if (place === "personal") return "primary";
+  if (place && place !== "screener" && place !== "spam") return BUCKET_KIND[place];
   if (m.kind === "receipt" || m.kind === "statement" || m.kind === "shipping" || m.learnedTransactional) return "trans";
   if (m.tab === "promotions" || m.promotion) return "promo";
   if (m.kind === "otp" || m.kind === "newsletter" || m.kind === "social") return "updates";
@@ -55,6 +61,7 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 export function mailByKind(
   senders: readonly SenderSummary[],
   now: number,
+  decided: ReadonlyMap<string, EmailDecision>,
 ): {
   kinds: Record<HomeKind, number>;
   total: number;
@@ -76,7 +83,7 @@ export function mailByKind(
       const ago = daysAgo(m.receivedAt, now);
       if (ago >= 0 && ago < 7) receivedByDay[6 - ago] += 1;
       else if (ago >= 7 && ago < 14) receivedPrevByDay[13 - ago] += 1;
-      const kind = kindOf(m);
+      const kind = kindOf(m, decided.get(m.id)?.place);
       kinds[kind] += 1;
       total += 1;
       if (now - m.receivedAt < WEEK_MS) {

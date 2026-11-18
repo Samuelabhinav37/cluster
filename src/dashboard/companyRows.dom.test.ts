@@ -17,7 +17,7 @@ describe("one row per company", () => {
         messages: ids.map((id) => ({ id, receivedAt: at, unread: true })),
       }) as unknown as SenderSummary;
     const senders = [sender("deals@shop.example", ["s1", "s2"]), sender("news@shop.example", ["n1"])];
-    const rows = detailSenders(senders, (s) =>
+    const rows = detailSenders(senders, new Map(), (s) =>
       s.address.endsWith("@shop.example") ? "shop.example" : s.key,
     );
     expect(rows).toHaveLength(1);

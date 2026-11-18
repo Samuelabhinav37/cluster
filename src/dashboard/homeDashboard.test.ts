@@ -67,16 +67,23 @@ describe("inboxTabOf", () => {
 });
 
 describe("kindOf", () => {
-  it("sorts mail into Apple Mail's four kinds", () => {
-    expect(kindOf(msg({ kind: "receipt", tab: "promotions" }))).toBe("trans");
-    expect(kindOf(msg({ kind: "shipping" }))).toBe("trans");
-    expect(kindOf(msg({ learnedTransactional: "you" }))).toBe("trans");
-    expect(kindOf(msg({ tab: "promotions" }))).toBe("promo");
-    expect(kindOf(msg({ kind: "otp" }))).toBe("updates");
-    expect(kindOf(msg({ kind: "newsletter", tab: "primary" }))).toBe("updates");
-    expect(kindOf(msg({ tab: "forums" }))).toBe("updates");
-    expect(kindOf(msg({ tab: "primary" }))).toBe("primary");
-    expect(kindOf(msg())).toBe("primary");
+  it("a label the engine gives decides the kind; Personal is People", () => {
+    expect(kindOf(msg({ tab: "promotions" }), "receipt")).toBe("trans");
+    expect(kindOf(msg({ kind: "receipt" }), "promotions")).toBe("promo");
+    expect(kindOf(msg({ tab: "updates" }), "personal")).toBe("primary");
+    expect(kindOf(msg({ tab: "promotions" }), "screener")).toBe("promo");
+  });
+
+  it("sorts unlabelled mail into Apple Mail's four kinds by its own signals", () => {
+    expect(kindOf(msg({ kind: "receipt", tab: "promotions" }), undefined)).toBe("trans");
+    expect(kindOf(msg({ kind: "shipping" }), undefined)).toBe("trans");
+    expect(kindOf(msg({ learnedTransactional: "you" }), undefined)).toBe("trans");
+    expect(kindOf(msg({ tab: "promotions" }), undefined)).toBe("promo");
+    expect(kindOf(msg({ kind: "otp" }), undefined)).toBe("updates");
+    expect(kindOf(msg({ kind: "newsletter", tab: "primary" }), undefined)).toBe("updates");
+    expect(kindOf(msg({ tab: "forums" }), undefined)).toBe("updates");
+    expect(kindOf(msg({ tab: "primary" }), undefined)).toBe("primary");
+    expect(kindOf(msg(), undefined)).toBe("primary");
   });
 });
 
@@ -93,6 +100,7 @@ describe("mailByKind", () => {
         sender("friend@example.com", [msg()]),
       ],
       NOW,
+      new Map(),
     );
     expect(got).toEqual({
       kinds: { primary: 1, trans: 0, updates: 0, promo: 4 },
