@@ -4,7 +4,7 @@
 import { senderUnread, senderVolume } from "./census";
 import type { SenderSummary } from "./senderModel";
 import type { SenderProfile, SenderTier, TemplateGroup } from "./senderProfile";
-import { isFreeMailDomain, isRoleAddress, isSchoolDomain } from "./freeMail";
+import { isPersonalAccount } from "./freeMail";
 import { registrableDomain } from "./registrableDomain";
 
 export type SenderSortId = "volume" | "unread" | "newest" | "leastOpened" | "lastOpened" | "people";
@@ -18,13 +18,7 @@ const TIER_ORDER: SenderTier[] = ["close", "known", "regular", "other", "new", "
 export function isPerson(profile: SenderProfile | undefined): boolean {
   if (profile?.personOverride !== undefined) return profile.personOverride;
   if (!profile) return false;
-  const domain = profile.address.slice(profile.address.lastIndexOf("@") + 1);
-  return (
-    !profile.machine &&
-    profile.kind === "person" &&
-    !isRoleAddress(profile.address) &&
-    (isFreeMailDomain(domain) || isSchoolDomain(domain))
-  );
+  return !profile.machine && profile.kind === "person" && isPersonalAccount(profile.address);
 }
 
 export function sortSenders(

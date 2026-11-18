@@ -29,3 +29,17 @@ describe("mailEngine matches today's passes, email for email", () => {
     expect(engine.size).toBe(metas.length);
   });
 });
+
+describe("one personal-account check (engine step 1)", () => {
+  it("a professor writing from a school address is a person; the school's shared mailboxes stay Education", async () => {
+    const { mail } = await import("../test/mailboxGen");
+    const metas = [
+      mail("j.rivera@westbrook.edu", "Julia Rivera", "Office hours moved to Thursday", { tab: "primary", via: "person" }),
+      mail("advising@westbrook.edu", "Westbrook Advising", "Spring course list"),
+      mail("registrar@westbrook.edu", "Westbrook Registrar", "Spring course list"),
+    ];
+    const { senders } = await sendersOf(metas, { contacts: [], now: Date.UTC(2026, 10, 15, 12) });
+    const d = decideAll(senders, { wrote: new Set(), letIn: new Set(), overrides: {} });
+    expect(metas.map((m) => d.get(m.id)?.place)).toEqual(["personal", "education", "education"]);
+  });
+});

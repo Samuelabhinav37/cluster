@@ -1,6 +1,6 @@
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import { looksLikeDisposableCode } from "./messageKind";
-import { isFreeMailDomain } from "./freeMail";
+import { isPersonalAccount } from "./freeMail";
 import { cleanText } from "./normalize";
 import { categorizeDomain } from "./domainCategories";
 import { knownSenderSet } from "./screener";
@@ -62,8 +62,7 @@ const ACTIVE_OFFER_OR_WINDOW_RE =
  * mailbox, with no bulk or automated sign. Company mail without bulk headers
  * (an order, a receipt) still sorts. */
 export function neverMove(message: MessageRecord, senderAddress: string): boolean {
-  const domain = senderAddress.split("@")[1] ?? "";
-  return message.kind === "other" && !message.looksAutomated && !message.promotion && isFreeMailDomain(domain);
+  return message.kind === "other" && !message.looksAutomated && !message.promotion && isPersonalAccount(senderAddress);
 }
 
 // Job alerts are list mail anyone can drop; an application update is not.

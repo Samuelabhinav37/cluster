@@ -14,7 +14,7 @@
 import { correctionKey } from "./addressIdentity";
 import { mapWithConcurrency } from "./concurrency";
 import { domainOf } from "./domainGrouping";
-import { isFreeMailDomain, isRoleAddress } from "./freeMail";
+import { isFreeMailDomain, isPersonalAccount, isRoleAddress } from "./freeMail";
 import { neverMove } from "./protectionPolicy";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import { isMailboxName } from "./nameMatch";
@@ -293,7 +293,7 @@ function peopleMailIds(senders: readonly SenderSummary[], ctx: LimitContext): st
   for (const sender of senders) {
     const address = sender.address.toLowerCase();
     const domain = domainOf(address);
-    const person = (ctx.wrote ?? ctx.known).has(address) || isFreeMailDomain(domain);
+    const person = (ctx.wrote ?? ctx.known).has(address) || isPersonalAccount(address);
     if (!person || scamTier(sender, ctx.known) !== "none") continue;
     const override = overrideFor(sender.address, domain, ctx.overrides);
     if (override !== undefined && override !== "personal") continue;
