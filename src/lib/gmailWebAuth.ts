@@ -8,6 +8,8 @@
 // chrome.storage.session. Only an open page ever shows Google's window; the
 // service worker only refreshes.
 
+import { clearCountBadge } from "./supervisor";
+
 const CLIENT_ID = "995931931748-bthcfr7bc5s12u86dafnlvfmogg4pnh9.apps.googleusercontent.com";
 const HELPER = "https://cluster-auth.samuelabhinav37.workers.dev";
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -164,7 +166,7 @@ async function signIn(scopes: string[], stored: StoredAuth | undefined): Promise
     await chrome.storage.local.set({ [REFRESH_KEY]: { refreshToken, scopes: granted, email } satisfies StoredAuth });
   }
   await chrome.storage.local.remove(EXPIRED_KEY);
-  void chrome.action?.setBadgeText({ text: "" });
+  void clearCountBadge().catch(() => {});
   return token;
 }
 

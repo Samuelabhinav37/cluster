@@ -1,4 +1,5 @@
 import { NUMBER_SCREENS } from "../lib/keymap";
+import { clearCountBadge } from "../lib/supervisor";
 import { scanCheckCounts, scanFound } from "../lib/securityScan";
 import { correctionKey } from "../lib/addressIdentity";
 import { executeBulkDeleteDomains, filterOutProtected } from "../lib/bulkActions";
@@ -2641,7 +2642,7 @@ function wireBulkHandlers() {
 
     renderConfirmStep(expiryCleanupSlot, resetExpiryCleanupSlot, summaryText, true, async () => {
       const { message, undoableGmailIds } = await executeSmartDelete(merged);
-      chrome.action.setBadgeText({ text: "" }).catch(() => {});
+      clearCountBadge().catch(() => {});
       appendUndoButton(expiryCleanupSlot, undoableGmailIds);
       await logAction(
         "trash",

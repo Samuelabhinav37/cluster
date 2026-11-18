@@ -78,3 +78,9 @@ export async function supervise<T>(
     return undefined;
   }
 }
+
+/** Clears the icon's count, but never a failing job's "!" (that clears on recovery). */
+export async function clearCountBadge(): Promise<void> {
+  if (failingJobs(await getJobHealth()).length > 0) return;
+  await chrome.action?.setBadgeText({ text: "" });
+}
