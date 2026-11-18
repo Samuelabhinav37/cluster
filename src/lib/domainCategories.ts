@@ -48,6 +48,11 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "tatacliq.com", "croma.com", "jiomart.com", "lenskart.com", "snapdeal.com", "firstcry.com",
     "purplle.com", "decathlon.in", "steampowered.com", "joinhoney.com", "cargurus.com",
     "etsy.zendesk.com",
+    // 2026-11-17: pharmacies, groceries, games stores and Indian shops.
+    "walgreens.com", "cvs.com", "kroger.com", "safeway.com", "wholefoodsmarket.com", "aldi.us",
+    "playstation.com", "xbox.com", "nintendo.com", "epicgames.com", "bookmyshow.com", "pepperfry.com",
+    "urbanladder.com", "boat-lifestyle.com", "mamaearth.in", "bewakoof.com", "1mg.com", "pharmeasy.in",
+    "netmeds.com", "apollopharmacy.in", "dunzo.com", "nykaafashion.com",
   ],
   travel: [
     "expedia.com", "booking.com", "airbnb.com", "uber.com", "lyft.com", "delta.com",
@@ -62,6 +67,10 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "budget.com", "alamo.com", "cleartrip.com", "yatra.com", "ixigo.com", "easemytrip.com",
     "redbus.in", "oyorooms.com", "olacabs.com", "spicejet.com", "akasaair.com", "lyftmail.com",
     "expediagroup.com",
+    // 2026-11-17
+    "airasia.com", "singaporeair.com", "etihad.com", "turkishairlines.com", "ryanair.com", "easyjet.com",
+    "hostelworld.com", "railyatri.in", "confirmtkt.com", "abhibus.com", "zoomcar.com", "rapido.bike",
+    "blablacar.com",
   ],
   finance: [
     "paypal.com", "chase.com", "bankofamerica.com", "wellsfargo.com", "americanexpress.com",
@@ -82,6 +91,11 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "mobikwik.com", "razorpay.com", "synchronybank.com", "mercury.com",
     // Indian banks moved to the .bank.in domain.
     "axis.bank.in", "hdfc.bank.in", "icici.bank.in", "sbi.bank.in", "kotak.bank.in",
+    // 2026-11-17: more banks, Indian fund statements and tax.
+    "yesbank.in", "indusind.com", "bankofbaroda.in", "pnbindia.in", "canarabank.com", "federalbank.co.in",
+    "aubank.in", "rblbank.com", "hsbc.co.in", "hsbc.com", "sc.com", "citizensbank.com", "truist.com",
+    "monzo.com", "n26.com", "zellepay.com", "indmoney.com", "smallcase.com", "kuvera.in",
+    "camsonline.com", "kfintech.com", "nsdl.co.in", "cdslindia.com", "incometax.gov.in", "irs.gov",
   ],
   social: [
     "facebook.com", "facebookmail.com", "instagram.com", "twitter.com", "x.com",
@@ -89,6 +103,8 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "discord.com", "meetup.com", "nextdoor.com", "redditmail.com",
     "quora.com", "youtube.com", "threads.net", "bsky.app", "tumblr.com", "strava.com",
     "goodreads.com", "twitch.tv", "meta.com",
+    // 2026-11-17
+    "whatsapp.com", "telegram.org", "signal.org", "hinge.co", "tinder.com", "bumble.com",
   ],
   // Not google.com or microsoft.com: they send security alerts, account
   // notices and ads from the same domain, so the domain says nothing.
@@ -102,6 +118,11 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "netlify.com", "heroku.com", "digitalocean.com", "jetbrains.com", "postman.com", "docker.com",
     "sentry.io", "smartsheet.com", "wrike.com", "todoist.com", "evernote.com", "1password.com",
     "bitwarden.com", "wetransfer.com",
+    // 2026-11-17: AI, cloud and developer tools.
+    "openai.com", "anthropic.com", "cloudflare.com", "supabase.com", "supabase.io", "render.com",
+    "railway.app", "fly.io", "npmjs.com", "zapier.com", "typeform.com", "mongodb.com", "twilio.com",
+    "datadoghq.com", "pagerduty.com", "coda.io", "huggingface.co", "replit.com", "cursor.com",
+    "microsoftonline.com", "onedrive.com",
   ],
   newsletter: [
     "substack.com", "medium.com", "mailchimp.com", "nytimes.com", "washingtonpost.com",
@@ -113,6 +134,9 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "politico.com", "businessinsider.com", "forbes.com", "fortune.com", "hbr.org",
     "fastcompany.com", "producthunt.com", "vogue.com", "gq.com", "thehindu.com", "indiatimes.com",
     "hindustantimes.com", "livemint.com", "moneycontrol.com", "ndtv.com",
+    // 2026-11-17
+    "thehustle.co", "join1440.com", "theskimm.com", "finshots.in", "the-ken.com", "inc42.com",
+    "yourstory.com", "techmeme.com", "hackernewsletter.com", "bytebytego.com", "pragmaticengineer.com",
   ],
   education: [
     "coursera.org", "udemy.com", "edx.org", "khanacademy.org", "duolingo.com",
@@ -126,6 +150,10 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "devpost.com", "mlh.io", "kaggle.com", "isc2.org", "comptia.org", "credly.com", "sans.org",
     "offsec.com", "tryhackme.com", "hackthebox.com", "cybrary.it", "greatlearning.in",
     "myalumni.network", "oceg.org",
+    // 2026-11-17
+    "swayam.gov.in", "byjus.com", "unacademy.com", "vedantu.com", "pw.live", "masterclass.com",
+    "educative.io", "frontendmasters.com", "egghead.io", "zerotomastery.io", "boot.dev", "exercism.org",
+    "codewars.com", "ielts.org",
   ],
   // Job boards and the applicant-tracking systems employers write from.
   jobs: [
@@ -142,6 +170,9 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
     "snagajob.com", "usajobs.gov", "flexjobs.com", "hired.com", "otta.com",
     "welcometothejungle.com", "levels.fyi", "talent.com", "jooble.org", "adzuna.com", "lensa.com",
     "shine.com", "timesjobs.com", "apna.co", "iimjobs.com", "greenhouse-jobs.com", "certn.co",
+    // 2026-11-17: freelance and talent marketplaces.
+    "upwork.com", "fiverr.com", "freelancer.com", "toptal.com", "turing.com", "uplers.com", "unstop.com",
+    "workindia.in",
   ],
 };
 

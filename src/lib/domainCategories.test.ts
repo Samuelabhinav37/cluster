@@ -38,3 +38,11 @@ describe("domainsForCategory", () => {
     expect(domainsForCategory("other")).toEqual([]);
   });
 });
+
+describe("domain lists", () => {
+  it("never lists a domain or service in two categories", () => {
+    const cats = ["shopping", "travel", "finance", "social", "productivity", "newsletter", "education", "jobs"] as const;
+    const all = cats.flatMap((c) => domainsForCategory(c));
+    expect(all.length).toBe(new Set(all).size);
+  });
+});
