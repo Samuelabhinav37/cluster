@@ -27,8 +27,8 @@ Gmail before using it.
    then fetch Gmail's changes. A small "Updating…" next to the date range;
    numbers update in place; it turns to "Updated just now" and fades. If Gmail
    is slow or offline, the old numbers stay and it says "Last updated 5 min ago".
-2. First visit (no index yet): the tiles, chart and cards appear as grey
-   outlines in their real places, with "Reading your mail · 80 of 206".
+2. First visit (no index yet): the first-read screen below, instead of grey
+   outlines.
 3. Same for Cleanup, Labels, Security and the Screener: draw from the index
    first, never blank.
 4. Under one second: no indicator, so nothing flickers.
@@ -36,6 +36,38 @@ Gmail before using it.
 **Check:** reload timing in the preview (today 650 ms to the greeting, the rest
 only after the sync); Overview must have numbers on the first frame after a
 reload. numbersAgree test still passes after the in-place update.
+
+### Step 1b. The first read, shown like a file copy
+
+**Asked:** show that Cluster is reading the inbox, what it's reading and how,
+like the Windows and Mac copy windows, with an animation like sui.io.
+
+**References:**
+- sui.io: a black page, light streaks rushing out of the centre, and a small
+  "100%" counter at the edge while it loads.
+- Windows copy window: "Copying 8,302 items", percent, a speed graph, the
+  current file name, time and items left.
+- Mac Finder copy: one bar, "1,240 of 8,302", "about 2 minutes".
+
+**Design** (full screen, first read only):
+1. A big percent counter, as on sui.io.
+2. "Reading your mail" with one bar and "1,240 of 8,302 emails · about 2
+   minutes left". The time comes from the real reading rate and updates every
+   few seconds.
+3. "Now reading" with the sender's logo and name and the month, for example
+   "Amazon · March 2024". It changes as it goes, like the current file name.
+4. A small emails-per-second line, like the Windows speed graph.
+5. Each label fills as mail lands in it (Finance 12, Orders & shipping 40,
+   Newsletters 74 …), like folders filling.
+6. The animation: thin streaks moving into the centre, in the one muted
+   colour, calmer than sui.io (flashy glow and pings were rejected before).
+   It stops under `prefers-reduced-motion`.
+7. Kai says one line about what's happening, since Kai explains during setup.
+8. When it ends, the screen fades into Overview with real numbers.
+
+The data is already there: the read reports done and total
+(`updateIndexStatus`). Rate, sender and month come from each batch as it
+lands. Nothing leaves the computer.
 
 ## Step 2. Rebuild the Screener in the house style
 
