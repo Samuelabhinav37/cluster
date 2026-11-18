@@ -61,7 +61,7 @@ let root: HTMLElement;
 let trash: ReturnType<typeof vi.fn<DetailsActions["trash"]>>;
 
 function boot() {
-  const panel = initDetailsPanel(root, { trash }, () => NOW);
+  const panel = initDetailsPanel(root, { trash }, () => new Map(), () => NOW);
   panel.update(mailbox());
   return panel;
 }
@@ -129,7 +129,7 @@ describe("Details panel", () => {
 
   it("smart views are chips, and Archive gets only what was ticked", () => {
     const archive = vi.fn<NonNullable<DetailsActions["archive"]>>();
-    const panel = initDetailsPanel(root, { trash, archive }, () => NOW);
+    const panel = initDetailsPanel(root, { trash, archive }, () => new Map(), () => NOW);
     panel.update([
       ...mailbox(),
       sender("big@files.example", [msg({ subject: "Video", sizeBytes: 5 * 1024 * 1024 })], "Files"),
@@ -146,7 +146,7 @@ describe("Details panel", () => {
 
   it("Pin gets only what was ticked", () => {
     const pin = vi.fn<NonNullable<DetailsActions["pin"]>>();
-    const panel = initDetailsPanel(root, { trash, pin }, () => NOW);
+    const panel = initDetailsPanel(root, { trash, pin }, () => new Map(), () => NOW);
     panel.update(mailbox());
     panel.open();
     root.querySelector<HTMLInputElement>("tbody .tick:not(:disabled)")!.click();
@@ -157,7 +157,7 @@ describe("Details panel", () => {
   it("Label as files what was ticked, always for the sender unless unticked", () => {
     const label = vi.fn<NonNullable<DetailsActions["label"]>>();
     const labels = [{ bucket: "shopping" as const, name: "Shopping" }, { bucket: "promotions" as const, name: "Promotions" }];
-    const panel = initDetailsPanel(root, { trash, label, labels }, () => NOW);
+    const panel = initDetailsPanel(root, { trash, label, labels }, () => new Map(), () => NOW);
     panel.update(mailbox());
     panel.open();
     root.querySelector<HTMLInputElement>("tbody .tick:not(:disabled)")!.click();

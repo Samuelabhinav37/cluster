@@ -231,10 +231,11 @@ const remember = (v: "open" | "min") => {
 export function initDetailsPanel(
   root: HTMLElement,
   actions: DetailsActions,
+  /** The engine's decisions for a sender list (dashboard state.decisions).
+   * Required, so a caller can't forget it and fall back to unlabelled kinds. */
+  decide: (senders: readonly SenderSummary[]) => ReadonlyMap<string, EmailDecision>,
   now = () => Date.now(),
   rowKeyOf: RowKeyOf = ownRow,
-  /** The engine's decisions for a sender list (dashboard state.decisions). */
-  decide: (senders: readonly SenderSummary[]) => ReadonlyMap<string, EmailDecision> = () => new Map(),
 ): DetailsPanel {
   let raw: readonly SenderSummary[] = [];
   let messages: DetailMessage[] = [];

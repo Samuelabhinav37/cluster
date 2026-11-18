@@ -7,7 +7,7 @@ import { weeklyByBucket } from "./timeLimitsTab";
 import { BUCKET_KIND, mailByKind } from "./homeDashboard";
 import { ctx } from "./state";
 import { decideAll, sortLabelOf } from "../lib/mailEngine";
-import type { ClusterSettings } from "../lib/settingsStore";
+import { defaultSettings } from "../lib/settingsStore";
 import { ALL_SORT_BUCKETS } from "../lib/sortTaxonomy";
 import { build, type Template } from "../test/mailboxGen";
 import { sendersOf } from "../test/sortHarness";
@@ -20,14 +20,7 @@ describe("every screen shows the engine's label", () => {
     const { cases, sent } = build(TUNED as Template[], TUNED_SEED);
     const metas = cases.map((c) => c.meta);
     const { senders } = await sendersOf(metas, { contacts: CONTACTS, sent, now: NOW });
-    ctx.settings = {
-      sentCorrespondents: { addresses: CONTACTS, fetchedAt: 0 },
-      screenerAllowlist: [],
-      sortOverrides: {},
-      screenerHoldPeople: true,
-      quarantineReview: {},
-      securityRules: { strict: false },
-    } as unknown as ClusterSettings;
+    ctx.settings = { ...defaultSettings(), sentCorrespondents: { addresses: CONTACTS, fetchedAt: 0 }, screenerHoldPeople: true };
     const decided = decideAll(senders, { wrote: new Set(CONTACTS), letIn: new Set(), overrides: {}, holdPeople: true });
     const want = new Map<string, number>();
     for (const s of senders) for (const m of s.messages) if (NOW - m.receivedAt < 7 * 86_400_000) {

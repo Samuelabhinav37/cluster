@@ -8,7 +8,7 @@ import {
   type ProtectionContext,
 } from "./protectionPolicy";
 import type { MessageRecord, SenderSummary } from "./senderModel";
-import type { ClusterSettings } from "./settingsStore";
+import { defaultSettings } from "./settingsStore";
 
 function message(over: Partial<MessageRecord> & { id: string }): MessageRecord {
   return {
@@ -194,9 +194,10 @@ describe("job and money mail read from the notification (real inbox, 2026-11-05)
 
 describe("let-in senders (engine design, decision 2)", () => {
   const settings = {
+    ...defaultSettings(),
     screenerAllowlist: ["news@shop.example"],
     sentCorrespondents: { addresses: ["friend@corp.example"], fetchedAt: 0 },
-  } as unknown as ClusterSettings;
+  };
   const promo = message({ id: "p", kind: "newsletter", looksAutomated: true });
 
   it("standing rules keep a company let in from the Screener protected", () => {

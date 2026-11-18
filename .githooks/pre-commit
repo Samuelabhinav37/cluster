@@ -1,0 +1,10 @@
+#!/bin/sh
+# Blocks a commit when types, lint or the tests touching the staged code fail.
+# The full suite runs in CI; this keeps a red commit from landing locally.
+# Skip once with: git commit --no-verify
+set -e
+staged=$(git diff --cached --name-only --diff-filter=ACMR -- 'src/*.ts')
+[ -z "$staged" ] && exit 0
+npx tsc --noEmit -p .
+npx eslint $staged
+npx vitest related --run --exclude "src/nonfunctional/performance.test.ts" $staged

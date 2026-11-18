@@ -352,6 +352,12 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   healthHistory: [],
 };
 
+/** A fresh copy of the defaults, for tests: a fixture built from it gets every
+ * new setting for free instead of crashing on a missing field. */
+export function defaultSettings(): ClusterSettings {
+  return structuredClone(DEFAULT_SETTINGS);
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

@@ -6,7 +6,7 @@ import {
   recordHealthSnapshot,
 } from "./inboxHealth";
 import type { MessageRecord, SenderSummary } from "./senderModel";
-import type { ClusterSettings, HealthSnapshot } from "./settingsStore";
+import { defaultSettings, type ClusterSettings, type HealthSnapshot } from "./settingsStore";
 
 function msg(over: Partial<MessageRecord> = {}): MessageRecord {
   return {
@@ -43,18 +43,7 @@ function sender(over: Partial<SenderSummary> = {}): SenderSummary {
 }
 
 function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
-  return {
-    snoozedMessages: {},
-    screenerEnabled: false,
-    screenedSenders: [],
-    actionLog: [],
-    screenerAllowlist: [],
-    sentCorrespondents: { addresses: [], fetchedAt: 0 },
-    sortOverrides: {},
-    quarantineReview: {},
-    securityRules: { strict: false },
-    ...over,
-  } as ClusterSettings;
+  return { ...defaultSettings(), screenerEnabled: false, ...over };
 }
 
 describe("buildInboxHealth", () => {
