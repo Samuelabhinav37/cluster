@@ -59,6 +59,26 @@ describe("searchGroups", () => {
   });
 });
 
+describe("emails found on this device", () => {
+  it("lists the newest matching emails first, each opening in Gmail, then the Details row", () => {
+    const msg = (id: string, subject: string, receivedAt: number) => ({ id, subject, receivedAt });
+    const bank = {
+      key: "gmail:bank.example",
+      provider: "gmail",
+      name: "Bank",
+      address: "alerts@bank.example",
+      emails: 3,
+      opened: 3,
+      members: [{ address: "alerts@bank.example", messages: [msg("m1", "March invoice", 1), msg("m2", "April invoice", 3), msg("m3", "Welcome", 2)] }],
+    } as unknown as DetailSender;
+    const open = vi.fn();
+    const hits = searchGroups("invoice", { ...facts, senders: [bank] }, act(), open).find((g) => g.heading === "Emails")!.hits;
+    expect(hits.map((h) => h.title)).toEqual(["April invoice", "March invoice", "Emails with “invoice”"]);
+    hits[0].run();
+    expect(open).toHaveBeenCalledWith("https://mail.google.com/mail/u/0/#all/m2");
+  });
+});
+
 describe("Ask Kai box", () => {
   it("opens from the bar, runs the chosen hit on Enter and closes", () => {
     document.body.innerHTML = '<button id="t"></button>';

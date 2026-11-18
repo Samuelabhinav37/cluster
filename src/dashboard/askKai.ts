@@ -7,6 +7,7 @@
 // text later.
 
 import type { DetailSender, DetailsFilter } from "./detailsPanel";
+import { gmailMessageUrl } from "./detailsPanel";
 import { HOME_KINDS, type HomeAct, type HomeKind } from "./homeDashboard";
 
 export interface AskHit {
@@ -123,6 +124,38 @@ export function gmailSearchUrl(q: string): string {
   return `https://mail.google.com/mail/u/0/#search/${encodeURIComponent(q)}`;
 }
 
+interface IndexedEmail {
+  hay: string;
+  id: string;
+  subject: string;
+  name: string;
+  at: number;
+  gmail: boolean;
+}
+// Lowercased once per sender list, not per keystroke: a 100,000-email index
+// scans in a few milliseconds this way, with no Gmail call and no quota.
+let indexed: { senders: readonly DetailSender[]; rows: IndexedEmail[] } | null = null;
+function emailRows(senders: readonly DetailSender[]): IndexedEmail[] {
+  if (indexed?.senders === senders) return indexed.rows;
+  const rows: IndexedEmail[] = [];
+  for (const s of senders)
+    for (const member of s.members ?? [])
+      for (const m of member.messages) {
+        const subject = m.subject ?? "";
+        rows.push({ hay: `${s.name} ${member.address} ${subject}`.toLowerCase(), id: m.id, subject, name: s.name, at: m.receivedAt, gmail: s.provider === "gmail" });
+      }
+  indexed = { senders, rows };
+  return rows;
+}
+
+/** The newest emails on this device whose sender or subject has every word. */
+export function findEmails(words: readonly string[], senders: readonly DetailSender[], max: number) {
+  return emailRows(senders)
+    .filter((r) => words.every((w) => r.hay.includes(w)))
+    .sort((a, b) => b.at - a.at)
+    .slice(0, max);
+}
+
 /** Everything the top search shows for `raw`, in groups, best first. */
 export function searchGroups(raw: string, f: AskFacts, act: AskActions, openUrl: (url: string) => void): AskGroup[] {
   const q = raw.toLowerCase().trim();
@@ -147,7 +180,17 @@ export function searchGroups(raw: string, f: AskFacts, act: AskActions, openUrl:
     { heading: "People", hits: people.slice(0, 3).map(senderHit) },
     {
       heading: "Emails",
-      hits: [{ title: `Emails with “${raw.trim()}”`, sub: "Show in Details", verb: "Show", run: () => act.details({ view: "emails", q: raw.trim() }) }],
+      hits: [
+        ...findEmails(words, f.senders, 4).map(
+          (e): AskHit => ({
+            title: e.subject || "(no subject)",
+            sub: `${e.name}, ${new Date(e.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`,
+            verb: "Open",
+            run: () => (e.gmail ? openUrl(gmailMessageUrl(e.id)) : act.details({ view: "emails", q: e.subject })),
+          }),
+        ),
+        { title: `Emails with “${raw.trim()}”`, sub: "Show in Details", verb: "Show", run: () => act.details({ view: "emails", q: raw.trim() }) },
+      ],
     },
     {
       heading: "Gmail",
