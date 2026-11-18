@@ -56,7 +56,13 @@ Every number on every screen and in the report:
 | Bulk Trash resumes | Done: every screen's Trash is a saved job | `ca69208` |
 | Corrections sync past 8 KB | Done: chunked | `a228f1c` |
 | Privacy page | Chrome sync and Athena added | `820a33e` |
-| 1.6 numbers-agree test, 2.6, 3.3 to 3.9, phases 4 to 7 | Next | |
+| 1.6 Numbers agree | Done: test over Overview, Details and the report. Fixed the report's top senders (per address, now by company) and its change figure | `61772fd` |
+| 3.3 No auto-trash | Done: tripwire over every trash, unsubscribe, send and Trash-filter call site | `382b78d`, `ce0da09` |
+| 3.4 Did unsubscribe work | Already built: "Stopped sending", and auto-mute after 14 days | |
+| 3.5 Weekly list refresh | Done: refresh-datasets.yml + dataset-guard.mjs (shrink limit, no known-good domain blocked, issue on failure). Malware list needs a URLHAUS_AUTH_KEY secret | `b8df778`, `a48e59f` |
+| 3.6 List dates | Done: Settings, Security "Scam lists: Updated ..." / "Out of date" past 30 days | `29f94a4` |
+| 3.8 Phishing feed | Done: phishunt.io (CC0) for links, warns alone, published not bundled | `9d48071` |
+| 2.6, 3.7, 3.9, phases 4 to 7 | Next | |
 | Not doing | Lazy spam list (makes a sync engine check async for a few ms of parsing) | |
 
 ## Phases
