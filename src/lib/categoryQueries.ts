@@ -113,6 +113,12 @@ function isSubjectKind(bucket: SortBucket): bucket is SubjectKind {
   return (KIND_ORDER as string[]).includes(bucket);
 }
 
+/** Senders whose mail is a newsletter whatever Gmail's tab says. */
+// Kept short: it rides in the Promotions query, which is near Gmail's 1,400 limit.
+const NEWSLETTER_PLATFORMS = [
+  "substack.com", "beehiiv.com", "medium.com", "morningbrew.com", "tldrnewsletter.com", "every.to", "thehustle.co", "join1440.com",
+];
+
 const DOMAIN_BUCKETS: SortBucket[] = ["shopping", "travel", "finance", "productivity", "education", "newsletter"];
 
 /** Addresses the user redirected into `bucket`, and ones they sent elsewhere
@@ -216,6 +222,9 @@ export function categoryQueries(bucket: SortBucket, overrides: Record<string, So
       return [fromAny([...chunk]), ...not.map((n) => `-${n}`)].join(" ");
     }),
   );
+  // Platforms that only send newsletters: Newsletters even in the Promotions
+  // tab (the Promotions filter skips them), so Chrome closed files them right.
+  if (bucket === "newsletter") out.push(...packed(NEWSLETTER_PLATFORMS, (chunk) => withExcludes(`${fromAny([...chunk])} -${subjectAny(ALL_KIND_PHRASES)}`, exclude)));
   // Corrections for one kind of a sender's mail: the bucket's usual "no kind
   // phrases" rule would cancel them.
   out.push(...packed(scoped, (chunk) => (chunk.length === 1 ? chunk[0] : `{${chunk.join(" ")}}`)));
@@ -250,15 +259,16 @@ function buildQuery(bucket: SortBucket, domains: string[], first: boolean): stri
   } else if (bucket === "promotions") {
     if (first) matchAny.push("category:promotions");
     not.push(subjectAny(ALL_KIND_PHRASES));
+    not.push(fromAny(NEWSLETTER_PLATFORMS));
   } else if (DOMAIN_BUCKETS.includes(bucket)) {
     // Newsletters are mostly found by their List-Unsubscribe header, which a
     // filter can't see; the background tagger covers the rest.
     if (domains.length > 0) matchAny.push(fromAny(domains));
     not.push(subjectAny(ALL_KIND_PHRASES));
     // Mirrors classifySortBucket: the Promotions tab wins over the domain.
-    // shortcut: a newsletter there gets Promotions (its list header, which
-    // makes it a newsletter, is invisible to a filter, and the 59 newsletter
-    // domains don't fit in the Promotions query); the relabel swaps it.
+    // shortcut: a news site's newsletter there gets Promotions (its list
+    // header is invisible to a filter, and news sites send real offers too);
+    // the relabel swaps it. Newsletter-only platforms have their own query.
     not.push("category:promotions");
     // Calendar invites are people arranging something (CALENDAR_RE).
     if (bucket === "productivity") not.push("subject:(invitation OR accepted OR declined)");
