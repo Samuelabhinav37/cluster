@@ -82,8 +82,13 @@ export function jobCard(job: {
   const head = document.createElement("div");
   head.className = "rc-head";
   const counted = job.total !== undefined && job.total > 0 && job.done !== undefined;
+  const title = Object.assign(document.createElement("b"), { textContent: job.title });
+  if (job.finished) {
+    // A drawn tick, like the rest of the icons, not a typed one.
+    title.insertAdjacentHTML("afterbegin", '<svg class="rc-tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>');
+  }
   head.append(
-    Object.assign(document.createElement("b"), { textContent: `${job.finished ? "✓ " : ""}${job.title}` }),
+    title,
     Object.assign(document.createElement("span"), { textContent: counted ? `${Math.floor((job.done! / job.total!) * 100)}%` : "" }),
   );
   const parts: Node[] = [head];

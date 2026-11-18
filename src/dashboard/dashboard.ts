@@ -1104,7 +1104,7 @@ function showReadDone() {
   paintScanCard();
   // A running Check mail or sort keeps the card; the tab dot below still says reading finished.
   if (indexStatusEl.dataset.job !== "run") {
-    indexStatusEl.replaceChildren("✓ All your mail is read");
+    indexStatusEl.replaceChildren("All your mail is read");
     indexStatusEl.classList.add("done");
     indexStatusEl.hidden = false;
     setTimeout(() => {
