@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   executeBulkDeleteDomains,
   executeBulkKeepSorted,
@@ -219,6 +219,37 @@ describe("mergeDeletableIdsByProvider / totalDeletableAcrossGroups", () => {
 });
 
 describe("executeBulkDeleteDomains", () => {
+  let items: Record<string, unknown> = {};
+  beforeEach(() => {
+    items = {};
+    (globalThis as any).chrome = {
+      storage: {
+        local: {
+          get: async (k: string) => (k in items ? { [k]: items[k] } : {}),
+          set: async (next: Record<string, unknown>) => void Object.assign(items, next),
+        },
+      },
+    };
+  });
+
+  it("runs as a saved job: a failed batch is counted, and the job stays for a retry", async () => {
+    const providerById = new Map<ProviderId, EmailProvider>([
+      [
+        "gmail",
+        {
+          id: "gmail",
+          getAuthToken: vi.fn(async () => "t"),
+          trashMessages: vi.fn(async () => {
+            throw new Error("Gmail had a server error");
+          }),
+        } as unknown as EmailProvider,
+      ],
+    ]);
+    const result = await executeBulkDeleteDomains(new Map<ProviderId, string[]>([["gmail", ["a1", "a2"]]]), providerById);
+    expect(result).toMatchObject({ failed: 2, trashed: new Map([["gmail", []]]) });
+    expect(Object.values(items).flat()).toEqual([expect.objectContaining({ operation: "trash", status: "failed", targetIds: ["a1", "a2"] })]);
+  });
+
   it("calls trashMessages once per provider present in the merged map", async () => {
     const gmailTrash = vi.fn(async () => {});
     const outlookTrash = vi.fn(async () => {});

@@ -2428,14 +2428,14 @@ function skippedNote(skipped: number): string {
 
 // Always Trash: every bulk delete stays undoable (Gmail empties Trash after 30 days).
 async function executeSmartDelete(merged: Map<ProviderId, string[]>): Promise<SmartDeleteResult> {
-  const total = [...merged.values()].reduce((n, ids) => n + ids.length, 0);
-  const { skipped, trashed } = await executeBulkDeleteDomains(merged, providerById);
+  const { skipped, trashed, failed } = await executeBulkDeleteDomains(merged, providerById);
   // Drop them from the index now, so every count shows the change at once instead of after Gmail's change feed.
   const store = await openMailIndex();
   for (const [provider, ids] of trashed) await store.remove(provider, ids);
+  const moved = [...trashed.values()].reduce((n, ids) => n + ids.length, 0);
   return {
-    message: `Moved ${total - skipped} to Trash ✓${skippedNote(skipped)}`,
-    undoableGmailIds: (merged.get("gmail") ?? []).filter(Boolean),
+    message: `Moved ${moved} to Trash ✓${skippedNote(skipped)}${failed > 0 ? `, ${failed} couldn't be moved` : ""}`,
+    undoableGmailIds: trashed.get("gmail") ?? [],
   };
 }
 

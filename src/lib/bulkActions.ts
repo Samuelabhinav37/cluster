@@ -1,4 +1,5 @@
 import { idsSafeToMoveOut } from "./protectionPolicy";
+import { createDurableJob, runDurableJob } from "./durableJobs";
 import { log } from "./log";
 import { mapWithConcurrency } from "./concurrency";
 import type { DomainGroup } from "./domainGrouping";
@@ -172,15 +173,20 @@ export async function filterOutProtected(
 export async function executeBulkDeleteDomains(
   mergedIds: Map<ProviderId, string[]>,
   providerById: Map<ProviderId, EmailProvider>,
-): Promise<{ skipped: number; trashed: Map<ProviderId, string[]> }> {
+): Promise<{ skipped: number; trashed: Map<ProviderId, string[]>; failed: number }> {
   const { safe, skipped } = await filterOutProtected(mergedIds, providerById);
+  const trashed = new Map<ProviderId, string[]>();
+  let failed = 0;
+  // A saved job per provider: a closed tab or a crash mid-way is finished by
+  // the background's 5-minute resume, instead of leaving half the mail behind.
   await Promise.all(
     [...safe.entries()].map(async ([providerId, ids]) => {
-      const provider = providerById.get(providerId);
-      if (!provider || ids.length === 0) return;
-      const token = await provider.getAuthToken(false);
-      await provider.trashMessages(token, ids);
+      if (!providerById.has(providerId) || ids.length === 0) return;
+      const job = await createDurableJob({ provider: providerId, operation: "trash", targetIds: ids });
+      const done = await runDurableJob(job.id, providerById);
+      trashed.set(providerId, done.succeededIds);
+      failed += done.failures.length;
     }),
   );
-  return { skipped, trashed: safe };
+  return { skipped, trashed, failed };
 }
