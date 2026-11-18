@@ -1,3 +1,4 @@
+import { TIME_SENSITIVE_QUERY } from "./categoryQueries";
 import { describe, expect, it, vi } from "vitest";
 import type { MessageKind } from "./messageKind";
 import type { MessageRecord, SenderSummary } from "./senderModel";
@@ -131,6 +132,20 @@ describe("sweepExpiredInbox", () => {
     expect(api.batchModify).toHaveBeenCalledWith(["o1", "o2", "o3"], [], ["INBOX"]);
     expect(res.movedIds).toEqual(["o1", "o2", "o3"]);
     expect(res.keptIds).toEqual(["o4"]);
+  });
+
+  it("keeps today's unread codes and delivery notices until they're read", async () => {
+    const today = new Date(NOW);
+    today.setHours(0, 0, 0, 0);
+    const api = fakeApi(
+      {
+        [`INBOX,L:🔑 One-time codes|before:${cutoff(24)}`]: ["o1", "o2"],
+        [`INBOX|is:unread after:${Math.floor(today.getTime() / 1000)} ${TIME_SENSITIVE_QUERY}`]: ["o2"],
+      },
+      [sender("code@auth.example", [msg("o1", "otp"), msg("o2", "otp")])],
+    );
+    const res = await sweepExpiredInbox(ctx(), api);
+    expect(res.movedIds).toEqual(["o1"]);
   });
 
   it("skips messages an earlier sweep kept, and does nothing without a label", async () => {

@@ -17,6 +17,7 @@ import { isFreeMailDomain, isRoleAddress } from "./freeMail";
 import { neverMove } from "./protectionPolicy";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import { isMailboxName } from "./nameMatch";
+import { TIME_SENSITIVE_QUERY } from "./categoryQueries";
 import { effectiveBucket, overrideFor, senderCategory, type SortBucket, type SortOverride } from "./sortTaxonomy";
 import { senderVerdict, type VerdictTier } from "./verdict";
 
@@ -422,7 +423,12 @@ export async function sweepExpiredInbox(ctx: LimitContext, api: InboxLimitsApi):
     notYet.set(limit.bucket, await api.listIds(both, `after:${cutoff}`, LIST_MAX));
   }
 
-  const candidates = dueForMove(due, notYet).filter((id) => !ctx.keptIds?.has(id));
+  // Codes, sign-in alerts and "out for delivery" stay in view until read or
+  // until the day ends, as Apple and Gmail keep them (research 2026-11-18 #7).
+  const today = new Date(ctx.now);
+  today.setHours(0, 0, 0, 0);
+  const stay = new Set(due.size > 0 ? await api.listIds(["INBOX"], `is:unread after:${epochSeconds(today.getTime())} ${TIME_SENSITIVE_QUERY}`, LIST_MAX) : []);
+  const candidates = dueForMove(due, notYet).filter((id) => !ctx.keptIds?.has(id) && !stay.has(id));
   const batch = candidates.slice(0, SWEEP_MAX);
   if (batch.length === 0) return { movedIds: [], keptIds: [], more: false };
 
