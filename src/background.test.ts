@@ -59,6 +59,7 @@ vi.mock("./lib/athenaIntegration", () => ({
   queueAthenaSecurityEvents,
 }));
 vi.mock("./lib/durableJobs", () => ({ resumeInterruptedJobs }));
+vi.mock("./lib/backgroundRead", () => ({ continueMailRead: (...a: unknown[]) => continueMailRead(...(a as [])) }));
 vi.mock("./lib/gmailQuotaLedger", () => ({ gmailQuotaHeadroom }));
 vi.mock("./lib/metadataCache", () => ({
   loadMetadataCache: vi.fn(async () => new Map()),
@@ -129,6 +130,9 @@ let alarmListener: AlarmCb | undefined;
 const setBadgeText = vi.fn(async () => {});
 const setBadgeBackgroundColor = vi.fn(async () => {});
 const alarmsCreate = vi.fn();
+const alarmsClear = vi.fn(async () => true);
+const alarmsGet = vi.fn(async () => undefined);
+const continueMailRead = vi.fn(async () => "idle");
 type InstalledCb = (d?: { reason: string }) => void;
 let installedListener: InstalledCb | undefined;
 const tabsCreate = vi.fn();
@@ -158,6 +162,8 @@ beforeEach(async () => {
     },
     alarms: {
       create: alarmsCreate,
+      clear: alarmsClear,
+      get: alarmsGet,
       onAlarm: { addListener: (fn: AlarmCb) => (alarmListener = fn) },
     },
     tabs: { query: async () => [], create: tabsCreate, update: () => {}, onRemoved: { addListener: () => {} } },
@@ -236,6 +242,20 @@ describe("alarm routing", () => {
     await new Promise((r) => setTimeout(r, 10));
     expect(refreshMalwareBlocklist).toHaveBeenCalledTimes(1);
     expect(refreshSpamList).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the minute read alarm", () => {
+  it("stops once no read is left, and stays while one is unfinished", async () => {
+    continueMailRead.mockResolvedValue("idle");
+    alarmListener!({ name: "cluster-read" });
+    await vi.waitFor(() => expect(alarmsClear).toHaveBeenCalledWith("cluster-read"));
+    alarmsClear.mockClear();
+    alarmsCreate.mockClear();
+    continueMailRead.mockResolvedValue("handed-off");
+    alarmListener!({ name: "cluster-read" });
+    await vi.waitFor(() => expect(alarmsCreate).toHaveBeenCalledWith("cluster-read", { delayInMinutes: 1, periodInMinutes: 1 }));
+    expect(alarmsClear).not.toHaveBeenCalled();
   });
 });
 

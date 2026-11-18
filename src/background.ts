@@ -1,4 +1,5 @@
 import { sortLabelNames } from "./lib/categoryFilters";
+import { openMailIndex, runSnapshot, type MailIndexStore } from "./lib/mailIndex";
 import { buildProtectionContext, idsSafeToMoveOut } from "./lib/protectionPolicy";
 import { log } from "./lib/log";
 import { buildExpiryBuckets, totalExpiryCount } from "./lib/expiryTriage";
@@ -128,7 +129,12 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     applyBrandVerdicts(settings.brandVerdicts);
     // Work that changes Gmail runs on one computer only (see workerLease.ts).
     if (alarm.name !== TRIAGE_ALARM && alarm.name !== INBOX_LIMITS_ALARM) return handleAlarm(alarm);
-    void holdWorkerLease().then((mine) => mine && handleAlarm(alarm));
+    void (async () => {
+      // A signed-out computer says so itself, then frees the lease for one that can work.
+      const canWork = (await Promise.all([gmailProvider, outlookProvider].map((p) => p.isConnected().catch(() => false)))).some(Boolean);
+      if (!canWork && alarm.name === INBOX_LIMITS_ALARM) await warnSignedOut().catch((err) => log.error("Sign-in warning failed", err));
+      if (await holdWorkerLease(Date.now(), canWork)) handleAlarm(alarm);
+    })();
   });
 });
 
@@ -157,11 +163,13 @@ function handleAlarm(alarm: chrome.alarms.Alarm): void {
         Promise.all(stalled.map((r) => notify(`stalled-${r.id}`, describeRun(r)))),
       )
       .catch((err) => log.error("Watchdog failed", err));
+    // One index read shared by the steps after labelling (runSnapshot).
+    const store = openMailIndex().then(runSnapshot).catch(() => undefined);
     void runInboxTimeLimitsIfQuota()
-      .then(() => holdScamsFromIndex().catch((err) => log.error("Scam hold failed", err)))
-      .then(() => sendTodayEmail().catch((err) => log.error("Today email failed", err)))
-      .then(() => runUnsubscribedSweep().catch((err) => log.error("Unsubscribed sweep failed", err)))
-      .then(() => runAutoMute().catch((err) => log.error("Auto-mute failed", err)))
+      .then(async () => holdScamsFromIndex(await store).catch((err) => log.error("Scam hold failed", err)))
+      .then(async () => sendTodayEmail(await store).catch((err) => log.error("Today email failed", err)))
+      .then(async () => runUnsubscribedSweep(await store).catch((err) => log.error("Unsubscribed sweep failed", err)))
+      .then(async () => runAutoMute(await store).catch((err) => log.error("Auto-mute failed", err)))
       .then(() => deliverNewsletters().catch((err) => log.error("Newsletter delivery failed", err)));
   }
 }
@@ -409,7 +417,7 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
  * run), so it costs no message reads; providers without an index wait for
  * triage, which also persists first-contact state.
  */
-async function holdScamsFromIndex(): Promise<void> {
+async function holdScamsFromIndex(store?: MailIndexStore): Promise<void> {
   const settings = await getSettings();
   // With holds off, this still runs once a day so Security shows a fresh scan.
   const scanDue = Date.now() - (settings.lastSecurityScan?.at ?? 0) >= 24 * 60 * 60 * 1000;
@@ -418,13 +426,13 @@ async function holdScamsFromIndex(): Promise<void> {
   const flags = await Promise.all(candidates.map((p) => p.isConnected()));
   const connected = candidates.filter((_, i) => flags[i]);
   if (connected.length === 0) return;
-  const indexed = await refreshIndexForBackground(connected, settings.scanWindowDays);
+  const indexed = await refreshIndexForBackground(connected, settings.scanWindowDays, store);
   if (indexed.length === 0) return;
   const { security } = await readIndexedSenders(indexed, {
     scanWindowDays: settings.scanWindowDays,
     securityWindowDays: Math.min(settings.scanWindowDays, SECURITY_SCAN_WINDOW_DAYS),
     securityMax: SECURITY_SCAN_MAX_MESSAGES,
-  });
+  }, store);
   markFirstContact(security, settings.knownSenders, Date.now(), settings.knownSendersInitialized);
   markNameMatches(security, knownSenderSet(settings));
   await applySenderLedger(security);
@@ -435,22 +443,24 @@ async function holdScamsFromIndex(): Promise<void> {
 
 /** The opt-in morning email: Home's Today list, put into the user's own
  * inbox so it's there on their phone. Skipped on days with nothing in it. */
-async function sendTodayEmail(): Promise<void> {
+async function sendTodayEmail(store?: MailIndexStore): Promise<void> {
   const settings = await getSettings();
   const now = Date.now();
   if (!todayEmailDue(settings, now) || !(await gmailProvider.isConnected())) return;
-  const indexed = await refreshIndexForBackground([gmailProvider], settings.scanWindowDays);
+  const indexed = await refreshIndexForBackground([gmailProvider], settings.scanWindowDays, store);
   if (indexed.length === 0) return;
   const { cleanup } = await readIndexedSenders(indexed, {
     scanWindowDays: settings.scanWindowDays,
     securityWindowDays: Math.min(settings.scanWindowDays, SECURITY_SCAN_WINDOW_DAYS),
     securityMax: SECURITY_SCAN_MAX_MESSAGES,
-  });
+  }, store);
   const items = pickToday(cleanup, engineContext(settings), now);
+  if (items.length > 0) {
+    const token = await gmailProvider.getAuthToken(false);
+    await insertMessage(token, todayEmailMessage(items, await getProfileEmail(token), now), ["INBOX", "UNREAD"]);
+  }
+  // Marked sent only once it's in the inbox: a failed send is tried again next run.
   await updateSettings({ lastTodayEmail: now });
-  if (items.length === 0) return;
-  const token = await gmailProvider.getAuthToken(false);
-  await insertMessage(token, todayEmailMessage(items, await getProfileEmail(token), now), ["INBOX", "UNREAD"]);
 }
 
 async function sendWeeklySummary() {
@@ -618,6 +628,10 @@ async function runBackgroundTriage() {
   }
 }
 
+async function ensureAlarm(name: string, info: chrome.alarms.AlarmCreateInfo): Promise<void> {
+  if (!(await chrome.alarms.get(name))) chrome.alarms.create(name, info);
+}
+
 const dashboardOpen = async () => (await chrome.tabs.query({ url: DASHBOARD_URL })).length > 0;
 let backgroundReading = false;
 
@@ -627,11 +641,19 @@ async function readInBackground(): Promise<void> {
   backgroundReading = true;
   try {
     const settings = await getSettings();
+    let reading = false;
     for (const provider of providerById.values()) {
       if (!(await provider.isConnected().catch(() => false))) continue;
       const outcome = await continueMailRead(provider, settings, { pageOpen: dashboardOpen });
-      if (outcome !== "idle") log.info(`Background mail read for ${provider.id}: ${outcome}`);
+      if (outcome !== "idle") {
+        reading = true;
+        log.info(`Background mail read for ${provider.id}: ${outcome}`);
+      }
     }
+    // The minute alarm only while a read is unfinished: it used to wake the
+    // worker every minute for good. A closed tab or a restart starts it again.
+    if (reading) await ensureAlarm(READ_ALARM, { delayInMinutes: 1, periodInMinutes: 1 });
+    else await chrome.alarms.clear(READ_ALARM);
   } catch (err) {
     log.error("Background mail read failed", err);
   } finally {

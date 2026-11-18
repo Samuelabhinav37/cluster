@@ -308,3 +308,39 @@ export function openMailIndex(): Promise<MailIndexStore> {
   })();
   return shared;
 }
+
+/**
+ * A read cache over `store` for one background run. The scam hold, the
+ * unsubscribed sweep and auto-mute each loaded the whole index (up to 100,000
+ * rows) every 5 minutes; with this they share one read. Any write drops the
+ * cache, so a step always sees what an earlier step changed.
+ */
+export function runSnapshot(store: MailIndexStore): MailIndexStore {
+  const cache = new Map<string, Promise<unknown>>();
+  const read = <T>(key: string, load: () => Promise<T>): Promise<T> => {
+    if (!cache.has(key)) cache.set(key, load().catch((err) => (cache.delete(key), Promise.reject(err))));
+    return cache.get(key) as Promise<T>;
+  };
+  const write =
+    <A extends unknown[]>(fn: (...args: A) => Promise<void>) =>
+    (...args: A) => {
+      cache.clear();
+      return fn(...args);
+    };
+  return {
+    all: async (p) => [...(await read(`all:${p}`, () => store.all(p)))],
+    allSent: async (p) => [...(await read(`sent:${p}`, () => store.allSent(p)))],
+    allCensus: async (p) => [...(await read(`census:${p}`, () => store.allCensus(p)))],
+    ids: async (p) => new Set(await read(`ids:${p}`, () => store.ids(p))),
+    sentIds: async (p) => new Set(await read(`sentIds:${p}`, () => store.sentIds(p))),
+    get: (p, ids) => store.get(p, ids),
+    getState: (p) => store.getState(p),
+    put: write((rows) => store.put(rows)),
+    remove: write((p, ids) => store.remove(p, ids)),
+    clear: write((p) => store.clear(p)),
+    setState: write((s) => store.setState(s)),
+    putSent: write((rows) => store.putSent(rows)),
+    removeSent: write((p, ids) => store.removeSent(p, ids)),
+    putCensus: write((rows) => store.putCensus(rows)),
+  };
+}

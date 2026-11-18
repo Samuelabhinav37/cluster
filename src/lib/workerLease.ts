@@ -26,12 +26,18 @@ async function deviceId(): Promise<string> {
   return id;
 }
 
-/** True when this computer should do the background work now; renews its lease. */
-export async function holdWorkerLease(now = Date.now()): Promise<boolean> {
+/** True when this computer should do the background work now; renews its lease.
+ * `canWork` false (signed out): never claims, and lets go of a lease it holds,
+ * so another computer takes over on its next run instead of never. */
+export async function holdWorkerLease(now = Date.now(), canWork = true): Promise<boolean> {
   const sync = globalThis.chrome?.storage?.sync;
-  if (!sync) return true;
+  if (!sync) return canWork;
   const id = await deviceId();
   const lease = (await sync.get(LEASE_KEY))[LEASE_KEY] as Lease | undefined;
+  if (!canWork) {
+    if (lease?.id === id && lease.at > 0) await sync.set({ [LEASE_KEY]: { id, at: 0 } satisfies Lease }).catch(() => {});
+    return false;
+  }
   if (lease && lease.id !== id && now - lease.at < STALE_MS) return false;
   try {
     await sync.set({ [LEASE_KEY]: { id, at: now } satisfies Lease });

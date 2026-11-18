@@ -28,6 +28,9 @@ export function mailIndexLockKey(provider: EmailProvider): string {
  * minutes; the index is then read as it stands). Returns the providers whose
  * index can be read in place of a scan.
  */
+const FRESH_MS = 60_000;
+const refreshedAt = new Map<string, number>();
+
 export async function refreshIndexForBackground(
   providers: readonly EmailProvider[],
   windowDays: number,
@@ -40,11 +43,18 @@ export async function refreshIndexForBackground(
     if (!provider.listChangesSince) continue;
     const state = await index.getState(provider.id);
     if (!state?.complete || !state.cursor) continue;
+    // Once a minute is enough: each background step refreshed again, and a
+    // refresh without onLabelMoves used up label moves learning should count.
+    if (!onLabelMoves && Date.now() - (refreshedAt.get(provider.id) ?? 0) < FRESH_MS) {
+      ready.push(provider);
+      continue;
+    }
     try {
       const token = await provider.getAuthToken(false);
       await tryWithStorageLock(mailIndexLockKey(provider), () =>
         syncMailIndex(provider, token, index, { windowDays, changesOnly: true, onLabelMoves }),
       );
+      refreshedAt.set(provider.id, Date.now());
     } catch (err) {
       // A failed refresh still leaves a usable index from the last sync.
       log.error(`Background mail index refresh failed for ${provider.id}`, err);
