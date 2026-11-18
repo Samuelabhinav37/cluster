@@ -25,7 +25,7 @@ const statusEl = document.getElementById("time-limits-status") as HTMLParagraphE
 /** Every time a label can wait in the inbox: hours, or null for "label only". */
 export const LIMIT_CHOICES: { label: string; hours: number | null }[] = [
   { label: "Label only", hours: null },
-  { label: "Skip the inbox", hours: 0 },
+  { label: "Move right away", hours: 0 },
   { label: "Move after 10 minutes", hours: 1 / 6 },
   { label: "Move after 1 hour", hours: 1 },
   { label: "Move after 3 hours", hours: 3 },
@@ -44,7 +44,7 @@ const MENU_HOURS = new Set<number | null>([null, 0, 24, 168]);
 
 /** "Keep in inbox": one menu that sets every label's time at once. */
 const WINDOW_CHOICES = [
-  { label: "Skip the inbox", value: "0" },
+  { label: "Move right away", value: "0" },
   { label: "1 hour", value: "1" },
   { label: "3 hours", value: "3" },
   { label: "1 day", value: "24" },
