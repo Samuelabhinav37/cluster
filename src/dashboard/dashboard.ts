@@ -902,7 +902,7 @@ async function main() {
   // scanAndRender() below do the render so it isn't done twice on load.
   renderRecentTab();
   maybeShowLabelTidyCard().catch((err) => log.error("label tidy-up card failed", err));
-  await scanAndRender();
+  await scanAndRender({ instant: true });
 }
 
 // ── Offline handling ─────────────────────────────────────────────────────
@@ -1259,11 +1259,32 @@ function refreshWhenDone(run: IndexRun) {
   });
 }
 
+/** "Updating…" beside the date range while Gmail's changes arrive, shown only
+ * after a second so a quick sync doesn't flicker. */
+function showSyncing(pending: IndexRun[]) {
+  const el = document.getElementById("overview-sync");
+  const open = pending.filter((run) => !run.settled);
+  if (!el || open.length === 0) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    el.textContent = "Updating…";
+    el.hidden = false;
+  }, 1000);
+  void Promise.allSettled(open.map((run) => run.done)).then(() => {
+    clearTimeout(syncTimer);
+    if (el.hidden) return;
+    el.textContent = "Updated just now";
+    syncTimer = setTimeout(() => (el.hidden = true), 3000);
+  });
+}
+let syncTimer: ReturnType<typeof setTimeout> | undefined;
+
 async function scanAndRender({
   refresh = false,
   quiet = false,
   fresh = false,
-}: { refresh?: boolean; quiet?: boolean; fresh?: boolean } = {}) {
+  instant = false,
+}: { refresh?: boolean; quiet?: boolean; fresh?: boolean; instant?: boolean } = {}) {
   if (!quiet) {
     statusEl.hidden = false;
     indexStatusEl.hidden = true;
@@ -1316,12 +1337,21 @@ async function scanAndRender({
         // A built index only needs the changes since last time, which is
         // usually a moment. Wait briefly for them so an action's result shows.
         // Check mail (fresh) waits for all of them, however long Gmail takes.
-        built && !wasRunning ? (fresh ? run.done : Promise.race([run.done, delay(CHANGES_WAIT_MS)])) : run.quick,
+        // Opening the dashboard (instant) doesn't wait at all: it draws from the
+        // index and refreshWhenDone redraws when the changes land (showSyncing).
+        built && !wasRunning
+          ? fresh
+            ? run.done
+            : instant
+              ? undefined
+              : Promise.race([run.done, delay(CHANGES_WAIT_MS)])
+          : run.quick,
       ),
     );
   } finally {
     clearInterval(progressTimer);
   }
+  if (instant) showSyncing(runs.filter((r) => r.builtBefore && !r.wasRunning).map((r) => r.run));
 
   try {
     for (const { provider, run, wasRunning } of runs) {

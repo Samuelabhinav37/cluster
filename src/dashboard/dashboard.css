@@ -4244,6 +4244,8 @@ section.screen[data-screen="overview"] { max-width: 1320px; }
 select option { background-color: Canvas; color: CanvasText; }
 /* Date range picker under the date pill. */
 .ov-range-wrap { position: relative; align-self: center; }
+.ov-sync { align-self: center; margin-left: auto; color: var(--label-3); font-size: 13px; }
+.ov-sync + .ov-range-wrap { margin-left: 12px; }
 button.ov-range { background: none; cursor: pointer; }
 button.ov-range:hover { background: var(--neutral-fill); }
 .ov-range-chev { width: 14px !important; height: 14px !important; color: var(--label-3); }
