@@ -132,3 +132,9 @@ describe("kind-scoped corrections in filters", () => {
     expect(q).toContain("-(from:ship@amazon.com subject:(receipt");
   });
 });
+
+describe("job receipts", () => {
+  it("the Receipts filter skips a job application's receipt", () => {
+    expect(categoryQuery("receipt")).toContain('-subject:("resume receipt"');
+  });
+});

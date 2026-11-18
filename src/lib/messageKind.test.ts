@@ -193,3 +193,39 @@ describe("statements", () => {
     expect(classifyMessageKind("Your receipt from Apple", false)).toBe("receipt");
   });
 });
+
+describe("one order, one label (real Amazon subjects, 2026-11)", () => {
+  it.each([
+    "Ordered 2 items: Beverages, Household Supplies",
+    'Ordered: "Bosch Siemens Quick..."',
+    "Item cancelled successfully: Coffee",
+    "Payment declined: Update your information so we can ship your order.",
+    "Your return of CLONEZO Mosquito Bat with UV...",
+  ])("%s is shipping", (subject) => {
+    expect(classifyMessageKind(subject, false)).toBe("shipping");
+  });
+  it("leaves a review request and a renewal alone", () => {
+    expect(classifyMessageKind("Did your recent Amazon order meet your expectations? Review it on Amazon", true)).toBe("newsletter");
+    expect(classifyMessageKind("Your locked-in price is renewing soon", true)).toBe("receipt");
+  });
+});
+
+describe("Screener misses (real subjects, 2026-11)", () => {
+  it("a staffing agency's 'Position |' post is a job", () => {
+    expect(classifyMessageKind("Position | Senior Microsoft Entra ID Security Engineer | Chicago, IL / Tempe, AZ", false)).toBe("jobs");
+    expect(classifyMessageKind("Position update for the team offsite", false)).toBe("other");
+  });
+  it("a phone unlinked from an account is an account notice", () => {
+    expect(
+      classifyMessageKind("Final notice: The forwarding phone (515) 916-8493 is no longer connected to your Google Voice account", false),
+    ).toBe("accounts");
+  });
+});
+
+describe("a job application's receipt", () => {
+  it("is Jobs, not Receipts", () => {
+    expect(classifyMessageKind("Resume Receipt Confirmation", false)).toBe("jobs");
+    expect(classifyMessageKind("Confirmation of receipt of your application", false)).toBe("jobs");
+    expect(classifyMessageKind("Your receipt from Cinemark", false)).toBe("receipt");
+  });
+});

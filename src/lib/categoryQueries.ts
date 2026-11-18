@@ -75,6 +75,8 @@ export const FILTER_FREE_MAIL = [
   "icloud.com", "aol.com", "protonmail.com", "proton.me", "yahoo.co.in", "rediffmail.com",
 ];
 
+export const JOB_RECEIPT_PHRASES = ["resume receipt", "application receipt", "receipt of your application", "receipt of your resume"];
+
 const KIND_ORDER: SubjectKind[] = ["otp", "accounts", "shipping", "receipt", "social", "jobs"];
 
 function term(phrase: string): string {
@@ -194,6 +196,8 @@ function buildQuery(
     if (earlier.length > 0) not.push(subjectAny(earlier));
     if (bucket === "otp") not.push(subjectAny(OTP_EXCLUDED_PHRASES));
     if (bucket === "accounts") not.push("subject:CVE");
+    // Mirrors JOB_RECEIPT_RE: a job application's "receipt" is Jobs, the client's call.
+    if (bucket === "receipt") not.push(subjectAny(JOB_RECEIPT_PHRASES));
     not.push(fromAny(FILTER_FREE_MAIL));
   } else if (bucket === "promotions") {
     if (first) matchAny.push("category:promotions");

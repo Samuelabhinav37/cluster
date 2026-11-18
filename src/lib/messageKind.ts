@@ -20,11 +20,11 @@ const OTP_EXCLUDE_RE = /\b(alert|disabled|changed|new sign[- ]?in|suspicious)\b/
 // Checked right after codes so a Google "Security alert" with an unsubscribe
 // footer is never filed as a newsletter.
 const ACCOUNT_RE =
-  /\b(security alert|new sign[- ]?in|sign[- ]?in (attempt|alert)|new (login|device)|password (reset|changed|(was|has been) (changed|updated|reset)|updated|assistance)|changed (your )?password|reset your( \w+)? password|signed in (from|on|to)|new account linked|verify your( \w+)? account|(new )?trusted (browser|device)|authentication added|found your info|suspicious (activity|sign[- ]?in|login)|account (recovery|activity|alert|locked|suspended)|recovery (email|phone)|2-step verification|two-factor authentication (was )?(disabled|turned off|enabled|turned on)|app password|passkey|shared some( \w+)? account data|account (created|details)|(login|sign[- ]?in) activity|invited (you )?to join|reconnect your|used to sign in|(confirm|verify) your( \w+)? email|email (address )?verification)\b/i;
+  /\b(security alert|new sign[- ]?in|sign[- ]?in (attempt|alert)|new (login|device)|password (reset|changed|(was|has been) (changed|updated|reset)|updated|assistance)|changed (your )?password|reset your( \w+)? password|signed in (from|on|to)|new account linked|verify your( \w+)? account|(new )?trusted (browser|device)|authentication added|found your info|suspicious (activity|sign[- ]?in|login)|account (recovery|activity|alert|locked|suspended)|recovery (email|phone)|2-step verification|two-factor authentication (was )?(disabled|turned off|enabled|turned on)|app password|passkey|shared some( \w+)? account data|account (created|details)|(login|sign[- ]?in) activity|invited (you )?to join|reconnect your|used to sign in|(confirm|verify) your( \w+)? email|email (address )?verification|(no longer )?(connected|linked) to your( [\w-]+){0,3} account)\b/i;
 // Phrases, not lone words: "Free delivery this weekend" and "Tracking your
 // fitness goals" are promotions, "Our statement on the outage" is news.
 const SHIPPING_RE =
-  /\b(shipped|out for delivery|delivery (update|attempt|scheduled|exception|confirmation)|delivered|tracking (number|info|information|update|details)|track your (order|package|parcel|shipment)|order (confirm|confirmed|confirmation)|order #|order (is |has been )?(confirmed|placed|received)|has shipped|arriving|on its way|on the way|received your order|package (has )?arrived|delivery order)\b|^ordered:/i;
+  /\b(shipped|out for delivery|delivery (update|attempt|scheduled|exception|confirmation)|delivered|tracking (number|info|information|update|details)|track your (order|package|parcel|shipment)|order (confirm|confirmed|confirmation)|order #|order (is |has been )?(confirmed|placed|received)|has shipped|arriving|on its way|on the way|received your order|package (has )?arrived|delivery order|(item|order)s? (was |has been )?cancell?ed|cancell?ed successfully|your return of|return request|ship your order)\b|^ordered( \d+ items?)?:/i;
 // A bank's statement or balance is about an account, not a purchase: Gmail
 // and Yahoo both give money its own category (Grbovic et al., CIKM 2014).
 const STATEMENT_RE =
@@ -41,8 +41,9 @@ const JOBS_RE =
 // ("Cybersecurity Engineer :: Remote", "IAM Consultant - Frisco, TX (Onsite)").
 // Only without an unsubscribe link, so newsletters about remote work stay news.
 const JOB_POST_RE =
-  /\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b.*\b(remote|hybrid|on-?site|contract|w2|c2c)\b|\b(remote|hybrid|on-?site|contract)\b.*\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b|^looking for\b/i;
+  /\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b.*\b(remote|hybrid|on-?site|contract|w2|c2c)\b|\b(remote|hybrid|on-?site|contract)\b.*\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b|^looking for\b|^(position|requirement|role|opening)\s*[|:–-].*\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b/i;
 const JOBS_SENDER_RE = /\b(recruit\w*|hiring|ats|talent ?(acquisition|exchange|network|community)|careers|jobs?|job ?(alerts?|notifications?))\b/i;
+const JOB_RECEIPT_RE = /\b((resume|application) receipt|receipt of your (application|resume))\b/i;
 const SOCIAL_RE = /\b(mentioned you|tagged you|new follower|friend request|liked your|commented on)\b/i;
 // When the subject says nothing ("Your Thursday evening trip with Uber"), a
 // sender named for receipts or orders still does: "Uber Receipts",
@@ -71,6 +72,8 @@ export function classifyMessageKind(
   if (ACCOUNT_RE.test(s) && !ACCOUNT_EXCLUDE_RE.test(s)) return "accounts";
   if (SHIPPING_RE.test(s)) return "shipping";
   if (STATEMENT_RE.test(s)) return "statement";
+  // "Resume Receipt Confirmation" acknowledges a job application, not a purchase.
+  if (JOB_RECEIPT_RE.test(s)) return "jobs";
   if (RECEIPT_RE.test(s)) return "receipt";
   if (SOCIAL_RE.test(s)) return "social";
   if (JOBS_RE.test(s) || (!hasListUnsubscribe && JOB_POST_RE.test(s))) return "jobs";
