@@ -85,7 +85,15 @@ export function jobCard(job: {
   const title = Object.assign(document.createElement("b"), { textContent: job.title });
   if (job.finished) {
     // A drawn tick, like the rest of the icons, not a typed one.
-    title.insertAdjacentHTML("afterbegin", '<svg class="rc-tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>');
+    const ns = "http://www.w3.org/2000/svg";
+    const tick = document.createElementNS(ns, "svg");
+    tick.setAttribute("class", "rc-tick");
+    tick.setAttribute("viewBox", "0 0 24 24");
+    tick.setAttribute("aria-hidden", "true");
+    const path = document.createElementNS(ns, "path");
+    path.setAttribute("d", "M5 12.5l4.5 4.5L19 7.5");
+    tick.append(path);
+    title.prepend(tick);
   }
   head.append(
     title,
