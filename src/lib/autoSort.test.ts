@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildSortPlan, kindFromSender, totalPlanCount } from "./autoSort";
+import { buildSortPlan, totalPlanCount } from "./autoSort";
+import type { SortOverride } from "./sortTaxonomy";
+
+const engine = (overrides: Record<string, SortOverride> = {}) => ({ wrote: new Set<string>(), letIn: new Set<string>(), overrides });
 import { meta, senders } from "../test/mailFixtures";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import type { MessageKind } from "./messageKind";
+import { decideAll, sortLabelOf } from "./mailEngine";
 
 function msg(id: string, kind: MessageKind, isProtected = false, subject = ""): MessageRecord {
   return {
@@ -49,16 +53,11 @@ describe("buildSortPlan", () => {
     ]);
   });
 
-  it("files a list sender's ads as Promotions and its Gmail purchases as receipts", () => {
+  it("files a list sender's mail by the engine, and its Gmail purchases as receipts", () => {
     const ad = { ...msg("ad", "newsletter"), promotion: true };
     const news = msg("news", "newsletter");
     const bought = { ...msg("buy", "receipt"), purchase: true };
-    const plan = buildSortPlan(
-      [sender("emails@emails.cinemark.example", "gmail", [ad, news, bought])],
-      {},
-      {},
-      new Map([["gmail:emails@emails.cinemark.example", "list" as const]]),
-    );
+    const plan = buildSortPlan([sender("emails@emails.cinemark.example", "gmail", [ad, news, bought])]);
     const bucketOf = (id: string) => plan.find((e) => e.messages.some((m) => m.id === id))?.bucket;
     expect([bucketOf("ad"), bucketOf("news"), bucketOf("buy")]).toEqual(["promotions", "newsletter", "receipt"]);
   });
@@ -128,7 +127,7 @@ describe("buildSortPlan", () => {
     const plan = buildSortPlan(
       [sender("orders@amazon.com", "gmail", [msg("a", "shipping")])],
       {},
-      { "orders@amazon.com": "never" },
+      engine({ "orders@amazon.com": "never" }),
     );
     expect(plan).toEqual([]);
   });
@@ -137,27 +136,22 @@ describe("buildSortPlan", () => {
     const plan = buildSortPlan(
       [sender("hello@unknown.example", "gmail", [msg("a", "newsletter")])],
       {},
-      { "hello@unknown.example": "finance" },
+      engine({ "hello@unknown.example": "finance" }),
     );
     expect(plan.map((e) => e.bucket)).toEqual(["finance"]);
   });
 });
 
-describe("buildSortPlan with sender kinds", () => {
-  it("files every message from a shipping sender together, never into codes", async () => {
+describe("buildSortPlan follows the engine (engine step 3)", () => {
+  it("files each email where the labeller will, so the daily relabel never undoes a sort", async () => {
     const list = await senders([
       meta({ fromAddress: "ship@store.example", subject: "Your order has shipped", unsubscribe: {} }),
       meta({ fromAddress: "ship@store.example", subject: "Thanks for your receipt", unsubscribe: {} }),
       meta({ fromAddress: "ship@store.example", subject: "Your verification code is 123456", unsubscribe: {} }),
     ]);
-    const plan = buildSortPlan(list, {}, {}, new Map([["gmail:ship@store.example", "shipping" as const]]));
-    const byBucket = Object.fromEntries(plan.map((e) => [e.bucket, e.count]));
-    expect(byBucket).toEqual({ shipping: 2, otp: 1 });
-  });
-
-  it("leaves a mixed sender to each message's own kind", () => {
-    expect(kindFromSender("mixed", "receipt")).toBe("receipt");
-    expect(kindFromSender("list", "shipping")).toBe("newsletter");
-    expect(kindFromSender("otp", "other")).toBe("other");
+    const plan = buildSortPlan(list);
+    const decided = decideAll(list, engine());
+    for (const e of plan) for (const m of e.messages) expect(sortLabelOf(decided.get(m.id)), m.subject).toBe(e.bucket);
+    expect(totalPlanCount(plan)).toBe(3);
   });
 });

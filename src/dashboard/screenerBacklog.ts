@@ -16,7 +16,7 @@ import {
 import { log } from "../lib/log";
 import { indexSeededCache } from "../lib/indexTriage";
 import { gmailProvider } from "../lib/providers/gmailProvider";
-import { knownSenderSet } from "../lib/screener";
+import { engineContext } from "../lib/mailEngine";
 import {
   planScreenerRelease,
   runScreenerRelease,
@@ -124,7 +124,7 @@ async function readAndPreview(
       },
       cache,
     );
-    const plan = planScreenerRelease(senders, knownSenderSet(ctx.settings), ctx.settings.sortOverrides);
+    const plan = planScreenerRelease(senders, engineContext(ctx.settings));
     renderPreview(token, labelIds, plan, total > MAX_BACKLOG);
   } catch (err) {
     log.error("Screener backlog: read failed", err);

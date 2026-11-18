@@ -2,20 +2,16 @@
 // label (and whether to also file them out of the inbox). Pure and
 // metadata-only -- it reads each message's already-computed kind and the
 // sender's domain, nothing else. Starred/flagged mail is never included.
-import { domainOf } from "./domainGrouping";
 import { resolveLabelName } from "./labelResolver";
-import type { MessageKind } from "./messageKind";
-import { neverMove, protectionDecision } from "./protectionPolicy";
-import type { SenderKind } from "./senderProfile";
+import { decideAll, sortLabelOf, type EngineContext } from "./mailEngine";
+import { protectionDecision } from "./protectionPolicy";
 import type { ProviderId } from "./providers/emailProvider";
 import type { SenderSummary } from "./senderModel";
-import { senderFailedAuthentication, senderVerdict } from "./verdict";
+import { senderFailedAuthentication } from "./verdict";
 import {
   bucketLabelName,
   DEFAULT_FILE_OUT_OF_INBOX,
-  effectiveBucket,
   type SortBucket,
-  type SortOverride,
 } from "./sortTaxonomy";
 
 /** One message in a sort plan — enough for the preview to show a row and for
@@ -48,36 +44,26 @@ export interface SortPlanEntry {
 /**
  * One entry per non-empty bucket, biggest first. `fileOutByBucket` overrides
  * the per-bucket default from the taxonomy; anything not listed uses the
- * default. `overrides` are per-sender "wrong bucket?" corrections and win over
- * the kind/domain classification. `senderKinds` (from sender profiles) put a
- * sender's mail in one bucket by majority, so one subject word can't send a
- * single message elsewhere.
+ * default. Each message goes where the engine places it (mailEngine.decide:
+ * corrections, rules, the sender's usual label), the same label the
+ * background gives it, so the daily relabel never undoes a sort.
  */
 export function buildSortPlan(
   senders: SenderSummary[],
   fileOutByBucket: Partial<Record<SortBucket, boolean>> = {},
-  overrides: Record<string, SortOverride> = {},
-  senderKinds: ReadonlyMap<string, SenderKind> = new Map(),
+  ctx: EngineContext = { wrote: new Set(), letIn: new Set(), overrides: {} },
 ): SortPlanEntry[] {
   const byBucket = new Map<SortBucket, SortPlanEntry>();
+  const decided = decideAll(senders, ctx);
 
   for (const sender of senders) {
     // Trust first: mail that may not be from who it says never gets a normal
     // label, so a fake "Amazon" order can't land in Shopping. It stays in the
-    // inbox for Protect to warn about or hold.
-    if (senderFailedAuthentication(sender) || senderVerdict(sender, { knownCorrespondent: false }).tier !== "none")
-      continue;
-    const domain = domainOf(sender.address);
-    const senderKind = senderKinds.get(sender.key);
+    // inbox for Protect to warn about or hold. (The engine already skips
+    // senders its scam verdict flags.)
+    if (senderFailedAuthentication(sender)) continue;
     for (const msg of sender.messages) {
-      if (msg.isProtected || senderKind === "person" || neverMove(msg, sender.address)) continue;
-      const kind = msg.purchase ? msg.kind : kindFromSender(senderKind, msg.kind);
-      // A list sender's ads still go to Promotions; only a sender whose mail
-      // is mostly receipts or codes keeps the Promotions tab from deciding.
-      const promotion =
-        senderKind === "promotion" ||
-        (senderKind === undefined || senderKind === "mixed" || senderKind === "list" ? msg.promotion : false);
-      const bucket = effectiveBucket(kind, domain, sender.address, overrides, promotion, msg);
+      const bucket = sortLabelOf(decided.get(msg.id));
       if (!bucket) continue;
 
       let entry = byBucket.get(bucket);
@@ -123,27 +109,6 @@ export function buildSortPlan(
   return [...byBucket.values()].sort((a, b) => b.count - a.count);
 }
 
-/**
- * The kind a message sorts as, given its sender's majority kind. A mixed or
- * unknown sender falls back to the message's own kind. A sender kind never
- * turns a message into a one-time code: codes can expire to Trash, so that
- * needs the message's own subject to say so.
- */
-export function kindFromSender(senderKind: SenderKind | undefined, own: MessageKind): MessageKind {
-  switch (senderKind) {
-    case undefined:
-    case "mixed":
-    case "person":
-    case "promotion":
-    case "otp":
-      return own;
-    case "list":
-      return own === "otp" ? own : "newsletter";
-    default:
-      // A bank's codes and statements keep their own kind under "receipt".
-      return own === "otp" || own === "statement" ? own : senderKind;
-  }
-}
 
 export function totalPlanCount(plan: SortPlanEntry[]): number {
   return plan.reduce((sum, e) => sum + e.count, 0);

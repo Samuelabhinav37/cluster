@@ -16,6 +16,7 @@ import { ALL_SORT_BUCKETS, SORT_BUCKET_LABELS, type SortBucket } from "../lib/so
 import { SORT_RULE_PREFIX, showLabel } from "../lib/clusterLabels";
 import { syncGmailCategoryFilters } from "../lib/categoryFilters";
 import { buildBucketRule, bucketMatchTerms, isServerSortBucket } from "../lib/serverSort";
+import { engineContext } from "../lib/mailEngine";
 import { colorClusterLabels, deleteLabel, getOrCreateLabel, listLabels, listMessageIds } from "../lib/gmailApi";
 import { otherUserLabels } from "../lib/seedFromExisting";
 import { categoryLabelName } from "../lib/categoryFilters";
@@ -197,12 +198,8 @@ function planChanged() {
 }
 
 /** Each sender's majority kind from its profile (senderProfile.ts). */
-function senderKinds() {
-  return new Map([...ctx.profiles].map(([key, profile]) => [key, profile.kind] as const));
-}
-
 function renderSortInbox(senders: SenderSummary[]) {
-  sortPlan = buildSortPlan(senders, {}, ctx.settings.sortOverrides, senderKinds());
+  sortPlan = buildSortPlan(senders, {}, engineContext(ctx.settings));
   resetSortInboxSlot();
   if (!busy) renderSortChoices();
   pruneSelection(
@@ -459,7 +456,7 @@ async function planToRun(
     log.error("Couldn't list Gmail labels", err);
   }
   const names = labels.map((l) => l.name);
-  sortPlan = buildSortPlan(ctx.senders, {}, ctx.settings.sortOverrides, senderKinds());
+  sortPlan = buildSortPlan(ctx.senders, {}, engineContext(ctx.settings));
   let raw = chosenEntries();
   // Mail to sort, but every kind it belongs to is Off in Labels.
   const labelsOff = raw.length === 0 && sortPlan.length > 0;

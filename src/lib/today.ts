@@ -3,7 +3,9 @@
 import { categorizeDomain } from "./domainCategories";
 import { domainOf } from "./domainGrouping";
 import { neverMove } from "./protectionPolicy";
-import { effectiveBucket, type SortBucket, type SortOverride } from "./sortTaxonomy";
+import { AddressSet } from "./addressIdentity";
+import { decideAll, sortLabelOf, type EngineContext } from "./mailEngine";
+import type { SortBucket } from "./sortTaxonomy";
 import type { SenderSummary } from "./senderModel";
 import { riskTier, senderRiskScore } from "./threatSignals";
 
@@ -99,13 +101,15 @@ export interface LabelDigest {
  */
 export function pickByLabel(
   senders: readonly SenderSummary[],
-  known: Set<string>,
-  overrides: Record<string, SortOverride>,
+  engine: EngineContext,
   now: number,
   days = 7,
   per = 3,
 ): LabelDigest[] {
   const groups = new Map<SortBucket, TodayItem[]>();
+  // The engine's label, the one the labeller gives in Gmail (engine step 3).
+  const decided = decideAll(senders, engine);
+  const known = new AddressSet([...engine.wrote, ...engine.letIn]);
   for (const s of senders) {
     if (riskTier(senderRiskScore(s.threatSignals)) === "high") continue;
     const address = s.address.toLowerCase();
@@ -113,7 +117,7 @@ export function pickByLabel(
     const finance = categorizeDomain(domain) === "finance";
     for (const m of s.messages) {
       if (now - m.receivedAt > days * DAY_MS) continue;
-      const bucket = effectiveBucket(m.kind, domain, address, overrides, m.promotion, m);
+      const bucket = sortLabelOf(decided.get(m.id));
       if (!bucket) continue;
       const reason = reasonFor(m, address, known.has(address), finance) ?? (m.providerMarkedPersonal ? "important" : "recent");
       const list = groups.get(bucket) ?? [];

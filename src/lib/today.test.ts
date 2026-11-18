@@ -82,7 +82,7 @@ describe("pickByLabel", () => {
   ];
 
   it("gives each label its week: what matters first, then the newest, and leaves unlabelled mail out", () => {
-    const out = pickByLabel(senders, new Set(), {}, NOW);
+    const out = pickByLabel(senders, { wrote: new Set(), letIn: new Set(), overrides: {} }, NOW);
     expect(out.map((d) => d.bucket)).toEqual(["jobs", "promotions"]);
     expect(out[0].total).toBe(4);
     expect(out[0].items.map((t) => [t.id, t.reason])).toEqual([

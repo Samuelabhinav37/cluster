@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import type { MessageKind } from "./messageKind";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import { planScreenerRelease, runScreenerRelease, type ScreenerReleaseApi } from "./screenerBacklog";
+import type { SortOverride } from "./sortTaxonomy";
+
+const engine = (wrote: string[] = [], overrides: Record<string, SortOverride> = {}) => ({ wrote: new Set(wrote), letIn: new Set<string>(), overrides });
 import type { ThreatSignal } from "./threatSignals";
 
 function msg(id: string, kind: MessageKind = "other"): MessageRecord {
@@ -49,7 +52,7 @@ describe("planScreenerRelease", () => {
         sender("friend@gmail.com", [msg("f1", "newsletter")]),
         sender("someone@unknown.example", [msg("u1")]),
       ],
-      new Set(["friend@gmail.com"]),
+      engine(["friend@gmail.com"]),
     );
     const byDest = Object.fromEntries(plan.groups.map((g) => [g.destination, g.ids]));
     expect(byDest).toEqual({ newsletter: ["n1", "n2"], otp: ["o1"], inbox: ["f1", "u1"] });
@@ -57,7 +60,7 @@ describe("planScreenerRelease", () => {
   });
 
   it("keeps a sender that looks like phishing held", () => {
-    const plan = planScreenerRelease([sender("security@paypa1.com", [msg("p1")], PHISHY)], new Set());
+    const plan = planScreenerRelease([sender("security@paypa1.com", [msg("p1")], PHISHY)], engine());
     expect(plan.groups).toEqual([]);
     expect(plan.keptHeld).toEqual([{ address: "security@paypa1.com", count: 1 }]);
   });
@@ -65,8 +68,7 @@ describe("planScreenerRelease", () => {
   it("honours a 'never sort' override by sending that sender's mail to the inbox", () => {
     const plan = planScreenerRelease(
       [sender("news@substack.com", [msg("n1", "newsletter")])],
-      new Set(),
-      { "news@substack.com": "never" },
+      engine([], { "news@substack.com": "never" }),
     );
     expect(plan.groups).toEqual([expect.objectContaining({ destination: "inbox", ids: ["n1"] })]);
   });
@@ -87,7 +89,7 @@ describe("runScreenerRelease", () => {
       sender("news@substack.com", [msg("n1", "newsletter")]),
       sender("mixed@brand.example", [msg("m1", "newsletter"), msg("m2")]),
     ],
-    new Set(),
+    engine(),
   );
   const filters = [
     { id: "f-news", criteria: { from: "news@substack.com" }, action: { addLabelIds: ["L_SCREEN"] } },

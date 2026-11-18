@@ -1,14 +1,13 @@
 // Releasing the Screener's backlog: everything held under the Screener label,
 // not just the senders the latest (150-message) scan happened to see. Each
-// held message goes where "Sort my inbox" would put it (a category label,
-// out of the inbox, since this is old mail); mail from people the user
-// knows, or that fits no category, goes back to the inbox. Senders that
-// look like phishing stay held for a person to look at.
-import { domainOf } from "./domainGrouping";
+// held message goes where the engine places it once its sender is let in
+// (its label, out of the inbox, since this is old mail); mail from people,
+// or that fits no label, goes back to the inbox. Senders the scam verdict
+// would hold stay held for a person to look at.
 import type { GmailFilterResource } from "./gmailApi";
 import type { SenderSummary } from "./senderModel";
-import { effectiveBucket, type SortBucket, type SortOverride } from "./sortTaxonomy";
-import { riskTier, senderRiskScore } from "./threatSignals";
+import { decideAll, sortLabelOf, type EngineContext } from "./mailEngine";
+import type { SortBucket } from "./sortTaxonomy";
 
 export type ReleaseDestination = SortBucket | "inbox";
 
@@ -27,27 +26,24 @@ export interface ScreenerReleasePlan {
   keptHeld: { address: string; count: number }[];
 }
 
-export function planScreenerRelease(
-  senders: SenderSummary[],
-  known: Set<string>,
-  overrides: Record<string, SortOverride> = {},
-): ScreenerReleasePlan {
+export function planScreenerRelease(senders: SenderSummary[], ctx: EngineContext): ScreenerReleasePlan {
   const groups = new Map<ReleaseDestination, { ids: string[]; senders: Set<string> }>();
   const destinationsBySender: Record<string, ReleaseDestination[]> = {};
   const keptHeld: ScreenerReleasePlan["keptHeld"] = [];
+  // Risk is judged before the sender is let in (knowing a sender softens the
+  // verdict); where each email goes, once it is (engine steps 3 and 5).
+  const before = decideAll(senders, ctx);
+  const after = decideAll(senders, { ...ctx, letIn: new Set([...ctx.letIn, ...senders.map((s) => s.address.toLowerCase())]) });
 
   for (const sender of senders) {
     const address = sender.address.toLowerCase();
-    if (riskTier(senderRiskScore(sender.threatSignals)) === "high") {
+    if (sender.messages.some((m) => before.get(m.id)?.risk === "hold")) {
       keptHeld.push({ address, count: sender.messages.length });
       continue;
     }
-    const domain = domainOf(sender.address);
     const dests = new Set<ReleaseDestination>();
     for (const msg of sender.messages) {
-      const dest: ReleaseDestination = known.has(address)
-        ? "inbox"
-        : (effectiveBucket(msg.kind, domain, address, overrides, msg.promotion, msg) ?? "inbox");
+      const dest: ReleaseDestination = sortLabelOf(after.get(msg.id)) ?? "inbox";
       const group = groups.get(dest) ?? { ids: [], senders: new Set<string>() };
       group.ids.push(msg.id);
       group.senders.add(address);
