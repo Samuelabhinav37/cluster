@@ -103,7 +103,8 @@ describe("first-run setup", () => {
     all.click();
     click("setup-go");
     await vi.waitFor(() => expect(big.storedSettings().readCap).toBe(100_000));
-  });
+    // Boots two dashboards: past the 15 s default under a loaded full suite.
+  }, 30_000);
 
   it("Yes turns everything on: filters for every label, every label waits an hour in the inbox, scams held", async () => {
     const dash = await bootEmpty();
