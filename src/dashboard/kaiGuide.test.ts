@@ -83,7 +83,7 @@ describe("Kai's guide in Cluster", () => {
     expect(panel.querySelector(".kg-msg.typing")).not.toBeNull();
     expect(panel.querySelector(".kg-status")!.textContent).toBe("Thinking");
     vi.advanceTimersByTime(3000);
-    expect(said().at(-1)).toContain("Set each label in Labels, then press Sort inbox");
+    expect(said().at(-1)).toContain("Set each label in Labels, then press Sort in the top bar");
     expect(panel.querySelectorAll(".kg-msg.kai")).toHaveLength(0);
     panel.querySelector<HTMLButtonElement>(".kg-go")!.click();
     expect(navClick).toHaveBeenCalledOnce();

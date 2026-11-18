@@ -1,6 +1,7 @@
 // "Sort my inbox" — extracted from dashboard.ts (the first slice of the split).
 // Owns its own DOM refs and module state; reads the shared scan/settings via
 // `ctx` and triggers a rescan / writes the action log via the state bridge.
+import { wireDownloadMenu } from "./reportDownload";
 import { openMailIndex } from "../lib/mailIndex";
 import { log } from "../lib/log";
 import {
@@ -47,11 +48,16 @@ const sortInboxBtn = document.getElementById("sort-inbox-btn") as HTMLButtonElem
 const sortInboxSlot = document.getElementById("sort-inbox-slot") as HTMLSpanElement;
 const sortInboxCountEl = document.getElementById("sort-inbox-count") as HTMLSpanElement;
 const sortInboxPreviewEl = document.getElementById("sort-inbox-preview") as HTMLDivElement;
-// The top bar's Sort inbox files new mail where you are, its progress in the sidebar's status line.
-// Sort all mail (top bar too) opens the page: old and archived mail, a rarer and longer job.
+// The top bar's Sort menu: New mail sorts where you are (progress in the sidebar card);
+// All mail opens the Sort page (data-open-screen) and starts there, since it may ask about your own labels.
 const topSortBtn = document.getElementById("top-sort") as HTMLButtonElement | null;
-topSortBtn?.addEventListener("click", () => void runSort("new", true));
-document.getElementById("top-sort-all")?.addEventListener("click", () => setTimeout(() => renderSortChoices(), 0));
+const topSortMenu = document.getElementById("top-sort-menu");
+if (topSortBtn && topSortMenu) wireDownloadMenu(topSortBtn, topSortMenu, { new: () => void runSort("new", true) });
+document.getElementById("top-sort-all")?.addEventListener("click", () => {
+  topSortMenu?.setAttribute("hidden", "");
+  topSortBtn?.setAttribute("aria-expanded", "false");
+  setTimeout(() => void runSort("all"), 0);
+});
 
 let jobTimer: ReturnType<typeof setTimeout> | undefined;
 
