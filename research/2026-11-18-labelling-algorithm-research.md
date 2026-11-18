@@ -204,3 +204,21 @@ Promise: keeps on-device. It needs Chrome open, so it can never run when the com
 - Superhuman help center: 403 to automated reads.
 - support.microsoft.com through the fetch tool: blocked. Read with curl instead.
 - No primary Google page explains how Purchases or Reservations are chosen.
+
+## 6. Follow-up: checked against the real mailbox (2026-11-18, read-only search)
+
+**Gmail's Purchases and Reservations views.** No Google page says whether a filter can use `category:purchases` or `category:reservations` on arriving mail. Google's search help lists both as search operators only (https://support.google.com/mail/answer/7190). In this mailbox, Reservations held 1 thread in 180 days (an Expedia itinerary, already Travel by domain). Purchases held about 200 threads in 90 days, almost all from senders Cluster already labels (Amazon, PayPal, Atlassian). Verdict: the client reads both views (built, 6d9c225). The filter side is **not worth building** until a mailbox shows misses it would catch.
+
+**What the views did show.** One Amazon order's mail was split across three labels. "Ordered: …" (amazon.in) went to Orders & shipping. "Ordered 2 items: …" (amazon.com), "Item cancelled successfully" and "Payment declined … ship your order" went to Shopping or Receipts. Fixed in 3d4b229.
+
+**Screener misses (15 threads, 30 days).**
+- Recruiter post "Position | Senior … Engineer | Chicago, IL": no work-mode word, so no Jobs. Fixed.
+- Google Voice "… is no longer connected to your Google Voice account": no Accounts phrase. Fixed.
+- Azure billing notice from azure-noreply@microsoft.com: already fixed by SERVICE_SENDERS (dab324e).
+- Red Cross volunteer region mail, Google Voice marketing texts, a Trustpilot review request: the Screener is the right place.
+
+**Receipts label (39 threads, 60 days).**
+- "Resume Receipt Confirmation" (Greenhouse) was Receipts. It is Jobs now, and the Receipts filter skips it. Fixed.
+- Discover "We've received your payment" (8 threads) is Receipts, but the client says Finance. The Gmail filter matches the phrase for any sender and labels first. The daily index relabel should swap it (`labelFromIndex` is tested for this) but did not. Likely causes: the sender was skipped (`skipSender`: known correspondent or a "warn" verdict), or the relabel has not run since. **Open, needs the extension's own data.** A Receipts filter that skips bank and travel domains does not fit: those lists come to about 3,000 characters, against Gmail's ~1,400 limit.
+- ADPList "Booking Confirmed with <mentor>" is Receipts through the "booking confirm" phrase. It is a meeting with a person. Left alone for now: "booking confirmed with" also fits hotels.
+- Rakuten "Cash Back Statement" is Receipts through "your … statement". Acceptable.
