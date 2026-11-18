@@ -66,6 +66,12 @@ describe("Gmail filters against the realistic mailboxes", () => {
   ] as const)("%s", async (name, templates, seed) => {
     const r = await score(name, templates as Template[], seed);
     expect(r.labelled).toBeGreaterThan(0);
+    // Floors (audit B6): a filter never labels a person or a scam, and held-out
+    // mail is near-certain. Tuned's ceiling is mostly newsletters in the
+    // Promotions tab (see categoryQueries); lower it as that improves.
+    expect(r.onPeople, "people labelled").toBe(0);
+    expect(r.onScams, "scams labelled").toBe(0);
+    expect(r.wrong / r.labelled, "wrong share").toBeLessThanOrEqual(name === "Tuned" ? 0.1 : 0.01);
   });
 });
 

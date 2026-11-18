@@ -2,7 +2,8 @@
 // the rules were tuned on, and a held-out one whose senders are on no list
 // (src/test/heldOutMailbox.ts). Each prints where every kind of mail landed,
 // how many labels were wrong against how much went to the Screener, and the
-// safety lines. Only the generator check and the safety rules fail the test.
+// safety lines. The generator check, the safety rules and a 99% acceptable
+// floor fail the test.
 import { describe, expect, it } from "vitest";
 import { build, generatorProblems, report, voteReport, type Template } from "../test/mailboxGen";
 import { HELD_OUT, HELD_OUT_SEED } from "../test/heldOutMailbox";
@@ -21,6 +22,8 @@ async function run(name: string, templates: Template[], seed: number, size = 200
   const votes = await signalVotes(cases.map((c) => c.meta), { contacts: CONTACTS, sent, now: Date.UTC(2026, 10, 15, 12) });
   out(`\n=== ${name} ===\n${r.text}\n${voteReport(cases, where, votes)}\n`);
   expect(r.personInSpam).toEqual([]);
+  // Floor (audit B6): a rule change that loses accuracy fails here.
+  expect(r.ok / r.total, "acceptable share").toBeGreaterThanOrEqual(0.99);
   return r;
 }
 

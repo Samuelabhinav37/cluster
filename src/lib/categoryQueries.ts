@@ -24,6 +24,8 @@ export const KIND_PHRASES: Record<SubjectKind, string[]> = {
     "passcode",
     "2FA",
     "two-factor",
+    "sign-in link",
+    "confirmation code",
   ],
   accounts: [
     "security alert",
@@ -35,6 +37,9 @@ export const KIND_PHRASES: Record<SubjectKind, string[]> = {
     "suspicious activity",
     "account recovery",
     "2-Step Verification",
+    "new login",
+    "password was changed",
+    "confirm your email",
   ],
   // No bare "delivery" or "tracking": promo copy ("Free delivery") uses them.
   shipping: [
@@ -45,6 +50,8 @@ export const KIND_PHRASES: Record<SubjectKind, string[]> = {
     "order confirmation",
     "order confirmed",
     "tracking number",
+    "arriving today",
+    "arriving tomorrow",
   ],
   receipt: [
     "receipt",
@@ -185,15 +192,23 @@ export function categoryQueries(bucket: SortBucket, overrides: Record<string, So
   const reserve = exclude.length === 0 ? 0 : Math.min(EXCLUDE_RESERVE, fromAny(exclude).length + 2);
   const out: string[] = [];
   let start = 0;
+  let first = true;
   do {
-    const first = start === 0;
     let end = start;
     while (end < all.length && (buildQuery(bucket, all.slice(start, end + 1), first)?.length ?? 0) <= MAX_FILTER_QUERY - reserve) end++;
+    // No domain fits beside the subject phrases: they get a query of their own.
+    if (end === start && first && all.length > 0) {
+      const q = buildQuery(bucket, [], true);
+      if (q) out.push(withExcludes(q, exclude));
+      first = false;
+      continue;
+    }
     // A single domain never overflows on its own; this only guards the loop.
     if (end === start && end < all.length) end++;
     const q = buildQuery(bucket, all.slice(start, end), first);
     if (q) out.push(withExcludes(q, exclude));
     start = end;
+    first = false;
   } while (start < all.length);
   out.push(
     ...packed(include, (chunk) => {
@@ -217,7 +232,9 @@ function buildQuery(bucket: SortBucket, domains: string[], first: boolean): stri
   const not: string[] = [];
 
   if (isSubjectKind(bucket)) {
-    if (first) matchAny.push(subjectAny(KIND_PHRASES[bucket]));
+    // Mirrors classifySortBucket: a social phrase from an unknown sender is
+    // social only in Gmail's Social tab ("Jane commented on" from a work tool).
+    if (first) matchAny.push(bucket === "social" ? `(${subjectAny(KIND_PHRASES.social)} category:social)` : subjectAny(KIND_PHRASES[bucket]));
     if ((bucket === "social" || bucket === "jobs") && domains.length > 0) matchAny.push(fromAny(domains));
     const earlier = KIND_ORDER.slice(0, KIND_ORDER.indexOf(bucket)).flatMap((k) => KIND_PHRASES[k]);
     if (earlier.length > 0) not.push(subjectAny(earlier));
@@ -226,6 +243,10 @@ function buildQuery(bucket: SortBucket, domains: string[], first: boolean): stri
     // Mirrors JOB_RECEIPT_RE: a job application's "receipt" is Jobs, the client's call.
     if (bucket === "receipt") not.push(subjectAny(JOB_RECEIPT_PHRASES));
     not.push(fromAny(FILTER_FREE_MAIL));
+    // Primary is where people and lures land ("Question about the invoice",
+    // "Please DocuSign: Payment_Invoice"): a phrase alone isn't near-certain
+    // there, so Cluster's own pass decides (audit B2).
+    not.push("category:personal");
   } else if (bucket === "promotions") {
     if (first) matchAny.push("category:promotions");
     not.push(subjectAny(ALL_KIND_PHRASES));
@@ -235,7 +256,12 @@ function buildQuery(bucket: SortBucket, domains: string[], first: boolean): stri
     if (domains.length > 0) matchAny.push(fromAny(domains));
     not.push(subjectAny(ALL_KIND_PHRASES));
     // Mirrors classifySortBucket: the Promotions tab wins over the domain.
+    // shortcut: a newsletter there gets Promotions (its list header, which
+    // makes it a newsletter, is invisible to a filter, and the 59 newsletter
+    // domains don't fit in the Promotions query); the relabel swaps it.
     not.push("category:promotions");
+    // Calendar invites are people arranging something (CALENDAR_RE).
+    if (bucket === "productivity") not.push("subject:(invitation OR accepted OR declined)");
   }
   // AWS under amazon.com, LinkedIn Learning under linkedin.com: their own label, not this one.
   const services = serviceExceptions(bucket as DomainCategory);
