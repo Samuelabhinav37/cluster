@@ -118,6 +118,7 @@ import {
   HOME_KINDS,
   receivedInRange,
   paintHomeRead,
+  readingView,
   renderHomeDashboard,
   STALE_SWEEP_MS,
   filedByDay,
@@ -947,6 +948,9 @@ interface IndexRun {
   didRead?: boolean;
   /** A full build, not a catch-up on changes. */
   built?: boolean;
+  /** The newest message in the last batch read, and every sender read, for the first-read stage. */
+  latest?: { name: string; address: string; receivedAt: number };
+  senders: Set<string>;
 }
 const indexRuns = new Map<ProviderId, IndexRun>();
 const indexStatusEl = document.getElementById("index-status") as HTMLParagraphElement;
@@ -963,6 +967,7 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
   const run: IndexRun = {
     quick: new Promise<void>((resolve) => (resolveQuick = resolve)),
     done: Promise.resolve(null),
+    senders: new Set(),
   };
   run.done = (async () => {
     // The read's own entry in Settings, Diagnostics (runReport.ts).
@@ -995,7 +1000,10 @@ function startIndexSync(provider: EmailProvider, token?: string): IndexRun {
             );
             await labeller?.onSentReady();
           },
-          onRead: labeller?.onRead,
+          onRead: (rows, tried) => {
+            noteRead(run, rows);
+            return labeller?.onRead(rows, tried);
+          },
           onPlanned: labeller?.onPlanned,
         }),
         ),
@@ -1135,6 +1143,19 @@ let readSince = 0;
 let sortRunning = false;
 
 /** Bar pinned to the bottom while mail is still being read. */
+/** What the first-read stage shows besides the count: who was just read, and how many senders so far. */
+function noteRead(run: IndexRun, rows: readonly { fromAddress: string; fromDisplayName: string; receivedAt: number }[]) {
+  for (const row of rows) run.senders.add(row.fromAddress.toLowerCase());
+  const newest = rows.reduce<(typeof rows)[number] | undefined>((a, b) => (!a || b.receivedAt > a.receivedAt ? b : a), undefined);
+  if (newest) run.latest = { name: newest.fromDisplayName, address: newest.fromAddress, receivedAt: newest.receivedAt };
+}
+
+function readSeen() {
+  const runs = [...indexRuns.values()];
+  const latest = runs.map((r) => r.latest).filter((l) => l !== undefined).at(-1);
+  return { latest, senders: runs.reduce((sum, r) => sum + r.senders.size, 0) };
+}
+
 function updateIndexStatus() {
   const active = [...indexRuns.values()]
     .map((run) => run.progress)
@@ -1181,7 +1202,7 @@ function updateIndexStatus() {
   // Home's first-read card carries the progress there; the bar hides on Home (CSS).
   const homeRead = overviewContentEl.querySelector(".home-read");
   const firstRead = active.some((p) => p.phase !== "detail");
-  if (homeRead && firstRead) paintHomeRead(homeRead, done, total, eta, parts[0]);
+  if (homeRead && firstRead) paintHomeRead(homeRead, done, total, eta, parts[0], readSeen());
   if (homeRead && !firstRead) void refreshView();
   indexStatusEl.classList.toggle("home-shows", !!homeRead && firstRead);
   const fill = document.createElement("div");
@@ -1303,6 +1324,12 @@ async function scanAndRender({
   const builtBefore = await Promise.all(
     providers.map(async (provider) => Boolean((await store.getState(provider.id))?.complete)),
   );
+  // A first read shows the reading stage at once, not an empty page until the
+  // first batch lands; updateIndexStatus moves it (the status line stays out of sight).
+  if (!quiet && builtBefore.some((built) => !built) && !overviewContentEl.querySelector(".home-read")) {
+    overviewContentEl.replaceChildren(readingView());
+    statusEl.hidden = true;
+  }
   const runs = providers.map((provider, i) => {
     const wasRunning = indexRuns.has(provider.id);
     const run = startIndexSync(provider);

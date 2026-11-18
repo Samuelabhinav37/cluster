@@ -3,6 +3,7 @@
 // Facts are computed here from the scan; the dashboard supplies the counts it
 // already has.
 
+import { scanStage, type ScanStage, type ScanState } from "./scanStage";
 import { senderTile } from "./senderTile";
 import type { MessageRecord, SenderSummary } from "../lib/senderModel";
 import { clearedCount, type ActionLogEntry } from "../lib/actionLog";
@@ -455,50 +456,35 @@ export function clearedByDay(log: readonly ActionLogEntry[], now: number, span =
 
 const n = (x: number) => x.toLocaleString();
 
-/** The first read: Kai beside a live counter. The dashboard moves the numbers
- * with `paintHomeRead` as reading goes on. */
+/** The first read, shown like a file copy (scanStage.ts). The dashboard moves
+ * it with `paintHomeRead` as reading goes on. */
+const stages = new WeakMap<Element, ScanStage>();
 function readHero(r: { done: number; total: number }): HTMLElement {
-  const hero = el("section", "home-hero home-read");
-  const words = el("div", "home-words");
-  const nums = el("div", "read-nums");
-  nums.append(
-    el("b", "read-done", n(r.done)),
-    el("span", "read-of", `of ${n(r.total)} emails`),
-    el("em", "read-eta"),
-  );
-  const track = el("div", "read-track");
-  track.setAttribute("role", "progressbar");
-  track.setAttribute("aria-label", "Emails read");
-  track.append(el("i", ""));
-  words.append(el("p", "home-verdict", "Reading your mail"), nums, track);
-  hero.append(words);
-  paintHomeRead(hero, r.done, r.total, "");
-  return hero;
+  const stage = scanStage();
+  stage.el.classList.add("home-read");
+  stages.set(stage.el, stage);
+  paintHomeRead(stage.el, r.done, r.total, "");
+  return stage.el;
 }
 
-/** Moves the first-read counter and bar. `label` says which mail is being
- * read; `eta` is the status line's time left. Between phases the count reads
- * "150 of 150", which looks finished, so it hides like the status line's. */
+/** Overview while nothing is read yet: only the first-read stage. */
+export function readingView(): HTMLElement {
+  const root = el("div", "home");
+  root.append(readHero({ done: 0, total: 0 }));
+  return root;
+}
+
+/** Moves the first read. `label` says which mail is being read; `eta` is the
+ * status line's time left; `seen` is what the last batch held. */
 export function paintHomeRead(
   card: Element,
   done: number,
   total: number,
   eta: string,
   label = "Reading your mail",
+  seen: Pick<ScanState, "latest" | "senders"> = {},
 ): void {
-  card.querySelector(".home-verdict")!.textContent = label;
-  card.querySelector(".read-done")!.textContent = done < total ? n(done) : "";
-  card.querySelector(".read-of")!.textContent = done < total ? `of ${n(total)} emails` : "";
-  card.querySelector(".read-eta")!.textContent = eta;
-  const track = card.querySelector<HTMLElement>(".read-track")!;
-  // A step with no count (labelling) keeps a moving bar, so the card never looks stuck.
-  const busy = done >= total && label !== "Reading your mail";
-  track.hidden = done >= total && !busy;
-  track.classList.toggle("is-busy", busy);
-  track.setAttribute("aria-valuenow", String(done));
-  track.setAttribute("aria-valuemax", String(Math.max(done, total)));
-  track.querySelector<HTMLElement>("i")!.style.width =
-    `${total > 0 ? Math.min(100, (done / total) * 100) : 0}%`;
+  stages.get(card)?.update({ done, total, eta, label, ...seen });
 }
 
 /** Gmail's own label mark: the Material "label" tag (Apache-2.0), filled in

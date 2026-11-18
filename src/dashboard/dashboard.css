@@ -4796,3 +4796,40 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .account-menu .menu-item, .dl-menu button { min-height: 36px; padding: 8px 12px; border-radius: 8px; font: 500 14px/1.3 var(--font); }
 .account-menu .menu-item:hover, .account-menu .menu-item:focus-visible, .dl-menu button:hover, .dl-menu button:focus-visible { background: var(--row-hover); outline: none; }
 .read-card .rc-tick { width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; fill: none; stroke: var(--label-2); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* The first read (scanStage.ts): a sui.io-style line drawing beside a copy-window panel. */
+.scan-stage { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; align-items: stretch; margin-top: 8px; }
+@media (max-width: 900px) { .scan-stage { grid-template-columns: 1fr; } }
+.scn-card { display: grid; place-items: center; min-height: 380px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--glass); overflow: hidden; }
+.scn-scene { width: min(100%, 460px); height: auto; overflow: visible; }
+.scn-dash { fill: none; stroke: var(--label-4); stroke-width: .6; stroke-dasharray: 2 3; opacity: .55; }
+.scn-floor { fill: none; stroke: var(--accent); stroke-width: 1.2; }
+.scn-paper { fill: var(--glass); stroke: var(--label-3); stroke-width: .8; }
+.scn-flap { fill: none; stroke: var(--label-4); stroke-width: .7; }
+.scn-ring { fill: none; stroke: var(--accent); stroke-width: 1.4; }
+.scn-glow { fill: var(--accent); opacity: .16; filter: blur(6px); }
+.scn-chip text { font: 600 8.5px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: .04em; fill: var(--label-2); }
+/* The plane sweeps down the stack; each sheet lights as it passes (--i counts from the top). */
+.scn-plane { animation: scn-sweep 3.2s cubic-bezier(.45, 0, .25, 1) infinite; }
+@keyframes scn-sweep { 0% { transform: translateY(-6px); opacity: 0; } 8% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translateY(var(--travel)); opacity: 0; } }
+.scn-sheet .scn-paper { animation: scn-lit 3.2s linear infinite; animation-delay: calc(var(--i) * 3.2s * .085 + .25s); }
+@keyframes scn-lit { 0%, 14%, 100% { stroke: var(--label-3); } 4% { stroke: var(--accent); } }
+.scan-stage.is-paused .scn-plane, .scan-stage.is-paused .scn-paper { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { .scn-plane, .scn-sheet .scn-paper { animation: none; } .scn-plane { opacity: 0; } }
+
+.scn-panel { display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 28px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--glass); }
+.scn-pct { font: 600 56px/1 var(--font-display); letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: var(--label); }
+.scn-title { margin: 0; font: 600 15px/1.3 var(--font); color: var(--label); }
+.scn-track { flex: none; height: 6px; border-radius: 3px; background: var(--neutral-fill); overflow: hidden; }
+.scn-track > i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .4s ease; }
+.scan-stage.home-read { padding: 0; background: none; border-radius: 0; }
+.scn-line { margin: 0; font-size: 13px; color: var(--label-3); font-variant-numeric: tabular-nums; }
+.scn-now { display: grid; gap: 6px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+.scn-k, .scn-facts dt { font-size: 12px; color: var(--label-3); }
+.scn-who { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 14px; font-weight: 500; color: var(--label); }
+.scn-who > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scn-speed { display: flex; align-items: end; justify-content: space-between; gap: 16px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+.scn-facts { display: grid; grid-template-columns: auto auto; gap: 4px 16px; margin: 0; }
+.scn-facts dd { margin: 0; font-size: 13px; font-weight: 500; color: var(--label); font-variant-numeric: tabular-nums; }
+.scn-spark { width: 120px; height: 28px; }
+.scn-spark polyline { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linejoin: round; vector-effect: non-scaling-stroke; }

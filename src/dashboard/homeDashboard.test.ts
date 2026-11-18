@@ -307,8 +307,9 @@ describe("renderHomeDashboard", () => {
       },
       vi.fn(),
     );
-    expect(text(el.querySelector(".home-verdict"))).toBe("Reading your mail");
-    expect(text(el.querySelector(".read-nums"))).toBe("40of 184 emails");
+    expect(text(el.querySelector(".scn-title"))).toBe("Reading your mail");
+    expect(text(el.querySelector(".scn-line"))).toBe("40 of 184 emails");
+    expect(text(el.querySelector(".scn-pct"))).toBe("21%");
     expect(sections(el)).toEqual([]);
     expect(el.children).toHaveLength(1);
     // A scam during the first read is still found, not hidden behind the verdict.
@@ -318,14 +319,20 @@ describe("renderHomeDashboard", () => {
   it("moves the counter, the bar and the time left as reading goes on", () => {
     const el = renderHomeDashboard({ ...calm, reading: { done: 0, total: 200 } }, vi.fn());
     const card = el.querySelector(".home-read")!;
-    paintHomeRead(card, 50, 200, "about 2 min left");
-    expect(text(card.querySelector(".read-nums"))).toBe("50of 200 emailsabout 2 min left");
+    paintHomeRead(card, 50, 200, "about 2 min left", "Reading your mail", {
+      latest: { name: "Amazon", address: "news@amazon.com", receivedAt: Date.UTC(2024, 2, 9, 12) },
+      senders: 12,
+    });
+    expect(text(card.querySelector(".scn-line"))).toBe("50 of 200 emails · about 2 min left");
     expect(card.querySelector<HTMLElement>(".read-track i")!.style.width).toBe("25%");
     expect(card.querySelector(".read-track")!.getAttribute("aria-valuenow")).toBe("50");
+    // What a copy window shows: who is being read now, and how many senders so far.
+    expect(text(card.querySelector(".scn-who"))).toContain("Amazon · Mar 2024");
+    expect(text(card.querySelector(".scn-facts"))).toContain("12");
     // Between phases "200 of 200" would look finished: say what is read, hide the count.
     paintHomeRead(card, 200, 200, "", "Reading your sent mail");
-    expect(text(card.querySelector(".home-verdict"))).toBe("Reading your sent mail");
-    expect(text(card.querySelector(".read-nums"))).toBe("");
+    expect(text(card.querySelector(".scn-title"))).toBe("Reading your sent mail");
+    expect(text(card.querySelector(".scn-line"))).toBe("");
     // No count, but still working: the bar slides instead of vanishing.
     expect(card.querySelector<HTMLElement>(".read-track")!.hidden).toBe(false);
     expect(card.querySelector(".read-track")!.classList.contains("is-busy")).toBe(true);
