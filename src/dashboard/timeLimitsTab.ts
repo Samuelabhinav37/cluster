@@ -17,7 +17,8 @@ import type { SenderSummary } from "../lib/senderModel";
 import { ALL_SORT_BUCKETS, type SortBucket } from "../lib/sortTaxonomy";
 import { BUCKET_KIND, gmailLabelIcon, HOME_KINDS, icon } from "./homeDashboard";
 import { showLabelPage } from "./labelPage";
-import { ctx } from "./state";
+import { ctx, decisions } from "./state";
+import { filedIn, fixesIn, fixesPer100 } from "../lib/correctionRate";
 
 const rowsEl = document.getElementById("time-limits-rows") as HTMLDivElement | null;
 const statusEl = document.getElementById("time-limits-status") as HTMLParagraphElement | null;
@@ -235,7 +236,8 @@ export function renderTimeLimits(): void {
   group.className = "ios-group";
   for (const { key } of HOME_KINDS.filter((k) => k.key !== "primary")) group.append(...rows.filter((_, i) => BUCKET_KIND[buckets[i]] === key));
   wrap.append(group);
-  const sections = [wrap];
+  const fixes = fixesRow();
+  const sections = fixes ? [wrap, fixes] : [wrap];
   const showEmpty = Object.assign(document.createElement("button"), { type: "button", className: "link", id: "labels-show-empty" });
   showEmpty.onclick = () => {
     showAllLabels = true;
@@ -248,6 +250,29 @@ export function renderTimeLimits(): void {
   // No standing "Last checked / Moved N" line: meta lines are clutter.
   if (statusEl && !saveNote) statusEl.textContent = "";
   renderPresets();
+}
+
+/** How often you re-filed what Cluster filed this week: the number that says
+ * whether the labels are right. Hidden until 20 emails were filed. */
+export function fixesRow(now = Date.now()): HTMLElement | null {
+  const fixed = fixesIn(ctx.settings.autoSort.fixesByDay ?? {}, now);
+  const filed = filedIn(ctx.senders, decisions(ctx.senders), now);
+  const rate = fixesPer100(fixed, filed);
+  if (rate === null) return null;
+  const row = document.createElement("div");
+  row.className = "ios-row";
+  row.id = "labels-fixes";
+  row.title = "Emails you moved to another label, for every 100 Cluster filed in the last 7 days. Lower is better.";
+  const words = Object.assign(document.createElement("span"), { className: "grow", textContent: "Fixes this week" });
+  const value = Object.assign(document.createElement("span"), { className: "ios-value", textContent: `${rate} per 100` });
+  row.append(words, value);
+  const group = document.createElement("div");
+  group.className = "ios-group";
+  group.append(row);
+  const section = document.createElement("section");
+  section.className = "ios-section";
+  section.append(group);
+  return section;
 }
 
 /** Setup's "Tidy for me": every kind that is off takes its stored choice,

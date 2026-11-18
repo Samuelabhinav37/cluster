@@ -5,7 +5,8 @@
 import { appendActionLog, makeLogId } from "./actionLog";
 import { categoryLabelName, desiredCategoryFilters, syncGmailCategoryFilters } from "./categoryFilters";
 import { batchModify, colorClusterLabels, findLabelIds, getOrCreateLabel, listLabels, listMessageIds } from "./gmailApi";
-import { movedTo, tallyMoves, type LabelMove, type MoveTarget } from "./learnFromMoves";
+import { fixedEmails, movedTo, tallyMoves, type LabelMove, type MoveTarget } from "./learnFromMoves";
+import { addFixes } from "./correctionRate";
 import {
   holdUnsortedInbox,
   screenFirstTimeSenders,
@@ -597,7 +598,8 @@ export async function learnFromLabelMoves(token: string, moves: LabelMove[]): Pr
   // Taking mail out of the Screener into a label teaches too.
   const fromIds = new Set([...bucketOf.keys(), ...labels.filter((l) => l.name === clusterLabelName("screener")).map((l) => l.id)]);
   const moved = movedTo(moves, bucketOf, fromIds);
-  if (moved.length === 0) return;
+  const fixed = fixedEmails(moves, bucketOf, fromIds);
+  if (moved.length === 0 && fixed === 0) return;
   let learned: Array<[string, MoveTarget]> = [];
   await mutateSettings((current) => {
     const res = tallyMoves(current.autoSort.moveVotes, moved, current.sortOverrides);
@@ -605,7 +607,7 @@ export async function learnFromLabelMoves(token: string, moves: LabelMove[]): Pr
     return {
       ...current,
       sortOverrides: { ...current.sortOverrides, ...Object.fromEntries(res.learned) },
-      autoSort: { ...current.autoSort, moveVotes: res.votes },
+      autoSort: { ...current.autoSort, moveVotes: res.votes, fixesByDay: addFixes(current.autoSort.fixesByDay ?? {}, fixed, Date.now()) },
     };
   });
   if (learned.length === 0) return;

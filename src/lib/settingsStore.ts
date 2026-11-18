@@ -211,6 +211,8 @@ export interface ClusterSettings {
     lastRelabelAt: number;
     /** Label swaps made in Gmail, per sender, not yet learned (learnFromMoves.ts). */
     moveVotes: Record<string, { bucket: SortBucket | "personal"; n: number }>;
+    /** Emails you re-filed, per day (correctionRate.ts). */
+    fixesByDay: Record<string, number>;
   };
   /** Per-sender "wrong bucket?" corrections from the sort preview, keyed by
    * lowercased from-address → a bucket to force, or "never" to skip. Consulted
@@ -342,6 +344,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
     searchedVersion: 0,
     lastRelabelAt: 0,
     moveVotes: {},
+    fixesByDay: {},
   },
   sortOverrides: {},
   seededFromExisting: false,
@@ -542,6 +545,7 @@ function normalizeSettings(value: unknown): ClusterSettings {
         ...(isRecord(autoSort.ruleIdsByBucket) ? autoSort.ruleIdsByBucket : {}),
       },
       filterSpecByBucket: isRecord(autoSort.filterSpecByBucket) ? autoSort.filterSpecByBucket : {},
+      fixesByDay: isRecord(autoSort.fixesByDay) ? autoSort.fixesByDay : {},
       // Every category has a limit, including ones added after the user saved.
       inboxHoursByBucket: {
         ...DEFAULT_SETTINGS.autoSort.inboxHoursByBucket,

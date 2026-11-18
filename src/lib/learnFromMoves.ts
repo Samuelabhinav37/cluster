@@ -32,6 +32,13 @@ export const SWEEP_SENDERS = 10;
 /** `at`: when the last vote counted. Older saved votes have none. */
 export type MoveVotes = Record<string, { bucket: MoveTarget; n: number; at?: number }>;
 
+/** Emails re-filed by these moves: one of Cluster's labels off, exactly one
+ * of its targets on. Unlike movedTo, sweeps count: every email you re-file is
+ * one Cluster got wrong (the correction rate's numerator). */
+export function fixedEmails(moves: readonly LabelMove[], bucketOf: ReadonlyMap<string, MoveTarget>, fromIds: ReadonlySet<string>): number {
+  return moves.filter((m) => m.added.filter((id) => bucketOf.has(id)).length === 1 && m.removed.some((id) => fromIds.has(id))).length;
+}
+
 /** The label each swap put a sender under. A swap is one of Cluster's labels
  * taken off (a sorting label, Personal or the Screener: `fromIds`) and
  * exactly one target put on; adding alone (Cluster's own labelling) or
