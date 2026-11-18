@@ -6,6 +6,7 @@ import type { ScanState } from "./scanState";
 let index: MailIndexStore;
 let scan: ScanState | null;
 const labelFromIndex = vi.fn();
+const tagQueries: string[] = [];
 let autoSort: Record<string, unknown>;
 let indexReady: string[];
 
@@ -37,7 +38,7 @@ const order: string[] = [];
 vi.mock("./inboxTimeLimits", async (orig) => ({
   ...(await orig<object>()),
   labelFromIndex: (...a: unknown[]) => labelFromIndex(...a),
-  tagUntaggedInbox: async () => ({ tagged: 0, byBucket: {}, oldestAt: null, listed: 0 }),
+  tagUntaggedInbox: async (_ctx: unknown, _api: unknown, query: string) => (tagQueries.push(query), { tagged: 0, byBucket: {}, oldestAt: null, listed: 0 }),
   tagOlderInbox: async () => ({ tagged: 0, nextBefore: -3 }),
   sweepExpiredInbox: async () => (order.push("sweep"), { movedIds: ["m1"], keptIds: [], more: false }),
 }));
@@ -154,6 +155,8 @@ describe("runInboxTimeLimits", () => {
     expect(labelFromIndex).not.toHaveBeenCalled();
 
     await runInboxTimeLimits(7 * day, {});
+    // Audit B10: Personal mail doesn't take the tagger's 100 slots.
+    expect(tagQueries.at(-1)).toMatch(/^newer_than:2d .*-label:"👤 Personal"$/);
     expect(labelFromIndex.mock.calls[0][2]).toEqual([{ id: "archived", labelIds: ["L_other"] }]);
     expect((await index.get("gmail", ["archived"]))[0].labelIds).toContain("L_shop");
     expect(scan).toBeNull();

@@ -12,6 +12,7 @@ import {
   labelBySearch,
   labelFromIndex,
   senderPages,
+  TAG_WINDOW,
   type RelabelResult,
   pinInInbox,
   sweepExpiredInbox,
@@ -147,7 +148,15 @@ async function runPass(
   // The quick work first: label new mail, then move out what is past its
   // time. The long read comes last, so a read that takes hours (or dies with
   // the service worker) never holds labelled mail in the inbox.
-  const tag = await step<TagResult>("tagging", { tagged: 0, byBucket: {}, oldestAt: null, listed: 0 }, () => tagUntaggedInbox(ctx, api), (t) => ({ labelled: t.tagged }));
+  // Personal mail stays in the inbox with no sort label; left in the list it
+  // took the 100 slots on a busy day (audit B10).
+  const tagQuery = `${TAG_WINDOW} ${withoutClusterLabels(limits)} -label:"${clusterLabelName("personal").replace(/"/g, "")}"`;
+  const tag = await step<TagResult>(
+    "tagging",
+    { tagged: 0, byBucket: {}, oldestAt: null, listed: 0 },
+    () => tagUntaggedInbox(ctx, api, tagQuery),
+    (t) => ({ labelled: t.tagged }),
+  );
   // Before the sweep: mail from a first-time sender goes to the Screener, not its label.
   const since = settings.autoSort.screenNewSince || now;
   const screened = settings.autoSort.holdUnsorted && settings.autoSort.screenNewSince

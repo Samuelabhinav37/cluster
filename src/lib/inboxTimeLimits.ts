@@ -24,7 +24,7 @@ import { senderVerdict, type VerdictTier } from "./verdict";
 
 const HOUR_MS = 60 * 60 * 1000;
 /** How far back the tagger looks for unlabelled inbox mail. */
-const TAG_WINDOW = "newer_than:2d";
+export const TAG_WINDOW = "newer_than:2d";
 const TAG_MAX = 100;
 
 /** Mail carrying none of Cluster's labels. Gmail's has:nouserlabels matched
