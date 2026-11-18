@@ -86,9 +86,19 @@ Being honest about the narrow list of places data does go:
   identifier of any kind. If the fetch ever fails, or you're offline, Cluster just keeps using the
   copy already bundled in the extension — this is a convenience, never a dependency.
 
-That's the complete list. Everything else — your settings, rules, and the log of what Cluster
-has done — stays in your browser's local storage, on your device, and is deleted the moment you
-uninstall the extension.
+- **Your choices, through Chrome sync.** If you're signed in to Chrome with sync on, Cluster
+  keeps your choices in Chrome's own sync storage so they follow you to your other computers.
+  That includes your first name, your switches, and the sender addresses in your corrections,
+  allow list and muted list. Google stores this the way it stores the rest of your Chrome sync
+  data. It's not deleted when you uninstall; "Erase everything" in Settings clears it.
+- **Your organisation's security console (Athena), only if your admin set it up.** Nothing is
+  sent unless your organisation's Chrome policy names an Athena server. When it does, Cluster
+  sends that server a short event each time it warns about or holds a scam: the time, the rule,
+  how severe it was, the sender's domain and the brand it faked. Never the sender's full
+  address, the subject or the mail. A personal install never sends this.
+
+That's the complete list. Everything else, such as the log of what Cluster has done, stays in
+your browser's local storage on your device and is deleted when you uninstall the extension.
 
 ## Open source
 
