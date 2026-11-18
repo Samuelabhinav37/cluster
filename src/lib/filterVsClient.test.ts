@@ -29,9 +29,14 @@ async function score(name: string, templates: Template[], seed: number) {
   let disagree = 0;
   let onPeople = 0;
   let onScams = 0;
+  // What the user sees before the daily relabel (audit B7): the filter's
+  // label when it matched (Cluster's pass skips labelled mail), else the pass's.
+  let seenOk = 0;
   const examples = new Map<string, number>();
   for (const c of cases) {
     const got = filterLabels(c.meta);
+    const seen: string[] = got.length > 0 ? got : [where.get(c.meta.id) ?? "inbox"];
+    if (seen.some((b) => (c.t.accept as string[]).includes(b))) seenOk++;
     if (got.length === 0) continue;
     labelled++;
     if (got.length > 1) twoLabels++;
@@ -51,9 +56,9 @@ async function score(name: string, templates: Template[], seed: number) {
     `\n=== Filters: ${name} ===\n` +
       `Filters label ${labelled}/${cases.length} (${pct(labelled, cases.length)}); wrong ${wrong} (${pct(wrong, labelled)} of those); ` +
       `two+ labels ${twoLabels}; disagree with Cluster's own pass ${disagree} (${pct(disagree, labelled)}); ` +
-      `people labelled ${onPeople}; scams labelled ${onScams}\n${top.join("\n")}\n`,
+      `people labelled ${onPeople}; scams labelled ${onScams}; filters then Cluster's pass acceptable ${pct(seenOk, cases.length)}\n${top.join("\n")}\n`,
   );
-  return { labelled, wrong, onPeople, onScams };
+  return { labelled, wrong, onPeople, onScams, seenOk: seenOk / cases.length };
 }
 
 describe("Gmail filters against the realistic mailboxes", () => {
@@ -71,6 +76,7 @@ describe("Gmail filters against the realistic mailboxes", () => {
     // Promotions tab (see categoryQueries); lower it as that improves.
     expect(r.onPeople, "people labelled").toBe(0);
     expect(r.onScams, "scams labelled").toBe(0);
+    expect(r.seenOk, "filters then Cluster's pass, acceptable").toBeGreaterThanOrEqual(name === "Tuned" ? 0.9 : 0.99);
     expect(r.wrong / r.labelled, "wrong share").toBeLessThanOrEqual(name === "Tuned" ? 0.1 : 0.01);
   });
 });
