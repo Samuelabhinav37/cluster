@@ -4855,3 +4855,8 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .onb-pane .board-head, .onb-pane .board-chip { min-height: 32px; }
 .onb-pane .board-col { padding: 4px 8px; }
 .onb:has(.board) { padding-bottom: 24px; }
+
+/* Settings keeps only everyday choices (index.html marks the rest set-off). */
+.settings-list .set-off { display: none; }
+/* Every row's control sits at the right edge, icon or not. */
+.settings-list .set-row > :last-child:not(.grow) { justify-self: end; }

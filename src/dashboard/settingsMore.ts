@@ -245,9 +245,9 @@ function wireRemoveFromGmail() {
 
 // Groups for the sidebar while Settings is open, in page order; Danger zone last, as Apple and GitHub keep it.
 const SETTINGS_GROUPS: Array<[group: string, sections: string[]]> = [
-  ["Account", ["Account", "Notifications", "Privacy & data"]],
-  ["Mail", ["Mail", "Sorting", "Automation", "Security", "What Cluster learned"]],
-  ["App", ["General", "Kai", "Advanced", "Diagnostics"]],
+  ["Account", ["Account", "Notifications"]],
+  ["Mail", ["Sorting", "Security"]],
+  ["App", ["General"]],
   ["", ["Danger zone"]],
 ];
 
@@ -255,7 +255,7 @@ const SETTINGS_GROUPS: Array<[group: string, sections: string[]]> = [
  * the sidebar's list jumps to one and lights the one you are reading. */
 function wireSettingsNav(showScreen: (name: string) => void): (inside: Element | null) => void {
   const list = document.querySelector<HTMLElement>(".settings-list");
-  const secs = Array.from(document.querySelectorAll<HTMLElement>(".settings-list > .set-sec"));
+  const secs = Array.from(document.querySelectorAll<HTMLElement>(".settings-list > .set-sec:not(.set-off)"));
   const sidebar = document.getElementById("sidebar");
   if (!list || !sidebar || secs.length === 0) return () => {};
   const nameOf = (sec: HTMLElement) => sec.querySelector("h2")?.textContent?.trim() ?? "";
