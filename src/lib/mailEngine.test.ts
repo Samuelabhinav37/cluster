@@ -1,7 +1,7 @@
 // Step 0 of the engine (docs/engine-design-2026-11-18.md): decide() must place
 // every email exactly where the background's passes do today.
 import { describe, expect, it } from "vitest";
-import { decideAll, riskOf } from "./mailEngine";
+import { decideAll, heldIdsOf, riskOf } from "./mailEngine";
 import { build, type Template } from "../test/mailboxGen";
 import { HELD_OUT, HELD_OUT_SEED } from "../test/heldOutMailbox";
 import { HELD_OUT_B, HELD_OUT_B_SEED } from "../test/heldOutMailboxB";
@@ -59,5 +59,68 @@ describe("one risk context (engine step 5)", () => {
       expect(on.get(id)?.place).toBe("spam");
       expect(off.get(id)?.place).not.toBe("spam");
     }
+  });
+});
+
+describe("the engine counts only what really moves (plan step 1.1)", () => {
+  async function tuned() {
+    const { cases, sent } = build(TUNED as Template[], TUNED_SEED);
+    const { senders } = await sendersOf(cases.map((c) => c.meta), { contacts: CONTACTS, sent, now: Date.UTC(2026, 10, 15, 12) });
+    return senders;
+  }
+  const base = { wrote: new Set(CONTACTS), letIn: new Set<string>(), overrides: {} };
+  const places = (d: Map<string, { place: unknown }>) => new Set([...d.values()].map((x) => x.place));
+
+  it("with sorting off, the Screener holds nothing; labels stay as the preview and held scams still go to Spam", async () => {
+    const senders = await tuned();
+    const on = decideAll(senders, base);
+    const off = decideAll(senders, { ...base, sorting: false });
+    expect(places(off).has("screener")).toBe(false);
+    for (const [id, d] of on) expect(off.get(id)?.place).toBe(d.place === "screener" ? null : d.place);
+  });
+
+  it("with the Screener off, its mail stays in the inbox and labels are untouched", async () => {
+    const senders = await tuned();
+    const on = decideAll(senders, base);
+    const off = decideAll(senders, { ...base, holdUnsorted: false });
+    expect([...on.values()].some((d) => d.place === "screener")).toBe(true);
+    for (const [id, d] of on) expect(off.get(id)?.place).toBe(d.place === "screener" ? null : d.place);
+  });
+
+  it("with the scam hold off, nothing goes to Spam; heldIdsOf agrees with decide", async () => {
+    const senders = await tuned();
+    const on = decideAll(senders, base);
+    const spam = [...on].filter(([, d]) => d.place === "spam").map(([id]) => id);
+    expect(spam.length).toBeGreaterThan(0);
+    expect(senders.flatMap((s) => heldIdsOf(s, base)).sort()).toEqual(spam.sort());
+    const off = decideAll(senders, { ...base, holdScams: false });
+    expect([...off.values()].some((d) => d.place === "spam")).toBe(false);
+    expect(senders.flatMap((s) => heldIdsOf(s, { ...base, holdScams: false }))).toEqual([]);
+  });
+
+  it("holdAuthFails sends a stranger's failing mail to Spam, never a known sender's", async () => {
+    const senders = await tuned();
+    const failing = senders.filter((s) => s.authVerdicts.dmarc === "fail" || (s.authVerdicts.spf === "fail" && s.authVerdicts.dkim === "fail"));
+    expect(failing.length).toBeGreaterThan(0);
+    const ctx = { ...base, holdScams: false, holdAuthFails: true };
+    const d = decideAll(failing, ctx);
+    for (const s of failing) {
+      const known = base.wrote.has(s.address.toLowerCase());
+      for (const m of s.messages)
+        if (!s.protectedMessageIds.includes(m.id)) expect(d.get(m.id)?.place === "spam").toBe(!known);
+    }
+  });
+
+  it("engineContext reads all four switches from settings", async () => {
+    const { defaultSettings } = await import("./settingsStore");
+    const { engineContext } = await import("./mailEngine");
+    const s = defaultSettings();
+    const ctx = engineContext({
+      ...s,
+      autoQuarantineHighRisk: true,
+      securityRules: { ...s.securityRules, holdAuthFails: true },
+      autoSort: { ...s.autoSort, timeLimitsEnabled: true, holdUnsorted: false },
+    });
+    expect([ctx.sorting, ctx.holdUnsorted, ctx.holdScams, ctx.holdAuthFails]).toEqual([true, false, true, true]);
   });
 });

@@ -26,7 +26,10 @@ const applyIndexedCorrespondents = vi.fn(async (): Promise<unknown> => undefined
 const updateSettings = vi.fn(async (_patch?: Record<string, unknown>) => ({}));
 const mutateSettings = vi.fn(async (_fn?: (s: unknown) => unknown) => ({}));
 
+// Real defaults first, so a new setting can't crash these tests (what-failed item 6).
+const { defaultSettings } = await vi.importActual<typeof import("./lib/settingsStore")>("./lib/settingsStore");
 const SETTINGS = {
+  ...defaultSettings(),
   maxMessagesPerProvider: 150,
   scanWindowDays: 180,
   snoozedMessages: {},

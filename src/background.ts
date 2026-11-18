@@ -1,5 +1,4 @@
 import { sortLabelNames } from "./lib/categoryFilters";
-import { failsSenderChecks } from "./lib/emailAuth";
 import { buildProtectionContext, idsSafeToMoveOut } from "./lib/protectionPolicy";
 import { log } from "./lib/log";
 import { buildExpiryBuckets, totalExpiryCount } from "./lib/expiryTriage";
@@ -12,7 +11,7 @@ import { knownSenderSet, pendingScreenerSenders, refreshSentCorrespondents } fro
 import { markFirstContact } from "./lib/firstContact";
 import { markNameMatches } from "./lib/nameMatch";
 import { refreshBrandDomains } from "./lib/threatSignals";
-import { engineContext, riskOf } from "./lib/mailEngine";
+import { engineContext, heldIdsOf } from "./lib/mailEngine";
 import { recordHeld, type HeldBatch } from "./lib/scamHistory";
 import { refreshMalwareBlocklist } from "./lib/blocklist";
 import { refreshSpamList } from "./lib/spamList";
@@ -310,20 +309,15 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
   // rest of their mail stays. Starred and other protected mail never moves,
   // and a message already held isn't labelled again, so a user who put it
   // back in Gmail isn't overruled on the next cycle.
+  // The engine decides what the hold takes, so every screen counts exactly
+  // what moves here (heldIdsOf in mailEngine.ts).
   const known = knownSenderSet(settings);
   const risk = engineContext(settings);
   const heldIds = new Map<string, string[]>();
   for (const s of senders) {
     if (!providerById.get(s.provider)?.labelSuspicious) continue;
-    const isKnown = known.has(s.address.toLowerCase());
-    const verdict = riskOf(s, risk);
-    const protectedSet = new Set(s.protectedMessageIds);
     const alreadyHeld = new Set(settings.quarantinedSenders[s.key]?.messageIds ?? []);
-    const candidates = [
-      ...(settings.autoQuarantineHighRisk ? verdict.heldMessageIds : []),
-      ...(rules.holdAuthFails && !isKnown && failsSenderChecks(s) ? s.messageIds : []),
-    ];
-    const ids = [...new Set(candidates)].filter((id) => !protectedSet.has(id) && !alreadyHeld.has(id));
+    const ids = heldIdsOf(s, risk).filter((id) => !alreadyHeld.has(id));
     if (ids.length > 0) heldIds.set(s.key, ids);
   }
   const targets = senders.filter((s) => heldIds.has(s.key));
