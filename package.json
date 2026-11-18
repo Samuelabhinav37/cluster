@@ -20,7 +20,8 @@
     "refresh:spam": "node scripts/refresh-spam-domains.mjs",
     "refresh:psl": "node scripts/refresh-public-suffix.mjs",
     "refresh:confusables": "node scripts/refresh-confusables.mjs",
-    "refresh:brands": "node scripts/refresh-brands.mjs"
+    "refresh:brands": "node scripts/refresh-brands.mjs",
+    "refresh:phishing": "node scripts/refresh-phishing.mjs"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.31",

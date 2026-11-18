@@ -4,7 +4,7 @@
 // sites, and keeps only those two counts. Never the body text, never the
 // hosts. The background scan never reads bodies. A body is written by the
 // sender, so these facts can only add a warning, never remove one.
-import { isBlockedDomain } from "./blocklist";
+import { isBadLinkHost } from "./phishingHosts";
 import { findBlocklistedLinkTargets, findMismatchedLinks, type ExtractedLink } from "./linkMismatch";
 import type { SenderSummary } from "./senderModel";
 import type { ThreatSignal } from "./threatSignals";
@@ -26,7 +26,7 @@ export function checkLinks(links: readonly ExtractedLink[], now = Date.now()): B
   return {
     at: now,
     mismatchedLinks: findMismatchedLinks([...links]).length,
-    badLinks: findBlocklistedLinkTargets([...links], isBlockedDomain).length,
+    badLinks: findBlocklistedLinkTargets([...links], isBadLinkHost).length,
   };
 }
 

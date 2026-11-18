@@ -127,6 +127,7 @@ vi.mock("./lib/threatSignals", async (importOriginal) => {
 });
 const refreshMalwareBlocklist = vi.fn(async () => true);
 vi.mock("./lib/blocklist", () => ({ refreshMalwareBlocklist }));
+vi.mock("./lib/phishingHosts", () => ({ refreshPhishingHosts: async () => false, isBadLinkHost: () => false }));
 const refreshSpamList = vi.fn(async () => true);
 vi.mock("./lib/spamList", () => ({ refreshSpamList }));
 

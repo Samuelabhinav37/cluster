@@ -37,6 +37,7 @@ jobs:
           cp src/lib/data/brandDomains.json dist-pages/brandDomains.json
           jq '.domains' src/lib/data/malwareDomains.generated.json > dist-pages/malwareDomains.json
           jq '.domains' src/lib/data/spamDomains.generated.json > dist-pages/spamDomains.json
+          jq '.domains' src/lib/data/phishingHosts.generated.json > dist-pages/phishingHosts.json
           # When each list was built, for Settings' "Lists updated" row (listDates.ts).
           jq -n --slurpfile s src/lib/data/spamDomains.generated.json --slurpfile m src/lib/data/malwareDomains.generated.json --slurpfile b public/data/brand-registry.json             '{spam: $s[0].generatedAt, malware: $m[0].generatedAt, brands: $b[0].generatedAt}' > dist-pages/listDates.json
 

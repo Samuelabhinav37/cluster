@@ -1,4 +1,5 @@
 import { sortLabelNames } from "./lib/categoryFilters";
+import { refreshPhishingHosts } from "./lib/phishingHosts";
 import { refreshListDates } from "./lib/listDates";
 import { failingJobs, getJobHealth, supervise, type HealthTable } from "./lib/supervisor";
 import { JOB_WORDS } from "./lib/jobWords";
@@ -224,6 +225,7 @@ async function refreshPublicDatasets(): Promise<void> {
     refreshMalwareBlocklist().catch((err) => log.error("Malware blocklist refresh failed", err)),
     refreshSpamList().catch((err) => log.error("Spam list refresh failed", err)),
     refreshListDates().catch((err) => log.error("List dates refresh failed", err)),
+    refreshPhishingHosts().catch((err) => log.error("Phishing list refresh failed", err)),
   ]);
 }
 

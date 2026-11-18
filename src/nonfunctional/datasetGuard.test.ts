@@ -22,6 +22,13 @@ describe("weekly list refresh guard (plan step 3.5)", () => {
     ]);
   });
 
+  it("a churning list has a floor instead of the shrink rule", () => {
+    expect(guardProblems({ Phishing: { before: list(900), after: list(300), block: true, minSize: 100 } }, [])).toEqual([]);
+    expect(guardProblems({ Phishing: { before: list(900), after: list(20), block: true, minSize: 100 } }, [])).toEqual([
+      "Phishing has 20 entries, fewer than 100",
+    ]);
+  });
+
   it("an allow list may hold known-good domains", () => {
     expect(guardProblems({ Brands: { before: ["paypal.com"], after: ["paypal.com"], block: false } }, ["paypal.com"])).toEqual([]);
   });

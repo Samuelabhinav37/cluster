@@ -6,8 +6,8 @@
 // warned or held sender is also checked automatically, up to 20 a scan; these
 // are the only places a message body is read (bodyChecks.ts).
 import { log } from "../lib/log";
+import { isBadLinkHost } from "../lib/phishingHosts";
 import { findBlocklistedLinkTargets, findMismatchedLinks } from "../lib/linkMismatch";
-import { isBlockedDomain } from "../lib/blocklist";
 import { MAX_REASONS, type Verdict, type VerdictTier } from "../lib/verdict";
 import { engineContext, riskOf } from "../lib/mailEngine";
 import { queueAthenaSecurityEvent } from "../lib/athenaIntegration";
@@ -143,7 +143,7 @@ async function runDeepScan(sender: SenderSummary, resultEl: HTMLElement): Promis
     const token = await provider.getAuthToken(false);
     const links = await provider.getMessageLinks(token, targetId);
     const suspicious = findMismatchedLinks(links);
-    const blocked = findBlocklistedLinkTargets(links, isBlockedDomain);
+    const blocked = findBlocklistedLinkTargets(links, isBadLinkHost);
     await storeBodyCheck(bodyCheckKey(sender, targetId), checkLinks(links));
 
     const findings = [
