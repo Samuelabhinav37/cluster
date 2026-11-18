@@ -559,6 +559,8 @@ type Tile = {
   upIsGood?: boolean;
   /** Shown instead of a badge when there is no last week to compare with. */
   note?: string;
+  /** The badge's comparison, when not last week. */
+  prevLabel?: string;
 };
 
 /** The change since last week as a small badge, or the tile's note. */
@@ -572,7 +574,7 @@ function tileFoot(t: Tile): HTMLElement {
   const up = pct >= 0;
   const badge = el("span", `mt-badge ${up === (t.upIsGood ?? true) ? "is-good" : "is-bad"}`);
   badge.append(icon(up ? "trend-up" : "trend-down"), `${Math.abs(pct)}%`);
-  foot.append(badge, el("span", "", "from last week"));
+  foot.append(badge, el("span", "", t.prevLabel ?? "from last week"));
   return foot;
 }
 
@@ -580,16 +582,25 @@ function tileFoot(t: Tile): HTMLElement {
 // mark behind it, the rest plain cards. Each opens its place, arrow included.
 function metricTiles(f: HomeFacts, go: Go, openThisWeek?: () => void): HTMLElement {
   const tiles: Tile[] = [
-    { title: "Received this week", value: f.thisWeek, prev: f.lastWeek, open: () => (openThisWeek ? openThisWeek() : go("organize")) },
+    // The range's mail against the same number of days before it (Rule 2).
+    f.receivedDays
+      ? {
+          title: "Received",
+          value: f.receivedDays.reduce((a, b) => a + b, 0),
+          prev: f.receivedPrev,
+          prevLabel: `from the ${f.receivedDays.length} days before`,
+          open: () => (openThisWeek ? openThisWeek() : go("organize")),
+        }
+      : { title: "Received this week", value: f.thisWeek, prev: f.lastWeek, open: () => (openThisWeek ? openThisWeek() : go("organize")) },
     {
-      title: "Unread in inbox",
+      title: "Unread in inbox now",
       value: f.inboxUnread,
       prev: f.unreadWeekAgo,
       upIsGood: false,
       open: () => window.open(gmailUrl(f.account, "inbox"), "_blank", "noopener"),
     },
-    { title: "In the Screener", value: f.waiting, note: "new senders waiting", open: () => go("screener") },
-    { title: "Ready to clean up", value: f.clearable, note: "emails you can clear", open: () => go("delete") },
+    { title: "In the Screener now", value: f.waiting, note: "emails from new senders", open: () => go("screener") },
+    { title: "Ready to clean up now", value: f.clearable, note: "emails you can clear", open: () => go("delete") },
   ];
   const row = el("div", "mt-row");
   tiles.forEach((t, i) => {
@@ -613,7 +624,7 @@ function metricTiles(f: HomeFacts, go: Go, openThisWeek?: () => void): HTMLEleme
 function topSendersCard(f: HomeFacts, openSender?: (key: string) => void): HTMLElement {
   const card = el("section", "ov-card ov-top10");
   const head = el("div", "mr-head");
-  head.append(el("h2", "mr-title", "Top senders"), el("span", "mr-range", "Last 7 days"));
+  head.append(el("h2", "mr-title", "Top senders"), el("span", "mr-range", f.rangeLabel ?? "Last 30 days"));
   const list = el("ol", "t10-list");
   const top = Math.max(1, ...(f.topSenders ?? []).map((t) => t.count));
   for (const t of f.topSenders ?? []) {
@@ -632,7 +643,7 @@ function topSendersCard(f: HomeFacts, openSender?: (key: string) => void): HTMLE
     li.append(row);
     list.append(li);
   }
-  card.append(head, f.topSenders?.length ? list : el("p", "ov-empty", "No mail this week."));
+  card.append(head, f.topSenders?.length ? list : el("p", "ov-empty", "No mail in this range."));
   return card;
 }
 
@@ -990,7 +1001,7 @@ export function renderHomeDashboard(
   gaugeBox.append(legend);
   const bottom = el("div", "ov-row ov-row-bottom");
   bottom.append(
-    widget("Mail by category", `Every email Cluster has read, by kind. Pick a kind to see its emails.${since}`, null, gaugeBox, () => go("organize"), "Labels"),
+    widget("Mail by category", `Emails received in ${(f.rangeLabel ?? "the last 30 days").replace(/^Last/, "the last")}, by kind. Pick a kind to see its emails.${since}`, null, gaugeBox, () => go("organize"), "Labels"),
     topSendersCard(f, openSender),
   );
   root.append(top, bottom);

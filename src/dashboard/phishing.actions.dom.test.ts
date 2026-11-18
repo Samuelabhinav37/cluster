@@ -190,6 +190,6 @@ describe("Security — sender checks gauge", () => {
     const ticks = dash.el("report-checks-gauge").querySelectorAll("i");
     expect(ticks).toHaveLength(20);
     expect(dash.el("report-checks-gauge").querySelectorAll("i.on")).toHaveLength(Math.round(pct / 5));
-    expect(dash.el("report-checks-sub").textContent).toMatch(/^passed · \d+ of \d+ failed$/);
+    expect(dash.el("report-checks-sub").textContent).toMatch(/^of senders passed · \d+ of \d+ failed$/);
   });
 });

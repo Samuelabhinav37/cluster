@@ -167,6 +167,11 @@ const text = (el: Element | null) => el?.textContent ?? "";
 const sections = (el: HTMLElement) => Array.from(el.querySelectorAll("h2.section-label")).map((h) => h.firstChild?.textContent ?? "");
 
 describe("renderHomeDashboard", () => {
+  it("the first tile follows the picked range against the same number of days before it", () => {
+    const el = renderHomeDashboard({ ...calm, receivedDays: [3, 4, 5], receivedPrev: 6, rangeLabel: "Last 3 days" }, vi.fn());
+    expect(text(el.querySelector(".mt-tile"))).toBe("Received12100%from the 3 days before");
+  });
+
   it("shows four metric tiles, then Mail by category", () => {
     const go = vi.fn();
     const el = renderHomeDashboard({ ...calm, lastWeek: 10, waiting: 2, clearable: 7, inboxUnread: 5, unreadWeekAgo: 4 }, go);
@@ -174,9 +179,9 @@ describe("renderHomeDashboard", () => {
     const tiles = Array.from(el.querySelectorAll<HTMLElement>(".mt-tile"));
     expect(tiles.map(text)).toEqual([
       "Received this week1220%from last week",
-      "Unread in inbox525%from last week",
-      "In the Screener2new senders waiting",
-      "Ready to clean up7emails you can clear",
+      "Unread in inbox now525%from last week",
+      "In the Screener now2emails from new senders",
+      "Ready to clean up now7emails you can clear",
     ]);
     expect(tiles[0].classList.contains("is-hero")).toBe(true);
     // More mail is fine; more unread is not.

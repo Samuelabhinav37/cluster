@@ -193,7 +193,7 @@ export function renderSecurityCharts(securitySenders: SenderSummary[]): void {
     // (research/2026-10-29-dashboard-examples-muzli.md).
     const passed = scanned > 0 ? Math.round(((scanned - failed) / scanned) * 100) : 0;
     pct.textContent = scanned > 0 ? `${passed}%` : "–";
-    pctSub.textContent = scanned > 0 ? `passed · ${failed} of ${scanned} failed` : "";
+    pctSub.textContent = scanned > 0 ? `of senders passed · ${failed} of ${scanned} failed` : "";
     const gauge = $("report-checks-gauge");
     if (gauge) {
       gauge.setAttribute("aria-label", `${passed}% of senders passed`);

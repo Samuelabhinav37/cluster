@@ -52,7 +52,7 @@ import { gmailProvider } from "../lib/providers/gmailProvider";
 import { outlookProvider } from "../lib/providers/outlookProvider";
 import { OutlookReauthRequired } from "../lib/providers/msalAuth";
 import { summarizeCombined, type SenderSummary } from "../lib/senderModel";
-import { applyCensus, senderVolume } from "../lib/census";
+import { applyCensus } from "../lib/census";
 import { buildSenderProfiles } from "../lib/senderProfile";
 import { groupKeyFor, isPerson, senderName } from "../lib/senderListView";
 import { ALL_MAIL_DAYS, getSettings, mutateSettings, pullSyncedSettings, updateSettings, type ClusterSettings } from "../lib/settingsStore";
@@ -1468,6 +1468,13 @@ function goAndAct(screen: string, act?: HomeAct) {
   });
 }
 
+/** Emails the engine places in the Screener: what Gmail's Screener label holds (Rule 2). */
+function inScreener(allSenders: readonly SenderSummary[]): number {
+  let n = 0;
+  for (const d of decisions(allSenders).values()) if (d.place === "screener") n++;
+  return n;
+}
+
 function updateNavCounts(
   senders: SenderSummary[],
   securitySenders: SenderSummary[],
@@ -1476,7 +1483,10 @@ function updateNavCounts(
   const health = buildInboxHealth({ senders, securitySenders, settings: ctx.settings });
   const byId = new Map(health.metrics.map((m) => [m.id, m.value]));
   // Security's own row count, so the badge, Ask Kai and the tile agree with its list.
-  const scams = rankFlagged(securitySenders).high.length;
+  const flaggedHigh = rankFlagged(securitySenders).high;
+  const scams = flaggedHigh.length;
+  // Rule 2: the Scams tile counts emails; senders are its second line.
+  const scamEmails = flaggedHigh.reduce((n, f) => n + f.sender.messages.length, 0);
   setNavCount("delete", clearOutPlan(senders).total, true, "emails to clear out");
   setNavCount("subscriptions", byId.get("unsubscribe-capable") ?? 0, true);
   setNavCount("impersonation", scams);
@@ -1489,23 +1499,25 @@ function updateNavCounts(
     people,
     kinds: mailByKind(allSenders, Date.now(), decisions(allSenders)).kinds,
     scams,
-    waiting: byId.get("screener-queue") ?? 0,
+    waiting: inScreener(allSenders),
   };
-  setNavCount("screener", byId.get("screener-queue") ?? 0);
+  setNavCount("screener", inScreener(allSenders));
   const held = heldByWeek(ctx.settings.scamHistory, 8).reduce((n, w) => n + w.held, 0);
-  renderProtectTiles(scams, byId.get("screener-queue") ?? 0, held);
+  renderProtectTiles(scams, inScreener(allSenders), held, scamEmails);
 }
 
 // Protect's head line, shared by its three screens.
-let protectTileArgs: [scams: number, waiting: number, held: number] = [0, 0, 0];
-function renderProtectTiles(scams: number, waiting: number, held: number) {
-  protectTileArgs = [scams, waiting, held];
+let protectTileArgs: [scams: number, waiting: number, held: number, scamEmails: number] = [0, 0, 0, 0];
+function renderProtectTiles(scams: number, waiting: number, held: number, scamEmails = scams) {
+  protectTileArgs = [scams, waiting, held, scamEmails];
   const put = (id: string, v: number, blank = false) => {
     const node = document.getElementById(id);
     if (node) node.textContent = blank && v === 0 ? "" : v.toLocaleString();
   };
   put("kpi-held", held);
-  put("kpi-threats", scams);
+  put("kpi-threats", scamEmails);
+  const scamFoot = document.getElementById("kpi-threats")?.nextElementSibling;
+  if (scamFoot) scamFoot.textContent = `emails from ${scams.toLocaleString()} sender${scams === 1 ? "" : "s"} faking a name`;
   put("kpi-waiting", waiting);
   // No link to an empty list: at 0, Scams and Held lose their arrow and stop scrolling to the table.
   for (const [id, v] of [["kpi-threats", scams], ["kpi-held", held]] as const) {
@@ -1519,7 +1531,7 @@ function renderProtectTiles(scams: number, waiting: number, held: number) {
     scams > 0
       ? `${scams} ${scams === 1 ? "sender needs" : "senders need"} a look.`
       : waiting > 0
-        ? `${waiting} new ${waiting === 1 ? "sender" : "senders"} waiting.`
+        ? `${waiting} ${waiting === 1 ? "email" : "emails"} from new senders waiting.`
         : "Nothing looks wrong.";
   for (const el of Array.from(document.querySelectorAll<HTMLElement>("[data-protect-sub]")))
     el.textContent = sub;
@@ -1613,12 +1625,11 @@ function fakedBrands(senders: SenderSummary[]): string[] {
   return [...counts].sort((a, b) => b[1] - a[1]).map(([brand]) => brand);
 }
 
-/** Home's Top senders: the five with the most mail this week, one row per company as in Cleanup. */
-function topSendersByCompany(all: readonly SenderSummary[], now: number) {
-  const since = now - 7 * 86_400_000;
+/** Home's Top senders: the five with the most mail in the picked range, one row per company as in Cleanup. */
+function topSendersByCompany(all: readonly SenderSummary[], start: number, end: number) {
   const items = all.map((sender) => ({
     sender,
-    ids: sender.messages.filter((m) => m.receivedAt >= since).map((m) => m.id),
+    ids: sender.messages.filter((m) => m.receivedAt >= start && m.receivedAt < end).map((m) => m.id),
   }));
   return pageRows(items, detailRowKey)
     .slice(0, 5)
@@ -1685,7 +1696,6 @@ function renderOverview(
   allSenders: SenderSummary[],
 ) {
   const health = buildInboxHealth({ senders, securitySenders, settings: ctx.settings });
-  const byId = new Map(health.metrics.map((m) => [m.id, m.value]));
   overviewHeadlineEl.textContent = `Scanned ${health.scannedSenders} sender${
     health.scannedSenders === 1 ? "" : "s"
   } · ${health.scannedMessages} message${health.scannedMessages === 1 ? "" : "s"}`;
@@ -1699,16 +1709,20 @@ function renderOverview(
   overviewContentEl.innerHTML = "";
   paintGreeting();
   const received = receivedInRange(allSenders, range.end, rangeLength(range));
+  // Rule 2: the picked range drives every period number on the page.
+  const rangeEndExcl = new Date(range.end).setDate(new Date(range.end).getDate() + 1);
+  const period = periodFacts(allSenders, range.start, rangeEndExcl, decisions(allSenders));
   const facts: HomeFacts = {
     account: accountEmail,
     receivedDays: received.days,
     receivedPrev: received.prev,
     rangeEnd: range.end,
     rangeLabel: rangeLabel(range),
-    // All mail read, so Clean up's part and the total share one population.
     ...mailByKind(allSenders, Date.now(), decisions(allSenders)),
+    kinds: period.kinds,
+    total: period.total,
     suspicious: rankFlagged(securitySenders).high.length,
-    waiting: byId.get("screener-queue") ?? 0,
+    waiting: inScreener(allSenders),
     neverOpened: {
       senders: unopened.length,
       emails: plan.neverReadMsgs,
@@ -1736,16 +1750,13 @@ function renderOverview(
     movedToday: movedTodayEntries().reduce((sum, e) => sum + (e.undo?.ids.length ?? 0), 0),
     stopLists: stopListKeys.length,
     filed: filedByDay(ctx.settings.actionLog, Date.now()),
-    topSenders: topSendersByCompany(allSenders, Date.now()),
+    topSenders: topSendersByCompany(allSenders, range.start, rangeEndExcl),
     sweptAt: ctx.settings.autoSort.timeLimitsEnabled ? ctx.settings.autoSort.lastSweep.at || undefined : undefined,
     // Until reading is done the total covers only recent mail, so say how far back.
     since: [...indexRuns.values()].some((r) => r.progress?.phase === "reading")
       ? oldestRead(allSenders)
       : undefined,
   };
-  // Day one: the census has counted senders' mail before it is all read.
-  const counted = allSenders.reduce((n, s) => n + senderVolume(s), 0);
-  if (counted > facts.total) Object.assign(facts, { total: counted, since: undefined });
   lastFacts = facts;
   overviewContentEl.appendChild(
     renderHomeDashboard(
@@ -1877,7 +1888,11 @@ function renderDeleteScreen(senders: SenderSummary[]) {
   const n = (v: number) => v.toLocaleString();
   document.getElementById("never-opened-fact")!.textContent = n(plan.neverReadMsgs);
   document.getElementById("past-date-fact")!.textContent = n(plan.expiryTotal);
-  document.getElementById("lists-fact")!.textContent = n(plan.lists.length);
+  // Rule 2: every tile counts emails; the list count is the second line.
+  const listEmails = plan.lists.reduce((t, s) => t + s.messages.length, 0);
+  document.getElementById("lists-fact")!.textContent = n(listEmails);
+  const listsNote = document.querySelector<HTMLElement>("#lists-card .cu-num");
+  if (listsNote) listsNote.dataset.note = listsNote.textContent = `emails from ${n(plan.lists.length)} list${plan.lists.length === 1 ? "" : "s"}`;
   document.getElementById("cu-total-fact")!.textContent = n(plan.neverReadMsgs + plan.expiryTotal);
   lastPlan = plan;
   paintCleanupChart(cuKpi);
@@ -1957,7 +1972,7 @@ function paintCleanupChart(kpi: "never" | "old" | "lists" | null) {
   head.className = "mr-head";
   const title = document.createElement("h2");
   title.className = "mr-title";
-  title.textContent = "Breakdown";
+  title.textContent = "Arrived";
   const tools = document.createElement("div");
   tools.className = "chart-tools";
   tools.append(pickDays, dl);
@@ -1966,7 +1981,7 @@ function paintCleanupChart(kpi: "never" | "old" | "lists" | null) {
   body.className = "mr-body";
   body.append(
     chartStats([
-      ["Total", total.toLocaleString()],
+      [`Last ${cuDays} days`, total.toLocaleString()],
       ["Per day", Math.round(total / cuDays).toLocaleString()],
       ...(total ? [["Most", most.label] as [string, string]] : []),
     ]),
