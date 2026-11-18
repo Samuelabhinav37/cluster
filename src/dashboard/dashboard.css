@@ -529,12 +529,11 @@ a:hover {
   min-width: 260px;
 }
 
-.page-title {
-  margin: 0;
-  font: 600 34px/1.15 var(--font-display);
-  letter-spacing: -0.028em;
-  color: var(--label);
-}
+/* One page title and one section label (2026-11-18); these replaced seven
+   stacked .page-title rules and four .section-label ones. A section label is
+   never smaller than the rows under it. */
+.page-title { margin: 0 0 6px; font: 700 26px/1.1 var(--font-display); letter-spacing: -0.025em; color: var(--label); }
+.section-label { margin: 28px 0 10px; font: 600 15px/1.3 var(--font); letter-spacing: -0.01em; text-transform: none; color: var(--label); }
 
 .lead {
   margin: 8px 0 0;
@@ -545,13 +544,6 @@ a:hover {
   text-wrap: pretty;
 }
 
-.section-label {
-  margin: 0;
-  font: 590 12px/1.3 var(--font);
-  letter-spacing: 0.05em;
-  color: var(--label-4);
-  text-transform: uppercase;
-}
 
 .section-head {
   display: flex;
@@ -1583,21 +1575,12 @@ input[type="checkbox"] {
   gap: 24px;
 }
 
-.page-title {
-  font: 700 30px/1.15 var(--font-display);
-  letter-spacing: -0.025em;
-}
 
 .lead {
   font: 400 15px/1.5 var(--font);
   max-width: 64ch;
 }
 
-.section-label {
-  font: 600 13px/1.3 var(--font);
-  letter-spacing: 0;
-  text-transform: none;
-}
 
 .glass-card,
 .grouped-list {
@@ -1795,41 +1778,6 @@ input.switch:disabled {
 
 .scam-actions .grow {
   flex: 1;
-}
-
-.sender-rows {
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-list);
-  background: var(--glass);
-  overflow: hidden;
-}
-
-.sender-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 10px 16px;
-  border-top: 1px solid var(--separator);
-}
-
-.sender-row:first-child {
-  border-top: 0;
-}
-
-.sender-row .sr-text {
-  flex: 1;
-  min-width: 180px;
-}
-
-.sender-row .sr-name {
-  font: 600 14px/1.35 var(--font);
-}
-
-.sender-row .sr-sub {
-  font: 400 13px/1.4 var(--font);
-  color: var(--label-4);
-  overflow-wrap: anywhere;
 }
 
 /* ══ v4 Organize pages (stage 3) ══════════════════════════════════════════ */
@@ -2127,10 +2075,6 @@ body {
   padding-top: 40px;
 }
 
-.page-title {
-  font: 600 clamp(30px, 3vw, 40px)/1.06 var(--font-display);
-  letter-spacing: -0.03em;
-}
 
 .lead {
   margin-top: 6px;
@@ -2139,11 +2083,6 @@ body {
   max-width: 62ch;
 }
 
-.section-label {
-  font: 600 17px/1.3 var(--font);
-  letter-spacing: -0.015em;
-  color: var(--label);
-}
 
 /* Tiles: soft corners, an inset line, more room */
 .glass-card,
@@ -2795,10 +2734,6 @@ body {
   color: var(--label);
 }
 
-.page-title {
-  font-weight: 500;
-  letter-spacing: -0.025em;
-}
 
 .page-head {
   padding-bottom: 18px;
@@ -2958,9 +2893,7 @@ table.sheet { width: 100%; border-collapse: collapse; table-layout: fixed; font-
 /* Bottom clears Kai (72px tall, 18px up) and its speech bubble above it, so the last row is never under them. */
 section.screen { max-width: 1120px; margin: 0 auto; padding: 32px 48px 180px; }
 .page-head { border-bottom: 0; padding-bottom: 0; margin-bottom: 0; }
-.page-title { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; margin: 0 0 6px; }
 .page-head .lead { font-size: 15px; color: var(--label-4); margin: 0; }
-.section-label { font-size: 13px; font-weight: 600; color: var(--label-4); margin: 28px 0 10px; }
 .section-head .section-label { margin: 0; }
 .section-head { margin: 0 0 10px; }
 .rec-card { border: 1px solid var(--separator); background: var(--glass); }
@@ -3397,7 +3330,6 @@ body { background: var(--glass); }
 .top-tool:hover, body[data-screen="settings"] #top-settings, .details-open .top-tool[data-details] { background: var(--neutral-fill); color: var(--label); }
 .screen { max-width: 1216px; margin-inline: auto; padding: 0 48px 120px; }
 .page-head { margin: 40px 0 24px; }
-.page-title { font-size: 32px; font-weight: 700; letter-spacing: -0.025em; }
 /* Details is closed until asked for; no edge strip. */
 .details.min { display: none; }
 /* On Overview, Details opens as its own page under the top bar. */
@@ -3896,7 +3828,6 @@ section[data-screen="impersonation"] > .tabs .tab.active { color: var(--label); 
 }
 
 body { letter-spacing: -0.01em; }
-.page-title { font-family: var(--font-display); letter-spacing: -0.025em; }
 ::selection { background: var(--accent-fill-hover); }
 
 /* Cards and grouped lists: lifted by color, 12px corners, no outline. */
@@ -4183,21 +4114,21 @@ button.t10-row:hover .t10-name { text-decoration: underline; text-underline-offs
   #overview-content .t10-row { padding: 2px 0; }
   #overview-content .ov-gauge { min-height: 90px; }
 }
-/* Dashboard breathing room, 2026-11-16: a little wider, smaller type, top senders fill their card. */
+/* Dashboard breathing room, 2026-11-16: a little wider, smaller type, top senders fill their card.
+   2026-11-18: the tile and card sizes are every page's (one type ladder), not only Overview's. */
 section.screen[data-screen="overview"] { max-width: 1320px; }
 @media (min-width: 1101px) {
-  section[data-screen="overview"] .page-title { font-size: 26px; }
-  #overview-content .mt-title { font-size: 13px; }
-  #overview-content .mt-num { font-size: clamp(26px, 3.6vh, 34px); font-weight: 500; }
-  #overview-content .mt-foot { font-size: 12px; }
+  .mt-title { font-size: 13px; }
+  .mt-num { font-size: clamp(26px, 3.6vh, 34px); font-weight: 500; }
+  .mt-foot { font-size: 12px; }
   #overview-content .mt-go { width: 30px; height: 30px; }
   #overview-content .mt-go svg.i { width: 15px; height: 15px; }
-  #overview-content .mr-title, #overview-content .ov-w-title { font-size: 15px; }
-  #overview-content .mr-range { font-size: 13px; }
+  .mr-title, .ov-w-title { font-size: 15px; }
+  .mr-range { font-size: 13px; }
   #overview-content .mr-stats dt { font-size: 12px; }
-  #overview-content .mr-stats dd { font-size: 22px; font-weight: 600; }
+  .mr-stats dd { font-size: 22px; font-weight: 600; }
   
-  #overview-content .ov-legend button { font-size: 12px; }
+  .ov-legend button { font-size: 12px; }
   #overview-content .ov-top10 .t10-list { flex: 1; display: flex; flex-direction: column; justify-content: space-around; }
 }
 .mr-change { margin-left: 8px; padding: 2px 6px; border-radius: 6px; background: var(--neutral-fill); color: var(--label-2); font: 600 11px/16px var(--font); vertical-align: middle; }
@@ -4312,8 +4243,8 @@ button.ov-range:hover { background: var(--neutral-fill); }
 .cu-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 20px; margin: 0 0 24px; }
 :is(#cu-head, .sec-top) .cu-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0; }
 :is(#cu-head, .sec-top) .mt-tile { min-height: 150px; padding: 18px 22px; gap: 0; }
-:is(#cu-head, .sec-top) .mt-num { margin: auto 0; padding: 0; font-size: 42px; font-weight: 600; letter-spacing: -.025em; }
-:is(#cu-head, .sec-top) .mt-foot { font-size: 13px; color: var(--label-3); }
+:is(#cu-head, .sec-top) .mt-num { margin: auto 0; padding: 0; font-size: clamp(32px, 5vh, 46px); font-weight: 600; letter-spacing: -.025em; }
+:is(#cu-head, .sec-top) .mt-foot { font-size: 12px; color: var(--label-3); }
 #cu-head .mt-tile.selected:not(.is-hero) { border-color: var(--label-3); box-shadow: inset 0 0 0 1px var(--label-3); }
 #cu-head .mt-foot .pl-change { margin: 0; }
 #cu-chart.ov-card { display: flex; flex-direction: column; min-width: 0; }
@@ -4337,7 +4268,6 @@ section.screen:is([data-screen="delete"], [data-screen="subscriptions"], [data-s
 @media (min-width: 1101px) {
   section.screen:is([data-screen="delete"], [data-screen="subscriptions"], [data-screen="organize"], [data-screen="impersonation"], [data-screen="sort"]) { padding-top: 12px; }
   section.screen:is([data-screen="delete"], [data-screen="subscriptions"], [data-screen="organize"], [data-screen="impersonation"], [data-screen="sort"]) .page-head { margin: 4px 0 24px; }
-  section.screen:is([data-screen="delete"], [data-screen="subscriptions"], [data-screen="organize"], [data-screen="impersonation"], [data-screen="sort"]) .page-title { font-size: 26px; }
 }
 @media (min-width: 1101px) and (max-width: 1700px) {
   section.screen:is([data-screen="delete"], [data-screen="subscriptions"], [data-screen="organize"], [data-screen="impersonation"], [data-screen="sort"]):not([hidden]) { padding-right: 116px; }
@@ -4366,7 +4296,6 @@ section.screen:not([data-screen="setup"]) { max-width: 1320px; }
 @media (min-width: 1101px) {
   section.screen:not([data-screen="setup"], [data-screen="overview"]) { padding-top: 12px; }
   section.screen:not([data-screen="setup"], [data-screen="overview"]) .page-head { margin: 4px 0 24px; }
-  section.screen:not([data-screen="setup"]) .page-title { font-size: 26px; }
 }
 @media (min-width: 1101px) and (max-width: 1700px) {
   section.screen:not([data-screen="setup"]):not([hidden]) { padding-right: 116px; }
@@ -4424,7 +4353,6 @@ section[data-screen="settings"] .banner { margin: 0 0 20px; padding: 16px 20px; 
    toolbar, a gray header band, tall rows, a read-rate bar, and pages.
    Sizes follow the space the page has (container queries), not the window,
    so opening Details or splitting the window narrows it cleanly. */
-.page-sub { margin: 6px 0 0; font: 400 14px/1.4 var(--font); color: var(--label-3); }
 #cu-head { container: cuhead / inline-size; }
 @container cuhead (max-width: 900px) { .cu-top { grid-template-columns: 1fr; } }
 @container cuhead (max-width: 480px) { :is(#cu-head, .sec-top) .cu-cards { grid-template-columns: 1fr; } }
@@ -4673,9 +4601,9 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
   body:not([data-screen="setup"]) section.screen:is([data-screen="overview"], [data-screen="delete"], [data-screen="subscriptions"], [data-screen="organize"], [data-screen="impersonation"]) { padding-right: 120px; }
 }
 /* Chart cards on Cleanup, Labels and Security: the title leads, the numbers sit under it in size. */
-:is(#cu-chart, .lp-card, .sec-chart) .mr-title { font-size: 17px; }
+:is(#cu-chart, .lp-card, .sec-chart) .mr-title { font-size: 15px; }
 :is(#cu-chart, .lp-card, .sec-chart) .mr-stats dt { font-size: 12px; }
-:is(#cu-chart, .lp-card, .sec-chart) .mr-stats dd { font-size: 17px; font-weight: 600; }
+:is(#cu-chart, .lp-card, .sec-chart) .mr-stats dd { font-size: 22px; font-weight: 600; }
 :is(#cu-chart, .lp-card, .sec-chart) .mr-stats dt:not(:first-child) { margin-top: 16px; }
 :is(#cu-chart, .lp-card, .sec-chart) .mr-legend { justify-content: center; }
 /* Trash all: the table's one filled button. */
