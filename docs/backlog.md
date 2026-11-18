@@ -102,7 +102,7 @@ stay; bring the screen part back from the commit that removed it
 - **Digest**: a short on-device summary of the inbox counts
   (src/lib/aiDigest.ts, Chrome's Summarizer).
 - **Classify ambiguous mail**: on-device AI second opinion for subjects the
-  rules called "other" (src/lib/aiMessageKind.ts, Prompt API).
+  rules called "other" (Prompt API). aiMessageKind.ts deleted 2026-11-18; rebuild only with a replay test.
 
 ## Build order
 1. Spike 2.4 (no product change). Its three numbers replace the estimates in `research/2026-10-28-ten-categories-cost.md` B–D.

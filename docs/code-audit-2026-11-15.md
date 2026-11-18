@@ -31,9 +31,6 @@ The app never calls these, but each has tests. Deleting one removes its
 tests too, so this is a feature-by-feature call:
 
 - `src/dashboard/testHarness.ts` `confirmStep`
-- `src/lib/aiMessageKind.ts` `checkMessageKindAiAvailability`
-- `src/lib/aiMessageKind.ts` `classifyOtherSubjects`
-- `src/lib/aiMessageKind.ts` `aiVerdictAllowed`
 - `src/lib/bulkActions.ts` `safeSenderKeys`
 - `src/lib/bulkActions.ts` `safeDomainGroupKeys`
 - `src/lib/bulkActions.ts` `partitionForUnsubscribe`

@@ -35,7 +35,6 @@ Every message is given a **kind** and every sender a **profile**.
 
 - **Kind** (`messageKind.ts`, `sortTaxonomy.ts`): codes, shipping, receipts, newsletters, social, promotions, people and so on. Rules on the subject and headers decide first. The sender's domain category (Shopping, Finance, Travel...) helps when the subject says little.
 - **Learning from you** (`kindModel.ts`, `engagementModel.ts`): when you answer a question like "Receipts? Keep them", a small local model learns what your receipts look like. It can only add protection, never remove it.
-- **On-device AI, optional** (`aiMessageKind.ts`): Chrome's built-in Gemini Nano is asked only about mail the rules couldn't place. It runs on your computer.
 - **Senders** (`senderModel.ts`, `senderProfile.ts`): messages are grouped by sender, then by company, so PayPal's five addresses show as one PayPal. Cluster tracks how much each sends, how much you open, and whether it's a person or a machine.
 
 ## 5. The places
