@@ -85,6 +85,13 @@ describe("detailSenders", () => {
     const got = detailSenders(mailbox(), new Map()).map((s) => [s.name, s.emails, s.opened, s.kind]);
     expect(got).toEqual([["Shop", 2, 0, "promo"], ["Mom", 1, 1, "primary"]]);
   });
+
+  it("takes each sender's main kind from the engine's labels when given", () => {
+    const box = mailbox();
+    const shopIds = box.find((x) => x.displayName === "Shop")!.messages.map((m) => m.id);
+    const decided = new Map(shopIds.map((id) => [id, { kind: "receipt" as const, place: "receipt" as const, risk: "none" as const }]));
+    expect(detailSenders(box, decided).find((x) => x.name === "Shop")?.kind).toBe("trans");
+  });
 });
 
 describe("Details panel", () => {

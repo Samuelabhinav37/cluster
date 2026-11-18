@@ -14,7 +14,6 @@ import { SMART_VIEWS } from "../lib/smartViews";
 import { companyName, senderName } from "../lib/senderListView";
 import { HOME_KINDS, kindOf, type HomeKind } from "./homeDashboard";
 import type { EmailDecision } from "../lib/mailEngine";
-import { decisions } from "./state";
 import { certifiedCompany, senderTile, verifiedTick } from "./senderTile";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -234,6 +233,8 @@ export function initDetailsPanel(
   actions: DetailsActions,
   now = () => Date.now(),
   rowKeyOf: RowKeyOf = ownRow,
+  /** The engine's decisions for a sender list (dashboard state.decisions). */
+  decide: (senders: readonly SenderSummary[]) => ReadonlyMap<string, EmailDecision> = () => new Map(),
 ): DetailsPanel {
   let raw: readonly SenderSummary[] = [];
   let messages: DetailMessage[] = [];
@@ -243,7 +244,7 @@ export function initDetailsPanel(
   const rebuild = () => {
     const live = raw.map((s) => ({ ...s, messages: s.messages.filter((m) => !gone.has(m.id)) }));
     // Decided on the raw list (stable between rebuilds); gone mail just isn't looked up.
-    const decided = decisions(raw);
+    const decided = decide(raw);
     messages = detailMessages(live, decided, rowKeyOf);
     senders = detailSenders(live, decided, rowKeyOf);
   };

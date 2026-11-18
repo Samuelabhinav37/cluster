@@ -2335,6 +2335,7 @@ function wireDetails() {
     },
     undefined,
     detailRowKey,
+    decisions,
   );
   fitDetailsTo(ctx.settings.setupDone ? resolveScreen(ctx.settings.activeTab) : "setup");
   // Kai sits left of Details (CSS --details-w), open or minimized to its strip.
