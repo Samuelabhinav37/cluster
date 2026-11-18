@@ -17,7 +17,16 @@ export interface LabelMove {
 /** Swaps to the same label before Cluster learns it. */
 export const MOVES_TO_LEARN = 2;
 
-export type MoveVotes = Record<string, { bucket: MoveTarget; n: number }>;
+/** The second vote must come this long after the first: moving a whole
+ * thread or a page of one sender's mail at once is one decision, not two
+ * (Inbox Zero waits the same way). */
+export const VOTE_GAP_MS = 15 * 60 * 1000;
+/** A pass that takes one label off this many senders is a sweep (clearing a
+ * label, a bulk re-file) and teaches nothing about any one of them. */
+export const SWEEP_SENDERS = 10;
+
+/** `at`: when the last vote counted. Older saved votes have none. */
+export type MoveVotes = Record<string, { bucket: MoveTarget; n: number; at?: number }>;
 
 /** The label each swap put a sender under. A swap is one of Cluster's labels
  * taken off (a sorting label, Personal or the Screener: `fromIds`) and
@@ -28,13 +37,19 @@ export function movedTo(
   bucketOf: ReadonlyMap<string, MoveTarget>,
   fromIds: ReadonlySet<string> = new Set(bucketOf.keys()),
 ): Array<[string, MoveTarget]> {
-  const out: Array<[string, MoveTarget]> = [];
+  const swaps: Array<{ key: string; to: MoveTarget; from: string[] }> = [];
   for (const m of moves) {
     const to = m.added.flatMap((id) => bucketOf.get(id) ?? []);
     const from = m.removed.filter((id) => fromIds.has(id));
-    if (to.length === 1 && from.length > 0 && m.address) out.push([correctionKey(m.address), to[0]]);
+    if (to.length === 1 && from.length > 0 && m.address) swaps.push({ key: correctionKey(m.address), to: to[0], from });
   }
-  return out;
+  const sendersOff = new Map<string, Set<string>>();
+  for (const sw of swaps) for (const id of sw.from) sendersOff.set(id, (sendersOff.get(id) ?? new Set()).add(sw.key));
+  const swept = (sw: (typeof swaps)[number]) => sw.from.some((id) => sendersOff.get(id)!.size >= SWEEP_SENDERS);
+  // One vote per sender per pass, however many of its emails moved.
+  const out = new Map<string, MoveTarget>();
+  for (const sw of swaps) if (!swept(sw)) out.set(sw.key, sw.to);
+  return [...out];
 }
 
 /** Adds the swaps to the running votes; a sender reaching MOVES_TO_LEARN for
@@ -44,16 +59,20 @@ export function tallyMoves(
   votes: MoveVotes,
   moved: ReadonlyArray<[string, MoveTarget]>,
   overrides: Record<string, SortOverride>,
+  now = Date.now(),
 ): { votes: MoveVotes; learned: Array<[string, MoveTarget]> } {
   const next = { ...votes };
   const learned: Array<[string, MoveTarget]> = [];
   for (const [address, bucket] of moved) {
     if (overrides[address] === bucket) continue;
-    const n = next[address]?.bucket === bucket ? next[address].n + 1 : 1;
+    const prev = next[address]?.bucket === bucket ? next[address] : undefined;
+    // Too soon after the last vote: the same decision seen twice.
+    if (prev && now - (prev.at ?? 0) < VOTE_GAP_MS) continue;
+    const n = (prev?.n ?? 0) + 1;
     if (n >= MOVES_TO_LEARN) {
       delete next[address];
       learned.push([address, bucket]);
-    } else next[address] = { bucket, n };
+    } else next[address] = { bucket, n, at: now };
   }
   return { votes: next, learned };
 }
