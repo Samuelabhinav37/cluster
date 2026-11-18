@@ -11,6 +11,7 @@
 // Mail that carries several Cluster labels leaves only when every one of
 // them has run out ("stays in inbox" wins). A person's own note and senders
 // that look like phishing always stay; starred mail leaves and keeps its star.
+import { mapWithConcurrency } from "./concurrency";
 import { domainOf } from "./domainGrouping";
 import { isFreeMailDomain, isRoleAddress } from "./freeMail";
 import { neverMove } from "./protectionPolicy";
@@ -486,6 +487,9 @@ export async function screenFirstTimeSenders(
   return { heldIds, senders, vetted: newlyVetted };
 }
 
+// Searches and label writes in flight at once: well under Gmail's per-user limit.
+const SEARCH_PARALLEL = 6;
+
 export interface SearchSpec {
   bucket: SortBucket;
   labelName: string;
@@ -510,13 +514,28 @@ export async function labelBySearch(
   const [labelIds, suffix, max] = scope.allMail
     ? [[], ` -in:spam -in:trash ${scope.skip}`, scope.max]
     : [["INBOX"], "", LIST_MAX];
-  for (const spec of specs) {
-    const ids = new Set<string>();
-    for (const q of spec.queries) for (const id of await api.listIds(labelIds, `${q} -is:starred${suffix}`, max)) ids.add(id);
-    if (ids.size === 0) continue;
+  // Every search at once (5 units each), not one after another: the slowest
+  // search sets the time, not the sum of them all.
+  const queries = specs.flatMap((spec, i) => spec.queries.map((q) => [i, q] as const));
+  const found = await mapWithConcurrency(queries, SEARCH_PARALLEL, ([, q]) =>
+    api.listIds(labelIds, `${q} -is:starred${suffix}`, max),
+  );
+  const idsBySpec = specs.map(() => new Set<string>());
+  queries.forEach(([i], k) => found[k].forEach((id) => idsBySpec[i].add(id)));
+  if (scope.allMail) {
+    // In order, a later search no longer saw mail an earlier one labelled; the first label still wins.
+    const taken = new Set<string>();
+    for (const ids of idsBySpec)
+      for (const id of [...ids]) {
+        if (taken.has(id)) ids.delete(id);
+        else taken.add(id);
+      }
+  }
+  await mapWithConcurrency(specs.map((spec, i) => [spec, idsBySpec[i]] as const), SEARCH_PARALLEL, async ([spec, ids]) => {
+    if (ids.size === 0) return;
     await api.batchModify([...ids], [await api.ensureLabelId(spec.labelName)], []);
     byBucket[spec.bucket] = ids.size;
     labelled += ids.size;
-  }
+  });
   return { labelled, byBucket };
 }

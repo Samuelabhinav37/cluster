@@ -115,6 +115,55 @@ function parseFrom(from: string): { address: string; displayName: string } {
   return { displayName: from, address: from.trim().toLowerCase() };
 }
 
+// A read reused for a minute at most, so labels on it are never long out of date.
+const READ_REUSE_MS = 60_000;
+const READ_REUSE_MAX = 2_000;
+const recentReads = new Map<string, { at: number; read: Promise<NormalizedMessageMetadata> }>();
+/** Test seam. */
+export const _forgetRecentReads = () => recentReads.clear();
+
+async function readMetadata(token: string, id: string): Promise<NormalizedMessageMetadata> {
+  const {
+    headers,
+    authenticationResultsHeaders,
+    dkimSignatures,
+    labelIds,
+    internalDate,
+    sizeEstimate,
+    threadId,
+    header,
+  } = await fetchGmailMessageMetadata(token, id);
+  const { address, displayName } = parseFrom(headers.From ?? "");
+  const authenticationResults = selectTrustedAuthenticationResults("gmail", authenticationResultsHeaders);
+  const signed = {
+    provider: "gmail" as const,
+    fromAddress: address,
+    authenticationResults: authenticationResultsHeaders,
+    dkimSignatures,
+  };
+  return {
+    id,
+    provider: "gmail",
+    fromAddress: address,
+    fromDisplayName: displayName,
+    replyToAddress: headers["Reply-To"] ? parseFrom(headers["Reply-To"]).address : "",
+    subject: headers.Subject ?? "",
+    ...gmailLabelFields(labelIds),
+    sizeBytes: sizeEstimate,
+    unsubscribe: parseListUnsubscribe(headers["List-Unsubscribe"], headers["List-Unsubscribe-Post"], signed),
+    receivedAt: internalDate,
+    authenticationResults,
+    precedence: headers.Precedence,
+    autoSubmitted: headers["Auto-Submitted"],
+    ...relationshipFields(header),
+    ...shapeFields(header),
+    listIdSigned: Boolean(header("List-Id")) && signedByAlignedDkim(signed, ["list-id"]),
+    feedbackIdSigned: Boolean(header("Feedback-ID")) && signedByAlignedDkim(signed, ["feedback-id"]),
+    threadId,
+    v: MAIL_ROW_VERSION,
+  };
+}
+
 export const gmailProvider: EmailProvider = {
   id: "gmail",
 
@@ -166,46 +215,16 @@ export const gmailProvider: EmailProvider = {
     };
   },
 
-  async getMessageMetadata(token, id): Promise<NormalizedMessageMetadata> {
-    const {
-      headers,
-      authenticationResultsHeaders,
-      dkimSignatures,
-      labelIds,
-      internalDate,
-      sizeEstimate,
-      threadId,
-      header,
-    } = await fetchGmailMessageMetadata(token, id);
-    const { address, displayName } = parseFrom(headers.From ?? "");
-    const authenticationResults = selectTrustedAuthenticationResults("gmail", authenticationResultsHeaders);
-    const signed = {
-      provider: "gmail" as const,
-      fromAddress: address,
-      authenticationResults: authenticationResultsHeaders,
-      dkimSignatures,
-    };
-    return {
-      id,
-      provider: "gmail",
-      fromAddress: address,
-      fromDisplayName: displayName,
-      replyToAddress: headers["Reply-To"] ? parseFrom(headers["Reply-To"]).address : "",
-      subject: headers.Subject ?? "",
-      ...gmailLabelFields(labelIds),
-      sizeBytes: sizeEstimate,
-      unsubscribe: parseListUnsubscribe(headers["List-Unsubscribe"], headers["List-Unsubscribe-Post"], signed),
-      receivedAt: internalDate,
-      authenticationResults,
-      precedence: headers.Precedence,
-      autoSubmitted: headers["Auto-Submitted"],
-      ...relationshipFields(header),
-      ...shapeFields(header),
-      listIdSigned: Boolean(header("List-Id")) && signedByAlignedDkim(signed, ["list-id"]),
-      feedbackIdSigned: Boolean(header("Feedback-ID")) && signedByAlignedDkim(signed, ["feedback-id"]),
-      threadId,
-      v: MAIL_ROW_VERSION,
-    };
+  getMessageMetadata(token, id): Promise<NormalizedMessageMetadata> {
+    // Setup's scan and the first read both want the newest mail at once: read each email once.
+    const now = Date.now();
+    const hit = recentReads.get(id);
+    if (hit && now - hit.at < READ_REUSE_MS) return hit.read;
+    if (recentReads.size >= READ_REUSE_MAX) recentReads.clear();
+    const read = readMetadata(token, id);
+    recentReads.set(id, { at: now, read });
+    read.catch(() => recentReads.delete(id));
+    return read;
   },
 
   async getUnsubscribeDetails(token, id) {

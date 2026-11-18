@@ -10,7 +10,7 @@ vi.mock("../gmailApi", async (importOriginal) => ({
   getMessageMetadata,
 }));
 
-const { gmailProvider, lanesFromLabelIds } = await import("./gmailProvider");
+const { gmailProvider, lanesFromLabelIds, _forgetRecentReads } = await import("./gmailProvider");
 
 const GOOGLE_AR =
   "mx.google.com; dkim=pass header.i=@news.example header.s=s1; spf=pass smtp.mailfrom=news.example; dmarc=pass header.from=news.example";
@@ -39,12 +39,23 @@ function raw(over: {
   };
 }
 
+let reads = 0;
 async function normalize(over: Parameters<typeof raw>[0] = {}) {
   getMessageMetadata.mockResolvedValueOnce(raw(over));
-  return gmailProvider.getMessageMetadata("token", "m1");
+  return gmailProvider.getMessageMetadata("token", `m${++reads}`);
 }
 
-beforeEach(() => getMessageMetadata.mockReset());
+beforeEach(() => {
+  getMessageMetadata.mockReset();
+  _forgetRecentReads();
+});
+
+it("reads an email once when two callers want it within a minute", async () => {
+  getMessageMetadata.mockResolvedValue(raw({}));
+  await Promise.all([gmailProvider.getMessageMetadata("token", "same"), gmailProvider.getMessageMetadata("token", "same")]);
+  await gmailProvider.getMessageMetadata("token", "same");
+  expect(getMessageMetadata).toHaveBeenCalledTimes(1);
+});
 
 describe("From parsing", () => {
   it("splits a quoted display name from the address and lowercases the address", async () => {

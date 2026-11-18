@@ -486,6 +486,27 @@ describe("labelBySearch", () => {
     expect(api.listIds).toHaveBeenCalledWith([], 'q1 -is:starred -in:spam -in:trash -label:"Shopping"', 100_000);
     expect(api.batchModify).toHaveBeenCalledWith(["old1"], ["L:Shopping"], []);
   });
+
+  it("searches side by side and gives all mail one label, the first that matched", async () => {
+    const api = {
+      findLabelId: vi.fn(),
+      ensureLabelId: vi.fn(async (name: string) => `L:${name}`),
+      listIds: vi.fn(async (_l: string[], q: string) => (q.startsWith("promo") ? ["a", "b"] : ["b", "c"])),
+      readSenders: vi.fn(),
+      batchModify: vi.fn(async () => {}),
+    } satisfies InboxLimitsApi;
+    const res = await labelBySearch(
+      api,
+      [
+        { bucket: "promotions", labelName: "Promotions", queries: ["promo"] },
+        { bucket: "newsletter", labelName: "Newsletters", queries: ["news"] },
+      ],
+      { allMail: true, skip: "", max: 100 },
+    );
+    expect(api.batchModify).toHaveBeenCalledWith(["a", "b"], ["L:Promotions"], []);
+    expect(api.batchModify).toHaveBeenCalledWith(["c"], ["L:Newsletters"], []);
+    expect(res.labelled).toBe(3);
+  });
 });
 
 describe("screenFirstTimeSenders", () => {
