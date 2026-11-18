@@ -76,8 +76,13 @@ Each phase ends with a test that proves it, then a commit. No phase starts while
 | 3.2 | The scam hold reads all mail new since its last run, not the newest 100 | `background.ts` `holdScamsFromIndex` |
 | 3.3 | Marketing: labelled out of the inbox only. A test fails if any background path can trash or unsubscribe | `inboxTimeLimitsRunner.ts`, new guard test |
 | 3.4 | "Did it work": emails from a sender 14 days after unsubscribing, shown per sender; still sending leads to mute | `unsubscribeOutcome.ts` |
+| 3.5 | **Lists refresh themselves.** The weekly workflow runs `refresh:spam`, `refresh:blocklist` and `refresh:brands` instead of re-publishing the committed files. It publishes only if the tests pass and the change is within limits: no list shrinks by more than 20%, and no hand-listed brand domain is ever removed. Otherwise it opens an issue for review | `.github/workflows/publish-datasets.yml`, `scripts/refresh-*.mjs` |
+| 3.6 | Each list carries its date. Diagnostics shows it, and a list older than 30 days counts as a failing job in the supervisor | `remoteDataset.ts`, `supervisor.ts` |
+| 3.7 | Verified sender: the From domain passes DMARC **and** is that brand's domain in the registry. Shown as "Verified" (BIMI-certified companies get their logo). This turns trust from "no warning fired" into a positive check | `emailAuth.ts`, `brandRegistry.ts`, `verdict.ts` |
+| 3.8 | A phishing-link feed added to the weekly build (phishunt.io is CC0; PhishTank and OpenPhish community feeds if their terms allow). Matched on device against link domains Cluster already reads. Google Safe Browsing is non-commercial only, so it waits | `scripts/refresh-blocklist.mjs`, `linkMismatch.ts` |
+| 3.9 | Grow the hand brand list from 35 to the 100 most impersonated brands (banks, delivery, tax, telecoms, India and EU included), each checked against the registry | `brandDomains.json` |
 
-**Exit:** after a simulated day with Chrome closed, 0 scams left in the inbox on every test mailbox; the no-auto-trash guard test passes.
+**Exit:** after a simulated day with Chrome closed, 0 scams left in the inbox on every test mailbox; the no-auto-trash guard test passes; the weekly workflow publishes fresh, signed lists, or opens an issue and keeps the old ones.
 
 ### Phase 4. Sorting proven on real mail (goal 1)
 
@@ -90,8 +95,11 @@ Each phase ends with a test that proves it, then a commit. No phase starts while
 | 4.5 | Corrections written as Gmail filters, so they sync with no 8 KB cap and work with Chrome closed | `categoryFilters.ts`, `settingsStore.ts` |
 | 4.6 | Kind signals that work in any language (List-Id, ESP, noreply plus code, currency plus order number) before the English phrases | `messageKind.ts` |
 | 4.7 | Fix the known bug: a comment after `<addr>` breaks the sender address | `gmailProvider.ts` |
+| 4.8 | Daily drift check: 200 recent emails, Gmail's labels against `decide()`. The mismatch count is a supervisor health number | `supervisor.ts` |
+| 4.9 | Every label carries its reason ("You moved LinkedIn here", "Receipt from a shop", "Gmail says Promotions"). Details shows it, and a wrong reason is one click to correct | `mailEngine.ts`, `detailsPanel.ts` |
+| 4.10 | For mail the rules can't place, test two on-device options against the same replay: a small per-user Naive Bayes over header words (Rspamd style), and Chrome's built-in Gemini Nano (Prompt API, stable for extensions since Chrome 138) on sender and subject only. Ship the better one only if it lowers fixes per 100 and labels 0 people | new `unsureModel.ts` |
 
-**Exit:** your inbox under 5 fixes per 100 for 7 days, and Screener share agreed with you as reasonable.
+**Exit:** your inbox under 5 fixes per 100 for 7 days, Screener share agreed with you as reasonable, and the drift check under 2%.
 
 ### Phase 5. Safe bulk actions (goal 4)
 
@@ -100,6 +108,8 @@ Each phase ends with a test that proves it, then a commit. No phase starts while
 | 5.1 | Every trash, archive and bulk unsubscribe runs as a durable job, with Undo written per chunk | `dashboard.ts` `executeSmartDelete`, `durableJobs.ts` |
 | 5.2 | Suggestions ranked by never-opened first (0 opens in 60 days, 10+ emails), then volume | `cleanupCards.ts`, `suggestions.ts` |
 | 5.3 | Each suggestion shows what happens and offers one bulk action | `cleanupPage.ts` |
+| 5.4 | Beat Gmail's free "Manage subscriptions" page, which ranks senders by volume only. Cluster adds never-opened ranking, "did it work", auto-mute for senders who keep sending, and bulk trash of a sender's old mail in the same step | `subscriptionsTab.ts` |
+| 5.5 | Saved cleanups: turn any suggestion into a standing rule ("keep the newest 3 from this shop, archive the rest"), the way Clean Email's Auto Clean works, always as archive or label, never trash, unless you choose trash | `rulesTab.ts`, `keepNewest.ts` |
 
 **Exit:** a test closes the tab halfway through a 1,000-email trash; the job resumes, the index matches Gmail and Undo covers every email.
 
@@ -121,6 +131,49 @@ Each phase ends with a test that proves it, then a commit. No phase starts while
 | 7.3 | Split `dashboard.ts` along scan, actions and pages; lazy-load the spam-domain list; remove the legacy CSS block; fold the 83 loose colours into tokens |
 | 7.4 | Start Google verification for `gmail.modify` |
 | 7.5 | Friends beta: 5 people first, replay export on, exit at under 5 fixes per 100 for 4 weeks |
+| 7.6 | Store listing says plainly what Unroll.me didn't: no server reads your mail, nothing is sold, the code that sorts runs in your browser |
+
+## How trust works today (and what this plan changes)
+
+**Is a company like LinkedIn trustworthy?** Cluster doesn't keep a list of trusted companies. Every sender starts trusted, and a warning or hold needs signals:
+
+| Signal | Source | Freshness today |
+|---|---|---|
+| Failed DMARC, or both SPF and DKIM failed | Gmail's own `Authentication-Results` header | Live, per email |
+| Name claims a brand, domain isn't that brand's | Hand list (35 brands) widened by the registry: 288 BIMI-certified companies (certificate chain checked against pinned CAs) and 36 from Wikidata (never outranks the hand list) | Registry built 30 Oct 2026, by hand |
+| Lookalike or punycode domain | Unicode confusables table, Public Suffix List | Refreshed by hand |
+| Known-bad domain | URLhaus malware hosts (29 Aug), disposable and StopForumSpam domains (30 Aug) | About 80 days old |
+| Lure words, reply-to mismatch, risky attachment, Gmail flagged | Rules in `threatSignals.ts` | In the code |
+
+Scores add up: 3 points warns; 6 points holds, and only if two kinds of signal agree or one decisive signal fires. People you write to can't trip the brand checks unless authentication also fails.
+
+**How the lists update:** the `refresh:*` scripts are run by hand and committed. The weekly workflow signs those committed files (Ed25519) and publishes them; the extension fetches daily and refuses an unsigned brand list. Signing stops tampering, but nothing makes the lists fresh: the workflow re-publishes the same files. Steps 3.5 to 3.9 fix that.
+
+**How labelling is checked:** about 1,500 tests on five mailboxes we wrote (99 to 100% acceptable), filters tested against our own copy of Gmail search, and fixes per 100 on real mail. Nothing compares Gmail's real labels with the engine at runtime, and no real inbox has been measured. Steps 4.1, 4.8 and 4.9 fix that.
+
+## Research: tools and competitors
+
+**Free and open data or tools to use** (licence checked before each is added):
+
+| Tool | Use in Cluster | Status |
+|---|---|---|
+| disposable-email-domains, StopForumSpam, URLhaus, Tranco, Public Suffix List, BIMI | Already used | Needs the automatic refresh (3.5) |
+| phishunt.io (CC0), PhishTank, OpenPhish community | Phishing links | New (3.8) |
+| Chrome Prompt API (Gemini Nano) | On-device fallback for unsure mail | Test in 4.10 |
+| Google Safe Browsing | Link checks | Non-commercial only; Web Risk for commercial. Later |
+
+**Open-source apps to learn from, not copy:** Inbox Zero (AGPL with extra terms: its code can't go into Cluster) categorises senders and bulk-unsubscribes from never-read mail. MailScrub tries one-click POST, then GET, then mailto, which matches Cluster's order. QuiteInbox and MailMop (MIT) run fully in the browser like Cluster. Unroll.me is closed source and the warning: in 2019 the FTC found it shared users' e-receipts with its parent company.
+
+**Competitors and what each teaches:**
+
+| Product | How it solves sorting and cleanup | Lesson for Cluster |
+|---|---|---|
+| Gmail Manage subscriptions | Free, built in, senders ranked by volume, one-click unsubscribe | Bulk unsubscribe alone is no longer a reason to install. Cluster must add ranking by reading, follow-up and cleanup (5.4) |
+| Clean Email | 33 smart folders, Auto Clean rules, a Screener; server-based | Closest competitor. Saved cleanups (5.5); Cluster's edge is no server |
+| SaneBox | Headers and subject only; learns a sender from one move | One-move learning (4.3) |
+| HEY | Screener for first-time senders; route a sender vs move one email | Already followed; keep the sender/email split (4.3) |
+| Superhuman, Shortwave | Rules first, AI prompts per label | Optional AI only for unsure mail, on device (4.10) |
+| Apple Mail | Four categories, on device, metadata only | Validates the privacy model; informs decision A |
 
 ## Frozen until the five goals pass
 
