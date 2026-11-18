@@ -1,5 +1,7 @@
 # Cluster product plan (2026-11-18)
 
+> Build order superseded by `goal-and-plan-2026-11-18.md` (five goals, two rules, seven phases). Measures and release path below still apply.
+
 ## What Cluster is
 
 Cluster files every Gmail email into the right label, shows what is in the mailbox, helps clear out what isn't wanted, keeps important mail safe, makes each decision easy, and stops spam and phishing. It works inside Gmail's own labels and never reads email bodies.
