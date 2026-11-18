@@ -8,7 +8,7 @@
 // client's precedence (codes, then shipping, then receipts, then social) by
 // excluding the earlier kinds' phrases, and sender-based categories exclude
 // every kind phrase, mirroring classifySortBucket's "kind wins" rule.
-import { domainsForCategory, type DomainCategory } from "./domainCategories";
+import { domainsForCategory, serviceExceptions, type DomainCategory } from "./domainCategories";
 import type { SortBucket, SortOverride } from "./sortTaxonomy";
 
 type SubjectKind = "otp" | "accounts" | "shipping" | "receipt" | "social" | "jobs";
@@ -172,6 +172,9 @@ function buildQuery(
     // Mirrors classifySortBucket: the Promotions tab wins over the domain.
     not.push("category:promotions");
   }
+  // AWS under amazon.com, LinkedIn Learning under linkedin.com: their own label, not this one.
+  const services = serviceExceptions(bucket as DomainCategory);
+  if (domains.length > 0 && services.length > 0) not.push(fromAny(services));
   if (include.length > 0) matchAny.push(fromAny(include));
   if (matchAny.length === 0) return null;
   if (exclude.length > 0) not.push(fromAny(exclude));

@@ -111,6 +111,12 @@ describe("Accounts and Jobs", () => {
     expect(classifySortBucket("other", "us.greenhouse-mail.io")).toBe("jobs");
     expect(effectiveBucket("newsletter", "linkedin.com", "jobalerts-noreply@linkedin.com", {})).toBe("jobs");
     expect(effectiveBucket("newsletter", "linkedin.com", "messages-noreply@linkedin.com", {})).toBe("social");
+    // One company, several services: the address or subdomain decides.
+    expect(effectiveBucket("newsletter", "linkedin.com", "learning-noreply@linkedin.com", {})).toBe("education");
+    expect(effectiveBucket("other", "amazon.com", "no-reply-aws@amazon.com", {})).toBe("productivity");
+    expect(effectiveBucket("other", "aws.amazon.com", "info@aws.amazon.com", {})).toBe("productivity");
+    expect(effectiveBucket("other", "amazon.com", "store-news@amazon.com", {})).toBe("shopping");
+    expect(effectiveBucket("other", "google.com", "calendar-notification@google.com", {})).toBe("productivity");
     // Employers' own domains, from subjects and sender names seen in a real inbox.
     for (const subject of ["Thank you for applying to Deloitte!", "Update on Your Application - Engineer", "Your job alert for: Cybersecurity", "CrowdStrike Job Application Confirmation"]) {
       expect(classifyMessageKind(subject, true), subject).toBe("jobs");

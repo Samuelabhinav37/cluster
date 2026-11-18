@@ -7,7 +7,7 @@
 // sender-based buckets. Every category, kinds included, can also be matched
 // by a Gmail search query (subject phrases, category:promotions): see
 // categoryQueries.ts, which the inbox time limits use.
-import { domainsForCategory, type DomainCategory } from "./domainCategories";
+import { domainsForCategory, serviceExceptions, type DomainCategory } from "./domainCategories";
 import type { GmailFilterAction, GmailFilterCriteria } from "./gmailApi";
 import type { SortBucket, SortOverride } from "./sortTaxonomy";
 
@@ -40,7 +40,7 @@ export function bucketMatchTerms(
   overrides: Record<string, SortOverride>,
 ): BucketMatchTerms {
   const include = new Set(domainsForCategory(bucket as DomainCategory));
-  const exclude = new Set<string>();
+  const exclude = new Set<string>(serviceExceptions(bucket as DomainCategory));
   for (const [rawAddr, target] of Object.entries(overrides)) {
     const addr = rawAddr.toLowerCase().trim();
     // No wildcards in Gmail search; Cluster's own pass applies patterns.

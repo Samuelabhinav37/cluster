@@ -145,21 +145,59 @@ const CATEGORY_DOMAINS: Record<Exclude<DomainCategory, "other">, string[]> = {
   ],
 };
 
-/** Senders whose domain says nothing but whose address does: LinkedIn sends
- * job alerts and social notices from the same domain. */
-const JOB_ADDRESSES = new Set([
-  "jobalerts-noreply@linkedin.com",
-  "jobs-noreply@linkedin.com",
-  "jobs-listings@linkedin.com",
-]);
-
-export function isJobAddress(address: string): boolean {
-  return JOB_ADDRESSES.has(address.toLowerCase());
-}
+/** One company, several services: the address or sending subdomain says
+ * which, and beats the company's own domain. LinkedIn sends job alerts,
+ * courses and news beside its social mail; Amazon sends AWS bills beside
+ * orders; Google sends Calendar, Drive and Play from google.com. */
+const SERVICE_SENDERS: Record<string, Exclude<DomainCategory, "other">> = {
+  "jobalerts-noreply@linkedin.com": "jobs",
+  "jobs-noreply@linkedin.com": "jobs",
+  "jobs-listings@linkedin.com": "jobs",
+  "learning-noreply@linkedin.com": "education",
+  "newsletters-noreply@linkedin.com": "newsletter",
+  "editors-noreply@linkedin.com": "newsletter",
+  "no-reply-aws@amazon.com": "productivity",
+  "aws.amazon.com": "productivity",
+  "amazonaws.com": "productivity",
+  "amazon.jobs": "jobs",
+  "calendar-notification@google.com": "productivity",
+  "drive-shares-noreply@google.com": "productivity",
+  "drive-shares-dm-noreply@google.com": "productivity",
+  "meet-recordings-noreply@google.com": "productivity",
+  "workspace-noreply@google.com": "productivity",
+  "cloudplatform-noreply@google.com": "productivity",
+  "googlecloud@google.com": "productivity",
+  "payments-noreply@google.com": "finance",
+  "googleplay-noreply@google.com": "shopping",
+  "email.teams.microsoft.com": "productivity",
+  "azure-noreply@microsoft.com": "productivity",
+  "metacareers.com": "jobs",
+};
 
 const DOMAIN_TO_CATEGORY = new Map<string, DomainCategory>();
 for (const [category, domains] of Object.entries(CATEGORY_DOMAINS) as [DomainCategory, string[]][]) {
   for (const domain of domains) DOMAIN_TO_CATEGORY.set(domain, category);
+}
+// Services under a listed company: the parent's Gmail filter must skip them,
+// or AWS mail would match from:amazon.com and get Shopping too.
+const SERVICE_EXCEPTIONS = new Map<DomainCategory, string[]>();
+for (const [sender, category] of Object.entries(SERVICE_SENDERS)) {
+  const parent = sender.includes("@") ? sender.split("@")[1] : sender.slice(sender.indexOf(".") + 1);
+  const parentCategory = lookupDomainInMap(parent, DOMAIN_TO_CATEGORY);
+  if (parentCategory && parentCategory !== category) SERVICE_EXCEPTIONS.set(parentCategory, [...(SERVICE_EXCEPTIONS.get(parentCategory) ?? []), sender]);
+}
+for (const [sender, category] of Object.entries(SERVICE_SENDERS)) if (!sender.includes("@")) DOMAIN_TO_CATEGORY.set(sender, category);
+
+/** The category of a service sender (an address or subdomain listed in
+ * SERVICE_SENDERS), else undefined: the domain decides. */
+export function serviceCategory(address: string): DomainCategory | undefined {
+  return SERVICE_SENDERS[address.toLowerCase()];
+}
+
+/** Service senders under this category's companies that belong elsewhere:
+ * negated in the category's Gmail filter. */
+export function serviceExceptions(category: DomainCategory): string[] {
+  return SERVICE_EXCEPTIONS.get(category) ?? [];
 }
 
 export function categorizeDomain(domain: string): DomainCategory {
@@ -173,6 +211,6 @@ export function categorizeDomain(domain: string): DomainCategory {
  * server-side "keep sorting" Gmail filter (`from:(d1 OR d2 …)`). */
 export function domainsForCategory(category: DomainCategory): string[] {
   if (category === "other") return [];
-  const domains = [...(CATEGORY_DOMAINS[category] ?? [])];
-  return category === "jobs" ? [...domains, ...JOB_ADDRESSES] : domains;
+  const services = Object.keys(SERVICE_SENDERS).filter((s) => SERVICE_SENDERS[s] === category);
+  return [...(CATEGORY_DOMAINS[category] ?? []), ...services];
 }

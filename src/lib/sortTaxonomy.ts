@@ -5,7 +5,7 @@
 // order-update, not just "Shopping".
 import { canonicalAddress, senderPattern } from "./addressIdentity";
 import { isFreeMailDomain } from "./freeMail";
-import { categorizeDomain, isJobAddress, type DomainCategory } from "./domainCategories";
+import { categorizeDomain, serviceCategory, type DomainCategory } from "./domainCategories";
 import type { MessageKind } from "./messageKind";
 import type { SendingEvidence } from "./sendingEvidence";
 import { clusterLabelName } from "./clusterLabels";
@@ -140,7 +140,7 @@ export function classifySortBucket(
   // A free-mail address is a person or someone posing as a company: an
   // "invoice" or "order" from one goes to the Screener, never a label.
   if (isFreeMailDomain(senderDomain)) return null;
-  const byCategory = isJobAddress(senderAddress) ? "jobs" : CATEGORY_BUCKET[senderCategory(senderDomain, hints.dkimDomains)];
+  const byCategory = CATEGORY_BUCKET[serviceCategory(senderAddress) ?? senderCategory(senderDomain, hints.dkimDomains)];
   // Any list mail has an unsubscribe link, so "newsletter" alone can't tell
   // an ad from news; Gmail's Promotions tab can.
   // The tab also beats the sender's domain: Microsoft 365's Copilot ad is an

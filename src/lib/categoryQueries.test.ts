@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { KIND_PHRASES, OTP_EXCLUDED_PHRASES, categoryQuery } from "./categoryQueries";
+import { KIND_PHRASES, MAX_FILTER_QUERY, OTP_EXCLUDED_PHRASES, categoryQueries, categoryQuery } from "./categoryQueries";
 import { classifyMessageKind } from "./messageKind";
 import { classifySortBucket } from "./sortTaxonomy";
 
@@ -32,6 +32,16 @@ describe("KIND_PHRASES", () => {
 });
 
 describe("categoryQuery", () => {
+  it("skips a company's other services: AWS isn't Shopping, LinkedIn job alerts aren't Social", () => {
+    const shopping = categoryQueries("shopping").join(" ");
+    expect(shopping).toContain("-from:(");
+    expect(shopping).toContain("no-reply-aws@amazon.com");
+    expect(categoryQueries("productivity").join(" ")).toMatch(/from:\([^)]*no-reply-aws@amazon\.com/);
+    const social = categoryQueries("social").join(" ");
+    expect(social).toMatch(/-from:\([^)]*jobalerts-noreply@linkedin\.com/);
+    for (const q of [...categoryQueries("shopping"), ...categoryQueries("social")]) expect(q.length).toBeLessThanOrEqual(MAX_FILTER_QUERY);
+  });
+
   it("matches one-time codes by subject and excludes security notices", () => {
     const q = categoryQuery("otp")!;
     expect(q).toMatch(/^subject:\("verification code" OR /);
