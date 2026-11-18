@@ -1879,7 +1879,8 @@ input.switch:disabled {
   overflow: auto;
 }
 
-body[data-screen="setup"] .kai-guide, body:has(> .tour) .kai-guide { display: none; }
+/* The sign-in screen has its own Kai in the photo: one Kai, not two. */
+body[data-screen="setup"] .kai-guide, body:has(> .tour) .kai-guide, body:has(#connect-gate:not([hidden])) .kai-guide { display: none; }
 
 body[data-screen="setup"] .index-status {
   position: fixed;
@@ -4777,11 +4778,13 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 #settings-runs .run-row .run-when { grid-area: auto; justify-self: end; font-size: 13px; color: var(--label-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 /* Cleanup: what is safe to trash and why, above the table. */
-.cu-safe { display: flex; align-items: center; gap: 20px; margin: 24px 0 8px; padding: 18px 20px; border-radius: 16px; background: var(--card, #1c1c1e); box-shadow: inset 0 0 0 1px var(--hairline); }
+/* Same card as the Dashboard's (.ov-card), with room above the table. */
+.cu-safe { display: flex; align-items: center; gap: 20px; margin: 20px 0 20px; padding: 20px 24px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--glass); }
 .cu-safe .cs-words { flex: 1; min-width: 0; }
 .cu-safe .cs-words b { display: block; font: 600 17px/1.3 var(--font); color: var(--label); }
 .cu-safe .cs-words p { margin: 4px 0 0; font-size: 14px; color: var(--label-3); }
 .cu-safe .cs-acts { display: flex; gap: 8px; flex: none; }
+.cu-safe .cs-acts .btn { height: 36px; min-height: 36px; padding: 0 16px; border-radius: 10px; font: 500 14px/1 var(--font); }
 @media (max-width: 700px) { .cu-safe { flex-direction: column; align-items: stretch; } }
 .ct-tools .ct-all, .ct-tools .ct-all:hover:not(:disabled) { border-color: transparent; background: var(--neutral-fill); color: var(--danger-text); }
 .ct-tools .ct-all:hover:not(:disabled) { background: var(--neutral-fill-hover); }

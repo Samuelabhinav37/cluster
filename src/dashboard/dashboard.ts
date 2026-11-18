@@ -787,7 +787,6 @@ async function main() {
         renderKaiMissed();
       }),
   });
-  statusEl.textContent = "Connecting…";
   // Domain matching needs the Public Suffix List and the brand registry (local files, quick to load).
   // Choices made on another computer (or before a reinstall) come first.
   await pullSyncedSettings().catch((err) => log.error("Settings sync pull failed", err));
