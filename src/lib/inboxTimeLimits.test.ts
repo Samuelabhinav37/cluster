@@ -223,7 +223,7 @@ describe("labelFromIndex", () => {
     ]),
   ];
 
-  it("adds missing labels, swaps a wrong Cluster label, and leaves mail that fits no label", async () => {
+  it("adds missing labels, swaps a wrong Cluster label, and takes a label off a person's mail", async () => {
     const api = fakeApi({}, senders);
     const res = await labelFromIndex(ctx(), api, [
       { id: "a", labelIds: ["INBOX"] },
@@ -234,8 +234,10 @@ describe("labelFromIndex", () => {
     ]);
     expect(api.batchModify).toHaveBeenCalledWith(["a", "w"], ["L:🔑 One-time codes"], []);
     expect(api.batchModify).toHaveBeenCalledWith(["w"], [], ["L:🛍 Shopping"]);
-    expect(api.batchModify).toHaveBeenCalledTimes(2);
-    expect(res).toMatchObject({ labelled: 2, fixed: 1, byBucket: { otp: 3 } });
+    // Audit B3: a friend's mail fits no label, so a filter's label comes off.
+    expect(api.batchModify).toHaveBeenCalledWith(["p"], [], ["L:🛍 Shopping"]);
+    expect(api.batchModify).toHaveBeenCalledTimes(3);
+    expect(res).toMatchObject({ labelled: 2, fixed: 2, byBucket: { otp: 3 } });
     expect(res.changes.get("w")).toEqual({ add: ["L:🔑 One-time codes"], remove: ["L:🛍 Shopping"] });
   });
 
@@ -244,6 +246,34 @@ describe("labelFromIndex", () => {
     await labelFromIndex(ctx({ overrides: { "deals@shop.example": "shopping" } }), api, [{ id: "w", labelIds: ["INBOX", "L:🔑 One-time codes"] }]);
     expect(api.batchModify).toHaveBeenCalledWith(["w"], ["L:🛍 Shopping"], []);
     expect(api.batchModify).toHaveBeenCalledWith(["w"], [], ["L:🔑 One-time codes"]);
+  });
+
+  it("audit B3: keeps a person's label the user chose or is choosing", async () => {
+    const people = [sender("boss@corp.example", [msg("i", "other", { subject: "Invoice for March" })]), sender("friend@gmail.com", [msg("p")])];
+    const rows = [
+      { id: "i", labelIds: ["INBOX", "L:💳 Finance"] },
+      { id: "p", labelIds: ["INBOX", "L:🛍 Shopping"] },
+    ];
+    const wrote = new Set(["boss@corp.example"]);
+    // Someone you've written to: off it comes.
+    let api = fakeApi({}, people);
+    await labelFromIndex(ctx({ known: wrote, wrote }), api, rows);
+    expect(api.batchModify).toHaveBeenCalledWith(["i"], [], ["L:💳 Finance"]);
+    // Filed there by the user, or mid-swap in Gmail: left alone.
+    api = fakeApi({}, people);
+    await labelFromIndex(
+      ctx({ known: wrote, wrote, overrides: { "boss@corp.example": "finance" }, moveVotes: { "friend@gmail.com": { bucket: "shopping", n: 1 } } }),
+      api,
+      rows,
+    );
+    expect(api.batchModify).not.toHaveBeenCalledWith(expect.anything(), [], expect.anything());
+  });
+
+  it("audit B4: a company let in from the Screener still gets its label", async () => {
+    const shop = [sender("codes@shop.example", [msg("o", "otp")])];
+    const api = fakeApi({}, shop);
+    const res = await labelFromIndex(ctx({ known: new Set(["codes@shop.example"]), wrote: new Set() }), api, [{ id: "o", labelIds: ["INBOX"] }]);
+    expect(res.byBucket).toEqual({ otp: 1 });
   });
 
   it("does nothing on an empty inbox", async () => {

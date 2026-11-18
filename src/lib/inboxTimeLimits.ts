@@ -11,6 +11,7 @@
 // Mail that carries several Cluster labels leaves only when every one of
 // them has run out ("stays in inbox" wins). A person's own note and senders
 // that look like phishing always stay; starred mail leaves and keeps its star.
+import { correctionKey } from "./addressIdentity";
 import { mapWithConcurrency } from "./concurrency";
 import { domainOf } from "./domainGrouping";
 import { isFreeMailDomain, isRoleAddress } from "./freeMail";
@@ -57,6 +58,13 @@ export interface InboxLimitsApi {
 export interface LimitContext {
   limits: CategoryLimit[];
   known: Set<string>;
+  /** People you've written to: `known` minus senders only let in from the
+   * Screener. Letting a company in keeps it out of the Screener, not out of
+   * its label (audit B4). Defaults to `known`. */
+  wrote?: Set<string>;
+  /** Senders with a label swap not yet learned (learnFromMoves): the user
+   * is filing them by hand, so the relabel doesn't undo it. */
+  moveVotes?: Record<string, unknown>;
   overrides: Record<string, SortOverride>;
   now: number;
   /** Messages an earlier sweep already decided to keep (see SweepResult). */
@@ -70,8 +78,8 @@ function epochSeconds(ms: number): number {
 }
 
 /** Senders whose mail must never be moved or auto-labelled. */
-function skipSender(sender: SenderSummary, known: Set<string>): boolean {
-  return known.has(sender.address.toLowerCase()) || scamTier(sender, known) !== "none";
+function skipSender(sender: SenderSummary, ctx: LimitContext): boolean {
+  return (ctx.wrote ?? ctx.known).has(sender.address.toLowerCase()) || scamTier(sender, ctx.known) !== "none";
 }
 
 /** The scam hold's own verdict, so every pass agrees on what's risky. "hold"
@@ -115,10 +123,10 @@ export function bucketsFor(senders: SenderSummary[], ctx: LimitContext): Map<Sor
   for (const sender of senders) {
     const domain = domainOf(sender.address);
     const corrected = isBucket(overrideFor(sender.address, domain, ctx.overrides));
-    if (corrected ? scamTier(sender, ctx.known) === "hold" : skipSender(sender, ctx.known)) continue;
+    if (corrected ? scamTier(sender, ctx.known) === "hold" : skipSender(sender, ctx)) continue;
     const buckets = senderBuckets(sender, domain, ctx.overrides);
     for (const msg of sender.messages) {
-      if (!corrected && (msg.isProtected || neverMove(msg, sender.address) || withYourContacts(msg, ctx.known))) continue;
+      if (!corrected && (msg.isProtected || neverMove(msg, sender.address) || withYourContacts(msg, ctx.wrote ?? ctx.known))) continue;
       const bucket = buckets.get(msg.id);
       if (!bucket || !wanted.has(bucket)) continue;
       const list = groups.get(bucket) ?? [];
@@ -203,7 +211,8 @@ export async function labelFromIndex(
 ): Promise<RelabelResult> {
   const result: RelabelResult = { labelled: 0, fixed: 0, byBucket: {}, changes: new Map(), sortedIds: new Set() };
   if (inbox.length === 0) return result;
-  const groups = bucketsFor(await api.readSenders(inbox.map((r) => r.id)), ctx);
+  const senders = await api.readSenders(inbox.map((r) => r.id));
+  const groups = bucketsFor(senders, ctx);
   const labelsOf = new Map(inbox.map((r) => [r.id, r.labelIds]));
   const existing = new Map<SortBucket, string>();
   for (const limit of ctx.limits) {
@@ -237,7 +246,36 @@ export async function labelFromIndex(
     done += ids.length;
     onProgress?.(done, total);
   }
+  // A person's mail fits no label: a filter's subject match ("Invoice for
+  // March" from a colleague) comes off, so it can go to Personal (audit B3).
+  const people = peopleMailIds(senders, ctx);
+  for (const [, labelId] of existing) {
+    const wrong = people.filter((id) => labelsOf.get(id)?.includes(labelId));
+    if (wrong.length === 0) continue;
+    await api.batchModify(wrong, [], [labelId]);
+    for (const id of wrong) note(id, "remove", labelId);
+    result.fixed += wrong.length;
+  }
   return result;
+}
+
+/** Mail from people: someone you've written to, or a free-mail sender, that
+ * the user never filed under a label or is filing by hand. Risky senders are
+ * the scam hold's. Company mail with a doubtful label is left alone: Cluster
+ * can't tell a filter's label from one the user added. */
+function peopleMailIds(senders: readonly SenderSummary[], ctx: LimitContext): string[] {
+  const out: string[] = [];
+  for (const sender of senders) {
+    const address = sender.address.toLowerCase();
+    const domain = domainOf(address);
+    const person = (ctx.wrote ?? ctx.known).has(address) || isFreeMailDomain(domain);
+    if (!person || scamTier(sender, ctx.known) !== "none") continue;
+    const override = overrideFor(sender.address, domain, ctx.overrides);
+    if (override !== undefined && override !== "personal") continue;
+    if (ctx.moveVotes && correctionKey(sender.address) in ctx.moveVotes) continue;
+    for (const msg of sender.messages) out.push(msg.id);
+  }
+  return out;
 }
 
 /** Where the catch-up pass stands: -7 = done, else it reads inbox mail

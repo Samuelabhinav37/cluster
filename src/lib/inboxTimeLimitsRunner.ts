@@ -34,7 +34,7 @@ import { notify } from "./notices";
 import { getScan, newScan, setScan } from "./scanState";
 import { loadMetadataCache, saveMetadataCache } from "./metadataCache";
 import { gmailProvider } from "./providers/gmailProvider";
-import { knownSenderSet } from "./screener";
+import { knownSenderSet, wroteToSet } from "./screener";
 import { buildSenderSummariesFromStubs } from "./senderModel";
 import { getSettings, mutateSettings, type ClusterSettings } from "./settingsStore";
 import { ALL_SORT_BUCKETS, type SortBucket } from "./sortTaxonomy";
@@ -134,6 +134,8 @@ async function runPass(
   const ctx = {
     limits,
     known: knownSenderSet(settings),
+    wrote: wroteToSet(settings),
+    moveVotes: settings.autoSort.moveVotes,
     overrides: settings.sortOverrides,
     now,
     keptIds: new Set(settings.autoSort.keptInInboxIds),
@@ -375,7 +377,14 @@ export async function readLabeller(): Promise<ReadLabeller | null> {
   const state = await index.getState("gmail");
   if (!indexNeedsBuild(state, settings.scanWindowDays, settings.readCap)) return null;
   const token = await gmailProvider.getAuthToken(false);
-  const ctx = { limits: limitsFor(settings), known: knownSenderSet(settings), overrides: settings.sortOverrides, now: Date.now() };
+  const ctx = {
+    limits: limitsFor(settings),
+    known: knownSenderSet(settings),
+    wrote: wroteToSet(settings),
+    moveVotes: settings.autoSort.moveVotes,
+    overrides: settings.sortOverrides,
+    now: Date.now(),
+  };
   const api = limitsApi(token);
   let peopleIn = (await index.sentIds("gmail")).size > 0;
   // A resumed read keeps counting on the card where it stopped.

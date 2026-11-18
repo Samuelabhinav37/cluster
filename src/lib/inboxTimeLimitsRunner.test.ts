@@ -26,7 +26,7 @@ vi.mock("./scanState", async (orig) => ({
   getScan: async () => scan,
   setScan: async (patch: Partial<ScanState>) => (scan = { ...(scan as ScanState), ...patch }),
 }));
-vi.mock("./screener", () => ({ knownSenderSet: () => new Set<string>() }));
+vi.mock("./screener", () => ({ knownSenderSet: () => new Set<string>(), wroteToSet: () => new Set<string>() }));
 vi.mock("./indexTriage", () => ({
   applyIndexedCorrespondents: vi.fn(async () => undefined),
   refreshIndexForBackground: async () => indexReady,

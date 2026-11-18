@@ -54,6 +54,11 @@ function looksBulk(s: SenderSummary): boolean {
   return Boolean(s.unsubscribe.postUrl || s.unsubscribe.httpUrl || s.unsubscribe.mailto) || s.messages.some((m) => m.looksAutomated);
 }
 
+/** People you've written to, without senders only let in from the Screener. */
+export function wroteToSet(settings: ClusterSettings): Set<string> {
+  return new AddressSet(settings.sentCorrespondents.addresses);
+}
+
 /** Matches any spelling of a known mailbox (a.lice@gmail.com is alice@gmail.com). */
 export function knownSenderSet(settings: ClusterSettings): Set<string> {
   return new AddressSet([...settings.screenerAllowlist, ...settings.sentCorrespondents.addresses]);
