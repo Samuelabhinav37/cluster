@@ -337,7 +337,9 @@
       if (p.startsWith("/labels/") && (method === "GET" || method === "PATCH")) {
         const id = decodeURIComponent(p.slice(8)); const l = LABELS.find((x) => x.id === id) || { id, name: id, type: "system" };
         if (method === "PATCH") Object.assign(l, JSON.parse(init.body));
-        return json({ ...l, messagesTotal: 0, messagesUnread: 0 });
+        // Real counts, as Gmail gives them, so Labels doesn't call every label empty.
+        const has = ORDER.filter((mid) => MSGS[mid] && MSGS[mid].labelIds.includes(id));
+        return json({ ...l, messagesTotal: has.length, messagesUnread: has.filter((mid) => MSGS[mid].labelIds.includes("UNREAD")).length });
       }
       if (p === "/labels" && method === "POST") { const b = JSON.parse(init.body); const l = { id: "Label_" + (LABELS.length + 10), name: b.name, type: "user" }; LABELS.push(l); saveMeta(); return json(l); }
       if (p === "/settings/filters" && method === "GET") return json({ filter: FILTERS });

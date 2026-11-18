@@ -313,6 +313,10 @@ describe("renderHomeDashboard", () => {
     paintHomeRead(card, 200, 200, "", "Reading your sent mail");
     expect(text(card.querySelector(".home-verdict"))).toBe("Reading your sent mail");
     expect(text(card.querySelector(".read-nums"))).toBe("");
+    // No count, but still working: the bar slides instead of vanishing.
+    expect(card.querySelector<HTMLElement>(".read-track")!.hidden).toBe(false);
+    expect(card.querySelector(".read-track")!.classList.contains("is-busy")).toBe(true);
+    paintHomeRead(card, 200, 200, "");
     expect(card.querySelector<HTMLElement>(".read-track")!.hidden).toBe(true);
   });
 });

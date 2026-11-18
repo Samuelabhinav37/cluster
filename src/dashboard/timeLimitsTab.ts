@@ -341,9 +341,13 @@ function queueSave(): Promise<boolean> {
 // What the last save said; shown in place of "Last checked" until the page is left.
 let saveNote = "";
 
+let noteTimer: ReturnType<typeof setTimeout> | undefined;
 function note(text: string) {
   saveNote = text;
   if (statusEl) statusEl.textContent = text;
+  clearTimeout(noteTimer);
+  // A "Saved." confirmation is for the moment; left up, it sat under the list for good.
+  if (text.startsWith("Saved")) noteTimer = setTimeout(() => note(""), 4_000);
 }
 
 async function save(): Promise<boolean> {

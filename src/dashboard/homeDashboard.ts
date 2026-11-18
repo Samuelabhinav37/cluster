@@ -484,7 +484,10 @@ export function paintHomeRead(
   card.querySelector(".read-of")!.textContent = done < total ? `of ${n(total)} emails` : "";
   card.querySelector(".read-eta")!.textContent = eta;
   const track = card.querySelector<HTMLElement>(".read-track")!;
-  track.hidden = done >= total;
+  // A step with no count (labelling) keeps a moving bar, so the card never looks stuck.
+  const busy = done >= total && label !== "Reading your mail";
+  track.hidden = done >= total && !busy;
+  track.classList.toggle("is-busy", busy);
   track.setAttribute("aria-valuenow", String(done));
   track.setAttribute("aria-valuemax", String(Math.max(done, total)));
   track.querySelector<HTMLElement>("i")!.style.width =

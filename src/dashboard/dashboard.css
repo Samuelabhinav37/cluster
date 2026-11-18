@@ -4865,3 +4865,9 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .top-sort-wrap .top-sort-chev { width: 14px; height: 14px; margin-left: -2px; opacity: 0.7; }
 .top-sort-menu { min-width: 240px; }
 .top-sort-menu button span { font-weight: 400; }
+
+/* A step with no count yet (labelling): a short bar sliding across, not an empty card. */
+.read-track.is-busy i, .scan-track.is-busy > div { width: 30% !important; animation: busy-slide 1.4s ease-in-out infinite; }
+@keyframes busy-slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+@media (prefers-reduced-motion: reduce) { .read-track.is-busy i, .scan-track.is-busy > div { animation: none; width: 100% !important; opacity: 0.4; } }
+.scan-track.is-busy { overflow: hidden; }

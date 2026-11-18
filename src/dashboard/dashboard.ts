@@ -44,7 +44,7 @@ import {
   type SyncProgress,
   type SyncResult,
 } from "../lib/mailSync";
-import { BUILD_PACE, waitForGmailHeadroom } from "../lib/gmailQuotaLedger";
+import { waitForGmailHeadroom } from "../lib/gmailQuotaLedger";
 import { applyIndexedCorrespondents, mailIndexLockKey } from "../lib/indexTriage";
 import { withStorageLock } from "../lib/storageLock";
 import type { EmailProvider, ProviderId } from "../lib/providers/emailProvider";
@@ -1152,9 +1152,9 @@ function updateIndexStatus() {
   if (paceSample?.phase !== phase || done < paceSample.done) paceSample = { phase, at: Date.now(), done };
   const elapsed = Date.now() - paceSample.at;
   const rate = (done - paceSample.done) / elapsed;
-  // Until 20 s of real pace exists, estimate from the build's quota share (20 units a read).
-  const perMs = rate > 0 && elapsed > 20_000 ? rate : BUILD_PACE.share / 20 / 60_000;
-  const minutes = Math.ceil((total - done) / perMs / 60_000);
+  // No time until 20 s of real pace exists: a guess from the quota share ran low and then
+  // went up once the sort shared Gmail's budget, and a rising estimate reads as going backwards.
+  const minutes = rate > 0 && elapsed > 20_000 ? Math.ceil((total - done) / rate / 60_000) : 0;
   // Gmail's per-minute pauses are normal pacing, already in the estimate: no
   // "paused" line, which read like an error.
   const eta =
@@ -1194,7 +1194,9 @@ function updateIndexStatus() {
   // Opening Cluster fetches the few emails since last time in a moment; the card is for reads that take a while.
   const longRead = Date.now() - readSince > 5_000 || total - done >= 300;
   if (longRead) {
-    indexStatusEl.replaceChildren(head, ...(done < total ? [track] : []), ...(line ? [left] : []));
+    // Labelling has no count: the bar moves on its own instead of disappearing.
+    if (done >= total && sortRunning) track.classList.add("is-busy");
+    indexStatusEl.replaceChildren(head, ...(done < total || sortRunning ? [track] : []), ...(line ? [left] : []));
     indexStatusEl.hidden = false;
   } else if (!indexStatusEl.dataset.job) indexStatusEl.hidden = true;
   // A new phase counts from zero again.
