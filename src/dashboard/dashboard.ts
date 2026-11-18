@@ -17,7 +17,7 @@ import { categoryLabelName } from "../lib/categoryFilters";
 import { learnFromLabelMoves, readLabeller, runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
 import { getScan, newScan, onScanChange, setScan, type ScanState } from "../lib/scanState";
 import { describeRun, getRunReports, onRunReportsChange, startRun, type RunReport } from "../lib/runReport";
-import { ALL_SORT_BUCKETS } from "../lib/sortTaxonomy";
+import { ALL_SORT_BUCKETS, kindKey, SCOPED_KINDS } from "../lib/sortTaxonomy";
 import { runReplyReminders } from "../lib/replyReminders";
 import { markRepliesToYou } from "../lib/correspondents";
 import {
@@ -2252,10 +2252,20 @@ function wireDetails() {
           const gmail = messages.filter((m) => m.provider === "gmail");
           const addresses = new Set(gmail.map((m) => m.address.toLowerCase()));
           const ids = new Set(gmail.map((m) => m.id));
+          const senders = (lastOverview?.[2] ?? ctx.senders).filter((s) => s.provider === "gmail" && addresses.has(s.address.toLowerCase()));
+          // One kind ticked (Amazon's receipts): the correction is for that
+          // kind only, so the sender's ads keep their own label.
+          const kindOf = new Map(senders.flatMap((s) => s.messages.map((m) => [m.id, m.kind] as const)));
+          const scopeFor = (address: string) => {
+            const kinds = new Set(gmail.filter((m) => m.address.toLowerCase() === address).map((m) => kindOf.get(m.id)));
+            const [only] = kinds;
+            return kinds.size === 1 && only && SCOPED_KINDS.includes(only) ? only : undefined;
+          };
           // "Always" fixes the senders' older mail too, not just what's ticked.
           if (always) {
-            for (const s of lastOverview?.[2] ?? ctx.senders) {
-              if (s.provider === "gmail" && addresses.has(s.address.toLowerCase())) for (const m of s.messages) ids.add(m.id);
+            for (const s of senders) {
+              const scope = scopeFor(s.address.toLowerCase());
+              for (const m of s.messages) if (!scope || m.kind === scope) ids.add(m.id);
             }
           }
           const token = await gmailProvider.getAuthToken(false);
@@ -2266,7 +2276,15 @@ function wireDetails() {
           if (always) {
             ctx.settings = await mutateSettings((cur) => ({
               ...cur,
-              sortOverrides: { ...cur.sortOverrides, ...Object.fromEntries([...addresses].map((a) => [correctionKey(a), bucket])) },
+              sortOverrides: {
+                ...cur.sortOverrides,
+                ...Object.fromEntries(
+                  [...addresses].map((a) => {
+                    const scope = scopeFor(a);
+                    return [scope ? kindKey(correctionKey(a), scope) : correctionKey(a), bucket];
+                  }),
+                ),
+              },
             }));
             // Rewrites the Gmail filters so new mail from them lands there too.
             void runInboxTimeLimits().catch((err) => log.error("Label as: filter update failed", err));

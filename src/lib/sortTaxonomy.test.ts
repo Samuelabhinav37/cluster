@@ -5,6 +5,7 @@ import {
   classifySortBucket,
   DEFAULT_FILE_OUT_OF_INBOX,
   effectiveBucket,
+  kindKey,
 } from "./sortTaxonomy";
 
 describe("classifySortBucket", () => {
@@ -177,5 +178,18 @@ describe("statement kind", () => {
   it("goes to Finance from any sender but free mail", () => {
     expect(classifySortBucket("statement", "ridgewaycu.example")).toBe("finance");
     expect(classifySortBucket("statement", "gmail.com")).toBe(null);
+  });
+});
+
+describe("kind-scoped corrections", () => {
+  const overrides = { [kindKey("ship@amazon.com", "receipt")]: "shopping" as const };
+  it("applies only to that kind of the sender's mail", () => {
+    expect(effectiveBucket("receipt", "amazon.com", "ship@amazon.com", overrides)).toBe("shopping");
+    expect(effectiveBucket("shipping", "amazon.com", "ship@amazon.com", overrides)).toBe("shipping");
+  });
+  it("beats a whole-sender correction", () => {
+    const both = { ...overrides, "ship@amazon.com": "promotions" as const };
+    expect(effectiveBucket("receipt", "amazon.com", "ship@amazon.com", both)).toBe("shopping");
+    expect(effectiveBucket("newsletter", "amazon.com", "ship@amazon.com", both)).toBe("promotions");
   });
 });

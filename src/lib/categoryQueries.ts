@@ -107,18 +107,33 @@ function isSubjectKind(bucket: SortBucket): bucket is SubjectKind {
 const DOMAIN_BUCKETS: SortBucket[] = ["shopping", "travel", "finance", "productivity", "education", "newsletter"];
 
 /** Addresses the user redirected into `bucket`, and ones they sent elsewhere
- * or set to "never" sort (from Sort my inbox's per-sender corrections). */
+ * or set to "never" sort (from Sort my inbox's per-sender corrections).
+ * A kind-scoped key ("a@x.com|receipt") becomes a from+subject term:
+ * `scoped` are this bucket's own, `notScoped` must be kept out of it. */
 function overrideTerms(bucket: SortBucket, overrides: Record<string, SortOverride>) {
   const include: string[] = [];
   const exclude: string[] = [];
-  for (const [raw, target] of Object.entries(overrides)) {
+  const scoped: string[] = [];
+  const notScoped: string[] = [];
+  const plain = Object.entries(overrides).filter(([raw]) => !raw.includes("|"));
+  for (const [raw, target] of plain) {
     const addr = raw.toLowerCase().trim();
     // Gmail search has no wildcards: a pattern (bounce-*@host) is applied by
     // Cluster's own 5-minute pass instead.
     if (!addr || addr.includes("*")) continue;
     (target === bucket ? include : exclude).push(addr);
   }
-  return { include, exclude };
+  for (const [raw, target] of Object.entries(overrides)) {
+    const [addr, kind] = raw.toLowerCase().trim().split("|");
+    if (kind === undefined || !addr || addr.includes("*") || !(kind in KIND_PHRASES)) continue;
+    const phrases = KIND_PHRASES[kind as SubjectKind];
+    if (target === bucket) scoped.push(`(from:${addr} ${subjectAny(phrases)})`);
+    // In its own kind's filter, only that kind's mail can match, so the
+    // address alone is enough, unless the user also filed the whole sender here.
+    else if (bucket === kind && !include.includes(addr)) exclude.push(addr);
+    else if (isSubjectKind(bucket) && include.includes(addr)) notScoped.push(`(from:${addr} ${subjectAny(phrases)})`);
+  }
+  return { include, exclude: exclude.filter((a) => !include.includes(a)), scoped, notScoped };
 }
 
 /** Gmail refuses a filter whose criteria run much past 1,500 characters. */
@@ -144,6 +159,15 @@ export function categoryQueries(bucket: SortBucket, overrides: Record<string, So
     if (q) out.push(q);
     start = end;
   } while (start < all.length);
+  // Corrections for one kind of a sender's mail get a query of their own: the
+  // bucket's usual "no kind phrases" rule would cancel them.
+  const { scoped } = overrideTerms(bucket, overrides);
+  for (let i = 0; i < scoped.length; ) {
+    let j = i + 1;
+    while (j < scoped.length && `{${scoped.slice(i, j + 1).join(" ")}}`.length <= MAX_FILTER_QUERY) j++;
+    out.push(j - i === 1 ? scoped[i] : `{${scoped.slice(i, j).join(" ")}}`);
+    i = j;
+  }
   return out;
 }
 
@@ -158,7 +182,7 @@ function buildQuery(
   domains: string[],
   first: boolean,
 ): string | null {
-  const { include: redirected, exclude } = overrideTerms(bucket, overrides);
+  const { include: redirected, exclude, notScoped } = overrideTerms(bucket, overrides);
   const include = first ? redirected : [];
   const matchAny: string[] = [];
   const not: string[] = [];
@@ -188,6 +212,7 @@ function buildQuery(
   if (include.length > 0) matchAny.push(fromAny(include));
   if (matchAny.length === 0) return null;
   if (exclude.length > 0) not.push(fromAny(exclude));
+  not.push(...notScoped);
 
   const match = matchAny.length === 1 ? matchAny[0] : `{${matchAny.join(" ")}}`;
   return [match, ...not.map((n) => `-${n}`)].join(" ");

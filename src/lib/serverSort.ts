@@ -44,7 +44,8 @@ export function bucketMatchTerms(
   for (const [rawAddr, target] of Object.entries(overrides)) {
     const addr = rawAddr.toLowerCase().trim();
     // No wildcards in Gmail search; Cluster's own pass applies patterns.
-    if (!addr || addr.includes("*")) continue;
+    // A kind-scoped key needs a subject term: categoryQueries handles those.
+    if (!addr || addr.includes("*") || addr.includes("|")) continue;
     if (target === bucket) include.add(addr);
     else exclude.add(addr); // "never", or another bucket
   }

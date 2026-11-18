@@ -114,3 +114,21 @@ describe("filter length", () => {
     expect(categoryQuery("shopping")).toContain("amazon.com");
   });
 });
+
+describe("kind-scoped corrections in filters", () => {
+  const overrides = { "ship@amazon.com|receipt": "shopping" as const };
+  it("gives the target its own from+subject query", () => {
+    const q = categoryQueries("shopping", overrides);
+    expect(q.at(-1)).toMatch(/^\(from:ship@amazon\.com subject:\(receipt OR invoice/);
+    expect(q.slice(0, -1).join(" ")).not.toContain("ship@amazon.com");
+  });
+  it("keeps the sender out of its kind's own filter only", () => {
+    expect(categoryQuery("receipt", overrides)).toContain("-from:(ship@amazon.com)");
+    expect(categoryQuery("shipping", overrides)).not.toContain("ship@amazon.com");
+  });
+  it("keeps a whole-sender redirect, minus the scoped kind", () => {
+    const q = categoryQuery("shipping", { ...overrides, "ship@amazon.com": "shipping" })!;
+    expect(q).toContain("from:(ship@amazon.com)");
+    expect(q).toContain("-(from:ship@amazon.com subject:(receipt");
+  });
+});

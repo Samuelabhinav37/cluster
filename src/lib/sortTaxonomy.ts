@@ -170,21 +170,35 @@ export function classifySortBucket(
  * Personal, or never sort them. */
 export type SortOverride = "never" | "personal" | SortBucket;
 
+/** Kinds a correction can be scoped to: each has subject phrases a Gmail
+ * filter can match (KIND_PHRASES in categoryQueries.ts). */
+export const SCOPED_KINDS: readonly MessageKind[] = ["otp", "accounts", "shipping", "receipt", "social", "jobs"];
+
+/** The override key for one kind of a sender's mail ("ship@amazon.com|receipt"),
+ * so fixing a store's receipts leaves its ads alone (Wendt et al., WSDM 2016). */
+export function kindKey(key: string, kind: MessageKind): string {
+  return `${key}|${kind}`;
+}
+
 /** The user's correction for this sender, if any: for this mailbox (any
  * spelling, or as older builds saved it), then its address pattern
- * (bounce-*@host), then the domain ("@host"). */
+ * (bounce-*@host), then the domain ("@host"). With a kind, a correction for
+ * that kind of the sender's mail comes first. */
 export function overrideFor(
   senderAddress: string,
   senderDomain: string,
   overrides: Record<string, SortOverride>,
+  kind?: MessageKind,
 ): SortOverride | undefined {
   const pattern = senderPattern(senderAddress);
-  return (
-    overrides[canonicalAddress(senderAddress)] ??
-    overrides[senderAddress.toLowerCase()] ??
-    (pattern ? overrides[pattern] : undefined) ??
-    overrides[`@${senderDomain.toLowerCase()}`]
-  );
+  const keys = [canonicalAddress(senderAddress), senderAddress.toLowerCase(), pattern, `@${senderDomain.toLowerCase()}`];
+  for (const scoped of kind ? [true, false] : [false]) {
+    for (const k of keys) {
+      const o = k ? overrides[scoped ? kindKey(k, kind!) : k] : undefined;
+      if (o) return o;
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -201,7 +215,7 @@ export function effectiveBucket(
   promotion = false,
   hints: SortHints = {},
 ): SortBucket | null {
-  const override = overrideFor(senderAddress, senderDomain, overrides);
+  const override = overrideFor(senderAddress, senderDomain, overrides, kind);
   // Personal isn't a label bucket: the unsorted pass files it.
   if (override === "never" || override === "personal") return null;
   if (override) return override;
