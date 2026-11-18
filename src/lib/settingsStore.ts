@@ -654,6 +654,52 @@ function migrateSyncedItems(items: Record<string, unknown>): Record<string, unkn
   return Object.fromEntries(Object.keys(raw).filter((k) => k !== "schemaVersion").map((k) => [SYNC_PREFIX + k, migrated[k]]));
 }
 const SYNC_ITEM_MAX = 8000;
+const CHUNK_MARK = "#";
+// 2,000 characters stay under sync's 8 KB item limit even if every one is escaped or 3 bytes.
+const CHUNK_CHARS = 2000;
+// Sync holds 100 KB in all; past this the choices stay on this computer.
+const SYNC_TOTAL_MAX = 90_000;
+
+/** Values over sync's 8 KB item limit split into `key#0`, `key#1` … with
+ * `{ chunks: n }` under the key. Corrections used to stop syncing at 8 KB.
+ * Undefined when the whole set is too big for sync. */
+export function chunkSyncItems(items: Record<string, unknown>): Record<string, unknown> | undefined {
+  const out: Record<string, unknown> = {};
+  let total = 0;
+  for (const [key, value] of Object.entries(items)) {
+    const json = JSON.stringify(value);
+    total += key.length + json.length;
+    if (json.length <= SYNC_ITEM_MAX) {
+      out[key] = value;
+      continue;
+    }
+    const n = Math.ceil(json.length / CHUNK_CHARS);
+    out[key] = { chunks: n };
+    for (let i = 0; i < n; i++) out[`${key}${CHUNK_MARK}${i}`] = json.slice(i * CHUNK_CHARS, (i + 1) * CHUNK_CHARS);
+  }
+  return total > SYNC_TOTAL_MAX ? undefined : out;
+}
+
+/** The reverse of chunkSyncItems; a value with a missing chunk is left out. */
+export function joinSyncItems(items: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(items)) {
+    if (key.includes(CHUNK_MARK)) continue;
+    const n = isRecord(value) && Object.keys(value).length === 1 && typeof value.chunks === "number" ? value.chunks : -1;
+    if (n < 0) {
+      out[key] = value;
+      continue;
+    }
+    const parts = Array.from({ length: n }, (_, i) => items[`${key}${CHUNK_MARK}${i}`]);
+    if (!parts.every((p) => typeof p === "string")) continue;
+    try {
+      out[key] = JSON.parse(parts.join(""));
+    } catch {
+      // Chunks from two different writes (mid-sync): the next change event has them all.
+    }
+  }
+  return out;
+}
 
 /** The synced items for these settings, keyed as stored in chrome.storage.sync. */
 export function syncedItems(settings: ClusterSettings): Record<string, unknown> {
@@ -687,21 +733,13 @@ async function pushSynced(settings: ClusterSettings): Promise<void> {
   const area = syncArea();
   if (!area || !pulled) return;
   try {
-    const items = { ...syncedItems(settings), [SYNC_SCHEMA_KEY]: CURRENT_SETTINGS_SCHEMA_VERSION };
-    const stored = await area.get(Object.keys(items));
-    const changed: Record<string, unknown> = {};
-    const tooBig: string[] = [];
-    for (const [key, value] of Object.entries(items)) {
-      const json = JSON.stringify(value);
-      if (json.length > SYNC_ITEM_MAX) {
-        // Past sync's item limit it stays on this computer. Its old synced
-        // copy is dropped: pulled back at every start, it undid newer choices.
-        if (key in stored) tooBig.push(key);
-        continue;
-      }
-      if (json !== JSON.stringify(stored[key])) changed[key] = value;
-    }
-    if (tooBig.length > 0) await area.remove(tooBig);
+    const items = chunkSyncItems({ ...syncedItems(settings), [SYNC_SCHEMA_KEY]: CURRENT_SETTINGS_SCHEMA_VERSION });
+    if (!items) return log.error("Settings too large to sync; kept on this computer");
+    const stored = await area.get(null);
+    const changed = Object.fromEntries(Object.entries(items).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(stored[key])));
+    // Chunks left over from a value that got smaller.
+    const stale = Object.keys(stored).filter((key) => key.startsWith(SYNC_PREFIX) && key.includes(CHUNK_MARK) && !(key in items));
+    if (stale.length > 0) await area.remove(stale);
     if (Object.keys(changed).length > 0) await area.set(changed);
   } catch (err) {
     // Sync is a convenience: a full quota or an offline browser keeps working locally.
@@ -715,7 +753,7 @@ export async function pullSyncedSettings(): Promise<void> {
   const area = syncArea();
   if (!area) return;
   const all = await area.get(null);
-  const items = Object.fromEntries(Object.entries(all).filter(([key]) => key.startsWith(SYNC_PREFIX)));
+  const items = joinSyncItems(Object.fromEntries(Object.entries(all).filter(([key]) => key.startsWith(SYNC_PREFIX))));
   if (Object.keys(items).length > 0) {
     await withStorageLock(STORAGE_KEY, async () => {
       const current = (await readSettings()).settings;

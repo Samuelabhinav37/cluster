@@ -364,17 +364,21 @@ describe("settings sync across devices", () => {
     expect((sync.items()["settings:autoSort"] as any).inboxHoursByBucket.jobs).toBe(1);
   });
 
-  it("a choice grown past sync's 8 KB item limit drops its old synced copy instead of pulling it back", async () => {
+  it("a choice grown past sync's 8 KB item limit syncs in chunks, and a smaller one cleans them up", async () => {
     const sync = syncArea();
     (globalThis as any).chrome.storage.sync = sync.area;
     await pullSyncedSettings();
-    await updateSettings({ sortOverrides: { "a@x.example": "shopping" } });
-    await vi.waitFor(() => expect(sync.items()["settings:sortOverrides"]).toBeDefined());
     const big = Object.fromEntries(Array.from({ length: 400 }, (_, i) => [`sender${i}@long-domain-name.example`, "newsletter" as const]));
     await updateSettings({ sortOverrides: big });
-    await vi.waitFor(() => expect(sync.items()["settings:sortOverrides"]).toBeUndefined());
+    await vi.waitFor(() => expect(sync.items()["settings:sortOverrides"]).toEqual({ chunks: 10 }));
+    for (const [key, value] of Object.entries(sync.items())) expect(key.length + JSON.stringify(value).length).toBeLessThanOrEqual(8192);
+    // Another computer pulls all 400 back.
+    await chrome.storage.local.set({ clusterSettings: { ...(await getSettings()), sortOverrides: {} } });
     await pullSyncedSettings();
     expect(Object.keys((await getSettings()).sortOverrides)).toHaveLength(400);
+    await updateSettings({ sortOverrides: { "a@x.example": "shopping" } });
+    await vi.waitFor(() => expect(sync.items()["settings:sortOverrides"]).toEqual({ "a@x.example": "shopping" }));
+    expect(Object.keys(sync.items()).filter((k) => k.includes("#"))).toEqual([]);
   });
 
   it("a new computer takes the synced choices and keeps its own bookkeeping", async () => {
