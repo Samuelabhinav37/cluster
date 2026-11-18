@@ -1879,7 +1879,6 @@ function renderDeleteScreen(senders: SenderSummary[]) {
     ...(cuKpi !== "old" ? pageItems("never").map((it) => ({ ...it, reason: whyNever(it.sender) })) : []),
     ...(cuKpi !== "never" ? pageItems("old").map((it) => ({ ...it, reason: "Past its date" })) : []),
   ];
-  paintSafe(plan.neverReadMsgs + plan.expiryTotal);
   renderSenderTable(document.getElementById("cu-senders-table")!, {
     id: "senders",
     columns: ["note", "read", "emails", "size", "last"],
@@ -1903,42 +1902,6 @@ function whyNever(sender: SenderSummary): string {
   if (!p.stillSending) return "Stopped sending";
   const opened = Math.round((p.openRate ?? 0) * p.judged);
   return opened === 0 ? "Never opened" : `Opened ${opened} of ${p.judged}`;
-}
-
-/** Above the table: how much is safe to trash, why, and one button for it (the table's Trash all). */
-let safeTotal = 0;
-// The card belongs to the Senders tab; Mailing lists shares the page head but trashes nothing.
-document.addEventListener("cluster:screen", (e) => {
-  const box = document.getElementById("cu-safe");
-  if (box) box.hidden = safeTotal === 0 || (e as CustomEvent<string>).detail !== "delete";
-});
-
-function paintSafe(total: number) {
-  const box = document.getElementById("cu-safe");
-  if (!box) return;
-  safeTotal = total;
-  box.hidden = total === 0 || document.body.dataset.screen === "subscriptions";
-  if (total === 0) return box.replaceChildren();
-  const words = document.createElement("div");
-  words.className = "cs-words";
-  words.append(
-    Object.assign(document.createElement("b"), { textContent: `${total.toLocaleString()} email${total === 1 ? " is" : "s are"} safe to trash` }),
-    Object.assign(document.createElement("p"), {
-      // Every Cleanup list leaves out protected mail (protectionPolicy.ts); Gmail empties Trash after 30 days.
-      textContent: "None are starred, important or from people you write to, and Gmail keeps Trash for 30 days.",
-    }),
-  );
-  const review = Object.assign(document.createElement("button"), { type: "button", className: "btn", textContent: "Review" });
-  review.onclick = () => document.getElementById("cu-senders-table")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  const trash = Object.assign(document.createElement("button"), { type: "button", className: "btn btn-accent-solid", textContent: "Trash" });
-  trash.onclick = () => {
-    review.click();
-    document.querySelector<HTMLButtonElement>("#cu-tools-senders .ct-all")?.click();
-  };
-  const acts = document.createElement("div");
-  acts.className = "cs-acts";
-  acts.append(review, trash);
-  box.replaceChildren(words, acts);
 }
 
 let lastPlan: ReturnType<typeof clearOutPlan> | null = null;
