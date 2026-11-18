@@ -15,6 +15,7 @@ import {
   deleteSenderFilters,
   deleteSenderFiltersAdding,
   findLabelIds,
+  listLabels,
   getOrCreateLabel,
   labelMessages as apiLabelMessages,
   unlabelMessages as apiUnlabelMessages,
@@ -38,7 +39,7 @@ import {
 import { parseListUnsubscribe, signedByAlignedDkim } from "../unsubscribe";
 import { deliveredToAddresses, relationshipFields, shapeFields } from "../headerFields";
 import { MAIL_ROW_VERSION } from "../mailIndex";
-import { clusterLabelName } from "../clusterLabels";
+import { clusterLabelName, labelLookupNames } from "../clusterLabels";
 import { selectTrustedAuthenticationResults } from "../emailAuth";
 import type {
   CandidateScope,
@@ -381,10 +382,14 @@ export const gmailProvider: EmailProvider = {
     await apiResurfaceMessages(token, ids);
   },
 
-  async labelSuspicious(token, ids, toSpam = false) {
+  async labelSuspicious(token, ids, toSpam = false, dropLabelNames = []) {
     const labelId = await getOrCreateLabel(token, SUSPICIOUS_LABEL_NAME);
+    // A scam never keeps a sort label: a Gmail filter may have filed a fake
+    // Netflix "receipt" under Receipts before the hold saw it.
+    const drop = new Set(dropLabelNames.flatMap(labelLookupNames).map((n) => n.toLowerCase()));
+    const dropIds = drop.size === 0 ? [] : (await listLabels(token)).filter((l) => drop.has(l.name.toLowerCase())).map((l) => l.id);
     // Spam also teaches Gmail's own filter, like its Report spam button.
-    await batchModify(token, ids, toSpam ? [labelId, "SPAM"] : [labelId], ["INBOX"]);
+    await batchModify(token, ids, toSpam ? [labelId, "SPAM"] : [labelId], ["INBOX", ...dropIds]);
   },
 
   async unlabelSuspicious(token, ids) {

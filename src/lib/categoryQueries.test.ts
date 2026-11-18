@@ -32,6 +32,15 @@ describe("KIND_PHRASES", () => {
 });
 
 describe("categoryQuery", () => {
+  it("never files free mail by subject: a scam's fake receipt from gmail.com gets no label", () => {
+    for (const bucket of ["otp", "accounts", "shipping", "receipt", "social", "jobs"] as const)
+      for (const q of categoryQueries(bucket)) {
+        expect(q).toContain("-from:(gmail.com OR googlemail.com");
+        expect(q.length).toBeLessThanOrEqual(MAX_FILTER_QUERY);
+      }
+    expect(categoryQueries("shopping").join(" ")).not.toContain("gmail.com");
+  });
+
   it("skips a company's other services: AWS isn't Shopping, LinkedIn job alerts aren't Social", () => {
     const shopping = categoryQueries("shopping").join(" ");
     expect(shopping).toContain("-from:(");

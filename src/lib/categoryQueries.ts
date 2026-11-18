@@ -66,6 +66,15 @@ export const KIND_PHRASES: Record<SubjectKind, string[]> = {
  * by OTP_EXCLUDE_RE in messageKind.ts. */
 export const OTP_EXCLUDED_PHRASES = ["alert", "disabled", "changed", "new sign-in", "suspicious"];
 
+/** The biggest free-mail domains. A "receipt" or "security alert" from one is
+ * a person or a scam, never a company, so a subject filter skips them, as
+ * classifySortBucket does with the whole FREE_MAIL_DOMAINS list.
+ * shortcut: 12 of ~80 to keep each filter under MAX_FILTER_QUERY; the client pass catches the rest. */
+export const FILTER_FREE_MAIL = [
+  "gmail.com", "googlemail.com", "yahoo.com", "outlook.com", "hotmail.com", "live.com",
+  "icloud.com", "aol.com", "protonmail.com", "proton.me", "yahoo.co.in", "rediffmail.com",
+];
+
 const KIND_ORDER: SubjectKind[] = ["otp", "accounts", "shipping", "receipt", "social", "jobs"];
 
 function term(phrase: string): string {
@@ -161,6 +170,7 @@ function buildQuery(
     if (earlier.length > 0) not.push(subjectAny(earlier));
     if (bucket === "otp") not.push(subjectAny(OTP_EXCLUDED_PHRASES));
     if (bucket === "accounts") not.push("subject:CVE");
+    not.push(fromAny(FILTER_FREE_MAIL));
   } else if (bucket === "promotions") {
     if (first) matchAny.push("category:promotions");
     not.push(subjectAny(ALL_KIND_PHRASES));

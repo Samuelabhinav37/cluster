@@ -342,7 +342,7 @@ describe("auto-quarantine (opt-in)", () => {
 
   it("quarantines an unknown high-risk sender when the setting is on", async () => {
     await triageWith(highRiskSender("stranger@gmail.com"), []);
-    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"], false);
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"], false, expect.arrayContaining(["🧾 Receipts"]));
   });
 
   it("the 5-minute alarm holds a high-risk sender from the mail index", async () => {
@@ -355,7 +355,7 @@ describe("auto-quarantine (opt-in)", () => {
     readIndexedSenders.mockResolvedValueOnce({ cleanup: [], security: [highRiskSender("stranger@gmail.com")] });
     try {
       alarmListener!({ name: "cluster-inbox-limits" });
-      await vi.waitFor(() => expect(spy).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"], false), { timeout: 2000 });
+      await vi.waitFor(() => expect(spy).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"], false, expect.arrayContaining(["🧾 Receipts"])), { timeout: 2000 });
     } finally {
       refreshIndexForBackground.mockResolvedValue([]);
       for (const k of Object.keys(SETTINGS)) delete (SETTINGS as Record<string, unknown>)[k];
@@ -382,7 +382,7 @@ describe("auto-quarantine (opt-in)", () => {
 
   it("also sends held mail to Spam when that rule is on", async () => {
     await triageWith(highRiskSender("stranger@gmail.com"), [], { securityRules: { toSpam: true, holdAuthFails: false } });
-    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"], true);
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"], true, expect.arrayContaining(["🧾 Receipts"]));
   });
 
   it("holds mail that fails sender checks on that alone, but not from someone the user writes to", async () => {
@@ -393,7 +393,7 @@ describe("auto-quarantine (opt-in)", () => {
     } as unknown as ReturnType<typeof highRiskSender>;
     const rules = { autoQuarantineHighRisk: false, securityRules: { toSpam: false, holdAuthFails: true } };
     await triageWith(forged, [], rules);
-    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"], false);
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"], false, expect.arrayContaining(["🧾 Receipts"]));
     await triageWith(forged, ["billing@bank.example"], rules);
     expect(await labelSuspiciousSpy()).not.toHaveBeenCalled();
   });
@@ -420,7 +420,7 @@ describe("auto-quarantine (opt-in)", () => {
 
   it("holds only the hijacked message from someone the user corresponds with", async () => {
     await triageWith(hijacked("billing@acme.example"), ["billing@acme.example"]);
-    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["bad"], false);
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["bad"], false, expect.arrayContaining(["🧾 Receipts"]));
   });
 
   it("records what it held in the weekly scam history", async () => {
@@ -451,12 +451,12 @@ describe("auto-quarantine (opt-in)", () => {
     await triageWith(highRiskSender("stranger@gmail.com"), [], {
       quarantinedSenders: { "gmail:stranger@gmail.com": { at: 0, messageIds: ["q1"] } },
     });
-    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q2"], false);
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q2"], false, expect.arrayContaining(["🧾 Receipts"]));
   });
 
   it("still quarantines a known address when its authentication fails", async () => {
     const spoofed = { ...highRiskSender("chase.miller@gmail.com"), authVerdicts: { spf: "fail", dkim: "fail", dmarc: "fail" } };
     await triageWith(spoofed, ["chase.miller@gmail.com"]);
-    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"], false);
+    expect(await labelSuspiciousSpy()).toHaveBeenCalledWith(expect.anything(), ["q1", "q2"], false, expect.arrayContaining(["🧾 Receipts"]));
   });
 });

@@ -6,6 +6,7 @@ import { checkMark, type MarkCheckResult } from "../lib/markCheck";
 import { mutateSettings, type BrandVerdict } from "../lib/settingsStore";
 import type { SenderSummary } from "../lib/senderModel";
 import { clusterLabelName } from "../lib/clusterLabels";
+import { sortLabelNames } from "../lib/categoryFilters";
 import { log } from "../lib/log";
 import { brandName as title } from "../lib/verdict";
 import { senderTile } from "./senderTile";
@@ -164,7 +165,7 @@ function mismatchRow(sender: SenderSummary, redraw: () => void): HTMLElement {
       true,
       async () => {
         const token = await provider.getAuthToken(false);
-        await provider.labelSuspicious!(token, sender.messageIds);
+        await provider.labelSuspicious!(token, sender.messageIds, false, sortLabelNames(ctx.settings.labelChoices));
         await settle();
         await logAction("labelSuspicious", `Blocked ${domain} pretending to be ${title(brand)}`);
         setTimeout(redraw, 1200);

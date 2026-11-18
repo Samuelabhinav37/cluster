@@ -1,3 +1,4 @@
+import { sortLabelNames } from "./lib/categoryFilters";
 import { failsSenderChecks } from "./lib/emailAuth";
 import { buildProtectionContext, idsSafeToMoveOut } from "./lib/protectionPolicy";
 import { log } from "./lib/log";
@@ -354,7 +355,7 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
     if (ids.length === 0) continue;
 
     try {
-      await provider.labelSuspicious(token, ids, rules.toSpam);
+      await provider.labelSuspicious(token, ids, rules.toSpam, sortLabelNames(settings.labelChoices));
       // Their next email is held by Gmail itself on arrival, Chrome open or not.
       // Only strangers: a contact's hijacked email is held message by message.
       // shortcut: no cap on these filters (Gmail allows 1,000), add one if scam senders pile up.

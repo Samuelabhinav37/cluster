@@ -234,7 +234,7 @@ export interface EmailProvider {
    * rule that would silently keep acting on future mail unreviewed. Never
    * deletes — same "label/quarantine, never delete" rule as keepSorted.
    */
-  labelSuspicious?(token: string, ids: string[], toSpam?: boolean): Promise<void>;
+  labelSuspicious?(token: string, ids: string[], toSpam?: boolean, dropLabelNames?: readonly string[]): Promise<void>;
   /** Reverses labelSuspicious: drops the "Possible Phishing" label and
    * files the messages back into the inbox. Gmail-only, used by the
    * Recently-done Undo for auto-quarantine. */

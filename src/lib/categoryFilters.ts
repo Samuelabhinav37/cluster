@@ -24,6 +24,11 @@ export interface CategoryFilterSpec {
 
 /** The label a category's mail goes under, honouring a clash the user
  * resolved in Sort my inbox ("Use my Shopping" / "keep separate"). */
+/** Every sort label's name as this user has it: what a held scam must lose. */
+export function sortLabelNames(labelChoices: Record<string, string> = {}): string[] {
+  return ALL_SORT_BUCKETS.map((b) => categoryLabelName(b, labelChoices));
+}
+
 export function categoryLabelName(bucket: SortBucket, labelChoices: Record<string, string>): string {
   const name = bucketLabelName(bucket);
   return labelChoices[name] ?? name;
