@@ -266,6 +266,7 @@
       else if (t === "is:important") r = false;
       else if (t.startsWith("category:")) r = L.includes("CATEGORY_" + t.slice(9).toUpperCase());
       else if (t.startsWith("filename:") || t.startsWith("has:attachment")) r = false;
+      else if (t.startsWith("__g")) r = groupHit(groupList[Number(t.slice(3))]);
       else if (t.startsWith("from:")) r = from.toLowerCase().includes(t.slice(5).replace(/[()"]/g, "").toLowerCase());
       else if (t.startsWith("label:")) r = L.some((id) => { const l = LABELS.find((x) => x.id === id); return l && l.name.toLowerCase() === t.slice(6).toLowerCase(); });
       else if (t.startsWith("subject:")) r = subj.toLowerCase().includes(t.slice(8).replace(/"/g, "").toLowerCase());
@@ -275,19 +276,25 @@
     // split top-level: parenthesized groups are OR-lists
     // "from:(a@b)" is one term, not an OR-group.
     q = q.replace(/(^|\s)(-?)(from|to|list):\(([^()\s]*)\)/g, "$1$2$3:$4");
-    // "-subject:(a OR b)" applies the field to each choice, then negates.
-    const groups = []; let rest = q.replace(/(-?)(\w+:)?\(([^()]*)\)/g, (_s, neg, field, inner) => { groups.push({ neg: !!neg, field: field || "", inner }); return " "; });
-    for (const g of groups) {
-      const alts = g.inner.split(/\s+OR\s+|\s*\{|\}/).map((t) => t.trim()).filter(Boolean);
-      const hit = alts.some((t) => (g.field ? term(g.field + t.replace(/"/g, "")) : t.split(/\s+/).every(term)));
-      if (hit === g.neg) return false;
-    }
-    if (/\sOR\s/.test(rest)) return rest.split(/\s+OR\s+/).some((p) => p.trim().split(/\s+/).every(term));
+    // Groups, innermost first, become tokens, so "(a OR (b c)) newer_than:7d"
+    // keeps its date; "-subject:(a OR b)" applies the field to each choice.
+    const groups = []; let rest = q, before;
+    do {
+      before = rest;
+      rest = rest.replace(/(\w+:)?\(([^()]*)\)/g, (_s, field, inner) => { groups.push({ field: field || "", inner }); return "__g" + (groups.length - 1); });
+    } while (rest !== before);
+    const expr = (e) => e.split(/\s+OR\s+/).some((p) => p.trim().split(/\s+/).every(term));
+    groupHit = (g) => g.field
+      ? g.inner.split(/\s+OR\s+/).some((t) => term(g.field + t.trim().replace(/"/g, "")))
+      : expr(g.inner.replace(/[{}]/g, " ").trim());
+    groupList = groups;
+    if (/\sOR\s/.test(rest)) return expr(rest);
     if (!L.includes("SENT") && !q.includes("in:sent") && L.includes("SENT")) return false;
     if (q.indexOf("in:sent") === -1 && L.includes("SENT")) return false;
     if (q.indexOf("in:trash") === -1 && L.includes("TRASH")) return false;
     return rest.trim().split(/\s+/).every(term);
   }
+  let groupHit = () => true, groupList = [];
 
   const json = (o, status = 200) => new Response(o == null ? null : JSON.stringify(o), { status, headers: { "content-type": "application/json" } });
   const realFetch = window.fetch.bind(window);

@@ -32,8 +32,10 @@ export const REFRESH_WINDOW_MS = 7 * DAY_MS;
 const WRITE_BATCH = 25;
 /** First list page, read before the full listing so the first screen is quick. */
 const FIRST_PAGE = 500;
-/** Mail this recent is read in full before older mail is counted by sender. */
-const RECENT_DAYS = 30;
+/** Mail this recent is read in full before older mail is counted by sender.
+ * A week fills "this week" on the Dashboard; counting by sender is 3 to 6 times
+ * faster than reading every email, so a month in full held the first read up. */
+const RECENT_DAYS = 7;
 /** 150 headers cost 3,000 of Gmail's ~5,500 units a minute, so the first
  * screen fits inside one minute's quota with room for the page's own calls. */
 export const DEFAULT_QUICK_COUNT = 150;
@@ -49,6 +51,8 @@ export interface SyncProgress {
   done: number;
   /** Messages this run needs to read. */
   total: number;
+  /** Counting mail by sender: `done` jumps as each sender's mail is found. */
+  counting?: boolean;
 }
 
 export interface SyncOptions {
@@ -623,7 +627,7 @@ async function discoverAndCount(
         log.error(`mailSync: could not count mail from ${address}`, error);
       }
     }
-    options.onProgress?.({ phase: "reading", done: position, total: queue.length });
+    options.onProgress?.({ phase: "reading", done: position, total: queue.length, counting: true });
     batches += 1;
     if (batches % CENSUS_SAVE_EVERY === 0) await saveCensus();
   }

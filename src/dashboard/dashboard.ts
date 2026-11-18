@@ -1148,13 +1148,16 @@ function updateIndexStatus() {
     done,
     active.reduce((sum, p) => sum + p.total, 0),
   );
-  const phase = active.some((p) => p.phase === "sent") ? "sent" : "mail";
+  // The detail read after the sender count starts again from 0: its own pace, not the count's.
+  const phase = active.some((p) => p.phase === "sent") ? "sent" : active.every((p) => p.phase === "detail") ? "detail" : "mail";
   if (paceSample?.phase !== phase || done < paceSample.done) paceSample = { phase, at: Date.now(), done };
   const elapsed = Date.now() - paceSample.at;
   const rate = (done - paceSample.done) / elapsed;
   // No time until 20 s of real pace exists: a guess from the quota share ran low and then
   // went up once the sort shared Gmail's budget, and a rising estimate reads as going backwards.
-  const minutes = rate > 0 && elapsed > 20_000 ? Math.ceil((total - done) / rate / 60_000) : 0;
+  // Counting by sender skips ahead in jumps, so its pace says nothing about the time left.
+  const counting = active.some((p) => p.counting);
+  const minutes = !counting && rate > 0 && elapsed > 20_000 ? Math.ceil((total - done) / rate / 60_000) : 0;
   // Gmail's per-minute pauses are normal pacing, already in the estimate: no
   // "paused" line, which read like an error.
   const eta =

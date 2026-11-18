@@ -626,9 +626,9 @@ describe("syncMailIndex: fetch one, count many", () => {
     expect(row.unread).toBe(-1);
   });
 
-  it("reads the last 30 days in full before counting older mail (2.1)", async () => {
-    const recent = Array.from({ length: 20 }, (_, i) => bulk(`new${i}`, "deals@shop.com", i + 1));
-    const old = Array.from({ length: 20 }, (_, i) => bulk(`old${i}`, "deals@shop.com", i + 40));
+  it("reads the last 7 days in full before counting older mail (2.1)", async () => {
+    const recent = Array.from({ length: 20 }, (_, i) => bulk(`new${i}`, "deals@shop.com", 1 + (i % 6)));
+    const old = Array.from({ length: 20 }, (_, i) => bulk(`old${i}`, "deals@shop.com", i + 9));
     const mailbox = [...recent, ...old];
     const fake = fakeGmail(mailbox);
     const listFrom = vi.fn(async (_t: string, address: string) =>
