@@ -61,7 +61,7 @@ export function buildInboxHealth(input: {
 
   const unsubscribeCapable = senders.filter((s) => hasUnsubscribe(s.unsubscribe)).length;
 
-  const screenerQueue = settings.screenerEnabled ? settings.screenedSenders.length : 0;
+  const screenerQueue = settings.screenerEnabled || settings.autoSort.holdUnsorted ? settings.screenedSenders.length : 0;
 
   const doneLast7Days = settings.actionLog.filter(
     (e) => !e.undone && e.at >= now - 7 * DAY_MS,

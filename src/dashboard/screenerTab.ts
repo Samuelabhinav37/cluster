@@ -33,7 +33,9 @@ function firstWrote(sender: SenderSummary): string {
   if (days <= 0) return "First wrote today";
   if (days === 1) return "First wrote yesterday";
   if (days < 7) return `First wrote ${days} days ago`;
-  return `First wrote ${new Date(earliest).toLocaleDateString()}`;
+  const date = new Date(earliest);
+  const year = date.getFullYear() === new Date().getFullYear() ? undefined : "numeric";
+  return `First wrote ${date.toLocaleDateString("en-US", { month: "short", day: "numeric", year })}`;
 }
 
 const screenerToggle = document.getElementById("screener-toggle") as HTMLInputElement;
@@ -113,16 +115,15 @@ function isFamiliar(s: SenderSummary): boolean {
 }
 
 /** One row for every familiar waiting sender, so they can be let in together. */
-function buildFamiliarBatch(familiar: SenderSummary[]): HTMLDivElement {
-  const row = document.createElement("div");
-  row.className = "sender-row batch-row";
-  const text = document.createElement("div");
-  text.className = "sr-text";
-  const name = document.createElement("div");
-  name.className = "sr-name";
-  name.textContent = `${familiar.length} senders you already get mail from`;
-  text.append(name);
-  const slot = document.createElement("span");
+function buildFamiliarBatch(familiar: SenderSummary[]): HTMLTableRowElement {
+  const row = document.createElement("tr");
+  row.className = "scr-row batch-row";
+  const name = document.createElement("td");
+  name.colSpan = 4;
+  name.className = "scr-name";
+  name.textContent = `${familiar.length} mailing lists and older senders`;
+  const slot = document.createElement("td");
+  slot.className = "scr-c-act";
   const allow = document.createElement("button");
   allow.className = "btn btn-accent";
   allow.textContent = "Let in all";
@@ -142,20 +143,26 @@ function buildFamiliarBatch(familiar: SenderSummary[]): HTMLDivElement {
       return `Let in ${done} of ${familiar.length}.`;
     });
   reset();
-  row.append(text, slot);
+  row.append(name, slot);
   return row;
 }
 
 export function renderScreenerTab(senders: SenderSummary[]) {
-  screenerToggle.checked = ctx.settings.screenerEnabled;
-  if (holdPeopleToggle) holdPeopleToggle.checked = ctx.settings.screenerHoldPeople;
+  // Two things hold mail: the old Screener and "Hold mail with no label" (Settings).
+  const holding = ctx.settings.screenerEnabled || ctx.settings.autoSort.holdUnsorted;
+  screenerToggle.checked = holding;
+  if (holdPeopleToggle) {
+    holdPeopleToggle.checked = ctx.settings.screenerHoldPeople;
+    holdPeopleToggle.disabled = !holding;
+  }
   renderScreenerBacklog().catch((err) => log.error("Screener backlog render failed", err));
 
   screenerQueueEl.innerHTML = "";
   if (screenerQueueCountEl) screenerQueueCountEl.textContent = "";
   const held = new Set(ctx.settings.screenedSenders.map((a) => a.toLowerCase()));
-  const showHeldOnly = !ctx.settings.screenerEnabled && ctx.settings.autoSort.holdUnsorted && held.size > 0;
-  if (!ctx.settings.screenerEnabled && !showHeldOnly) {
+  // Without the old Screener, only mail that really was held is waiting.
+  const showHeldOnly = !ctx.settings.screenerEnabled;
+  if (!holding) {
     const p = document.createElement("p");
     p.className = "empty-state";
     p.textContent =
@@ -173,20 +180,26 @@ export function renderScreenerTab(senders: SenderSummary[]) {
     if (queue.length === 0) {
       const p = document.createElement("p");
       p.className = "empty-state";
-      p.textContent = "No one is waiting. Everyone who wrote recently is someone you've emailed or let in.";
+      p.textContent = "No one is waiting.";
       screenerQueueEl.appendChild(p);
     } else {
       if (screenerQueueCountEl) {
         screenerQueueCountEl.textContent = `${queue.length} sender${queue.length === 1 ? "" : "s"}`;
       }
-      const rows = document.createElement("div");
-      rows.className = "sender-rows";
-      const familiar = queue.filter(isFamiliar);
-      if (familiar.length > 1) rows.appendChild(buildFamiliarBatch(familiar));
-      for (const s of queue) {
-        rows.appendChild(buildScreenerRow(s));
+      const table = document.createElement("table");
+      table.className = "ct-table scr-table";
+      const head = table.createTHead().insertRow();
+      for (const [text, cls] of [["Sender", ""], ["Emails", "num"], ["First email", ""], ["Label", ""], ["", "scr-c-act"]]) {
+        const th = document.createElement("th");
+        th.textContent = text;
+        if (cls) th.className = cls;
+        head.append(th);
       }
-      screenerQueueEl.appendChild(rows);
+      const body = table.createTBody();
+      const familiar = queue.filter(isFamiliar);
+      if (familiar.length > 1) body.appendChild(buildFamiliarBatch(familiar));
+      for (const s of queue) body.appendChild(buildScreenerRow(s));
+      screenerQueueEl.appendChild(table);
     }
   }
 
@@ -230,32 +243,38 @@ export function renderScreenerTab(senders: SenderSummary[]) {
   }
 }
 
-/** One waiting sender: who, their newest subject line, and Let in / Block.
- * Names, addresses and subjects come from the sender, so they go in as text. */
-function buildScreenerRow(s: SenderSummary): HTMLDivElement {
-  const row = document.createElement("div");
-  row.className = "sender-row";
-  const text = document.createElement("div");
-  text.className = "sr-text";
-  const name = document.createElement("div");
-  name.className = "sr-name";
+/** One waiting sender as a table row: who (name, address under it), how many
+ * emails, when they first wrote, a label to file them under, Block and Let in.
+ * Names and addresses come from the sender, so they go in as text. */
+function buildScreenerRow(s: SenderSummary): HTMLTableRowElement {
+  const row = document.createElement("tr");
+  row.className = "scr-row";
+  const cell = (cls: string, ...kids: Array<Node | string>) => {
+    const td = document.createElement("td");
+    if (cls) td.className = cls;
+    td.append(...kids);
+    row.append(td);
+  };
+  const who = document.createElement("span");
+  who.className = "scr-who";
+  const words = document.createElement("span");
+  words.className = "scr-words";
+  const name = document.createElement("b");
+  name.className = "scr-name";
   name.textContent = s.displayName || s.address;
-  const sub = document.createElement("div");
-  sub.className = "sr-sub";
-  const newest = [...s.messages].sort((a, b) => b.receivedAt - a.receivedAt).find((m) => m.subject);
+  const address = document.createElement("span");
+  address.className = "scr-addr";
+  address.textContent = s.address;
+  words.append(name, ...(s.displayName ? [address] : []));
+  who.append(senderTile(s.address, s.displayName, "sz-30"), words);
   const n = s.messages.length || s.messageIds.length;
-  sub.textContent = [
-    newest?.subject ? `"${newest.subject}"` : null,
-    `${n} email${n === 1 ? "" : "s"}`,
-    s.address,
-    firstWrote(s),
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  text.append(name, sub);
+  const first = firstWrote(s).replace(/^First wrote /, "");
+  cell("", who);
+  cell("num", n.toLocaleString());
+  cell("ct-dim", first.charAt(0).toUpperCase() + first.slice(1));
 
   const block = document.createElement("button");
-  block.className = "btn btn-ghost";
+  block.className = "btn btn-danger";
   block.textContent = "Block";
   // Only a signed company gets an unsubscribe: to a spammer it just proves the address is read.
   const stopUrl = ctx.profiles.get(s.key)?.companyKey ? s.unsubscribe.postUrl : undefined;
@@ -285,8 +304,11 @@ function buildScreenerRow(s: SenderSummary): HTMLDivElement {
       log.error(err);
     }
   };
-  const label = s.provider === "gmail" ? labelPicker(s) : null;
-  row.append(senderTile(s.address, s.displayName, "sz-30"), text, ...(label ? [label] : []), block, allow);
+  cell("", ...(s.provider === "gmail" ? [labelPicker(s)] : []));
+  const acts = document.createElement("span");
+  acts.className = "scr-acts";
+  acts.append(block, allow);
+  cell("scr-c-act", acts);
   return row;
 }
 
@@ -328,7 +350,8 @@ function labelPicker(s: SenderSummary): HTMLSelectElement {
 
 export function wireScreenerTab() {
   screenerToggle.onchange = async () => {
-    ctx.settings = await updateSettings({ screenerEnabled: screenerToggle.checked });
+    const on = screenerToggle.checked;
+    ctx.settings = await updateSettings({ screenerEnabled: on, autoSort: { ...ctx.settings.autoSort, holdUnsorted: on } });
     if (screenerToggle.checked) {
       screenerToggle.disabled = true;
       try {

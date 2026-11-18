@@ -7,23 +7,38 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { bootDashboard, fixtureMailbox } from "./testHarness";
 
 function findScreenerCard(container: HTMLElement, address: string): HTMLElement {
-  const card = Array.from(container.querySelectorAll(".sender-row")).find((c) =>
+  const card = Array.from(container.querySelectorAll(".scr-row")).find((c) =>
     c.textContent?.includes(address),
   );
   if (!card) throw new Error(`no screener card for "${address}"`);
   return card as HTMLElement;
 }
 
+// Holding starts on for new users; these tests turn it on themselves.
+const OFF = { autoSort: { holdUnsorted: false } } as never;
+
 beforeEach(() => {
   vi.restoreAllMocks();
 });
 
 describe("Screener", () => {
+  it("the switch shows On when mail with no label is held, and Off turns both holds off", async () => {
+    const dash = await bootDashboard({ settings: { screenerEnabled: false, autoSort: { holdUnsorted: true } } as never });
+    dash.showScreen("screener");
+    const toggle = dash.el("screener-toggle") as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+    expect((dash.el("screener-people") as HTMLInputElement).disabled).toBe(false);
+    toggle.click();
+    toggle.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(dash.storedSettings().autoSort.holdUnsorted).toBe(false));
+    expect(dash.storedSettings().screenerEnabled).toBe(false);
+  });
+
   it("holds every sender the user hasn't corresponded with once turned on", async () => {
     // The default spy's listSentCorrespondents resolves [], so every fixture
     // sender is "unknown" except the already-starred family@personal.example
     // (pendingScreenerSenders excludes anyone with a protected message).
-    const dash = await bootDashboard();
+    const dash = await bootDashboard({ settings: OFF });
     dash.showScreen("screener");
 
     const toggle = dash.el("screener-toggle") as HTMLInputElement;
@@ -58,7 +73,7 @@ describe("Screener", () => {
   });
 
   it("Let in allows a held sender and drops them from the queue", async () => {
-    const dash = await bootDashboard();
+    const dash = await bootDashboard({ settings: OFF });
     dash.showScreen("screener");
     const toggle = dash.el("screener-toggle") as HTMLInputElement;
     toggle.click();
@@ -95,7 +110,7 @@ describe("Screener", () => {
   it("Block mutes a held sender instead of calling screenSender again", async () => {
     // releaseHeldSender's "block" branch calls muteSender, not screenSender —
     // blocking is the existing Mute primitive, not a second screener state.
-    const dash = await bootDashboard();
+    const dash = await bootDashboard({ settings: OFF });
     dash.showScreen("screener");
     const toggle = dash.el("screener-toggle") as HTMLInputElement;
     toggle.click();
@@ -136,7 +151,7 @@ describe("Screener", () => {
         ? new Response(JSON.stringify({ emailAddress: "test@example.com" }), { status: 200 })
         : new Response("", { status: 202 }),
     ) as unknown as typeof fetch;
-    const dash = await bootDashboard({ mailbox, fetchImpl, grantOrigins: true });
+    const dash = await bootDashboard({ mailbox, fetchImpl, grantOrigins: true, settings: OFF });
     dash.showScreen("screener");
     const toggle = dash.el("screener-toggle") as HTMLInputElement;
     toggle.click();
@@ -152,7 +167,7 @@ describe("Screener", () => {
   });
 
   it("Let in all lets familiar senders in after one confirm, never one with a scam warning", async () => {
-    const dash = await bootDashboard();
+    const dash = await bootDashboard({ settings: OFF });
     dash.showScreen("screener");
     const toggle = dash.el("screener-toggle") as HTMLInputElement;
     toggle.click();
@@ -163,7 +178,7 @@ describe("Screener", () => {
     });
 
     const batch = queue.querySelector<HTMLElement>(".batch-row")!;
-    const count = Number(batch.querySelector(".sr-name")!.textContent!.split(" ")[0]);
+    const count = Number(batch.querySelector(".scr-name")!.textContent!.split(" ")[0]);
     expect(count).toBeGreaterThan(1);
     batch.querySelector<HTMLButtonElement>("button")!.click();
     Array.from(batch.querySelectorAll("button")).find((b) => b.textContent === "Confirm")!.click();
