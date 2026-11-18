@@ -21,6 +21,7 @@ import { isMailboxName } from "./nameMatch";
 import { TIME_SENSITIVE_QUERY } from "./categoryQueries";
 import { effectiveBucket, overrideFor, senderCategory, type SortBucket, type SortOverride } from "./sortTaxonomy";
 import { senderVerdict, type VerdictTier } from "./verdict";
+import type { QuarantineReviewMap } from "./quarantineReview";
 
 const HOUR_MS = 60 * 60 * 1000;
 /** How far back the tagger looks for unlabelled inbox mail. */
@@ -65,6 +66,10 @@ export interface LimitContext {
   /** Senders with a label swap not yet learned (learnFromMoves): the user
    * is filing them by hand, so the relabel doesn't undo it. */
   moveVotes?: Record<string, unknown>;
+  /** The user's "not a scam" answers and Security's Strict switch: the scam
+   * hold's own inputs, so every pass judges risk the same way (engine step 5). */
+  review?: QuarantineReviewMap;
+  strict?: boolean;
   overrides: Record<string, SortOverride>;
   now: number;
   /** Messages an earlier sweep already decided to keep (see SweepResult). */
@@ -79,15 +84,15 @@ function epochSeconds(ms: number): number {
 
 /** Senders whose mail must never be moved or auto-labelled. */
 function skipSender(sender: SenderSummary, ctx: LimitContext): boolean {
-  return (ctx.wrote ?? ctx.known).has(sender.address.toLowerCase()) || scamTier(sender, ctx.known) !== "none";
+  return (ctx.wrote ?? ctx.known).has(sender.address.toLowerCase()) || scamTier(sender, ctx) !== "none";
 }
 
 /** The scam hold's own verdict, so every pass agrees on what's risky. "hold"
  * is the hold's to move (to Spam); "warn" is never labelled or filed as
  * Personal, it goes to the Screener for a look. A raw score used to say
  * "high" where the verdict didn't hold, and that mail sat in the inbox. */
-function scamTier(sender: SenderSummary, known: Set<string>): VerdictTier {
-  return senderVerdict(sender, { knownCorrespondent: known.has(sender.address) }).tier;
+function scamTier(sender: SenderSummary, ctx: LimitContext): VerdictTier {
+  return senderVerdict(sender, { knownCorrespondent: ctx.known.has(sender.address), review: ctx.review?.[sender.key], strict: ctx.strict }).tier;
 }
 
 function isBucket(o: SortOverride | undefined): o is SortBucket {
@@ -123,7 +128,7 @@ export function bucketsFor(senders: SenderSummary[], ctx: LimitContext): Map<Sor
   for (const sender of senders) {
     const domain = domainOf(sender.address);
     const corrected = isBucket(overrideFor(sender.address, domain, ctx.overrides));
-    if (corrected ? scamTier(sender, ctx.known) === "hold" : skipSender(sender, ctx)) continue;
+    if (corrected ? scamTier(sender, ctx) === "hold" : skipSender(sender, ctx)) continue;
     const buckets = senderBuckets(sender, domain, ctx.overrides);
     for (const msg of sender.messages) {
       if (!corrected && (msg.isProtected || neverMove(msg, sender.address) || withYourContacts(msg, ctx.wrote ?? ctx.known))) continue;
@@ -294,7 +299,7 @@ function peopleMailIds(senders: readonly SenderSummary[], ctx: LimitContext): st
     const address = sender.address.toLowerCase();
     const domain = domainOf(address);
     const person = (ctx.wrote ?? ctx.known).has(address) || isPersonalAccount(address);
-    if (!person || scamTier(sender, ctx.known) !== "none") continue;
+    if (!person || scamTier(sender, ctx) !== "none") continue;
     const override = overrideFor(sender.address, domain, ctx.overrides);
     if (override !== undefined && override !== "personal") continue;
     if (ctx.moveVotes && correctionKey(sender.address) in ctx.moveVotes) continue;
@@ -350,7 +355,7 @@ export function inboxFates(sender: SenderSummary, ctx: LimitContext): Map<string
     for (const msg of sender.messages) fates.set(msg.id, fate);
     return fates;
   };
-  if (scamTier(sender, ctx.known) !== "none") return all("risky");
+  if (scamTier(sender, ctx) !== "none") return all("risky");
   const known = ctx.known.has(sender.address.toLowerCase());
   const domain = domainOf(sender.address);
   const override = overrideFor(sender.address, domain, ctx.overrides);
@@ -519,7 +524,7 @@ export async function sweepExpiredInbox(ctx: LimitContext, api: InboxLimitsApi):
   // A label means it has a place: mail from senders you've written to goes
   // there as well (a store's support desk kept its whole thread in the inbox).
   for (const sender of await api.readSenders(batch)) {
-    const risky = scamTier(sender, ctx.known) === "hold";
+    const risky = scamTier(sender, ctx) === "hold";
     for (const msg of sender.messages) (risky || neverMove(msg, sender.address) ? keptIds : movedIds).push(msg.id);
   }
   if (movedIds.length > 0) await api.batchModify(movedIds, [], ["INBOX"]);
@@ -556,7 +561,7 @@ export async function screenFirstTimeSenders(
   const candidates: { address: string; ids: string[] }[] = [];
   for (const sender of await api.readSenders(ids)) {
     const address = sender.address.toLowerCase();
-    if (ctx.known.has(address) || vetted.has(address) || scamTier(sender, ctx.known) !== "none") continue;
+    if (ctx.known.has(address) || vetted.has(address) || scamTier(sender, ctx) !== "none") continue;
     if (overrideFor(sender.address, domainOf(sender.address), ctx.overrides)) continue;
     const msgs = sender.messages.filter(
       (m) => !m.fromYou && !m.repliesToYou && !m.providerMarkedPersonal && !m.isProtected && !neverMove(m, sender.address),

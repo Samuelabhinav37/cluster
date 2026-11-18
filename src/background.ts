@@ -12,7 +12,7 @@ import { knownSenderSet, pendingScreenerSenders, refreshSentCorrespondents } fro
 import { markFirstContact } from "./lib/firstContact";
 import { markNameMatches } from "./lib/nameMatch";
 import { refreshBrandDomains } from "./lib/threatSignals";
-import { senderVerdict } from "./lib/verdict";
+import { engineContext, riskOf } from "./lib/mailEngine";
 import { recordHeld, type HeldBatch } from "./lib/scamHistory";
 import { refreshMalwareBlocklist } from "./lib/blocklist";
 import { refreshSpamList } from "./lib/spamList";
@@ -311,15 +311,12 @@ async function runQuarantine(settings: ClusterSettings, senders: SenderSummary[]
   // and a message already held isn't labelled again, so a user who put it
   // back in Gmail isn't overruled on the next cycle.
   const known = knownSenderSet(settings);
+  const risk = engineContext(settings);
   const heldIds = new Map<string, string[]>();
   for (const s of senders) {
     if (!providerById.get(s.provider)?.labelSuspicious) continue;
     const isKnown = known.has(s.address.toLowerCase());
-    const verdict = senderVerdict(s, {
-      knownCorrespondent: isKnown,
-      review: settings.quarantineReview[s.key],
-      strict: rules.strict,
-    });
+    const verdict = riskOf(s, risk);
     const protectedSet = new Set(s.protectedMessageIds);
     const alreadyHeld = new Set(settings.quarantinedSenders[s.key]?.messageIds ?? []);
     const candidates = [
@@ -439,7 +436,7 @@ async function holdScamsFromIndex(): Promise<void> {
   await applySenderLedger(security);
   await runQuarantine(settings, security);
   if (scanDue)
-    await updateSettings({ lastSecurityScan: { at: Date.now(), found: scanFound(security, knownSenderSet(settings)) } });
+    await updateSettings({ lastSecurityScan: { at: Date.now(), found: scanFound(security, engineContext(settings)) } });
 }
 
 /** The opt-in morning email: Home's Today list, put into the user's own
@@ -455,7 +452,7 @@ async function sendTodayEmail(): Promise<void> {
     securityWindowDays: Math.min(settings.scanWindowDays, SECURITY_SCAN_WINDOW_DAYS),
     securityMax: SECURITY_SCAN_MAX_MESSAGES,
   });
-  const items = pickToday(cleanup, knownSenderSet(settings), now);
+  const items = pickToday(cleanup, engineContext(settings), now);
   await updateSettings({ lastTodayEmail: now });
   if (items.length === 0) return;
   const token = await gmailProvider.getAuthToken(false);

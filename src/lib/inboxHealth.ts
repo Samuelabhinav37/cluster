@@ -8,7 +8,7 @@ import type { SenderSummary } from "./senderModel";
 import type { ClusterSettings, HealthSnapshot } from "./settingsStore";
 import { SMART_VIEWS, smartViewMessageCount } from "./smartViews";
 import { suggestSpamSenders } from "./spamSuggestions";
-import { riskTier, senderRiskScore } from "./threatSignals";
+import { engineContext, riskOf } from "./mailEngine";
 
 export interface InboxHealthMetric {
   /** Stable id; also used as the scroll target hint. */
@@ -52,9 +52,8 @@ export function buildInboxHealth(input: {
     (oldView ? smartViewMessageCount(oldView, senders) : 0) +
     (largeView ? smartViewMessageCount(largeView, senders) : 0);
 
-  const flaggedSenders = securitySenders.filter(
-    (s) => riskTier(senderRiskScore(s.threatSignals)) !== "low",
-  ).length;
+  const risk = engineContext(settings);
+  const flaggedSenders = securitySenders.filter((s) => riskOf(s, risk).tier !== "none").length;
 
   const snoozedDue = Object.values(settings.snoozedMessages).filter(
     (s) => s.resurfaceAt <= now,

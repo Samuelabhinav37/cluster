@@ -4,10 +4,9 @@ import { categorizeDomain } from "./domainCategories";
 import { domainOf } from "./domainGrouping";
 import { neverMove } from "./protectionPolicy";
 import { AddressSet } from "./addressIdentity";
-import { decideAll, sortLabelOf, type EngineContext } from "./mailEngine";
+import { decideAll, riskOf, sortLabelOf, type EngineContext } from "./mailEngine";
 import type { SortBucket } from "./sortTaxonomy";
 import type { SenderSummary } from "./senderModel";
-import { riskTier, senderRiskScore } from "./threatSignals";
 
 export type TodayReason = "starred" | "reply" | "person" | "alert" | "delivery" | "important" | "recent";
 
@@ -43,10 +42,11 @@ function reasonFor(m: SenderSummary["messages"][number], address: string, known:
 /** Up to `max` emails from the last day: starred, replies to you, people,
  * account and bank alerts, deliveries arriving today. Senders that look like
  * a scam are left to Protect. */
-export function pickToday(senders: readonly SenderSummary[], known: Set<string>, now: number, max = TODAY_MAX): TodayItem[] {
+export function pickToday(senders: readonly SenderSummary[], engine: EngineContext, now: number, max = TODAY_MAX): TodayItem[] {
   const items: TodayItem[] = [];
+  const known = new AddressSet([...engine.wrote, ...engine.letIn]);
   for (const s of senders) {
-    if (riskTier(senderRiskScore(s.threatSignals)) === "high") continue;
+    if (riskOf(s, engine).tier === "hold") continue;
     const address = s.address.toLowerCase();
     const finance = categorizeDomain(domainOf(address)) === "finance";
     for (const m of s.messages) {
@@ -69,12 +69,12 @@ export function pickToday(senders: readonly SenderSummary[], known: Set<string>,
 
 /** Tops `items` up to `max` with the newest other mail from the last day,
  * leaving out promotions and senders that look like a scam. */
-export function fillToday(items: TodayItem[], senders: readonly SenderSummary[], now: number, max: number): TodayItem[] {
+export function fillToday(items: TodayItem[], senders: readonly SenderSummary[], engine: EngineContext, now: number, max: number): TodayItem[] {
   if (items.length >= max) return items.slice(0, max);
   const have = new Set(items.map((t) => t.id));
   const extra: TodayItem[] = [];
   for (const s of senders) {
-    if (riskTier(senderRiskScore(s.threatSignals)) === "high") continue;
+    if (riskOf(s, engine).tier === "hold") continue;
     for (const m of s.messages) {
       if (now - m.receivedAt > DAY_MS || m.promotion || have.has(m.id)) continue;
       extra.push({ id: m.id, provider: s.provider, address: s.address, name: s.displayName || s.address, subject: m.subject || "(no subject)", receivedAt: m.receivedAt, reason: "recent" });
@@ -111,7 +111,7 @@ export function pickByLabel(
   const decided = decideAll(senders, engine);
   const known = new AddressSet([...engine.wrote, ...engine.letIn]);
   for (const s of senders) {
-    if (riskTier(senderRiskScore(s.threatSignals)) === "high") continue;
+    if (riskOf(s, engine).tier === "hold") continue;
     const address = s.address.toLowerCase();
     const domain = domainOf(address);
     const finance = categorizeDomain(domain) === "finance";

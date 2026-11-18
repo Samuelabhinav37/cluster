@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { MessageKind } from "./messageKind";
 import type { MessageRecord, SenderSummary } from "./senderModel";
 import type { ThreatSignal } from "./threatSignals";
+
+const eng = (wrote: string[] = []) => ({ wrote: new Set(wrote), letIn: new Set<string>(), overrides: {} });
 import { fillToday, pickByLabel, pickToday, todayEmailDue, todayEmailMessage } from "./today";
 
 const NOW = Date.UTC(2026, 10, 3, 12);
@@ -51,17 +53,17 @@ describe("pickToday", () => {
   ];
 
   it("keeps people, starred, alerts and today's deliveries from the last day, starred first", () => {
-    const ids = pickToday(senders, new Set(["boss@work.example"]), NOW).map((t) => t.id);
+    const ids = pickToday(senders, eng(["boss@work.example"]), NOW).map((t) => t.id);
     expect(ids).toEqual(["star", "mom", "bank", "alert", "ship"]);
   });
 
   it("leaves likely scams to Protect, and caps the list", () => {
     const fake = sender("paypal@gmail.com", [msg("fake", "other", { looksAutomated: false })], [
       { kind: "freemail-brand-claim", brand: "paypal", confidence: "high" } as ThreatSignal,
-      { kind: "lure-language", confidence: "high" } as ThreatSignal,
+      { kind: "lure-language", brand: "paypa1-help.example", confidence: "high" } as ThreatSignal,
     ]);
-    expect(pickToday([fake], new Set(), NOW).map((t) => t.id)).not.toContain("fake");
-    expect(pickToday(senders, new Set(), NOW, 2)).toHaveLength(2);
+    expect(pickToday([fake], eng(), NOW).map((t) => t.id)).not.toContain("fake");
+    expect(pickToday(senders, eng(), NOW, 2)).toHaveLength(2);
   });
 });
 
@@ -121,7 +123,7 @@ describe("fillToday", () => {
       sender("a@x.com", [msg("new", "other", { receivedAt: NOW - HOUR }), msg("promo", "other", { promotion: true }), msg("old", "other", { receivedAt: NOW - 30 * HOUR })]),
       sender("b@x.com", [msg("newer", "other", { receivedAt: NOW - 60_000 })]),
     ];
-    const got = fillToday([], senders, NOW, 5).map((t) => t.id);
+    const got = fillToday([], senders, eng(), NOW, 5).map((t) => t.id);
     expect(got).toEqual(["newer", "new"]);
   });
 });

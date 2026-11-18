@@ -1,10 +1,10 @@
 // Security's second row, in the Dashboard's style: threats each day as a stacked
 // chart (what Inky, Lastline and Google's security dashboard lead with), and the
 // brands senders pretended to be, ranked like Top senders.
-import { knownSenderSet } from "../lib/screener";
+import { engineContext, riskOf } from "../lib/mailEngine";
 import type { SenderSummary } from "../lib/senderModel";
 import { brandHomeDomain } from "../lib/threatSignals";
-import { brandName, senderVerdict } from "../lib/verdict";
+import { brandName } from "../lib/verdict";
 import { chartLegend, chartStats, dayChart, type ChartSeries } from "./homeDashboard";
 import { senderTile } from "./senderTile";
 import { ctx } from "./state";
@@ -41,12 +41,9 @@ export function securityTrend(senders: readonly SenderSummary[], now: number): S
   const warnings = new Array<number>(DAYS).fill(0);
   const held = new Array<number>(DAYS).fill(0);
   const brands: SecurityTrend["brands"] = new Map();
-  const known = knownSenderSet(ctx.settings);
+  const risk = engineContext(ctx.settings);
   for (const sender of senders) {
-    const verdict = senderVerdict(sender, {
-      knownCorrespondent: known.has(sender.address.toLowerCase()),
-      review: ctx.settings.quarantineReview[sender.key],
-    });
+    const verdict = riskOf(sender, risk);
     if (verdict.tier === "none") continue;
     const into = verdict.tier === "hold" ? scams : warnings;
     let recent = 0;

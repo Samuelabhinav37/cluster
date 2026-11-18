@@ -6,10 +6,9 @@
 // view, so no colour carries meaning on its own.
 import { heldByWeek } from "../lib/scamHistory";
 import type { SenderSummary } from "../lib/senderModel";
-import { knownSenderSet } from "../lib/screener";
+import { engineContext, riskOf } from "../lib/mailEngine";
 import { SCAN_CHECKS, scanCheckCounts } from "../lib/securityScan";
 import type { ThreatSignalKind } from "../lib/threatSignals";
-import { senderVerdict } from "../lib/verdict";
 import { senderName } from "../lib/senderListView";
 import { ctx } from "./state";
 import { listGroup, listRow } from "./listRow";
@@ -173,14 +172,11 @@ export function renderSecurityCharts(securitySenders: SenderSummary[]): void {
   }
 
   // This scan's senders with warning signs, after verdict.ts rule 1.
-  const known = knownSenderSet(ctx.settings);
+  const known = engineContext(ctx.settings);
   const kindCounts = new Map<ThreatSignalKind, number>();
   signSenders = new Map();
   for (const sender of securitySenders) {
-    const { signals, reasons } = senderVerdict(sender, {
-      knownCorrespondent: known.has(sender.address.toLowerCase()),
-      review: ctx.settings.quarantineReview[sender.key],
-    });
+    const { signals, reasons } = riskOf(sender, known);
     if (signals.length === 0) continue;
     for (const kind of new Set(signals.map((s) => s.kind))) {
       kindCounts.set(kind, (kindCounts.get(kind) ?? 0) + 1);

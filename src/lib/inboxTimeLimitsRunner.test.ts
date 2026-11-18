@@ -18,6 +18,8 @@ vi.mock("./settingsStore", () => ({
     autoSort,
     labelChoices: {},
     sortOverrides: {},
+    quarantineReview: {},
+    securityRules: { strict: false },
   }),
   mutateSettings: vi.fn(),
 }));

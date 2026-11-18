@@ -7,7 +7,8 @@ import { bucketsFor, inboxFates, type LimitContext } from "./inboxTimeLimits";
 import type { MessageKind } from "./messageKind";
 import type { SenderSummary } from "./senderModel";
 import { ALL_SORT_BUCKETS, type SortBucket, type SortOverride } from "./sortTaxonomy";
-import { senderVerdict, type VerdictTier } from "./verdict";
+import { senderVerdict, type Verdict, type VerdictTier } from "./verdict";
+import type { QuarantineReviewMap } from "./quarantineReview";
 import { wroteToSet } from "./screener";
 import type { ClusterSettings } from "./settingsStore";
 
@@ -28,6 +29,10 @@ export interface EngineContext {
   overrides: Record<string, SortOverride>;
   /** "Hold people too": strangers on free mail wait in the Screener. Default on. */
   holdPeople?: boolean;
+  /** The user's "not a scam" answers, by sender key. */
+  review?: QuarantineReviewMap;
+  /** Security's Strict switch: mail that only earns a warning is held too. */
+  strict?: boolean;
 }
 
 const EVERY_LABEL = ALL_SORT_BUCKETS.map((bucket) => ({ bucket, labelName: bucket, hours: 0 }));
@@ -40,7 +45,16 @@ function limitContext(ctx: EngineContext): LimitContext {
     overrides: ctx.overrides,
     now: 0,
     holdPeople: ctx.holdPeople,
+    review: ctx.review,
+    strict: ctx.strict,
   };
+}
+
+/** The scam verdict on a sender: the one every screen and the hold use. */
+export function riskOf(sender: SenderSummary, ctx: EngineContext): Verdict {
+  const address = sender.address.toLowerCase();
+  const known = ctx.wrote.has(address) || ctx.letIn.has(address);
+  return senderVerdict(sender, { knownCorrespondent: known, review: ctx.review?.[sender.key], strict: ctx.strict });
 }
 
 /** Each of the sender's emails, decided. */
@@ -57,7 +71,7 @@ export function decideAll(senders: readonly SenderSummary[], ctx: EngineContext)
 }
 
 function decideWith(sender: SenderSummary, lctx: LimitContext): Map<string, EmailDecision> {
-  const verdict = senderVerdict(sender, { knownCorrespondent: lctx.known.has(sender.address) });
+  const verdict = senderVerdict(sender, { knownCorrespondent: lctx.known.has(sender.address), review: lctx.review?.[sender.key], strict: lctx.strict });
   const place = new Map<string, Place>();
   // 1. The scam hold (starred mail never moves).
   for (const id of verdict.heldMessageIds) if (!sender.protectedMessageIds.includes(id)) place.set(id, "spam");
@@ -82,6 +96,8 @@ export function engineContext(settings: ClusterSettings): EngineContext {
     letIn: new AddressSet(settings.screenerAllowlist),
     overrides: settings.sortOverrides,
     holdPeople: settings.screenerHoldPeople,
+    review: settings.quarantineReview,
+    strict: settings.securityRules.strict,
   };
 }
 

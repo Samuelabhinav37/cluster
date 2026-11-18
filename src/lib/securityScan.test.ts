@@ -26,15 +26,15 @@ const lure: ThreatSignal = { kind: "lure-language", brand: "x", confidence: "med
 describe("scanCheckCounts", () => {
   it("counts a warned sender under its check and skips a lone weak sign", () => {
     const senders = [sender("a@paypa1.com", [lookalike]), sender("b@x.com", [lure])];
-    const counts = scanCheckCounts(senders, new Set());
+    const counts = scanCheckCounts(senders, { wrote: new Set(), letIn: new Set(), overrides: {} });
     expect(counts[SCAN_CHECKS.findIndex((c) => c.label === "Lookalike addresses")]).toBe(1);
     expect(counts.reduce((a, b) => a + b, 0)).toBe(1);
-    expect(scanFound(senders, new Set())).toBe(1);
+    expect(scanFound(senders, { wrote: new Set(), letIn: new Set(), overrides: {} })).toBe(1);
   });
 
   it("doesn't flag a lookalike from someone you write to", () => {
     const senders = [sender("a@paypa1.com", [lookalike])];
-    expect(scanFound(senders, new Set(["a@paypa1.com"]))).toBe(0);
+    expect(scanFound(senders, { wrote: new Set(["a@paypa1.com"]), letIn: new Set(), overrides: {} })).toBe(0);
   });
 
   it("covers every warning sign once", () => {

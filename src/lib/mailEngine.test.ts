@@ -1,7 +1,7 @@
 // Step 0 of the engine (docs/engine-design-2026-11-18.md): decide() must place
 // every email exactly where the background's passes do today.
 import { describe, expect, it } from "vitest";
-import { decideAll } from "./mailEngine";
+import { decideAll, riskOf } from "./mailEngine";
 import { build, type Template } from "../test/mailboxGen";
 import { HELD_OUT, HELD_OUT_SEED } from "../test/heldOutMailbox";
 import { HELD_OUT_B, HELD_OUT_B_SEED } from "../test/heldOutMailboxB";
@@ -41,5 +41,23 @@ describe("one personal-account check (engine step 1)", () => {
     const { senders } = await sendersOf(metas, { contacts: [], now: Date.UTC(2026, 10, 15, 12) });
     const d = decideAll(senders, { wrote: new Set(), letIn: new Set(), overrides: {} });
     expect(metas.map((m) => d.get(m.id)?.place)).toEqual(["personal", "education", "education"]);
+  });
+});
+
+describe("one risk context (engine step 5)", () => {
+  it("Strict holds warned senders' mail in riskOf and in decide alike, as the scam hold does", async () => {
+    const { cases, sent } = build(TUNED as Template[], TUNED_SEED);
+    const { senders } = await sendersOf(cases.map((c) => c.meta), { contacts: CONTACTS, sent, now: 0 });
+    const base = { wrote: new Set(CONTACTS), letIn: new Set<string>(), overrides: {} };
+    const warned = senders.filter((s) => riskOf(s, base).tier === "warn");
+    const strict = { ...base, strict: true };
+    const held = warned.flatMap((s) => riskOf(s, strict).heldMessageIds.filter((id) => !s.protectedMessageIds.includes(id)));
+    expect(held.length).toBeGreaterThan(0);
+    const on = decideAll(warned, strict);
+    const off = decideAll(warned, base);
+    for (const id of held) {
+      expect(on.get(id)?.place).toBe("spam");
+      expect(off.get(id)?.place).not.toBe("spam");
+    }
   });
 });

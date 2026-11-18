@@ -84,6 +84,8 @@ vi.mock("./lib/screener", () => ({
     new Set(
       [...(s.screenerAllowlist ?? []), ...(s.sentCorrespondents?.addresses ?? [])].map((a) => a.toLowerCase()),
     ),
+  wroteToSet: (s: { sentCorrespondents?: { addresses?: string[] } }) =>
+    new Set((s.sentCorrespondents?.addresses ?? []).map((a) => a.toLowerCase())),
   pendingScreenerSenders: () => [],
   sentCorrespondentsStale: () => false,
   refreshSentCorrespondents,

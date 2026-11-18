@@ -4,7 +4,7 @@
 // the way the hold judges them (verdict.ts drops brand lookalikes for them).
 import type { SenderSummary } from "./senderModel";
 import type { ThreatSignalKind } from "./threatSignals";
-import { senderVerdict } from "./verdict";
+import { riskOf, type EngineContext } from "./mailEngine";
 
 export const SCAN_CHECKS: readonly { label: string; kinds: readonly ThreatSignalKind[] }[] = [
   { label: "Sender authentication", kinds: ["failed-authentication"] },
@@ -20,17 +20,15 @@ export const SCAN_CHECKS: readonly { label: string; kinds: readonly ThreatSignal
 ];
 
 /** Senders each check caught, in SCAN_CHECKS order. */
-export function scanCheckCounts(senders: readonly SenderSummary[], known: ReadonlySet<string>): number[] {
+export function scanCheckCounts(senders: readonly SenderSummary[], ctx: EngineContext): number[] {
   const flagged = senders
-    .map((s) => senderVerdict(s, { knownCorrespondent: known.has(s.address.toLowerCase()) }))
+    .map((s) => riskOf(s, ctx))
     .filter((v) => v.tier !== "none")
     .map((v) => new Set(v.signals.map((s) => s.kind)));
   return SCAN_CHECKS.map(({ kinds }) => flagged.filter((set) => kinds.some((k) => set.has(k))).length);
 }
 
 /** Senders any check caught. */
-export function scanFound(senders: readonly SenderSummary[], known: ReadonlySet<string>): number {
-  return senders.filter(
-    (s) => senderVerdict(s, { knownCorrespondent: known.has(s.address.toLowerCase()) }).tier !== "none",
-  ).length;
+export function scanFound(senders: readonly SenderSummary[], ctx: EngineContext): number {
+  return senders.filter((s) => riskOf(s, ctx).tier !== "none").length;
 }

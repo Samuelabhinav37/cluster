@@ -48,6 +48,11 @@ function settings(over: Partial<ClusterSettings> = {}): ClusterSettings {
     screenerEnabled: false,
     screenedSenders: [],
     actionLog: [],
+    screenerAllowlist: [],
+    sentCorrespondents: { addresses: [], fetchedAt: 0 },
+    sortOverrides: {},
+    quarantineReview: {},
+    securityRules: { strict: false },
     ...over,
   } as ClusterSettings;
 }

@@ -24,6 +24,8 @@ describe("every screen shows the engine's label", () => {
       screenerAllowlist: [],
       sortOverrides: {},
       screenerHoldPeople: true,
+      quarantineReview: {},
+      securityRules: { strict: false },
     } as unknown as ClusterSettings;
     const decided = decideAll(senders, { wrote: new Set(CONTACTS), letIn: new Set(), overrides: {}, holdPeople: true });
     const want = new Map<string, number>();

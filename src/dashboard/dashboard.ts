@@ -83,6 +83,7 @@ import { renderKaiMissed } from "./settingsMore";
 import { recordUnread, unreadDays, unreadWeekAgo } from "../lib/inboxTrend";
 import { markNameMatches } from "../lib/nameMatch";
 import { knownSenderSet } from "../lib/screener";
+import { engineContext, riskOf } from "../lib/mailEngine";
 import { log } from "../lib/log";
 import { initSuggestionModel, learnFromFeedback, suggestionModel } from "./suggestionLearning";
 import { initKindModel, kindModel } from "./kindLearning";
@@ -93,7 +94,6 @@ import { buildCleanupCards } from "../lib/cleanupCards";
 import { createRangePicker } from "./rangePicker";
 import { barsSvg, downloadBytes, emailRows, emailsCsv, emailsXlsx, periodFacts, printReport, reportHtml, wireDownloadMenu, type ReportSpec } from "./reportDownload";
 import { changeChip, dailyCounts, pageRows, renderCleanupPage, renderSenderTable, setTableFilter, type PageItem } from "./cleanupPage";
-import { riskTier, senderRiskScore } from "../lib/threatSignals";
 import { keepNewestExcess, olderReadExcess } from "../lib/keepNewest";
 import { deliveredUpdates } from "../lib/orderEvents";
 import { appendUndoButton, logAction, renderRecentTab } from "./recentTab";
@@ -1560,7 +1560,7 @@ function wireScanNow() {
       await scanAndRender({ quiet: true, fresh: true });
       window.scrollTo(0, scroll);
       const senders = lastOverview?.[1] ?? [];
-      const known = knownSenderSet(ctx.settings);
+      const known = engineContext(ctx.settings);
       const counts = scanCheckCounts(senders, known);
       if (list) paintChecks(list, counts);
       ctx.settings = await updateSettings({
@@ -1587,11 +1587,10 @@ function wireScanNow() {
 function setPhishingNavSeverity(securitySenders: SenderSummary[]) {
   const el = document.getElementById("nav-count-impersonation");
   if (!el) return;
-  const tiers = securitySenders
-    .filter((s) => s.threatSignals.length > 0)
-    .map((s) => riskTier(senderRiskScore(s.threatSignals)));
+  const risk = engineContext(ctx.settings);
+  const tiers = securitySenders.map((s) => riskOf(s, risk).tier).filter((t) => t !== "none");
   el.classList.remove("alert", "accent");
-  if (tiers.includes("high")) {
+  if (tiers.includes("hold")) {
     el.classList.add("alert");
     el.setAttribute("aria-label", `${el.textContent}, high severity`);
   } else if (tiers.length > 0) {

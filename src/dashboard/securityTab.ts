@@ -8,8 +8,8 @@
 import { log } from "../lib/log";
 import { findBlocklistedLinkTargets, findMismatchedLinks } from "../lib/linkMismatch";
 import { isBlockedDomain } from "../lib/blocklist";
-import { MAX_REASONS, senderVerdict, type Verdict, type VerdictTier } from "../lib/verdict";
-import { knownSenderSet } from "../lib/screener";
+import { MAX_REASONS, type Verdict, type VerdictTier } from "../lib/verdict";
+import { engineContext, riskOf } from "../lib/mailEngine";
 import { queueAthenaSecurityEvent } from "../lib/athenaIntegration";
 import { mutateSettings } from "../lib/settingsStore";
 import { holdAccuracy, recordQuarantineVerdict } from "../lib/quarantineReview";
@@ -213,7 +213,6 @@ export function renderQuarantineReview(senders: SenderSummary[] = []) {
     return;
   }
   const byKey = new Map(senders.map((s) => [s.key, s]));
-  const known = knownSenderSet(ctx.settings);
 
   putEntries(
     "held",
@@ -236,10 +235,7 @@ export function renderQuarantineReview(senders: SenderSummary[] = []) {
       const li = entry.more;
 
       if (sender) {
-        const verdict = senderVerdict(sender, {
-          knownCorrespondent: known.has(address.toLowerCase()),
-          review: ctx.settings.quarantineReview[key],
-        });
+        const verdict = riskOf(sender, engineContext(ctx.settings));
         li.appendChild(reasonList(verdict));
       }
 
@@ -365,15 +361,9 @@ export function rankFlagged(senders: SenderSummary[]) {
   applyBodyChecks(senders, bodyChecks);
   // Rank by combined risk so a sender tripping several signals (or a
   // freemail brand claim) sorts above one with a lone medium signal.
-  const known = knownSenderSet(ctx.settings);
+  const risk = engineContext(ctx.settings);
   const flagged = senders
-    .map((sender) => ({
-      sender,
-      verdict: senderVerdict(sender, {
-        knownCorrespondent: known.has(sender.address.toLowerCase()),
-        review: ctx.settings.quarantineReview[sender.key],
-      }),
-    }))
+    .map((sender) => ({ sender, verdict: riskOf(sender, risk) }))
     // A known correspondent whose only "signal" was a brand-like name has
     // nothing left to show (verdict.ts rule 1).
     .filter(({ verdict }) => verdict.signals.length > 0)

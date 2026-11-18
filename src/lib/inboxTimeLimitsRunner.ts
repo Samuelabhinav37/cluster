@@ -139,6 +139,8 @@ async function runPass(
     known: knownSenderSet(settings),
     wrote: wroteToSet(settings),
     moveVotes: settings.autoSort.moveVotes,
+    review: settings.quarantineReview,
+    strict: settings.securityRules.strict,
     overrides: settings.sortOverrides,
     now,
     keptIds: new Set(settings.autoSort.keptInInboxIds),
@@ -393,6 +395,8 @@ export async function readLabeller(): Promise<ReadLabeller | null> {
     known: knownSenderSet(settings),
     wrote: wroteToSet(settings),
     moveVotes: settings.autoSort.moveVotes,
+    review: settings.quarantineReview,
+    strict: settings.securityRules.strict,
     overrides: settings.sortOverrides,
     now: Date.now(),
   };
