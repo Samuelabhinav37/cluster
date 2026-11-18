@@ -1,0 +1,71 @@
+name: Refresh lists
+
+# Weekly refresh of the spam, malware and brand lists (plan step 3.5). They
+# were refreshed only by hand, so they went months without an update. Each
+# refreshed list is committed only if scripts/dataset-guard.mjs passes: no list
+# shrinks by more than 20%, and no block list holds a brand, free-mail or
+# registry domain. Otherwise nothing is committed and an issue is opened.
+# "Publish public datasets" then signs and publishes what's committed.
+on:
+  schedule:
+    - cron: "41 5 * * 1" # Monday 05:41 UTC, before the 06:17 publish
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: refresh-lists
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      # Job level: a step's own env isn't visible to its `if`.
+      URLHAUS_AUTH_KEY: ${{ secrets.URLHAUS_AUTH_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Refresh the spam list
+        run: npm run refresh:spam
+
+      - name: Refresh the malware list
+        # Needs a free abuse.ch key; skipped (old list kept) without one.
+        if: ${{ env.URLHAUS_AUTH_KEY != '' }}
+        run: npm run refresh:blocklist
+
+      - name: Refresh the brand registry
+        run: npm run refresh:brands
+
+      - name: Check the safety limits
+        id: guard
+        run: |
+          set -o pipefail
+          node scripts/dataset-guard.mjs | tee guard.txt
+
+      - name: Commit the refreshed lists
+        if: ${{ success() }}
+        run: |
+          git config user.name "cluster-lists-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/data/spamDomains.generated.json src/lib/data/malwareDomains.generated.json public/data/brand-registry.json public/data/brand-logos.json
+          if git diff --cached --quiet; then echo "No changes."; exit 0; fi
+          git commit -m "Weekly list refresh" -m "$(cat guard.txt)"
+          git push
+
+      - name: Open an issue when a check fails
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          body="The weekly list refresh stopped, and nothing was committed. Users keep last week's lists.
+
+          $(cat guard.txt 2>/dev/null || echo 'A refresh step failed before the checks ran; see the run log.')
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          gh issue create --title "Weekly list refresh stopped" --body "$body"
