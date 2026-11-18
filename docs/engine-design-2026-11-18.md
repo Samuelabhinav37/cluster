@@ -81,3 +81,14 @@ Steps 0–3 are the core of plan step 1; 4–6 are plan steps 2–5 as they come
 
 - Step 1 changes who counts as a person, which moves mail between Personal, the Screener and labels. The characterization diff makes every move visible before it ships.
 - Five screens change source in step 3; their DOM tests cover counts, not every label. The new "every screen agrees" test closes that.
+
+## Progress
+
+| Step | State | Commit |
+|---|---|---|
+| 0 | Done: `decide`/`decideAll` match today's passes on all 12,000 test emails; `inboxFates` lifted out of `holdUnsortedInbox` | 57e5f0e |
+| 1 | Done: `isPersonalAccount` backs `neverMove`, `isPerson` and the relabel's people check; a professor goes to Personal, school role mailboxes stay Education. `writtenByPerson` stays the separate "reads like a person" check | 1402905 |
+| 2 | Not needed as a separate change: the labeller, relabel and Personal/Screener pass already run the exact functions `decide` composes (`bucketsFor`, `inboxFates`), checked by the step 0 test | |
+| 3 | Part: the label page and weekly counts read `decideAll` (18–30 of 2,000 emails used to differ). Left: the Screener release plan and the older Sort my inbox planner, which have their own logic | a0146e8 |
+| 4 | Done: protection has two modes; standing rules keep let-in senders protected, cleanup you click through doesn't | 0dc9131 |
+| 5–7 | Not started | |
