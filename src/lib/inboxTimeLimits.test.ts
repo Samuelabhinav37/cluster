@@ -11,6 +11,7 @@ import {
   senderBuckets,
   labelBySearch,
   labelFromIndex,
+  senderPages,
   sweepExpiredInbox,
   TAG_BACK_DONE,
   tagOlderInbox,
@@ -627,5 +628,20 @@ describe("sendersWithMailBefore", () => {
     // Groups of 20/20/5; halving the first down to s7 (20,10,5,3,1) takes 9 searches: 11 in all, not 45.
     expect(queries.length).toBe(11);
     expect(await sendersWithMailBefore(api, [], 100)).toEqual(new Set());
+  });
+});
+
+describe("senderPages (audit B8)", () => {
+  const row = (id: string, fromAddress: string) => ({ id, fromAddress });
+  it("cuts pages at sender boundaries, never splitting one sender's mail", () => {
+    const rows = [row("1", "a@x.com"), row("2", "b@y.com"), row("3", "A@x.com"), row("4", "c@z.com"), row("5", "b@y.com")];
+    const pages = senderPages(rows, 3);
+    expect(pages.map((p) => p.map((r) => r.id))).toEqual([["1", "3"], ["2", "5", "4"]]);
+  });
+  it("gives a sender bigger than a page a page of its own, and covers every row", () => {
+    const rows = [row("s", "small@x.com"), ...Array.from({ length: 7 }, (_, i) => row(`b${i}`, "big@y.com")), row("t", "tiny@z.com")];
+    const pages = senderPages(rows, 4);
+    expect(pages.map((p) => p.length)).toEqual([1, 7, 1]);
+    expect(pages.flat()).toHaveLength(rows.length);
   });
 });

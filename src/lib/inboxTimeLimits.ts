@@ -259,6 +259,31 @@ export async function labelFromIndex(
   return result;
 }
 
+/** Rows cut into pages of about `size`, never splitting a sender's mail (its
+ * usual label needs all of it: senderBuckets), so a 100,000-email relabel
+ * builds sender records for one page at a time (audit B8). A sender bigger
+ * than `size` gets a page of its own. */
+export function senderPages<T extends { fromAddress: string }>(rows: readonly T[], size: number): T[][] {
+  const bySender = new Map<string, T[]>();
+  for (const r of rows) {
+    const key = correctionKey(r.fromAddress);
+    const list = bySender.get(key);
+    if (list) list.push(r);
+    else bySender.set(key, [r]);
+  }
+  const pages: T[][] = [];
+  let page: T[] = [];
+  for (const group of bySender.values()) {
+    if (page.length > 0 && page.length + group.length > size) {
+      pages.push(page);
+      page = [];
+    }
+    page.push(...group);
+  }
+  if (page.length > 0) pages.push(page);
+  return pages;
+}
+
 /** Mail from people: someone you've written to, or a free-mail sender, that
  * the user never filed under a label or is filing by hand. Risky senders are
  * the scam hold's. Company mail with a doubtful label is left alone: Cluster

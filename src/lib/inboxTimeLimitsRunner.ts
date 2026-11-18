@@ -11,6 +11,8 @@ import {
   screenFirstTimeSenders,
   labelBySearch,
   labelFromIndex,
+  senderPages,
+  type RelabelResult,
   pinInInbox,
   sweepExpiredInbox,
   TAG_BACK_DONE,
@@ -477,6 +479,9 @@ async function continueIndexBuild(token: string, windowDays: number, cap: number
 
 /** Labels (and fixes) every inbox message the mail index holds, with no
  * message reads, and reports it on the Overview scan card. */
+/** Emails per relabel page: about 20 MB of sender records (audit: ~76 MB per 20,000). */
+const RELABEL_PAGE = 5000;
+
 async function relabelInbox(
   ctx: Parameters<typeof labelFromIndex>[0],
   api: Parameters<typeof labelFromIndex>[1],
@@ -487,12 +492,20 @@ async function relabelInbox(
   // All mail Cluster has read, not just the inbox: labels deleted in Gmail
   // come back on archived mail too, with no message reads.
   const rows = (await index.all("gmail")).filter((r) => r.labelIds);
-  const all = rows.map((r) => ({ id: r.id, labelIds: r.labelIds! }));
   // Progress writes run in order, so a late one can't overwrite "done".
-  let writes: Promise<unknown> = quiet ? Promise.resolve() : setScan({ phase: "labelling", done: 0, total: all.length });
-  const res = await labelFromIndex(ctx, api, all, (done, total) => {
-    if (!quiet) writes = writes.then(() => setScan({ done, total }));
-  });
+  let writes: Promise<unknown> = quiet ? Promise.resolve() : setScan({ phase: "labelling", done: 0, total: rows.length });
+  const res: RelabelResult = { labelled: 0, fixed: 0, byBucket: {}, changes: new Map(), sortedIds: new Set() };
+  let done = 0;
+  for (const page of senderPages(rows, RELABEL_PAGE)) {
+    const part = await labelFromIndex(ctx, api, page.map((r) => ({ id: r.id, labelIds: r.labelIds! })));
+    res.labelled += part.labelled;
+    res.fixed += part.fixed;
+    for (const [bucket, n] of Object.entries(part.byBucket) as [SortBucket, number][]) res.byBucket[bucket] = (res.byBucket[bucket] ?? 0) + n;
+    for (const [id, change] of part.changes) res.changes.set(id, change);
+    for (const id of part.sortedIds) res.sortedIds.add(id);
+    done += page.length;
+    if (!quiet) writes = writes.then(() => setScan({ done, total: rows.length }));
+  }
   await writes;
   // Patch the index so the next pass sees the new labels before Gmail's change feed does.
   const patched = rows.flatMap((r) => {

@@ -89,6 +89,7 @@ beforeEach(() => {
     fixed: 0,
     byBucket: { shopping: rows.length },
     changes: new Map(rows.map((r) => [r.id, { add: ["L_shop"], remove: [] }])),
+    sortedIds: new Set(rows.map((r) => r.id)),
   }));
 });
 
