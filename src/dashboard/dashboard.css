@@ -975,20 +975,6 @@ a:hover {
 
 /* ── Disclosure ("Instead" strip) ───────────────────────────────────── */
 
-.instead-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 9px;
-  align-items: center;
-  padding: 0 18px 16px 56px;
-}
-
-
-
-.instead-strip .spacer {
-  flex: 1;
-  min-width: 8px;
-}
 
 /* ── Comparison grid (Impersonation) ────────────────────────────────── */
 /* Impersonation: threat cards + quarantine review */
@@ -3038,14 +3024,10 @@ table.sheet { font-size: 12px; }
 .sidebar .nav-item.nav-child svg.nav-icon { width: 20px; height: 20px; padding: 3.5px; }
 
 /* Bento grid (Protect's Report). */
-.bento { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 .tile-chev { margin-left: auto; font-size: 20px; color: var(--label-4); }
 
 
 
-@media (max-width: 900px) {
-  .bento { grid-template-columns: minmax(0, 1fr); }
-}
 
 /* Banners as iCloud's notice: icon left, bold line, short line, action right. */
 .banner { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 14px; padding: 14px 18px; border: 1px solid var(--separator);
@@ -3061,7 +3043,6 @@ table.sheet { font-size: 12px; }
 :is(.nav-item, .page-title) svg.nav-icon:is(.ni-bin, .ni-stop) { background: linear-gradient(#ffa63d, #f47a0a); }
 :is(.nav-item, .page-title) svg.nav-icon.ni-layers { background: linear-gradient(#a879ff, #7a4cf0); }
 
-:is(.nav-item, .page-title) svg.nav-icon.ni-people { background: linear-gradient(#9aa0a8, #6e747c); }
 .page-title { display: flex; align-items: center; gap: 12px; }
 .page-title svg.nav-icon { flex: none; width: 34px; height: 34px; padding: 6px; border-radius: 22.5%; color: #fff;
   box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25); }
@@ -3192,7 +3173,6 @@ select:not([multiple]):hover { background-color: var(--neutral-fill-hover); }
 .row-menu-list .menu-item.danger:hover, .row-menu-list .menu-item.danger:focus-visible { background: #c43c3c; color: #fff; }
 .menu-sep { border: 0; border-top: 1px solid var(--hairline); margin: 4px 6px; }
 /* The confirm area under a row shows one chosen action, no picker. */
-.instead-strip select { display: none; }
 /* Scam rows: the faked brand's logo with a red badge; a chevron opens the reasons. */
 .faked-brand { position: relative; display: inline-flex; flex: none; }
 .faked-badge { position: absolute; right: -4px; bottom: -4px; width: 16px; height: 16px; border-radius: 50%;
@@ -3331,7 +3311,6 @@ body[data-screen="overview"] #ask-kai-open > svg { display: block; }
 .org-list { display: flex; flex-direction: column; gap: 22px; }
 
 /* Organize: each label icon wears its Gmail label color (set inline). */
-.ios-row .app-ic.label-ic .i { stroke: currentColor; }
 
 /* Clean up: three cards, each opening its own page. */
 .cu-cards { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
@@ -3799,8 +3778,6 @@ section[data-screen="impersonation"] > .tabs .tab.active { color: var(--label); 
 .sort-preview-bucket > summary, .sort-report-row { display: grid; grid-template-columns: 16px minmax(0, 1fr) 80px 140px auto; align-items: center; gap: 14px;
   padding: 14px 8px; border-bottom: 1px solid var(--hairline); list-style: none; cursor: default; }
 .sort-preview-bucket > summary::-webkit-details-marker { display: none; }
-.sort-plan.reviewing .sort-preview-bucket > summary { cursor: pointer; }
-.sort-plan.reviewing .sort-preview-bucket > summary:hover { background: var(--neutral-fill); }
 .sort-preview-bucket > summary > i, .sort-report-row > i { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--label-4); box-sizing: border-box; }
 .sort-preview-bucket.active > summary > i { border-color: var(--accent); animation: scan-pulse 1.2s ease-in-out infinite; }
 .sort-preview-bucket.done > summary > i, .sort-report-row.done > i { border: 0; background: var(--accent) no-repeat center / 10px
@@ -4712,7 +4689,6 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 #details .sheet.emails { margin: 0; width: 100%; table-layout: fixed; }
 #details .sheet.emails th:first-child { width: 36px; }
 #details .sheet.emails th:nth-child(2) { width: 72px; }
-#details .sheet.emails th.from-h { width: 40%; }
 #details .sheet .tick { opacity: .5; }
 #details .sheet tr:hover .tick, #details .sheet .tick:checked, #details .sheet .tick:focus-visible { opacity: 1; }
 #details .sheet .tick:disabled { opacity: .2; }
