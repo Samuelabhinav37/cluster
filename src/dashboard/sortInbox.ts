@@ -48,10 +48,10 @@ const sortInboxSlot = document.getElementById("sort-inbox-slot") as HTMLSpanElem
 const sortInboxCountEl = document.getElementById("sort-inbox-count") as HTMLSpanElement;
 const sortInboxPreviewEl = document.getElementById("sort-inbox-preview") as HTMLDivElement;
 // The top bar's Sort inbox files new mail where you are, its progress in the sidebar's status line.
-// Sort everything again (Labels) opens the page, a rarer and longer job.
+// Sort all mail (top bar too) opens the page: old and archived mail, a rarer and longer job.
 const topSortBtn = document.getElementById("top-sort") as HTMLButtonElement | null;
 topSortBtn?.addEventListener("click", () => void runSort("new", true));
-document.getElementById("sort-all-link")?.addEventListener("click", () => setTimeout(() => renderSortChoices(), 0));
+document.getElementById("top-sort-all")?.addEventListener("click", () => setTimeout(() => renderSortChoices(), 0));
 
 let jobTimer: ReturnType<typeof setTimeout> | undefined;
 

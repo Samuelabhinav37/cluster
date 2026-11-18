@@ -4619,7 +4619,8 @@ body:not([data-screen="setup"]) .screen { padding-bottom: 128px; }
 .mt-tile:disabled:hover { transform: none; box-shadow: none; }
 #recent-list > .empty-state { display: grid; justify-items: center; gap: 14px; }
 #recent-list > .empty-state p { margin: 0; }
-.page-back { display: block; margin-bottom: 8px; }
+.page-back { display: block; margin-bottom: 8px; color: var(--label-3); }
+.page-back:hover { color: var(--label); }
 /* A new build is waiting: one quiet line above the page, not a banner. */
 .update-toast { position: fixed; z-index: 60; left: 50%; bottom: 24px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px;
   max-width: calc(100vw - 32px); padding: 8px 8px 8px 14px; border: 1px solid var(--hairline); border-radius: 14px; background: var(--glass-solid, #2c2c2e);
@@ -4768,7 +4769,6 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 /* Check mail and Sort inbox share the reading card; its link (Undo) sits in the line. */
 .read-card .rc-act { padding: 0; border: 0; background: none; color: var(--accent-text); font: 500 12px var(--font); cursor: pointer; }
 .read-card .rc-head span { font-variant-numeric: tabular-nums; }
-.sort-all-link { margin-left: auto; align-self: center; padding: 0; border: 0; background: none; color: var(--accent-text); font: 500 14px var(--font); cursor: pointer; }
 
 /* Danger zone and other destructive buttons, Apple-style: the usual gray button, red words. */
 .btn.danger { border-color: transparent; background: var(--neutral-fill); color: var(--danger-text); }
