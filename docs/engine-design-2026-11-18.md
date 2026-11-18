@@ -89,6 +89,22 @@ Steps 0–3 are the core of plan step 1; 4–6 are plan steps 2–5 as they come
 | 0 | Done: `decide`/`decideAll` match today's passes on all 12,000 test emails; `inboxFates` lifted out of `holdUnsortedInbox` | 57e5f0e |
 | 1 | Done: `isPersonalAccount` backs `neverMove`, `isPerson` and the relabel's people check; a professor goes to Personal, school role mailboxes stay Education. `writtenByPerson` stays the separate "reads like a person" check | 1402905 |
 | 2 | Not needed as a separate change: the labeller, relabel and Personal/Screener pass already run the exact functions `decide` composes (`bucketsFor`, `inboxFates`), checked by the step 0 test | |
-| 3 | Part: the label page and weekly counts read `decideAll` (18–30 of 2,000 emails used to differ). Left: the Screener release plan and the older Sort my inbox planner, which have their own logic | a0146e8 |
+| 3 | Done: the label page, weekly counts, Today, the Screener release plan and Sort my inbox read the engine (18–30 of 2,000 emails used to differ on the label page) | a0146e8, 00b88a7 |
 | 4 | Done: protection has two modes; standing rules keep let-in senders protected, cleanup you click through doesn't | 0dc9131 |
-| 5–7 | Not started | |
+| 5 | Done: `riskOf` is the one verdict, with the user's "not a scam" answers and Strict in every caller (hold, Security, report, trend, scan, Today, inbox health, sidebar dot, labeller) | 177c648 |
+| 6 | Done: Overview's four kinds, Details and the downloads count labelled mail under its label's kind. 285 of 1,619 labelled tuned emails used to sit in a different Overview group than their label | 236da56, 3c4bfe5 |
+| 7 | Measured, not shipped. See below | |
+
+## Step 7 result (2026-11-18)
+
+Prototype: Naive Bayes over metadata (kind, tab, promotion, bulk, sending path, purchase, local-part class, subject words), trained on the mail the rules labelled in the same mailbox, applied only to mail headed for the Screener, at 90% or more, with at least 3 senders behind a label.
+
+| Mailbox | Screener | Model filed | Better | Worse | People or scams moved |
+|---|---|---|---|---|---|
+| Tuned | 255 | 28 | 0 | 28 | 15 |
+| Held-out A | 493 | 313 | 0 | 295 | 65 |
+| Held-out B | 395 | 181 | 0 | 181 | 50 |
+| Held-out C | 560 | 22 | 0 | 22 | 0 |
+| Held-out D | 475 | 213 | 0 | 213 | 115 |
+
+It breaks the guardrails (people's mail labelled), so it stays out. The Screener holds exactly the mail the rules can't place, and a model trained on the rules' own labels only repeats them with false confidence ("Fwd: photos from the trip" from a new friend → Shopping). The signal that can work is the user's own answers: Screener let-ins and label moves (`learnFromMoves`). Those exist only on real mailboxes, so step 7 waits for the friends beta, measured as corrections per 100 emails as planned. Before it ships it must move 0 people or scams on all five test mailboxes.
