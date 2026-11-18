@@ -32,5 +32,7 @@ describe("pickPracticeSenders", () => {
     expect(boardOverride(amazon, amazon.guess)).toBeNull();
     expect(boardOverride(amazon, "shopping")).toEqual(["@amazon.com", "shopping"]);
     expect(boardOverride(amazon, "keep")).toEqual(["@amazon.com", "never"]);
+    // A free-mail sender is one person, never all of @gmail.com.
+    expect(boardOverride({ host: "gmail.com", address: "Jo.Smith@gmail.com", name: "Jo", guess: "receipt" }, "keep")).toEqual(["josmith@gmail.com", "never"]);
   });
 });

@@ -4,6 +4,8 @@
 import { classifyMessageKind } from "./messageKind";
 import { classifySortBucket, type SortBucket, type SortOverride } from "./sortTaxonomy";
 import { registrableDomain } from "./registrableDomain";
+import { isFreeMailDomain } from "./freeMail";
+import { correctionKey } from "./addressIdentity";
 
 export interface PracticeMail {
   fromAddress: string;
@@ -61,5 +63,7 @@ export function pickPracticeSenders(mail: PracticeMail[], n = 8): PracticeSender
 /** What a board placement saves: nothing where Cluster guessed, else the new label or never sort. */
 export function boardOverride(sender: PracticeSender, spot: BoardSpot): [string, SortOverride] | null {
   if (spot === sender.guess) return null;
-  return [`@${sender.host}`, spot === "keep" ? "never" : spot];
+  // Never a whole free-mail domain: "@gmail.com" would be everyone on Gmail.
+  const key = isFreeMailDomain(registrableDomain(sender.host)) ? correctionKey(sender.address) : `@${sender.host}`;
+  return [key, spot === "keep" ? "never" : spot];
 }
