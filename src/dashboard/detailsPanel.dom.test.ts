@@ -104,6 +104,14 @@ describe("Details panel", () => {
     expect(rows(root)).toHaveLength(3);
   });
 
+  it("opens on Overview's date range, shown as a removable chip", () => {
+    const panel = boot();
+    panel.open({ kind: "promo", range: { start: NOW - 7 * DAY, end: NOW + DAY, label: "Last 7 days" } });
+    expect(rows(root)).toEqual(["Shop Sale today"]);
+    click(root, ".chip.on", "Last 7 days");
+    expect(rows(root)).toEqual(["Shop Sale today", "Shop Old sale"]);
+  });
+
   it("This week and All mail are pills, and there is no chart", () => {
     const panel = boot();
     panel.open({ kind: "promo" });

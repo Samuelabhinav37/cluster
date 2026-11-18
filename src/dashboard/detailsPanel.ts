@@ -75,6 +75,8 @@ export interface DetailsFilter {
   kind?: HomeKind | null;
   senderKey?: string | null;
   week?: number | null;
+  /** Overview's date range (end exclusive), so a click there shows the same emails it counted. */
+  range?: { start: number; end: number; label: string } | null;
   never?: boolean;
   /** A smart view id, e.g. "large". */
   smart?: string | null;
@@ -105,7 +107,8 @@ export interface DetailsActions {
   labels?: ReadonlyArray<{ bucket: SortBucket; name: string }>;
 }
 
-type State = Required<Omit<DetailsFilter, "senderKey" | "kind" | "week" | "smart">> & {
+type State = Required<Omit<DetailsFilter, "senderKey" | "kind" | "week" | "smart" | "range">> & {
+  range: { start: number; end: number; label: string } | null;
   smart: string | null;
   kind: HomeKind | null;
   senderKey: string | null;
@@ -117,6 +120,7 @@ const BLANK: State = {
   kind: null,
   senderKey: null,
   week: null,
+  range: null,
   never: false,
   smart: null,
   q: "",
@@ -330,6 +334,7 @@ export function initDetailsPanel(
     const never = st.never ? neverKeys() : null;
     return messages.filter(
       (m) =>
+        (!st.range || (m.at >= st.range.start && m.at < st.range.end)) &&
         (!st.kind || m.kind === st.kind) &&
         (!st.senderKey || m.senderKey === st.senderKey) &&
         (!never || never.has(m.senderKey)) &&
@@ -341,7 +346,7 @@ export function initDetailsPanel(
   function senderRows(): DetailSender[] {
     const q = st.q.toLowerCase();
     const keys =
-      st.week === null
+      st.week === null && !st.range
         ? null
         : new Set(
             baseMessages()
@@ -393,13 +398,14 @@ export function initDetailsPanel(
     // Filters set from elsewhere (search, a sender, another kind), removable with ✕.
     const extra: Array<[string, Partial<State>]> = [];
     if (st.q) extra.push([`“${st.q}”`, { q: "" }]);
+    if (st.range) extra.push([st.range.label, { range: null }]);
     if (st.kind && st.kind !== "promo") extra.push([kindLabel(st.kind), { kind: null }]);
     if (st.senderKey)
       extra.push([senders.find((s) => s.key === st.senderKey)?.name ?? "Sender", { senderKey: null }]);
     const smart = SMART_VIEWS.find((v) => v.id === st.smart);
     if (smart && !toggles.some(([label]) => label === smart.label)) extra.push([smart.label, { smart: null }]);
     if (st.week !== null && !thisWeek) extra.push([`Week of ${fmtShort(weekStart(st.week))}`, { week: null }]);
-    const all = !st.q && !st.kind && !st.senderKey && !st.never && !st.smart && st.week === null;
+    const all = !st.q && !st.kind && !st.senderKey && !st.never && !st.smart && st.week === null && !st.range;
     chips.replaceChildren(
       pill("All mail", all, { ...BLANK, view: st.view }),
       ...extra.map(([label, patch]) => {

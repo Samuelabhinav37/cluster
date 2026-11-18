@@ -1764,8 +1764,8 @@ function renderOverview(
     renderHomeDashboard(
       facts,
       goAndAct,
-      (kind) => details?.open({ kind }),
-      (key) => details?.open({ view: "emails", senderKey: key }),
+      (kind) => details?.open({ kind, range: { start: range.start, end: rangeEndExcl, label: facts.rangeLabel! } }),
+      (key) => details?.open({ view: "emails", senderKey: key, range: { start: range.start, end: rangeEndExcl, label: facts.rangeLabel! } }),
       () => details?.open({ view: "emails", week: WEEKS - 1 }),
     ),
   );
