@@ -6,6 +6,7 @@ import {
   dueForMove,
   holdUnsortedInbox,
   screenFirstTimeSenders,
+  sendersWithMailBefore,
   senderBuckets,
   labelBySearch,
   labelFromIndex,
@@ -516,8 +517,8 @@ describe("screenFirstTimeSenders", () => {
     const a = fakeApi({}, senders);
     a.listIds.mockImplementation(async (labelIds: string[], query: string) => {
       if (labelIds[0] === "INBOX") return inbox;
-      const from = /^from:(\S+) before:/.exec(query)?.[1];
-      return from && wroteBefore.includes(from) ? ["old"] : [];
+      const from = /^from:\((.+)\) before:/.exec(query)?.[1].split(" OR ") ?? [];
+      return from.some((f) => wroteBefore.includes(f)) ? ["old"] : [];
     });
     return a;
   }
@@ -562,5 +563,24 @@ describe("screenFirstTimeSenders", () => {
     expect(res.heldIds).toEqual(["h1"]);
     expect(a.listIds).toHaveBeenCalledTimes(1);
     expect((await screenFirstTimeSenders(ctx(), a, "✋ Screener", 0, new Set(), new Set())).heldIds).toEqual([]);
+  });
+});
+
+describe("sendersWithMailBefore", () => {
+  it("asks once for a group with no earlier mail, and splits only to find who wrote", async () => {
+    const addresses = Array.from({ length: 45 }, (_, i) => `s${i}@x.example`);
+    const queries: string[] = [];
+    const api = {
+      listIds: vi.fn(async (_l: string[], q: string) => {
+        queries.push(q);
+        const from = /^from:\((.+)\) before:100$/.exec(q)![1].split(" OR ");
+        return from.includes("s7@x.example") ? ["old"] : [];
+      }),
+    };
+    const found = await sendersWithMailBefore(api, addresses, 100);
+    expect([...found]).toEqual(["s7@x.example"]);
+    // Groups of 20/20/5; halving the first down to s7 (20,10,5,3,1) takes 9 searches: 11 in all, not 45.
+    expect(queries.length).toBe(11);
+    expect(await sendersWithMailBefore(api, [], 100)).toEqual(new Set());
   });
 });

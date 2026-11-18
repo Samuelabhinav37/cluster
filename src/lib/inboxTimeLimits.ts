@@ -465,9 +465,7 @@ export async function screenFirstTimeSenders(
   const anyLabel = `{${limits.map((l) => `label:"${l.labelName.replace(/"/g, "")}"`).join(" ")}}`;
   const ids = await api.listIds(["INBOX"], `after:${sinceSec} ${anyLabel} -label:"${screenerLabelName}" -is:starred`, SWEEP_MAX);
   if (ids.length === 0) return none;
-  const heldIds: string[] = [];
-  const senders: string[] = [];
-  const newlyVetted: string[] = [];
+  const candidates: { address: string; ids: string[] }[] = [];
   for (const sender of await api.readSenders(ids)) {
     const address = sender.address.toLowerCase();
     if (ctx.known.has(address) || vetted.has(address) || scamTier(sender, ctx.known) !== "none") continue;
@@ -475,13 +473,23 @@ export async function screenFirstTimeSenders(
     const msgs = sender.messages.filter(
       (m) => !m.fromYou && !m.repliesToYou && !m.providerMarkedPersonal && !m.isProtected && !neverMove(m, sender.address),
     );
-    if (msgs.length === 0) continue;
-    if (!held.has(address) && (await api.listIds([], `from:${address} before:${sinceSec}`, 1)).length > 0) {
-      newlyVetted.push(address);
+    if (msgs.length > 0) candidates.push({ address, ids: msgs.map((m) => m.id) });
+  }
+  const wroteBefore = await sendersWithMailBefore(
+    api,
+    candidates.map((c) => c.address).filter((a) => !held.has(a)),
+    sinceSec,
+  );
+  const heldIds: string[] = [];
+  const senders: string[] = [];
+  const newlyVetted: string[] = [];
+  for (const c of candidates) {
+    if (wroteBefore.has(c.address)) {
+      newlyVetted.push(c.address);
       continue;
     }
-    for (const m of msgs) heldIds.push(m.id);
-    senders.push(address);
+    heldIds.push(...c.ids);
+    senders.push(c.address);
   }
   if (heldIds.length > 0) await api.batchModify(heldIds, [await api.ensureLabelId(screenerLabelName)], ["INBOX"]);
   return { heldIds, senders, vetted: newlyVetted };
@@ -489,6 +497,35 @@ export async function screenFirstTimeSenders(
 
 // Searches and label writes in flight at once: well under Gmail's per-user limit.
 const SEARCH_PARALLEL = 6;
+
+// Senders per OR search: keeps the query well under Gmail's length limit.
+const OR_GROUP = 20;
+
+/** Which senders have mail from before `beforeSec`. One `from:(a OR b ...)`
+ * search answers for a whole group; a group is split in half only when
+ * something comes back. Most first-time senders really are new, so 200 senders
+ * cost about 10 searches instead of 200. */
+export async function sendersWithMailBefore(
+  api: Pick<InboxLimitsApi, "listIds">,
+  addresses: readonly string[],
+  beforeSec: number,
+): Promise<Set<string>> {
+  const found = new Set<string>();
+  const check = async (group: readonly string[]): Promise<void> => {
+    const hit = await api.listIds([], `from:(${group.join(" OR ")}) before:${beforeSec}`, 1);
+    if (hit.length === 0) return;
+    if (group.length === 1) {
+      found.add(group[0]);
+      return;
+    }
+    const mid = Math.ceil(group.length / 2);
+    await Promise.all([check(group.slice(0, mid)), check(group.slice(mid))]);
+  };
+  const groups: string[][] = [];
+  for (let i = 0; i < addresses.length; i += OR_GROUP) groups.push(addresses.slice(i, i + OR_GROUP));
+  await mapWithConcurrency(groups, SEARCH_PARALLEL, check);
+  return found;
+}
 
 export interface SearchSpec {
   bucket: SortBucket;
