@@ -23,3 +23,15 @@ describe("Diagnostics", () => {
     expect(document.querySelectorAll('#settings-runs [data-status="failed"]').length).toBe(1);
   });
 });
+
+describe("Scam lists row", () => {
+  it("says the date, and says out of date past 30 days", async () => {
+    document.body.innerHTML = `<div class="set-row"><span id="list-dates"></span></div>`;
+    const { renderListDates } = await import("./settingsMore");
+    const bundled = Date.parse((await import("../lib/data/malwareDomains.generated.json")).generatedAt);
+    await renderListDates(bundled + 5 * 86_400_000);
+    expect(document.getElementById("list-dates")!.textContent).toMatch(/^Updated \w{3} \d+, \d{4}$/);
+    await renderListDates(bundled + 40 * 86_400_000);
+    expect(document.getElementById("list-dates")!.textContent).toMatch(/^Out of date, last updated /);
+  });
+});

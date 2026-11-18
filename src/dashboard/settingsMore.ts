@@ -11,6 +11,7 @@ import { kindModel, resetKindModel } from "./kindLearning";
 import { ctx } from "./state";
 import { renderConfirmStep } from "./ui";
 import { failingJobs, getJobHealth } from "../lib/supervisor";
+import { listAge, listDates } from "../lib/listDates";
 import { JOB_WORDS } from "../lib/jobWords";
 import { describeRun, getRunReports, onRunReportsChange, reportText, type RunReport } from "../lib/runReport";
 
@@ -120,6 +121,16 @@ ${reportText(reports)}`)
     return row;
   });
   host.replaceChildren(...failing, ...rows, foot);
+}
+
+/** Settings, Security: how old the scam lists are, said plainly when out of date. */
+export async function renderListDates(now = Date.now()): Promise<void> {
+  const host = $("list-dates");
+  if (!host) return;
+  const { oldest, stale } = listAge(await listDates(), now);
+  const day = new Date(oldest).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+  host.textContent = stale ? `Out of date, last updated ${day}` : `Updated ${day}`;
+  host.closest(".set-row")?.toggleAttribute("data-stale", stale);
 }
 
 /** "What Cluster learned": your corrections, each kind with a count and Reset. */
@@ -474,6 +485,7 @@ export function wireSettingsMore(showScreen: (name: string) => void, act?: KeyAc
     };
   void renderRuns();
   onRunReportsChange(() => void renderRuns());
+  void renderListDates();
   const build = $("settings-build");
   if (build) build.textContent = `Version ${__BUILD__}`;
   // Mirror the header's email, which fills in after sign-in.
