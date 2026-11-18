@@ -3,7 +3,7 @@ import { looksLikeDisposableCode } from "./messageKind";
 import { isPersonalAccount } from "./freeMail";
 import { cleanText } from "./normalize";
 import { categorizeDomain } from "./domainCategories";
-import { knownSenderSet } from "./screener";
+import { knownSenderSet, wroteToSet } from "./screener";
 import type { ClusterSettings } from "./settingsStore";
 
 export type ProtectionReason =
@@ -31,8 +31,12 @@ export function emptyProtectionContext(): ProtectionContext {
   return { knownSenders: new Set() };
 }
 
-export function buildProtectionContext(settings: ClusterSettings): ProtectionContext {
-  return { knownSenders: knownSenderSet(settings) };
+/** Who counts as known. Automatic moves (standing rules) keep senders let in
+ * from the Screener protected. "you-confirm" is for cleanup the user clicks
+ * through: letting a company in only skips the Screener, so its mail can be
+ * suggested like any company's (docs/engine-design-2026-11-18.md, decision 2). */
+export function buildProtectionContext(settings: ClusterSettings, mode: "automatic" | "you-confirm" = "automatic"): ProtectionContext {
+  return { knownSenders: mode === "automatic" ? knownSenderSet(settings) : wroteToSet(settings) };
 }
 
 export interface ProtectionOptions {

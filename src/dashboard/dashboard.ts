@@ -1834,7 +1834,7 @@ function currentSuggestions(senders: SenderSummary[]): Suggestion[] {
     senders,
     ctx.profiles,
     ctx.settings.senderEngagement,
-    buildProtectionContext(ctx.settings),
+    buildProtectionContext(ctx.settings, "you-confirm"),
     undefined,
     suggestionModel(),
   );
@@ -1843,7 +1843,7 @@ function currentSuggestions(senders: SenderSummary[]): Suggestion[] {
 /** Clean up's cards. Home, the cards and the sidebar badge all show this
  * one total, so they never disagree. */
 function clearOutPlan(senders: SenderSummary[]) {
-  const protectionCtx = buildProtectionContext(ctx.settings);
+  const protectionCtx = buildProtectionContext(ctx.settings, "you-confirm");
   const cards = buildCleanupCards(
     senders,
     ctx.profiles,
@@ -2495,7 +2495,7 @@ async function archiveAndLog(merged: Map<ProviderId, string[]>, summary: (moved:
 
 /** Shipping updates for orders that say delivered (orderEvents.ts): archive. */
 function deliveredOrdersCard(): HTMLElement | null {
-  const merged = deliveredUpdates(ctx.senders, buildProtectionContext(ctx.settings));
+  const merged = deliveredUpdates(ctx.senders, buildProtectionContext(ctx.settings, "you-confirm"));
   const total = [...merged.values()].reduce((n, ids) => n + ids.length, 0);
   if (total === 0 && !presetNotes.has("delivered")) return null;
   return presetActionCard(
@@ -2511,7 +2511,7 @@ function deliveredOrdersCard(): HTMLElement | null {
  * never Trash). shortcut: runs once when pressed, not on every check; make it
  * a standing rule in the sweep if people want it kept up. */
 function keepNewestInInboxCard(): HTMLElement | null {
-  const merged = keepNewestExcess(ctx.senders, KEEP_IN_INBOX, buildProtectionContext(ctx.settings));
+  const merged = keepNewestExcess(ctx.senders, KEEP_IN_INBOX, buildProtectionContext(ctx.settings, "you-confirm"));
   const total = [...merged.values()].reduce((n, ids) => n + ids.length, 0);
   if (total === 0 && !presetNotes.has("keep-newest")) return null;
   return presetActionCard(
@@ -2528,7 +2528,7 @@ function keepNewestInInboxCard(): HTMLElement | null {
  * picker if people ask for another cutoff. */
 const ZERO_DAYS = 30;
 function getToZeroCard(): HTMLElement | null {
-  const merged = olderReadExcess(ctx.senders, ZERO_DAYS, Date.now(), buildProtectionContext(ctx.settings));
+  const merged = olderReadExcess(ctx.senders, ZERO_DAYS, Date.now(), buildProtectionContext(ctx.settings, "you-confirm"));
   const total = [...merged.values()].reduce((n, ids) => n + ids.length, 0);
   if (total === 0 && !presetNotes.has("zero")) return null;
   return presetActionCard(

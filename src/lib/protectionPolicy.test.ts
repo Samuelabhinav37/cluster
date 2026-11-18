@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildProtectionContext,
   buildSenderCleanupPlan,
   idsSafeToMoveOut,
   neverMove,
@@ -7,6 +8,7 @@ import {
   type ProtectionContext,
 } from "./protectionPolicy";
 import type { MessageRecord, SenderSummary } from "./senderModel";
+import type { ClusterSettings } from "./settingsStore";
 
 function message(over: Partial<MessageRecord> & { id: string }): MessageRecord {
   return {
@@ -187,5 +189,23 @@ describe("job and money mail read from the notification (real inbox, 2026-11-05)
   it("still lets job alerts, bank ads and stale codes go", () => {
     expect(protectionDecision(message({ id: "a", subject: "Your job alert for: Cybersecurity", kind: "jobs", ...automated }), "news@mg.monster.com").protected).toBe(false);
     expect(protectionDecision(message({ id: "b", subject: "Earn 5% back this month", kind: "newsletter", promotion: true, ...automated }), "offers@chase.com").protected).toBe(false);
+  });
+});
+
+describe("let-in senders (engine design, decision 2)", () => {
+  const settings = {
+    screenerAllowlist: ["news@shop.example"],
+    sentCorrespondents: { addresses: ["friend@corp.example"], fetchedAt: 0 },
+  } as unknown as ClusterSettings;
+  const promo = message({ id: "p", kind: "newsletter", looksAutomated: true });
+
+  it("standing rules keep a company let in from the Screener protected", () => {
+    expect(protectionDecision(promo, "news@shop.example", buildProtectionContext(settings))).toEqual({ protected: true, reason: "known-correspondent" });
+  });
+
+  it("cleanup you click through can suggest its mail; people you wrote to stay protected", () => {
+    const confirm = buildProtectionContext(settings, "you-confirm");
+    expect(protectionDecision(promo, "news@shop.example", confirm).protected).toBe(false);
+    expect(protectionDecision(promo, "friend@corp.example", confirm)).toEqual({ protected: true, reason: "known-correspondent" });
   });
 });

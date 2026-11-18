@@ -86,7 +86,7 @@ function listStatus(group: SenderSummary[]): string {
   const asked = group.map((s) => unsubscribeOutcomeFor(s.key, s)).find((o) => o.requestAt);
   if (asked) return asked.label;
   if (group.every((s) => ctx.profiles.get(s.key)?.stillSending === false)) return "Stopped sending";
-  const protection = buildProtectionContext(ctx.settings);
+  const protection = buildProtectionContext(ctx.settings, "you-confirm");
   if (group.some((s) => leavableList(s, ctx.profiles.get(s.key), protection))) return "Unused";
   if (!group.some((s) => s.unsubscribe.postUrl) && group.some((s) => s.unsubscribe.mailto)) return "By email";
   return "";
