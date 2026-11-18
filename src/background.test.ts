@@ -59,6 +59,12 @@ vi.mock("./lib/athenaIntegration", () => ({
   queueAthenaSecurityEvents,
 }));
 vi.mock("./lib/durableJobs", () => ({ resumeInterruptedJobs }));
+// Pass-through: the supervisor has its own tests (supervisor.test.ts).
+vi.mock("./lib/supervisor", () => ({
+  supervise: (_job: string, fn: () => Promise<unknown>) => fn().catch(() => undefined),
+  failingJobs: () => [],
+  getJobHealth: async () => ({}),
+}));
 vi.mock("./lib/backgroundRead", () => ({ continueMailRead: (...a: unknown[]) => continueMailRead(...(a as [])) }));
 vi.mock("./lib/gmailQuotaLedger", () => ({ gmailQuotaHeadroom }));
 vi.mock("./lib/metadataCache", () => ({

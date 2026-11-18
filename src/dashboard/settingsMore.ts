@@ -10,6 +10,8 @@ import { clearSyncedSettings, getSettings, updateSettings } from "../lib/setting
 import { kindModel, resetKindModel } from "./kindLearning";
 import { ctx } from "./state";
 import { renderConfirmStep } from "./ui";
+import { failingJobs, getJobHealth } from "../lib/supervisor";
+import { JOB_WORDS } from "../lib/jobWords";
 import { describeRun, getRunReports, onRunReportsChange, reportText, type RunReport } from "../lib/runReport";
 
 const MAIL_INDEX_DB = "cluster-mail-index";
@@ -105,7 +107,19 @@ ${reportText(reports)}`)
   const trail = Object.assign(document.createElement("span"), { className: "row-actions" });
   trail.append(copy);
   foot.append(lead, trail);
-  host.replaceChildren(...rows, foot);
+  // Jobs the supervisor saw fail 3 times in a row come first (plan step 2.3).
+  const failing = failingJobs(await getJobHealth()).map(([name, h]) => {
+    const row = Object.assign(document.createElement("div"), { className: "set-row plain run-row" });
+    row.dataset.status = "failed";
+    const text = Object.assign(document.createElement("span"), { className: "grow" });
+    text.append(
+      Object.assign(document.createElement("b"), { textContent: `Can't ${JOB_WORDS[name] ?? name}` }),
+      Object.assign(document.createElement("span"), { className: "sub", textContent: `${h.lastError ?? "Failed"}, ${h.failures} times in a row` }),
+    );
+    row.append(text);
+    return row;
+  });
+  host.replaceChildren(...failing, ...rows, foot);
 }
 
 /** "What Cluster learned": your corrections, each kind with a count and Reset. */

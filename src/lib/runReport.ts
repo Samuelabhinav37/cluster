@@ -76,6 +76,7 @@ export function plainError(err: unknown): string {
     return `Gmail error ${status}`;
   }
   const message = err instanceof Error ? err.message : String(err);
+  if (/sign-in helper/i.test(message)) return message;
   if (/failed to fetch|network|offline/i.test(message)) return "No internet connection";
   if (/not signed in|auth|token/i.test(message)) return "Google sign-in expired";
   return message.slice(0, 160);

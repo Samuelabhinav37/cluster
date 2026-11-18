@@ -82,10 +82,14 @@ async function askHelper(path: "/token" | "/refresh", body: Record<string, strin
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
+  }).catch(() => {
+    // Offline looks the same from here; navigator.onLine tells them apart.
+    throw new Error(navigator.onLine === false ? "No internet connection" : "Cluster's sign-in helper didn't answer");
   });
   const answer = (await res.json().catch(() => ({}))) as TokenAnswer;
   if (res.ok && answer.access_token) return answer;
   if (answer.error === "invalid_grant") throw new GmailSignInExpired();
+  if (res.status >= 500) throw new Error(`Cluster's sign-in helper had an error (${res.status})`);
   throw new Error(`Gmail sign-in failed: ${answer.error_description ?? answer.error ?? res.status}`);
 }
 

@@ -1,4 +1,6 @@
 import { sortLabelNames } from "./lib/categoryFilters";
+import { failingJobs, getJobHealth, supervise, type HealthTable } from "./lib/supervisor";
+import { JOB_WORDS } from "./lib/jobWords";
 import { tryWithStorageLock } from "./lib/storageLock";
 import { openMailIndex, runSnapshot, type MailIndexStore } from "./lib/mailIndex";
 import { buildProtectionContext, idsSafeToMoveOut } from "./lib/protectionPolicy";
@@ -145,18 +147,15 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 function handleAlarm(alarm: chrome.alarms.Alarm): void {
   if (alarm.name === READ_ALARM) void readInBackground();
   if (alarm.name === TRIAGE_ALARM) {
-    resurfaceDueSnoozed(gmailProvider).catch((err) => log.error("Resurfacing snoozed mail failed", err));
-    gmailProvider
-      .getAuthToken(false)
-      .then((token) => runReplyReminders(token))
-      .catch((err) => log.error("Reply reminders failed", err));
-    runBackgroundTriage();
-    void sendWeeklySummary().catch((err) => log.error("Weekly summary failed", err));
+    void job("snoozed", () => resurfaceDueSnoozed(gmailProvider));
+    void job("reply-reminders", async () => runReplyReminders(await gmailProvider.getAuthToken(false)));
+    void job("triage", runBackgroundTriage);
+    void job("weekly", sendWeeklySummary);
   }
   if (alarm.name === ATHENA_ALARM) void flushAthenaSecurityEvents();
   if (alarm.name === JOBS_ALARM) {
-    void resumeInterruptedJobs(providerById).catch((err) => log.error("Resuming durable jobs failed", err));
-    void resumeUnsubscribeQueue().catch((err) => log.error("Resuming unsubscribe emails failed", err));
+    void job("resume-jobs", () => resumeInterruptedJobs(providerById));
+    void job("unsubscribe-emails", resumeUnsubscribeQueue);
     // Starts the minute read again after a dashboard read was cut off (tab closed).
     void readInBackground();
   }
@@ -173,12 +172,12 @@ function handleAlarm(alarm: chrome.alarms.Alarm): void {
     const store = openMailIndex().then(runSnapshot).catch(() => undefined);
     // One chain at a time: a run longer than 5 minutes used to overlap the next.
     void tryWithStorageLock("sweep-chain", () =>
-      runInboxTimeLimitsIfQuota()
-        .then(async () => holdScamsFromIndex(await store).catch((err) => log.error("Scam hold failed", err)))
-        .then(async () => sendTodayEmail(await store).catch((err) => log.error("Today email failed", err)))
-        .then(async () => runUnsubscribedSweep(await store).catch((err) => log.error("Unsubscribed sweep failed", err)))
-        .then(async () => runAutoMute(await store).catch((err) => log.error("Auto-mute failed", err)))
-        .then(() => deliverNewsletters().catch((err) => log.error("Newsletter delivery failed", err))),
+      job("sort", runInboxTimeLimitsIfQuota)
+        .then(async () => job("scam-hold", async () => holdScamsFromIndex(await store)))
+        .then(async () => job("today-email", async () => sendTodayEmail(await store)))
+        .then(async () => job("unsubscribed-sweep", async () => runUnsubscribedSweep(await store)))
+        .then(async () => job("auto-mute", async () => runAutoMute(await store)))
+        .then(() => job("newsletters", deliverNewsletters)),
     );
   }
 }
@@ -208,6 +207,7 @@ async function runInboxTimeLimitsIfQuota(): Promise<void> {
     await runInboxTimeLimits(Date.now(), { background: true });
   } catch (err) {
     log.error("Inbox time limits failed", err);
+    throw err;
   }
 }
 
@@ -626,7 +626,9 @@ async function runBackgroundTriage() {
     });
 
     const badgeCount = total + held;
-    if (badgeCount > 0) {
+    if (failingJobs(await getJobHealth()).length > 0) {
+      // A failing job's "!" outranks the count.
+    } else if (badgeCount > 0) {
       await chrome.action.setBadgeText({ text: badgeCount > 99 ? "99+" : String(badgeCount) });
       await chrome.action.setBadgeBackgroundColor({ color: "#c0392b" });
     } else {
@@ -634,7 +636,26 @@ async function runBackgroundTriage() {
     }
   } catch (err) {
     log.error("Background triage failed", err);
+    throw err;
   }
+}
+
+/** A background job under the supervisor (backoff, health row, warning). */
+function job<T>(name: string, fn: () => Promise<T>): Promise<T | undefined> {
+  return supervise(name, fn, showHealth);
+}
+
+/** A job failing 3 times in a row: "!" on the icon and one notification; cleared when all recover. */
+async function showHealth(table: HealthTable): Promise<void> {
+  const failing = failingJobs(table);
+  if (failing.length === 0) {
+    if ((await chrome.action.getBadgeText({})) === "!") await chrome.action.setBadgeText({ text: "" });
+    return;
+  }
+  await chrome.action.setBadgeText({ text: "!" });
+  await chrome.action.setBadgeBackgroundColor({ color: "#c0392b" });
+  const [name, h] = failing[0];
+  await notify(`failing-${name}`, `Cluster keeps failing to ${JOB_WORDS[name] ?? name}: ${h.lastError}. Open Settings, Diagnostics.`);
 }
 
 async function ensureAlarm(name: string, info: chrome.alarms.AlarmCreateInfo): Promise<void> {
