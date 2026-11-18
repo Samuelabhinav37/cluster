@@ -318,7 +318,9 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   incrementalSyncCursors: {},
   lastIncrementalSyncAt: 0,
   senderEngagement: {},
-  autoQuarantineHighRisk: false,
+  // On for every new user (plan decision B, 2026-11-18): phishing is the one
+  // thing Cluster moves without asking. Starred mail never moves.
+  autoQuarantineHighRisk: true,
   quarantinedSenders: {},
   quarantineReview: {},
   autoSort: {

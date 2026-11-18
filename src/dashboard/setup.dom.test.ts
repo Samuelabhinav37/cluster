@@ -130,6 +130,7 @@ describe("first-run setup", () => {
     await vi.waitFor(() => expect(dash.storedSettings().persona).toBe("calm"));
     expect(dash.storedSettings().setupDone).toBe(true);
     expect(dash.storedSettings().autoSort.timeLimitsEnabled).toBe(false);
-    expect(dash.storedSettings().autoQuarantineHighRisk).toBe(false);
+    // Sorting waits for a yes; the phishing hold is on for everyone (decision B).
+    expect(dash.storedSettings().autoQuarantineHighRisk).toBe(true);
   });
 });

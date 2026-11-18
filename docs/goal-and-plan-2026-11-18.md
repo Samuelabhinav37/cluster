@@ -47,7 +47,8 @@ Every number on every screen and in the report:
 | 2.4 Lease let go when signed out | Done | `83376fe` |
 | 2.5 One index read per run; minute alarm stops | Done (labelling keeps its own read: 2 reads per run instead of up to 4) | `83376fe` |
 | 2.7 Today email | Done | `83376fe` |
-| 1.4, 3.1 | Waiting on decisions A and B | |
+| 3.1 Phishing hold on by default | Done for new users. Existing users keep the switch they saved | see git log |
+| 1.4 | Parked: decision A left for later | |
 | 1.6 and the "numbers agree" test, 2.1 to 2.3 supervisor, 2.6, phases 3 to 7 | Next | |
 
 ## Phases

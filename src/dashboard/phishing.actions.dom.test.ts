@@ -68,12 +68,13 @@ describe("Phishing screen — auto-quarantine toggle", () => {
     dash.showScreen("impersonation");
 
     const toggle = dash.el("auto-quarantine-toggle") as HTMLInputElement;
-    expect(toggle.checked).toBe(false);
+    // On by default (decision B); turning it off is saved.
+    expect(toggle.checked).toBe(true);
     toggle.click();
     toggle.dispatchEvent(new Event("change"));
 
     await vi.waitFor(() => {
-      expect(dash.storedSettings().autoQuarantineHighRisk).toBe(true);
+      expect(dash.storedSettings().autoQuarantineHighRisk).toBe(false);
     });
   });
 });
