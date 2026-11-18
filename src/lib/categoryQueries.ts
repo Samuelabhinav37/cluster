@@ -109,67 +109,101 @@ function isSubjectKind(bucket: SortBucket): bucket is SubjectKind {
 const DOMAIN_BUCKETS: SortBucket[] = ["shopping", "travel", "finance", "productivity", "education", "newsletter"];
 
 /** Addresses the user redirected into `bucket`, and ones they sent elsewhere
- * or set to "never" sort (from Sort my inbox's per-sender corrections).
+ * or set to "never" sort (from Sort my inbox's per-sender corrections),
+ * newest correction first so it wins the room in a full filter.
  * A kind-scoped key ("a@x.com|receipt") becomes a from+subject term:
- * `scoped` are this bucket's own, `notScoped` must be kept out of it. */
+ * `scoped` are this bucket's own; `notScoped` keeps one kind of a sender
+ * filed here whole out of this bucket. */
 function overrideTerms(bucket: SortBucket, overrides: Record<string, SortOverride>) {
   const include: string[] = [];
   const exclude: string[] = [];
   const scoped: string[] = [];
-  const notScoped: string[] = [];
-  const plain = Object.entries(overrides).filter(([raw]) => !raw.includes("|"));
-  for (const [raw, target] of plain) {
+  const notScoped = new Map<string, string[]>();
+  const entries = Object.entries(overrides).reverse();
+  for (const [raw, target] of entries) {
     const addr = raw.toLowerCase().trim();
     // Gmail search has no wildcards: a pattern (bounce-*@host) is applied by
     // Cluster's own 5-minute pass instead.
-    if (!addr || addr.includes("*")) continue;
+    if (!addr || addr.includes("*") || addr.includes("|")) continue;
     (target === bucket ? include : exclude).push(addr);
   }
-  for (const [raw, target] of Object.entries(overrides)) {
+  for (const [raw, target] of entries) {
     const [addr, kind] = raw.toLowerCase().trim().split("|");
     if (kind === undefined || !addr || addr.includes("*") || !(kind in KIND_PHRASES)) continue;
-    const phrases = KIND_PHRASES[kind as SubjectKind];
-    if (target === bucket) scoped.push(`(from:${addr} ${subjectAny(phrases)})`);
+    const term = `(from:${addr} ${subjectAny(KIND_PHRASES[kind as SubjectKind])})`;
+    if (target === bucket) scoped.push(term);
     // In its own kind's filter, only that kind's mail can match, so the
     // address alone is enough, unless the user also filed the whole sender here.
     else if (bucket === kind && !include.includes(addr)) exclude.push(addr);
-    else if (isSubjectKind(bucket) && include.includes(addr)) notScoped.push(`(from:${addr} ${subjectAny(phrases)})`);
+    else if (include.includes(addr)) notScoped.set(addr, [...(notScoped.get(addr) ?? []), term]);
   }
-  return { include, exclude: exclude.filter((a) => !include.includes(a)), scoped, notScoped };
+  return { include, exclude: [...new Set(exclude)].filter((a) => !include.includes(a)), scoped, notScoped };
 }
 
 /** Gmail refuses a filter whose criteria run much past 1,500 characters. */
 export const MAX_FILTER_QUERY = 1400;
+/** Room each curated-domain query keeps for leaving out corrected senders. */
+const EXCLUDE_RESERVE = 300;
+
+/** `query` with as many of `addrs` left out as fit under MAX_FILTER_QUERY.
+ * shortcut: senders that don't fit can still get this label on arrival; the
+ * relabel puts them right (a correction beats every rule there). Upgrade to a
+ * client-side corrections pass if that lag shows up in the correction rate. */
+function withExcludes(query: string, addrs: readonly string[]): string {
+  let len = query.length + " -from:()".length;
+  let n = 0;
+  for (; n < addrs.length; n++) {
+    len += addrs[n].length + (n > 0 ? " OR ".length : 0);
+    if (len > MAX_FILTER_QUERY) break;
+  }
+  return n === 0 ? query : `${query} -${fromAny(addrs.slice(0, n))}`;
+}
+
+/** Packs terms into as few queries as fit, each `wrap(chunk)`. */
+function packed<T>(items: readonly T[], wrap: (chunk: readonly T[]) => string): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < items.length; ) {
+    let j = i + 1;
+    while (j < items.length && wrap(items.slice(i, j + 1)).length <= MAX_FILTER_QUERY) j++;
+    out.push(wrap(items.slice(i, j)));
+    i = j;
+  }
+  return out;
+}
 
 /**
  * The Gmail filter queries for one category, empty when there's nothing to
- * match. Gmail runs each on every new message. A long curated domain list is
- * split across several queries so each stays under MAX_FILTER_QUERY; the
- * subject phrases and the user's own redirects ride in the first.
+ * match. Gmail runs each on every new message, and none is ever longer than
+ * MAX_FILTER_QUERY, however many corrections the user makes. The subject
+ * phrases ride in the first; a long curated domain list is split across
+ * several; the user's own redirects get queries of their own, as their
+ * correction beats every rule (effectiveBucket).
  */
 export function categoryQueries(bucket: SortBucket, overrides: Record<string, SortOverride> = {}): string[] {
+  const { include, exclude, scoped, notScoped } = overrideTerms(bucket, overrides);
   const all = domainsForCategory(bucket as DomainCategory);
+  const reserve = exclude.length === 0 ? 0 : Math.min(EXCLUDE_RESERVE, fromAny(exclude).length + 2);
   const out: string[] = [];
   let start = 0;
   do {
-    const first = out.length === 0;
+    const first = start === 0;
     let end = start;
-    while (end < all.length && (buildQuery(bucket, overrides, all.slice(start, end + 1), first)?.length ?? 0) <= MAX_FILTER_QUERY) end++;
+    while (end < all.length && (buildQuery(bucket, all.slice(start, end + 1), first)?.length ?? 0) <= MAX_FILTER_QUERY - reserve) end++;
     // A single domain never overflows on its own; this only guards the loop.
     if (end === start && end < all.length) end++;
-    const q = buildQuery(bucket, overrides, all.slice(start, end), first);
-    if (q) out.push(q);
+    const q = buildQuery(bucket, all.slice(start, end), first);
+    if (q) out.push(withExcludes(q, exclude));
     start = end;
   } while (start < all.length);
-  // Corrections for one kind of a sender's mail get a query of their own: the
-  // bucket's usual "no kind phrases" rule would cancel them.
-  const { scoped } = overrideTerms(bucket, overrides);
-  for (let i = 0; i < scoped.length; ) {
-    let j = i + 1;
-    while (j < scoped.length && `{${scoped.slice(i, j + 1).join(" ")}}`.length <= MAX_FILTER_QUERY) j++;
-    out.push(j - i === 1 ? scoped[i] : `{${scoped.slice(i, j).join(" ")}}`);
-    i = j;
-  }
+  out.push(
+    ...packed(include, (chunk) => {
+      const not = chunk.flatMap((a) => notScoped.get(a) ?? []);
+      return [fromAny([...chunk]), ...not.map((n) => `-${n}`)].join(" ");
+    }),
+  );
+  // Corrections for one kind of a sender's mail: the bucket's usual "no kind
+  // phrases" rule would cancel them.
+  out.push(...packed(scoped, (chunk) => (chunk.length === 1 ? chunk[0] : `{${chunk.join(" ")}}`)));
   return out;
 }
 
@@ -178,14 +212,7 @@ export function categoryQuery(bucket: SortBucket, overrides: Record<string, Sort
   return categoryQueries(bucket, overrides)[0] ?? null;
 }
 
-function buildQuery(
-  bucket: SortBucket,
-  overrides: Record<string, SortOverride>,
-  domains: string[],
-  first: boolean,
-): string | null {
-  const { include: redirected, exclude, notScoped } = overrideTerms(bucket, overrides);
-  const include = first ? redirected : [];
+function buildQuery(bucket: SortBucket, domains: string[], first: boolean): string | null {
   const matchAny: string[] = [];
   const not: string[] = [];
 
@@ -213,10 +240,7 @@ function buildQuery(
   // AWS under amazon.com, LinkedIn Learning under linkedin.com: their own label, not this one.
   const services = serviceExceptions(bucket as DomainCategory);
   if (domains.length > 0 && services.length > 0) not.push(fromAny(services));
-  if (include.length > 0) matchAny.push(fromAny(include));
   if (matchAny.length === 0) return null;
-  if (exclude.length > 0) not.push(fromAny(exclude));
-  not.push(...notScoped);
 
   const match = matchAny.length === 1 ? matchAny[0] : `{${matchAny.join(" ")}}`;
   return [match, ...not.map((n) => `-${n}`)].join(" ");

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { KIND_PHRASES, MAX_FILTER_QUERY, OTP_EXCLUDED_PHRASES, categoryQueries, categoryQuery } from "./categoryQueries";
 import { classifyMessageKind } from "./messageKind";
-import { classifySortBucket } from "./sortTaxonomy";
+import { ALL_SORT_BUCKETS, classifySortBucket } from "./sortTaxonomy";
 
 describe("KIND_PHRASES", () => {
   it("never matches more than the client classifier: each phrase is classified as its own kind", () => {
@@ -75,9 +75,10 @@ describe("categoryQuery", () => {
   });
 
   it("applies per-sender corrections: redirected in, never-sorted out", () => {
-    const q = categoryQuery("otp", { "codes@bank.example": "otp", "friend@mail.example": "never" })!;
-    expect(q).toMatch(/^\{subject:\(.*\) from:\(codes@bank\.example\)\}/);
-    expect(q).toContain("-from:(friend@mail.example)");
+    const qs = categoryQueries("otp", { "codes@bank.example": "otp", "friend@mail.example": "never" });
+    // The user's redirect is its own query: their correction beats every rule.
+    expect(qs).toContain("from:(codes@bank.example)");
+    expect(qs[0]).toContain("-from:(friend@mail.example)");
   });
 
   it("has a query for every category the time limits cover", () => {
@@ -127,14 +128,31 @@ describe("kind-scoped corrections in filters", () => {
     expect(categoryQuery("shipping", overrides)).not.toContain("ship@amazon.com");
   });
   it("keeps a whole-sender redirect, minus the scoped kind", () => {
-    const q = categoryQuery("shipping", { ...overrides, "ship@amazon.com": "shipping" })!;
-    expect(q).toContain("from:(ship@amazon.com)");
-    expect(q).toContain("-(from:ship@amazon.com subject:(receipt");
+    const q = categoryQueries("shipping", { ...overrides, "ship@amazon.com": "shipping" }).at(-1)!;
+    expect(q).toMatch(/^from:\(ship@amazon\.com\) -\(from:ship@amazon\.com subject:\(receipt/);
   });
 });
 
 describe("job receipts", () => {
   it("the Receipts filter skips a job application's receipt", () => {
     expect(categoryQuery("receipt")).toContain('-subject:("resume receipt"');
+  });
+});
+
+describe("corrections never break a filter (audit B1)", () => {
+  const many = (n: number, target: "shopping" | "never") =>
+    Object.fromEntries(Array.from({ length: n }, (_, i) => [`someone.long.name${i}@company-number-${i}.example`, target]));
+  it.each([0, 30, 200, 1000])("every query stays under the limit with %i corrections", (n) => {
+    const overrides = { ...many(n, "shopping"), ...many(n, "never") };
+    for (const b of ALL_SORT_BUCKETS) for (const q of categoryQueries(b, overrides)) expect(q.length, `${b}: ${q.slice(0, 60)}`).toBeLessThanOrEqual(MAX_FILTER_QUERY);
+  });
+  it("every redirected sender is matched by some query", () => {
+    const overrides = many(300, "shopping");
+    const all = categoryQueries("shopping", overrides).join(" ");
+    for (const a of Object.keys(overrides)) expect(all).toContain(a);
+  });
+  it("the newest correction wins the room to be left out", () => {
+    const overrides = { ...many(300, "never"), "newest@last.example": "never" as const };
+    expect(categoryQuery("receipt", overrides)).toContain("newest@last.example");
   });
 });

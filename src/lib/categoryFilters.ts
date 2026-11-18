@@ -13,6 +13,7 @@ import type { GmailFilterAction, GmailFilterCriteria, GmailFilterResource } from
 import type { ClusterSettings } from "./settingsStore";
 import { ALL_SORT_BUCKETS, DEFAULT_FILE_OUT_OF_INBOX, bucketLabelName, type SortBucket } from "./sortTaxonomy";
 import { createFilter, deleteFilter, getOrCreateLabel, listFilters } from "./gmailApi";
+import { log } from "./log";
 
 export interface CategoryFilterSpec {
   bucket: SortBucket;
@@ -93,6 +94,8 @@ export interface CategoryFilterSyncResult extends CategoryFilterState {
   created: number;
   deleted: number;
   kept: number;
+  /** Labels whose new filters Gmail refused ("bucket: error"); their old filters stay. */
+  failed: string[];
 }
 
 async function deleteQuietly(api: CategoryFilterApi, id: string): Promise<boolean> {
@@ -116,6 +119,7 @@ export async function syncCategoryFilters(
   let created = 0;
   let deleted = 0;
   let kept = 0;
+  const failed: string[] = [];
   const wanted = new Set(desired.map((d) => d.bucket as string));
   // A label deleted in Gmail takes its filters with it (or leaves them
   // pointing nowhere), so "unchanged" also means: still in Gmail, still
@@ -138,40 +142,52 @@ export async function syncCategoryFilters(
       kept++;
       continue;
     }
-    for (const id of oldIds) if (await deleteQuietly(api, id)) deleted++;
-
     const action: GmailFilterAction = {
       addLabelIds: [labelId],
       removeLabelIds: spec.fileOut ? ["INBOX"] : [],
     };
     const ids: string[] = [];
-    for (const criteria of spec.criteria) {
-      try {
-        ids.push(await api.createFilter(criteria, action));
-      } catch (err) {
-        if (!/exist/i.test(String(err))) throw err;
-        // Gmail refuses an exact duplicate: adopt the one already there.
-        const same = [...live.values()].find(
-          (f) => f.criteria?.query === criteria.query && (f.action?.addLabelIds ?? []).includes(labelId),
-        );
-        if (!same) throw err;
-        ids.push(same.id);
+    try {
+      for (const criteria of spec.criteria) {
+        try {
+          ids.push(await api.createFilter(criteria, action));
+        } catch (err) {
+          if (!/exist/i.test(String(err))) throw err;
+          // Gmail refuses an exact duplicate: adopt the one already there.
+          const same = [...live.values()].find(
+            (f) => f.criteria?.query === criteria.query && (f.action?.addLabelIds ?? []).includes(labelId),
+          );
+          if (!same) throw err;
+          ids.push(same.id);
+        }
       }
+    } catch (err) {
+      // Gmail refused this label's new filters: the old ones keep labelling,
+      // the other labels still sync, and the next run tries again.
+      for (const id of ids) if (!oldIds.includes(id)) await deleteQuietly(api, id).catch(() => false);
+      filterIdsByBucket[spec.bucket] = oldIds;
+      if (current.filterSpecByBucket[spec.bucket]) filterSpecByBucket[spec.bucket] = current.filterSpecByBucket[spec.bucket];
+      failed.push(`${spec.bucket}: ${String(err)}`);
+      continue;
     }
+    // The new filters are in place; only now drop the ones they replace.
+    for (const id of oldIds) if (!ids.includes(id) && (await deleteQuietly(api, id))) deleted++;
     filterIdsByBucket[spec.bucket] = ids;
     filterSpecByBucket[spec.bucket] = key;
     created++;
   }
 
-  return { filterIdsByBucket, filterSpecByBucket, created, deleted, kept };
+  return { filterIdsByBucket, filterSpecByBucket, created, deleted, kept, failed };
 }
 
 /** Sync against the live Gmail account. */
-export function syncGmailCategoryFilters(settings: ClusterSettings, token: string) {
-  return syncCategoryFilters(desiredCategoryFilters(settings), settings.autoSort, {
+export async function syncGmailCategoryFilters(settings: ClusterSettings, token: string) {
+  const synced = await syncCategoryFilters(desiredCategoryFilters(settings), settings.autoSort, {
     labelIdFor: (name) => getOrCreateLabel(token, name),
     createFilter: (criteria, action) => createFilter(token, criteria, action),
     deleteFilter: (id) => deleteFilter(token, id),
     listFilters: () => listFilters(token),
   });
+  if (synced.failed.length > 0) log.error("Gmail refused some Cluster filters; their old ones stay", synced.failed);
+  return synced;
 }

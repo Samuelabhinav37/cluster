@@ -167,6 +167,28 @@ describe("syncCategoryFilters", () => {
     expect(res).toMatchObject({ deleted: 1, filterIdsByBucket: {} });
   });
 
+  it("audit B1: a refused filter keeps the old one, and the other labels still sync", async () => {
+    const a = api();
+    const shopSpec: CategoryFilterSpec = { ...otpSpec, bucket: "shopping", labelName: "🛍 Shopping" };
+    const current = { filterIdsByBucket: { otp: ["OLD_OTP"], shopping: ["OLD_SHOP"] }, filterSpecByBucket: { otp: "stale", shopping: "stale" } };
+    // OTP's new filter is created, its second one refused (too long, say).
+    const twoQueries: CategoryFilterSpec = { ...otpSpec, criteria: [{ query: "a" }, { query: "b" }] };
+    vi.mocked(a.createFilter)
+      .mockResolvedValueOnce("NEW_OTP_1")
+      .mockRejectedValueOnce(new Error("400 Filter criteria too long"));
+    const res = await syncCategoryFilters([twoQueries, shopSpec], current, a);
+    expect(res.failed).toEqual([expect.stringMatching(/^otp: .*too long/)]);
+    // The old OTP filter stays, the half-made new one is removed, and its spec stays stale to retry.
+    expect(res.filterIdsByBucket.otp).toEqual(["OLD_OTP"]);
+    expect(res.filterSpecByBucket.otp).toBe("stale");
+    expect(a.deleteFilter).toHaveBeenCalledWith("NEW_OTP_1");
+    expect(a.deleteFilter).not.toHaveBeenCalledWith("OLD_OTP");
+    // Shopping synced after it: new filter first, then the old one deleted.
+    expect(res.filterIdsByBucket.shopping).toHaveLength(1);
+    expect(a.deleteFilter).toHaveBeenCalledWith("OLD_SHOP");
+    expect(res).toMatchObject({ created: 1, deleted: 1 });
+  });
+
   it("adopts Gmail's existing copy when it refuses a duplicate", async () => {
     const a = api();
     vi.mocked(a.createFilter).mockRejectedValueOnce(new Error("400 Filter already exists"));

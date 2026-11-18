@@ -103,13 +103,16 @@ async function runPass(
   // old query until rewritten. Unchanged filters cost no API calls.
   await step("filter sync", undefined, async () => {
     const synced = await syncGmailCategoryFilters(settings, token);
-    if (synced.created === 0 && synced.deleted === 0) return;
-    // Colours are cosmetic: a failure mustn't stop the labelling below.
-    await colorClusterLabels(token).catch((err: unknown) => log.error("Time limits: label colours failed", err));
-    await mutateSettings((current) => ({
-      ...current,
-      autoSort: { ...current.autoSort, filterIdsByBucket: synced.filterIdsByBucket, filterSpecByBucket: synced.filterSpecByBucket },
-    }));
+    if (synced.created > 0 || synced.deleted > 0) {
+      // Colours are cosmetic: a failure mustn't stop the labelling below.
+      await colorClusterLabels(token).catch((err: unknown) => log.error("Time limits: label colours failed", err));
+      await mutateSettings((current) => ({
+        ...current,
+        autoSort: { ...current.autoSort, filterIdsByBucket: synced.filterIdsByBucket, filterSpecByBucket: synced.filterSpecByBucket },
+      }));
+    }
+    // Shown as a failed step in Settings, Diagnostics; the rest of the run goes on.
+    if (synced.failed.length > 0) throw new Error(`Gmail refused filters for ${synced.failed.join("; ")}`);
   });
 
   const limits = limitsFor(settings);
