@@ -49,7 +49,15 @@ Every number on every screen and in the report:
 | 2.7 Today email | Done | `83376fe` |
 | 3.1 Phishing hold on by default | Done for new users. Existing users keep the switch they saved | see git log |
 | 1.4 | Parked: decision A left for later | |
-| 1.6 and the "numbers agree" test, 2.1 to 2.3 supervisor, 2.6, phases 3 to 7 | Next | |
+| Re-audit fixes | Minute read alarm restarts after a cut-off read (my bug); alarms repaired on every start; 5-minute chain locked; Overview clicks open Details on the same range | `b7077a6`, `a8db1d3` |
+| 2.1 to 2.3 Supervisor | Done: health row per job, backoff 1 to 60 min, "!" badge, notification and Diagnostics row at 3 failures; helper errors named. Kept the alarm handler rather than a new table | `8943369`, `904c85c` |
+| 3.2 Scam hold reads all new mail | Done (index path); API fallback keeps 100 | `b7077a6` |
+| 4.2 Newsletter filter split | Partly: 8 newsletter platforms. Filter mistakes 130 to 62 on the tuned mailbox; 27 news-site newsletters left to the relabel | `d894863` |
+| Bulk Trash resumes | Done: every screen's Trash is a saved job | `ca69208` |
+| Corrections sync past 8 KB | Done: chunked | `a228f1c` |
+| Privacy page | Chrome sync and Athena added | `820a33e` |
+| 1.6 numbers-agree test, 2.6, 3.3 to 3.9, phases 4 to 7 | Next | |
+| Not doing | Lazy spam list (makes a sync engine check async for a few ms of parsing) | |
 
 ## Phases
 
