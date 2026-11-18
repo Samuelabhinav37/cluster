@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 // Source files as raw text through vite (no node fs types), keyed "../lib/x.ts".
 const sources: Record<string, string> = import.meta.glob("../**/*.ts", { query: "?raw", import: "default", eager: true });
 
-const PATTERN = /\.trashMessages\(|fireOneClickUnsubscribe\(|executeBulkUnsubscribe\(|runUnsubscribeQueue\(|insertMessage\(|action: "trash"/g;
+const PATTERN = /\.trashMessages\(|fireOneClickUnsubscribe\(|executeBulkUnsubscribe\(|runUnsubscribeQueue\(|insertMessage\(|action: "trash"|addGmailTrashFilter\(|push\("TRASH"\)|\["TRASH"\]/g;
 
 const ALLOWED: Record<string, [count: number, why: string]> = {
   "background.ts": [1, "insertMessage: the Today email, off unless turned on in Settings"],
@@ -18,6 +18,9 @@ const ALLOWED: Record<string, [count: number, why: string]> = {
   "dashboard/unsubscribeSheet.ts": [1, "Send on the unsubscribe emails sheet"],
   "lib/durableJobs.ts": [1, "runs a Trash you confirmed (bulkActions, Never-read)"],
   "lib/ruleRunner.ts": [1, "your own rules"],
+  "lib/ruleFilters.ts": [1, "your own rules, as Gmail filters"],
+  "lib/unsubscribeBackstop.ts": [1, "the Trash filter itself, only made by unsubscribeRecord.ts above"],
+  "dashboard/unsubscribeRecord.ts": [1, "Trash their later mail, pressed by you for a sender still sending"],
   "lib/unsubscribeGmail.ts": [1, "resumes emails you pressed Send on"],
 };
 
