@@ -253,12 +253,13 @@ export function renderTimeLimits(): void {
 }
 
 /** How often you re-filed what Cluster filed this week: the number that says
- * whether the labels are right. Hidden until 20 emails were filed. */
+ * whether the labels are right. Hidden until 20 emails were filed and you
+ * fixed one: "0 per 100" read as a row that shows nothing. */
 export function fixesRow(now = Date.now()): HTMLElement | null {
   const fixed = fixesIn(ctx.settings.autoSort.fixesByDay ?? {}, now);
   const filed = filedIn(ctx.senders, decisions(ctx.senders), now);
   const rate = fixesPer100(fixed, filed);
-  if (rate === null) return null;
+  if (rate === null || fixed === 0) return null;
   const row = document.createElement("div");
   row.className = "ios-row";
   row.id = "labels-fixes";

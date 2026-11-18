@@ -3083,7 +3083,9 @@ button.ios-row .tile-chev { margin-left: 10px; color: var(--label-4); }
   stroke-linecap: round; stroke-linejoin: round; }
 .ios-row .grow, .set-row .grow { grid-row: 1 / span 2; display: flex; flex-direction: column; font-size: 15px; color: var(--label); }
 .ios-row .sub, .set-row .sub { font-size: 12px; color: var(--label-4); }
-.ios-row > :last-child, .set-row > :last-child, .cu-auto .rec-card > :last-child { grid-column: 3; grid-row: 1 / span 2; justify-self: end; }
+/* The control sits in the last column; a row whose last child is its text (no control) keeps the text left. */
+.ios-row > :last-child:not(.grow), .set-row > :last-child:not(.grow), .cu-auto .rec-card > :last-child { grid-column: -2; grid-row: 1 / span 2; justify-self: end; }
+.ios-row:not(:has(> .app-ic)) { grid-template-columns: minmax(0, 1fr) auto; }
 .cu-auto .rec-card { grid-template-rows: auto auto; row-gap: 1px; }
 .cu-auto .rec-name { grid-column: 2; font-size: 15px; font-weight: 500; }
 .cu-auto .rec-fact { grid-column: 2; font-size: 12px; font-weight: 400; color: var(--label-4); }

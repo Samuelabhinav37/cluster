@@ -12,12 +12,12 @@ import { fixesRow } from "./timeLimitsTab";
 const NOW = Date.UTC(2026, 10, 15, 12);
 
 describe("Fixes this week", () => {
-  it("shows fixes per 100 emails the engine filed in the last 7 days, and nothing before there's a number", async () => {
+  it("shows fixes per 100 emails the engine filed in the last 7 days, and nothing before there's a fix", async () => {
     const { cases, sent } = build(TUNED as Template[], TUNED_SEED);
     const { senders } = await sendersOf(cases.map((c) => c.meta), { contacts: CONTACTS, sent, now: NOW });
     ctx.senders = senders;
     ctx.settings = { ...defaultSettings(), sentCorrespondents: { addresses: CONTACTS, fetchedAt: 0 } };
-    expect(fixesRow(NOW)?.textContent).toBe("Fixes this week0 per 100");
+    expect(fixesRow(NOW)).toBeNull(); // no fixes yet
     const filed = filedIn(senders, decideAll(senders, engineContext(ctx.settings)), NOW);
     expect(filed).toBeGreaterThan(20);
     ctx.settings = { ...ctx.settings, autoSort: { ...ctx.settings.autoSort, fixesByDay: { "2026-11-14": 6 } } };
