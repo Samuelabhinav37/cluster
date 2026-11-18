@@ -174,6 +174,9 @@ export interface BuildPace {
  * spend ages out, so a burst (the first screen) slows the next batches down
  * instead of letting two through and then stalling for most of a minute.
  */
+/** Spends this close together are one batch. */
+const BURST_MS = 2_000;
+
 export function buildPaceDelay(spends: Spend[], now: number, pace: BuildPace): number {
   const recent = spends.filter(([at]) => now - at < WINDOW_MS).sort((a, b) => a[0] - b[0]);
   if (recent.length === 0) return 0;
@@ -189,10 +192,15 @@ export function buildPaceDelay(spends: Spend[], now: number, pace: BuildPace): n
   }
   // The b batches that fit go at even gaps until the oldest spend expires
   // (at E): send at x where x - lastAt = (E - x) / b.
-  const batches = Math.floor((pace.share - used) / pace.batchUnits);
   const expiresAt = recent[0][0] + WINDOW_MS;
   const lastAt = recent[recent.length - 1][0];
-  const sendAt = Math.max(lastAt + pace.minGapMs, (batches * lastAt + expiresAt) / (batches + 1));
+  // Pace by units, not batches: a small batch (8 reads from the sender count)
+  // waited as long as a full one, and two paced loops taking turns read 30
+  // emails a minute instead of 200 (first-run stall, 2026-11-18).
+  const lastBatch = Math.max(1, Math.min(pace.batchUnits, recent.filter(([at]) => lastAt - at <= BURST_MS).reduce((sum, [, cost]) => sum + cost, 0)));
+  const batches = Math.floor((pace.share - used) / lastBatch);
+  const minGap = (pace.minGapMs * lastBatch) / pace.batchUnits;
+  const sendAt = Math.max(lastAt + minGap, (batches * lastAt + expiresAt) / (batches + 1));
   return Math.max(0, sendAt - now);
 }
 

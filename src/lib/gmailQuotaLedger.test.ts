@@ -160,6 +160,13 @@ describe("buildPaceDelay", () => {
     expect(buildPaceDelay(spends, 59_000, pace)).toBe(0);
   });
 
+  it("scales the gap to the units the last batch spent, so small batches don't crawl", () => {
+    // 8 reads (160 units) at 0 s: a third of a batch waits a third of the gap.
+    expect(buildPaceDelay([[0, 80], [10, 80]], 10, pace)).toBeCloseTo(2_400, -1);
+    // Two loops taking turns still spend at the batch pace, not half of it.
+    expect(buildPaceDelay([[0, 500]], 0, pace)).toBe(7_500);
+  });
+
   it("waits for old spends to age out when the share is used", () => {
     const spends: [number, number][] = [
       [0, 2000],

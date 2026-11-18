@@ -180,8 +180,8 @@ describe("renderHomeDashboard", () => {
     expect(tiles.map(text)).toEqual([
       "Received this week1220%from last week",
       "Unread in inbox now525%from last week",
-      "In the Screener now2emails from new senders",
-      "Ready to clean up now7emails you can clear",
+      "In the Screener2emails from new senders",
+      "Ready to clean up7emails you can clear",
     ]);
     expect(tiles[0].classList.contains("is-hero")).toBe(true);
     // More mail is fine; more unread is not.

@@ -1715,7 +1715,9 @@ function renderOverview(
   const facts: HomeFacts = {
     account: accountEmail,
     receivedDays: received.days,
-    receivedPrev: received.prev,
+    // No change badge until the days before the range are read: a half-read
+    // earlier period showed "+196%" on the first visit.
+    receivedPrev: (oldestRead(allSenders) ?? Infinity) <= range.start - rangeLength(range) * DAY_MS ? received.prev : undefined,
     rangeEnd: range.end,
     rangeLabel: rangeLabel(range),
     ...mailByKind(allSenders, Date.now(), decisions(allSenders)),

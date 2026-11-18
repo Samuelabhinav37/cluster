@@ -599,8 +599,8 @@ function metricTiles(f: HomeFacts, go: Go, openThisWeek?: () => void): HTMLEleme
       upIsGood: false,
       open: () => window.open(gmailUrl(f.account, "inbox"), "_blank", "noopener"),
     },
-    { title: "In the Screener now", value: f.waiting, note: "emails from new senders", open: () => go("screener") },
-    { title: "Ready to clean up now", value: f.clearable, note: "emails you can clear", open: () => go("delete") },
+    { title: "In the Screener", value: f.waiting, note: "emails from new senders", open: () => go("screener") },
+    { title: "Ready to clean up", value: f.clearable, note: "emails you can clear", open: () => go("delete") },
   ];
   const row = el("div", "mt-row");
   tiles.forEach((t, i) => {
@@ -614,7 +614,7 @@ function metricTiles(f: HomeFacts, go: Go, openThisWeek?: () => void): HTMLEleme
     }
     const arrow = el("span", "mt-go");
     arrow.append(icon("arrow-up-right"));
-    tile.append(el("span", "mt-title", t.title), arrow, el("b", "mt-num", t.value === undefined ? "–" : n(t.value)), tileFoot(t));
+    tile.append(el("span", "mt-title", t.title), arrow, el("b", "mt-num", t.value === undefined ? "" : n(t.value)), tileFoot(t));
     row.append(tile);
   });
   return row;
