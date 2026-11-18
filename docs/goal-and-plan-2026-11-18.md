@@ -37,6 +37,19 @@ Every number on every screen and in the report:
 - **Guardrails, must stay 0:** people's mail labelled, scams in the inbox, marketing trashed without you.
 - **Numbers agree:** a test that every screen and the report give the same totals, to the email.
 
+## Progress
+
+| Step | Status | Commit |
+|---|---|---|
+| 1.1 Engine reads the hold switches | Done. Labels stay as a preview with sorting off; only the Screener and Spam follow the switches | `bc1b049` |
+| 1.2, 1.3 One range, one unit | Done on Overview, Cleanup, Security. Overview's Screener count now comes from the engine (it counted the retired Screener's list) | `83c41a1` |
+| 1.5 First-run stall | Fixed: pacing by units, not batches. 206 emails: 4+ min to ~77 s. No change badge on a half-read period | `73b97b4` |
+| 2.4 Lease let go when signed out | Done | `83376fe` |
+| 2.5 One index read per run; minute alarm stops | Done (labelling keeps its own read: 2 reads per run instead of up to 4) | `83376fe` |
+| 2.7 Today email | Done | `83376fe` |
+| 1.4, 3.1 | Waiting on decisions A and B | |
+| 1.6 and the "numbers agree" test, 2.1 to 2.3 supervisor, 2.6, phases 3 to 7 | Next | |
+
 ## Phases
 
 Each phase ends with a test that proves it, then a commit. No phase starts while the suite is red.
@@ -64,7 +77,7 @@ Each phase ends with a test that proves it, then a commit. No phase starts while
 | 2.4 | The lease is let go when this computer can't work (signed out, no quota, offline) | `workerLease.ts` |
 | 2.5 | One index read per tick, shared by every job. The 1-minute read alarm stops once the first read is done | `background.ts`, `indexTriage.ts`, `unsubscribedSweep.ts` |
 | 2.6 | Self-heal: re-create missing alarms, reset an expired cursor, resume durable jobs | `supervisor.ts` |
-| 2.7 | Small fixes: Today email saves its date after sending; remove the empty `runBackgroundTriage` | `background.ts` |
+| 2.7 | Small fix: Today email saves its date after sending. (The audit called `runBackgroundTriage` empty; that was a misread, it's a real 6-hourly triage with tests.) | `background.ts` |
 
 **Exit:** a failure-injection suite: helper down shows the badge within 3 ticks; a killed run resumes; two overlapping ticks do one index read each and write no duplicate log entries.
 
