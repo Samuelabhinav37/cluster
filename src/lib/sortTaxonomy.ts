@@ -243,3 +243,36 @@ export function senderCategory(senderDomain: string, dkimDomains: readonly strin
   }
   return own;
 }
+
+const KIND_WHY: Partial<Record<MessageKind, string>> = {
+  otp: "Looks like a sign-in code",
+  accounts: "An account notice",
+  receipt: "Looks like a receipt",
+  statement: "Looks like a statement",
+  shipping: "A shipping update",
+  newsletter: "A mailing list",
+  social: "From a social network",
+  jobs: "About a job",
+};
+
+/** Why an email carries the label the engine gave it (plan 4.9), checked in
+ * classifySortBucket's own order so the reason never disagrees with the label. */
+export function labelReason(
+  place: SortBucket | "personal",
+  kind: MessageKind,
+  senderDomain: string,
+  senderAddress: string,
+  overrides: Record<string, SortOverride>,
+  promotion = false,
+  hints: SortHints = {},
+): string {
+  if (overrideFor(senderAddress, senderDomain, overrides, kind) === place) return "You filed this sender here";
+  if (place === "personal") return "A person writing to you";
+  if (classifySortBucket(kind, senderDomain, promotion, senderAddress, hints) !== place) return "Most of this sender's mail goes here";
+  if (hints.reservation && kind !== "otp" && kind !== "accounts") return "Gmail says it's a booking";
+  if (promotion && (kind === "newsletter" || kind === "other")) return "Gmail says Promotions";
+  if (hints.tab === "social" && (kind === "newsletter" || kind === "other")) return "Gmail says Social";
+  const byCategory = CATEGORY_BUCKET[serviceCategory(senderAddress) ?? senderCategory(senderDomain, hints.dkimDomains)];
+  if (KIND_BUCKET[kind] === place && byCategory !== place) return KIND_WHY[kind] ?? "From what the subject says";
+  return `${senderDomain} is a company Cluster knows`;
+}

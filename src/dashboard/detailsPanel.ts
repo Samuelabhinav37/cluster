@@ -48,6 +48,8 @@ export interface DetailMessage {
   isProtected: boolean;
   /** Ids of the smart views (smartViews.ts) this message is in. */
   views: string[];
+  /** Why it carries its label ("Gmail says Promotions"), when it has one. */
+  reason?: string;
 }
 
 export interface DetailSender {
@@ -105,7 +107,11 @@ export interface DetailsActions {
   label?(messages: DetailMessage[], bucket: SortBucket, always: boolean, slot: HTMLElement): void;
   /** The labels "Label as" offers. */
   labels?: ReadonlyArray<{ bucket: SortBucket; name: string }>;
+  /** Why the engine put this email where it did (plan 4.9). */
+  why?: Why;
 }
+
+export type Why = (sender: SenderSummary, message: SenderSummary["messages"][number], decision: EmailDecision | undefined) => string | undefined;
 
 type State = Required<Omit<DetailsFilter, "senderKey" | "kind" | "week" | "smart" | "range">> & {
   range: { start: number; end: number; label: string } | null;
@@ -127,7 +133,7 @@ const BLANK: State = {
 };
 
 /** Messages, newest first, from the whole inbox. */
-export function detailMessages(senders: readonly SenderSummary[], decided: ReadonlyMap<string, EmailDecision>, rowKeyOf: RowKeyOf = ownRow): DetailMessage[] {
+export function detailMessages(senders: readonly SenderSummary[], decided: ReadonlyMap<string, EmailDecision>, rowKeyOf: RowKeyOf = ownRow, why?: Why): DetailMessage[] {
   const out: DetailMessage[] = [];
   for (const s of senders)
     for (const m of s.messages)
@@ -143,6 +149,7 @@ export function detailMessages(senders: readonly SenderSummary[], decided: Reado
         kind: kindOf(m, decided.get(m.id)?.place),
         isProtected: m.isProtected,
         views: SMART_VIEWS.filter((v) => v.match(m)).map((v) => v.id),
+        reason: why?.(s, m, decided.get(m.id)),
       });
   return out.sort((a, b) => b.at - a.at);
 }
@@ -250,7 +257,7 @@ export function initDetailsPanel(
     const live = raw.map((s) => ({ ...s, messages: s.messages.filter((m) => !gone.has(m.id)) }));
     // Decided on the raw list (stable between rebuilds); gone mail just isn't looked up.
     const decided = decide(raw);
-    messages = detailMessages(live, decided, rowKeyOf);
+    messages = detailMessages(live, decided, rowKeyOf, actions.why);
     senders = detailSenders(live, decided, rowKeyOf);
   };
   const settle: Settle = {
@@ -489,7 +496,9 @@ export function initDetailsPanel(
       who.title = `Only ${m.address}`;
       from.append(senderTile(m.address, m.name, "sz-34"), who);
       const subj = h("td", "subj", m.subject || "(no subject)");
-      subj.title = m.subject;
+      // The label's reason on hover; a wrong one is fixed by ticking the row and "Label as".
+      subj.title = m.reason ? `${m.subject}
+${m.reason}` : m.subject;
       if (m.provider === "gmail") {
         const open = Object.assign(h("a", "gm-open"), { href: gmailMessageUrl(m.id), target: "_blank", rel: "noopener" });
         open.setAttribute("aria-label", "Open in Gmail");
@@ -500,7 +509,7 @@ export function initDetailsPanel(
       const date = h("td", "date", new Date(m.at).toLocaleDateString(undefined, { month: "short", day: "numeric" }));
       date.title = `${fmtDay(m.at)}, ${new Date(m.at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
       // Narrow, Kind gives its room to Subject; Wider brings it back.
-      tr.append(c, date, ...(oneSender ? [] : [from]), subj, ...(wide ? [h("td", "kind", kindLabel(m.kind))] : []));
+      tr.append(c, date, ...(oneSender ? [] : [from]), subj, ...(wide ? [Object.assign(h("td", "kind", kindLabel(m.kind)), { title: m.reason ?? "" })] : []));
       tr.onclick = () => {
         const box = c.querySelector("input")!;
         if (box.disabled) return;
