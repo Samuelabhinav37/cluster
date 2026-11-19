@@ -5,7 +5,7 @@
 import { appendActionLog, makeLogId } from "./actionLog";
 import { categoryLabelName, desiredCategoryFilters, syncGmailCategoryFilters } from "./categoryFilters";
 import { batchModify, colorClusterLabels, findLabelIds, getOrCreateLabel, listLabels, listMessageIds } from "./gmailApi";
-import { fixedEmails, movedTo, tallyMoves, type LabelMove, type MoveTarget } from "./learnFromMoves";
+import { bulkMoved, fixedEmails, movedTo, tallyMoves, type LabelMove, type MoveTarget } from "./learnFromMoves";
 import { addFixes } from "./correctionRate";
 import {
   holdUnsortedInbox,
@@ -600,9 +600,17 @@ export async function learnFromLabelMoves(token: string, moves: LabelMove[]): Pr
   const moved = movedTo(moves, bucketOf, fromIds);
   const fixed = fixedEmails(moves, bucketOf, fromIds);
   if (moved.length === 0 && fixed === 0) return;
+  // Moved 2+ of a sender's emails and none is left under the old label: you
+  // moved all of it, which is one clear decision (plan 4.3). One search each.
+  const whole = new Set<string>();
+  for (const [key, e] of bulkMoved(moves, bucketOf, fromIds)) {
+    const query = `from:(${[...e.addresses].join(" OR ")})`;
+    const left = await Promise.all([...e.from].map((id) => listMessageIds(token, query, 1, [id]).catch(() => [{ id: "?" }])));
+    if (left.every((l) => l.length === 0)) whole.add(key);
+  }
   let learned: Array<[string, MoveTarget]> = [];
   await mutateSettings((current) => {
-    const res = tallyMoves(current.autoSort.moveVotes, moved, current.sortOverrides);
+    const res = tallyMoves(current.autoSort.moveVotes, moved, current.sortOverrides, Date.now(), whole);
     learned = res.learned;
     return {
       ...current,

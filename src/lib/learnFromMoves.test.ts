@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { movedTo, SWEEP_SENDERS, tallyMoves, VOTE_GAP_MS } from "./learnFromMoves";
+import { bulkMoved, movedTo, SWEEP_SENDERS, tallyMoves, VOTE_GAP_MS, type LabelMove, type MoveTarget } from "./learnFromMoves";
 
 const bucketOf = new Map([
   ["L1", "newsletter" as const],
@@ -90,5 +90,24 @@ describe("moves out of the Screener and into Personal", () => {
       ["recruiter@staffing.example", "jobs"],
       ["friend@corp.example", "personal"],
     ]);
+  });
+});
+
+describe("moving all of a sender's mail (plan 4.3)", () => {
+  const bucketOf = new Map<string, MoveTarget>([["L_shop", "shopping"], ["L_news", "newsletter"]]);
+  const from = new Set(bucketOf.keys());
+  const mv = (address: string, kind?: LabelMove["kind"]): LabelMove => ({ address, kind, added: ["L_news"], removed: ["L_shop"] });
+
+  it("finds senders with 2+ emails re-filed, never scoped kinds", () => {
+    const got = bulkMoved([mv("a@x.com"), mv("a@x.com"), mv("b@y.com"), mv("c@z.com", "otp"), mv("c@z.com", "otp")], bucketOf, from);
+    expect([...got.keys()]).toEqual(["a@x.com"]);
+    expect(got.get("a@x.com")!.n).toBe(2);
+  });
+
+  it("learns a whole-sender move at once, others still need two", () => {
+    const moved: Array<[string, MoveTarget]> = [["a@x.com", "newsletter"], ["b@y.com", "newsletter"]];
+    const res = tallyMoves({}, moved, {}, 1000, new Set(["a@x.com"]));
+    expect(res.learned).toEqual([["a@x.com", "newsletter"]]);
+    expect(res.votes["b@y.com"]?.n).toBe(1);
   });
 });

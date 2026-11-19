@@ -1,6 +1,6 @@
 // Learns from labels changed in Gmail itself (SaneBox's core idea): when you
-// swap one of a sender's Cluster labels for another twice, Cluster saves that
-// as a correction, so its filters and relabelling follow you from then on.
+// swap one of a sender's Cluster labels for another twice (or move all of a
+// sender's mail at once), Cluster saves that as a correction, so its filters and relabelling follow you from then on.
 import { correctionKey } from "./addressIdentity";
 import type { MessageKind } from "./messageKind";
 import { kindKey, SCOPED_KINDS, type SortBucket, type SortOverride } from "./sortTaxonomy";
@@ -66,6 +66,31 @@ export function movedTo(
   return [...out];
 }
 
+/** Senders (unscoped keys) with at least `min` emails re-filed this pass, with
+ * the addresses and Cluster labels they came off: candidates for learning in
+ * one move if none of their mail is left under those labels (plan 4.3). */
+export function bulkMoved(
+  moves: readonly LabelMove[],
+  bucketOf: ReadonlyMap<string, MoveTarget>,
+  fromIds: ReadonlySet<string>,
+  min = 2,
+): Map<string, { addresses: Set<string>; from: Set<string>; n: number }> {
+  const out = new Map<string, { addresses: Set<string>; from: Set<string>; n: number }>();
+  for (const m of moves) {
+    const from = m.removed.filter((id) => fromIds.has(id));
+    if (!m.address || from.length === 0 || m.added.filter((id) => bucketOf.has(id)).length !== 1) continue;
+    if (m.kind && SCOPED_KINDS.includes(m.kind)) continue;
+    const key = correctionKey(m.address);
+    const e = out.get(key) ?? { addresses: new Set<string>(), from: new Set<string>(), n: 0 };
+    e.addresses.add(m.address);
+    for (const id of from) e.from.add(id);
+    e.n += 1;
+    out.set(key, e);
+  }
+  for (const [k, e] of out) if (e.n < min) out.delete(k);
+  return out;
+}
+
 /** Adds the swaps to the running votes; a sender reaching MOVES_TO_LEARN for
  * one label is learned and its votes cleared. A swap to another label starts
  * that sender's count again. */
@@ -74,6 +99,8 @@ export function tallyMoves(
   moved: ReadonlyArray<[string, MoveTarget]>,
   overrides: Record<string, SortOverride>,
   now = Date.now(),
+  /** Senders whose whole mail you moved at once: learned on this one move. */
+  whole: ReadonlySet<string> = new Set(),
 ): { votes: MoveVotes; learned: Array<[string, MoveTarget]> } {
   const next = { ...votes };
   const learned: Array<[string, MoveTarget]> = [];
@@ -81,8 +108,8 @@ export function tallyMoves(
     if (overrides[address] === bucket) continue;
     const prev = next[address]?.bucket === bucket ? next[address] : undefined;
     // Too soon after the last vote: the same decision seen twice.
-    if (prev && now - (prev.at ?? 0) < VOTE_GAP_MS) continue;
-    const n = (prev?.n ?? 0) + 1;
+    if (!whole.has(address) && prev && now - (prev.at ?? 0) < VOTE_GAP_MS) continue;
+    const n = whole.has(address) ? MOVES_TO_LEARN : (prev?.n ?? 0) + 1;
     if (n >= MOVES_TO_LEARN) {
       delete next[address];
       learned.push([address, bucket]);
