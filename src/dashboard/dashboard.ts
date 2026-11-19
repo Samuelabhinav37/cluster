@@ -14,6 +14,7 @@ import {
   type ExpiryBucket,
 } from "../lib/expiryTriage";
 import { buildProtectionContext, idsSafeToMoveOut } from "../lib/protectionPolicy";
+import { matchRule, upsertRuleByName, type ClusterRule } from "../lib/rules";
 import { clusterLabelName, showLabel } from "../lib/clusterLabels";
 import { categoryLabelName } from "../lib/categoryFilters";
 import { learnFromLabelMoves, readLabeller, runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
@@ -1979,12 +1980,48 @@ function renderDeleteScreen(senders: SenderSummary[]) {
     rowKeyOf: detailRowKey,
     openRow: (key) => details?.open({ view: "emails", senderKey: key }),
     act: (merged, picked, slot, reset) => trashFromPage("table", merged, picked, slot, reset),
+    more: [{ verb: `Keep newest ${SAVED_KEEP}`, act: (_merged, picked, slot, reset) => keepNewestFromPage(picked, slot, reset) }],
     allVerb: "Trash all",
     scope: cuKpi
       ? { label: cuKpi === "never" ? "Unopened" : "Expired", clear: () => document.querySelector<HTMLElement>('.cu-card[data-page="all"]')?.click() }
       : undefined,
   });
   if (openPage) showCleanupPage(openPage);
+}
+
+/** Saved cleanups (plan 5.5): how many of a sender's newest emails a rule keeps. */
+const SAVED_KEEP = 3;
+
+/** Keeps each ticked sender's newest emails and archives the rest, now and as a
+ * standing rule. Archive, never trash, so it's always safe to leave running. */
+function keepNewestFromPage(picked: SenderSummary[], slot: HTMLElement, reset: () => void): void {
+  const senders = picked.filter((s) => providerById.get(s.provider)?.archiveMessages);
+  if (senders.length === 0) return;
+  const rules = senders.map(
+    (s): ClusterRule => ({
+      id: crypto.randomUUID(),
+      name: `Keep newest ${SAVED_KEEP}: ${s.address}`,
+      enabled: true,
+      conditions: { fromAddress: s.address, keepNewest: SAVED_KEEP },
+      action: "archive",
+    }),
+  );
+  const now = Date.now();
+  const merged = new Map<ProviderId, string[]>();
+  for (const r of rules) for (const [p, ids] of matchRule(r, senders, now, buildProtectionContext(ctx.settings, "you-confirm"))) merged.set(p, [...(merged.get(p) ?? []), ...ids]);
+  const n = [...merged.values()].reduce((sum, ids) => sum + ids.length, 0);
+  renderConfirmStep(
+    slot,
+    reset,
+    `Keep the newest ${SAVED_KEEP} from ${senders.length === 1 ? "1 sender" : `${senders.length} senders`} and archive the rest, ${n.toLocaleString()} now and more as they arrive?`,
+    false,
+    async () => {
+      let saved = ctx.settings.rules;
+      for (const r of rules) saved = upsertRuleByName(saved, r);
+      ctx.settings = await updateSettings({ rules: saved });
+      return archiveAndLog(merged, (moved) => `Archived ${moved} older emails, keeping the newest ${SAVED_KEEP} from ${senders.length === 1 ? "1 sender" : `${senders.length} senders`}`);
+    },
+  );
 }
 
 /** The table's reason, short: what this sender's mail shows about you. */

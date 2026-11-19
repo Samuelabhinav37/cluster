@@ -43,6 +43,8 @@ export interface RuleConditions {
   kind?: MessageKind;
   /** Message is still unread. */
   unread?: boolean;
+  /** Saved cleanups (plan 5.5): skip the sender's newest N emails. */
+  keepNewest?: number;
 }
 
 export interface ClusterRule {
@@ -105,6 +107,19 @@ function senderHasUnsubscribe(sender: SenderSummary): boolean {
   return Boolean(u.postUrl || u.httpUrl || u.mailto);
 }
 
+// One sort per sender and N, not per message.
+const newestCache = new WeakMap<SenderSummary, Map<number, Set<string>>>();
+function newestIds(sender: SenderSummary, n: number): Set<string> {
+  const byN = newestCache.get(sender) ?? new Map<number, Set<string>>();
+  newestCache.set(sender, byN);
+  let ids = byN.get(n);
+  if (!ids) {
+    ids = new Set([...sender.messages].sort((a, b) => b.receivedAt - a.receivedAt).slice(0, n).map((m) => m.id));
+    byN.set(n, ids);
+  }
+  return ids;
+}
+
 function conditionsMatch(
   conditions: RuleConditions,
   sender: SenderSummary,
@@ -133,6 +148,7 @@ function conditionsMatch(
   ) {
     return false;
   }
+  if (conditions.keepNewest !== undefined && newestIds(sender, conditions.keepNewest).has(message.id)) return false;
   return true;
 }
 
@@ -307,6 +323,7 @@ export function describeRule(rule: ClusterRule): string {
   if (c.unread === true) parts.push("still unread");
   if (c.unread === false) parts.push("already read");
   if (c.olderThanDays !== undefined) parts.push(`older than ${c.olderThanDays} days`);
+  if (c.keepNewest !== undefined) parts.push(`except the newest ${c.keepNewest}`);
   if (rule.exceptions && ruleHasConditions(rule.exceptions)) parts.push("with exceptions");
   const actions = ruleActions(rule).map((spec) =>
     spec.action === "label"

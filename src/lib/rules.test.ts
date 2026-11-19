@@ -327,3 +327,18 @@ describe("appliesFrom", () => {
     expect([...all.values()].flat().sort()).toEqual(["new", "old"]);
   });
 });
+
+describe("keep newest N (plan 5.5)", () => {
+  it("matches everything but the sender's newest N", () => {
+    const now = Date.UTC(2026, 10, 19);
+    const sender = {
+      provider: "gmail",
+      address: "shop@x.com",
+      unsubscribe: {},
+      messages: [1, 2, 3, 4, 5].map((d) => ({ id: `m${d}`, receivedAt: now - d * 86_400_000, kind: "other", unread: false, isProtected: false })),
+    } as unknown as SenderSummary;
+    const rule = { id: "r", name: "k", enabled: true, conditions: { fromAddress: "shop@x.com", keepNewest: 3 }, action: "archive" } as ClusterRule;
+    expect(matchRule(rule, [sender], now).get("gmail")).toEqual(["m4", "m5"]);
+    expect(describeRule(rule)).toContain("except the newest 3");
+  });
+});
