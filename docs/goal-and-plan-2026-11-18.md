@@ -155,8 +155,8 @@ Each phase ends with a test that proves it, then a commit. No phase starts while
 | Step | Work |
 |---|---|
 | 7.1 | Privacy page covers the sign-in helper and the Athena admin events |
-| 7.2 | One onboarding flow, with Kai explaining each step; retire the other three |
-| 7.3 | Split `dashboard.ts` along scan, actions and pages; lazy-load the spam-domain list; remove the legacy CSS block; fold the 83 loose colours into tokens |
+| 7.2 | One onboarding flow, with Kai explaining each step; retire the other three. **2026-11-19: already one flow** (welcome, sign-in, setup with Kai, tour after the first read); kaiGuide is the help bubble, not onboarding |
+| 7.3 | **Held until after the 7-day live test (design freeze: the tested build stays stable).** Split `dashboard.ts` along scan, actions and pages; lazy-load the spam-domain list; remove the legacy CSS block; fold the 83 loose colours into tokens |
 | 7.4 | Start Google verification for `gmail.modify` |
 | 7.5 | Friends beta: 5 people first, replay export on, exit at under 5 fixes per 100 for 4 weeks |
 | 7.6 | Store listing says plainly what Unroll.me didn't: no server reads your mail, nothing is sold, the code that sorts runs in your browser |
