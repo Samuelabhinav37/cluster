@@ -2310,15 +2310,13 @@ function wireDetails() {
         ? (messages, slot, reset, settle) => {
             const merged = idsByProvider(messages);
             runNow(slot, async () => {
+              const archived = await archiveDurably(merged);
               let done = 0;
-              for (const [pid, ids] of merged) {
-                const provider = providerById.get(pid);
-                if (!provider?.archiveMessages || ids.length === 0) continue;
-                await provider.archiveMessages(await provider.getAuthToken(false), ids);
+              for (const ids of archived.values()) {
                 settle.gone(ids);
                 done += ids.length;
               }
-              const gmailIds = merged.get("gmail") ?? [];
+              const gmailIds = archived.get("gmail") ?? [];
               await logAction(
                 "archive",
                 `Archived ${done} from Details`,
@@ -2571,16 +2569,23 @@ function presetActionCard(
   return card;
 }
 
+/** Archives as a saved job per provider (plan 5.1): a closed tab is finished by
+ * the background, which then writes the Undo. Returns what actually moved. */
+async function archiveDurably(merged: Map<ProviderId, string[]>): Promise<Map<ProviderId, string[]>> {
+  const out = new Map<ProviderId, string[]>();
+  for (const [pid, ids] of merged) {
+    if (!providerById.get(pid)?.archiveMessages || ids.length === 0) continue;
+    const job = await createDurableJob({ provider: pid, operation: "archive", targetIds: ids });
+    out.set(pid, (await runDurableJob(job.id, providerById)).succeededIds);
+  }
+  return out;
+}
+
 /** Archives each provider's ids, logs one undoable entry, rescans. */
 async function archiveAndLog(merged: Map<ProviderId, string[]>, summary: (moved: number) => string): Promise<string> {
-  let moved = 0;
-  for (const [pid, ids] of merged) {
-    const provider = providerById.get(pid);
-    if (!provider?.archiveMessages || ids.length === 0) continue;
-    await provider.archiveMessages(await provider.getAuthToken(false), ids);
-    moved += ids.length;
-  }
-  const gmailIds = merged.get("gmail") ?? [];
+  const archived = await archiveDurably(merged);
+  const moved = [...archived.values()].reduce((n, ids) => n + ids.length, 0);
+  const gmailIds = archived.get("gmail") ?? [];
   await logAction("archive", summary(moved), gmailIds.length > 0 ? { provider: "gmail", ids: gmailIds, via: "unarchive" } : undefined);
   void scanAndRender();
   return `Moved ${moved.toLocaleString()} out. Undo from Activity.`;

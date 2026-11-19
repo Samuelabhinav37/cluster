@@ -1,5 +1,6 @@
 import type { EmailProvider, ProviderId } from "./providers/emailProvider";
 import { withStorageLock } from "./storageLock";
+import { appendActionLog, makeLogId } from "./actionLog";
 
 const JOBS_KEY = "clusterDurableJobs";
 const MAX_JOBS = 50;
@@ -181,11 +182,33 @@ export async function retryFailedJob(jobId: string): Promise<DurableJob> {
   });
 }
 
+/** A running job not updated for this long has lost its runner. */
+export const STALE_MS = 2 * 60_000;
+
 export async function resumeInterruptedJobs(
   providers: Map<ProviderId, EmailProvider>,
 ): Promise<DurableJob[]> {
-  const pending = (await readJobs()).filter((job) => ["planned", "running"].includes(job.status));
+  // Only jobs nobody is running: an open dashboard updates its job every batch,
+  // and two runners on one job used to race on nextIndex.
+  const now = Date.now();
+  const pending = (await readJobs()).filter((job) => ["planned", "running"].includes(job.status) && now - job.updatedAt >= STALE_MS);
   const results: DurableJob[] = [];
-  for (const job of pending) results.push(await runDurableJob(job.id, providers));
+  for (const job of pending) {
+    const done = await runDurableJob(job.id, providers);
+    results.push(done);
+    // The page that started it is gone, so its Activity entry never got written:
+    // write it here, with Undo for everything the job moved, before or after the stop.
+    const kind = done.operation === "trash" || done.operation === "archive" ? done.operation : undefined;
+    if (kind && done.succeededIds.length > 0)
+      await appendActionLog([
+        {
+          id: makeLogId(kind),
+          at: Date.now(),
+          kind,
+          summary: `${kind === "trash" ? "Moved" : "Archived"} ${done.succeededIds.length} ${kind === "trash" ? "to Trash" : "out of the inbox"}, finished in the background`,
+          undo: { provider: done.provider, ids: done.succeededIds, via: kind === "trash" ? "untrash" : "unarchive" },
+        },
+      ]);
+  }
   return results;
 }

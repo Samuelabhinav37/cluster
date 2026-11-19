@@ -99,3 +99,25 @@ describe("durable jobs", () => {
     expect(labelMessages).toHaveBeenCalledWith("token", ["a", "b"], "Read Later", false);
   });
 });
+
+describe("resuming after the page closed (plan 5.1)", () => {
+  it("leaves a job someone is running, finishes a stale one and logs Undo for it", async () => {
+    const actionLog = vi.fn(async () => {});
+    vi.doMock("./actionLog", () => ({ appendActionLog: actionLog, makeLogId: (k: string) => `${k}-1` }));
+    vi.resetModules();
+    const jobs = await import("./durableJobs");
+    const trash = vi.fn(async () => {});
+    const fresh = await jobs.createDurableJob({ provider: "gmail", operation: "trash", targetIds: ["a"] });
+    const results = await jobs.resumeInterruptedJobs(new Map([["gmail", provider(trash)]]));
+    expect(results).toEqual([]);
+    expect(trash).not.toHaveBeenCalled();
+
+    vi.setSystemTime(Date.now() + jobs.STALE_MS + 1000);
+    const [done] = await jobs.resumeInterruptedJobs(new Map([["gmail", provider(trash)]]));
+    expect(done.id).toBe(fresh.id);
+    expect(done.status).toBe("complete");
+    expect(actionLog).toHaveBeenCalledWith([expect.objectContaining({ kind: "trash", undo: { provider: "gmail", ids: ["a"], via: "untrash" } })]);
+    vi.useRealTimers();
+    vi.doUnmock("./actionLog");
+  });
+});
