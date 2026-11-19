@@ -584,7 +584,11 @@ export async function screenFirstTimeSenders(
     heldIds.push(...c.ids);
     senders.push(c.address);
   }
-  if (heldIds.length > 0) await api.batchModify(heldIds, [await api.ensureLabelId(screenerLabelName)], ["INBOX"]);
+  if (heldIds.length > 0) {
+    // The filter's label comes off too: held mail sits in the Screener only, and release labels it afresh.
+    const filterLabels = (await Promise.all(limits.map((l) => api.findLabelId(l.labelName)))).filter((id): id is string => !!id);
+    await api.batchModify(heldIds, [await api.ensureLabelId(screenerLabelName)], ["INBOX", ...filterLabels]);
+  }
   return { heldIds, senders, vetted: newlyVetted };
 }
 

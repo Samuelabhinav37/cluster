@@ -590,7 +590,8 @@ describe("screenFirstTimeSenders", () => {
     expect(res.heldIds).toEqual(["n1"]);
     expect(res.senders).toEqual(["new@shop.example"]);
     expect(res.vetted).toEqual(["old@news.example"]);
-    expect(a.batchModify).toHaveBeenCalledWith(["n1"], ["L:✋ Screener"], ["INBOX"]);
+    // The filter's label comes off, so held mail shows one label (the Screener).
+    expect(a.batchModify).toHaveBeenCalledWith(["n1"], ["L:✋ Screener"], ["INBOX", "L:🛍 Shopping", "L:🏷 Promotions", "L:💳 Finance"]);
     const [labels, query] = a.listIds.mock.calls[0];
     expect(labels).toEqual(["INBOX"]);
     expect(query).toContain(`after:${sinceSec}`);

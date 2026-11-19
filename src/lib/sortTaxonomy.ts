@@ -132,6 +132,9 @@ export interface SortHints {
   reservation?: boolean;
 }
 
+// No "mail.": Notion's real notifications come from mail.notion.so.
+const TOOL_MARKETING_SENDER_RE = /^(news|newsletters?|marketing|events?|webinars?)@|@(info|email|em|e|news|marketing|go|learn|events)\./i;
+
 export function classifySortBucket(
   kind: MessageKind,
   senderDomain: string,
@@ -153,6 +156,9 @@ export function classifySortBucket(
   if (promotion && (kind === "newsletter" || kind === "other")) return byCategory === "newsletter" ? "newsletter" : "promotions";
   // An unsubscribe link only says "list mail"; a sender we know (a bank, a
   // school, an airline) says more. LIC's premium reminder is Finance, not news.
+  // A work tool's marketing list (team@info.digitalocean.com, news@jetbrains.com)
+  // is news, not Work; its notifications come from other addresses.
+  if (kind === "newsletter" && byCategory === "productivity" && TOOL_MARKETING_SENDER_RE.test(senderAddress)) return "newsletter";
   if (kind === "newsletter" && byCategory) return byCategory;
   // Gmail's Social tab is a social network's mail; a subject that only sounds
   // social ("Jane commented") from an unknown sender outside it is not.

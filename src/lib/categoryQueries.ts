@@ -82,6 +82,9 @@ export const FILTER_FREE_MAIL = [
   "icloud.com", "aol.com", "protonmail.com", "proton.me", "yahoo.co.in", "rediffmail.com",
 ];
 
+/** Mirrors SHIPPING_MONEY_RE in messageKind.ts: a bank's "payment is on its way" isn't a parcel. */
+export const SHIPPING_MONEY_PHRASES = ["zelle", "venmo", "transfer", "deposit", "wire", "money", "funds", "payment is", "payment of"];
+
 export const JOB_RECEIPT_PHRASES = ["resume receipt", "application receipt", "receipt of your application", "receipt of your resume"];
 
 const KIND_ORDER: SubjectKind[] = ["otp", "accounts", "shipping", "receipt", "social", "jobs"];
@@ -251,6 +254,7 @@ function buildQuery(bucket: SortBucket, domains: string[], first: boolean): stri
     if (bucket === "accounts") not.push("subject:CVE");
     // Mirrors JOB_RECEIPT_RE: a job application's "receipt" is Jobs, the client's call.
     if (bucket === "receipt") not.push(subjectAny(JOB_RECEIPT_PHRASES));
+    if (bucket === "shipping") not.push(subjectAny(SHIPPING_MONEY_PHRASES));
     not.push(fromAny(FILTER_FREE_MAIL));
     // Primary is where people and lures land ("Question about the invoice",
     // "Please DocuSign: Payment_Invoice"): a phrase alone isn't near-certain

@@ -215,6 +215,18 @@ describe("Screener misses (real subjects, 2026-11)", () => {
     expect(classifyMessageKind("Position | Senior Microsoft Entra ID Security Engineer | Chicago, IL / Tempe, AZ", false)).toBe("jobs");
     expect(classifyMessageKind("Position update for the team offsite", false)).toBe("other");
   });
+  it("a recruiter's bulk post with an unsubscribe link is still a job", () => {
+    expect(classifyMessageKind("Exciting opportunity - ServiceNow Vulnerability Response (VR) Engineer - Charlotte, NC (Hybrid)", true)).toBe("jobs");
+    expect(classifyMessageKind("Full time - Senior ServiceNow AI Developer - Remote", true)).toBe("jobs");
+    // A newsletter about remote work keeps its kind.
+    expect(classifyMessageKind("Why remote engineers are happier", true)).toBe("newsletter");
+    expect(classifyMessageKind("New role for our CEO: what it means for engineers", true)).toBe("newsletter");
+  });
+  it("a bank's money on its way is not a parcel", () => {
+    expect(classifyMessageKind("Your Zelle® payment is on its way", false)).not.toBe("shipping");
+    expect(classifyMessageKind("Your package is on its way", false)).toBe("shipping");
+    expect(classifyMessageKind("Payment declined: Update your information so we can ship your order.", false)).toBe("shipping");
+  });
   it("a phone unlinked from an account is an account notice", () => {
     expect(
       classifyMessageKind("Final notice: The forwarding phone (515) 916-8493 is no longer connected to your Google Voice account", false),

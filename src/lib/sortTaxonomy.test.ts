@@ -9,6 +9,11 @@ import {
 } from "./sortTaxonomy";
 
 describe("classifySortBucket", () => {
+  it("files a work tool's marketing list as news, its notifications as Work", () => {
+    expect(classifySortBucket("newsletter", "digitalocean.com", false, "team@info.digitalocean.com")).toBe("newsletter");
+    expect(classifySortBucket("newsletter", "jetbrains.com", false, "news@jetbrains.com")).toBe("newsletter");
+    expect(classifySortBucket("newsletter", "github.com", false, "notifications@github.com")).toBe("productivity");
+  });
   it("uses the message kind when it's a transactional one", () => {
     expect(classifySortBucket("otp", "anything.example")).toBe("otp");
     expect(classifySortBucket("shipping", "amazon.com")).toBe("shipping");

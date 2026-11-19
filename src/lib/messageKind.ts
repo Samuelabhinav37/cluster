@@ -25,6 +25,9 @@ const ACCOUNT_RE =
 // fitness goals" are promotions, "Our statement on the outage" is news.
 const SHIPPING_RE =
   /\b(shipped|out for delivery|delivery (update|attempt|scheduled|exception|confirmation)|delivered|tracking (number|info|information|update|details)|track your (order|package|parcel|shipment)|order (confirm|confirmed|confirmation)|order #|order (is |has been )?(confirmed|placed|received)|has shipped|arriving|on its way|on the way|received your order|package (has )?arrived|delivery order|(item|order)s? (was |has been )?cancell?ed|cancell?ed successfully|your return of|return request|ship your order)\b|^ordered( \d+ items?)?:/i;
+// Money moving, not a parcel: "Your Zelle® payment is on its way" is Finance.
+// Mirrored by SHIPPING_MONEY_PHRASES in categoryQueries.ts.
+const SHIPPING_MONEY_RE = /\b(zelle|venmo|transfer|deposit|wire|money|funds|payment (is|of))\b/i;
 // A bank's statement or balance is about an account, not a purchase: Gmail
 // and Yahoo both give money its own category (Grbovic et al., CIKM 2014).
 const STATEMENT_RE =
@@ -42,6 +45,11 @@ const JOBS_RE =
 // Only without an unsubscribe link, so newsletters about remote work stay news.
 const JOB_POST_RE =
   /\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b.*\b(remote|hybrid|on-?site|contract|w2|c2c)\b|\b(remote|hybrid|on-?site|contract)\b.*\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b|^looking for\b|^(position|requirement|role|opening)\s*[|:–-].*\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b/i;
+// A post that opens with a recruiting lead and a title ("Exciting opportunity -
+// ServiceNow Engineer - Charlotte", "Full time - Senior Developer - Remote") is a
+// job even from a bulk mailer with an unsubscribe link.
+const JOB_POST_LEAD_RE =
+  /^(full[- ]?time|part[- ]?time|contract( to hire)?|c2c|w2|(exciting |new |urgent |immediate )?(job )?(opportunity|opening|requirement|position|role))\s*[|:–-].*\b(analyst|engineer|administrator|consultant|developer|architect|specialist|manager)\b/i;
 const JOBS_SENDER_RE = /\b(recruit\w*|hiring|ats|talent ?(acquisition|exchange|network|community)|careers|jobs?|job ?(alerts?|notifications?))\b/i;
 const JOB_RECEIPT_RE = /\b((resume|application) receipt|receipt of your (application|resume))\b/i;
 const SOCIAL_RE = /\b(mentioned you|tagged you|new follower|friend request|liked your|commented on)\b/i;
@@ -70,13 +78,13 @@ export function classifyMessageKind(
   if (BOUNCE_SUBJECT_RE.test(s) || (sender && BOUNCE_SENDER_RE.test(sender.address))) return "other";
   if (OTP_RE.test(s) && !OTP_EXCLUDE_RE.test(s)) return "otp";
   if (ACCOUNT_RE.test(s) && !ACCOUNT_EXCLUDE_RE.test(s)) return "accounts";
-  if (SHIPPING_RE.test(s)) return "shipping";
+  if (SHIPPING_RE.test(s) && !SHIPPING_MONEY_RE.test(s)) return "shipping";
   if (STATEMENT_RE.test(s)) return "statement";
   // "Resume Receipt Confirmation" acknowledges a job application, not a purchase.
   if (JOB_RECEIPT_RE.test(s)) return "jobs";
   if (RECEIPT_RE.test(s)) return "receipt";
   if (SOCIAL_RE.test(s)) return "social";
-  if (JOBS_RE.test(s) || (!hasListUnsubscribe && JOB_POST_RE.test(s))) return "jobs";
+  if (JOBS_RE.test(s) || JOB_POST_LEAD_RE.test(s) || (!hasListUnsubscribe && JOB_POST_RE.test(s))) return "jobs";
   if (sender) {
     // Subdomains count too: talentacquisition.abbvie.com, ats.rippling.com.
     const [local, host = ""] = sender.address.split("@");
