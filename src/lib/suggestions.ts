@@ -113,8 +113,19 @@ export function buildSuggestions(
   }
   const worth = (s: Suggestion) =>
     s.safeMessageIds.length * (model ? acceptChance(model, suggestionFeatures(s.sender, s.profile, s.action), now) : 1);
-  const ranked = out.map((s) => [s, worth(s)] as const);
-  return ranked.sort((a, b) => b[1] - a[1]).map(([s]) => s);
+  // Plan 5.2: mail you never open comes first, then the biggest clean-up.
+  // Once you've taken or turned down a few, your own history orders them instead.
+  const learned = model !== undefined && model.accepted + model.rejected >= 3;
+  const ranked = out.map((s) => [s, !learned && neverOpened(s.profile, now), worth(s)] as const);
+  return ranked.sort((a, b) => Number(b[1]) - Number(a[1]) || b[2] - a[2]).map(([s]) => s);
+}
+
+const NEVER_OPENED_DAYS = 60;
+const NEVER_OPENED_MIN = 10;
+
+/** 10+ emails and none opened in the last 60 days. */
+export function neverOpened(p: SenderProfile, now: number): boolean {
+  return p.received >= NEVER_OPENED_MIN && (p.lastOpenedAt === undefined || now - p.lastOpenedAt > NEVER_OPENED_DAYS * 86_400_000);
 }
 
 /** The suggestions about mail you don't open (everything but Keep sorted). */

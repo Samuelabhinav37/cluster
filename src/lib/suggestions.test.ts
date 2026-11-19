@@ -3,7 +3,7 @@ import { DAY, NOW, many, meta, senders } from "../test/mailFixtures";
 import { recordEngagementFeedback } from "./engagementModel";
 import type { NormalizedMessageMetadata, SentRecord } from "./providers/emailProvider";
 import { buildSenderProfiles } from "./senderProfile";
-import { buildSuggestions, unopenedSuggestions } from "./suggestions";
+import { buildSuggestions, neverOpened, unopenedSuggestions } from "./suggestions";
 import { emptySuggestionModel, learn, suggestionFeatures } from "./suggestionModel";
 
 async function suggest(rows: NormalizedMessageMetadata[], sent: SentRecord[] = [], feedback = {}) {
@@ -104,5 +104,15 @@ describe("buildSuggestions", () => {
     const key = "gmail:deals@shop.example";
     expect(await suggest(rows, [], recordEngagementFeedback({}, [key], "dismiss", NOW))).toEqual([]);
     expect(await suggest(rows, [], recordEngagementFeedback({}, [key], "undo", NOW))).toEqual([]);
+  });
+});
+
+describe("never-opened first (plan 5.2)", () => {
+  const p = (received: number, lastOpenedAt?: number) => ({ received, lastOpenedAt }) as Parameters<typeof neverOpened>[0];
+  it("needs 10+ emails and no open in 60 days", () => {
+    expect(neverOpened(p(10), NOW)).toBe(true);
+    expect(neverOpened(p(9), NOW)).toBe(false);
+    expect(neverOpened(p(40, NOW - 61 * DAY), NOW)).toBe(true);
+    expect(neverOpened(p(40, NOW - 10 * DAY), NOW)).toBe(false);
   });
 });
