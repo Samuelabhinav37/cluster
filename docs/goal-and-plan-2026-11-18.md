@@ -48,7 +48,7 @@ Every number on every screen and in the report:
 | 2.5 One index read per run; minute alarm stops | Done (labelling keeps its own read: 2 reads per run instead of up to 4) | `83376fe` |
 | 2.7 Today email | Done | `83376fe` |
 | 3.1 Phishing hold on by default | Done for new users. Existing users keep the switch they saved | see git log |
-| 1.4 | Parked: decision A left for later | |
+| 1.4 | Decided 2026-11-19: keep the four groups on Overview. No change | |
 | Re-audit fixes | Minute read alarm restarts after a cut-off read (my bug); alarms repaired on every start; 5-minute chain locked; Overview clicks open Details on the same range | `b7077a6`, `a8db1d3` |
 | 2.1 to 2.3 Supervisor | Done: health row per job, backoff 1 to 60 min, "!" badge, notification and Diagnostics row at 3 failures; helper errors named. Kept the alarm handler rather than a new table | `8943369`, `904c85c` |
 | 3.2 Scam hold reads all new mail | Done (index path); API fallback keeps 100 | `b7077a6` |
@@ -209,6 +209,6 @@ Kept in the code, no new work: Outlook, Athena events, the Today email, newslett
 
 ## Decisions for you
 
-- **A. Categories on Overview:** show the labels themselves, or four groups (People, Receipts and orders, Updates, Marketing) that each list their labels?
+- **A. Categories on Overview:** DECIDED 2026-11-19: keep the four groups (People, Transactions, Updates, Offers).
 - **B. Phishing hold default:** DECIDED 2026-11-18: on for every new user (step 3.1).
 - **C. Screener:** DECIDED 2026-11-18: hold every first-time sender for now (HEY style).

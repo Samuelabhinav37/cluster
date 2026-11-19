@@ -72,7 +72,11 @@ alerts"**, so it no longer collides with Gmail's tab.
   widget plus one rename.
 - Con: a group name shows up in two places, but only as a heading, never as a number.
 
-## Recommendation
+## Decision
+
+2026-11-19: option 2, keep the four groups. No code change.
+
+## Recommendation (not taken)
 
 Option 3. Overview's job is "show the state of your mailbox", and Gmail is where the user checks
 it, so the numbers must use Gmail's words. The groups stay as a way to organise the list.
