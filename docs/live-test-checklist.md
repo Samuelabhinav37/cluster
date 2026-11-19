@@ -1,197 +1,140 @@
-# Cluster — live test checklist
+# Cluster live test checklist
 
-Everything below is verified only in a real browser against a real inbox. The
-unit + contract tests can't cover DOM wiring, OAuth, or the Gmail/Graph calls.
+Run this in your own Chrome against your own Gmail. Tests can't cover OAuth,
+real Gmail filters, or what happens with Chrome closed. Rewritten 2026-11-19
+for the current screens. Outlook is frozen, so it isn't here.
 
-> The "Sort my inbox" feature now lives in `src/dashboard/sortInbox.ts` (moved
-> out of `dashboard.ts` behind the `src/dashboard/state.ts` seam). Behaviour is
-> meant to be identical — re-run the whole Sort flow below and watch the
-> console for load-order / undefined errors.
-
-> The sidebar was restructured: the old single "Suggested" screen split into
-> two — **Delete** (everything that ends in Trash: Ready to clean up,
-> Suggested spam, Never opened, Trim-to-newest, By domain) and **Organize**
-> (everything else: Senders worth a decision, Sort my inbox, Smart views,
-> Digest, Classify ambiguous mail). "Impersonation" was renamed **Phishing**
-> (same screen, same content). Below, references to "Suggested" mean the
-> **Delete** screen unless the item is explicitly organize-flavored (Sort my
-> inbox, Smart Views), which now lives on **Organize**.
+Two parts. Part 1 is a one-time pass over every screen. Part 2 is the 7-day log
+(plan step 4.1) that sets the numbers for everything after it.
 
 ## Load
 
-1. `npm run build` (not `npm run dev` — crxjs dev server gives an unstable
-   unpacked load).
-2. `chrome://extensions` → Developer mode on → **Load unpacked** → pick the
-   **`dist/`** folder (never the repo root — its manifest points at `src/*.ts`).
-3. Extension loads with **no error**. If it fails with "Could not load manifest
-   — expected value at line 1 column 1", check `public/managed_schema.json` is
-   valid JSON.
-4. The toolbar icon is the Cluster mark (hexagon + envelope), no dark tile.
-5. Click it → the dashboard opens in a new tab. Header shows the inline SVG
-   logo next to "Cluster", themed to light/dark.
+1. `npm run build`. Not `npm run dev`; the dev server gives an unstable load.
+2. `chrome://extensions`, Developer mode on, **Load unpacked**, pick `dist/`.
+3. No load error. The toolbar icon is the Cluster mark.
+4. Click it. The dashboard opens in a new tab.
 
-## Overview tab
+Keep DevTools open on the dashboard and on the service worker
+(`chrome://extensions` > Cluster > "service worker"). Note any red error with
+the screen you were on.
 
-- [ ] **Overview** is the first tab and opens by default on a fresh install
-      (existing installs keep their last tab).
-- [ ] Headline reads "Scanned N senders · M messages".
-- [ ] A tile grid: Ready to clean up, Senders you never open, Suspected spam,
-      Old & large mail, Flagged senders, Snoozed due now, Unsubscribe-capable
-      senders, Held by the Screener, Done in the last 7 days. Tiles with a
-      non-zero actionable count get a darker left border.
-- [ ] Clicking a tile switches to its tab and scrolls to the matching section;
-      the number on the tile matches that section's own count.
+## Part 1: one pass over every screen
 
-## Clean up tab
+### Setup (fresh install, or `?reset`)
 
-- [ ] **Sort my inbox** section is pinned at the top. "Sort my inbox…" button +
-      a count ("N messages → M labels") + a "Which buckets…" `<details>`.
-- [ ] Expand the config: one row per bucket present in the scan, each with an
-      include checkbox (all checked on first run) and a "keep in inbox"
-      checkbox (checked for Shopping/Finance/Travel/…, unchecked for
-      OTP/shipping/receipts/newsletters/social).
-- [ ] Untick a bucket → the count drops. Tick "keep sorting new mail" and
-      "auto-trash one-time codes older than 2 days".
-- [ ] Click "Sort my inbox…" → a **preview tree** appears below the config:
-      bucket → sender → message, every message ticked. Expand a bucket, expand a
-      sender. The Apply button shows the live included count.
-- [ ] Untick a message → the Apply count drops. Apply → in Gmail that message
-      stays in the inbox / unlabelled; the rest are filed. Flat labels
-      (`Shopping`, `Newsletters`, …) exist at top level (no `Cluster/` parent);
-      filed-out buckets left the inbox, "keep in inbox" buckets did not.
-- [ ] In the preview, a sensitive-looking subject in a filed-out bucket shows a
-      "· sensitive?" hint on its row.
-- [ ] Use a sender's "wrong bucket?" menu → "move to Finance": the preview
-      re-renders with that sender under Finance. Pick "never sort this sender":
-      the sender disappears from the preview and stays gone on the next scan
-      (persisted in `settings.sortOverrides`).
-- [ ] Pre-create a Gmail label matching a bucket (e.g. `Shopping`), then sort:
-      Cluster asks "Use my Shopping / Keep separate as Shopping (Cluster)". The
-      choice sticks on a re-run. Picking "Use my" files into your own label;
-      picking "Keep separate" creates `Shopping (Cluster)` and leaves yours alone.
-- [ ] Tick "keep sorting new mail" before Apply. Afterwards:
-      - **Gmail Settings → Filters** has one filter per domain-category bucket
-        (Shopping/Finance/Travel/Social/Newsletters/Productivity/Education) with
-        `from:(domain OR domain …)` → apply label, skip inbox when filed out.
-      - The config `<details>` shows "N Gmail filters keep these buckets sorted…".
-      - Rules tab lists an `Auto-sort: <bucket>` rule only for the **subject-kind**
-        buckets (One-time codes / shipping / receipts / newsletters / social) and
-        for any domain-category bucket that also had **Outlook** mail — not for a
-        Gmail-only domain-category bucket.
-      - `Auto-sort: expire one-time codes` rule present if that box was ticked.
-- [ ] Send yourself (or self-label) new mail from a domain in a kept bucket's
-      list, with the dashboard **closed** → Gmail files it under the label /
-      out of the inbox on its own.
-- [ ] Re-run "Sort my inbox…" with "keep sorting" **unticked** → the bucket
-      filters are deleted from Gmail Settings and the "N Gmail filters" note
-      disappears. Confirm the `from:(a OR b …)` query length was accepted by
-      Gmail (note if a long list is rejected).
-- [ ] Rules → **Current manual dry run** updates when a rule is enabled, disabled, added, or deleted. Expand
-      each rule and verify sender counts, provider action support, overlap/stop-processing notes, and
-      protected/exception exclusions. Viewing the preview must not change any mail.
-- [ ] The Apply confirmation uses predicted rule applications and unique eligible messages from the
-      same dry run; execution results appear in Recently done afterward.
-- [ ] Create a rule with **max per run = 1** that matches at least two messages. The dry run reports
-      one predicted application and the remainder deferred. Apply it and verify only one message changes;
-      Recently done and the completion text both report the deferred count. Add a lower-priority overlapping
-      rule and verify it cannot act on the message blocked by the earlier rule's safety limit.
-- [ ] Trigger two background sweeps over an idempotent label/archive rule. The second sweep reports the
-      first message as already completed instead of calling the provider again, and a capped rule advances
-      to the next uncompleted message. A deliberately confirmed manual Apply can still run it again.
-- [ ] For a multi-action rule, force the later action to fail. No full-completion receipt is written; the
-      next background sweep retries that message. Undo a completed Gmail archive rule and verify the next
-      background sweep respects the correction rather than immediately archiving it again.
-- [ ] Recently done shows one entry per bucket with a working **Undo** (label
-      removed, filed-out mail back in the inbox).
-- [ ] Existing sections still work: category groups, "Ready to clean up",
-      Smart Views, Trim-to-newest-N, **Personalized cleanup suggestions**, **Suggested spam**
-      (shows "Matched against N known domains", per-row checkboxes + select-all,
-      Trash selected → confirm → Undo).
-- [ ] Personalized suggestions show a fit score, confidence, and concrete unread-pattern reasons;
-      no sender with starred/flagged mail appears. Reloading an unchanged scan does not increase
-      the changed-snapshot count.
-- [ ] Click **Not useful** → that row disappears. Confirm a suggestion-backed Trash action, then
-      use Recently done → **Undo**; restored mail does not immediately reappear as a suggestion.
+- [ ] Welcome asks your name, then signs in to Google.
+- [ ] Kai explains each step in a line or two.
+- [ ] The scan runs live, then shows what it found.
+- [ ] Setup says plainly that mail waits in the inbox for an hour, and stays
+      there with Chrome closed until Chrome opens again.
+- [ ] Setup ends on the dashboard tour. Nothing asks the same question twice.
 
-## Security tab
+### First read
 
-- [ ] "Auto-quarantine high-risk senders in the background" toggle — **off** on
-      first load. Toggling persists across a reload.
-- [ ] "Phishing" screen (nav badge stays quiet with no color at zero findings,
-      turns red only when a HIGH-tier sender is present, amber/accent for
-      ELEVATED/LOW-only): each flagged sender shows a HIGH/ELEVATED/
-      LOW prefix, the signal descriptions, an `[SPF ✓ · DKIM — · DMARC —]`
-      chip, and "· first email from this sender" where applicable.
-- [ ] New signal types render sensibly if present: reply-to-mismatch,
-      punycode-domain, lure-language.
-- [ ] "Label as suspicious" and "Deep scan" still work per sender.
-- [ ] Turn auto-quarantine **on**, then trigger the background alarm (or wait 6h
-      / reload a few times): HIGH-tier Gmail senders get a `Possible Phishing`
-      label and leave the inbox; Recently done shows an "Auto-quarantined …"
-      entry with a working Undo.
+- [ ] The first read shows as a file copy: percent, "Now reading" a sender and
+      month, a time left, labels filling in.
+- [ ] Close the tab halfway, open it again. The read carries on from where it
+      was. No "done" before it's done.
+- [ ] Note how long the whole read took and how many emails: ____ min, ____ emails.
 
-## Sender table
+### Dashboard
 
-- [ ] "· new sender" appears next to first-contact senders. On a second scan the
-      same senders are no longer marked new (ledger persisted).
+- [ ] Opens straight away from the saved index, with "Updating…" while it syncs.
+- [ ] Four groups: People, Transactions, Updates, Offers.
+- [ ] Clicking a number opens Details for the same range, with the same count.
+- [ ] The sidebar card shows what Cluster is doing and how much is left.
 
-## Subscriptions tab
+### Labels
 
-- [ ] Send a verified one-click request. Its outcome becomes **Pending** and survives reload.
-- [ ] Outcome filters show only the selected state. A request older than 14 days with a later
-      scanned arrival appears first as **Still sending** with **Retry unsubscribe**.
-- [ ] A tracked sender absent from the current unsubscribe list remains visible in tracked request
-      history. **Quiet in current scan** includes the scan-limit caveat and never claims certainty.
+- [ ] Every label has a count that matches Gmail's own count for that label
+      (spot check three).
+- [ ] **Fixes this week** shows "N per 100".
+- [ ] New labelled mail stays in the inbox for about an hour, then leaves.
+- [ ] A label set to **Move right away** skips the inbox at once.
+- [ ] Gmail Settings > Filters has Cluster's filters. None was rejected.
+- [ ] Move one email to a different label in Gmail. Within a sweep, Cluster
+      counts it as a fix and sorts that sender's next email the new way.
 
-## Outlook (if connected)
+### Top bar
 
-- [ ] "Connect Outlook" completes; Outlook senders appear tagged `outlook`.
-- [ ] A rule with a label/archive/mark-read/trash action **acts on Outlook
-      mail** (previously no-op): check the Outlook web client for the
-      category (`Shopping`, `Newsletters`, …) / Archive move / read state.
-- [ ] "Sort my inbox" applies categories to Outlook mail and moves filed-out
-      buckets to Archive.
-- [ ] With Outlook connected, tick "keep sorting" and Apply with a
-      domain-category bucket → **Outlook web → Settings → Rules** has a
-      `Cluster: <Bucket>` rule (senderContains list → assign category, move to
-      Archive if filed out, stop processing). The config note reads
-      "N Gmail filters + M Outlook rules". Untick keep-sorting → the rule is
-      gone.
-- [ ] **Keep-sorted** on an Outlook sender: existing mail gets the category +
-      Archive move; **Outlook web → Settings → Rules** has a
-      `Cluster keep-sorted: <address>` rule (senderContains → assign category
-      + move to Archive, stop processing).
-- [ ] **Mute** on an Outlook sender: existing mail moves to a `Muted` folder
-      (created if absent) and gets tagged with a `Muted` category; a
-      `Cluster mute: <address>` rule exists. **Unmute** deletes that rule and
-      moves the mail back to Inbox.
-- [ ] **Screener**, with an Outlook account connected: an unknown Outlook
-      sender gets held under a `Screener` folder/category, with a
-      `Cluster screener: <address>` rule; **Allow** removes the rule and
-      restores the mail to Inbox, **Block** mutes it (same as Gmail's Block).
-- [ ] **Auto-quarantine / "Label as suspicious"** on an Outlook sender: mail
-      gets the `Possible Phishing` category and moves to Archive (reuses the
-      same `labelMessages`/`unlabelMessages` mechanism as "Sort my inbox"); the
-      Security tab's quarantine review queue's Confirm/Release works for an
-      Outlook-quarantined sender the same as for Gmail.
-- [ ] **Snooze** rows still say "Not supported for this provider" for
-      Outlook — deliberately not built (no native primitive).
+- [ ] **Sort > New mail** finishes in seconds.
+- [ ] **Sort > All mail** opens Sort mail, shows the plan, then progress per label.
+- [ ] **Check for new mail** picks up an email you just sent yourself.
+- [ ] **Search** (or `/`) finds an email by sender and by subject word.
+- [ ] **Details** opens, minimizes to the right edge, and remembers that.
 
-## First-run "seed from existing" card
+### Screener (Security > New senders)
 
-- [ ] On a fresh install with a Gmail label named like a bucket (e.g. `Finance`)
-      and/or a `from:` filter, the Sort section shows a one-time card offering
-      "Reuse your label(s) …" and "Skip the N senders you already filter".
-      Accepting sets `labelChoices` / `sortOverrides`; "Done" dismisses it for
-      good (`settings.seededFromExisting`). No card when there's nothing to offer.
+- [ ] **Hold mail from new senders** is on. Mail from a first-time sender lands
+      in the Screener, even if it would get a label.
+- [ ] Codes and account emails from new senders are not held.
+- [ ] **Hold people too** works both ways.
+- [ ] Let someone in. Their mail goes back to the inbox and they're not held again.
+- [ ] Senders you already had mail from before installing are not held.
 
-## Open questions to answer while testing
+### Security
 
-- Does Gmail accept `criteria.from = "(a OR b …) -c@x.com"` and how long a list?
-- Do the Graph `messageRules` create/delete calls actually work against a live
-  mailbox (senderContains, moveToFolder by archive id, assignCategories)?
-- Does `dmarc=fail` ever actually appear on delivered Promotions/Updates mail,
-  or only the broadened `spf=fail && dkim=fail` case? (If neither fires,
-  loosen further.)
-- Does Gmail `format=metadata` expose attachment part filenames? (If yes, the
-  deferred `suspicious-attachment` signal becomes cheap.)
+- [ ] The four numbers make sense: threats, kept out, sender checks, new senders.
+- [ ] **Checks** lists each check with a result. **Scan now** runs them.
+- [ ] Phishing hold is on by default. A held scam has no sort label on it.
+- [ ] Spam goes to Spam. Marketing is never trashed or unsubscribed on its own.
+
+### Cleanup and Stop mail
+
+- [ ] The four cards: total, never opened, old codes and news, lists.
+- [ ] **Senders** and **Mailing lists** tabs each show a table with its tools.
+- [ ] Trash a sender's mail. It asks first, then it lands in Activity with Undo.
+- [ ] Undo puts every email back.
+- [ ] Unsubscribe from one list. It shows as pending, and later whether it worked.
+- [ ] A bulk trash of 500+ emails survives closing the tab halfway.
+
+### Activity
+
+- [ ] Account menu > **Activity** lists what Cluster did, newest first.
+- [ ] Every action that changed mail has a working Undo.
+
+### Settings
+
+- [ ] Sections shown: Account, Sorting, Security, Notifications, General,
+      Danger zone. (What Cluster learned, Diagnostics, Mail, Automation,
+      Privacy, Kai and Advanced are hidden for now.)
+- [ ] The toolbar badge never shows `!`. If it does, note when; that's a
+      failing background job.
+- [ ] Settings sync to a second Chrome signed in to the same Google account.
+- [ ] Danger zone > **Remove from Gmail** removes Cluster's labels and filters
+      and leaves your own alone.
+
+### Chrome closed
+
+- [ ] Close Chrome for 3+ hours with mail arriving. Gmail filters still label it.
+      It stays in the inbox until Chrome opens, then the sweep moves it.
+- [ ] Phishing arriving while closed is held once Chrome opens.
+
+## Part 2: the 7-day log
+
+Use Gmail as normal. Fix anything that's in the wrong place, in Gmail or from
+Details, so it's counted. Once a day, fill in one row.
+
+| Day | Fixes per 100 (Labels) | New senders waiting | Emails in inbox | Wrong label you saw (sender, label, should be) | Errors |
+|---|---|---|---|---|---|
+| 1 | | | | | |
+| 2 | | | | | |
+| 3 | | | | | |
+| 4 | | | | | |
+| 5 | | | | | |
+| 6 | | | | | |
+| 7 | | | | | |
+
+On day 7, run `clusterExportReplay()` in the dashboard console and keep the
+file it saves. It lets us replay your week against every later change.
+
+**Pass:** under 5 fixes per 100 for the week, a Screener share you think is
+fair, no person ever given a sort label, no lost email.
+
+## Known open questions to watch
+
+- Does Discover payment mail move out of Receipts after the daily relabel?
+- Does a scam that looks like a receipt (the Netflix case) still get Receipts?
+- A sender whose From has a comment after `<address>` (plan 4.7). Note any
+  sender shown with a broken address.
+- How long a `from:(a OR b …)` list does Gmail accept before it rejects a filter?
