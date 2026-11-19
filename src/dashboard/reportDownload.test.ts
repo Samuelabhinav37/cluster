@@ -110,3 +110,19 @@ describe("range picker", () => {
     expect(tomorrow === null || tomorrow.disabled).toBe(true);
   });
 });
+
+describe("report and CSV agree (plan 6.2)", () => {
+  it("the CSV's Label column adds up to the report's By label", () => {
+    const d = (day: number) => new Date(2026, 10, day, 9).getTime();
+    const s = sender("shop@example.com", [msg("a", d(3), "One"), msg("b", d(4), "Two"), msg("c", d(5), "Three")]);
+    const decided = new Map([["a", { place: "receipt" }], ["b", { place: "receipt" }], ["c", { place: null }]]) as never;
+    const labelOf = (x?: { place: string | null }) => (x?.place ? "Receipts" : "Inbox");
+    const facts = periodFacts([s], d(1), d(10), decided, labelOf as never);
+    const lines = emailsCsv(emailRows([{ sender: s }], d(1), d(10), decided, labelOf as never)).replace("﻿", "").trim().split("\r\n");
+    const col = lines[0].split(",").indexOf("Label");
+    const fromCsv = new Map<string, number>();
+    for (const l of lines.slice(1)) fromCsv.set(l.split(",")[col], (fromCsv.get(l.split(",")[col]) ?? 0) + 1);
+    expect(new Map(facts.labels)).toEqual(fromCsv);
+    expect(facts.labels).toEqual([["Receipts", 2], ["Inbox", 1]]);
+  });
+});

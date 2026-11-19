@@ -96,7 +96,7 @@ import { isAuthCancelled } from "../lib/chromeError";
 import { pruneSelection, renderConfirmStep, runNow } from "./ui";
 import { buildCleanupCards } from "../lib/cleanupCards";
 import { createRangePicker } from "./rangePicker";
-import { barsSvg, downloadBytes, emailRows, emailsCsv, emailsXlsx, oneLine, periodFacts, printReport, reportHtml, wireDownloadMenu, type ReportSpec } from "./reportDownload";
+import { barsSvg, downloadBytes, emailRows, emailsCsv, emailsXlsx, oneLine, periodFacts, printReport, reportHtml, wireDownloadMenu, type LabelOf, type ReportSpec } from "./reportDownload";
 import { changeChip, dailyCounts, pageRows, renderCleanupPage, renderSenderTable, setTableFilter, type PageItem } from "./cleanupPage";
 import { keepNewestExcess, olderReadExcess } from "../lib/keepNewest";
 import { deliveredUpdates } from "../lib/orderEvents";
@@ -625,7 +625,7 @@ function wireRangePicker(): void {
     const end = new Date(range.end);
     end.setDate(end.getDate() + 1);
     const senders = lastOverview?.[2] ?? [];
-    return emailRows(senders.map((sender) => ({ sender })), range.start, end.getTime(), decisions(senders));
+    return emailRows(senders.map((sender) => ({ sender })), range.start, end.getTime(), decisions(senders), placeName);
   };
   const name = () => `cluster-emails-${isoDay(range.start)}-to-${isoDay(range.end)}`;
   wireDownloadMenu(dl, menu, {
@@ -640,6 +640,34 @@ const brandSvg = () => document.querySelector(".panel-brand .brand-mark")?.outer
 const REPORT_SOURCE = "Counts come from the mail Cluster has read in this Gmail account, on this computer. Nothing in this report left your device.";
 const pct = (part: number, whole: number) => (whole ? `${Math.round((part / whole) * 100)}%` : "0%");
 
+/** Where an email lives, by name: its label, Personal, the Screener, Spam, or the inbox. */
+const placeName: LabelOf = (d) => {
+  const p = d?.place ?? null;
+  if (p === null) return "Inbox";
+  if (p === "personal") return showLabel(clusterLabelName("personal"));
+  if (p === "screener") return "Screener";
+  if (p === "spam") return "Spam";
+  return showLabel(categoryLabelName(p, ctx.settings.labelChoices));
+};
+
+const DID_WORDS: Partial<Record<string, string>> = { sort: "Sorted", trash: "Moved to Trash", archive: "Archived", unsubscribe: "Unsubscribed", screener: "Held for review", quarantine: "Held as scams", mute: "Muted" };
+
+/** Activity in [start, end): one row per kind of action, with times and emails moved. */
+function didInPeriod(start: number, end: number): string[][] {
+  const by = new Map<string, { times: number; emails: number }>();
+  for (const e of ctx.settings.actionLog) {
+    if (e.at < start || e.at >= end || e.undone) continue;
+    const k = DID_WORDS[e.kind] ?? e.kind;
+    const row = by.get(k) ?? { times: 0, emails: 0 };
+    row.times += 1;
+    row.emails += e.undo?.ids.length ?? 0;
+    by.set(k, row);
+  }
+  return [...by]
+    .sort((a, b) => b[1].emails - a[1].emails || b[1].times - a[1].times)
+    .map(([k, v]) => [k, v.times.toLocaleString(), v.emails ? v.emails.toLocaleString() : ""]);
+}
+
 /** The Dashboard's report: the picked range's mail, then the inbox as it is today. */
 function mailReportSpec(): ReportSpec {
   const senders = lastOverview?.[2] ?? [];
@@ -647,7 +675,7 @@ function mailReportSpec(): ReportSpec {
   const end = new Date(range.end);
   end.setDate(end.getDate() + 1);
   const decided = decisions(senders);
-  const f = periodFacts(senders, range.start, end.getTime(), decided);
+  const f = periodFacts(senders, range.start, end.getTime(), decided, placeName);
   const before = periodFacts(senders, new Date(range.start).setDate(new Date(range.start).getDate() - len), range.start, decided);
   // Same rule as Overview's tile: no change until the days before are read.
   const change = before.total && lastFacts?.receivedPrev !== undefined ? Math.round(((f.total - before.total) / before.total) * 100) : null;
@@ -675,6 +703,21 @@ function mailReportSpec(): ReportSpec {
         title: "By category",
         columns: [{ label: "Category" }, { label: "Emails", num: true }, { label: "Share", num: true }],
         rows: HOME_KINDS.map((k) => [k.label, n(f.kinds[k.key]), pct(f.kinds[k.key], f.total)]),
+      },
+      {
+        kind: "table",
+        title: "By label",
+        note: "Where Cluster files each email, the same as the Label column in the CSV.",
+        columns: [{ label: "Label" }, { label: "Emails", num: true }, { label: "Share", num: true }],
+        rows: f.labels.map(([l, c]) => [l, n(c), pct(c, f.total)]),
+      },
+      {
+        kind: "table",
+        title: "What Cluster did",
+        note: "From Activity, for the same days. Undone actions are left out.",
+        columns: [{ label: "Action" }, { label: "Times", num: true }, { label: "Emails", num: true }],
+        rows: didInPeriod(range.start, end.getTime()),
+        empty: "Nothing in this period.",
       },
       {
         kind: "table",

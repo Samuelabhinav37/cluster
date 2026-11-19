@@ -31,13 +31,18 @@ export interface EmailRow {
   category: string;
   unread: boolean;
   reason?: string;
+  /** Where the engine files it ("Receipts", "Screener", "Inbox"): the same names as the report's By label. */
+  label?: string;
 }
+
+/** An email's place as a name, for the report and the CSV alike (plan 6.2). */
+export type LabelOf = (d: EmailDecision | undefined) => string;
 
 /** One line of text: control characters and runs of spaces become one space. */
 export const oneLine = (v: string) => v.replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, " ").replace(/\s{2,}/g, " ").trim();
 
 /** Emails received from `start` (inclusive) to `end` (exclusive), newest first. */
-export function emailRows(items: readonly CsvEmail[], start: number, end: number, decided: ReadonlyMap<string, EmailDecision>): EmailRow[] {
+export function emailRows(items: readonly CsvEmail[], start: number, end: number, decided: ReadonlyMap<string, EmailDecision>, labelOf?: LabelOf): EmailRow[] {
   const rows: EmailRow[] = [];
   for (const { sender, ids, reason } of items) {
     for (const m of sender.messages) {
@@ -51,6 +56,7 @@ export function emailRows(items: readonly CsvEmail[], start: number, end: number
         category: KIND_NAME.get(kindOf(m, decided.get(m.id)?.place)) ?? "",
         unread: m.unread,
         reason,
+        label: labelOf?.(decided.get(m.id)),
       });
     }
   }
@@ -69,29 +75,34 @@ const isoTime = (ms: number) => {
 
 const withReason = (rows: readonly EmailRow[]) => rows.some((r) => r.reason);
 
+const withLabel = (rows: readonly EmailRow[]) => rows.some((r) => r.label);
+
 export function emailsCsv(rows: readonly EmailRow[]): string {
   const reason = withReason(rows);
-  const head = ["Date", "Time", "Sender", "Address", "Subject", "Category", "Status", ...(reason ? ["Reason"] : [])];
-  const body = rows.map((r) => [isoDate(r.at), isoTime(r.at), r.sender, r.address, r.subject, r.category, r.unread ? "Unread" : "Read", ...(reason ? [r.reason ?? ""] : [])]);
+  const label = withLabel(rows);
+  const head = ["Date", "Time", "Sender", "Address", "Subject", "Category", ...(label ? ["Label"] : []), "Status", ...(reason ? ["Reason"] : [])];
+  const body = rows.map((r) => [isoDate(r.at), isoTime(r.at), r.sender, r.address, r.subject, r.category, ...(label ? [r.label ?? ""] : []), r.unread ? "Unread" : "Read", ...(reason ? [r.reason ?? ""] : [])]);
   // The BOM tells Excel the file is UTF-8; without it names and subjects come out garbled.
   return "﻿" + [head, ...body].map((r) => r.map(csvField).join(",")).join("\r\n") + "\r\n";
 }
 
 export function emailsXlsx(rows: readonly EmailRow[], sheet: string): Uint8Array<ArrayBuffer> {
   const reason = withReason(rows);
+  const label = withLabel(rows);
   const cols: XlsxColumn[] = [
     { header: "Received", width: 18, type: "date" },
     { header: "Sender", width: 28 },
     { header: "Address", width: 34 },
     { header: "Subject", width: 70 },
     { header: "Category", width: 14 },
+    ...(label ? [{ header: "Label", width: 16 }] : []),
     { header: "Status", width: 10 },
     ...(reason ? [{ header: "Reason", width: 22 }] : []),
   ];
   return xlsxBytes(
     sheet,
     cols,
-    rows.map((r) => [r.at, r.sender, r.address, r.subject, r.category, r.unread ? "Unread" : "Read", ...(reason ? [r.reason ?? ""] : [])]),
+    rows.map((r) => [r.at, r.sender, r.address, r.subject, r.category, ...(label ? [r.label ?? ""] : []), r.unread ? "Unread" : "Read", ...(reason ? [r.reason ?? ""] : [])]),
   );
 }
 
@@ -235,7 +246,8 @@ function niceStep(max: number): number {
 }
 
 /** What the mail report counts for a period: totals, categories, busiest weekday, top senders. */
-export function periodFacts(senders: readonly SenderSummary[], start: number, end: number, decided: ReadonlyMap<string, EmailDecision>) {
+export function periodFacts(senders: readonly SenderSummary[], start: number, end: number, decided: ReadonlyMap<string, EmailDecision>, labelOf?: LabelOf) {
+  const labels = new Map<string, number>();
   const days = Math.max(1, Math.round((end - start) / 86_400_000));
   const daily = new Array<number>(days).fill(0);
   const kinds: Record<HomeKind, number> = { primary: 0, trans: 0, updates: 0, promo: 0 };
@@ -250,6 +262,10 @@ export function periodFacts(senders: readonly SenderSummary[], start: number, en
       const i = Math.floor((new Date(m.receivedAt).setHours(0, 0, 0, 0) - start) / 86_400_000 + 0.5);
       if (i >= 0 && i < days) daily[i] += 1;
       kinds[kindOf(m, decided.get(m.id)?.place)] += 1;
+      if (labelOf) {
+        const l = labelOf(decided.get(m.id));
+        labels.set(l, (labels.get(l) ?? 0) + 1);
+      }
       count += 1;
       if (m.unread) un += 1;
     }
@@ -267,7 +283,7 @@ export function periodFacts(senders: readonly SenderSummary[], start: number, en
   const avg = weekday.map((v, i) => (seen[i] ? v / seen[i] : 0));
   const busiest = total ? new Date(2024, 0, 7 + avg.indexOf(Math.max(...avg))).toLocaleDateString(undefined, { weekday: "long" }) : "None";
   bySender.sort((a, b) => b.count - a.count);
-  return { days, daily, kinds, total, unread, perDay: total / days, busiest, senders: bySender };
+  return { days, daily, kinds, total, unread, perDay: total / days, busiest, senders: bySender, labels: [...labels].sort((a, b) => b[1] - a[1]) };
 }
 
 /** A Download button with its menu; each item runs the action named by its data-dl. */
