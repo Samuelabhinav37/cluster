@@ -64,6 +64,17 @@ const BOUNCE_SUBJECT_RE = /^(delivery status notification|undeliver(able|ed)|mai
 const RECEIPT_SENDER_RE =
   /\b(receipts?|orders?|billing|invoices?|payments?|bookings?|reservations?|tickets?)\b/i;
 
+// Signals that work in any language (plan 4.6). They run after the English
+// phrases, so English mail sorts as before, and before the sender-name and
+// newsletter fallbacks, so "Ihr Code: 482913" or "注文番号 #10234 ¥3,200" lands right.
+const AUTOMATED_LOCAL_RE = /^(no-?reply|do-?not-?reply|donotreply|verify|verification|security|account|accounts|auth|login|signin|notifications?)\b/i;
+/** A bare 4-8 digit code, not "#1234" or part of a longer number or amount. */
+const BARE_CODE_RE = /(?<![#\d.,$€£¥₹-])\b\d{4,8}\b(?![\d.,%])/u;
+/** A reply or forward in a thread, in common languages: never a fresh code. */
+const REPLY_RE = /^(re|fwd?|aw|wg|sv|vs|antw|rif|r|tr|enc|res|odp|答复|回复|转发)\s*[:：]/i;
+const CURRENCY_RE = /[$€£¥₹₩₽₺₫₱₴₦]\s?\d|\d\s?[$€£¥₹₩₽₺₫₱₴₦]|\b(USD|EUR|GBP|JPY|INR|CNY|BRL|CAD|AUD|CHF|SEK|NOK|DKK|PLN|MXN|KRW|zł|kr|R\$)\s?\d|\d\s?(USD|EUR|GBP|JPY|INR|CNY|BRL|CAD|AUD|CHF|SEK|NOK|DKK|PLN|MXN|KRW|zł|kr)\b/u;
+const ORDER_NO_RE = /#\s?[A-Z0-9-]*\d{4,}|\b(?=[A-Z0-9-]*\d)(?=[A-Z0-9-]*[A-Z])[A-Z0-9]{2,}-?[A-Z0-9]{4,}\b/u;
+
 export interface KindSender {
   address: string;
   displayName: string;
@@ -85,6 +96,8 @@ export function classifyMessageKind(
   if (RECEIPT_RE.test(s)) return "receipt";
   if (SOCIAL_RE.test(s)) return "social";
   if (JOBS_RE.test(s) || JOB_POST_LEAD_RE.test(s) || (!hasListUnsubscribe && JOB_POST_RE.test(s))) return "jobs";
+  if (sender && !hasListUnsubscribe && !REPLY_RE.test(s) && AUTOMATED_LOCAL_RE.test(sender.address.split("@")[0]) && BARE_CODE_RE.test(s) && !CURRENCY_RE.test(s) && s.split(/\s+/).length <= 10) return "otp";
+  if (CURRENCY_RE.test(s) && ORDER_NO_RE.test(s)) return "receipt";
   if (sender) {
     // Subdomains count too: talentacquisition.abbvie.com, ats.rippling.com.
     const [local, host = ""] = sender.address.split("@");
