@@ -10,6 +10,7 @@
 import { domainFromAddress, faviconUrl, logoFor } from "../lib/senderLogos";
 import { registrableDomainCandidates } from "../lib/registrableDomain";
 import { companyForDomain, companyLogo, type RegistryCompany } from "../lib/brandRegistry";
+import type { SenderSummary } from "../lib/senderModel";
 
 let iconPack: Promise<Record<string, string>> | undefined;
 
@@ -33,6 +34,17 @@ function domainOf(address: string): string {
 export function certifiedCompany(address: string): RegistryCompany | undefined {
   const company = companyForDomain(domainOf(address));
   return company?.trust === "certified" ? company : undefined;
+}
+
+/** Plan 3.7: verified means the mail really came from that company. Every
+ * address passed DMARC on all its mail (no fail anywhere) and its domain is
+ * the company's own in the registry. A certified domain alone isn't enough:
+ * anyone can put chase.com in a From line. */
+export function verifiedSender(members: ReadonlyArray<Pick<SenderSummary, "address" | "authVerdicts">>): RegistryCompany | undefined {
+  if (members.length === 0 || members.some((m) => m.authVerdicts.dmarc !== "pass")) return undefined;
+  const companies = new Set(members.map((m) => companyForDomain(domainOf(m.address))));
+  const [only] = companies;
+  return companies.size === 1 ? only : undefined;
 }
 
 /** The small check that marks a verified sender. */

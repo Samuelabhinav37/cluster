@@ -14,7 +14,7 @@ import { SMART_VIEWS } from "../lib/smartViews";
 import { companyName, senderName } from "../lib/senderListView";
 import { HOME_KINDS, kindOf, type HomeKind } from "./homeDashboard";
 import type { EmailDecision } from "../lib/mailEngine";
-import { certifiedCompany, senderTile, verifiedTick } from "./senderTile";
+import { senderTile, verifiedSender, verifiedTick } from "./senderTile";
 
 const DAY = 24 * 60 * 60 * 1000;
 export const WEEKS = 8;
@@ -584,7 +584,7 @@ ${m.reason}` : m.subject;
       );
       // Round 2: the same marks as Senders, a claim nobody settled or a certificate.
       if (mismatchedSenders(s.members).length > 0) from.append(h("span", "chip chip-danger", "Doesn't match"));
-      else if (certifiedCompany(s.address)) from.append(verifiedTick());
+      else if (verifiedSender(s.members)) from.append(verifiedTick());
       from.title = s.members.map((m) => m.address).join(", ");
       const n = h("td", "num", String(s.emails));
       const o = h("td", "num", s.opened === 0 ? "None" : `${Math.round((s.opened / s.emails) * 100)}%`);
