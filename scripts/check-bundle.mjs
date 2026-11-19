@@ -28,7 +28,8 @@ const BUDGETS = {
   // 2026-11-03: 350 -> 352 KB for auto-mute 14 days after Unsubscribe.
   // 2026-11-06: 352 -> 372 KB for the Nov redesign, Sort inbox and the daily security scan.
   // 2026-11-06: 372 -> 420 KB, room to keep building without raising it each round.
-  "service worker JS": 420 * KB,
+  // 2026-11-19: 420 -> 440 KB for crash reports, the daily label check and 30 more brands (plan 3.9, 4.8).
+  "service worker JS": 440 * KB,
   // 2026-10-16: 500 → 540 KB for the mail index, sender profiles,
   // suggestions v2 and the unsubscribe work that follows (~174 KB gzip at
   // the raise). Lazy-loading the tabs is the next lever if it grows again.

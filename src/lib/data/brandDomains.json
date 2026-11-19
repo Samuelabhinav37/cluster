@@ -1,72 +1,468 @@
 {
-  "paypal": ["paypal.com", "synchrony.com", "synchronybank.com"],
-  "venmo": ["venmo.com"],
-  "cash app": ["cash.app", "square.com"],
-  "zelle": ["zellepay.com"],
-  "bank of america": ["bankofamerica.com", "bofa.com", "ml.com", "merrilledge.com"],
-  "chase": ["chase.com", "jpmorgan.com", "jpmorganchase.com"],
-  "wells fargo": ["wellsfargo.com", "wellsfargoadvisors.com"],
-  "citibank": ["citi.com", "citibank.com"],
-  "capital one": ["capitalone.com"],
-  "american express": ["americanexpress.com", "aexp.com"],
-  "amex": ["americanexpress.com", "aexp.com"],
-  "coinbase": ["coinbase.com"],
-  "robinhood": ["robinhood.com"],
-  "fidelity": ["fidelity.com"],
-  "discover": ["discover.com", "discovercard.com", "discoverbank.com"],
-  "usbank": ["usbank.com"],
-  "ups": ["ups.com"],
-  "fedex": ["fedex.com"],
-  "usps": ["usps.com"],
-  "dhl": ["dhl.com", "dpdhl.com", "dhl-news.com", "dhl.de", "dhl.fr", "dhl.ae"],
-  "amazon": ["amazon.com", "amazon.co.uk", "amazon.ca", "amazon.de", "amazon.in", "amazon.co.jp", "amazonpay.in", "amazon.jobs", "primevideo.com", "audible.com", "amazon.fr", "amazon.it", "amazon.es", "amazon.com.au", "amazon.com.mx", "amazon.com.br", "amazon.sg", "amazon.ae", "amazon.nl", "synchrony.com", "synchronybank.com"],
-  "microsoft": ["microsoft.com", "microsoftonline.com", "outlook.com", "office.com", "office365.com", "microsoftsupport.com", "office365support.com", "xbox.com", "microsoftstore.com", "azure.com", "skype.com", "bing.com"],
-  "apple": ["apple.com", "icloud.com", "itunes.com"],
-  "google": ["google.com", "gmail.com", "withgoogle.com", "youtube.com", "android.com", "google.co.in", "google.co.uk", "fitbit.com"],
-  "adobe": ["adobe.com"],
-  "dropbox": ["dropbox.com", "docsend.com", "dropboxmail.com", "dropboxpartners.com", "dropboxteam.com"],
-  "docusign": ["docusign.com", "docusign.net"],
-  "zoom": ["zoom.us"],
-  "linkedin": ["linkedin.com"],
-  "facebook": ["facebook.com", "fb.com", "meta.com", "facebookmail.com"],
-  "netflix": ["netflix.com"],
-  "verizon": ["verizon.com", "vzw.com", "verizonwireless.com"],
-  "at&t": ["att.com", "att.net"],
-  "t-mobile": ["t-mobile.com"],
-  "irs": ["irs.gov"],
-  "social security": ["ssa.gov"],
-  "uscis": ["uscis.gov"],
-  "instagram": ["instagram.com"],
-  "whatsapp": ["whatsapp.com"],
-  "twitter": ["twitter.com", "x.com"],
-  "spotify": ["spotify.com"],
-  "ebay": ["ebay.com", "ebay.co.uk", "ebay.de", "ebay.ca", "ebay.com.au"],
-  "walmart": ["walmart.com", "walmart.ca", "samsclub.com"],
-  "costco": ["costco.com"],
-  "best buy": ["bestbuy.com"],
-  "geek squad": ["geeksquad.com", "bestbuy.com"],
-  "uber": ["uber.com"],
-  "lyft": ["lyft.com", "lyftmail.com"],
-  "airbnb": ["airbnb.com"],
-  "doordash": ["doordash.com"],
-  "instacart": ["instacart.com"],
-  "discord": ["discord.com", "discordapp.com"],
-  "github": ["github.com"],
-  "slack": ["slack.com"],
-  "intuit": ["intuit.com"],
-  "turbotax": ["turbotax.com", "intuit.com"],
-  "quickbooks": ["quickbooks.com", "intuit.com"],
-  "metamask": ["metamask.io"],
-  "binance": ["binance.com"],
-  "revolut": ["revolut.com"],
-  "sofi": ["sofi.com"],
-  "chime": ["chime.com"],
-  "usaa": ["usaa.com"],
-  "navy federal": ["navyfederal.org"],
-  "charles schwab": ["schwab.com"],
-  "hsbc": ["hsbc.com", "hsbc.co.uk"],
-  "barclays": ["barclays.com", "barclays.co.uk"],
-  "medicare": ["medicare.gov", "cms.gov"],
-  "hulu": ["hulu.com"],
-  "yahoo": ["yahoo.com", "yahoo-inc.com"]
+  "paypal": [
+    "paypal.com",
+    "synchrony.com",
+    "synchronybank.com"
+  ],
+  "venmo": [
+    "venmo.com"
+  ],
+  "cash app": [
+    "cash.app",
+    "square.com"
+  ],
+  "zelle": [
+    "zellepay.com"
+  ],
+  "bank of america": [
+    "bankofamerica.com",
+    "bofa.com",
+    "ml.com",
+    "merrilledge.com"
+  ],
+  "chase": [
+    "chase.com",
+    "jpmorgan.com",
+    "jpmorganchase.com"
+  ],
+  "wells fargo": [
+    "wellsfargo.com",
+    "wellsfargoadvisors.com"
+  ],
+  "citibank": [
+    "citi.com",
+    "citibank.com"
+  ],
+  "capital one": [
+    "capitalone.com"
+  ],
+  "american express": [
+    "americanexpress.com",
+    "aexp.com"
+  ],
+  "amex": [
+    "americanexpress.com",
+    "aexp.com"
+  ],
+  "coinbase": [
+    "coinbase.com"
+  ],
+  "robinhood": [
+    "robinhood.com"
+  ],
+  "fidelity": [
+    "fidelity.com"
+  ],
+  "discover": [
+    "discover.com",
+    "discovercard.com",
+    "discoverbank.com"
+  ],
+  "usbank": [
+    "usbank.com"
+  ],
+  "ups": [
+    "ups.com"
+  ],
+  "fedex": [
+    "fedex.com"
+  ],
+  "usps": [
+    "usps.com"
+  ],
+  "dhl": [
+    "dhl.com",
+    "dpdhl.com",
+    "dhl-news.com",
+    "dhl.de",
+    "dhl.fr",
+    "dhl.ae"
+  ],
+  "amazon": [
+    "amazon.com",
+    "amazon.co.uk",
+    "amazon.ca",
+    "amazon.de",
+    "amazon.in",
+    "amazon.co.jp",
+    "amazonpay.in",
+    "amazon.jobs",
+    "primevideo.com",
+    "audible.com",
+    "amazon.fr",
+    "amazon.it",
+    "amazon.es",
+    "amazon.com.au",
+    "amazon.com.mx",
+    "amazon.com.br",
+    "amazon.sg",
+    "amazon.ae",
+    "amazon.nl",
+    "synchrony.com",
+    "synchronybank.com"
+  ],
+  "microsoft": [
+    "microsoft.com",
+    "microsoftonline.com",
+    "outlook.com",
+    "office.com",
+    "office365.com",
+    "microsoftsupport.com",
+    "office365support.com",
+    "xbox.com",
+    "microsoftstore.com",
+    "azure.com",
+    "skype.com",
+    "bing.com"
+  ],
+  "apple": [
+    "apple.com",
+    "icloud.com",
+    "itunes.com"
+  ],
+  "google": [
+    "google.com",
+    "gmail.com",
+    "withgoogle.com",
+    "youtube.com",
+    "android.com",
+    "google.co.in",
+    "google.co.uk",
+    "fitbit.com"
+  ],
+  "adobe": [
+    "adobe.com"
+  ],
+  "dropbox": [
+    "dropbox.com",
+    "docsend.com",
+    "dropboxmail.com",
+    "dropboxpartners.com",
+    "dropboxteam.com"
+  ],
+  "docusign": [
+    "docusign.com",
+    "docusign.net"
+  ],
+  "zoom": [
+    "zoom.us"
+  ],
+  "linkedin": [
+    "linkedin.com"
+  ],
+  "facebook": [
+    "facebook.com",
+    "fb.com",
+    "meta.com",
+    "facebookmail.com"
+  ],
+  "netflix": [
+    "netflix.com"
+  ],
+  "verizon": [
+    "verizon.com",
+    "vzw.com",
+    "verizonwireless.com"
+  ],
+  "at&t": [
+    "att.com",
+    "att.net"
+  ],
+  "t-mobile": [
+    "t-mobile.com"
+  ],
+  "irs": [
+    "irs.gov"
+  ],
+  "social security": [
+    "ssa.gov"
+  ],
+  "uscis": [
+    "uscis.gov"
+  ],
+  "instagram": [
+    "instagram.com"
+  ],
+  "whatsapp": [
+    "whatsapp.com"
+  ],
+  "twitter": [
+    "twitter.com",
+    "x.com"
+  ],
+  "spotify": [
+    "spotify.com"
+  ],
+  "ebay": [
+    "ebay.com",
+    "ebay.co.uk",
+    "ebay.de",
+    "ebay.ca",
+    "ebay.com.au"
+  ],
+  "walmart": [
+    "walmart.com",
+    "walmart.ca",
+    "samsclub.com"
+  ],
+  "costco": [
+    "costco.com"
+  ],
+  "best buy": [
+    "bestbuy.com"
+  ],
+  "geek squad": [
+    "geeksquad.com",
+    "bestbuy.com"
+  ],
+  "uber": [
+    "uber.com"
+  ],
+  "lyft": [
+    "lyft.com",
+    "lyftmail.com"
+  ],
+  "airbnb": [
+    "airbnb.com"
+  ],
+  "doordash": [
+    "doordash.com"
+  ],
+  "instacart": [
+    "instacart.com"
+  ],
+  "discord": [
+    "discord.com",
+    "discordapp.com"
+  ],
+  "github": [
+    "github.com"
+  ],
+  "slack": [
+    "slack.com"
+  ],
+  "intuit": [
+    "intuit.com"
+  ],
+  "turbotax": [
+    "turbotax.com",
+    "intuit.com"
+  ],
+  "quickbooks": [
+    "quickbooks.com",
+    "intuit.com"
+  ],
+  "metamask": [
+    "metamask.io"
+  ],
+  "binance": [
+    "binance.com"
+  ],
+  "revolut": [
+    "revolut.com"
+  ],
+  "sofi": [
+    "sofi.com"
+  ],
+  "chime": [
+    "chime.com"
+  ],
+  "usaa": [
+    "usaa.com"
+  ],
+  "navy federal": [
+    "navyfederal.org"
+  ],
+  "charles schwab": [
+    "schwab.com"
+  ],
+  "hsbc": [
+    "hsbc.com",
+    "hsbc.co.uk"
+  ],
+  "barclays": [
+    "barclays.com",
+    "barclays.co.uk"
+  ],
+  "medicare": [
+    "medicare.gov",
+    "cms.gov"
+  ],
+  "hulu": [
+    "hulu.com"
+  ],
+  "yahoo": [
+    "yahoo.com",
+    "yahoo-inc.com"
+  ],
+  "state bank of india": [
+    "sbi.co.in",
+    "sbi.bank.in",
+    "onlinesbi.sbi",
+    "onlinesbi.com",
+    "sbicard.com"
+  ],
+  "sbi": [
+    "sbi.co.in",
+    "sbi.bank.in",
+    "onlinesbi.sbi",
+    "onlinesbi.com",
+    "sbicard.com"
+  ],
+  "hdfc bank": [
+    "hdfcbank.com",
+    "hdfcbank.net",
+    "hdfc.bank.in",
+    "hdfcbank.bank.in",
+    "hdfc.com"
+  ],
+  "icici bank": [
+    "icicibank.com",
+    "icici.bank.in",
+    "icicibank.bank.in",
+    "icicidirect.com"
+  ],
+  "axis bank": [
+    "axisbank.com",
+    "axisbank.co.in",
+    "axis.bank.in",
+    "axisbank.bank.in"
+  ],
+  "kotak": [
+    "kotak.com",
+    "kotak.bank.in",
+    "kotakbank.bank.in",
+    "kotaksecurities.com",
+    "kotaklife.com"
+  ],
+  "paytm": [
+    "paytm.com",
+    "paytm.in",
+    "paytmbank.com"
+  ],
+  "phonepe": [
+    "phonepe.com"
+  ],
+  "flipkart": [
+    "flipkart.com"
+  ],
+  "airtel": [
+    "airtel.in",
+    "airtel.com",
+    "airtelbank.com"
+  ],
+  "jio": [
+    "jio.com",
+    "jiomart.com",
+    "ril.com"
+  ],
+  "income tax department": [
+    "incometax.gov.in",
+    "incometaxindia.gov.in",
+    "incometaxindiaefiling.gov.in",
+    "gov.in"
+  ],
+  "india post": [
+    "indiapost.gov.in",
+    "gov.in"
+  ],
+  "aadhaar": [
+    "uidai.gov.in",
+    "gov.in"
+  ],
+  "swiggy": [
+    "swiggy.in",
+    "swiggy.com"
+  ],
+  "zomato": [
+    "zomato.com"
+  ],
+  "hmrc": [
+    "hmrc.gov.uk",
+    "gov.uk"
+  ],
+  "royal mail": [
+    "royalmail.com",
+    "royalmail.co.uk",
+    "royalmailgroup.com"
+  ],
+  "evri": [
+    "evri.com",
+    "myhermes.co.uk"
+  ],
+  "dpd": [
+    "dpd.co.uk",
+    "dpd.com",
+    "dpd.de",
+    "dpd.fr",
+    "dpdlocal.co.uk",
+    "dpdgroup.com"
+  ],
+  "postnl": [
+    "postnl.nl",
+    "postnl.com"
+  ],
+  "la poste": [
+    "laposte.fr",
+    "laposte.net",
+    "laposte.com",
+    "colissimo.fr"
+  ],
+  "santander": [
+    "santander.co.uk",
+    "santander.com",
+    "santander.es",
+    "santander.de",
+    "santander.pl",
+    "santander.pt",
+    "santander.com.br",
+    "santander.cl",
+    "santander.com.mx",
+    "santanderbank.com",
+    "santanderconsumer.com"
+  ],
+  "lloyds bank": [
+    "lloydsbank.co.uk",
+    "lloydsbank.com",
+    "lloydsbankinggroup.com"
+  ],
+  "natwest": [
+    "natwest.com",
+    "natwestgroup.com"
+  ],
+  "monzo": [
+    "monzo.com"
+  ],
+  "n26": [
+    "n26.com"
+  ],
+  "vodafone": [
+    "vodafone.com",
+    "vodafone.co.uk",
+    "vodafone.de",
+    "vodafone.it",
+    "vodafone.es",
+    "vodafone.nl",
+    "vodafone.ie",
+    "vodafone.pt",
+    "vodafone.com.au",
+    "vodafone.co.nz"
+  ],
+  "booking.com": [
+    "booking.com"
+  ],
+  "klarna": [
+    "klarna.com",
+    "klarna.co.uk",
+    "klarna.de",
+    "klarna.se",
+    "klarna.at",
+    "klarna.be",
+    "klarna.ch",
+    "klarna.co.nz",
+    "klarna.nl",
+    "klarna.fi",
+    "klarna.no",
+    "klarna.dk"
+  ]
 }
