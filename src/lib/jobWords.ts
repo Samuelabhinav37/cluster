@@ -12,4 +12,5 @@ export const JOB_WORDS: Record<string, string> = {
   weekly: "send the weekly summary",
   "resume-jobs": "finish a cleanup",
   "unsubscribe-emails": "send unsubscribe emails",
+  drift: "keep labels matching",
 };

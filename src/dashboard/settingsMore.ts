@@ -13,6 +13,7 @@ import { renderConfirmStep } from "./ui";
 import { failingJobs, getJobHealth } from "../lib/supervisor";
 import { listAge, listDates } from "../lib/listDates";
 import { JOB_WORDS } from "../lib/jobWords";
+import { getDrift } from "../lib/driftCheck";
 import { clearCrashes, getCrashes, issueUrl, reportBody } from "../lib/crashLog";
 import { describeRun, getRunReports, onRunReportsChange, reportText, type RunReport } from "../lib/runReport";
 
@@ -121,7 +122,23 @@ ${reportText(reports)}`)
     row.append(text);
     return row;
   });
-  host.replaceChildren(...failing, ...rows, foot, ...(await crashRows(reports)));
+  host.replaceChildren(...failing, ...(await driftRows()), ...rows, foot, ...(await crashRows(reports)));
+}
+
+/** The daily label check (plan 4.8): how many of the newest emails carry the label they should. */
+async function driftRows(): Promise<HTMLElement[]> {
+  const d = await getDrift();
+  if (!d || d.checked === 0) return [];
+  const row = Object.assign(document.createElement("div"), { className: "set-row plain run-row" });
+  row.dataset.status = d.wrong / d.checked > 0.02 ? "failed" : "done";
+  const text = Object.assign(document.createElement("span"), { className: "grow" });
+  const first = d.examples[0];
+  text.append(
+    Object.assign(document.createElement("b"), { textContent: `Label check: ${d.wrong} of ${d.checked} differ` }),
+    Object.assign(document.createElement("span"), { className: "sub", textContent: first ? `${first.from} should be in ${first.want}, has ${first.got}` : "Every recent email has the label it should" }),
+  );
+  row.append(text, Object.assign(document.createElement("span"), { className: "run-when", textContent: new Date(d.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) }));
+  return [row];
 }
 
 /** Crash reports: how many, the latest, and Test / Send / Clear. */

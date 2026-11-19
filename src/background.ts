@@ -50,6 +50,7 @@ import { gmailSignInExpired, markSignInWarned } from "./lib/gmailWebAuth";
 import { holdWorkerLease } from "./lib/workerLease";
 import { continueMailRead } from "./lib/backgroundRead";
 import { installCrashHandlers } from "./lib/crashLog";
+import { runDriftCheck } from "./lib/driftCheck";
 
 installCrashHandlers("background");
 
@@ -182,7 +183,8 @@ function handleAlarm(alarm: chrome.alarms.Alarm): void {
         .then(async () => job("today-email", async () => sendTodayEmail(await store)))
         .then(async () => job("unsubscribed-sweep", async () => runUnsubscribedSweep(await store)))
         .then(async () => job("auto-mute", async () => runAutoMute(await store)))
-        .then(() => job("newsletters", deliverNewsletters)),
+        .then(() => job("newsletters", deliverNewsletters))
+        .then(async () => job("drift", async () => runDriftCheck(await store))),
     );
   }
 }
