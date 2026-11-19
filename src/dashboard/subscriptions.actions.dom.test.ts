@@ -67,6 +67,22 @@ describe("Mailing lists — one-click unsubscribe from the selection bar", () =>
     });
   });
 
+  it("can move the list's old mail to Trash in the same step (plan 5.4)", async () => {
+    const fetchImpl = makeFetchImpl(async () => new Response("", { status: 202 }));
+    const dash = await bootDashboard({ grantOrigins: true, fetchImpl });
+    dash.showScreen("subscriptions");
+
+    tickAndUnsubscribe(dash, findSubRow(dash.el("subscriptions-list"), "Shop"));
+    const slot = dash.el("subs-unsub-all-slot");
+    const box = slot.querySelector<HTMLInputElement>(".confirm-extra input")!;
+    expect(box.checked).toBe(false);
+    box.click();
+    await confirmStep(slot);
+
+    await vi.waitFor(() => expect(dash.gmail.trashMessages).toHaveBeenCalled());
+    expect(slot.textContent).toMatch(/moved \d+ emails to Trash/);
+  });
+
   it("sends nothing when the origin permission is denied", async () => {
     const fetchImpl = makeFetchImpl(async () => new Response("", { status: 202 }));
     // grantOrigins defaults to false: the permission step must fail closed.

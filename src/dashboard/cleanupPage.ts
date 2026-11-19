@@ -307,8 +307,9 @@ function viewFor(id: string): View {
     // No storage (private window): the defaults are fine.
   }
   v = {
-    sort: "emails",
-    desc: true,
+    // Mailing lists: the ones you never open first, then the biggest (plan 5.4).
+    sort: id === "lists" ? "read" : "emails",
+    desc: id !== "lists",
     page: 0,
     per: PER_PAGE.includes(saved.per ?? 0) ? saved.per! : PER_PAGE[0],
     query: "",

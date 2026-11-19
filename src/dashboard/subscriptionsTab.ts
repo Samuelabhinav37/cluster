@@ -4,7 +4,7 @@
 // recordUnsubscribeRequests is exported because the Clean-up tab's sender
 // table also records a request when its inline Unsubscribe button fires.
 import { ensureOriginsPermission, fireOneClickUnsubscribe } from "../lib/unsubscribe";
-import { executeBulkUnsubscribe } from "../lib/bulkActions";
+import { executeBulkDeleteDomains, executeBulkUnsubscribe } from "../lib/bulkActions";
 import { unsubscribeOutcomeRank } from "../lib/unsubscribeOutcome";
 import { buildProtectionContext } from "../lib/protectionPolicy";
 import type { SenderSummary } from "../lib/senderModel";
@@ -13,7 +13,7 @@ import { registrableDomain } from "../lib/registrableDomain";
 import { formatRelativeTime, headerRow, renderConfirmStep } from "./ui";
 import { renderSenderTable } from "./cleanupPage";
 import { leavableList } from "../lib/cleanupCards";
-import { ctx } from "./state";
+import { ctx, providerById } from "./state";
 import { logAction } from "./recentTab";
 import {
   recordUnsubscribeRequests,
@@ -120,12 +120,28 @@ function unsubscribeMany(picked: SenderSummary[], slot: HTMLElement, reset: () =
       const { succeeded, failed } = await executeBulkUnsubscribe(oneClick, fireOneClickUnsubscribe);
       await recordUnsubscribeRequests(succeeded);
       if (succeeded.length > 0) await logAction("unsubscribe", `Bulk unsubscribed from ${succeeded.length} senders`);
+      // Plan 5.4: their old mail goes in the same step, as a saved job; starred mail stays.
+      let binned = "";
+      if (alsoTrash.checked) {
+        summary.textContent = "Moving their mail to Trash…";
+        const { trashed } = await executeBulkDeleteDomains(new Map([["gmail", oldIds]]), providerById);
+        const ids = trashed.get("gmail") ?? [];
+        if (ids.length > 0) await logAction("trash", `Moved ${ids.length} emails from lists you left to Trash`, { provider: "gmail", ids, via: "untrash" });
+        binned = `, moved ${ids.length} emails to Trash`;
+      }
       selectedListKeys.clear();
       rerender();
       if (byEmail.length > 0) void openUnsubscribeSheet(byEmail, rerender);
-      return `Unsubscribed ${succeeded.length}, failed ${failed.length}`;
+      return `Unsubscribed ${succeeded.length}, failed ${failed.length}${binned}`;
     },
   );
+  const oldIds = oneClick.filter((s) => s.provider === "gmail").flatMap((s) => s.messages.filter((m) => !m.isProtected).map((m) => m.id));
+  const alsoTrash = Object.assign(document.createElement("input"), { type: "checkbox" });
+  if (oldIds.length > 0) {
+    const label = Object.assign(document.createElement("label"), { className: "confirm-extra" });
+    label.append(alsoTrash, ` Also move their ${oldIds.length.toLocaleString()} emails to Trash`);
+    slot.querySelector(".confirm-summary")?.after(label);
+  }
 }
 
 let openSender: (key: string) => void = () => {};

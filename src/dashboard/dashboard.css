@@ -4833,3 +4833,6 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .scn-facts dd { margin: 0; font-size: 13px; font-weight: 500; color: var(--label); font-variant-numeric: tabular-nums; }
 .scn-spark { width: 120px; height: 28px; }
 .scn-spark polyline { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+
+/* Stop mail: the optional "also trash their old mail" box beside a confirm (plan 5.4). */
+.confirm-extra { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
