@@ -71,12 +71,11 @@ Being honest about the narrow list of places data does go:
   sign-in helper adds it. The helper sees your sign-in tokens on their way through, never your
   mail, and keeps nothing. Your Outlook token is used only to talk to Microsoft's own servers to
   keep you signed in.
-- **Sender site icons.** The dashboard shows each sender's favicon, fetched from Google's public
-  favicon service (`google.com/s2/favicons`) by domain only — an uncredentialed image request,
-  no cookies, no other data, one per unique sender domain. This does tell Google which sender
-  domains appear in your mail; if that trade isn't worth it to you, the list still works
-  without it (each sender falls back to a coloured initial). A future build may make this a
-  toggle or cache the icons locally.
+- **Sender site icons.** Icons for about 1,700 common companies ship inside Cluster, so showing
+  them sends nothing. For a sender outside that set, the dashboard asks Google's public favicon
+  service (`google.com/s2/favicons`) for that sender's domain: an image request with no cookies
+  and no other data. That tells Google the sender's domain. If the request fails, the sender
+  gets a coloured initial instead.
 - **Reference-list updates.** Roughly once a day, Cluster fetches a small public data file — the
   list of domains known-legitimate brands send from, and known-bad/spam domains — from a page
   Cluster itself publishes (`samuelabhinav37.github.io`), so a fix can reach you without waiting

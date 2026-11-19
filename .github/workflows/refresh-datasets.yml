@@ -1,6 +1,7 @@
 name: Refresh lists
 
-# Weekly refresh of the spam, malware, phishing and brand lists (plan step 3.5). They
+# Weekly refresh of the spam, malware, phishing, brand, sender-icon, public
+# suffix and lookalike-letter lists (plan step 3.5). They
 # were refreshed only by hand, so they went months without an update. Each
 # refreshed list is committed only if scripts/dataset-guard.mjs passes: no list
 # shrinks by more than 20%, and no block list holds a brand, free-mail or
@@ -46,6 +47,16 @@ jobs:
       - name: Refresh the phishing list
         run: npm run refresh:phishing
 
+      # After the registry: its company domains get icons too.
+      - name: Refresh the sender icons
+        run: npm run refresh:icons
+
+      - name: Refresh the public suffix list
+        run: npm run refresh:psl
+
+      - name: Refresh the lookalike letters
+        run: npm run refresh:confusables
+
       - name: Check the safety limits
         id: guard
         run: |
@@ -57,7 +68,7 @@ jobs:
         run: |
           git config user.name "cluster-lists-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/lib/data/spamDomains.generated.json src/lib/data/malwareDomains.generated.json src/lib/data/phishingHosts.generated.json public/data/brand-registry.json public/data/brand-logos.json
+          git add src/lib/data/spamDomains.generated.json src/lib/data/malwareDomains.generated.json src/lib/data/phishingHosts.generated.json public/data/brand-registry.json public/data/brand-logos.json public/data/sender-icons.json public/data/public-suffix.json src/lib/data/confusables.generated.json
           if git diff --cached --quiet; then echo "No changes."; exit 0; fi
           git commit -m "Weekly list refresh" -m "$(cat guard.txt)"
           git push

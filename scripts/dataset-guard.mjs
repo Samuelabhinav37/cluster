@@ -61,6 +61,9 @@ if (import.meta.url === `file://${process.argv[1].replace(/\\/g, "/").replace(/^
     "Malware list": ["src/lib/data/malwareDomains.generated.json", (j) => j.domains, true],
     "Phishing list": ["src/lib/data/phishingHosts.generated.json", (j) => j.domains, true, 100],
     "Brand registry": ["public/data/brand-registry.json", registryDomains, false],
+    "Sender icons": ["public/data/sender-icons.json", (j) => Object.keys(j.icons), false],
+    "Public suffix rules": ["public/data/public-suffix.json", (j) => Object.values(j.rules).flatMap((s) => s.split(",")), false],
+    "Lookalike letters": ["src/lib/data/confusables.generated.json", (j) => Object.values(j.byTarget).flatMap((s) => [...s]), false],
   };
   const lists = Object.fromEntries(
     Object.entries(files).map(([name, [file, get, block, minSize]]) => {

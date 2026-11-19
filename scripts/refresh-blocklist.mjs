@@ -1,5 +1,5 @@
 // Dev-only tool. Refreshes src/lib/data/malwareDomains.generated.json from
-// URLhaus's hostfile feed (abuse.ch, CC0). Not part of the build -- run it
+// URLhaus's hostfile feed (abuse.ch; free for not-for-profit use, abuse.ch/terms-of-use). Not part of the build -- run it
 // by hand when you want a fresher slice:
 //
 //   npm run refresh:blocklist
@@ -55,7 +55,7 @@ for (const rawLine of text.split("\n")) {
 const sorted = [...domains].sort().slice(0, MAX_DOMAINS);
 const payload = {
   source: FEED,
-  license: "CC0-1.0 (abuse.ch URLhaus)",
+  license: "abuse.ch terms of use: free for not-for-profit use (URLhaus)",
   generatedAt: new Date().toISOString(),
   count: sorted.length,
   domains: sorted,

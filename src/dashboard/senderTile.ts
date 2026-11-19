@@ -7,8 +7,23 @@
 // (offline, 404, blocked) it's removed and the brand-coloured monogram takes
 // over. This is the only off-origin asset the dashboard pulls; see
 // senderLogos.faviconUrl.
-import { faviconUrl, logoFor } from "../lib/senderLogos";
+import { domainFromAddress, faviconUrl, logoFor } from "../lib/senderLogos";
+import { registrableDomainCandidates } from "../lib/registrableDomain";
 import { companyForDomain, companyLogo, type RegistryCompany } from "../lib/brandRegistry";
+
+let iconPack: Promise<Record<string, string>> | undefined;
+
+/** A sender's icon from data/sender-icons.json (built weekly by scripts/refresh-icons.mjs), as base64 PNG. */
+async function bundledIcon(address: string): Promise<string | undefined> {
+  if (typeof chrome === "undefined" || !chrome.runtime?.getURL) return undefined;
+  iconPack ??= fetch(chrome.runtime.getURL("data/sender-icons.json"))
+    .then((r) => r.json() as Promise<{ icons?: Record<string, string> }>)
+    .then((d) => d.icons ?? {})
+    .catch(() => ({}));
+  const icons = await iconPack;
+  for (const d of registrableDomainCandidates(domainFromAddress(address))) if (icons[d]) return icons[d];
+  return undefined;
+}
 
 function domainOf(address: string): string {
   return address.slice(address.lastIndexOf("@") + 1).toLowerCase();
@@ -95,7 +110,10 @@ export function senderTile(
 
   const img = document.createElement("img");
   img.className = "logo-img";
-  img.src = url;
+  // The bundled pack first; only a sender missing from it asks the favicon service.
+  void bundledIcon(address).then((png) => {
+    img.src = png ? `data:image/png;base64,${png}` : url;
+  });
   img.alt = "";
   img.loading = "lazy";
   img.decoding = "async";
