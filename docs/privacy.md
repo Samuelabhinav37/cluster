@@ -71,6 +71,10 @@ Being honest about the narrow list of places data does go:
   sign-in helper adds it. The helper sees your sign-in tokens on their way through, never your
   mail, and keeps nothing. Your Outlook token is used only to talk to Microsoft's own servers to
   keep you signed in.
+- **Crash reports.** When something breaks, Cluster keeps the error on this device (the last
+  20, with email addresses and sign-in tokens removed). Nothing is sent on its own. Settings >
+  Diagnostics > Send opens a new GitHub issue with the report filled in, which you can read and
+  edit, and nothing goes until you submit it. GitHub issues are public.
 - **Sender site icons.** Icons for about 1,700 common companies ship inside Cluster, so showing
   them sends nothing. For a sender outside that set, the dashboard asks Google's public favicon
   service (`google.com/s2/favicons`) for that sender's domain: an image request with no cookies

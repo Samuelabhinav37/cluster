@@ -1,4 +1,5 @@
 import { NUMBER_SCREENS } from "../lib/keymap";
+import { installCrashHandlers } from "../lib/crashLog";
 import { clearCountBadge } from "../lib/supervisor";
 import { scanCheckCounts, scanFound } from "../lib/securityScan";
 import { correctionKey } from "../lib/addressIdentity";
@@ -137,6 +138,8 @@ import {
 } from "./detailsPanel";
 import { createDurableJob, runDurableJob } from "../lib/durableJobs";
 import { CLUSTER_FIRST_ON, CLUSTER_QUESTIONS, firstVisitTip, initKaiGuide, type KaiGuide } from "./kaiGuide";
+
+installCrashHandlers("dashboard");
 
 const selectedSenderKeys = new Set<string>();
 let currentExpiryBuckets: ExpiryBucket[] = [];

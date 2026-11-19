@@ -49,6 +49,9 @@ import { describeRun, markStalled } from "./lib/runReport";
 import { gmailSignInExpired, markSignInWarned } from "./lib/gmailWebAuth";
 import { holdWorkerLease } from "./lib/workerLease";
 import { continueMailRead } from "./lib/backgroundRead";
+import { installCrashHandlers } from "./lib/crashLog";
+
+installCrashHandlers("background");
 
 const DASHBOARD_URL = chrome.runtime.getURL("src/dashboard/index.html");
 

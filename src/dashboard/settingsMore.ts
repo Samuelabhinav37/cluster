@@ -13,6 +13,7 @@ import { renderConfirmStep } from "./ui";
 import { failingJobs, getJobHealth } from "../lib/supervisor";
 import { listAge, listDates } from "../lib/listDates";
 import { JOB_WORDS } from "../lib/jobWords";
+import { clearCrashes, getCrashes, issueUrl, reportBody } from "../lib/crashLog";
 import { describeRun, getRunReports, onRunReportsChange, reportText, type RunReport } from "../lib/runReport";
 
 const MAIL_INDEX_DB = "cluster-mail-index";
@@ -120,7 +121,37 @@ ${reportText(reports)}`)
     row.append(text);
     return row;
   });
-  host.replaceChildren(...failing, ...rows, foot);
+  host.replaceChildren(...failing, ...rows, foot, ...(await crashRows(reports)));
+}
+
+/** Crash reports: how many, the latest, and Test / Send / Clear. */
+async function crashRows(reports: RunReport[]): Promise<HTMLElement[]> {
+  const crashes = await getCrashes();
+  const btn = (text: string, onclick: () => void) => {
+    const b = Object.assign(document.createElement("button"), { type: "button", className: "btn", textContent: text });
+    b.onclick = onclick;
+    return b;
+  };
+  const head = Object.assign(document.createElement("div"), { className: "set-row plain", id: "crash-reports" });
+  const text = Object.assign(document.createElement("span"), { className: "grow" });
+  text.append(
+    Object.assign(document.createElement("b"), { textContent: crashes.length ? `${crashes.length} crash ${crashes.length === 1 ? "report" : "reports"}` : "No crashes" }),
+    Object.assign(document.createElement("span"), {
+      className: "sub",
+      textContent: crashes[0] ? `${crashes[0].message}, ${new Date(crashes[0].at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "Kept on this device until you press Send",
+    }),
+  );
+  const trail = Object.assign(document.createElement("span"), { className: "row-actions" });
+  // A real uncaught error, so the whole path (handler, storage, this row) is tested.
+  trail.append(btn("Test", () => setTimeout(() => { throw new Error("Test crash report"); })));
+  if (crashes.length) {
+    trail.append(
+      btn("Send", () => void window.open(issueUrl(reportBody(__BUILD__, crashes, reportText(reports))), "_blank", "noopener")),
+      btn("Clear", () => void clearCrashes()),
+    );
+  }
+  head.append(text, trail);
+  return [head];
 }
 
 /** Settings, Security: how old the scam lists are, said plainly when out of date. */
@@ -485,6 +516,9 @@ export function wireSettingsMore(showScreen: (name: string) => void, act?: KeyAc
     };
   void renderRuns();
   onRunReportsChange(() => void renderRuns());
+  chrome.storage.onChanged?.addListener((changes, area) => {
+    if (area === "local" && "clusterCrashes" in changes) void renderRuns();
+  });
   void renderListDates();
   const build = $("settings-build");
   if (build) build.textContent = `Version ${__BUILD__}`;
