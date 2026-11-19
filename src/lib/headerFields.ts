@@ -43,8 +43,9 @@ export function parseAddressList(value: string): ParsedAddress[] {
     // Drop a group label ("team: a@x") before the first address.
     const part = raw.replace(/^[^"<@]*:\s*/, "").trim();
     if (!part) continue;
-    const angled = part.match(/^(.*)<([^>]*)>\s*$/);
-    const address = (angled ? angled[2] : part).trim().toLowerCase();
+    // Text after the closing ">" is an RFC 5322 comment ("<a@x> (via Foo)"): ignored.
+    const angled = part.match(/^(.*)<([^<>]*)>\s*(?:\([^)]*\)\s*)*$/);
+    const address = (angled ? angled[2] : part.replace(/\([^)]*\)/g, "")).trim().toLowerCase();
     if (!address.includes("@") || /\s/.test(address)) continue;
     const name = angled
       ? angled[1]

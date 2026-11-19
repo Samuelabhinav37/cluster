@@ -38,7 +38,7 @@ import {
   untrashMessages as apiUntrashMessages,
 } from "../gmailApi";
 import { parseListUnsubscribe, signedByAlignedDkim } from "../unsubscribe";
-import { deliveredToAddresses, relationshipFields, shapeFields } from "../headerFields";
+import { deliveredToAddresses, parseAddressList, relationshipFields, shapeFields } from "../headerFields";
 import { MAIL_ROW_VERSION } from "../mailIndex";
 import { clusterLabelName, labelLookupNames } from "../clusterLabels";
 import { selectTrustedAuthenticationResults } from "../emailAuth";
@@ -107,13 +107,9 @@ export function gmailLabelFields(labelIds: readonly string[]) {
 }
 
 function parseFrom(from: string): { address: string; displayName: string } {
-  const match = from.match(/^(.*?)<(.+)>$/);
-  if (match) {
-    return {
-      displayName: match[1].trim().replace(/^"|"$/g, ""),
-      address: match[2].trim().toLowerCase(),
-    };
-  }
+  const first = parseAddressList(from)[0];
+  // A bare address keeps itself as the name, as before.
+  if (first) return { displayName: first.name || (from.includes("<") ? "" : from.trim()), address: first.address };
   return { displayName: from, address: from.trim().toLowerCase() };
 }
 

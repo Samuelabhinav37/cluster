@@ -80,9 +80,8 @@ describe("From parsing", () => {
     expect(m.fromAddress).toBe("");
   });
 
-  // Known gap: anything after the closing ">" defeats the anchored regex, so
-  // the whole header becomes the "address" and the sender key is polluted.
-  it.fails("KNOWN BUG: a trailing comment after <addr> breaks address extraction", async () => {
+  // Plan 4.7: a comment after the closing ">" used to become part of the address.
+  it("a trailing comment after <addr> is ignored", async () => {
     const m = await normalize({ headers: { From: '"Shop" <deals@shop.example> (Promotions)' } });
     expect(m.fromAddress).toBe("deals@shop.example");
   });

@@ -137,3 +137,11 @@ describe("outlookVerdict", () => {
     });
   });
 });
+
+describe("comments after the address (plan 4.7)", () => {
+  it("ignores a trailing comment and keeps the name", () => {
+    expect(parseAddressList('Shop <news@shop.com> (via Mailchimp)')).toEqual([{ address: "news@shop.com", name: "Shop" }]);
+    expect(parseAddressList("news@shop.com (Shop News)")).toEqual([{ address: "news@shop.com", name: "" }]);
+    expect(parseAddressList('"A <b>" <a@x.com>')).toEqual([{ address: "a@x.com", name: "A <b>" }]);
+  });
+});
