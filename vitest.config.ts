@@ -7,6 +7,8 @@ export default defineConfig({
     // A DOM test's first case imports the whole dashboard (about 2 s alone),
     // which passes 5 s when the full suite runs files in parallel.
     testTimeout: 15_000,
+    // DOM suites boot the whole dashboard in beforeAll; under a full parallel run that can pass 10 s.
+    hookTimeout: 15_000,
     setupFiles: ["src/test-setup.ts"],
   },
 });
