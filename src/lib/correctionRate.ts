@@ -52,3 +52,33 @@ export function filedIn(senders: readonly SenderSummary[], decided: ReadonlyMap<
 export function fixesPer100(fixed: number, filed: number): number | null {
   return filed < MIN_FILED ? null : Math.round((1000 * fixed) / filed) / 10;
 }
+
+export interface AccuracyNumbers {
+  /** Fixes per 100 filed in the last 7 days, or null with too little filed. */
+  fixesPer100: number | null;
+  /** "Not a scam" per 100 holds you reviewed, or null with none reviewed. */
+  releasedPer100: number | null;
+  /** Share of the week's filed mail left in the Screener, 0 to 100, or null. */
+  screenerShare: number | null;
+}
+
+/** The three accuracy numbers Diagnostics shows: agreement, false holds, coverage. */
+export function accuracyNumbers(
+  senders: readonly SenderSummary[],
+  decided: ReadonlyMap<string, EmailDecision>,
+  fixLog: FixLog,
+  holds: { reviewed: number; confirmed: number },
+  now: number,
+): AccuracyNumbers {
+  const filed = filedIn(senders, decided, now);
+  const since = now - 7 * DAY_MS;
+  let screener = 0;
+  for (const s of senders)
+    for (const m of s.messages) if (m.receivedAt >= since && decided.get(m.id)?.place === "screener") screener++;
+  const pct = (part: number, whole: number) => Math.round((1000 * part) / whole) / 10;
+  return {
+    fixesPer100: fixesPer100(fixesIn(fixLog, now), filed),
+    releasedPer100: holds.reviewed > 0 ? pct(holds.reviewed - holds.confirmed, holds.reviewed) : null,
+    screenerShare: filed < MIN_FILED ? null : pct(screener, filed),
+  };
+}

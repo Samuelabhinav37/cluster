@@ -8,7 +8,9 @@ import { clusterLabelIdSet } from "../lib/seedFromExisting";
 import { clashes, GO_SCREENS, keysOf, numberScreen, SHORTCUTS, usableKey } from "../lib/keymap";
 import { clearSyncedSettings, getSettings, updateSettings } from "../lib/settingsStore";
 import { kindModel, resetKindModel } from "./kindLearning";
-import { ctx } from "./state";
+import { ctx, decisions } from "./state";
+import { accuracyNumbers } from "../lib/correctionRate";
+import { holdAccuracy } from "../lib/quarantineReview";
 import { renderConfirmStep } from "./ui";
 import { failingJobs, getJobHealth } from "../lib/supervisor";
 import { listAge, listDates } from "../lib/listDates";
@@ -122,7 +124,37 @@ ${reportText(reports)}`)
     row.append(text);
     return row;
   });
-  host.replaceChildren(...failing, ...(await driftRows()), ...rows, foot, ...(await crashRows(reports)));
+  host.replaceChildren(...failing, ...accuracyRows(), ...(await driftRows()), ...rows, foot, ...(await crashRows(reports)));
+}
+
+/** Plan 8 (research 2026-11-19): fixes, false holds and Screener share, one row each. */
+function accuracyRows(now = Date.now()): HTMLElement[] {
+  if (!ctx.settings) return [];
+  const a = accuracyNumbers(
+    ctx.senders,
+    decisions(ctx.senders),
+    ctx.settings.autoSort.fixesByDay ?? {},
+    holdAccuracy(ctx.settings.quarantineReview ?? {}),
+    now,
+  );
+  const rows: [string, number | null, string, number][] = [
+    ["Fixes this week", a.fixesPer100, " per 100 labelled", 5],
+    ["Not a scam", a.releasedPer100, " per 100 holds you checked", 5],
+    ["Left in the Screener", a.screenerShare, "% of this week's mail", 30],
+  ];
+  return rows
+    .filter(([, value]) => value !== null)
+    .map(([name, value, unit, limit]) => {
+      const row = Object.assign(document.createElement("div"), { className: "set-row plain run-row" });
+      row.dataset.status = (value as number) > limit ? "failed" : "done";
+      const text = Object.assign(document.createElement("span"), { className: "grow" });
+      text.append(
+        Object.assign(document.createElement("b"), { textContent: name }),
+        Object.assign(document.createElement("span"), { className: "sub", textContent: `${value}${unit}` }),
+      );
+      row.append(text);
+      return row;
+    });
 }
 
 /** The daily label check (plan 4.8): how many of the newest emails carry the label they should. */
