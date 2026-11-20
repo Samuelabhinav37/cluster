@@ -62,7 +62,13 @@ Every number on every screen and in the report:
 | 3.5 Weekly list refresh | Done: refresh-datasets.yml + dataset-guard.mjs (shrink limit, no known-good domain blocked, issue on failure). Malware list needs a URLHAUS_AUTH_KEY secret | `b8df778`, `a48e59f` |
 | 3.6 List dates | Done: Settings, Security "Scam lists: Updated ..." / "Out of date" past 30 days | `29f94a4` |
 | 3.8 Phishing feed | Done: phishunt.io (CC0) for links, warns alone, published not bundled | `9d48071` |
-| 2.6, 3.7, 3.9, phases 4 to 7 | Next | |
+| 3.7, 3.9, 4.3, 4.6 to 4.9, 5.1, 5.2, 5.4, 5.5, 6.1, 6.2 | Done | see `Plan x.y` commits |
+| 2.6 Self-heal | Already built: alarms put back on every start, an expired Gmail cursor rebuilds (`mailSync.ts`), saved jobs resume on the jobs alarm | |
+| Stall notice | False alarm fixed: every running step beats every 30 s, so only a stopped worker is "stalled"; no notification for it, wording "Paused while ..." | `d401825` |
+| 4.4 Care score | Done: opens, replies or mail you wrote, stars. Orders cleanup suggestions. Archive-unread and Gmail-web trash left out | `f8c9707` |
+| 4.5 Corrections as filters | Already built: corrections are include/exclude terms in each label's filter query (`categoryQueries.ts`), synced in chunks | |
+| 5.3 What happens + one action | Already built: row reason, Trash all, confirm names the count | |
+| Left | 4.1 live test, 7.4 verification, 7.5 beta, 7.6 listing (need you); 7.3 and 4.10 held until after the live test | |
 | Not doing | Lazy spam list (makes a sync engine check async for a few ms of parsing) | |
 
 ## Phases
