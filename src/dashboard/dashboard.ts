@@ -1136,7 +1136,7 @@ function paintScanCard() {
     lastRun && lastRun.startedAt >= scan.startedAt && lastRun.status === "stalled" ? describeRun(lastRun) : undefined;
   if (note) {
     jobCard({
-      title: "Labelling stopped",
+      title: "Labelling paused",
       line: note,
       finished: true,
       action: { label: "Label again", run: () => void startLabelScan() },

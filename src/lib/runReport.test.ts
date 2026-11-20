@@ -45,7 +45,23 @@ describe("runReport", () => {
     expect(await markStalled(t + STALL_MS - 1)).toEqual([]);
     const [stalled] = await markStalled(t + STALL_MS);
     expect(stalled.status).toBe("stalled");
-    expect(describeRun(stalled)).toContain("Stopped while reading your mail");
+    expect(describeRun(stalled)).toContain("Paused while reading your mail");
+  });
+
+  it("a long step with no progress calls stays alive while the worker runs", async () => {
+    vi.useFakeTimers();
+    try {
+      let t = 7_000_000;
+      const run = await startRun("sweep", () => t);
+      void run.step("filter sync", 0, () => new Promise<number>(() => {}));
+      for (let i = 0; i < 40; i++) {
+        t += 30_000;
+        await vi.advanceTimersByTimeAsync(30_000);
+      }
+      expect(await markStalled(t + 1)).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps one quiet run, so empty sweeps don't push real runs out", async () => {

@@ -121,6 +121,13 @@ export async function startRun(kind: RunKind, now = Date.now): Promise<Run> {
     report.current = name;
     report.beatAt = started;
     await persist(true);
+    // Steps without progress callbacks (filter sync, relabel) can run for minutes:
+    // a timer keeps the sign of life fresh while the worker is alive, so only a
+    // worker that really stopped (sleep, Chrome closed) is marked stalled.
+    const alive = setInterval(() => {
+      report.beatAt = now();
+      void persist();
+    }, BEAT_EVERY_MS);
     const settle = (step: RunStep) => {
       report.steps = [...report.steps.filter((s) => s.name !== `${name} (so far)`), step];
     };
@@ -132,6 +139,7 @@ export async function startRun(kind: RunKind, now = Date.now): Promise<Run> {
       settle({ name, ms: now() - started, ok: false, error: plainError(err) });
       throw err;
     } finally {
+      clearInterval(alive);
       report.beatAt = now();
       await persist(true);
     }
@@ -224,7 +232,7 @@ export function describeRun(report: RunReport): string {
     case "running":
       return `Working: ${words(report.current ?? "starting")}.`;
     case "stalled":
-      return `Stopped while ${words(report.current ?? "working")}, with no sign of life for 10 minutes. It starts again on the next run.`;
+      return `Paused while ${words(report.current ?? "working")}. It picks up again on its own.`;
     case "ok":
       return `${lead} in ${took}.`;
     default:
