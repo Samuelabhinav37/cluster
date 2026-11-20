@@ -243,6 +243,10 @@ export function renderScreenerTab(senders: SenderSummary[]) {
   }
 }
 
+/** Mail a person needs from a company they block: receipts, codes, account and delivery notices. */
+const MUST_KEEP = new Set(["receipt", "otp", "accounts", "shipping", "statement"]);
+export const sendsMustKeep = (s: SenderSummary) => s.messages.some((m) => MUST_KEEP.has(m.kind));
+
 /** One waiting case as a table row: who (name, address under it, or how many
  * addresses), how many emails, when they first wrote, a label to file them
  * under, Block and Let in. Names and addresses come from the sender, so they go in as text. */
@@ -283,11 +287,18 @@ function buildScreenerRow(members: SenderSummary[]): HTMLTableRowElement {
   block.title = stopUrl
     ? "Their mail goes to Muted from now on, and they're asked to stop"
     : "Their mail goes to Muted from now on";
+  if (members.length > 1 && members.some(sendsMustKeep)) block.title += ". Receipts, codes and account mail still come in";
   block.onclick = async () => {
     block.disabled = true;
     try {
+      // A company's receipt, code and account addresses are let in, never muted with its ads.
       for (const [i, m] of members.entries()) {
-        await releaseHeldSender(m.address, idsSafeToMoveOut(m), m.provider, "block", i === members.length - 1);
+        const last = i === members.length - 1;
+        if (members.length > 1 && sendsMustKeep(m)) {
+          await releaseHeldSender(m.address, m.messageIds, m.provider, "allow", last);
+          continue;
+        }
+        await releaseHeldSender(m.address, idsSafeToMoveOut(m), m.provider, "block", last);
         const url = ctx.profiles.get(m.key)?.companyKey ? m.unsubscribe.postUrl : undefined;
         if (url && (await ensureOriginsPermission([url])) && (await fireOneClickUnsubscribe(url))) await recordUnsubscribeRequests([m]);
       }
