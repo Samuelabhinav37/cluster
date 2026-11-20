@@ -8,6 +8,7 @@
 import { appendActionLog, makeLogId } from "./actionLog";
 import { clusterLabelName } from "./clusterLabels";
 import { batchModify, getOrCreateLabel, muteSender } from "./gmailApi";
+import { addWaiting } from "./waiting";
 import { refreshIndexForBackground } from "./indexTriage";
 import { log } from "./log";
 import { openMailIndex, type MailIndexStore } from "./mailIndex";
@@ -110,9 +111,11 @@ export function stillSendingToMute(
 }
 
 /** Mutes senders still sending 14 days after Unsubscribe (the confirm says so
- * up front). Same filter and log entry as a manual Mute, so Undo works. */
+ * up front). Same filter and log entry as a manual Mute, so Undo works.
+ * settings.autoMute "ask" puts them in Waiting for you instead; "off" does nothing. */
 export async function runAutoMute(store?: MailIndexStore, now = Date.now()): Promise<number> {
   const settings = await getSettings();
+  if (settings.autoMute === "off") return 0;
   const anyDue = Object.values(settings.unsubscribeRequests).some(
     (r) => r.provider === "gmail" && !r.trashFilterId && now - r.requestedAt >= UNSUBSCRIBE_OBSERVATION_MS,
   );
@@ -120,10 +123,23 @@ export async function runAutoMute(store?: MailIndexStore, now = Date.now()): Pro
   const index = store ?? (await openMailIndex());
   const ready = await refreshIndexForBackground([gmailProvider], settings.scanWindowDays, index);
   if (ready.length === 0) return 0;
-  const toMute = stillSendingToMute(await index.all("gmail"), settings.unsubscribeRequests, settings.mutedSenders, now);
+  const skip = [...settings.mutedSenders, ...settings.waitingDeclined];
+  const toMute = stillSendingToMute(await index.all("gmail"), settings.unsubscribeRequests, skip, now);
+  if (settings.autoMute === "ask") {
+    await mutateSettings((current) => {
+      const res = addWaiting(current.waiting, toMute.map((s) => ({ kind: "mute" as const, key: s.key, address: s.address, ids: s.inboxIds })), current.waitingDeclined, now);
+      return { ...current, waiting: res.waiting, waitingDeclined: [...new Set([...current.waitingDeclined, ...res.expired])] };
+    });
+    return 0;
+  }
+  return muteNow(toMute, now);
+}
+
+/** Mutes these senders now and logs it with Undo. Approve in Waiting for you uses it too. */
+export async function muteNow(toMute: readonly { key: string; address: string; inboxIds: string[] }[], now = Date.now()): Promise<number> {
   if (toMute.length === 0) return 0;
   const token = await gmailProvider.getAuthToken(false);
-  const done: typeof toMute = [];
+  const done: (typeof toMute)[number][] = [];
   for (const s of toMute) {
     try {
       await muteSender(token, s.address, s.inboxIds);
@@ -136,6 +152,7 @@ export async function runAutoMute(store?: MailIndexStore, now = Date.now()): Pro
   await mutateSettings((current) => ({
     ...current,
     mutedSenders: [...new Set([...current.mutedSenders, ...done.map((s) => s.address)])],
+    waiting: current.waiting.filter((w) => !done.some((d) => d.address.toLowerCase() === w.address.toLowerCase())),
   }));
   await appendActionLog(
     done.map((s) => ({

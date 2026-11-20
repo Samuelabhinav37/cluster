@@ -6,6 +6,7 @@ import type { ActionLogEntry } from "./actionLog";
 import { normalizeEngagementRecord, type SenderEngagementMap } from "./engagementModel";
 import { DEFAULT_INBOX_HOURS, type SortBucket, type SortOverride } from "./sortTaxonomy";
 import type { QuarantineReviewMap } from "./quarantineReview";
+import type { WaitingItem } from "./waiting";
 import { withStorageLock } from "./storageLock";
 import { migrateStoredLabelNames } from "./clusterLabels";
 import { buildOnboardingPlan, type OnboardingAnswers } from "./onboardingPlan";
@@ -81,6 +82,12 @@ export interface ClusterSettings {
   clearedTotal?: number;
   /** From-addresses the user has muted via the local BlackHole. */
   mutedSenders: string[];
+  /** Muting senders still sending 14 days after Unsubscribe: do it, ask first (Waiting for you), or never. */
+  autoMute: "do" | "ask" | "off";
+  /** Waiting for you (waiting.ts): actions Cluster wants to take and asked about first. Local only. */
+  waiting: WaitingItem[];
+  /** Senders you said "Not now" to, or let a waiting item expire on: never asked again. */
+  waitingDeclined: string[];
   /** "This is a person" (true) / "Not a person" (false), by sender key. */
   personOverrides: Record<string, boolean>;
   /** Screener master switch (Phase 6). */
@@ -296,6 +303,9 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   singleKeys: true,
   actionLog: [],
   mutedSenders: [],
+  autoMute: "do",
+  waiting: [],
+  waitingDeclined: [],
   personOverrides: {},
   screenerEnabled: false,
   screenerHoldPeople: true,
@@ -629,6 +639,8 @@ const SYNCED_KEYS = [
   "screenerHoldPeople",
   "screenerAllowlist",
   "mutedSenders",
+  "autoMute",
+  "waitingDeclined",
   "personOverrides",
   "sortOverrides",
   "labelChoices",

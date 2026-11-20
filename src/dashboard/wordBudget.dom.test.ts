@@ -33,7 +33,7 @@ const BUDGET: Record<string, { words: number; controls: number }> = {
   screener: { words: 60, controls: 6 },
   // Redesign 2026-11 (approved): every section on one scrolling page, not one at a time.
   // 2026-11-17 (user asked): Settings is one scrolling page, so every section counts at once.
-  settings: { words: 380, controls: 60 }, // +20: Diagnostics shown again with crash reports (2026-11-19)
+  settings: { words: 400, controls: 60 }, // +20: Diagnostics with crash reports; +20: What Cluster does on its own (2026-11-19)
   // 2026-11-17: the empty state names what lands here and offers Go to Cleanup, plus the Back link.
   recent: { words: 20, controls: 3 },
 };

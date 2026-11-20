@@ -88,6 +88,7 @@ import { recordUnread, unreadDays, unreadWeekAgo } from "../lib/inboxTrend";
 import { markNameMatches } from "../lib/nameMatch";
 import { knownSenderSet } from "../lib/screener";
 import { engineContext, riskOf } from "../lib/mailEngine";
+import { renderAutonomy, renderWaiting } from "./autonomy";
 import { log } from "../lib/log";
 import { initSuggestionModel, learnFromFeedback, suggestionModel } from "./suggestionLearning";
 import { initKindModel, kindModel } from "./kindLearning";
@@ -234,7 +235,10 @@ function showScreen(name: string) {
   // A new page opens at its top; re-showing the same page keeps the scroll.
   if (screenPanels.some((p) => !p.hidden && p.dataset.screen !== target)) window.scrollTo(0, 0);
   document.body.dataset.screen = target;
-  if (target === "settings") renderLearned();
+  if (target === "settings") {
+    renderLearned();
+    renderAutonomy();
+  }
   for (const panel of screenPanels) {
     const active = panel.dataset.screen === target;
     panel.hidden = !active;
@@ -1873,6 +1877,7 @@ function renderOverview(
       : undefined,
   };
   lastFacts = facts;
+  renderWaiting();
   overviewContentEl.appendChild(
     renderHomeDashboard(
       facts,
