@@ -5018,6 +5018,14 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .onb-world .onb-bubble.pop { animation-name: kb-in-up; }
 .onb-world .onb-bubble:empty { visibility: hidden; }
 
+/* Kai beside the question (research/2026-11-20-mobbin-onboarding-audit.md #7,
+   after Duolingo and Trello): small, its line to its right, right over the
+   heading. Only the hello screen keeps the big Kai in the panel. */
+.wel-stage > .onb-kai-spot, .onb-pane > .onb-kai-spot { flex-direction: row-reverse; justify-content: flex-end; align-items: center; gap: 12px; margin: 0 0 4px; }
+.wel-stage > .onb-kai-spot .wel-kai, .onb-pane > .onb-kai-spot .wel-kai { width: 64px; height: 64px; margin: 0 0 10px; } /* Kai's drawing runs below its box */
+.onb-pane > .onb-kai-spot .onb-kai-words { flex: none; }
+.onb-pane > .onb-kai-spot .onb-kai-words .onb-voice { margin-left: 0 !important; }
+
 /* The steps, on the hills at the bottom of the panel. */
 .step-list { position: absolute; left: 0; right: 0; bottom: 26px; display: flex; justify-content: center; flex-wrap: wrap; gap: 8px 22px; margin: 0; padding: 0 24px; list-style: none; color: #fff; font: 500 13px/1 var(--font); }
 .step-item { display: flex; align-items: center; gap: 8px; opacity: 0.62; }
@@ -5033,7 +5041,7 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
   width: auto;
   max-width: 700px;
   margin: 0;
-  padding: 32px clamp(32px, 4.5vw, 72px) 64px;
+  padding: 32px clamp(32px, 4.5vw, 72px);
   align-self: center;
   display: flex;
   flex-direction: column;
@@ -5067,7 +5075,7 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
   .onb-world .onb-kai, .wel .onb-world .wel-kai, .wel.is-hello .onb-world .wel-kai { width: 120px; height: 120px; margin-bottom: 20px; }
   .wel .wel-stage, .onb-side > .onb-pane { max-width: none; padding: 28px 16px 48px; }
 }
-.onb-pane .unt-cube { width: 280px; align-self: center; margin: -8px 0 4px; }
+.onb-pane .unt-cube { width: 200px; align-self: center; margin: -12px 0 0; }
 
 /* Tour polish (2026-11-20): dots for progress, an arrow at the target, a soft glow round the spotlight. */
 .tour-count { display: flex; align-items: center; gap: 6px; }

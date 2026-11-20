@@ -156,7 +156,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
   const kaiHost = el("div", "onb-kai wel-kai");
   const bubble = el("p", "onb-bubble wel-bubble");
   bubble.id = "welcome-kai-line";
-  // Kai and its line stand together in the left panel on every screen.
+  // Kai and its line: big in the left panel on the hello screen, then small right over each question.
   const spot = el("div", "onb-kai-spot");
   bubble.setAttribute("aria-live", "polite");
   const kai: KaiInstance | null =
@@ -294,9 +294,9 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     backBtn.onclick = () => back?.();
     backBtn.hidden = !back;
     rememberKai(kaiHost);
-    world.replaceChildren(spot, progressBar(done));
-    stage.replaceChildren(backBtn, el("h1", "wel-title", title), el("p", "wel-lead", why), ...rest);
-    // Kai flies from the middle to its spot by the question, instead of popping in there.
+    world.replaceChildren(progressBar(done));
+    stage.replaceChildren(backBtn, spot, el("h1", "wel-title", title), el("p", "wel-lead", why), ...rest);
+    // Kai flies from the middle of the panel to its spot over the question, instead of popping in there.
     travel(kaiHost, kai);
     idle?.reset();
     say(line, true);

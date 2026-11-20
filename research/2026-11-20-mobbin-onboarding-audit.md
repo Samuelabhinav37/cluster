@@ -89,7 +89,7 @@ Every claim about another app comes from the Mobbin screens linked below.
 
 1. Heading over the field on every step, plus one reason line (#1, #2).
 2. "Continue with Google" button with no email field (#3). Built 2026-11-20.
-3. Kai smaller and next to the question (#7).
+3. Kai smaller and next to the question (#7). Built 2026-11-20.
 
 Step 1 built 2026-11-20: headings and a reason line on every screen, Kai's bubble shortened so it never repeats them.
 4. Replace the end card with a "Get started" checklist on the dashboard that stays until done. Shorten the tour to 3 stops (#11, #12).

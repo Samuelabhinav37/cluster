@@ -540,12 +540,12 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     const body = el("div", newStep ? "onb-body onb-in" : "onb-body");
     ({ hello: renderHello, label: renderLabel, scan: renderScan, found: renderFound })[step](body);
     pane.className = `onb-pane is-${step}`;
-    pane.replaceChildren(body);
-    // Keep Kai in place between steps so it doesn't vanish and reappear.
-    if (kai.row.parentNode === world) {
-      world.querySelector(".step-list")?.replaceWith(progressBar(BEFORE + at + 1));
+    world.replaceChildren(progressBar(BEFORE + at + 1));
+    // Kai sits right over the question and stays put between steps, so it doesn't vanish and reappear.
+    if (kai.row.parentNode === pane) {
+      pane.querySelector(":scope > .onb-body")?.replaceWith(body);
     } else {
-      world.replaceChildren(kai.row, progressBar(BEFORE + at + 1));
+      pane.replaceChildren(kai.row, body);
       // The same Kai as the welcome: it flies over from where it stood there.
       travel(kai.row.querySelector<HTMLElement>(".onb-kai")!, kai.instance);
     }
