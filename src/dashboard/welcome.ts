@@ -9,6 +9,12 @@ import { updateSettings } from "../lib/settingsStore";
 import { setGmailLoginHint } from "../lib/gmailWebAuth";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Step 1's two lines, said one after the other. */
+export const HELLO_LINES = ["Hi, I am Kai!", "I am going to help you with your email."] as const;
+/** How long Kai's hop in takes (wel-enter in dashboard.css), and the pause between the lines. */
+const HELLO_WALK_MS = 1400;
+const HELLO_GAP_MS = 2200;
+
 /** Name and email here, then setup: hello, label, scan, found. */
 export const ONBOARDING_STEPS = 6;
 
@@ -85,16 +91,38 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
 
   let name = ctx.settings.userName;
 
+  /** Timers of the hello entrance, cleared when the user moves on early. */
+  const helloTimers: number[] = [];
+  const after = (ms: number, fn: () => void) => helloTimers.push(window.setTimeout(fn, ms));
+
+  /** Step 1: Kai hops in from the left, waves hello, then says what it's for. */
   function hello() {
     top.replaceChildren();
     wel.className = "wel is-hello";
-    const go = bigButton("Get started", askName);
+    const go = bigButton("Get started", () => {
+      helloTimers.forEach(clearTimeout);
+      askName();
+    });
     go.id = "welcome-start";
+    helloTimers.splice(0).forEach(clearTimeout);
+    bubble.textContent = "";
     stage.replaceChildren(bubble, kaiHost, go);
-    say("Hi, I'm Kai! I'll help you sort your Gmail.");
-    kai?.do("peek");
-    kai?.do("wave");
     go.focus();
+    const walk = reduced || !kai ? 0 : HELLO_WALK_MS;
+    if (walk) {
+      kaiHost.classList.add("wel-enter");
+      kaiHost.addEventListener("animationend", () => kaiHost.classList.remove("wel-enter"), { once: true });
+      kai?.setMood("happy", walk);
+    }
+    after(walk, () => {
+      say(HELLO_LINES[0]);
+      kai?.do("wave");
+    });
+    after(walk + HELLO_GAP_MS, () => {
+      say(HELLO_LINES[1]);
+      kai?.do("nod");
+      kai?.setMood("happy", 1800);
+    });
   }
 
   /** Kai on the left with the question in a bubble, the answer below, Continue at the bottom. */

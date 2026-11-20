@@ -56,7 +56,8 @@ describe("connect gate", () => {
 
     expect(gateVisible()).toBe(true);
     expect(document.body.dataset.state).toBe("connect");
-    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toContain("I'm Kai"), { timeout: 3000 });
+    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toBe("Hi, I am Kai!"), { timeout: 3000 });
+    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toBe("I am going to help you with your email."), { timeout: 4000 });
     expect(gmail.getAuthToken).not.toHaveBeenCalledWith(true);
     expect(gmail.listCandidateMessages).not.toHaveBeenCalled();
 
