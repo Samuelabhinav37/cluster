@@ -46,6 +46,17 @@ export const SETUP_PARTS = [
   { name: "Tour", screens: [7] },
 ] as const;
 
+/** A thin drawn tick (not a font glyph, which looks different on every system). */
+function tick(): SVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M20 6 9 17l-5-5");
+  svg.append(path);
+  return svg;
+}
+
 /** Where you are in setup, bottom left like a console's setup: a tick over
  * each part that's done, the current part's name over a thin bar, and
  * empty bars for what's left. `done` is the current screen. */
@@ -65,7 +76,9 @@ export function progressBar(done: number): HTMLElement {
     const pos = (part.screens as readonly number[]).indexOf(done);
     fill.style.width = state === "done" ? "100%" : state === "now" ? `${((pos + 0.5) / part.screens.length) * 100}%` : "0";
     bar.append(fill);
-    node.append(el("b", "", state === "done" ? "✓" : state === "now" ? part.name : ""), bar);
+    const head = el("b", "", state === "now" ? part.name : "");
+    if (state === "done") head.append(tick());
+    node.append(head, bar);
     track.append(node);
   });
   return track;

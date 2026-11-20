@@ -459,20 +459,20 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     for (const spot of spots) {
       const { emoji, name: label } = spotParts(spot);
       const who = found.filter((p) => spotOf(p) === spot);
-      const n = perLabel.get(spot) ?? 0;
       const tile = el("button", "lbl-tile");
       tile.type = "button";
       tile.dataset.spot = spot;
       tile.setAttribute("role", "checkbox");
       const sync = () => tile.setAttribute("aria-checked", String(!off.has(spot)));
       sync();
-      tile.append(
-        el("span", "lbl-tile-check"),
-        el("span", "lbl-tile-emoji", emoji),
-        el("b", "lbl-tile-name", label),
-        el("small", "lbl-tile-meta", who.map((p) => p.name).slice(0, 2).join(", ")),
-        el("small", "lbl-tile-count", n === 1 ? "1 email" : `${n} emails`),
-      );
+      // Each company with its logo, so you see whose mail goes here.
+      const companies = el("span", "lbl-tile-who");
+      for (const p of who.slice(0, 2)) {
+        const row = el("span", "lbl-tile-co");
+        row.append(senderTile(p.address, p.name, "sz-26"), el("span", "", p.name));
+        companies.append(row);
+      }
+      tile.append(el("span", "lbl-tile-check"), el("span", "lbl-tile-emoji", emoji), el("b", "lbl-tile-name", label), companies);
       tile.onclick = () => {
         if (off.has(spot)) off.delete(spot);
         else off.add(spot);

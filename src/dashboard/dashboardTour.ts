@@ -15,15 +15,17 @@ export interface TourStop {
 export const TOUR: TourStop[] = [
   // Only while the first read runs: the tour starts at once, so Kai never goes quiet after setup.
   { selector: ".home-read", line: "This is your dashboard. I'm labelling your mail here right now." },
+  { selector: "#ask-kai-open", line: "Search here. Type a company or a question, like mail from Amazon." },
   { selector: '.nav-item[data-screen="overview"]', line: "Home shows what's new in your inbox." },
   { selector: '.nav-item[data-screen="delete"]', line: "Cleanup finds old mail you can clear in one go." },
   { selector: '.nav-item[data-screen="organize"]', line: "Labels is where your labels live. Change them any time." },
   { selector: '.nav-item[data-screen="impersonation"]', line: "Security keeps scams and fake senders away from you." },
+  { selector: ".top-tool[data-details]", line: "Details shows the emails behind any number, so you can act on them." },
   { selector: "#top-settings", line: "Settings is here if you change your mind." },
 ];
 
 /** Kai's last line, so it is clear the tour is over. */
-export const TOUR_BYE = "That's the tour. I'll be down here if you need me.";
+export const TOUR_BYE = "I'll be down here if you need me.";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -155,8 +157,8 @@ export function startDashboardTour(stops: TourStop[] = TOUR): void {
       count.textContent = "";
       skip.hidden = true;
       const name = ctx.settings.userName;
-      words.prepend(el("h2", "tour-title", name ? `Welcome to Cluster, ${name}.` : "Welcome to Cluster."));
-      next.textContent = "Start";
+      words.prepend(el("h2", "tour-title", name ? `You're all set, ${name}.` : "You're all set."));
+      next.textContent = "Get started";
       card.style.transform = "";
       type(TOUR_BYE);
       kai?.lookAt(null);

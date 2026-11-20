@@ -3972,7 +3972,8 @@ body { background: var(--canvas); }
 .wel-go { width: 100%; height: 56px; border-radius: 14px; font: 600 17px/1 var(--font); box-shadow: 0 4px 0 var(--label-4); }
 .wel-go:active:not(:disabled) { transform: translateY(4px); box-shadow: none; }
 .wel-go:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
-.wel .connect-trust { margin: 0; }
+.wel .connect-trust { display: block; max-width: 380px; margin: 0; font: 400 12.5px/1.5 var(--font); color: var(--label-3); }
+.connect-trust a { color: var(--label-2); text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
 
 /* Setup: the welcome's layout. Bar, Kai asking, the screen, one big button. Room to breathe. */
 .onb-pane { width: min(640px, 100%); margin: clamp(20px, 5vh, 56px) auto 48px; }
@@ -4870,8 +4871,9 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
    current part named over a thin bar. */
 .step-track { position: fixed; left: 32px; bottom: 28px; z-index: 5; display: flex; gap: 8px; pointer-events: none; }
 .step-part { display: flex; flex-direction: column; gap: 8px; width: 92px; color: var(--label-2); font: 500 13px/1 var(--font); }
-.step-part b { height: 13px; font-weight: 500; white-space: nowrap; }
-.step-part.is-done b { text-align: center; color: var(--label-3); }
+.step-part b { height: 14px; font-weight: 500; letter-spacing: -0.005em; white-space: nowrap; }
+.step-part.is-done b { display: flex; justify-content: center; color: var(--label-2); }
+.step-part b svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .step-part.is-now b { color: var(--label); }
 .step-part i { display: block; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.16); overflow: hidden; }
 .step-part i span { display: block; height: 100%; background: var(--label); border-radius: inherit; transition: width var(--t-slow) var(--ease-out); }
@@ -4890,8 +4892,10 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .lbl-tile[aria-checked="true"] .lbl-tile-check::after { content: ""; position: absolute; left: 7px; top: 3px; width: 5px; height: 10px; border: solid var(--canvas); border-width: 0 2px 2px 0; transform: rotate(45deg); }
 .lbl-tile-emoji { font-size: 26px; line-height: 1; }
 .lbl-tile-name { font: 600 15px/1.25 var(--font); margin-top: 4px; }
-.lbl-tile-meta { color: var(--label-2); font: 400 12.5px/1.3 var(--font); }
-.lbl-tile-count { margin-top: 4px; color: var(--label-3); font: 500 12px/1 var(--font); }
+.lbl-tile-who { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.lbl-tile-co { display: flex; align-items: center; gap: 8px; color: var(--label-2); font: 400 12.5px/1.2 var(--font); min-width: 0; }
+.lbl-tile-co > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lbl-tile-co .sz-26 { width: 22px; height: 22px; border-radius: 6px; flex: none; }
 /* Room for the step tracker under the last row, and the skip link stays right. */
 .onb-pane { padding-bottom: 72px; }
 .onb-skip { margin-left: auto; }
@@ -4902,3 +4906,29 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .tour.is-end .tour-foot { justify-content: center; }
 .tour.is-end .tour-foot .grow { display: none; }
 .tour-title { margin: 0; font: 600 22px/1.2 var(--font); letter-spacing: -0.01em; }
+.tour.is-end .tour-line { font-weight: 400; color: var(--label-2); }
+
+/* Name and Gmail questions: the same quiet size as the setup screens. */
+.wel.is-ask .wel-input { height: 46px; max-width: 380px; padding: 0 14px; border-width: 1px; border-radius: 10px; font: 400 16px/1 var(--font); }
+.wel.is-ask .wel-go { width: auto; min-width: 0; max-width: 380px; height: 44px; padding: 0 22px; border-radius: 10px; font: 500 15px/1 var(--font); box-shadow: none; align-self: flex-start; }
+
+/* Wide windows: Kai stands on the left with the bubble under it, and the
+   screen's content sits on the right. Narrow windows keep Kai on top. */
+@media (min-width: 900px) {
+  .wel.is-ask .wel-top, .wel.is-ask .wel-stage { width: min(820px, 100%); }
+  .wel.is-ask .wel-stage { display: grid; grid-template-columns: 220px minmax(0, 1fr); column-gap: 56px; row-gap: 18px; align-content: start; }
+  .wel.is-ask .wel-stage > * { grid-column: 2; }
+  .wel.is-ask .wel-stage > .wel-ask { grid-column: 1; grid-row: 1 / span 6; }
+  .onb-pane { display: grid; grid-template-columns: 220px minmax(0, 1fr); column-gap: 56px; width: min(880px, 100%); align-items: start; }
+  .onb-pane > .onb-body { grid-column: 2; }
+  .wel.is-ask .wel-ask, .onb-pane > .onb-kai-row { flex-direction: column; align-items: center; gap: 22px; margin: 8px 0 0; position: sticky; top: 24px; }
+  .onb-pane > .onb-kai-row .wel-kai, .wel.is-ask .wel-ask .wel-kai { width: 120px; height: 120px; margin-bottom: 30px; } /* the drawing runs below its box */
+  .onb-kai-row .onb-kai-words { flex-direction: column; align-items: center; }
+  .onb-kai-words .onb-voice { margin-left: 0 !important; }
+  /* The bubble sits under Kai, its tail pointing up at him. */
+  .wel.is-ask .wel-bubble, .onb-pane .onb-bubble { max-width: 220px; text-align: left; transform-origin: 50% 0; }
+  .wel.is-ask .wel-bubble::before, .onb-pane .onb-bubble::before { left: 50%; top: -4px; margin: 0 0 0 -5px; border-radius: 2px 0 0 0; }
+  .wel.is-ask .wel-bubble.pop, .onb-pane .onb-bubble.pop { animation-name: kb-in-down; }
+  .onb-pane .onb-skip { margin-left: auto; }
+}
+@keyframes kb-in-down { from { opacity: 0; transform: translateY(-4px) scale(0.97); } }
