@@ -509,7 +509,7 @@ ${m.reason}` : m.subject;
       const date = h("td", "date", new Date(m.at).toLocaleDateString(undefined, { month: "short", day: "numeric" }));
       date.title = `${fmtDay(m.at)}, ${new Date(m.at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
       // Narrow, Kind gives its room to Subject; Wider brings it back.
-      tr.append(c, date, ...(oneSender ? [] : [from]), subj, ...(wide ? [Object.assign(h("td", "kind", kindLabel(m.kind)), { title: m.reason ?? "" })] : []));
+      tr.append(c, date, ...(oneSender ? [] : [from]), subj, ...(wide ? [Object.assign(h("td", "kind", m.reason?.startsWith("Not sure") ? "Not sure" : kindLabel(m.kind)), { title: m.reason ?? "" })] : []));
       tr.onclick = () => {
         const box = c.querySelector("input")!;
         if (box.disabled) return;
