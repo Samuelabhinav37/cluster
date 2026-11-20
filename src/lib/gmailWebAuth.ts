@@ -118,12 +118,6 @@ async function refresh(stored: StoredAuth): Promise<string> {
   }
 }
 
-let loginHint = "";
-/** The address typed on the welcome screen, so Google's window opens on that account. */
-export function setGmailLoginHint(email: string): void {
-  loginHint = email.trim();
-}
-
 /** Google's window: pick an account, approve `scopes` (plus any already granted). */
 async function signIn(scopes: string[], stored: StoredAuth | undefined): Promise<string> {
   const verifier = base64Url(crypto.getRandomValues(new Uint8Array(32)));
@@ -139,13 +133,12 @@ async function signIn(scopes: string[], stored: StoredAuth | undefined): Promise
     access_type: "offline",
     // "consent" makes Google send a refresh token every time, so asking for
     // one more permission later still leaves a working one.
-    prompt: stored?.email || loginHint ? "consent" : "select_account consent",
+    prompt: stored?.email ? "consent" : "select_account consent",
     code_challenge: challenge,
     code_challenge_method: "S256",
     state,
   };
-  const hint = stored?.email ?? loginHint;
-  if (hint) params.login_hint = hint;
+  if (stored?.email) params.login_hint = stored.email;
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
 
   const responseUrl = await chrome.identity.launchWebAuthFlow({ url: url.toString(), interactive: true });

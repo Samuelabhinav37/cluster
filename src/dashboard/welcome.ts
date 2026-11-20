@@ -1,6 +1,6 @@
 // First-run welcome, Duolingo style (research/2026-11-15-onboarding-two-sources.md):
-// Kai says hello with one big button, asks your name, then your Gmail address,
-// which opens Google's window on that account. Returning users skip this and
+// Kai says hello with one big button, asks your name, then Continue with Google
+// opens Google's window to pick an account. Returning users skip this and
 // get the plain "Welcome back" gate.
 import "./kai/kaiLife.js";
 import type { KaiInstance } from "./kai/kaiLife";
@@ -9,9 +9,7 @@ import { startIdle } from "./kaiIdle";
 import { rememberKai, travel } from "./kaiTravel";
 import { typeLine } from "./kaiBubble";
 import { updateSettings } from "../lib/settingsStore";
-import { setGmailLoginHint } from "../lib/gmailWebAuth";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** Step 1's two lines, said one after the other. */
 export const HELLO_LINES = ["Hi, I am Kai!", "I am going to help you with your email."] as const;
 /** Step 1's beats in ms from the start: Kai appears (wel-appear, 1.2 s, in
@@ -326,7 +324,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
       name = firstName(input.value);
       ctx.settings = await updateSettings({ userName: name });
       kai?.do("nod");
-      askEmail();
+      askGmail();
     };
     input.oninput = ok;
     input.onkeydown = (e) => {
@@ -337,38 +335,19 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     input.focus();
   }
 
-  function askEmail() {
-    const input = el("input", "wel-input");
-    input.id = "welcome-email";
-    input.type = "email";
-    input.autocomplete = "email";
-    input.placeholder = "you@gmail.com";
-    input.setAttribute("aria-label", "Your Gmail address");
+  /** No address to type: Google's own window lets you pick the account (Notion, Slack). */
+  function askGmail() {
     connectBtn.textContent = "Continue with Google";
     connectBtn.classList.add("wel-go");
-    const ok = () => {
-      const valid = EMAIL_RE.test(input.value.trim());
-      // A small nod the moment the address looks right.
-      if (valid && connectBtn.disabled) {
-        kai?.do("nodSmall");
-        kai?.setMood("happy", 1400);
-      }
-      connectBtn.disabled = !valid;
-      if (valid) setGmailLoginHint(input.value);
-    };
-    input.oninput = ok;
-    input.onkeydown = (e) => {
-      if (e.key === "Enter" && !connectBtn.disabled) connectBtn.click();
-    };
-    ok();
-    const rest: HTMLElement[] = [input, connectBtn];
+    connectBtn.disabled = false;
+    const rest: HTMLElement[] = [connectBtn];
     if (errorEl) rest.push(errorEl);
     if (trust instanceof HTMLElement) rest.push(trust);
-    question(2, "What's your Gmail address?", "Google will ask you to confirm it.", `Thanks, ${name}.`, askName, ...rest);
+    question(2, "Connect your Gmail", "Google will ask you to pick an account.", `Thanks, ${name}.`, askName, ...rest);
     kai?.setMood("happy", 1600);
-    input.focus();
+    connectBtn.focus();
   }
 
-  if (name) askEmail();
+  if (name) askGmail();
   else hello();
 }

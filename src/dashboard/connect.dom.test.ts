@@ -28,17 +28,14 @@ function notYetConnected(interactive: () => Promise<string>) {
 
 const gateVisible = () => !document.getElementById("connect-gate")!.hidden;
 
-/** Kai's welcome: Get started, a name, then an email, which enables Connect. */
-async function throughWelcome(name = "Samuel Boman", email = "sam@gmail.com") {
+/** Kai's welcome: Get started, a name, then the Continue with Google screen. */
+async function throughWelcome(name = "Samuel Boman") {
   (document.getElementById("welcome-start") as HTMLButtonElement).click();
   const nameInput = document.getElementById("welcome-name") as HTMLInputElement;
   nameInput.value = name;
   nameInput.dispatchEvent(new Event("input"));
   (document.getElementById("welcome-name-next") as HTMLButtonElement).click();
-  await vi.waitFor(() => expect(document.getElementById("welcome-email")).not.toBeNull());
-  const emailInput = document.getElementById("welcome-email") as HTMLInputElement;
-  emailInput.value = email;
-  emailInput.dispatchEvent(new Event("input"));
+  await vi.waitFor(() => expect(document.querySelector(".wel-stage #connect-gmail-btn")).not.toBeNull());
 }
 
 describe("connect gate", () => {
@@ -117,11 +114,12 @@ describe("connect gate", () => {
     expect(dash.el("connect-error").textContent).not.toMatch(/cancelled/);
   });
 
-  it("Connect stays off until the email looks like an address", async () => {
+  it("Continue with Google is ready at once, with no address to type", async () => {
     const gmail = notYetConnected(async () => "fresh-token");
     const dash = await bootDashboard({ gmail, tolerateScanError: true });
-    await throughWelcome("Sam", "not-an-email");
-    expect((dash.el("connect-gmail-btn") as HTMLButtonElement).disabled).toBe(true);
+    await throughWelcome("Sam");
+    expect((dash.el("connect-gmail-btn") as HTMLButtonElement).disabled).toBe(false);
+    expect(document.querySelector(".wel-stage input")).toBeNull();
   });
 
   it("someone who has scanned before gets 'Reconnect' copy, not the first-run welcome", async () => {

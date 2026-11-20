@@ -1,5 +1,5 @@
 import { NUMBER_SCREENS } from "../lib/keymap";
-import { installCrashHandlers } from "../lib/crashLog";
+import { installCrashHandlers, PRIVACY_URL } from "../lib/crashLog";
 import { clearCountBadge } from "../lib/supervisor";
 import { scanCheckCounts, scanFound } from "../lib/securityScan";
 import { correctionKey } from "../lib/addressIdentity";
@@ -492,6 +492,8 @@ function showConnectGate(): Promise<string> {
   const btn = document.getElementById("connect-gmail-btn") as HTMLButtonElement;
   const errorEl = document.getElementById("connect-error") as HTMLElement;
   const titleEl = document.getElementById("connect-title") as HTMLElement;
+  // Set here, not in the HTML: the page's markup never names an outside address (networkEgress.test.ts).
+  document.getElementById("privacy-link")?.setAttribute("href", PRIVACY_URL);
 
   // Anyone with a recorded health score has completed a scan before, so a
   // missing token means the sign-in expired rather than a first run.

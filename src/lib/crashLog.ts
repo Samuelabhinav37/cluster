@@ -14,6 +14,7 @@ export interface Crash {
 const KEY = "clusterCrashes";
 export const MAX_CRASHES = 20;
 export const ISSUE_URL = "https://github.com/Samuelabhinav37/cluster/issues/new";
+export const PRIVACY_URL = "https://github.com/Samuelabhinav37/cluster/blob/master/docs/privacy.md";
 /** GitHub rejects very long prefilled URLs; past this the report is cut. */
 const MAX_BODY = 6000;
 
