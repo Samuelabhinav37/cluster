@@ -151,7 +151,12 @@ export function startDashboardTour(stops: TourStop[] = TOUR): void {
     if (at === shown.length - 1) {
       // The ending, like a console's "Welcome to PlayStation 5": the card moves
       // to the middle, Kai welcomes you by name and says the tour is over.
+      // Jump to the middle without sliding there, then fade in, so the card
+      // and Kai don't swing across the page.
+      card.style.transition = "none";
       layer.classList.add("is-end");
+      if (!reduced && typeof card.animate === "function")
+        card.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: "ease-out" });
       // The page stays dimmed: the hole shrinks to nothing in the middle.
       Object.assign(hole.style, { left: "50%", top: "50%", width: "0px", height: "0px" });
       count.textContent = "";
@@ -159,7 +164,6 @@ export function startDashboardTour(stops: TourStop[] = TOUR): void {
       const name = ctx.settings.userName;
       words.prepend(el("h2", "tour-title", name ? `You're all set, ${name}.` : "You're all set."));
       next.textContent = "Get started";
-      card.style.transform = "";
       type(TOUR_BYE);
       kai?.lookAt(null);
       kai?.do("wave");

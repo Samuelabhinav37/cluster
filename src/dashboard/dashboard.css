@@ -4881,27 +4881,29 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 @media (max-width: 640px) { .step-track { left: 16px; bottom: 16px; } .step-part { width: 56px; } }
 
 /* "Pick your labels": big tiles with a tick, like a console's app picker. */
-.lbl-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
+.lbl-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
 .lbl-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; border: 1px solid var(--separator); border-radius: 16px; background: #1c1c1e; color: var(--label); text-align: left; cursor: pointer; transition: transform var(--t-fast) var(--ease-out), opacity var(--t-fast), border-color var(--t-fast); }
 .lbl-tile:hover { border-color: var(--label-3); }
 .lbl-tile:active { transform: scale(0.97); }
 .lbl-tile:focus-visible { outline: 2px solid var(--label); outline-offset: 3px; }
 .lbl-tile[aria-checked="false"] { opacity: 0.45; }
-.lbl-tile-check { position: absolute; top: 12px; right: 12px; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--label-3); }
+.lbl-tile-check { position: relative; flex: none; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--label-3); }
 .lbl-tile[aria-checked="true"] .lbl-tile-check { border-color: var(--label); background: var(--label); }
 .lbl-tile[aria-checked="true"] .lbl-tile-check::after { content: ""; position: absolute; left: 7px; top: 3px; width: 5px; height: 10px; border: solid var(--canvas); border-width: 0 2px 2px 0; transform: rotate(45deg); }
-.lbl-tile-emoji { font-size: 26px; line-height: 1; }
-.lbl-tile-name { font: 600 15px/1.25 var(--font); margin-top: 4px; }
+.lbl-tile-head { display: flex; align-items: center; gap: 10px; width: 100%; }
+.lbl-tile-emoji { font-size: 20px; line-height: 1; flex: none; }
+.lbl-tile-name { flex: 1; min-width: 0; font: 600 15px/1.25 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lbl-tile-who { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
 .lbl-tile-co { display: flex; align-items: center; gap: 8px; color: var(--label-2); font: 400 12.5px/1.2 var(--font); min-width: 0; }
 .lbl-tile-co > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lbl-tile-co .sz-26 { width: 22px; height: 22px; border-radius: 6px; flex: none; }
 /* Room for the step tracker under the last row, and the skip link stays right. */
 .onb-pane { padding-bottom: 72px; }
-.onb-skip { margin-left: auto; }
+/* I'll set it up myself sits bottom right, opposite the step tracker. */
+.onb-skip { position: fixed; right: 28px; bottom: 20px; z-index: 5; }
 
 /* The tour's ending: the card in the middle, a welcome by name. */
-.tour.is-end .tour-card { top: 50%; left: 50%; transform: translate(-50%, -50%) !important; flex-direction: column; text-align: center; width: min(400px, calc(100vw - 32px)); padding: 28px 24px 22px; }
+.tour.is-end .tour-card { transition: none; top: 50%; left: 50%; transform: translate(-50%, -50%) !important; flex-direction: column; text-align: center; width: min(400px, calc(100vw - 32px)); padding: 28px 24px 22px; }
 .tour.is-end .tour-kai { width: 96px; height: 96px; margin-bottom: 18px; } /* the drawing runs below its box */
 .tour.is-end .tour-foot { justify-content: center; }
 .tour.is-end .tour-foot .grow { display: none; }
@@ -4912,23 +4914,23 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .wel.is-ask .wel-input { height: 46px; max-width: 380px; padding: 0 14px; border-width: 1px; border-radius: 10px; font: 400 16px/1 var(--font); }
 .wel.is-ask .wel-go { width: auto; min-width: 0; max-width: 380px; height: 44px; padding: 0 22px; border-radius: 10px; font: 500 15px/1 var(--font); box-shadow: none; align-self: flex-start; }
 
-/* Wide windows: Kai stands on the left with the bubble under it, and the
-   screen's content sits on the right. Narrow windows keep Kai on top. */
-@media (min-width: 900px) {
-  .wel.is-ask .wel-top, .wel.is-ask .wel-stage { width: min(820px, 100%); }
-  .wel.is-ask .wel-stage { display: grid; grid-template-columns: 220px minmax(0, 1fr); column-gap: 56px; row-gap: 18px; align-content: start; }
-  .wel.is-ask .wel-stage > * { grid-column: 2; }
-  .wel.is-ask .wel-stage > .wel-ask { grid-column: 1; grid-row: 1 / span 6; }
-  .onb-pane { display: grid; grid-template-columns: 220px minmax(0, 1fr); column-gap: 56px; width: min(880px, 100%); align-items: start; }
-  .onb-pane > .onb-body { grid-column: 2; }
-  .wel.is-ask .wel-ask, .onb-pane > .onb-kai-row { flex-direction: column; align-items: center; gap: 22px; margin: 8px 0 0; position: sticky; top: 24px; }
-  .onb-pane > .onb-kai-row .wel-kai, .wel.is-ask .wel-ask .wel-kai { width: 120px; height: 120px; margin-bottom: 30px; } /* the drawing runs below its box */
-  .onb-kai-row .onb-kai-words { flex-direction: column; align-items: center; }
-  .onb-kai-words .onb-voice { margin-left: 0 !important; }
-  /* The bubble sits under Kai, its tail pointing up at him. */
-  .wel.is-ask .wel-bubble, .onb-pane .onb-bubble { max-width: 220px; text-align: left; transform-origin: 50% 0; }
-  .wel.is-ask .wel-bubble::before, .onb-pane .onb-bubble::before { left: 50%; top: -4px; margin: 0 0 0 -5px; border-radius: 2px 0 0 0; }
-  .wel.is-ask .wel-bubble.pop, .onb-pane .onb-bubble.pop { animation-name: kb-in-down; }
-  .onb-pane .onb-skip { margin-left: auto; }
+/* Wide windows: Kai on the left, his bubble beside him at the top of the
+   right column (tail pointing at him), and the screen's content under the
+   bubble. Narrow windows keep Kai on top. */
+@media (min-width: 720px) {
+  .wel.is-ask .wel-top, .wel.is-ask .wel-stage { width: min(760px, 100%); }
+  .wel.is-ask .wel-stage, .onb-pane { display: grid; grid-template-columns: 140px minmax(0, 1fr); column-gap: 32px; row-gap: 28px; align-content: start; align-items: start; }
+  .onb-pane { width: min(900px, 100%); }
+  /* The bubble can use the whole column, so a line rarely wraps. */
+  .wel.is-ask .wel-ask .wel-bubble, .onb-pane .onb-bubble { max-width: 100%; }
+  .wel.is-ask .wel-ask .wel-bubble { justify-self: start; font-size: 16px; } /* hugs its line, like setup's */
+  .wel.is-ask .wel-stage > *, .onb-pane > * { grid-column: 2; }
+  .wel.is-ask .wel-ask, .onb-pane > .onb-kai-row { display: contents; }
+  .wel.is-ask .wel-ask .wel-kai, .onb-pane .onb-kai-row .wel-kai { grid-column: 1; grid-row: 1 / span 8; width: 120px; height: 120px; margin: 10px auto 0; }
+  .wel.is-ask .wel-ask .wel-bubble, .onb-pane .onb-kai-words { grid-column: 2; grid-row: 1; align-self: start; margin-top: 18px; }
+  .onb-pane > .onb-body { grid-row: 2; }
+  .wel.is-ask .wel-stage > :not(.wel-ask) { grid-row: auto; }
 }
 @keyframes kb-in-down { from { opacity: 0; transform: translateY(-4px) scale(0.97); } }
+
+.board-chip.hint { border-color: var(--label-2); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12); transition: box-shadow var(--t) var(--ease-out), border-color var(--t); }

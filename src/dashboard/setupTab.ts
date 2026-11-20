@@ -472,7 +472,9 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
         row.append(senderTile(p.address, p.name, "sz-26"), el("span", "", p.name));
         companies.append(row);
       }
-      tile.append(el("span", "lbl-tile-check"), el("span", "lbl-tile-emoji", emoji), el("b", "lbl-tile-name", label), companies);
+      const head = el("span", "lbl-tile-head");
+      head.append(el("span", "lbl-tile-emoji", emoji), el("b", "lbl-tile-name", label), el("span", "lbl-tile-check"));
+      tile.append(head, companies);
       tile.onclick = () => {
         if (off.has(spot)) off.delete(spot);
         else off.add(spot);
@@ -496,28 +498,13 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     return grid;
   }
 
-  /** Kai shows the move once: the first company lifts and nudges toward the next label. */
+  /** Kai points at the first company and it glows softly once, so you know what to grab. */
   function demoDrag() {
     const chip = pane.querySelector<HTMLElement>(".board-chip");
-    const cols = pane.querySelectorAll<HTMLElement>(".board-col");
-    if (!chip || cols.length < 2 || reducedMotion() || typeof chip.animate !== "function") return;
+    if (!chip) return;
     kai.pointAt(chip);
-    const from = chip.getBoundingClientRect();
-    const to = cols[1].getBoundingClientRect();
-    const dx = to.left + 12 - from.left;
-    const dy = to.top + 44 - from.top;
-    later(500, () =>
-      chip.animate(
-        [
-          { transform: "none" },
-          { transform: "translateY(-6px) scale(1.04)", offset: 0.2 },
-          { transform: `translate(${dx}px, ${dy}px) scale(1.04)`, offset: 0.6 },
-          { transform: `translate(${dx}px, ${dy}px) scale(1.04)`, offset: 0.75 },
-          { transform: "none" },
-        ],
-        { duration: 1800, easing: "ease-in-out" },
-      ),
-    );
+    later(400, () => chip.classList.add("hint"));
+    later(2000, () => chip.classList.remove("hint"));
   }
 
   function renderBoard(): HTMLElement {
