@@ -112,7 +112,12 @@ export function scanStage(): ScanStage {
       track.setAttribute("aria-valuenow", String(s.done));
       track.setAttribute("aria-valuemax", String(Math.max(s.done, s.total)));
       line.textContent = counting ? [`${s.done.toLocaleString()} of ${s.total.toLocaleString()} emails`, s.eta].filter(Boolean).join(" · ") : "";
-      if (label === "Reading your mail") cube.progress(share);
+      // Each phase counts from 0 again (the quick count hits "150 of 150" in a
+      // second), so the cube spends its turns across the phases and only
+      // solves once labels go on.
+      if (label === "Reading your mail") cube.progress(share * 0.6);
+      else if (label === "Reading your sent mail") cube.progress(0.6 + share * 0.25);
+      else if (label === "Putting labels on your inbox") cube.progress(1);
       if (s.latest && s.latest.address !== lastWho) {
         lastWho = s.latest.address;
         const month = MONTH.format(s.latest.receivedAt);
