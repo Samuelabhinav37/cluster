@@ -5090,3 +5090,26 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 @keyframes tour-glow { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, .35); } 70%, 100% { box-shadow: 0 0 0 14px rgba(255, 255, 255, 0); } }
 .tour.is-end .tour-hole::after { display: none; }
 @media (prefers-reduced-motion: reduce) { .tour-hole::after { animation: none; } }
+
+/* Get started (startList.ts, Mobbin audit #11): a small card at the foot of the
+   sidebar, above the reading card, like Stripe's setup guide and Langdock's card. */
+.start-list { margin: auto 12px 12px; padding: 12px 14px 8px; border-radius: 12px; background: var(--neutral-fill); font: 400 13px/1.35 var(--font); color: var(--label-2); }
+.start-list[hidden] { display: none; }
+.start-list + .index-status { margin-top: 0; }
+.sl-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.sl-head b { font-weight: 600; color: var(--label); }
+.sl-hide { padding: 0; border: 0; background: none; font: inherit; font-size: 12px; color: var(--label-3); cursor: pointer; }
+.sl-hide:hover { color: var(--label); }
+.sl-count { margin: 2px 0 8px; font-size: 12px; color: var(--label-3); }
+.sl-bar { height: 4px; border-radius: 2px; background: var(--separator); overflow: hidden; }
+.sl-bar i { display: block; height: 100%; border-radius: inherit; background: var(--label); transition: width var(--t) var(--ease-out); }
+.sl-list { margin: 8px 0 0; padding: 0; list-style: none; }
+.sl-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 0; border: 0; background: none; font: inherit; color: var(--label); text-align: left; cursor: pointer; }
+.sl-item:hover:not(:disabled) span:last-child { text-decoration: underline; }
+.sl-item:disabled { color: var(--label-3); cursor: default; }
+.is-done .sl-item span:last-child { text-decoration: line-through; }
+.sl-mark { flex: none; width: 16px; height: 16px; border: 1.5px solid var(--label-3); border-radius: 50%; }
+.sl-mark { position: relative; }
+.is-done .sl-mark { border-color: var(--label); background: var(--label); }
+/* The tick in the page colour, so it reads in light and dark. */
+.is-done .sl-mark::after { content: ""; position: absolute; left: 4.5px; top: 1.5px; width: 4px; height: 8px; border: solid var(--canvas); border-width: 0 2px 2px 0; transform: rotate(45deg); }

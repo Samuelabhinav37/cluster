@@ -114,6 +114,8 @@ export interface ClusterSettings {
   persona: "" | "calm" | "business" | "safe" | "busy";
   /** Set once the user answered or dismissed the setup question. */
   setupDone: boolean;
+  /** The sidebar's "Get started" card (startList.ts): what was done, and whether it was hidden. */
+  startList?: { done: StartItem[]; hidden?: boolean };
   /** The first-run setup's answers, kept so Setup can reopen with them (onboardingPlan.ts). */
   onboarding?: { version: 1; answers: OnboardingAnswers; answeredAt: number };
   /** Sender domain → verdict on a brand it claimed (brandRegistry.ts). "real"
@@ -597,6 +599,9 @@ export async function getSettings(): Promise<ClusterSettings> {
     return latest.settings;
   });
 }
+
+/** The first things to try after setup (startList.ts). */
+export type StartItem = "screener" | "cleanup" | "search";
 
 export async function mutateSettings(
   mutate: (current: ClusterSettings) => ClusterSettings,

@@ -17,12 +17,10 @@ export const TOUR: TourStop[] = [
   { selector: ".home-read", line: "I'm labelling your mail now." },
   { selector: "#sidebar", line: "Cleanup, Labels and Security are here." },
   { selector: "#ask-kai-open", line: "Search any sender or email." },
-  { selector: ".top-tool[data-details]", line: "Details lists the emails behind a number." },
-  { selector: "#top-settings", line: "Change anything in Settings." },
 ];
 
-/** Kai's last line: what happens from here, so it is clear the tour is over. */
-export const TOUR_BYE = "New mail gets its label as it arrives.";
+/** Kai's last line: what to do next, so it is clear the tour is over (Get started, startList.ts). */
+export const TOUR_BYE = "Start with the three steps in the sidebar.";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);

@@ -303,6 +303,8 @@ export function initAskKai(
     h.run();
   }
   function open() {
+    // The sidebar's Get started card ticks "Search for an email" (startList.ts).
+    document.dispatchEvent(new CustomEvent("cluster:search"));
     backdrop.hidden = false;
     input.value = "";
     sel = 0;

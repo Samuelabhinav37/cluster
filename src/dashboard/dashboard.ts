@@ -112,6 +112,7 @@ import { heldByWeek } from "../lib/scamHistory";
 import { setupSignedIn, wireSetup } from "./setupTab";
 import { firstName, showWelcome } from "./welcome";
 import { renderScreenerTab, wireScreenerTab } from "./screenerTab";
+import { wireStartList, type StartList } from "./startList";
 import { preselectLists, renderSubscriptionsTab, wireSubscriptionsTab } from "./subscriptionsTab";
 import { buildInboxHealth, inboxHealthScore, recordHealthSnapshot } from "../lib/inboxHealth";
 import { wireAccountMenu } from "./accountMenu";
@@ -145,6 +146,7 @@ import { CLUSTER_FIRST_ON, CLUSTER_QUESTIONS, firstVisitTip, initKaiGuide, type 
 installCrashHandlers("dashboard");
 
 const selectedSenderKeys = new Set<string>();
+let startList: StartList | null = null;
 let currentExpiryBuckets: ExpiryBucket[] = [];
 // True when the cleanup scan filled its per-account candidate cap — every
 // derived count is then a sample of the most-recent N, not an inbox total.
@@ -335,6 +337,9 @@ function showPageTip(screen: string) {
 
 async function selectScreen(name: string) {
   const target = resolveScreen(name);
+  if (target === "screener") startList?.mark("screener");
+  // Setup ends by selecting the Dashboard: the card shows from then on.
+  startList?.paint();
   showScreen(target);
   fitDetailsTo(target);
   showPageTip(target);
@@ -875,6 +880,11 @@ async function main() {
     () => askFacts,
     { details: (filter) => details?.open(filter), go: goAndAct },
   );
+  startList = wireStartList(document.getElementById("start-list")!, {
+    screener: () => void selectScreen("screener"),
+    cleanup: () => void selectScreen("delete"),
+    search: () => search?.open(),
+  });
   wireProtectPages((key) => details?.open({ view: "emails", senderKey: key }));
   wireLabelPage({
     open: (key) => details?.open({ view: "emails", senderKey: key }),
