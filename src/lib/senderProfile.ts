@@ -275,6 +275,17 @@ function tierFor(p: Omit<SenderProfile, "tier">, known: boolean, now: number): S
 }
 
 /** Builds a profile for every sender in the rows, keyed `${provider}:${address}`. */
+/** Plan 4.4: how much you care about a sender, 0 to 1, from what you do with
+ * their mail: opens, replies or mail you wrote them, stars.
+ * shortcut: archive-unread is left out (Cluster's own sweep archives too) and
+ * Gmail-web trash leaves the index; add both if the change feed starts saying who moved it. */
+export function careScore(p: SenderProfile): number {
+  const opens = p.openRate ?? 0.3;
+  const talks = p.replied || p.youWrote > 0 ? 0.3 : 0;
+  const stars = p.starred > 0 ? 0.1 : 0;
+  return Math.min(1, opens * 0.6 + talks + stars);
+}
+
 export function buildSenderProfiles(inputs: ProfileInputs): Map<string, SenderProfile> {
   const now = inputs.now ?? Date.now();
   const known = inputs.knownSenders ?? new Set<string>();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { NormalizedMessageMetadata, SentRecord } from "./providers/emailProvider";
-import { buildSenderProfiles, templateKey } from "./senderProfile";
+import { buildSenderProfiles, careScore, templateKey, type SenderProfile } from "./senderProfile";
 
 const DAY = 86_400_000;
 const NOW = 1_800_000_000_000;
@@ -210,5 +210,14 @@ describe("buildSenderProfiles", () => {
   it("keeps brand-new senders out of every judging tier", () => {
     const rows = Array.from({ length: 6 }, (_, i) => msg("fresh@shop.example", 4 + i, { ...bulk(), unread: true }));
     expect(profile(rows).get("gmail:fresh@shop.example")!.tier).toBe("new");
+  });
+});
+
+describe("careScore", () => {
+  const base = { openRate: 0, replied: false, youWrote: 0, starred: 0 } as unknown as SenderProfile;
+  it("is low for mail you never open and high for people you write to", () => {
+    expect(careScore(base)).toBe(0);
+    expect(careScore({ ...base, openRate: 1, replied: true, starred: 2 })).toBeCloseTo(1);
+    expect(careScore({ ...base, openRate: null })).toBeCloseTo(0.18);
   });
 });

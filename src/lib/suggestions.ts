@@ -7,7 +7,7 @@ import type { SenderEngagementMap } from "./engagementModel";
 import { emptyProtectionContext, protectionDecision, type ProtectionContext } from "./protectionPolicy";
 import type { SenderSummary } from "./senderModel";
 import { acceptChance, suggestionFeatures, type SuggestionModel } from "./suggestionModel";
-import type { SenderProfile } from "./senderProfile";
+import { careScore, type SenderProfile } from "./senderProfile";
 
 export type SuggestionAction = "unsubscribe" | "mute" | "clearOld" | "keepSorted";
 
@@ -112,7 +112,9 @@ export function buildSuggestions(
     out.push({ sender, profile, ...choice, safeMessageIds: sender.messages.map((m) => m.id) });
   }
   const worth = (s: Suggestion) =>
-    s.safeMessageIds.length * (model ? acceptChance(model, suggestionFeatures(s.sender, s.profile, s.action), now) : 1);
+    s.safeMessageIds.length *
+    (1 - careScore(s.profile)) *
+    (model ? acceptChance(model, suggestionFeatures(s.sender, s.profile, s.action), now) : 1);
   // Plan 5.2: mail you never open comes first, then the biggest clean-up.
   // Once you've taken or turned down a few, your own history orders them instead.
   const learned = model !== undefined && model.accepted + model.rejected >= 3;
