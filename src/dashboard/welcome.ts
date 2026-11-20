@@ -11,9 +11,11 @@ import { setGmailLoginHint } from "../lib/gmailWebAuth";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** Step 1's two lines, said one after the other. */
 export const HELLO_LINES = ["Hi, I am Kai!", "I am going to help you with your email."] as const;
-/** How long Kai's hop in takes (wel-enter in dashboard.css), and the pause between the lines. */
-const HELLO_WALK_MS = 1400;
-const HELLO_GAP_MS = 2200;
+/** Step 1's beats in ms from the start: Kai appears (wel-appear, 1.2 s, in
+ * dashboard.css) and wakes, says line 1, line 2, then Get started rises in. */
+const HELLO_BEATS = { wake: 1500, line1: 2500, line2: 4600, button: 6000 };
+/** Reduced motion or no Kai: no appearing or waking, the lines and the button keep their order. */
+const HELLO_BEATS_REDUCED = { wake: 0, line1: 200, line2: 1600, button: 2600 };
 
 /** Name and email here, then setup: hello, label, scan, found. */
 export const ONBOARDING_STEPS = 6;
@@ -95,34 +97,64 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
   const helloTimers: number[] = [];
   const after = (ms: number, fn: () => void) => helloTimers.push(window.setTimeout(fn, ms));
 
-  /** Step 1: Kai hops in from the left, waves hello, then says what it's for. */
+  /** Step 1. Kai appears out of nowhere (fade, grow, unblur) with eyes
+   * closed, wakes up and looks around, waves "Hi, I am Kai!", nods the second
+   * line, and only then does Get started rise in. A click or key during the
+   * intro skips to the end. Timings: HELLO_BEATS. */
   function hello() {
     top.replaceChildren();
     wel.className = "wel is-hello";
+    helloTimers.splice(0).forEach(clearTimeout);
     const go = bigButton("Get started", () => {
-      helloTimers.forEach(clearTimeout);
+      helloTimers.splice(0).forEach(clearTimeout);
+      skip.abort();
       askName();
     });
     go.id = "welcome-start";
-    helloTimers.splice(0).forEach(clearTimeout);
+    go.classList.add("wel-wait");
     bubble.textContent = "";
     stage.replaceChildren(bubble, kaiHost, go);
-    go.focus();
-    const walk = reduced || !kai ? 0 : HELLO_WALK_MS;
-    if (walk) {
-      kaiHost.classList.add("wel-enter");
-      kaiHost.addEventListener("animationend", () => kaiHost.classList.remove("wel-enter"), { once: true });
-      kai?.setMood("happy", walk);
+    const skip = new AbortController();
+    const showButton = () => {
+      if (!go.classList.contains("wel-wait")) return;
+      skip.abort();
+      go.classList.replace("wel-wait", "wel-rise");
+      go.focus();
+    };
+    // Impatient or seen it before: any click or key jumps to the end.
+    const jump = () => {
+      helloTimers.splice(0).forEach(clearTimeout);
+      kaiHost.classList.remove("wel-appear");
+      clearInterval(typing);
+      bubble.textContent = HELLO_LINES[1];
+      kai?.setMood("happy");
+      showButton();
+    };
+    const plain = reduced || !kai;
+    const b = plain ? HELLO_BEATS_REDUCED : HELLO_BEATS;
+    after(300, () => {
+      window.addEventListener("pointerdown", jump, { signal: skip.signal });
+      window.addEventListener("keydown", jump, { signal: skip.signal });
+    });
+    if (!plain) {
+      kaiHost.classList.add("wel-appear");
+      kai?.setMood("asleep");
     }
-    after(walk, () => {
-      say(HELLO_LINES[0]);
+    after(b.wake, () => {
+      kai?.setMood("curious");
+      kai?.do("blink");
+      after(400, () => kai?.do("lookAround"));
+    });
+    after(b.line1, () => {
+      kai?.setMood("happy");
       kai?.do("wave");
+      say(HELLO_LINES[0]);
     });
-    after(walk + HELLO_GAP_MS, () => {
-      say(HELLO_LINES[1]);
+    after(b.line2, () => {
       kai?.do("nod");
-      kai?.setMood("happy", 1800);
+      say(HELLO_LINES[1]);
     });
+    after(b.button, showButton);
   }
 
   /** Kai on the left with the question in a bubble, the answer below, Continue at the bottom. */

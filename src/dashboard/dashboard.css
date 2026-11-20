@@ -3924,19 +3924,23 @@ body { background: var(--canvas); }
 .wel-stage { width: min(600px, 100%); flex: 1; display: flex; flex-direction: column; gap: 18px; margin-top: 10vh; animation: onb-rise var(--t) var(--ease-out) both; }
 .wel.is-hello .wel-stage { align-items: center; justify-content: center; margin-top: 0; text-align: center; }
 .wel.is-hello .wel-kai { width: 112px; height: 112px; margin: 6px 0 48px; }
-/* Step 1: Kai hops in from the left, three small bounces, and lands in the middle. */
-.wel-kai.wel-enter { animation: wel-hop-in 1.4s var(--ease-out) both; }
-@keyframes wel-hop-in {
-  0% { transform: translateX(-46vw); opacity: 0; }
-  12% { opacity: 1; }
-  20% { transform: translate(-34vw, -10px); }
-  32% { transform: translateX(-24vw); }
-  48% { transform: translate(-14vw, -9px); }
-  62% { transform: translateX(-6vw); }
-  78% { transform: translate(-1vw, -5px); }
-  100% { transform: none; }
+/* Step 1: Kai appears out of nowhere, a fade that grows and sharpens, no bounce (Apple: fades over movement). */
+.wel-kai.wel-appear { animation: wel-appear 1.2s var(--spring-smooth) 0.3s both; }
+@keyframes wel-appear {
+  0% { opacity: 0; transform: scale(0.7); filter: blur(12px); }
+  60% { filter: blur(0); }
+  100% { opacity: 1; transform: none; filter: none; }
 }
-@media (prefers-reduced-motion: reduce) { .wel-kai.wel-enter { animation: none; } }
+/* Get started rises in once Kai has said both lines. */
+.wel-go.wel-rise { animation: wel-rise 0.45s var(--spring-smooth) both; }
+@keyframes wel-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .wel-kai.wel-appear { animation: wel-fade 0.6s ease both; }
+  .wel-go.wel-rise { animation: wel-fade 0.3s ease both; }
+}
+@keyframes wel-fade { from { opacity: 0; } to { opacity: 1; } }
+/* Keeps the button's room until it rises in, so nothing jumps. Invisible also means not focusable. */
+.wel-go.wel-wait { visibility: hidden; }
 /* Step 1, small and quiet: a speech bubble with a tail down to Kai, a pill button. */
 .wel.is-hello .wel-stage { gap: 12px; }
 .wel.is-hello .wel-bubble { position: relative; padding: 9px 14px; border-radius: 14px; font: 500 15px/1.35 var(--font); }
