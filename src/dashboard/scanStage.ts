@@ -187,7 +187,7 @@ export function scanStage(): ScanStage {
         nowWho.replaceChildren(senderTile(s.latest.address, s.latest.name, "sz-26"), words);
         chipTop.textContent = `${name.toUpperCase().slice(0, 22)} · ${month.toUpperCase()}`;
       }
-      speedDd.textContent = rate > 0 ? `${Math.round(rate)} emails a second` : "";
+      speedDd.textContent = rate > 0 ? `${Math.round(rate)} ${Math.round(rate) === 1 ? "email" : "emails"} a second` : "";
       sendersDd.textContent = s.senders ? s.senders.toLocaleString() : "";
       // A row with no number yet stays out of sight rather than showing a blank.
       speedDt.hidden = speedDd.hidden = !speedDd.textContent;

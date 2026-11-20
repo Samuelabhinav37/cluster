@@ -4940,3 +4940,72 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
    for screen readers only, so the page never shows two lines saying the same. */
 .onb-pane .onb-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .onb-pane .onb-bubble, .wel.is-ask .wel-bubble { padding: 12px 16px; font: 500 17px/1.35 var(--font); letter-spacing: -0.01em; }
+
+/* ── Onboarding scene (2026-11-20, after clay.com) ─────────────────────────
+   A soft sky, rolling hills with a few trees, coarse film grain over it all,
+   and two clay toys bobbing at the edges. All CSS and inline SVG, no image
+   files. Daytime in light mode, dusk in dark mode. */
+.onb, .connect-gate.is-welcome {
+  --scene-sky: linear-gradient(180deg, #8fd3e8 0%, #c4ebf2 46%, #e3f4ee 66%);
+  --scene-hills: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cdefs%3E%3ClinearGradient id='a' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%2389c77c'/%3E%3Cstop offset='1' stop-color='%234f9a58'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%235aa35c'/%3E%3Cstop offset='1' stop-color='%232f7a48'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='94' y='118' width='4' height='14' rx='2' fill='%236b4f3a'/%3E%3Cellipse cx='96' cy='90' rx='13' ry='34' fill='%232f8577'/%3E%3Cpath d='M96 56A13 34 0 0 0 96 124A5.9 34 0 0 1 96 56Z' fill='%235fb3a0' opacity='.55'/%3E%3Crect x='128' y='120' width='4' height='14' rx='2' fill='%236b4f3a'/%3E%3Cellipse cx='130' cy='100' rx='10' ry='26' fill='%232f8577'/%3E%3Cpath d='M130 74A10 26 0 0 0 130 126A4.5 26 0 0 1 130 74Z' fill='%235fb3a0' opacity='.55'/%3E%3Crect x='1286' y='114' width='4' height='14' rx='2' fill='%236b4f3a'/%3E%3Cellipse cx='1288' cy='84' rx='14' ry='36' fill='%232f8577'/%3E%3Cpath d='M1288 48A14 36 0 0 0 1288 120A6.3 36 0 0 1 1288 48Z' fill='%235fb3a0' opacity='.55'/%3E%3Crect x='1322' y='116' width='4' height='14' rx='2' fill='%236b4f3a'/%3E%3Cellipse cx='1324' cy='96' rx='10' ry='26' fill='%232f8577'/%3E%3Cpath d='M1324 70A10 26 0 0 0 1324 122A4.5 26 0 0 1 1324 70Z' fill='%235fb3a0' opacity='.55'/%3E%3Crect x='1180' y='120' width='4' height='14' rx='2' fill='%236b4f3a'/%3E%3Cellipse cx='1182' cy='104' rx='9' ry='22' fill='%232f8577'/%3E%3Cpath d='M1182 82A9 22 0 0 0 1182 126A4.0 22 0 0 1 1182 82Z' fill='%235fb3a0' opacity='.55'/%3E%3Crect x='1228' y='122' width='4' height='14' rx='2' fill='%236b4f3a'/%3E%3Cellipse cx='1230' cy='112' rx='7' ry='16' fill='%232f8577'/%3E%3Cpath d='M1230 96A7 16 0 0 0 1230 128A3.1 16 0 0 1 1230 96Z' fill='%235fb3a0' opacity='.55'/%3E%3Crect x='56' y='120' width='4' height='14' rx='2' fill='%236b4f3a'/%3E%3Cellipse cx='58' cy='108' rx='8' ry='18' fill='%232f8577'/%3E%3Cpath d='M58 90A8 18 0 0 0 58 126A3.6 18 0 0 1 58 90Z' fill='%235fb3a0' opacity='.55'/%3E%3Cpath d='M0 140C240 64 480 90 720 140S1200 92 1440 126V320H0Z' fill='url(%23a)'/%3E%3Cpath d='M0 236C300 172 560 196 800 238S1240 196 1440 220V320H0Z' fill='url(%23b)'/%3E%3C/svg%3E");
+  --scene-cloud: rgba(255, 255, 255, 0.85);
+  --scene-grain: 0.65;
+  isolation: isolate;
+  background:
+    var(--scene-hills) center bottom / max(100%, 1200px) auto no-repeat,
+    radial-gradient(ellipse 15% 6% at 18% 16%, var(--scene-cloud), transparent 70%),
+    radial-gradient(ellipse 11% 5% at 26% 20%, var(--scene-cloud), transparent 70%),
+    radial-gradient(ellipse 17% 6% at 76% 12%, var(--scene-cloud), transparent 70%),
+    radial-gradient(ellipse 10% 4% at 86% 18%, var(--scene-cloud), transparent 70%),
+    var(--scene-sky);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) :is(.onb, .connect-gate.is-welcome) {
+    --scene-sky: linear-gradient(180deg, #0c1a38 0%, #213f6c 42%, #7a6488 60%, #e3a07a 72%);
+    --scene-hills: var(--scene-hills-dusk);
+    --scene-cloud: rgba(170, 196, 230, 0.2);
+    --scene-grain: 0.75;
+  }
+}
+:root[data-theme="dark"] :is(.onb, .connect-gate.is-welcome) {
+  --scene-sky: linear-gradient(180deg, #0c1a38 0%, #213f6c 42%, #7a6488 60%, #e3a07a 72%);
+  --scene-hills: var(--scene-hills-dusk);
+  --scene-cloud: rgba(170, 196, 230, 0.2);
+  --scene-grain: 0.75;
+}
+:root {
+  --scene-hills-dusk: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cdefs%3E%3ClinearGradient id='a' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23345f4c'/%3E%3Cstop offset='1' stop-color='%231c3d33'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23244b3b'/%3E%3Cstop offset='1' stop-color='%23112a22'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='94' y='118' width='4' height='14' rx='2' fill='%233a2a20'/%3E%3Cellipse cx='96' cy='90' rx='13' ry='34' fill='%231a4a3e'/%3E%3Cpath d='M96 56A13 34 0 0 0 96 124A5.9 34 0 0 1 96 56Z' fill='%232f6b5a' opacity='.55'/%3E%3Crect x='128' y='120' width='4' height='14' rx='2' fill='%233a2a20'/%3E%3Cellipse cx='130' cy='100' rx='10' ry='26' fill='%231a4a3e'/%3E%3Cpath d='M130 74A10 26 0 0 0 130 126A4.5 26 0 0 1 130 74Z' fill='%232f6b5a' opacity='.55'/%3E%3Crect x='1286' y='114' width='4' height='14' rx='2' fill='%233a2a20'/%3E%3Cellipse cx='1288' cy='84' rx='14' ry='36' fill='%231a4a3e'/%3E%3Cpath d='M1288 48A14 36 0 0 0 1288 120A6.3 36 0 0 1 1288 48Z' fill='%232f6b5a' opacity='.55'/%3E%3Crect x='1322' y='116' width='4' height='14' rx='2' fill='%233a2a20'/%3E%3Cellipse cx='1324' cy='96' rx='10' ry='26' fill='%231a4a3e'/%3E%3Cpath d='M1324 70A10 26 0 0 0 1324 122A4.5 26 0 0 1 1324 70Z' fill='%232f6b5a' opacity='.55'/%3E%3Crect x='1180' y='120' width='4' height='14' rx='2' fill='%233a2a20'/%3E%3Cellipse cx='1182' cy='104' rx='9' ry='22' fill='%231a4a3e'/%3E%3Cpath d='M1182 82A9 22 0 0 0 1182 126A4.0 22 0 0 1 1182 82Z' fill='%232f6b5a' opacity='.55'/%3E%3Crect x='1228' y='122' width='4' height='14' rx='2' fill='%233a2a20'/%3E%3Cellipse cx='1230' cy='112' rx='7' ry='16' fill='%231a4a3e'/%3E%3Cpath d='M1230 96A7 16 0 0 0 1230 128A3.1 16 0 0 1 1230 96Z' fill='%232f6b5a' opacity='.55'/%3E%3Crect x='56' y='120' width='4' height='14' rx='2' fill='%233a2a20'/%3E%3Cellipse cx='58' cy='108' rx='8' ry='18' fill='%231a4a3e'/%3E%3Cpath d='M58 90A8 18 0 0 0 58 126A3.6 18 0 0 1 58 90Z' fill='%232f6b5a' opacity='.55'/%3E%3Cpath d='M0 140C240 64 480 90 720 140S1200 92 1440 126V320H0Z' fill='url(%23a)'/%3E%3Cpath d='M0 236C300 172 560 196 800 238S1240 196 1440 220V320H0Z' fill='url(%23b)'/%3E%3C/svg%3E");
+}
+
+/* Grain on top of everything in the scene, toys included: tiled noise in
+   soft-light, so it speckles light and dark parts alike. */
+.onb::after, .connect-gate.is-welcome::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--scene-grain);
+  mix-blend-mode: soft-light;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 1.4 -.2 0 0 0 1.4 -.2 0 0 0 1.4 -.2 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Clay toys at the edges: an envelope with a pink ball on the left, a label
+   tag on the right. Only on screens wide enough to leave them room. */
+.onb::before, .connect-gate.is-welcome::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 130'%3E%3Cdefs%3E%3CradialGradient id='h' cx='.3' cy='.25' r='.9'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='.45'/%3E%3Cstop offset='.5' stop-color='%23fff' stop-opacity='0'/%3E%3Cstop offset='1' stop-color='%23000' stop-opacity='.3'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cellipse cx='70' cy='122' rx='42' ry='6' fill='%23000' opacity='.18'/%3E%3Cg transform='rotate(-10 70 64)'%3E%3Crect x='18' y='34' width='104' height='70' rx='16' fill='%233b82f6'/%3E%3Crect x='18' y='34' width='104' height='70' rx='16' fill='url(%23h)'/%3E%3Crect x='20' y='36' width='100' height='66' rx='14' fill='none' stroke='%2393c5fd' stroke-width='4' opacity='.6'/%3E%3Cpath d='M28 46l42 30 42-30' fill='none' stroke='%231e4fae' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3Ccircle cx='112' cy='24' r='15' fill='%23f472b6'/%3E%3Ccircle cx='112' cy='24' r='15' fill='url(%23h)'/%3E%3Ccircle cx='107' cy='19' r='5' fill='%23fff' opacity='.55'/%3E%3C/svg%3E") left max(24px, calc(50% - 620px)) top 42% / 130px auto no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 130'%3E%3Cdefs%3E%3CradialGradient id='h' cx='.3' cy='.25' r='.9'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='.45'/%3E%3Cstop offset='.5' stop-color='%23fff' stop-opacity='0'/%3E%3Cstop offset='1' stop-color='%23000' stop-opacity='.3'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cellipse cx='70' cy='122' rx='38' ry='6' fill='%23000' opacity='.18'/%3E%3Cg transform='rotate(14 70 64)'%3E%3Cpath d='M30 30h62l26 34-26 34H30a12 12 0 0 1-12-12V42a12 12 0 0 1 12-12z' fill='%23f59e0b'/%3E%3Cpath d='M30 30h62l26 34-26 34H30a12 12 0 0 1-12-12V42a12 12 0 0 1 12-12z' fill='url(%23h)'/%3E%3Cpath d='M31 33h60l24 31-24 31H31a10 10 0 0 1-10-10V43a10 10 0 0 1 10-10z' fill='none' stroke='%23fcd34d' stroke-width='4' opacity='.7'/%3E%3Ccircle cx='88' cy='64' r='9' fill='%23b45309'/%3E%3C/g%3E%3Ccircle cx='30' cy='22' r='11' fill='%2384cc16'/%3E%3Ccircle cx='30' cy='22' r='11' fill='url(%23h)'/%3E%3Ccircle cx='27' cy='18' r='4' fill='%23fff' opacity='.5'/%3E%3C/svg%3E") right max(24px, calc(50% - 620px)) top 24% / 120px auto no-repeat;
+  animation: scene-bob 5s ease-in-out infinite alternate;
+}
+@keyframes scene-bob { to { transform: translateY(-10px); } }
+@media (max-width: 1000px) { .onb::before, .connect-gate.is-welcome::before { display: none; } }
+@media (prefers-reduced-motion: reduce) { .onb::before, .connect-gate.is-welcome::before { animation: none; } }
+/* Quiet links sit on the hills now: lift them so they stay readable. */
+.onb .onb-skip, .onb .onb-link { color: rgba(255, 255, 255, 0.82); }
+:root[data-theme="light"] .onb .onb-skip, :root[data-theme="light"] .onb .onb-link { color: rgba(255, 255, 255, 0.92); }
