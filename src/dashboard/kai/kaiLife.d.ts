@@ -4,7 +4,9 @@
 export type KaiMood =
   | "neutral" | "happy" | "joyful" | "curious" | "thinking" | "focused"
   | "surprised" | "scared" | "sad" | "shy" | "sleepy" | "asleep"
-  | "proud" | "suspicious" | "worried";
+  | "proud" | "suspicious" | "worried"
+  // Cluster only, not in the portfolio copy:
+  | "excited" | "smug" | "dreamy" | "determined";
 
 export type KaiAction =
   | "blink" | "wink" | "hop" | "nod" | "shake" | "tilt" | "wave" | "wiggle"

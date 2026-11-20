@@ -74,3 +74,10 @@
 @media (prefers-reduced-motion: reduce) {
   .kai-ant, .kai-face, .kai-face .blush { transition: none; }
 }
+/* Cluster only (kaiWardrobe.ts): hats and glasses over the head, in the
+   head image's units. Hidden until worn; each drops on with a bounce. */
+.kai-wear { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; opacity: 0; transform: translateY(-18cqw) scale(.9); transition: opacity .2s ease, transform .2s ease; }
+.kai-wear.on { opacity: 1; transform: none; transition: opacity .2s ease, transform .55s cubic-bezier(.3, 1.6, .5, 1); }
+.kai-wear.is-glasses { transform: translateY(-6cqw) scale(1.1); }
+.kai-wear.is-glasses.on { transform: none; }
+@media (prefers-reduced-motion: reduce) { .kai-wear, .kai-wear.on { transition: opacity .2s ease; transform: none; } }

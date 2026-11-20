@@ -43,7 +43,8 @@ const BUDGETS = {
   // 2026-10-30: 615 -> 635 KB for round 2: brand registry, mark check, Protect brand check.
   // 2026-11-06: 635 -> 670 KB for the Nov redesign (Overview, Cleanup, Security, Sort inbox, Scan now).
   // 2026-11-06: 670 -> 780 KB, room to keep building without raising it each round.
-  "dashboard JS": 780 * KB,
+  // 2026-11-20: 780 -> 820 KB, onboarding (already 791) plus the night sky engine and ASCII cube.
+  "dashboard JS": 820 * KB,
   // 2026-10-16: +10 KB for Kai's corner guide and chat (dashboard.css Kai
   // section, ~8 KB raw / 1.5 KB gzip), on top of 47 KB before Kai.
   // 2026-10-26: 60 → 64 KB for the rail shell (rail, panel, crumbs; ~3 KB raw).

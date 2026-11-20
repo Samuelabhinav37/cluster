@@ -65,6 +65,15 @@
     suspicious:{ open: .96, top: .4,  slant: 5,   bottom: .2,  scale: .97,  gy: 2,  gx: 18, mouth: 'flat', asym: -.07 },
     // a soft sad slant and an unsteady mouth: something is actually wrong
     worried:  { open: 1.04, top: .24, slant: -14, bottom: .04, scale: .9,   gy: 14,  mouth: 'wobble', asym: .03 },
+    /* Cluster only (2026-11-20): not in the portfolio copy. */
+    // wide bright eyes and a big smile: can't wait to show you
+    excited:  { open: 1.12, top: 0,   slant: 0,   bottom: .38, scale: 1.14, gy: -12, mouth: 'smile' },
+    // one eye lower, a smile: pleased with itself, a little cheeky
+    smug:     { open: .98,  top: .34, slant: 3,   bottom: .46, scale: 1,    gy: -4, gx: 22, mouth: 'smile', asym: -.06 },
+    // soft eyes looking up and away, blushing: charmed
+    dreamy:   { open: 1,    top: .3,  slant: -6,  bottom: .5,  scale: 1.02, gy: -30, gx: -30, mouth: 'smile', blush: 1 },
+    // narrowed, steady: working hard on something
+    determined:{ open: 1,   top: .3,  slant: 6,   bottom: .2,  scale: 1.02, gy: 0,  mouth: 'smile' },
   };
 
   /* Actions: one-shot motions keyed over p in 0..1. Each returns body

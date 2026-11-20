@@ -3,21 +3,23 @@
 // opens Google's window to pick an account. Returning users skip this and
 // get the plain "Welcome back" gate.
 import "./kai/kaiLife.js";
+import "./sky/skyEngine.js";
 import type { KaiInstance } from "./kai/kaiLife";
 import { ctx } from "./state";
 import { startIdle } from "./kaiIdle";
 import { rememberKai, travel } from "./kaiTravel";
 import { typeLine } from "./kaiBubble";
 import { inboxPreview } from "./inboxPreview";
+import { dressUpOnClick } from "./kaiWardrobe";
 import { updateSettings } from "../lib/settingsStore";
 
 /** Step 1's two lines, said one after the other. */
-export const HELLO_LINES = ["Hi, I am Kai!", "I am going to help you with your email."] as const;
-/** Step 1's beats in ms from the start: Kai appears (wel-appear, 1.2 s, in
- * dashboard.css) and wakes, says line 1, line 2, then Get started rises in. */
-const HELLO_BEATS = { land: 1500, wake: 1800, line1: 2900, line2: 5000, button: 6400 };
-/** Reduced motion or no Kai: no appearing or waking, the lines and the button keep their order. */
-const HELLO_BEATS_REDUCED = { land: 0, wake: 0, line1: 200, line2: 1600, button: 2600 };
+export const HELLO_LINES = ["Hi, I'm Kai!", "I'll help you sort your email."] as const;
+/** Step 1's beats in ms from the start: Kai pops in (wel-appear, 1.2 s, in
+ * dashboard.css), lands and waves hello, says line 2, then Get started rises in. */
+const HELLO_BEATS = { land: 1300, line1: 1500, line2: 3300, button: 4500 };
+/** Reduced motion or no Kai: no entrance, the lines and the button keep their order. */
+const HELLO_BEATS_REDUCED = { land: 0, line1: 200, line2: 1600, button: 2600 };
 /** Kai looks at the cursor this long after it moves, and back at you after it rests (research 2026-11-20 #2). */
 const LOOK_DELAY_MS = 200;
 const LOOK_BACK_MS = 1500;
@@ -25,8 +27,8 @@ const LOOK_BACK_MS = 1500;
 const NEAR_BUTTON_PX = 140;
 const NEAR_COOLDOWN_MS = 5000;
 
-/** Name and email here, then setup: hello, label, scan, found. */
-export const ONBOARDING_STEPS = 6;
+/** Name and email here, then setup: label, scan, found. */
+export const ONBOARDING_STEPS = 5;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -35,14 +37,14 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text?
   return node;
 }
 
-/** The parts of setup and the screens in each (1 = name ... 6 = labels).
+/** The parts of setup and the screens in each (1 = name ... 5 = labels).
  * Tour is last so the dashboard tour reads as part of setup, not a restart. */
 export const SETUP_PARTS = [
   { name: "You", screens: [1] },
   { name: "Gmail", screens: [2] },
-  { name: "Your mail", screens: [3, 4, 5] },
-  { name: "Labels", screens: [6] },
-  { name: "Tour", screens: [7] },
+  { name: "Your mail", screens: [3, 4] },
+  { name: "Labels", screens: [5] },
+  { name: "Tour", screens: [6] },
 ] as const;
 
 /** A thin drawn tick (not a font glyph, which looks different on every system). */
@@ -101,9 +103,31 @@ export function pageHeader(...right: HTMLElement[]): HTMLElement {
   return head;
 }
 
-/** The left panel: the sky-and-hills scene where Kai stands, with the steps under it. */
+/** The left panel: the portfolio's night sky (black and white, stars,
+ * slow clouds), with the inbox preview and the steps on it. */
 export function worldPanel(): HTMLElement {
-  return el("div", "onb-world");
+  const world = el("div", "onb-world");
+  const sky = el("canvas", "onb-sky");
+  const fx = el("canvas", "onb-sky");
+  sky.setAttribute("aria-hidden", "true");
+  fx.setAttribute("aria-hidden", "true");
+  world.append(sky, fx);
+  // No WebGL (or no 2D canvas, as in tests): the panel stays plain black.
+  if (typeof window.SiteSky !== "object" || !sky.getContext("webgl") || !fx.getContext("2d")) return world;
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  const engine = window.SiteSky.create(sky, fx, { tier: reduced ? "still" : "full", tone: "night" });
+  // Sized to the panel, and only drawn while the panel is on screen (the welcome and setup each have one).
+  new ResizeObserver(([e]) => {
+    const { width, height } = e.contentRect;
+    if (width && height) engine.handle({ type: "size", w: width, h: height, dpr: window.devicePixelRatio || 1 });
+  }).observe(world);
+  new IntersectionObserver(([e]) => engine.handle({ type: "running", on: e.isIntersecting })).observe(world);
+  return world;
+}
+
+/** Puts `nodes` on the panel, keeping its sky canvases. */
+export function setWorld(world: HTMLElement, ...nodes: Node[]): void {
+  world.replaceChildren(...Array.from(world.querySelectorAll(":scope > .onb-sky")), ...nodes);
 }
 
 /** Kai pays attention on every onboarding screen: it looks where the cursor
@@ -176,6 +200,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
         window.Kai(kaiHost, { src: "/characters/", imgWidth: 320 })
       : null;
   if (!kai) kaiHost.hidden = true;
+  dressUpOnClick(kai);
   spot.append(bubble, kaiHost);
   // The hello screen has its own watcher (it also smiles at Get started).
   attend(kai, wel, () => wel.classList.contains("is-hello"));
@@ -200,9 +225,8 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
   const helloTimers: number[] = [];
   const after = (ms: number, fn: () => void) => helloTimers.push(window.setTimeout(fn, ms));
 
-  /** Step 1. Kai appears out of nowhere (fade, grow, unblur) with eyes
-   * closed, wakes up and looks around, waves "Hi, I am Kai!", nods the second
-   * line, and only then does Get started rise in. A click or key during the
+  /** Step 1. Kai pops in (fade, grow, unblur) already awake, lands, waves
+   * "Hi, I'm Kai!", nods the second line, and only then does Get started rise in. A click or key during the
    * intro skips to the end. Timings: HELLO_BEATS. */
   function hello() {
     wel.className = "wel is-hello";
@@ -218,7 +242,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     go.id = "welcome-start";
     go.classList.add("wel-wait");
     bubble.textContent = "";
-    world.replaceChildren(spot);
+    setWorld(world, spot);
     stage.replaceChildren(el("h1", "wel-title", "Welcome to Cluster"), el("p", "wel-lead", "Sort, clean up and protect your Gmail."), go);
     const skip = new AbortController();
     const showButton = () => {
@@ -243,25 +267,16 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     });
     if (!plain) {
       kaiHost.classList.add("wel-appear");
-      kai?.setMood("asleep");
+      kai?.setMood("excited");
     }
     after(b.land, () => kai?.do("land"));
-    // Waking up (#8): eyes half open, a double blink, a look at you, then around.
-    after(b.wake, () => {
-      kai?.setMood("sleepy");
-      after(350, () => kai?.blink(true));
-      after(800, () => {
-        kai?.setMood("curious");
-        kai?.lookAt(null);
-      });
-      after(1200, () => kai?.do("lookAround"));
-    });
     after(b.line1, () => {
-      kai?.setMood("happy");
+      kai?.setMood("joyful", 1800);
       kai?.do("wave");
       say(HELLO_LINES[0], true);
     });
     after(b.line2, () => {
+      kai?.setMood("happy");
       kai?.do("nod");
       say(HELLO_LINES[1]);
     });
@@ -305,8 +320,11 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     backBtn.onclick = () => back?.();
     backBtn.hidden = !back;
     rememberKai(kaiHost);
-    world.replaceChildren(preview.el, progressBar(done));
-    stage.replaceChildren(backBtn, spot, stepLine(done), el("h1", "wel-title", title), el("p", "wel-lead", why), ...rest);
+    setWorld(world, preview.el, progressBar(done));
+    // Back and "Step 2 of 5" share one quiet row, so the column reads Kai, then the question.
+    const meta = el("div", "wel-meta");
+    meta.append(backBtn, stepLine(done));
+    stage.replaceChildren(spot, meta, el("h1", "wel-title", title), el("p", "wel-lead", why), ...rest);
     // Kai flies from the middle of the panel to its spot over the question, instead of popping in there.
     travel(kaiHost, kai);
     idle?.reset();
@@ -365,8 +383,9 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     const rest: HTMLElement[] = [connectBtn];
     if (errorEl) rest.push(errorEl);
     if (trust instanceof HTMLElement) rest.push(trust);
-    question(2, "Connect your Gmail", "Google will ask you to pick an account.", name ? `Thanks, ${name}.` : "Thanks.", askName, ...rest);
-    kai?.setMood("happy", 1600);
+    question(2, "Connect your Gmail", "Google will ask you to pick an account.", name ? `Nice to meet you, ${name}!` : "Nice to meet you!", askName, ...rest);
+    kai?.setMood("joyful", 1600);
+    kai?.do("hop");
     connectBtn.focus();
   }
 

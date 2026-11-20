@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /// <reference types="vite/client" />
 //
-// First-run setup: hello, "Every email gets a label", the scan, "Pick your labels".
+// First-run setup: "Labels sort your mail", the scan, "Pick your labels".
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { bootDashboard } from "./testHarness";
 
@@ -15,16 +15,16 @@ const setupSection = (dash: Dash) => dash.el("setup-flow").closest("section")!;
 const title = () => document.querySelector(".onb-title")?.textContent;
 const click = (id: string) => (document.getElementById(id) as HTMLButtonElement).click();
 
-/** Show me, Got it, then wait out the scan (it shows for at least 5 s). */
+/** Got it, then wait out the scan (it shows for at least 5 s). */
 async function toFound(dash: Dash, hasMail = true) {
   expect(setupSection(dash).hidden).toBe(false);
-  click("setup-next");
-  expect(title()).toBe("Every email gets a label");
+  expect(title()).toBe("Labels sort your mail");
   click("setup-next");
   expect(title()).toBe("Reading your newest emails");
   // The mail streams in with its label, and the count says how far.
   if (hasMail) {
-    await vi.waitFor(() => expect(document.querySelector("#scan-list .ss-row .ss-tag")).not.toBeNull());
+    // The mail streams into the inbox window with its label.
+    await vi.waitFor(() => expect(document.querySelector(".ip-row .ip-tag")).not.toBeNull(), { timeout: 5000 });
     expect(document.getElementById("scan-count")?.textContent).toMatch(/^\d+ of \d+$/);
   }
   await vi.waitFor(() => expect(title()).toMatch(/^(Pick your labels|Ready to sort)$/), { timeout: 10000 });
@@ -59,8 +59,8 @@ describe("first-run setup", () => {
         mail("f1", "friend@gmail.com", "Friend", "dinner?"),
       ],
     });
-    expect(title()).toBe("You're in, Samuel.");
-    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("Glad you're here."), { timeout: 3000 });
+    expect(title()).toBe("Labels sort your mail");
+    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("You're in, Samuel! Watch this."), { timeout: 3000 });
     await toFound(dash);
     expect(title()).toBe("Pick your labels");
     // One ticked tile per label the companies landed in.

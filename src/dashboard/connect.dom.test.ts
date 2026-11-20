@@ -55,8 +55,8 @@ describe("connect gate", () => {
     expect(document.body.dataset.state).toBe("connect");
     // Get started waits until Kai has said both lines.
     expect(dash.el("welcome-start").classList.contains("wel-wait")).toBe(true);
-    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toBe("Hi, I am Kai!"), { timeout: 5000 });
-    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toBe("I am going to help you with your email."), { timeout: 5000 });
+    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toBe("Hi, I'm Kai!"), { timeout: 5000 });
+    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toBe("I'll help you sort your email."), { timeout: 5000 });
     await vi.waitFor(() => expect(dash.el("welcome-start").classList.contains("wel-wait")).toBe(false), { timeout: 5000 });
     expect(gmail.getAuthToken).not.toHaveBeenCalledWith(true);
     expect(gmail.listCandidateMessages).not.toHaveBeenCalled();
@@ -64,7 +64,7 @@ describe("connect gate", () => {
     await throughWelcome();
     // Only the first name is kept, and Kai uses it.
     await vi.waitFor(() => expect(dash.storedSettings().userName).toBe("Samuel"));
-    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toContain("Thanks, Samuel."), { timeout: 3000 });
+    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toContain("Nice to meet you, Samuel!"), { timeout: 3000 });
     (dash.el("connect-gmail-btn") as HTMLButtonElement).click();
 
     await vi.waitFor(() => expect(gmail.listCandidateMessages).toHaveBeenCalled(), { timeout: 3000 });
@@ -122,7 +122,7 @@ describe("connect gate", () => {
     (document.querySelector(".wel-skip") as HTMLButtonElement).click();
     await vi.waitFor(() => expect(document.querySelector(".wel-stage #connect-gmail-btn")).not.toBeNull());
     expect(document.querySelector(".wel-step")!.textContent).toBe("Step 2 of 5");
-    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toBe("Thanks."), { timeout: 3000 });
+    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toBe("Nice to meet you!"), { timeout: 3000 });
     expect(dash.storedSettings().userName).toBe("");
   });
 

@@ -4832,17 +4832,11 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 @media (max-width: 900px) { .scan-stage { grid-template-columns: 1fr; } }
 .scn-card { display: grid; place-items: center; min-height: 380px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--glass); overflow: hidden; }
 /* The untangle cube (untangleCube.ts): thin line cubies, label-coloured stickers. */
-.unt-cube { width: min(100%, 420px); height: auto; overflow: visible; }
-.unt-floor path { fill: none; stroke: var(--label-4); stroke-width: .6; stroke-dasharray: 2 3; opacity: .5; }
-.unt-face { fill: var(--glass-solid, #161618); stroke: var(--label-3); stroke-width: .8; stroke-linejoin: round; }
-.unt-sticker { stroke: none; opacity: .92; }
-.unt-sticker.c0 { fill: #0a84ff; } .unt-sticker.c1 { fill: #30d158; } .unt-sticker.c2 { fill: #ff9f0a; }
-.unt-sticker.c3 { fill: #ff375f; } .unt-sticker.c4 { fill: #f5f5f7; } .unt-sticker.c5 { fill: #bf5af2; }
-:root[data-theme="light"] .unt-sticker.c4 { fill: #ffd60a; }
-.unt-body { transform-box: fill-box; transform-origin: 50% 100%; }
-.unt-cube.is-solved .unt-body { animation: unt-solved 1.1s var(--spring-smooth, ease-out) both; }
-@keyframes unt-solved { 0% { transform: none; } 40% { transform: translateY(-10px) scale(1.03); } 100% { transform: none; } }
-@media (prefers-reduced-motion: reduce) { .unt-cube.is-solved .unt-body { animation: none; } }
+/* The untangle cube as ASCII (untangleCube.ts): plain text in the label colour, black and white. */
+.unt-cube { width: 58ch; height: 22em; margin: 0 auto; padding: 0; font: 600 13px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: 0; color: var(--label); white-space: pre; user-select: none; overflow: hidden; }
+.unt-cube.is-solved { animation: unt-solved 1.1s var(--spring-smooth, ease-out) both; }
+@keyframes unt-solved { 40% { transform: translateY(-8px) scale(1.03); } }
+@media (prefers-reduced-motion: reduce) { .unt-cube.is-solved { animation: none; } }
 
 .scn-panel { display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 28px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--glass); }
 .scn-pct { font: 600 56px/1 var(--font-display); letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: var(--label); }
@@ -4914,71 +4908,11 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .wel.is-ask .wel-title, .onb-pane .onb-title { margin: 0; font: 600 clamp(28px, 2.8vw, 38px)/1.1 var(--font-display); letter-spacing: -0.02em; color: var(--label); }
 .wel.is-ask .wel-lead, .onb-pane .wel-lead { margin: -8px 0 6px; font-size: 16px; }
 
-/* ── Onboarding scene (2026-11-20, after clay.com) ─────────────────────────
-   A soft sky, rolling hills with a few trees, coarse film grain over it all,
-   and two clay toys bobbing at the edges. All CSS and inline SVG, no image
-   files. Daytime in light mode, dusk in dark mode. */
-.onb-world {
-  --scene-sky: linear-gradient(180deg, #8fd3e8 0%, #c4ebf2 46%, #e3f4ee 66%);
-  --scene-hills: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cdefs%3E%3ClinearGradient id='a' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%2389c77c'/%3E%3Cstop offset='1' stop-color='%234f9a58'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%235aa35c'/%3E%3Cstop offset='1' stop-color='%232f7a48'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='94' y='118' width='4' height='14' rx='2' fill='%236b4f3a'/%3E%3Cellipse cx='96' cy='90' rx='13' ry='34' fill='%232f8577'/%3E%3Cpath d='M96 56A13 34 0 0 0 96 124A5.9 34 0 0 1 96 56Z' fill='%235fb3a0' opacity='.55'/%3E%3Crect x='128' y='120' width='4' height='14' rx='2' fill='%236b4f3a'/%3E%3Cellipse cx='130' cy='100' rx='10' ry='26' fill='%232f8577'/%3E%3Cpath d='M130 74A10 26 0 0 0 130 126A4.5 26 0 0 1 130 74Z' fill='%235fb3a0' opacity='.55'/%3E%3Crect x='1286' y='114' width='4' height='14' rx='2' fill='%236b4f3a'/%3E%3Cellipse cx='1288' cy='84' rx='14' ry='36' fill='%232f8577'/%3E%3Cpath d='M1288 48A14 36 0 0 0 1288 120A6.3 36 0 0 1 1288 48Z' fill='%235fb3a0' opacity='.55'/%3E%3Crect x='1322' y='116' width='4' height='14' rx='2' fill='%236b4f3a'/%3E%3Cellipse cx='1324' cy='96' rx='10' ry='26' fill='%232f8577'/%3E%3Cpath d='M1324 70A10 26 0 0 0 1324 122A4.5 26 0 0 1 1324 70Z' fill='%235fb3a0' opacity='.55'/%3E%3Crect x='1180' y='120' width='4' height='14' rx='2' fill='%236b4f3a'/%3E%3Cellipse cx='1182' cy='104' rx='9' ry='22' fill='%232f8577'/%3E%3Cpath d='M1182 82A9 22 0 0 0 1182 126A4.0 22 0 0 1 1182 82Z' fill='%235fb3a0' opacity='.55'/%3E%3Crect x='1228' y='122' width='4' height='14' rx='2' fill='%236b4f3a'/%3E%3Cellipse cx='1230' cy='112' rx='7' ry='16' fill='%232f8577'/%3E%3Cpath d='M1230 96A7 16 0 0 0 1230 128A3.1 16 0 0 1 1230 96Z' fill='%235fb3a0' opacity='.55'/%3E%3Crect x='56' y='120' width='4' height='14' rx='2' fill='%236b4f3a'/%3E%3Cellipse cx='58' cy='108' rx='8' ry='18' fill='%232f8577'/%3E%3Cpath d='M58 90A8 18 0 0 0 58 126A3.6 18 0 0 1 58 90Z' fill='%235fb3a0' opacity='.55'/%3E%3Cpath d='M0 140C240 64 480 90 720 140S1200 92 1440 126V320H0Z' fill='url(%23a)'/%3E%3Cpath d='M0 236C300 172 560 196 800 238S1240 196 1440 220V320H0Z' fill='url(%23b)'/%3E%3C/svg%3E");
-  --scene-cloud: rgba(255, 255, 255, 0.85);
-  --scene-grain: 0.65;
-  isolation: isolate;
-  background:
-    var(--scene-hills) center bottom / max(100%, 1200px) auto no-repeat,
-    radial-gradient(ellipse 15% 6% at 18% 16%, var(--scene-cloud), transparent 70%),
-    radial-gradient(ellipse 11% 5% at 26% 20%, var(--scene-cloud), transparent 70%),
-    radial-gradient(ellipse 17% 6% at 76% 12%, var(--scene-cloud), transparent 70%),
-    radial-gradient(ellipse 10% 4% at 86% 18%, var(--scene-cloud), transparent 70%),
-    var(--scene-sky);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .onb-world {
-    --scene-sky: linear-gradient(180deg, #0c1a38 0%, #213f6c 42%, #7a6488 60%, #e3a07a 72%);
-    --scene-hills: var(--scene-hills-dusk);
-    --scene-cloud: rgba(170, 196, 230, 0.2);
-    --scene-grain: 0.75;
-  }
-}
-:root[data-theme="dark"] .onb-world {
-  --scene-sky: linear-gradient(180deg, #0c1a38 0%, #213f6c 42%, #7a6488 60%, #e3a07a 72%);
-  --scene-hills: var(--scene-hills-dusk);
-  --scene-cloud: rgba(170, 196, 230, 0.2);
-  --scene-grain: 0.75;
-}
-:root {
-  --scene-hills-dusk: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cdefs%3E%3ClinearGradient id='a' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23345f4c'/%3E%3Cstop offset='1' stop-color='%231c3d33'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23244b3b'/%3E%3Cstop offset='1' stop-color='%23112a22'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='94' y='118' width='4' height='14' rx='2' fill='%233a2a20'/%3E%3Cellipse cx='96' cy='90' rx='13' ry='34' fill='%231a4a3e'/%3E%3Cpath d='M96 56A13 34 0 0 0 96 124A5.9 34 0 0 1 96 56Z' fill='%232f6b5a' opacity='.55'/%3E%3Crect x='128' y='120' width='4' height='14' rx='2' fill='%233a2a20'/%3E%3Cellipse cx='130' cy='100' rx='10' ry='26' fill='%231a4a3e'/%3E%3Cpath d='M130 74A10 26 0 0 0 130 126A4.5 26 0 0 1 130 74Z' fill='%232f6b5a' opacity='.55'/%3E%3Crect x='1286' y='114' width='4' height='14' rx='2' fill='%233a2a20'/%3E%3Cellipse cx='1288' cy='84' rx='14' ry='36' fill='%231a4a3e'/%3E%3Cpath d='M1288 48A14 36 0 0 0 1288 120A6.3 36 0 0 1 1288 48Z' fill='%232f6b5a' opacity='.55'/%3E%3Crect x='1322' y='116' width='4' height='14' rx='2' fill='%233a2a20'/%3E%3Cellipse cx='1324' cy='96' rx='10' ry='26' fill='%231a4a3e'/%3E%3Cpath d='M1324 70A10 26 0 0 0 1324 122A4.5 26 0 0 1 1324 70Z' fill='%232f6b5a' opacity='.55'/%3E%3Crect x='1180' y='120' width='4' height='14' rx='2' fill='%233a2a20'/%3E%3Cellipse cx='1182' cy='104' rx='9' ry='22' fill='%231a4a3e'/%3E%3Cpath d='M1182 82A9 22 0 0 0 1182 126A4.0 22 0 0 1 1182 82Z' fill='%232f6b5a' opacity='.55'/%3E%3Crect x='1228' y='122' width='4' height='14' rx='2' fill='%233a2a20'/%3E%3Cellipse cx='1230' cy='112' rx='7' ry='16' fill='%231a4a3e'/%3E%3Cpath d='M1230 96A7 16 0 0 0 1230 128A3.1 16 0 0 1 1230 96Z' fill='%232f6b5a' opacity='.55'/%3E%3Crect x='56' y='120' width='4' height='14' rx='2' fill='%233a2a20'/%3E%3Cellipse cx='58' cy='108' rx='8' ry='18' fill='%231a4a3e'/%3E%3Cpath d='M58 90A8 18 0 0 0 58 126A3.6 18 0 0 1 58 90Z' fill='%232f6b5a' opacity='.55'/%3E%3Cpath d='M0 140C240 64 480 90 720 140S1200 92 1440 126V320H0Z' fill='url(%23a)'/%3E%3Cpath d='M0 236C300 172 560 196 800 238S1240 196 1440 220V320H0Z' fill='url(%23b)'/%3E%3C/svg%3E");
-}
-
-/* Grain on top of everything in the scene, toys included: tiled noise in
-   soft-light, so it speckles light and dark parts alike. */
-.onb-world::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: var(--scene-grain);
-  mix-blend-mode: soft-light;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 1.4 -.2 0 0 0 1.4 -.2 0 0 0 1.4 -.2 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-/* Clay toys at the edges: an envelope with a pink ball on the left, a label
-   tag on the right. Only on screens wide enough to leave them room. */
-.onb-world::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 130'%3E%3Cdefs%3E%3CradialGradient id='h' cx='.3' cy='.25' r='.9'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='.45'/%3E%3Cstop offset='.5' stop-color='%23fff' stop-opacity='0'/%3E%3Cstop offset='1' stop-color='%23000' stop-opacity='.3'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cellipse cx='70' cy='122' rx='42' ry='6' fill='%23000' opacity='.18'/%3E%3Cg transform='rotate(-10 70 64)'%3E%3Crect x='18' y='34' width='104' height='70' rx='16' fill='%233b82f6'/%3E%3Crect x='18' y='34' width='104' height='70' rx='16' fill='url(%23h)'/%3E%3Crect x='20' y='36' width='100' height='66' rx='14' fill='none' stroke='%2393c5fd' stroke-width='4' opacity='.6'/%3E%3Cpath d='M28 46l42 30 42-30' fill='none' stroke='%231e4fae' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3Ccircle cx='112' cy='24' r='15' fill='%23f472b6'/%3E%3Ccircle cx='112' cy='24' r='15' fill='url(%23h)'/%3E%3Ccircle cx='107' cy='19' r='5' fill='%23fff' opacity='.55'/%3E%3C/svg%3E") left 7% top 30% / 130px auto no-repeat,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 130'%3E%3Cdefs%3E%3CradialGradient id='h' cx='.3' cy='.25' r='.9'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='.45'/%3E%3Cstop offset='.5' stop-color='%23fff' stop-opacity='0'/%3E%3Cstop offset='1' stop-color='%23000' stop-opacity='.3'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cellipse cx='70' cy='122' rx='38' ry='6' fill='%23000' opacity='.18'/%3E%3Cg transform='rotate(14 70 64)'%3E%3Cpath d='M30 30h62l26 34-26 34H30a12 12 0 0 1-12-12V42a12 12 0 0 1 12-12z' fill='%23f59e0b'/%3E%3Cpath d='M30 30h62l26 34-26 34H30a12 12 0 0 1-12-12V42a12 12 0 0 1 12-12z' fill='url(%23h)'/%3E%3Cpath d='M31 33h60l24 31-24 31H31a10 10 0 0 1-10-10V43a10 10 0 0 1 10-10z' fill='none' stroke='%23fcd34d' stroke-width='4' opacity='.7'/%3E%3Ccircle cx='88' cy='64' r='9' fill='%23b45309'/%3E%3C/g%3E%3Ccircle cx='30' cy='22' r='11' fill='%2384cc16'/%3E%3Ccircle cx='30' cy='22' r='11' fill='url(%23h)'/%3E%3Ccircle cx='27' cy='18' r='4' fill='%23fff' opacity='.5'/%3E%3C/svg%3E") right 7% top 14% / 120px auto no-repeat;
-  animation: scene-bob 5s ease-in-out infinite alternate;
-}
-@keyframes scene-bob { to { transform: translateY(-10px); } }
-@media (max-width: 1000px) { .onb-world::before { display: none; } }
-@media (prefers-reduced-motion: reduce) { .onb-world::before { animation: none; } }
+/* ── Onboarding sky (2026-11-20) ──────────────────────────────────────────
+   The portfolio's night sky (sky/skyEngine.js, 'night' tone): black, white
+   stars, slow grey clouds, the odd shooting star. Same in light and dark. */
+.onb-world { isolation: isolate; background: #050505; color-scheme: dark; }
+.onb-sky { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; pointer-events: none; }
 
 /* ── Web layout (2026-11-20, research/2026-11-20-web-onboarding-plan.md) ───
    A page, not an app screen: a header with the logo, Kai's world as a big
@@ -5118,25 +5052,66 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .wel-step { margin: 6px 0 -10px; font: 500 13px/1 var(--font); letter-spacing: 0.01em; color: var(--label-3); }
 .wel .wel-skip { align-self: flex-start; padding: 4px 0; }
 
-/* The inbox preview on the panel (inboxPreview.ts, Mobbin audit #9): a small
-   mail window on the hills that fills in as you answer. */
-.ip { position: relative; z-index: 1; width: min(420px, 100%); margin: 0 0 40px; border-radius: 16px; background: color-mix(in srgb, var(--canvas) 88%, transparent); border: 1px solid var(--hairline); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28); backdrop-filter: blur(12px); overflow: hidden; color: var(--label); font: 400 12px/1.3 var(--font); }
-.ip-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--separator); }
-.ip-dots { width: 34px; height: 8px; background: radial-gradient(circle 4px at 4px 4px, var(--label-4) 98%, transparent) 0 0 / 13px 8px repeat-x; }
-.ip-title { font-weight: 600; font-size: 13px; }
-.ip-body { display: grid; grid-template-columns: 112px 1fr; min-height: 200px; }
-.ip-side { margin: 0; padding: 10px; list-style: none; border-right: 1px solid var(--separator); }
-.ip-label { padding: 5px 6px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--label-2); }
-.ip-rows { margin: 0; padding: 4px 0; list-style: none; min-width: 0; }
-.ip-row { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 12px; border-bottom: 1px solid var(--separator); }
+/* The inbox preview on the panel (inboxPreview.ts, Mobbin audit #9): a
+   Gmail-shaped window floating on the night sky that fills in as you answer.
+   Smoked glass over the sky, white type, one hairline per edge. */
+.ip { position: relative; z-index: 1; width: min(640px, 100%); margin: 0 0 56px; border-radius: 18px; background: rgba(18, 18, 20, 0.72); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 40px 90px rgba(0, 0, 0, 0.55); backdrop-filter: blur(20px) saturate(1.2); overflow: hidden; color: #f5f5f7; font: 400 13.5px/1.35 var(--font); animation: ip-float 7s ease-in-out infinite alternate; }
+@keyframes ip-float { to { transform: translateY(-8px); } }
+.ip-head { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.ip-dots { flex: none; width: 46px; height: 11px; background: radial-gradient(circle 5.5px at 5.5px 5.5px, rgba(255, 255, 255, 0.22) 98%, transparent) 0 0 / 17px 11px repeat-x; }
+.ip-title { flex: none; font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+.ip-search { flex: 1; max-width: 260px; margin-left: auto; padding: 7px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); color: rgba(255, 255, 255, 0.4); font-size: 12.5px; }
+.ip-body { display: grid; grid-template-columns: 158px 1fr; min-height: 330px; }
+.ip-side { display: flex; flex-direction: column; gap: 4px; padding: 14px 10px; border-right: 1px solid rgba(255, 255, 255, 0.08); }
+.ip-inbox { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.1); }
+.ip-count { font: 600 12px/1 var(--font); font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, 0.6); }
+.ip-side-head { margin: 14px 10px 4px; font: 600 11px/1 var(--font); letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255, 255, 255, 0.35); }
+.ip-labels { margin: 0; padding: 0; list-style: none; }
+.ip-label { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255, 255, 255, 0.75); }
+.ip-label-emoji { width: 18px; text-align: center; }
+.ip-rows { margin: 0; padding: 6px 0; list-style: none; min-width: 0; }
+.ip-row { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 18px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
 .ip-row:last-child { border-bottom: 0; }
-.ip-words { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.ip-row .sender-tile { flex: none; }
+.ip-dot { flex: none; width: 26px; height: 26px; border-radius: 50%; background: rgba(255, 255, 255, 0.07); }
+.ip-words { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
 .ip-words b, .ip-words small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ip-words b { font-weight: 600; }
-.ip-words small { color: var(--label-3); font-size: 11.5px; }
-.ip-tag { flex: none; padding: 3px 7px; border-radius: 999px; background: var(--neutral-fill); font-size: 11px; color: var(--label-2); }
-.ip-bar { display: block; height: 8px; border-radius: 4px; background: var(--neutral-fill); }
-.ip-in { animation: ip-in 0.35s var(--ease-out) both; }
-@keyframes ip-in { from { opacity: 0; transform: translateY(-6px); } }
-@media (prefers-reduced-motion: reduce) { .ip-in { animation: none; } }
+.ip-words small { color: rgba(255, 255, 255, 0.5); font-size: 12.5px; }
+.ip-tag { flex: none; padding: 4px 9px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); font-size: 12px; color: rgba(255, 255, 255, 0.85); }
+.ip-bar { display: block; height: 9px; border-radius: 5px; background: rgba(255, 255, 255, 0.07); }
+.ip-row .ip-bar { flex: none; }
+.ip-in { animation: ip-in 0.45s var(--ease-out) both; }
+@keyframes ip-in { from { opacity: 0; transform: translateY(-8px); filter: blur(3px); } }
+@media (prefers-reduced-motion: reduce) { .ip, .ip-in { animation: none; } }
 @media (max-width: 1000px) { .ip { display: none; } }
+
+/* ── Right column, calmer (2026-11-20 review) ────────────────────────────
+   Kai gets room: bigger, floating on its own with its line beside it and a
+   clear gap before the question. Back and "Step 2 of 5" share one quiet row.
+   The voice switch lives in the page header. */
+.wel-stage > .onb-kai-spot, .onb-pane > .onb-kai-spot { gap: 16px; margin: 0 0 36px; }
+.wel-stage > .onb-kai-spot .wel-kai, .onb-pane > .onb-kai-spot .wel-kai { width: 92px; height: 92px; margin: 0 0 14px; animation: kai-hover 4.8s ease-in-out infinite alternate; }
+@keyframes kai-hover { from { translate: 0 -3px; } to { translate: 0 5px; } }
+.wel-stage > .onb-kai-spot .onb-bubble, .onb-pane > .onb-kai-spot .onb-bubble { max-width: 34ch; padding: 12px 16px; font: 500 16px/1.4 var(--font); }
+.wel-meta { display: flex; align-items: center; gap: 14px; margin: 0 0 -4px; }
+.wel-meta .wel-back { margin: 0; padding: 0 14px 0 0; border-right: 1px solid var(--separator); }
+.wel-meta .wel-back[hidden] + .wel-step, .wel-meta .wel-step { margin: 0; }
+.wel .wel-stage, .onb-side > .onb-pane { gap: 20px; }
+.onb-head .onb-voice { margin: 0; background: none; border-color: var(--separator); color: var(--label-2); }
+.step-item.is-now .step-mark { color: #000; }
+/* The label step: three emails, each label lands in turn. */
+.onb-pane .lbl-demo { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 8px; padding: 0; list-style: none; }
+.onb-pane .lbl-demo .lbl-mail { padding: 14px 16px; }
+@media (prefers-reduced-motion: reduce) { .wel-stage > .onb-kai-spot .wel-kai, .onb-pane > .onb-kai-spot .wel-kai { animation: none; } }
+/* The scan: the ASCII cube beside live tallies of what it's finding. */
+.onb-pane .ss-work { display: flex; align-items: center; gap: 28px; margin: 4px 0; }
+.onb-pane .ss-work .unt-cube { flex: none; width: 58ch; height: 22em; margin: 0 -48px 0 -56px; font-size: 11.5px; }
+.ss-tallies { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.ss-tally { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--separator); font: 400 15px/1.3 var(--font); color: var(--label-2); }
+.ss-tally:last-child { border-bottom: 0; }
+.ss-tally b { font: 600 20px/1 var(--font); font-variant-numeric: tabular-nums; color: var(--label); }
+.ss-tally.bump b { animation: ss-bump 0.35s var(--ease-out); }
+@keyframes ss-bump { 40% { transform: translateY(-3px); } }
+@media (max-width: 720px) { .onb-pane .ss-work { flex-direction: column; align-items: stretch; } }
+@media (prefers-reduced-motion: reduce) { .ss-tally.bump b { animation: none; } }

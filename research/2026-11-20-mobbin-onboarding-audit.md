@@ -95,3 +95,19 @@ Step 1 built 2026-11-20: headings and a reason line on every screen, Kai's bubbl
 4. Replace the end card with a "Get started" checklist on the dashboard that stays until done. Shorten the tour to 3 stops (#11, #12). Built 2026-11-20 (end card kept, its line now points at the checklist).
 5. Step count and Skip next to the question (#4, #5). Built 2026-11-20 (Step N of 5 over every question; Skip on the name, the one optional question).
 6. Later: turn the left scene into a live preview of the inbox being sorted (#9). Built 2026-11-20 (a small inbox window on the hills: your name in its title as you type, your newest mail with its label as the scan reads it, then the labels you keep).
+
+## Scan screen research (2026-11-20, second pass)
+
+How apps make a wait show the work (Mobbin, web and iOS):
+
+- [AirOps](https://mobbin.com/screens/eb7dfcde-15f6-4a4d-a133-0d10ab331a9f): named stages with ticks under a bar, and "Feel free to navigate away".
+- [Elicit](https://mobbin.com/screens/232b3136-ccbb-42e7-a45c-412ea436f330): each stage carries its own number ("50 papers found", "10 papers included").
+- [Greptile](https://mobbin.com/screens/8d56eed4-8a7f-4052-ada5-ced89aa4ae48): a live picture of what is being indexed, with real file names on it.
+- [Noom](https://mobbin.com/screens/e1bf4dca-bbbb-4387-8159-19261516cf66): one bar per category, filling in turn.
+- The plain ones (NordVPN, Podia, Hotjar) show only a spinner and read as dead time.
+
+Built: the cube (now ASCII, always spinning) beside live tallies of what the
+scan finds (codes and sign-ins, orders and receipts, newsletters and deals,
+people and the rest), and the mail itself streams into the inbox window on
+the left with its label, Greptile style. The duplicate mail list under the
+bar was removed.
