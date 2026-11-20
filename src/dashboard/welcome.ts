@@ -57,11 +57,11 @@ function tick(): SVGElement {
   return svg;
 }
 
-/** Where you are in setup, bottom left like a console's setup: a tick over
- * each part that's done, the current part's name over a thin bar, and
- * empty bars for what's left. `done` is the current screen. */
+/** Where you are in setup, as a list under Kai in the left panel: a tick by
+ * each part that's done, the current part in bold, then the parts to come.
+ * `done` is the current screen. */
 export function progressBar(done: number): HTMLElement {
-  const track = el("div", "step-track");
+  const track = el("ol", "step-list");
   const now = SETUP_PARTS.findIndex((p) => (p.screens as readonly number[]).includes(done));
   track.setAttribute("role", "progressbar");
   track.setAttribute("aria-valuemin", "0");
@@ -70,18 +70,72 @@ export function progressBar(done: number): HTMLElement {
   track.setAttribute("aria-valuetext", `${SETUP_PARTS[now]?.name ?? ""}, part ${now + 1} of ${SETUP_PARTS.length}`);
   SETUP_PARTS.forEach((part, i) => {
     const state = i < now ? "done" : i === now ? "now" : "next";
-    const node = el("div", `step-part is-${state}`);
-    const bar = el("i");
-    const fill = el("span");
-    const pos = (part.screens as readonly number[]).indexOf(done);
-    fill.style.width = state === "done" ? "100%" : state === "now" ? `${((pos + 0.5) / part.screens.length) * 100}%` : "0";
-    bar.append(fill);
-    const head = el("b", "", state === "now" ? part.name : "");
-    if (state === "done") head.append(tick());
-    node.append(head, bar);
+    const node = el("li", `step-item is-${state}`);
+    const mark = el("span", "step-mark");
+    if (state === "done") mark.append(tick());
+    else mark.textContent = String(i + 1);
+    node.append(mark, el("span", "step-name", part.name));
+    if (state === "now") node.setAttribute("aria-current", "step");
     track.append(node);
   });
   return track;
+}
+
+/** The page header: Cluster's logo on the left (a copy of the gate's), and
+ * whatever goes on the right. */
+export function pageHeader(...right: HTMLElement[]): HTMLElement {
+  const head = el("header", "onb-head");
+  const logo = document.querySelector(".connect-logo")?.cloneNode(true);
+  if (logo instanceof HTMLElement) head.append(logo);
+  const end = el("div", "onb-head-end");
+  end.append(...right);
+  head.append(end);
+  return head;
+}
+
+/** The left panel: the sky-and-hills scene where Kai stands, with the steps under it. */
+export function worldPanel(): HTMLElement {
+  return el("div", "onb-world");
+}
+
+/** Kai pays attention on every onboarding screen: it looks where the cursor
+ * goes (a short delay, then back at you), looks at the field you type in and
+ * holds still while you type. Off with reduced motion. Returns a stop. */
+export function attend(kai: KaiInstance | null, root: HTMLElement, skipWhen: () => boolean = () => false): () => void {
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  if (!kai || reduced) return () => {};
+  const stop = new AbortController();
+  const on = { signal: stop.signal };
+  let look = 0;
+  let back = 0;
+  let typingUntil = 0;
+  root.addEventListener(
+    "pointermove",
+    (e) => {
+      if (skipWhen() || performance.now() < typingUntil) return;
+      clearTimeout(look);
+      clearTimeout(back);
+      look = window.setTimeout(() => kai.lookAt({ x: e.clientX, y: e.clientY }), LOOK_DELAY_MS);
+      back = window.setTimeout(() => kai.lookAt(null), LOOK_DELAY_MS + LOOK_BACK_MS);
+    },
+    on,
+  );
+  const lookAtField = (e: Event) => {
+    if (!(e.target instanceof HTMLInputElement)) return;
+    clearTimeout(look);
+    clearTimeout(back);
+    kai.lookAt(e.target);
+  };
+  root.addEventListener("focusin", lookAtField, on);
+  root.addEventListener(
+    "input",
+    (e) => {
+      typingUntil = performance.now() + 1500;
+      lookAtField(e);
+    },
+    on,
+  );
+  return () => stop.abort();
 }
 
 /** First word of what they typed: "Samuel Boman" is "Samuel". */
@@ -95,21 +149,27 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
   const errorEl = document.getElementById("connect-error");
   const trust = gate.querySelector(".connect-trust:not(#connect-testing-note)");
   const wel = el("div", "wel");
-  const top = el("div", "wel-top");
+  const world = worldPanel();
   const stage = el("div", "wel-stage");
-  wel.append(top, stage);
+  wel.append(pageHeader(), world, stage);
   gate.classList.add("is-welcome");
   gate.append(wel);
 
   const kaiHost = el("div", "onb-kai wel-kai");
   const bubble = el("p", "onb-bubble wel-bubble");
   bubble.id = "welcome-kai-line";
+  // Kai and its line stand together in the left panel on every screen.
+  const spot = el("div", "onb-kai-spot");
   bubble.setAttribute("aria-live", "polite");
   const kai: KaiInstance | null =
     ctx.settings.showKai && typeof window.Kai === "function"
-      ? window.Kai(kaiHost, { src: "/characters/", imgWidth: 320, calm: true })
+      ? // Not calm: Kai breathes, floats and sways while it waits for you.
+        window.Kai(kaiHost, { src: "/characters/", imgWidth: 320 })
       : null;
   if (!kai) kaiHost.hidden = true;
+  spot.append(bubble, kaiHost);
+  // The hello screen has its own watcher (it also smiles at Get started).
+  attend(kai, wel, () => wel.classList.contains("is-hello"));
   // Drop the entrance once it has played: moving Kai to the next step would replay it.
   kaiHost.addEventListener("animationend", (e) => {
     if (e.animationName === "wel-appear" || e.animationName === "wel-fade") kaiHost.classList.remove("wel-appear");
@@ -136,7 +196,6 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
    * line, and only then does Get started rise in. A click or key during the
    * intro skips to the end. Timings: HELLO_BEATS. */
   function hello() {
-    top.replaceChildren();
     wel.className = "wel is-hello";
     helloTimers.splice(0).forEach(clearTimeout);
     const go = bigButton("Get started", () => {
@@ -150,7 +209,8 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     go.id = "welcome-start";
     go.classList.add("wel-wait");
     bubble.textContent = "";
-    stage.replaceChildren(bubble, kaiHost, go);
+    world.replaceChildren(spot);
+    stage.replaceChildren(el("h1", "wel-title", "Welcome to Cluster"), el("p", "wel-lead", "Sort, clean up and protect your Gmail."), go);
     const skip = new AbortController();
     const showButton = () => {
       if (!go.classList.contains("wel-wait")) return;
@@ -228,18 +288,16 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     }
   }
 
-  /** Kai on the left with the question in a bubble, the answer below, Continue at the bottom. */
+  /** Kai asks in the left panel; the answer and Continue are on the right. */
   function question(done: number, line: string, back: (() => void) | null, ...rest: HTMLElement[]) {
     wel.className = "wel is-ask";
     const backBtn = el("button", "wel-back", "Back");
     backBtn.type = "button";
     backBtn.onclick = () => back?.();
     backBtn.hidden = !back;
-    top.replaceChildren(backBtn, progressBar(done));
-    const ask = el("div", "wel-ask");
-    ask.append(kaiHost, bubble);
     rememberKai(kaiHost);
-    stage.replaceChildren(ask, ...rest);
+    world.replaceChildren(spot, progressBar(done));
+    stage.replaceChildren(backBtn, ...rest);
     // Kai flies from the middle to its spot by the question, instead of popping in there.
     travel(kaiHost, kai);
     idle?.reset();
@@ -257,7 +315,12 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     input.setAttribute("aria-label", "Your name");
     const go = bigButton("Continue", () => void save());
     go.id = "welcome-name-next";
-    const ok = () => (go.disabled = !input.value.trim());
+    const ok = () => {
+      const was = go.disabled;
+      go.disabled = !input.value.trim();
+      // A smile the moment there's a name to use.
+      if (was && !go.disabled) kai?.setMood("happy", 1400);
+    };
     const save = async () => {
       if (!input.value.trim()) return;
       name = firstName(input.value);
@@ -285,6 +348,11 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     connectBtn.classList.add("wel-go");
     const ok = () => {
       const valid = EMAIL_RE.test(input.value.trim());
+      // A small nod the moment the address looks right.
+      if (valid && connectBtn.disabled) {
+        kai?.do("nodSmall");
+        kai?.setMood("happy", 1400);
+      }
       connectBtn.disabled = !valid;
       if (valid) setGmailLoginHint(input.value);
     };

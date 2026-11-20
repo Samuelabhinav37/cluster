@@ -31,7 +31,8 @@ import { MAIL_INDEX_CAP, MAIL_INDEX_MAX } from "../lib/mailIndex";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { categoryLabelName } from "../lib/categoryFilters";
 import { showLabel } from "../lib/clusterLabels";
-import { progressBar } from "./welcome";
+import { attend, pageHeader, progressBar, worldPanel } from "./welcome";
+import { untangleCube, type UntangleCube } from "./untangleCube";
 import { stopTyping, typeLine } from "./kaiBubble";
 import { startIdle } from "./kaiIdle";
 import { rememberKai, travel } from "./kaiTravel";
@@ -90,7 +91,7 @@ const VOICE_PREF = "cluster.kaiVoice";
 /** Kai with a speech bubble that types the line, and an optional voice. One row, moved between screens. */
 function kaiNarrator() {
   const reduced = reducedMotion();
-  const row = el("div", "wel-ask onb-kai-row");
+  const row = el("div", "onb-kai-spot onb-kai-row");
   const bubble = el("p", "onb-bubble wel-bubble");
   bubble.id = "setup-kai-line";
   bubble.setAttribute("aria-live", "polite");
@@ -112,7 +113,7 @@ function kaiNarrator() {
   showVoice();
   const words = el("div", "onb-kai-words");
   words.append(bubble, voiceBtn);
-  row.append(kaiHost, words);
+  row.append(words, kaiHost);
   const kai: KaiInstance | null =
     ctx.settings.showKai && typeof window.Kai === "function"
       ? // Not calm: in setup Kai floats, breathes and glances around while it talks.
@@ -237,13 +238,13 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   const skip = el("button", "onb-skip", "I'll set it up myself");
   skip.type = "button";
   skip.id = "setup-not-now";
-  // The sign-in screens' header (wel-top): the bar in the same place, so moving into setup doesn't jump.
-  const top = el("div", "wel-top onb-top");
-  top.append(skip);
+  // The same page as the sign-in screens: header, Kai's panel on the left, the work on the right.
+  const world = worldPanel();
   const side = el("div", "onb-side");
-  side.append(top, pane);
+  side.append(pageHeader(skip), world, pane);
   root.replaceChildren(side);
   const kai = kaiNarrator();
+  attend(kai.instance, side);
   const timers: number[] = [];
   const later = (ms: number, run: () => void) => timers.push(window.setTimeout(run, ms));
   const clearLater = () => timers.splice(0).forEach((t) => window.clearTimeout(t));
@@ -326,8 +327,12 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     return { li, tag, spot, emoji };
   };
 
-  /** The bar and "38 of 100". */
+  // The same untangle cube as the dashboard's first read, smaller.
+  let cube: UntangleCube | null = null;
+
+  /** The bar, "38 of 100" and the cube. */
   function paintScanCount(n: number) {
+    cube?.progress(n / Math.max(1, scanTotal));
     const count = pane.querySelector("#scan-count");
     if (count) count.textContent = `${n.toLocaleString()} of ${scanTotal.toLocaleString()}`;
     pane.querySelector<HTMLElement>("#scan-fill")?.style.setProperty("width", `${Math.min(100, (n / Math.max(1, scanTotal)) * 100)}%`);
@@ -347,11 +352,13 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     progress.append(track, count);
     const list = el("ul", "ss-list");
     list.id = "scan-list";
-    body.append(progress, list);
+    cube?.stop();
+    cube = untangleCube(12);
+    body.append(cube.el, progress, list);
     queueMicrotask(() => paintScanCount(scanned ? 0 : readSoFar));
   }
 
-  // The stream: one email every 450 ms, one per sender, newest on top, five on screen.
+  // The stream: one email every 450 ms, one per sender, newest on top, three on screen.
   let streamTimer = 0;
   let streamAt = 0;
   const streamed = new Set<string>();
@@ -367,7 +374,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       const { li, tag, spot, emoji } = scanRow(m);
       list.prepend(li);
       kai.look(li);
-      while (list.children.length > 5) list.lastElementChild?.remove();
+      while (list.children.length > 3) list.lastElementChild?.remove();
       requestAnimationFrame(() => tag.classList.add("in"));
       // Kai explains the first label and the first person, once each.
       if (spot !== "keep" && !labelledOne) {
@@ -436,7 +443,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
         if (off.has(spot)) off.delete(spot);
         else off.add(spot);
         sync();
-        kai.look(tile);
+        kai.react(tile, off.has(spot) ? "shrug" : "nodSmall");
       };
       grid.append(tile);
     }
@@ -533,13 +540,12 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     const body = el("div", newStep ? "onb-body onb-in" : "onb-body");
     ({ hello: renderHello, label: renderLabel, scan: renderScan, found: renderFound })[step](body);
     pane.className = `onb-pane is-${step}`;
-    top.replaceChildren(progressBar(BEFORE + at + 1), skip);
-    // Keep Kai's row in place between steps so Kai doesn't vanish and reappear.
-    if (kai.row.parentNode === pane) {
-      while (kai.row.nextSibling) kai.row.nextSibling.remove();
-      pane.append(body);
+    pane.replaceChildren(body);
+    // Keep Kai in place between steps so it doesn't vanish and reappear.
+    if (kai.row.parentNode === world) {
+      world.querySelector(".step-list")?.replaceWith(progressBar(BEFORE + at + 1));
     } else {
-      pane.replaceChildren(kai.row, body);
+      world.replaceChildren(kai.row, progressBar(BEFORE + at + 1));
       // The same Kai as the welcome: it flies over from where it stood there.
       travel(kai.row.querySelector<HTMLElement>(".onb-kai")!, kai.instance);
     }

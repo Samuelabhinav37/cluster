@@ -21,8 +21,8 @@ export const TOUR: TourStop[] = [
   { selector: "#top-settings", line: "Change anything in Settings." },
 ];
 
-/** Kai's last line, so it is clear the tour is over. */
-export const TOUR_BYE = "I'll be down here if you need me.";
+/** Kai's last line: what happens from here, so it is clear the tour is over. */
+export const TOUR_BYE = "New mail gets its label as it arrives.";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -60,12 +60,15 @@ export function startDashboardTour(stops: TourStop[] = TOUR): void {
   foot.append(count, el("span", "grow"), skip, next);
   const words = el("div", "tour-words");
   words.append(line, foot);
-  card.append(kaiHost, words);
+  // A small arrow on the card's edge, pointing at what Kai means.
+  const arrow = el("span", "tour-arrow");
+  arrow.setAttribute("aria-hidden", "true");
+  card.append(arrow, kaiHost, words);
   layer.append(hole, card);
   document.body.append(layer);
   const kai: KaiInstance | null =
     ctx.settings.showKai && typeof window.Kai === "function"
-      ? window.Kai(kaiHost, { src: "/characters/", imgWidth: 320, calm: true })
+      ? window.Kai(kaiHost, { src: "/characters/", imgWidth: 320 })
       : null;
   if (!kai) kaiHost.hidden = true;
 
@@ -100,6 +103,11 @@ export function startDashboardTour(stops: TourStop[] = TOUR): void {
   };
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") end();
+    else if (e.key === "ArrowRight") next.click();
+    else if (e.key === "ArrowLeft" && at > 0 && !layer.classList.contains("is-end")) {
+      at -= 1;
+      show();
+    }
   };
 
   /** The hole over the target; the card beside it (right of the sidebar, under the top bar). */
@@ -122,11 +130,20 @@ export function startDashboardTour(stops: TourStop[] = TOUR): void {
     x = Math.max(16, Math.min(x, window.innerWidth - w - 16));
     y = Math.max(16, Math.min(y, window.innerHeight - h - 16));
     card.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+    // The arrow on the card edge facing the target, lined up with its middle.
+    const clamp = (v: number, max: number) => Math.max(22, Math.min(v, max - 22));
+    arrow.className = `tour-arrow ${inSidebar ? "is-left" : "is-top"}`;
+    arrow.style.left = inSidebar ? "" : `${clamp(r.left + r.width / 2 - x, w)}px`;
+    arrow.style.top = inSidebar ? `${clamp(r.top + r.height / 2 - y, h)}px` : "";
   }
 
   function show() {
     const stop = shown[at];
-    count.textContent = `${at + 1} of ${shown.length}`;
+    // Dots for the eye, "2 of 5" for screen readers.
+    count.replaceChildren(
+      ...shown.map((_, i) => el("i", i === at ? "is-on" : i < at ? "is-done" : "")),
+      el("span", "sr-only", `${at + 1} of ${shown.length}`),
+    );
     next.textContent = at === shown.length - 1 ? "Done" : "Next";
     type(stop.line);
     if (!reduced) {
@@ -137,7 +154,7 @@ export function startDashboardTour(stops: TourStop[] = TOUR): void {
     place();
     const target = document.querySelector(stop.selector);
     if (target && kai) {
-      kai.lookAt(target);
+      kai.pointAt(target);
       if (at > 0) kai.do("hop");
     }
     next.focus();
@@ -156,14 +173,16 @@ export function startDashboardTour(stops: TourStop[] = TOUR): void {
         card.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: "ease-out" });
       // The page stays dimmed: the hole shrinks to nothing in the middle.
       Object.assign(hole.style, { left: "50%", top: "50%", width: "0px", height: "0px" });
-      count.textContent = "";
+      count.replaceChildren();
       skip.hidden = true;
+      arrow.hidden = true;
       const name = ctx.settings.userName;
       words.prepend(el("h2", "tour-title", name ? `You're all set, ${name}.` : "You're all set."));
-      next.textContent = "Get started";
+      next.textContent = "Let's go";
       type(TOUR_BYE);
       kai?.lookAt(null);
-      kai?.do("wave");
+      kai?.setMood("proud", 2400);
+      kai?.do("celebrate");
       next.focus();
       return;
     }
