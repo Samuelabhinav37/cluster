@@ -31,7 +31,8 @@ import { MAIL_INDEX_CAP, MAIL_INDEX_MAX } from "../lib/mailIndex";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { categoryLabelName } from "../lib/categoryFilters";
 import { showLabel } from "../lib/clusterLabels";
-import { progressBar } from "./welcome";
+import { progressBar, TYPE_MS } from "./welcome";
+import { startIdle } from "./kaiIdle";
 import { startDashboardTour } from "./dashboardTour";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
@@ -147,6 +148,7 @@ function kaiNarrator() {
 
   return {
     row,
+    idle: kai && !reduced ? startIdle(kai) : null,
     say(text: string, mood?: KaiMood) {
       last = text;
       clearInterval(typing);
@@ -166,10 +168,11 @@ function kaiNarrator() {
       let n = 0;
       bubble.textContent = "";
       typing = window.setInterval(() => {
-        n += 2;
+        n += 1;
         bubble.textContent = text.slice(0, n);
+        kai?.voice(text[n - 1] ?? " ");
         if (n >= text.length) clearInterval(typing);
-      }, 22);
+      }, TYPE_MS);
     },
     do(action: KaiAction) {
       kai?.do(action);
@@ -651,7 +654,12 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     ({ hello: renderHello, label: renderLabel, scan: renderScan, found: renderFound })[step](body);
     pane.className = `onb-pane is-${step}`;
     top.replaceChildren(progressBar(BEFORE + at + 1), skip);
-    pane.replaceChildren(kai.row, body);
+    // Keep Kai's row in place between steps so Kai doesn't vanish and reappear.
+    if (kai.row.parentNode === pane) {
+      while (kai.row.nextSibling) kai.row.nextSibling.remove();
+      pane.append(body);
+    } else pane.replaceChildren(kai.row, body);
+    kai.idle?.reset();
     if (newStep) guide(step);
   }
 

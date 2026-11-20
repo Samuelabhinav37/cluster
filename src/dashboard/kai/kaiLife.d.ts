@@ -40,6 +40,8 @@ export interface KaiInstance {
   /** Glance at a spot and lean the antenna toward it (before "Show me"). */
   pointAt(target: Element | { x: number; y: number } | null): void;
   talk(ms?: number): void;
+  /** Shape the mouth for one typed character: open on letters, shut on spaces and punctuation. */
+  voice(ch: string): void;
   think(on: boolean): void;
   lightAntenna(ms?: number): void;
   /** Float a short text or emoji up from Kai's head. */

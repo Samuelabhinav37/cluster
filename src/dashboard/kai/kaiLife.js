@@ -326,7 +326,14 @@
     return !this.action && !this.queue.length && this.blinkT < 0 && now > this.talkUntil && !this.thinking &&
       !(this.moodUntil && now > this.moodUntil) && this._motion < .5;
   };
-  Kai.prototype.talk = function (ms) { this.talkUntil = performance.now() + (ms || 1200); this.start(); };
+  Kai.prototype.talk = function (ms) { this.talkUntil = performance.now() + (ms || 1200); this.mouthTarget = null; this.start(); };
+  /* The mouth follows typed text: open on letters (wider on vowels), shut on
+     spaces and punctuation (research 2026-11-20 #9). */
+  Kai.prototype.voice = function (ch) {
+    this.mouthTarget = /[aeiouy]/i.test(ch) ? 1 : /[a-z0-9]/i.test(ch) ? .55 : 0;
+    this.talkUntil = Math.max(this.talkUntil, performance.now() + 160);
+    this.start();
+  };
   Kai.prototype.think = function (on) {
     this.thinking = !!on;
     if (on) this.setMood('thinking', 60000); else if (this.mood === 'thinking') this.moodUntil = 1;
@@ -481,7 +488,14 @@
       var bar = this.bars[j], bw = MOUTH.w, bh = MOUTH.h, bx = mx + j * MOUTH.step, by = my, op = 1;
       if (mode === 'smile') by += j === 1 ? 14 : -8;
       else if (mode === 'frown') by += j === 1 ? -10 : 8;
-      else if (mode === 'talk') { var s = .6 + Math.abs(Math.sin(now / 95 + j * 1.7)) * 1.9; bh = MOUTH.h * s; by -= (bh - MOUTH.h) / 2; }
+      else if (mode === 'talk') {
+        var s;
+        if (this.mouthTarget != null) {
+          if (j === 0) this.mouthAmt = lerp(this.mouthAmt || 0, this.mouthTarget, .45);
+          s = .6 + this.mouthAmt * (1.5 + .4 * Math.sin(j * 2.3 + now / 140));
+        } else s = .6 + Math.abs(Math.sin(now / 95 + j * 1.7)) * 1.9;
+        bh = MOUTH.h * s; by -= (bh - MOUTH.h) / 2;
+      }
       else if (mode === 'dots') { var wave = Math.max(0, Math.sin(now / 160 - j * 1.1)); bw = bh = 40; bx += (MOUTH.w - bw) / 2; by -= 5 + wave * 20; op = .5 + wave * .5; }
       else if (mode === 'wobble') by += Math.sin(now / 70 + j * 2) * 5;
       else if (mode === 'o') {

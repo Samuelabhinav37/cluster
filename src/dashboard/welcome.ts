@@ -5,6 +5,7 @@
 import "./kai/kaiLife.js";
 import type { KaiInstance } from "./kai/kaiLife";
 import { ctx } from "./state";
+import { startIdle } from "./kaiIdle";
 import { updateSettings } from "../lib/settingsStore";
 import { setGmailLoginHint } from "../lib/gmailWebAuth";
 
@@ -13,6 +14,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const HELLO_LINES = ["Hi, I am Kai!", "I am going to help you with your email."] as const;
 /** Step 1's beats in ms from the start: Kai appears (wel-appear, 1.2 s, in
  * dashboard.css) and wakes, says line 1, line 2, then Get started rises in. */
+/** One typed character per this many ms, so the mouth can keep up (research 2026-11-20 #9). */
+export const TYPE_MS = 34;
 const HELLO_BEATS = { land: 1500, wake: 1800, line1: 2900, line2: 5000, button: 6400 };
 /** Reduced motion or no Kai: no appearing or waking, the lines and the button keep their order. */
 const HELLO_BEATS_REDUCED = { land: 0, wake: 0, line1: 200, line2: 1600, button: 2600 };
@@ -72,7 +75,12 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
       ? window.Kai(kaiHost, { src: "/characters/", imgWidth: 320, calm: true })
       : null;
   if (!kai) kaiHost.hidden = true;
+  // Drop the entrance once it has played: moving Kai to the next step would replay it.
+  kaiHost.addEventListener("animationend", (e) => {
+    if (e.animationName === "wel-appear" || e.animationName === "wel-fade") kaiHost.classList.remove("wel-appear");
+  });
   const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  const idle = kai && !reduced ? startIdle(kai) : null;
   let typing = 0;
   const say = (text: string) => {
     clearInterval(typing);
@@ -84,10 +92,11 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     let n = 0;
     bubble.textContent = "";
     typing = window.setInterval(() => {
-      n += 2;
+      n += 1;
       bubble.textContent = text.slice(0, n);
+      kai?.voice(text[n - 1] ?? " ");
       if (n >= text.length) clearInterval(typing);
-    }, 22);
+    }, TYPE_MS);
   };
 
   const bigButton = (label: string, onClick: () => void) => {
@@ -212,6 +221,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     const ask = el("div", "wel-ask");
     ask.append(kaiHost, bubble);
     stage.replaceChildren(ask, ...rest);
+    idle?.reset();
     say(line);
   }
 

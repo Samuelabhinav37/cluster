@@ -77,14 +77,14 @@ describe("first-run setup", () => {
     expect(chip("amazon.com").getAttribute("aria-pressed")).toBe("true");
     col("keep").click();
     expect(col("keep").contains(chip("amazon.com"))).toBe(true);
-    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("Got it. Amazon stays in your inbox."));
+    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("Got it. Amazon stays in your inbox."), { timeout: 3000 });
     click("setup-next"); // Done
     expect(title()).toBe("I found these");
 
     click("setup-go");
     await vi.waitFor(() => expect(dash.storedSettings().setupDone).toBe(true));
     expect(dash.storedSettings().sortOverrides).toEqual({ "@amazon.com": "never" });
-    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("Okay, let's go to your dashboard!"));
+    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("Okay, let's go to your dashboard!"), { timeout: 3000 });
   });
 
   it("asks how much to read only when the mailbox is over 20,000, with a time for each", async () => {
