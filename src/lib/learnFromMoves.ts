@@ -39,6 +39,17 @@ export function fixedEmails(moves: readonly LabelMove[], bucketOf: ReadonlyMap<s
   return moves.filter((m) => m.added.filter((id) => bucketOf.has(id)).length === 1 && m.removed.some((id) => fromIds.has(id))).length;
 }
 
+/** fixedEmails per label: which of Cluster's labels each re-filed email left. */
+export function fixesPerLabel(moves: readonly LabelMove[], bucketOf: ReadonlyMap<string, MoveTarget>): Partial<Record<MoveTarget, number>> {
+  const out: Partial<Record<MoveTarget, number>> = {};
+  for (const m of moves) {
+    if (m.added.filter((id) => bucketOf.has(id)).length !== 1) continue;
+    const from = m.removed.map((id) => bucketOf.get(id)).find((b) => b !== undefined);
+    if (from) out[from] = (out[from] ?? 0) + 1;
+  }
+  return out;
+}
+
 /** The label each swap put a sender under. A swap is one of Cluster's labels
  * taken off (a sorting label, Personal or the Screener: `fromIds`) and
  * exactly one target put on; adding alone (Cluster's own labelling) or

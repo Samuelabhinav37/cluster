@@ -82,3 +82,31 @@ export function accuracyNumbers(
     screenerShare: filed < MIN_FILED ? null : pct(screener, filed),
   };
 }
+
+/** Each label's log with `counts` more today (addFixes per label). */
+export function addByLabel(logs: Record<string, FixLog>, counts: Partial<Record<string, number>>, now: number): Record<string, FixLog> {
+  const out: Record<string, FixLog> = {};
+  for (const label of new Set([...Object.keys(logs), ...Object.keys(counts)])) {
+    const log = addFixes(logs[label] ?? {}, counts[label] ?? 0, now);
+    if (Object.keys(log).length > 0) out[label] = log;
+  }
+  return out;
+}
+
+/** Research idea 4, abstain by target: a label you fixed more than
+ * UNSURE_PER_100 times per 100 over the last 4 weeks stops guessing. Its mail
+ * goes to the Screener as "Not sure" unless you filed that sender there.
+ * It tries again on its own: with nothing labelled, the 4-week count falls
+ * under UNSURE_MIN and the label is back on. */
+export const UNSURE_PER_100 = 5;
+export const UNSURE_MIN = 50;
+const UNSURE_DAYS = 28;
+export function unsureLabels(fixes: Record<string, FixLog> = {}, labelled: Record<string, FixLog> = {}, now: number): Set<string> {
+  const out = new Set<string>();
+  for (const [label, log] of Object.entries(labelled)) {
+    const filed = fixesIn(log, now, UNSURE_DAYS);
+    const fixed = fixesIn(fixes[label] ?? {}, now, UNSURE_DAYS);
+    if (filed >= UNSURE_MIN && fixed >= 3 && (100 * fixed) / filed > UNSURE_PER_100) out.add(label);
+  }
+  return out;
+}

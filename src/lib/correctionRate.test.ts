@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { accuracyNumbers, addFixes, FIX_DAYS, filedIn, fixesIn, fixesPer100, MIN_FILED } from "./correctionRate";
-import { fixedEmails, movedTo, SWEEP_SENDERS, type LabelMove } from "./learnFromMoves";
+import { accuracyNumbers, addByLabel, addFixes, unsureLabels, FIX_DAYS, filedIn, fixesIn, fixesPer100, MIN_FILED } from "./correctionRate";
+import { fixedEmails, fixesPerLabel, movedTo, SWEEP_SENDERS, type LabelMove } from "./learnFromMoves";
 import type { EmailDecision } from "./mailEngine";
 import type { SenderSummary } from "./senderModel";
 
@@ -54,5 +54,22 @@ describe("correction rate", () => {
     const got = accuracyNumbers(senders, decided, addFixes({}, 2, NOW), { reviewed: 10, confirmed: 9 }, NOW);
     expect(got).toEqual({ fixesPer100: 5, releasedPer100: 10, screenerShare: 10 });
     expect(accuracyNumbers([], new Map(), {}, { reviewed: 0, confirmed: 0 }, NOW)).toEqual({ fixesPer100: null, releasedPer100: null, screenerShare: null });
+  });
+
+  it("a label fixed more than 5 per 100 over 50+ emails is unsure", () => {
+    const labelled = addByLabel({}, { receipt: 60, shopping: 60, otp: 10 }, NOW);
+    const fixes = addByLabel({}, { receipt: 4, shopping: 2, otp: 5 }, NOW);
+    expect([...unsureLabels(fixes, labelled, NOW)]).toEqual(["receipt"]);
+    expect(unsureLabels(fixes, labelled, NOW + 29 * DAY).size).toBe(0);
+  });
+
+  it("counts each fix against the label it left", () => {
+    const bucketOf = new Map([["L1", "receipt"], ["L2", "shopping"]] as const);
+    const moves = [
+      { address: "a@x.com", added: ["L2"], removed: ["L1"] },
+      { address: "b@x.com", added: ["L2"], removed: ["L1"] },
+      { address: "c@x.com", added: ["L1"], removed: [] },
+    ];
+    expect(fixesPerLabel(moves, bucketOf)).toEqual({ receipt: 2 });
   });
 });

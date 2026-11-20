@@ -14,6 +14,7 @@ import type { ClusterSettings } from "./settingsStore";
 import { ALL_SORT_BUCKETS, DEFAULT_FILE_OUT_OF_INBOX, bucketLabelName, type SortBucket } from "./sortTaxonomy";
 import { createFilter, deleteFilter, getOrCreateLabel, listFilters } from "./gmailApi";
 import { log } from "./log";
+import { unsureLabels } from "./correctionRate";
 
 export interface CategoryFilterSpec {
   bucket: SortBucket;
@@ -36,12 +37,15 @@ export function categoryLabelName(bucket: SortBucket, labelChoices: Record<strin
 }
 
 /** Categories that should have a filter right now. */
-export function filteredCategories(settings: ClusterSettings): SortBucket[] {
+export function filteredCategories(settings: ClusterSettings, now = Date.now()): SortBucket[] {
   const { autoSort } = settings;
+  // A label too often wrong for you (unsureLabels) has no filter: Cluster's own pass decides.
+  const unsure = unsureLabels(autoSort.fixesByLabel, autoSort.labelledByLabel, now);
   return ALL_SORT_BUCKETS.filter(
     (b) =>
-      (autoSort.timeLimitsEnabled && !autoSort.labelsOff.includes(b)) ||
-      (autoSort.keepSorting && autoSort.enabledBuckets.includes(b)),
+      !unsure.has(b) &&
+      ((autoSort.timeLimitsEnabled && !autoSort.labelsOff.includes(b)) ||
+      (autoSort.keepSorting && autoSort.enabledBuckets.includes(b))),
   );
 }
 

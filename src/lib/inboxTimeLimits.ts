@@ -76,6 +76,8 @@ export interface LimitContext {
   keptIds?: Set<string>;
   /** "Hold people too": strangers on free mail wait in the Screener. Default on. */
   holdPeople?: boolean;
+  /** Labels too often wrong for you (unsureLabels): only senders you filed there keep them. */
+  unsure?: ReadonlySet<SortBucket>;
 }
 
 function epochSeconds(ms: number): number {
@@ -134,6 +136,7 @@ export function bucketsFor(senders: SenderSummary[], ctx: LimitContext): Map<Sor
       if (!corrected && (msg.isProtected || neverMove(msg, sender.address) || withYourContacts(msg, ctx.wrote ?? ctx.known))) continue;
       const bucket = buckets.get(msg.id);
       if (!bucket || !wanted.has(bucket)) continue;
+      if (!corrected && ctx.unsure?.has(bucket)) continue;
       const list = groups.get(bucket) ?? [];
       list.push(msg.id);
       groups.set(bucket, list);
@@ -373,7 +376,8 @@ export function inboxFates(sender: SenderSummary, ctx: LimitContext): Map<string
           ((ctx.holdPeople === false || !isFreeMailDomain(domain)) &&
             ((writtenByPerson(msg, sender.address, sender.displayName) && !sender.threatSignals.some((t) => t.kind === "lure-language")) ||
               (CALENDAR_RE.test(msg.subject ?? "") && !msg.fakeReply)))));
-    fates.set(msg.id, personal ? "personal" : buckets.get(msg.id) ? "label" : "screener");
+    const bucket = buckets.get(msg.id);
+    fates.set(msg.id, personal ? "personal" : bucket && !ctx.unsure?.has(bucket) ? "label" : "screener");
   }
   return fates;
 }

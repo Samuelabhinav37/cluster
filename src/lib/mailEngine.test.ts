@@ -124,3 +124,21 @@ describe("the engine counts only what really moves (plan step 1.1)", () => {
     expect([ctx.sorting, ctx.holdUnsorted, ctx.holdScams, ctx.holdAuthFails]).toEqual([true, false, true, true]);
   });
 });
+
+describe("Not sure (research idea 4)", () => {
+  it("an unsure label's mail goes to the Screener; a sender you filed there keeps it", async () => {
+    const { mail } = await import("../test/mailboxGen");
+    const metas = [
+      mail("orders@shop-one.example", "Shop One", "Your receipt for order 1234"),
+      mail("orders@shop-two.example", "Shop Two", "Your receipt for order 5678"),
+    ];
+    const { senders } = await sendersOf(metas, { contacts: [], sent: [], now: Date.UTC(2026, 10, 15, 12) });
+    const base = { wrote: new Set<string>(), letIn: new Set<string>(), overrides: {} };
+    const sure = decideAll(senders, base);
+    const bucket = sure.get(metas[0].id)?.place;
+    expect(bucket).toBe("receipt");
+    const unsure = decideAll(senders, { ...base, unsure: new Set(["receipt" as const]), overrides: { "orders@shop-two.example": "receipt" } });
+    expect(unsure.get(metas[0].id)?.place).toBe("screener");
+    expect(unsure.get(metas[1].id)?.place).toBe("receipt");
+  });
+});

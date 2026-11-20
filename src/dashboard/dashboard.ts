@@ -20,7 +20,7 @@ import { categoryLabelName } from "../lib/categoryFilters";
 import { learnFromLabelMoves, readLabeller, runInboxTimeLimits } from "../lib/inboxTimeLimitsRunner";
 import { getScan, newScan, onScanChange, setScan, type ScanState } from "../lib/scanState";
 import { describeRun, getRunReports, onRunReportsChange, startRun, type RunReport } from "../lib/runReport";
-import { ALL_SORT_BUCKETS, kindKey, labelReason, SCOPED_KINDS } from "../lib/sortTaxonomy";
+import { ALL_SORT_BUCKETS, bucketLabelName, effectiveBucket, kindKey, labelReason, SCOPED_KINDS } from "../lib/sortTaxonomy";
 import { domainOf } from "../lib/domainGrouping";
 import { runReplyReminders } from "../lib/replyReminders";
 import { markRepliesToYou } from "../lib/correspondents";
@@ -2413,10 +2413,16 @@ function wireDetails() {
             name: showLabel(categoryLabelName(bucket, ctx.settings.labelChoices)),
           }))
         : undefined,
-      why: (s, m, d) =>
-        d?.place && d.place !== "screener" && d.place !== "spam"
+      why: (s, m, d) => {
+        if (d?.place === "screener") {
+          // A label too often wrong for you sends its mail here (unsureLabels).
+          const guess = effectiveBucket(m.kind, domainOf(s.address), s.address, ctx.settings.sortOverrides, m.promotion, m);
+          return guess && engineContext(ctx.settings).unsure?.has(guess) ? `Not sure. Looked like ${bucketLabelName(guess)}` : undefined;
+        }
+        return d?.place && d.place !== "spam"
           ? labelReason(d.place, m.kind, domainOf(s.address), s.address, ctx.settings.sortOverrides, m.promotion, m)
-          : undefined,
+          : undefined;
+      },
       label: (messages, bucket, always, slot) =>
         runNow(slot, async () => {
           const gmail = messages.filter((m) => m.provider === "gmail");

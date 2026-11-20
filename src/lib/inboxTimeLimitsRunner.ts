@@ -5,8 +5,8 @@
 import { appendActionLog, makeLogId } from "./actionLog";
 import { categoryLabelName, desiredCategoryFilters, syncGmailCategoryFilters } from "./categoryFilters";
 import { batchModify, colorClusterLabels, findLabelIds, getOrCreateLabel, listLabels, listMessageIds } from "./gmailApi";
-import { bulkMoved, fixedEmails, movedTo, tallyMoves, type LabelMove, type MoveTarget } from "./learnFromMoves";
-import { addFixes } from "./correctionRate";
+import { bulkMoved, fixedEmails, fixesPerLabel, movedTo, tallyMoves, type LabelMove, type MoveTarget } from "./learnFromMoves";
+import { addByLabel, addFixes, unsureLabels } from "./correctionRate";
 import {
   holdUnsortedInbox,
   screenFirstTimeSenders,
@@ -146,6 +146,7 @@ async function runPass(
     now,
     keptIds: new Set(settings.autoSort.keptInInboxIds),
     holdPeople: settings.screenerHoldPeople,
+    unsure: unsureLabels(settings.autoSort.fixesByLabel, settings.autoSort.labelledByLabel, now) as Set<SortBucket>,
   };
 
   // The quick work first: label new mail, then move out what is past its
@@ -160,6 +161,12 @@ async function runPass(
     () => tagUntaggedInbox(ctx, api, tagQuery),
     (t) => ({ labelled: t.tagged }),
   );
+  // New mail per label: the other half of each label's fix rate (unsureLabels).
+  if (tag.tagged > 0)
+    await mutateSettings((current) => ({
+      ...current,
+      autoSort: { ...current.autoSort, labelledByLabel: addByLabel(current.autoSort.labelledByLabel ?? {}, tag.byBucket, now) },
+    }));
   // Before the sweep: mail from a first-time sender goes to the Screener, not its label.
   const since = settings.autoSort.screenNewSince || now;
   const screened = settings.autoSort.holdUnsorted && settings.autoSort.screenNewSince
@@ -615,7 +622,12 @@ export async function learnFromLabelMoves(token: string, moves: LabelMove[]): Pr
     return {
       ...current,
       sortOverrides: { ...current.sortOverrides, ...Object.fromEntries(res.learned) },
-      autoSort: { ...current.autoSort, moveVotes: res.votes, fixesByDay: addFixes(current.autoSort.fixesByDay ?? {}, fixed, Date.now()) },
+      autoSort: {
+        ...current.autoSort,
+        moveVotes: res.votes,
+        fixesByDay: addFixes(current.autoSort.fixesByDay ?? {}, fixed, Date.now()),
+        fixesByLabel: addByLabel(current.autoSort.fixesByLabel ?? {}, fixesPerLabel(moves, bucketOf), Date.now()),
+      },
     };
   });
   if (learned.length === 0) return;

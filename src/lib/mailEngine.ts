@@ -11,6 +11,7 @@ import { ALL_SORT_BUCKETS, type SortBucket, type SortOverride } from "./sortTaxo
 import { senderVerdict, type Verdict, type VerdictTier } from "./verdict";
 import type { QuarantineReviewMap } from "./quarantineReview";
 import { wroteToSet } from "./screener";
+import { unsureLabels } from "./correctionRate";
 import type { ClusterSettings } from "./settingsStore";
 
 /** Where an email goes. null: it stays in the inbox. */
@@ -45,6 +46,8 @@ export interface EngineContext {
   holdScams?: boolean;
   /** Mail from strangers failing DMARC, or SPF and DKIM, goes to Spam (securityRules.holdAuthFails). */
   holdAuthFails?: boolean;
+  /** Labels too often wrong for you (unsureLabels): their mail goes to the Screener as "Not sure". */
+  unsure?: ReadonlySet<SortBucket>;
 }
 
 const EVERY_LABEL = ALL_SORT_BUCKETS.map((bucket) => ({ bucket, labelName: bucket, hours: 0 }));
@@ -59,6 +62,7 @@ function limitContext(ctx: EngineContext): LimitContext {
     holdPeople: ctx.holdPeople,
     review: ctx.review,
     strict: ctx.strict,
+    unsure: ctx.unsure,
   };
 }
 
@@ -137,6 +141,7 @@ export function engineContext(settings: ClusterSettings): EngineContext {
     holdUnsorted: settings.autoSort.holdUnsorted,
     holdScams: settings.autoQuarantineHighRisk,
     holdAuthFails: settings.securityRules.holdAuthFails,
+    unsure: unsureLabels(settings.autoSort.fixesByLabel, settings.autoSort.labelledByLabel, Date.now()) as Set<SortBucket>,
   };
 }
 

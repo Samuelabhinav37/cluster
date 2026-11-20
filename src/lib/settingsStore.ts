@@ -213,6 +213,9 @@ export interface ClusterSettings {
     moveVotes: Record<string, { bucket: SortBucket | "personal"; n: number }>;
     /** Emails you re-filed, per day (correctionRate.ts). */
     fixesByDay: Record<string, number>;
+    /** Per label: emails you re-filed out of it, and new emails Cluster put in it, per day (unsureLabels). */
+    fixesByLabel?: Record<string, Record<string, number>>;
+    labelledByLabel?: Record<string, Record<string, number>>;
   };
   /** Per-sender "wrong bucket?" corrections from the sort preview, keyed by
    * lowercased from-address → a bucket to force, or "never" to skip. Consulted
@@ -548,6 +551,8 @@ function normalizeSettings(value: unknown): ClusterSettings {
       },
       filterSpecByBucket: isRecord(autoSort.filterSpecByBucket) ? autoSort.filterSpecByBucket : {},
       fixesByDay: isRecord(autoSort.fixesByDay) ? autoSort.fixesByDay : {},
+      fixesByLabel: isRecord(autoSort.fixesByLabel) ? (autoSort.fixesByLabel as Record<string, Record<string, number>>) : {},
+      labelledByLabel: isRecord(autoSort.labelledByLabel) ? (autoSort.labelledByLabel as Record<string, Record<string, number>>) : {},
       // Every category has a limit, including ones added after the user saved.
       inboxHoursByBucket: {
         ...DEFAULT_SETTINGS.autoSort.inboxHoursByBucket,
