@@ -18,4 +18,13 @@ describe("Not now on a warning (research idea 9)", () => {
     const until = Object.values(dash.storedSettings().warnSnoozed)[0] as number;
     expect(until - Date.now()).toBeGreaterThan(6 * 86_400_000);
   });
+
+  it("groups senders pretending to be one brand into one campaign", async () => {
+    await bootDashboard();
+    const { campaignKey } = await import("./securityTab");
+    const v = (kind: string, brand: string) => ({ signals: [{ kind, brand, confidence: "high" }] }) as never;
+    expect(campaignKey(v("freemail-brand-claim", "PayPal"))).toBe("paypal");
+    expect(campaignKey(v("lookalike-domain", "PAYPAL"))).toBe("paypal");
+    expect(campaignKey(v("failed-authentication", "shop.example"))).toBeNull();
+  });
 });

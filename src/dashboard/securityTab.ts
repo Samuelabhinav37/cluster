@@ -381,6 +381,12 @@ export function renderSecuritySection(senders: SenderSummary[], autoCheck = true
   const { flagged, high } = rankFlagged(senders);
   // One list: brand-name senders already above aren't listed again below.
   renderBrandCheck(senders, new Set(high.map(({ sender }) => sender.key)));
+  // Research idea 10: a campaign is the warned senders claiming one brand; Block takes them all.
+  campaigns = new Map();
+  for (const h of high) {
+    const key = campaignKey(h.verdict);
+    if (key) campaigns.set(key, [...(campaigns.get(key) ?? []), h.sender]);
+  }
   putEntries("scam", high.map(({ sender, verdict }) => buildThreatCard(sender, verdict, senders)));
   if (high.length === 0) return;
   if (autoCheck && !checkingBodies) {
@@ -444,6 +450,15 @@ function fakedBrandTile(sender: SenderSummary): HTMLElement {
   wrap.append(tile, badge);
   return wrap;
 }
+
+let campaigns = new Map<string, SenderSummary[]>();
+
+/** The brand a sender pretends to be, from its look-alike signals: the campaign it belongs to. */
+export function campaignKey(verdict: Verdict): string | null {
+  const brand = verdict.signals.find((s) => LOOKS_LIKE_BRAND.has(s.kind))?.brand;
+  return brand ? brand.toLowerCase() : null;
+}
+const LOOKS_LIKE_BRAND = new Set(["brand-impersonation", "freemail-brand-claim", "lookalike-domain", "punycode-domain"]);
 
 function buildThreatCard(sender: SenderSummary, verdict: Verdict, allSenders: SenderSummary[]): HTMLElement {
   const message = headlineMessage(sender, verdict);
@@ -558,18 +573,19 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict, allSenders: Se
       slot.appendChild(btn);
     };
     btn.onclick = () => {
+      const key = campaignKey(verdict);
+      const group = (key ? campaigns.get(key) : undefined)?.filter((s) => s.provider === sender.provider) ?? [sender];
+      const ids = group.flatMap((s) => s.messageIds);
+      const from = group.length > 1 ? `${group.length} senders pretending to be ${verdict.signals.find((s) => LOOKS_LIKE_BRAND.has(s.kind))?.brand}` : sender.address;
       renderConfirmStep(
         slot,
         reset,
-        `Move ${sender.messageIds.length} message${sender.messageIds.length === 1 ? "" : "s"} from ${sender.address} to the "${clusterLabelName("suspicious")}" label, out of the inbox?`,
+        `Move ${ids.length} message${ids.length === 1 ? "" : "s"} from ${from} to the "${clusterLabelName("suspicious")}" label, out of the inbox?`,
         false,
         async () => {
           const token = await provider.getAuthToken(false);
-          await provider.labelSuspicious!(token, sender.messageIds);
-          await logAction(
-            "labelSuspicious",
-            `Labelled ${sender.messageIds.length} from ${sender.address} as suspicious`,
-          );
+          await provider.labelSuspicious!(token, ids);
+          await logAction("labelSuspicious", `Labelled ${ids.length} from ${from} as suspicious`);
           return "Labeled ✓";
         },
       );
