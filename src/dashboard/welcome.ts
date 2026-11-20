@@ -13,9 +13,15 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const HELLO_LINES = ["Hi, I am Kai!", "I am going to help you with your email."] as const;
 /** Step 1's beats in ms from the start: Kai appears (wel-appear, 1.2 s, in
  * dashboard.css) and wakes, says line 1, line 2, then Get started rises in. */
-const HELLO_BEATS = { wake: 1500, line1: 2500, line2: 4600, button: 6000 };
+const HELLO_BEATS = { land: 1500, wake: 1800, line1: 2900, line2: 5000, button: 6400 };
 /** Reduced motion or no Kai: no appearing or waking, the lines and the button keep their order. */
-const HELLO_BEATS_REDUCED = { wake: 0, line1: 200, line2: 1600, button: 2600 };
+const HELLO_BEATS_REDUCED = { land: 0, wake: 0, line1: 200, line2: 1600, button: 2600 };
+/** Kai looks at the cursor this long after it moves, and back at you after it rests (research 2026-11-20 #2). */
+const LOOK_DELAY_MS = 200;
+const LOOK_BACK_MS = 1500;
+/** The mouse this close to Get started makes Kai look at it and smile, at most every 5 s (#7). */
+const NEAR_BUTTON_PX = 140;
+const NEAR_COOLDOWN_MS = 5000;
 
 /** Name and email here, then setup: hello, label, scan, found. */
 export const ONBOARDING_STEPS = 6;
@@ -108,6 +114,9 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     const go = bigButton("Get started", () => {
       helloTimers.splice(0).forEach(clearTimeout);
       skip.abort();
+      watch.abort();
+      kai?.lookAt(null);
+      kai?.do("nodSmall");
       askName();
     });
     go.id = "welcome-start";
@@ -140,10 +149,16 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
       kaiHost.classList.add("wel-appear");
       kai?.setMood("asleep");
     }
+    after(b.land, () => kai?.do("land"));
+    // Waking up (#8): eyes half open, a double blink, a look at you, then around.
     after(b.wake, () => {
-      kai?.setMood("curious");
-      kai?.do("blink");
-      after(400, () => kai?.do("lookAround"));
+      kai?.setMood("sleepy");
+      after(350, () => kai?.blink(true));
+      after(800, () => {
+        kai?.setMood("curious");
+        kai?.lookAt(null);
+      });
+      after(1200, () => kai?.do("lookAround"));
     });
     after(b.line1, () => {
       kai?.setMood("happy");
@@ -155,6 +170,35 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
       say(HELLO_LINES[1]);
     });
     after(b.button, showButton);
+
+    // Kai watches the cursor, and smiles at the button when you go for it.
+    const watch = new AbortController();
+    if (!plain) {
+      let look = 0;
+      let back = 0;
+      let nearAt = 0;
+      window.addEventListener(
+        "pointermove",
+        (e) => {
+          if (!wel.isConnected || !wel.classList.contains("is-hello")) return watch.abort();
+          clearTimeout(look);
+          clearTimeout(back);
+          const r = go.getBoundingClientRect();
+          const dx = Math.max(r.left - e.clientX, 0, e.clientX - r.right);
+          const dy = Math.max(r.top - e.clientY, 0, e.clientY - r.bottom);
+          const now = performance.now();
+          if (go.classList.contains("wel-rise") && Math.hypot(dx, dy) < NEAR_BUTTON_PX && now - nearAt > NEAR_COOLDOWN_MS) {
+            nearAt = now;
+            kai?.lookAt(go);
+            kai?.setMood("happy", 1200);
+          } else {
+            look = window.setTimeout(() => kai?.lookAt({ x: e.clientX, y: e.clientY }), LOOK_DELAY_MS);
+          }
+          back = window.setTimeout(() => kai?.lookAt(null), LOOK_DELAY_MS + LOOK_BACK_MS);
+        },
+        { signal: watch.signal },
+      );
+    }
   }
 
   /** Kai on the left with the question in a bubble, the answer below, Continue at the bottom. */

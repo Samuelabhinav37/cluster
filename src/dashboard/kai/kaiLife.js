@@ -77,13 +77,20 @@
                 var crouch = bump(p, 0, .22), air = bump(p, .18, .78), land = bump(p, .72, 1);
                 return { dy: .02 * crouch - .13 * air + .015 * land, sx: 1 + .07 * crouch - .03 * air + .06 * land, sy: 1 - .09 * crouch + .05 * air - .07 * land };
               } },
-    nod:      { dur: 760, fn: function (p) {
-                var d = Math.sin(p * PI * 2) * (1 - p * .3);
-                return { dy: .018 * Math.max(0, d), sy: 1 - .035 * Math.max(0, d), gy: 26 * Math.max(0, d), mood: 'happy' };
+    nod:      { dur: 860, fn: function (p) {
+                // A small chin lift first, then the nod.
+                var up = bump(p, 0, .14), q = clamp((p - .12) / .88, 0, 1), d = Math.sin(q * PI * 2) * (1 - q * .3);
+                return { dy: -.008 * up + .018 * Math.max(0, d), sy: 1 - .035 * Math.max(0, d), gy: -12 * up + 26 * Math.max(0, d), mood: 'happy' };
               } },
+    // Settling after appearing: a quick squash with an antenna kick.
+    land:     { dur: 380, kick: 8, fn: function (p) { var d = bump(p, 0, 1); return { dy: .01 * d, sx: 1 + .05 * d, sy: 1 - .06 * d }; } },
     shake:    { dur: 760, fn: function (p) { var s = Math.sin(p * PI * 5) * (1 - p); return { rot: 6 * s, gx: -40 * s }; } },
     tilt:     { dur: 1500, fn: function (p) { return { rot: 11 * hold(p, .25, .75), mood: 'curious' }; } },
-    wave:     { dur: 1400, fn: function (p) { var h = hold(p, .12, .82); return { rot: 4 * Math.sin(p * PI * 4) * h, ant: 26 * Math.sin(p * PI * 6) * h, mood: 'happy' }; } },
+    wave:     { dur: 1550, fn: function (p) {
+                // A short crouch and antenna dip first (anticipation), then the wave.
+                var c = bump(p, 0, .16), q = clamp((p - .1) / .9, 0, 1), h = hold(q, .12, .82);
+                return { dy: .012 * c, sy: 1 - .04 * c, ant: -10 * c + 26 * Math.sin(q * PI * 6) * h, rot: 4 * Math.sin(q * PI * 4) * h, mood: 'happy' };
+              } },
     wiggle:   { dur: 760, fn: function (p) { var s = Math.sin(p * PI * 8) * (1 - p); return { rot: 4 * s, sx: 1 + .02 * Math.abs(s), ant: -12 * s }; } },
     stretch:  { dur: 1500, fn: function (p) {
                 var up = hold(p, .3, .62), shake = p > .62 ? Math.sin((p - .62) * PI * 10) * (1 - p) * 2 : 0;
@@ -206,16 +213,19 @@
     else if (opts.blinks !== false && !REDUCED) {
       // no brain (a small Kai on a button): still blink now and then
       (function loop() {
-        setTimeout(function () { if (self.visible && !document.hidden) self.blink(Math.random() < .2); loop(); }, rand(2500, 6500));
+        setTimeout(function () { if (self.visible && !document.hidden) self.blink(Math.random() < .2); loop(); }, rand(1800, 5200));
       })();
     }
     if (this.calm && !REDUCED) {
       // calm Kai glances around now and then instead of every frame
       (function glance() {
         setTimeout(function () {
-          if (self.visible && !document.hidden && !self.gazeTarget) { self.sacc = { x: rand(-16, 16), y: rand(-9, 9) }; self.start(); }
+          if (self.visible && !document.hidden && !self.gazeTarget) {
+            self.sacc = Math.random() < .6 ? { x: 0, y: 0 } : { x: rand(-16, 16), y: rand(-9, 9) };
+            self.start();
+          }
           glance();
-        }, rand(2600, 6200));
+        }, rand(1200, 3000));
       })();
     }
   }

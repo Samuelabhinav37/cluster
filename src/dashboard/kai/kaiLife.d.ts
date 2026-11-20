@@ -10,7 +10,7 @@ export type KaiAction =
   | "blink" | "wink" | "hop" | "nod" | "shake" | "tilt" | "wave" | "wiggle"
   | "stretch" | "yawn" | "startle" | "celebrate" | "lookAround" | "shy"
   | "glitch" | "dizzy"
-  | "nodSmall" | "shrug" | "peek" | "point" | "relief" | "puff" | "bye" | "lookAway" | "squint";
+  | "nodSmall" | "shrug" | "peek" | "point" | "relief" | "puff" | "bye" | "lookAway" | "squint" | "land";
 
 export interface KaiOptions {
   /** Folder holding kai-body.w{160,320,640}.webp and kai-antenna.*, with a trailing slash. */

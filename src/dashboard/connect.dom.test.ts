@@ -58,9 +58,9 @@ describe("connect gate", () => {
     expect(document.body.dataset.state).toBe("connect");
     // Get started waits until Kai has said both lines.
     expect(dash.el("welcome-start").classList.contains("wel-wait")).toBe(true);
-    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toBe("Hi, I am Kai!"), { timeout: 3000 });
-    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toBe("I am going to help you with your email."), { timeout: 4000 });
-    await vi.waitFor(() => expect(dash.el("welcome-start").classList.contains("wel-wait")).toBe(false), { timeout: 4000 });
+    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toBe("Hi, I am Kai!"), { timeout: 5000 });
+    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toBe("I am going to help you with your email."), { timeout: 5000 });
+    await vi.waitFor(() => expect(dash.el("welcome-start").classList.contains("wel-wait")).toBe(false), { timeout: 5000 });
     expect(gmail.getAuthToken).not.toHaveBeenCalledWith(true);
     expect(gmail.listCandidateMessages).not.toHaveBeenCalled();
 

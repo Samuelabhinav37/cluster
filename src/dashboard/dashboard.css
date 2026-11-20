@@ -3931,6 +3931,11 @@ body { background: var(--canvas); }
   60% { filter: blur(0); }
   100% { opacity: 1; transform: none; filter: none; }
 }
+/* Kai breathes on the welcome screens: 1% taller and back every 3.6 s, on the
+   compositor so it costs no script frames (research 2026-11-20 #1). */
+.wel-kai .kai-head { transform-origin: 50% 100%; animation: kai-breathe 3.6s ease-in-out infinite; }
+@keyframes kai-breathe { 50% { transform: scaleY(1.01); } }
+@media (prefers-reduced-motion: reduce) { .wel-kai .kai-head { animation: none; } }
 /* Get started rises in once Kai has said both lines. */
 .wel-go.wel-rise { animation: wel-rise 0.45s var(--spring-smooth) both; }
 @keyframes wel-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
