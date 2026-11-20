@@ -14,13 +14,13 @@ export interface TourStop {
 
 export const TOUR: TourStop[] = [
   // Only while the first read runs: the tour starts at once, so Kai never goes quiet after setup.
-  { selector: ".home-read", line: "I'm labelling your mail now." },
-  { selector: "#sidebar", line: "Cleanup, Labels and Security are here." },
-  { selector: "#ask-kai-open", line: "Search any sender or email." },
+  { selector: ".home-read", line: "I'm reading the rest of your mail. You can look around while I work." },
+  { selector: "#sidebar", line: "Cleanup clears out old mail, Labels sorts new mail, and Security catches scams." },
+  { selector: "#ask-kai-open", line: "Press / to find any email or sender, or to ask me for something." },
 ];
 
 /** Kai's last line: what to do next, so it is clear the tour is over (Get started, startList.ts). */
-export const TOUR_BYE = "Start with the three steps in the sidebar.";
+export const TOUR_BYE = "Try the three Get started steps at the bottom of the sidebar.";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);

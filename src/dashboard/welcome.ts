@@ -58,18 +58,9 @@ function tick(): SVGElement {
   return svg;
 }
 
-/** Where you are in setup, as a list under Kai in the left panel: a tick by
+/** Where you are in setup, as a list at the foot of the panel: a tick by
  * each part that's done, the current part in bold, then the parts to come.
  * `done` is the current screen. */
-/** "Step 2 of 5" right over the question, as Slack and Stripe show it (Mobbin audit #4). */
-export function stepLine(done: number): HTMLElement {
-  const now = SETUP_PARTS.findIndex((p) => (p.screens as readonly number[]).includes(done));
-  // The step list in the panel already tells screen readers.
-  const line = el("p", "wel-step", `Step ${now + 1} of ${SETUP_PARTS.length}`);
-  line.setAttribute("aria-hidden", "true");
-  return line;
-}
-
 export function progressBar(done: number): HTMLElement {
   const track = el("ol", "step-list");
   const now = SETUP_PARTS.findIndex((p) => (p.screens as readonly number[]).includes(done));
@@ -243,7 +234,12 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     go.classList.add("wel-wait");
     bubble.textContent = "";
     setWorld(world, spot);
-    stage.replaceChildren(el("h1", "wel-title", "Welcome to Cluster"), el("p", "wel-lead", "Sort, clean up and protect your Gmail."), go);
+    stage.replaceChildren(
+      el("p", "wel-eyebrow", "Welcome to Cluster"),
+      el("h1", "wel-title", "Your Gmail, sorted."),
+      el("p", "wel-lead", "Cluster labels new mail, clears out the old and catches scams."),
+      go,
+    );
     const skip = new AbortController();
     const showButton = () => {
       if (!go.classList.contains("wel-wait")) return;
@@ -321,10 +317,8 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     backBtn.hidden = !back;
     rememberKai(kaiHost);
     setWorld(world, preview.el, progressBar(done));
-    // Back and "Step 2 of 5" share one quiet row, so the column reads Kai, then the question.
-    const meta = el("div", "wel-meta");
-    meta.append(backBtn, stepLine(done));
-    stage.replaceChildren(spot, meta, el("h1", "wel-title", title), el("p", "wel-lead", why), ...rest);
+    // Where you are shows once, in the steps on the panel; here just Back over the question.
+    stage.replaceChildren(spot, backBtn, el("h1", "wel-title", title), el("p", "wel-lead", why), ...rest);
     // Kai flies from the middle of the panel to its spot over the question, instead of popping in there.
     travel(kaiHost, kai);
     idle?.reset();

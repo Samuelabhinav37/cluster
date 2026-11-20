@@ -118,10 +118,10 @@ describe("connect gate", () => {
     const gmail = notYetConnected(async () => "fresh-token");
     const dash = await bootDashboard({ gmail, tolerateScanError: true });
     (dash.el("welcome-start") as HTMLButtonElement).click();
-    expect(document.querySelector(".wel-step")!.textContent).toBe("Step 1 of 5");
+    expect(document.querySelector(".step-item.is-now .step-name")!.textContent).toBe("You");
     (document.querySelector(".wel-skip") as HTMLButtonElement).click();
     await vi.waitFor(() => expect(document.querySelector(".wel-stage #connect-gmail-btn")).not.toBeNull());
-    expect(document.querySelector(".wel-step")!.textContent).toBe("Step 2 of 5");
+    expect(document.querySelector(".step-item.is-now .step-name")!.textContent).toBe("Gmail");
     await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toBe("Nice to meet you!"), { timeout: 3000 });
     expect(dash.storedSettings().userName).toBe("");
   });

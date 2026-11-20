@@ -64,9 +64,9 @@ describe("first-run setup", () => {
     await toFound(dash);
     expect(title()).toBe("Pick your labels");
     // One ticked tile per label the companies landed in.
-    const tile = (spot: string) => document.querySelector<HTMLButtonElement>(`.lbl-tile[data-spot="${spot}"]`)!;
+    const tile = (spot: string) => document.querySelector<HTMLButtonElement>(`.lbl-row[data-spot="${spot}"]`)!;
     expect(tile("shipping").getAttribute("aria-checked")).toBe("true");
-    const tiles = Array.from(document.querySelectorAll<HTMLButtonElement>(".lbl-tile"));
+    const tiles = Array.from(document.querySelectorAll<HTMLButtonElement>(".lbl-row"));
     const other = tiles.find((t) => t.dataset.spot !== "shipping")!;
     other.click();
     expect(other.getAttribute("aria-checked")).toBe("false");

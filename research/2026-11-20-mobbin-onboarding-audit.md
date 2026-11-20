@@ -111,3 +111,13 @@ scan finds (codes and sign-ins, orders and receipts, newsletters and deals,
 people and the rest), and the mail itself streams into the inbox window on
 the left with its label, Greptile style. The duplicate mail list under the
 bar was removed.
+
+## Label picker research (2026-11-20, third pass)
+
+Squares read as a gallery, not a choice. Apps that choose categories use a list:
+[Telegram](https://mobbin.com/screens/797257ac-da7a-4425-bf22-27bdf871b6d9) recommended
+folders (name, one line on what goes there, Add), [Notion](https://mobbin.com/screens/99396b7b-c21d-4cea-8956-4942c2b9aae6)
+use-case rows (icon, name, one line), [Outlook](https://mobbin.com/screens/a9dcc414-f318-48e8-b5be-10e87500238c)
+filter rows with a check. Tiles only win when each item has a picture (Hulu, Paramount+).
+Built: one grouped list, each row an emoji, the label, "Amazon, UPS · 12 emails",
+the senders' logos and a switch, with "8 of 8 labels on" over it.

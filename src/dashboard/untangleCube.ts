@@ -1,9 +1,8 @@
 // The "untangle" cube shown while Cluster reads mail
-// (research/2026-11-20-web-onboarding-plan.md, step 3). A real 3x3x3 cube
-// drawn in black-and-white ASCII (2026-11-20 review): each label is its own
-// character instead of a colour. It starts scrambled, slowly spins the whole
-// time, and turns one layer at a time as reading goes on until each face is
-// one character, one label. The turns are the scramble played
+// (research/2026-11-20-web-onboarding-plan.md, step 3). A real 3x3x3 cube in
+// black, white and greys (2026-11-20 review): each label is one shade. It
+// starts scrambled, slowly spins the whole time, and turns one layer at a
+// time as reading goes on until each face is one shade, one label. The turns are the scramble played
 // backwards, so the cube really ends solved, and progress decides how many
 // turns have happened, so it never runs ahead of the real count.
 
@@ -94,13 +93,8 @@ export function isSolved(cube: Cubie[]): boolean {
 }
 
 // ── Drawing ──────────────────────────────────────────────────────────────
-/** One character per label (sticker colour); the plastic between stickers is ':'. */
-const INK = ["@", "#", "%", "*", "+", "="];
-const COLS = 58;
-const ROWS = 22;
-/** A monospace cell is about 0.6 as wide as it is tall (line-height 1 in dashboard.css). */
-const ASPECT = 0.6;
-const SCALE = 6.2;
+const SVG = "http://www.w3.org/2000/svg";
+const SCALE = 38;
 const PITCH = -0.52;
 const SPIN_PER_MS = 0.00042;
 const TURN_MS = 620;
@@ -122,63 +116,42 @@ function view(v: V, yaw: number): V {
   return rot([a[0], a[2], a[1]], 0, PITCH);
 }
 
-type Quad = { depth: number; pts: [number, number][]; ink: string };
-
-/** Fills a convex quad into the grid (cells whose centre is inside it). */
-function fill(grid: string[], q: Quad) {
-  const xs = q.pts.map((p) => p[0]);
-  const ys = q.pts.map((p) => p[1]);
-  const x0 = Math.max(0, Math.floor(Math.min(...xs)));
-  const x1 = Math.min(COLS - 1, Math.ceil(Math.max(...xs)));
-  const y0 = Math.max(0, Math.floor(Math.min(...ys)));
-  const y1 = Math.min(ROWS - 1, Math.ceil(Math.max(...ys)));
-  for (let y = y0; y <= y1; y++)
-    for (let x = x0; x <= x1; x++) {
-      const cx = x + 0.5;
-      const cy = y + 0.5;
-      let pos = 0;
-      let neg = 0;
-      for (let i = 0; i < 4; i++) {
-        const [ax, ay] = q.pts[i];
-        const [bx, by] = q.pts[(i + 1) % 4];
-        const c = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
-        if (c > 0) pos++;
-        else if (c < 0) neg++;
-      }
-      if (!pos || !neg) grid[y * COLS + x] = q.ink;
-    }
+export interface Quad {
+  depth: number;
+  d: string;
+  /** "unt-face" for the plastic, "unt-sticker c0".."c5" for a sticker. */
+  cls: string;
+  /** How much the face turns toward the light, 0..1: faces away go darker. */
+  light: number;
 }
 
-/** The cube as text: every visible face of every cubie, back to front. */
-export function renderAscii(cube: Cubie[], m: Move | null, angle: number, yaw: number): string {
+/** Every visible face of every cubie, back to front, as SVG paths. */
+export function cubeQuads(cube: Cubie[], m: Move | null, angle: number, yaw: number): Quad[] {
   const quads: Quad[] = [];
   for (const c of cube) {
     const moving = m !== null && c.p[m.axis] === m.layer;
     const turn = (v: V): V => (moving && m ? rot(v, m.axis, angle) : v);
     for (const n0 of ALL_NORMALS) {
       const n = view(turn(n0), yaw);
-      if (n[2] > -0.01) continue; // faces you, or edge-on
+      if (n[2] > -0.01) continue; // faces away, or edge-on
       const [u, v] = tangents(n0);
       const sticker = c.stickers.find((s) => s.n[0] === n0[0] && s.n[1] === n0[1] && s.n[2] === n0[2]);
       const corners = (k: number) =>
         ([[1, 1], [1, -1], [-1, -1], [-1, 1]] as const).map(([a, b]) => view(turn(add(add(add(c.p, n0, 0.5), u, a * k), v, b * k)), yaw));
-      const toGrid = (pts: V[]) => pts.map(([x, y]) => [COLS / 2 + x * SCALE, ROWS / 2 - y * SCALE * ASPECT] as [number, number]);
+      const path = (pts: V[]) => `M${pts.map(([x, y]) => `${(x * SCALE).toFixed(1)},${(-y * SCALE).toFixed(1)}`).join("L")}Z`;
       const face = corners(0.98);
       const depth = -face.reduce((d, p) => d + p[2], 0) / 4;
-      quads.push({ depth, pts: toGrid(face), ink: ":" });
-      if (sticker) quads.push({ depth: depth + 0.001, pts: toGrid(corners(0.74)), ink: INK[sticker.color] });
+      // Light from the top left, toward the viewer.
+      const light = Math.max(0, Math.min(1, 0.55 - n[2] * 0.25 + n[1] * 0.35 - n[0] * 0.15));
+      quads.push({ depth, d: path(face), cls: "unt-face", light });
+      if (sticker) quads.push({ depth: depth + 0.001, d: path(corners(0.8)), cls: `unt-sticker c${sticker.color}`, light });
     }
   }
-  quads.sort((a, b) => a.depth - b.depth);
-  const grid: string[] = new Array<string>(COLS * ROWS).fill(" ");
-  for (const q of quads) fill(grid, q);
-  const lines: string[] = [];
-  for (let y = 0; y < ROWS; y++) lines.push(grid.slice(y * COLS, (y + 1) * COLS).join("").trimEnd());
-  return lines.join("\n");
+  return quads.sort((a, b) => a.depth - b.depth);
 }
 
 export interface UntangleCube {
-  el: HTMLElement;
+  el: SVGSVGElement;
   /** Share read so far, 0 to 1. Turns catch up to it one at a time. */
   progress(share: number): void;
   stop(): void;
@@ -186,9 +159,16 @@ export interface UntangleCube {
 
 /** Builds the cube. `turns` is how many turns the scramble has. */
 export function untangleCube(turns = 18): UntangleCube {
-  const pre = document.createElement("pre");
-  pre.className = "unt-cube";
-  pre.setAttribute("aria-hidden", "true");
+  const svg = document.createElementNS(SVG, "svg");
+  svg.setAttribute("viewBox", "-110 -110 220 220");
+  svg.setAttribute("class", "unt-cube");
+  svg.setAttribute("aria-hidden", "true");
+  const shadow = document.createElementNS(SVG, "ellipse");
+  shadow.setAttribute("class", "unt-shadow");
+  for (const [k, v] of Object.entries({ cx: 0, cy: 100, rx: 70, ry: 8 })) shadow.setAttribute(k, String(v));
+  const body = document.createElementNS(SVG, "g");
+  body.setAttribute("class", "unt-body");
+  svg.append(shadow, body);
 
   const cube = solvedCube();
   const plan = solution(scramble(turns));
@@ -204,37 +184,49 @@ export function untangleCube(turns = 18): UntangleCube {
   const yaw0 = performance.now();
   const yawAt = (now: number) => (reduced ? 0.6 : 0.6 + (now - yaw0) * SPIN_PER_MS);
 
+  function draw(m: Move | null, angle: number, yaw: number) {
+    body.replaceChildren(
+      ...cubeQuads(cube, m, angle, yaw).map((q) => {
+        const p = document.createElementNS(SVG, "path");
+        p.setAttribute("d", q.d);
+        p.setAttribute("class", q.cls);
+        p.style.setProperty("--l", q.light.toFixed(2));
+        return p;
+      }),
+    );
+  }
+
   // Always running while on screen: the cube spins between turns, so it never looks stuck.
   function tick(now: number) {
     frame = 0;
     if (stopped) return;
     // Off the page (the screen moved on): stop drawing.
-    if (pre.isConnected) shown = true;
+    if (svg.isConnected) shown = true;
     else if (shown) return;
     if (!turning && done < target) turning = { m: plan[done], t0: now };
     if (turning) {
       const t = Math.min(1, (now - turning.t0) / TURN_MS);
-      pre.textContent = renderAscii(cube, turning.m, ((turning.m.dir * Math.PI) / 2) * easeBack(t), yawAt(now));
+      draw(turning.m, ((turning.m.dir * Math.PI) / 2) * easeBack(t), yawAt(now));
       if (t >= 1) {
         applyMove(cube, turning.m);
         done++;
         turning = null;
-        if (done === plan.length) pre.classList.add("is-solved");
+        if (done === plan.length) svg.classList.add("is-solved");
       }
-    } else pre.textContent = renderAscii(cube, null, 0, yawAt(now));
+    } else draw(null, 0, yawAt(now));
     frame = requestAnimationFrame(tick);
   }
 
-  pre.textContent = renderAscii(cube, null, 0, yawAt(yaw0));
+  draw(null, 0, yawAt(yaw0));
   if (!reduced) frame = requestAnimationFrame(tick);
   return {
-    el: pre,
+    el: svg,
     progress(share) {
       target = Math.max(target, Math.min(plan.length, Math.floor(Math.max(0, Math.min(1, share)) * plan.length)));
       if (reduced) {
         while (done < target) applyMove(cube, plan[done++]);
-        pre.textContent = renderAscii(cube, null, 0, yawAt(0));
-        pre.classList.toggle("is-solved", done === plan.length);
+        draw(null, 0, yawAt(0));
+        svg.classList.toggle("is-solved", done === plan.length);
         return;
       }
       if (!frame && !stopped) frame = requestAnimationFrame(tick);

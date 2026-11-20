@@ -30,7 +30,7 @@ import { MAIL_INDEX_CAP, MAIL_INDEX_MAX } from "../lib/mailIndex";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { categoryLabelName } from "../lib/categoryFilters";
 import { showLabel } from "../lib/clusterLabels";
-import { attend, pageHeader, progressBar, setWorld, stepLine, worldPanel } from "./welcome";
+import { attend, pageHeader, progressBar, setWorld, worldPanel } from "./welcome";
 import { inboxPreview } from "./inboxPreview";
 import { untangleCube, type UntangleCube } from "./untangleCube";
 import { stopTyping, typeLine } from "./kaiBubble";
@@ -432,7 +432,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     if (found.length === 0) {
       body.append(el("h1", "onb-title", "Ready to sort"), el("p", "wel-lead", "New mail gets its label as it arrives."));
     } else {
-      body.append(el("h1", "onb-title", "Pick your labels"), el("p", "wel-lead", "You can change them later in Labels."), renderTiles());
+      body.append(el("h1", "onb-title", "Pick your labels"), el("p", "wel-lead", "Turn off any you don't want. You can change them later."), renderLabelList());
     }
     const readChoice = renderReadChoice();
     if (readChoice) body.append(readChoice);
@@ -442,57 +442,61 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     body.append(actions);
   }
 
-  /** The labels as big tiles with a tick, like a console's app picker. Tap or
-   * Space toggles one; the arrow keys move between tiles. */
-  function renderTiles(): HTMLElement {
+  /** The labels as one list, like Telegram's recommended folders and Notion's
+   * use-case rows (Mobbin, 2026-11-20): an emoji, the label, whose mail goes
+   * there and how much, and a switch. Tap or Space flips one; the up and down
+   * arrows move between rows. A count over the list says how many are on. */
+  function renderLabelList(): HTMLElement {
     const spots = [...new Set(found.map(spotOf))]
       .filter((s): s is SortBucket => s !== "keep")
       .sort((a, b) => (perLabel.get(b) ?? 0) - (perLabel.get(a) ?? 0));
     const keptToPreview = () => preview.setLabels(spots.filter((s) => !off.has(s)).map(spotParts));
     keptToPreview();
-    const grid = el("div", "lbl-tiles");
-    // Rows always full: 8 tiles in 2 columns, 6 or 9 in 3.
-    grid.style.setProperty("--cols", String(spots.length % 3 === 0 ? 3 : 2));
-    grid.setAttribute("role", "group");
-    grid.setAttribute("aria-label", "Labels");
+    const wrap = el("div", "lbl-pick");
+    const count = el("p", "lbl-count");
+    count.setAttribute("aria-live", "polite");
+    const showCount = () => (count.textContent = `${spots.length - spots.filter((s) => off.has(s)).length} of ${spots.length} labels on`);
+    showCount();
+    const list = el("ul", "lbl-list");
+    list.setAttribute("aria-label", "Labels");
     for (const spot of spots) {
       const { emoji, name: label } = spotParts(spot);
       const who = found.filter((p) => spotOf(p) === spot);
-      const tile = el("button", "lbl-tile");
-      tile.type = "button";
-      tile.dataset.spot = spot;
-      tile.setAttribute("role", "checkbox");
-      const sync = () => tile.setAttribute("aria-checked", String(!off.has(spot)));
+      const row = el("button", "lbl-row");
+      row.type = "button";
+      row.dataset.spot = spot;
+      row.setAttribute("role", "switch");
+      const sync = () => row.setAttribute("aria-checked", String(!off.has(spot)));
       sync();
-      // Each company with its logo, so you see whose mail goes here.
-      const companies = el("span", "lbl-tile-who");
-      for (const p of who.slice(0, 2)) {
-        const row = el("span", "lbl-tile-co");
-        row.append(senderTile(p.address, p.name, "sz-26"), el("span", "", p.name));
-        companies.append(row);
-      }
-      const head = el("span", "lbl-tile-head");
-      head.append(el("span", "lbl-tile-emoji", emoji), el("b", "lbl-tile-name", label), el("span", "lbl-tile-check"));
-      tile.append(head, companies);
-      tile.onclick = () => {
+      const words = el("span", "lbl-row-words");
+      const n = perLabel.get(spot) ?? 0;
+      const names = who.slice(0, 3).map((p) => p.name).join(", ");
+      words.append(el("b", "", label), el("small", "", n ? `${names} · ${n} ${n === 1 ? "email" : "emails"}` : names));
+      const logos = el("span", "lbl-row-logos");
+      for (const p of who.slice(0, 3)) logos.append(senderTile(p.address, p.name, "sz-26"));
+      row.append(el("span", "lbl-row-emoji", emoji), words, logos, el("span", "lbl-switch"));
+      row.onclick = () => {
         if (off.has(spot)) off.delete(spot);
         else off.add(spot);
         sync();
+        showCount();
         keptToPreview();
-        kai.react(tile, off.has(spot) ? "shrug" : "nodSmall");
+        kai.react(row, off.has(spot) ? "shrug" : "nodSmall");
       };
-      grid.append(tile);
+      const li = el("li", "");
+      li.append(row);
+      list.append(li);
     }
-    grid.onkeydown = (e) => {
-      const tiles = Array.from(grid.querySelectorAll<HTMLElement>(".lbl-tile"));
-      const i = tiles.indexOf(document.activeElement as HTMLElement);
-      const cols = getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length || 1;
-      const d = ({ ArrowRight: 1, ArrowLeft: -1, ArrowDown: cols, ArrowUp: -cols } as Record<string, number>)[e.key];
+    list.onkeydown = (e) => {
+      const rows = Array.from(list.querySelectorAll<HTMLElement>(".lbl-row"));
+      const i = rows.indexOf(document.activeElement as HTMLElement);
+      const d = ({ ArrowDown: 1, ArrowUp: -1 } as Record<string, number>)[e.key];
       if (i < 0 || !d) return;
       e.preventDefault();
-      tiles[Math.max(0, Math.min(tiles.length - 1, i + d))].focus();
+      rows[Math.max(0, Math.min(rows.length - 1, i + d))].focus();
     };
-    return grid;
+    wrap.append(count, list);
+    return wrap;
   }
 
   /** "You have 48,210 emails": read the newest 20,000, or all of them. */
@@ -575,7 +579,6 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   function render(newStep = false) {
     const step = STEPS[at];
     const body = el("div", newStep ? "onb-body onb-in" : "onb-body");
-    body.append(stepLine(BEFORE + at + 1));
     ({ label: renderLabel, scan: renderScan, found: renderFound })[step](body);
     pane.className = `onb-pane is-${step}`;
     preview.setName(name());
