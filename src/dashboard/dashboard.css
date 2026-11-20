@@ -3923,21 +3923,28 @@ body { background: var(--canvas); }
 .wel-bar span { display: block; height: 100%; border-radius: inherit; background: var(--label); transition: width var(--t-slow) var(--spring-smooth); }
 .wel-stage { width: min(600px, 100%); flex: 1; display: flex; flex-direction: column; gap: 18px; margin-top: 10vh; animation: onb-rise var(--t) var(--ease-out) both; }
 .wel.is-hello .wel-stage { align-items: center; justify-content: center; margin-top: 0; text-align: center; }
-.wel.is-hello .wel-kai { width: 180px; height: 180px; margin-bottom: 40px; }
+.wel.is-hello .wel-kai { width: 112px; height: 112px; margin: 6px 0 48px; }
 /* Step 1: Kai hops in from the left, three small bounces, and lands in the middle. */
 .wel-kai.wel-enter { animation: wel-hop-in 1.4s var(--ease-out) both; }
 @keyframes wel-hop-in {
   0% { transform: translateX(-46vw); opacity: 0; }
   12% { opacity: 1; }
-  20% { transform: translate(-34vw, -18px); }
+  20% { transform: translate(-34vw, -10px); }
   32% { transform: translateX(-24vw); }
-  48% { transform: translate(-14vw, -16px); }
+  48% { transform: translate(-14vw, -9px); }
   62% { transform: translateX(-6vw); }
-  78% { transform: translate(-1vw, -10px); }
+  78% { transform: translate(-1vw, -5px); }
   100% { transform: none; }
 }
 @media (prefers-reduced-motion: reduce) { .wel-kai.wel-enter { animation: none; } }
-.wel.is-hello .wel-bubble { border-radius: 16px; font-size: 20px; }
+/* Step 1, small and quiet: a speech bubble with a tail down to Kai, a pill button. */
+.wel.is-hello .wel-stage { gap: 12px; }
+.wel.is-hello .wel-bubble { position: relative; padding: 9px 14px; border-radius: 14px; font: 500 15px/1.35 var(--font); }
+.wel.is-hello .wel-bubble:not(:empty)::after { content: ""; position: absolute; left: 50%; bottom: -6px; width: 12px; height: 12px; margin-left: -6px; background: rgba(255, 255, 255, 0.92); clip-path: polygon(100% 0, 100% 100%, 0 100%); transform: rotate(45deg); border-radius: 0 0 3px 0; }
+.wel.is-hello .wel-bubble:empty { visibility: hidden; }
+.wel.is-hello .wel-go { width: auto; min-width: 160px; height: 40px; padding: 0 22px; margin-top: 0; border-radius: 20px; font: 600 14px/1 var(--font); box-shadow: none; }
+.wel.is-hello .wel-go:active:not(:disabled) { transform: scale(0.97); }
+.wel.is-hello .wel-go:focus-visible { outline: 2px solid var(--label-3); outline-offset: 3px; }
 .wel-kai { width: 104px; height: 104px; }
 .wel-ask { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
 .wel-bubble { margin: 0; max-width: 440px; padding: 14px 18px; border-radius: 16px 16px 16px 4px; font: 600 19px/1.35 var(--font); }
@@ -3947,7 +3954,6 @@ body { background: var(--canvas); }
 .wel-go { width: 100%; height: 56px; border-radius: 14px; font: 600 17px/1 var(--font); box-shadow: 0 4px 0 var(--label-4); }
 .wel-go:active:not(:disabled) { transform: translateY(4px); box-shadow: none; }
 .wel-go:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
-.wel.is-hello .wel-go { width: min(340px, 100%); margin-top: 48px; }
 .wel .connect-trust { margin: 0; }
 
 /* Setup: the welcome's layout. Bar, Kai asking, the screen, one big button. Room to breathe. */
