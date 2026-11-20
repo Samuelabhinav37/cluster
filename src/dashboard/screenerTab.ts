@@ -8,7 +8,7 @@ import { idsSafeToMoveOut } from "../lib/protectionPolicy";
 import { log } from "../lib/log";
 import { updateSettings } from "../lib/settingsStore";
 import type { ProviderId } from "../lib/providers/emailProvider";
-import { knownSenderSet, pendingScreenerSenders, refreshSentCorrespondents } from "../lib/screener";
+import { knownSenderSet, pendingScreenerSenders, refreshSentCorrespondents, senderCases } from "../lib/screener";
 import type { SenderSummary } from "../lib/senderModel";
 import { senderTile } from "./senderTile";
 import { ctx, providerById, rescan } from "./state";
@@ -198,7 +198,7 @@ export function renderScreenerTab(senders: SenderSummary[]) {
       const body = table.createTBody();
       const familiar = queue.filter(isFamiliar);
       if (familiar.length > 1) body.appendChild(buildFamiliarBatch(familiar));
-      for (const s of queue) body.appendChild(buildScreenerRow(s));
+      for (const members of senderCases(queue, ctx.profiles)) body.appendChild(buildScreenerRow(members));
       screenerQueueEl.appendChild(table);
     }
   }
@@ -243,10 +243,11 @@ export function renderScreenerTab(senders: SenderSummary[]) {
   }
 }
 
-/** One waiting sender as a table row: who (name, address under it), how many
- * emails, when they first wrote, a label to file them under, Block and Let in.
- * Names and addresses come from the sender, so they go in as text. */
-function buildScreenerRow(s: SenderSummary): HTMLTableRowElement {
+/** One waiting case as a table row: who (name, address under it, or how many
+ * addresses), how many emails, when they first wrote, a label to file them
+ * under, Block and Let in. Names and addresses come from the sender, so they go in as text. */
+function buildScreenerRow(members: SenderSummary[]): HTMLTableRowElement {
+  const s = members[0];
   const row = document.createElement("tr");
   row.className = "scr-row";
   const cell = (cls: string, ...kids: Array<Node | string>) => {
@@ -264,11 +265,12 @@ function buildScreenerRow(s: SenderSummary): HTMLTableRowElement {
   name.textContent = s.displayName || s.address;
   const address = document.createElement("span");
   address.className = "scr-addr";
-  address.textContent = s.address;
-  words.append(name, ...(s.displayName ? [address] : []));
+  address.textContent = members.length > 1 ? `${members.length} addresses` : s.address;
+  if (members.length > 1) address.title = members.map((m) => m.address).join(", ");
+  words.append(name, ...(s.displayName || members.length > 1 ? [address] : []));
   who.append(senderTile(s.address, s.displayName, "sz-30"), words);
-  const n = s.messages.length || s.messageIds.length;
-  const first = firstWrote(s).replace(/^First wrote /, "");
+  const n = members.reduce((t, m) => t + (m.messages.length || m.messageIds.length), 0);
+  const first = firstWrote({ ...s, messages: members.flatMap((m) => m.messages) }).replace(/^First wrote /, "");
   cell("", who);
   cell("num", n.toLocaleString());
   cell("ct-dim", first.charAt(0).toUpperCase() + first.slice(1));
@@ -284,9 +286,11 @@ function buildScreenerRow(s: SenderSummary): HTMLTableRowElement {
   block.onclick = async () => {
     block.disabled = true;
     try {
-      await releaseHeldSender(s.address, idsSafeToMoveOut(s), s.provider, "block");
-      if (stopUrl && (await ensureOriginsPermission([stopUrl])) && (await fireOneClickUnsubscribe(stopUrl)))
-        await recordUnsubscribeRequests([s]);
+      for (const [i, m] of members.entries()) {
+        await releaseHeldSender(m.address, idsSafeToMoveOut(m), m.provider, "block", i === members.length - 1);
+        const url = ctx.profiles.get(m.key)?.companyKey ? m.unsubscribe.postUrl : undefined;
+        if (url && (await ensureOriginsPermission([url])) && (await fireOneClickUnsubscribe(url))) await recordUnsubscribeRequests([m]);
+      }
     } catch (err) {
       block.disabled = false;
       log.error(err);
@@ -298,13 +302,13 @@ function buildScreenerRow(s: SenderSummary): HTMLTableRowElement {
   allow.onclick = async () => {
     allow.disabled = true;
     try {
-      await releaseHeldSender(s.address, s.messageIds, s.provider, "allow");
+      for (const [i, m] of members.entries()) await releaseHeldSender(m.address, m.messageIds, m.provider, "allow", i === members.length - 1);
     } catch (err) {
       allow.disabled = false;
       log.error(err);
     }
   };
-  cell("", ...(s.provider === "gmail" ? [labelPicker(s)] : []));
+  cell("", ...(s.provider === "gmail" ? [labelPicker(members.filter((m) => m.provider === "gmail"))] : []));
   const acts = document.createElement("span");
   acts.className = "scr-acts";
   acts.append(block, allow);
@@ -315,7 +319,8 @@ function buildScreenerRow(s: SenderSummary): HTMLTableRowElement {
 /** "Label": file this sender's mail under a label, now and from now on. Their
  * mail leaves the Screener into that label (not the inbox: it's already been
  * waiting), and the choice is saved as a correction for the sender. */
-function labelPicker(s: SenderSummary): HTMLSelectElement {
+function labelPicker(members: SenderSummary[]): HTMLSelectElement {
+  const s = members[0];
   const select = document.createElement("select");
   select.className = "kind-pick";
   select.setAttribute("aria-label", `Label for ${s.address}`);
@@ -328,16 +333,17 @@ function labelPicker(s: SenderSummary): HTMLSelectElement {
     try {
       const provider = providerById.get(s.provider)!;
       const token = await provider.getAuthToken(false);
-      // Drops the per-sender hold filter if the Screener made one; moves nothing.
-      await provider.allowSenderThrough!(token, s.address, []);
       const labelId = await getOrCreateLabel(token, categoryLabelName(bucket, ctx.settings.labelChoices));
-      await batchModify(token, s.messageIds, [labelId], await findLabelIds(token, clusterLabelName("screener")));
-      const address = s.address.toLowerCase();
+      const screenerIds = await findLabelIds(token, clusterLabelName("screener"));
+      // Drops each per-sender hold filter if the Screener made one; moves nothing.
+      for (const m of members) await provider.allowSenderThrough!(token, m.address, []);
+      await batchModify(token, members.flatMap((m) => m.messageIds), [labelId], screenerIds);
+      const addresses = new Set(members.map((m) => m.address.toLowerCase()));
       ctx.settings = await updateSettings({
-        sortOverrides: { ...ctx.settings.sortOverrides, [correctionKey(address)]: bucket },
-        screenedSenders: ctx.settings.screenedSenders.filter((a) => a.toLowerCase() !== address),
+        sortOverrides: { ...ctx.settings.sortOverrides, ...Object.fromEntries([...addresses].map((a) => [correctionKey(a), bucket])) },
+        screenedSenders: ctx.settings.screenedSenders.filter((a) => !addresses.has(a.toLowerCase())),
       });
-      await logAction("screener", `Filed ${s.address} under ${categoryLabelName(bucket, ctx.settings.labelChoices)}`);
+      await logAction("screener", `Filed ${members.length > 1 ? `${s.displayName || s.address} (${members.length} addresses)` : s.address} under ${categoryLabelName(bucket, ctx.settings.labelChoices)}`);
       await rescan();
     } catch (err) {
       select.disabled = false;

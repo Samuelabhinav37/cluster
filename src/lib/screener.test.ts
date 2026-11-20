@@ -95,3 +95,17 @@ describe("pendingScreenerSenders", () => {
     ]);
   });
 });
+
+describe("senderCases (research idea 1)", () => {
+  it("puts one company's addresses in one case, biggest first, and leaves people alone", async () => {
+    const { senderCases } = await import("./screener");
+    const s = (key: string, n: number) => ({ key, address: key, messages: Array.from({ length: n }, (_, i) => ({ id: `${key}${i}` })), messageIds: [] }) as unknown as SenderSummary;
+    const queue = [s("orders@amazon.com", 2), s("ship@amazon.com", 5), s("ana@gmail.com", 1)];
+    const profiles = new Map([
+      ["orders@amazon.com", { companyKey: "amazon.com" }],
+      ["ship@amazon.com", { companyKey: "amazon.com" }],
+      ["ana@gmail.com", { companyKey: null }],
+    ]);
+    expect(senderCases(queue, profiles).map((c) => c.map((m) => m.key))).toEqual([["ship@amazon.com", "orders@amazon.com"], ["ana@gmail.com"]]);
+  });
+});

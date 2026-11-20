@@ -85,3 +85,19 @@ export function pendingScreenerSenders(
       !excluded.has(s.address.toLowerCase()),
   );
 }
+
+/** Research idea 1, sender cases: one company's addresses (Amazon's orders@,
+ * shipment-tracking@, store-news@) are one row and one decision. People and
+ * unsigned senders stay one address per row. Biggest sender first. */
+export function senderCases(
+  queue: readonly SenderSummary[],
+  profiles: ReadonlyMap<string, { companyKey: string | null }>,
+): SenderSummary[][] {
+  const cases = new Map<string, SenderSummary[]>();
+  for (const s of queue) {
+    const key = profiles.get(s.key)?.companyKey ?? s.key;
+    cases.set(key, [...(cases.get(key) ?? []), s]);
+  }
+  const size = (c: SenderSummary[]) => c.reduce((n, m) => n + (m.messages.length || m.messageIds.length), 0);
+  return [...cases.values()].map((c) => [...c].sort((a, b) => size([b]) - size([a])));
+}
