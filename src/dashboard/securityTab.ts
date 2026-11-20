@@ -369,7 +369,10 @@ export function rankFlagged(senders: SenderSummary[]) {
     .filter(({ verdict }) => verdict.signals.length > 0)
     .sort((a, b) => b.verdict.score - a.verdict.score);
   // Only warned or held senders get a row; a lone weak sign isn't worth one.
-  const high = flagged.filter(({ verdict }) => verdict.tier !== "none");
+  // Not now (research idea 9) hides a sender's warning for a week; the hold itself still runs.
+  const snoozed = ctx.settings.warnSnoozed ?? {};
+  const now = Date.now();
+  const high = flagged.filter(({ sender, verdict }) => verdict.tier !== "none" && !((snoozed[sender.key] ?? 0) > now));
   return { flagged, high };
 }
 
@@ -511,7 +514,17 @@ function buildThreatCard(sender: SenderSummary, verdict: Verdict, allSenders: Se
     await logAction("labelSuspicious", `Marked ${sender.address} as fine`);
     li.hidden = true;
   };
-  actions.append(genuine, report.button);
+  const later = document.createElement("button");
+  later.className = "btn btn-ghost";
+  later.textContent = "Not now";
+  later.title = "Hidden for a week. Held mail stays held";
+  later.onclick = async () => {
+    later.disabled = true;
+    const until = Date.now() + 7 * 86_400_000;
+    ctx.settings = await mutateSettings((current) => ({ ...current, warnSnoozed: { ...current.warnSnoozed, [sender.key]: until } }));
+    li.hidden = true;
+  };
+  actions.append(genuine, later, report.button);
   const check = brandCheckButton(sender, () => renderSecuritySection(allSenders, false));
   if (check) actions.append(check);
 

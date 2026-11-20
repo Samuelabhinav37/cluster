@@ -88,6 +88,8 @@ export interface ClusterSettings {
   waiting: WaitingItem[];
   /** Senders you said "Not now" to, or let a waiting item expire on: never asked again. */
   waitingDeclined: string[];
+  /** Research idea 9: sender key → time a warning stays hidden until (Not now). Holds still run. */
+  warnSnoozed: Record<string, number>;
   /** "This is a person" (true) / "Not a person" (false), by sender key. */
   personOverrides: Record<string, boolean>;
   /** Screener master switch (Phase 6). */
@@ -306,6 +308,7 @@ const DEFAULT_SETTINGS: ClusterSettings = {
   autoMute: "do",
   waiting: [],
   waitingDeclined: [],
+  warnSnoozed: {},
   personOverrides: {},
   screenerEnabled: false,
   screenerHoldPeople: true,
