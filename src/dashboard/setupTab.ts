@@ -328,41 +328,9 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   // The same cube the dashboard's first read carries on with (sharedCube).
   let cube: UntangleCube | null = null;
 
-  /** What the scan is finding, counted live (after AirOps and Elicit, which
-   * show each part of the work with its own number). */
-  const TALLIES: Array<{ name: string; spots: BoardSpot[] }> = [
-    { name: "Codes and sign-ins", spots: ["otp", "accounts"] },
-    { name: "Orders and receipts", spots: ["shipping", "receipt", "shopping"] },
-    { name: "Newsletters and deals", spots: ["newsletter", "promotions"] },
-    { name: "People and the rest", spots: ["keep", "social", "travel", "finance", "productivity", "education", "jobs"] },
-  ];
-  const tallyCounts = (n: number) => {
-    const counts = TALLIES.map(() => 0);
-    for (const m of readMail.slice(0, n)) {
-      const spot: BoardSpot = practiceGuess(m) ?? "keep";
-      const i = TALLIES.findIndex((t) => t.spots.includes(spot));
-      if (i >= 0) counts[i]++;
-    }
-    return counts;
-  };
-
-  /** The bar, "38 of 100", the tallies and the cube. */
+  /** The bar, "38 of 100" and the cube. */
   function paintScanCount(n: number) {
     cube?.progress((n / Math.max(1, scanTotal)) * SETUP_SHARE);
-    tallyCounts(n).forEach((c, i) => {
-      const row = pane.querySelector<HTMLElement>(`[data-tally="${i}"]`);
-      const num = row?.querySelector("b");
-      if (!row || !num || num.textContent === String(c)) return;
-      num.textContent = String(c);
-      // A tick of the number each time it grows; Kai glances at the first one that does.
-      row.classList.remove("bump");
-      void row.offsetWidth;
-      row.classList.add("bump");
-      if (c > 0 && !row.dataset.seen) {
-        row.dataset.seen = "1";
-        kai.look(row);
-      }
-    });
     const count = pane.querySelector("#scan-count");
     if (count) count.textContent = `${n.toLocaleString()} of ${scanTotal.toLocaleString()}`;
     pane.querySelector<HTMLElement>("#scan-fill")?.style.setProperty("width", `${Math.min(100, (n / Math.max(1, scanTotal)) * 100)}%`);
@@ -380,16 +348,12 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     count.id = "scan-count";
     count.setAttribute("role", "status");
     progress.append(track, count);
-    const tallies = el("ul", "ss-tallies");
-    TALLIES.forEach((t, i) => {
-      const row = el("li", "ss-tally");
-      row.dataset.tally = String(i);
-      row.append(el("span", "", t.name), el("b", "", "0"));
-      tallies.append(row);
-    });
+    // The mail being read, each one getting its label like the label step's examples.
+    const feed = el("ul", "lbl-demo ss-feed");
+    feed.id = "scan-feed";
     cube = sharedCube();
     const work = el("div", "ss-work");
-    work.append(cube.el, tallies);
+    work.append(cube.el, feed);
     body.append(work, progress);
     queueMicrotask(() => paintScanCount(scanned ? 0 : readSoFar));
   }
@@ -408,14 +372,31 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       streamed.add(key);
       // The mail streams into the inbox window on the left, each with its label.
       const spot: BoardSpot = practiceGuess(m) ?? "keep";
-      preview.addMail(m.fromDisplayName.trim() || m.fromAddress, m.subject, spot === "keep" ? null : spotParts(spot), m.fromAddress);
+      const sender = m.fromDisplayName.trim() || m.fromAddress;
+      preview.addMail(sender, m.subject, spot === "keep" ? null : spotParts(spot), m.fromAddress);
+      feedMail(sender, m.subject, spot, m.fromAddress);
       if (spot !== "keep" && !labelledOne) {
         labelledOne = true;
         later(300, () => kai.say("See? Each one gets its label.", "excited"));
       }
       break;
     }
-    streamTimer = window.setTimeout(streamNext, 450);
+    streamTimer = window.setTimeout(streamNext, 700);
+  }
+
+  /** One read email at the top of the scan list, its label landing a beat later. Three on screen. */
+  function feedMail(sender: string, subject: string, spot: BoardSpot, address: string) {
+    const feed = pane.querySelector("#scan-feed");
+    if (!feed) return;
+    const mail = el("li", "lbl-mail ss-in");
+    const words = el("span", "onb-words");
+    words.append(el("b", "", sender), el("small", "", subject || "(no subject)"));
+    const { emoji, name } = spot === "keep" ? { emoji: "📥", name: "Inbox" } : spotParts(spot);
+    const tag = el("span", "lbl-tag", `${emoji} ${name}`);
+    mail.append(senderTile(address, sender, "sz-34"), words, tag);
+    feed.prepend(mail);
+    while (feed.children.length > 3) feed.lastElementChild?.remove();
+    later(reducedMotion() ? 0 : 350, () => tag.classList.add("in"));
   }
 
   /** A message read mid-scan: the count moves; the stream picks it up. */
@@ -658,17 +639,17 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     const t0 = performance.now();
     const tick = (now: number) => {
       // rAF time can sit a little behind performance.now(): never count below 0.
-      const k = Math.max(0, Math.min(1, (now - t0) / 4000));
+      const k = Math.max(0, Math.min(1, (now - t0) / 8000));
       paintScanCount(Math.round(readSoFar * k));
       if (k < 1 && STEPS[at] === "scan") requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
   }
 
-  /** Leaves the scan screen once the scan is done and it has shown for 5 s (time for Kai's lines). */
+  /** Leaves the scan screen once the scan is done and it has shown for 9 s: time to watch mail get its labels and the cube turn. */
   function scanDone() {
     if (!scanned || STEPS[at] !== "scan" || ctx.settings.setupDone) return;
-    later(Math.max(0, 5000 - (Date.now() - scanEnteredAt)), () => {
+    later(Math.max(0, 9000 - (Date.now() - scanEnteredAt)), () => {
       window.clearTimeout(streamTimer);
       kai.do("nod");
       later(600, () => goTo(at + 1));

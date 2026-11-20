@@ -175,7 +175,11 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
   const world = worldPanel();
   const preview = inboxPreview(ctx.settings.userName);
   const stage = el("div", "wel-stage");
-  wel.append(pageHeader(), world, stage);
+  // Back sits in the top left corner of the right column, on the header's line (CSS grid row 1).
+  const backBtn = el("button", "wel-back", "Back");
+  backBtn.type = "button";
+  backBtn.hidden = true;
+  wel.append(pageHeader(), world, stage, backBtn);
   gate.classList.add("is-welcome");
   gate.append(wel);
 
@@ -234,6 +238,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     go.classList.add("wel-wait");
     bubble.textContent = "";
     setWorld(world, spot);
+    backBtn.hidden = true;
     stage.replaceChildren(
       el("p", "wel-eyebrow", "Welcome to Cluster"),
       el("h1", "wel-title", "Your Gmail, sorted."),
@@ -311,14 +316,12 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
   /** The question and why we ask sit over the field; Kai's bubble adds a short aside, never the same words. */
   function question(done: number, title: string, why: string, line: string, back: (() => void) | null, ...rest: HTMLElement[]) {
     wel.className = "wel is-ask";
-    const backBtn = el("button", "wel-back", "Back");
-    backBtn.type = "button";
     backBtn.onclick = () => back?.();
     backBtn.hidden = !back;
     rememberKai(kaiHost);
     setWorld(world, preview.el, progressBar(done));
-    // Back first, at the top of the column, then Kai and the question.
-    stage.replaceChildren(backBtn, spot, el("h1", "wel-title", title), el("p", "wel-lead", why), ...rest);
+    // Kai, then the question. Back lives in the header row (showWelcome).
+    stage.replaceChildren(spot, el("h1", "wel-title", title), ...(why ? [el("p", "wel-lead", why)] : []), ...rest);
     // Kai flies from the middle of the panel to its spot over the question, instead of popping in there.
     travel(kaiHost, kai);
     idle?.reset();
@@ -365,7 +368,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
       preview.setName("");
       askGmail();
     };
-    question(1, "What should I call you?", "Kai uses it when it talks to you.", "Let's start with you.", hello, input, go, skipName);
+    question(1, "What should I call you?", "", "Let's start with you.", hello, input, go, skipName);
     input.focus();
   }
 

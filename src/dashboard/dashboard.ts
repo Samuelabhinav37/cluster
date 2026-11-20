@@ -1225,6 +1225,8 @@ function updateIndexStatus() {
   const active = [...indexRuns.values()]
     .map((run) => run.progress)
     .filter((p): p is SyncProgress => p?.phase === "reading" || p?.phase === "sent" || p?.phase === "detail");
+  // Cleanup and Labels wait for the first read instead of showing a part of your mail.
+  document.body.classList.toggle("first-reading", firstReadProgress() !== undefined);
   // A running Check mail or sort owns the card until it finishes.
   if (indexStatusEl.dataset.job === "run") return;
   if (active.length === 0) readSince = 0;
@@ -1270,8 +1272,9 @@ function updateIndexStatus() {
   if (homeRead && firstRead) paintHomeRead(homeRead, done, total, eta, parts[0], readSeen());
   if (homeRead && !firstRead) void refreshView();
   // Home's card stays in the page on other screens, just hidden: only an on-screen card stands in for this one.
+  // Visible by layout, as scanStage checks before taking the cube back: the two never fight over it.
   const homeOnScreen = homeRead instanceof HTMLElement && homeRead.offsetParent !== null;
-  indexStatusEl.classList.toggle("home-shows", homeOnScreen && firstRead);
+  indexStatusEl.classList.toggle("home-shows", homeOnScreen);
   const fill = document.createElement("div");
   fill.style.width = `${total > 0 ? Math.round((done / total) * 100) : 0}%`;
   const track = document.createElement("div");
@@ -1297,7 +1300,7 @@ function updateIndexStatus() {
     const words = document.createElement("div");
     words.className = "rc-words";
     words.append(head, ...(done < total || sortRunning ? [track] : []), ...(line ? [left] : []));
-    const cube = (firstRead || (done >= total && sortRunning)) && !homeOnScreen ? sharedCube() : null;
+    const cube = homeOnScreen ? null : sharedCube();
     if (cube) {
       cube.progress(done >= total && sortRunning ? 1 : SETUP_SHARE + (total > 0 ? done / total : 0) * (0.7 - SETUP_SHARE));
       indexStatusEl.classList.add("has-cube");

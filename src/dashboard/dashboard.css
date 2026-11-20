@@ -5203,3 +5203,37 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .onb-side > .onb-pane { max-width: 560px; }
 .onb-pane .ss-work .unt-cube { width: 190px; }
 .onb-pane .onb-actions .onb-link { align-self: center; }
+
+/* ── Round 5 (2026-11-20 review) ── */
+/* The scan: the cube beside the mail being read, each one getting its label. */
+.onb-pane .ss-work .unt-cube { width: 150px; }
+.onb-pane .ss-feed { flex: 1; min-width: 0; min-height: 222px; margin: 0; text-align: left; }
+.onb-pane .ss-feed .lbl-mail { padding: 12px 14px; gap: 12px; }
+.onb-pane .ss-feed .onb-words { min-width: 0; flex: 1; }
+.onb-pane .ss-feed .onb-words b, .onb-pane .ss-feed .onb-words small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.onb-pane .ss-feed .onb-words b { font-size: 15px; }
+.onb-pane .ss-feed .onb-words small { font-size: 13px; }
+.onb-pane .ss-feed .lbl-tag { padding: 6px 10px; font-size: 13px; }
+.ss-feed .ss-in { animation: ss-feed-in 0.45s var(--spring-smooth, ease-out) both; }
+@keyframes ss-feed-in { from { opacity: 0; transform: translateY(-10px); } }
+@media (prefers-reduced-motion: reduce) { .ss-feed .ss-in { animation: none; } }
+@media (max-width: 720px) { .onb-pane .ss-work .unt-cube { width: 120px; align-self: center; } }
+
+/* Cleanup and Labels wait for the first read (body.first-reading, dashboard.ts). */
+.read-wait { display: none; }
+body.first-reading .screen:is([data-screen="delete"], [data-screen="organize"]) > :not(.page-head, .read-wait) { display: none !important; }
+body.first-reading .read-wait { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 120px 24px; text-align: center; }
+.read-wait h2 { margin: 0; font: 600 22px/1.2 var(--font); color: var(--label); }
+.read-wait p { margin: 0; font: 400 15px/1.4 var(--font); color: var(--label-3); }
+/* Back in the top left corner of the right column, on the header's line, not over Kai. */
+
+.wel > .onb-head { grid-row: 1; }
+.wel > .wel-back { grid-row: 1; grid-column: 2; align-self: center; justify-self: start; z-index: 2; margin: 0 0 0 24px; }
+.wel > .wel-back[hidden] { display: none; }
+@media (max-width: 1000px) { .wel > .wel-back { grid-column: 1 / -1; justify-self: end; margin: 0 16px 0 0; } }
+/* The scan stacks: the cube over the mail being labelled, both full width. */
+.onb-pane .ss-work { flex-direction: column; align-items: stretch; gap: 16px; }
+.onb-pane .ss-work .unt-cube { width: 130px; align-self: center; }
+.onb-pane .ss-feed { width: 100%; min-height: 0; height: 222px; overflow: hidden; }
+/* Get started as wide as the read card under it. */
+.start-list { margin-left: 0; margin-right: 0; }

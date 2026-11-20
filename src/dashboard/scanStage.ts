@@ -46,6 +46,12 @@ export function scanStage(): ScanStage {
   // The cube from setup's scan, carrying on where it left off.
   const cube = sharedCube();
   card.append(cube.el);
+  // Take the cube back the moment this card comes on screen (after setup, under the tour),
+  // not at the next progress update, so the card is never an empty box.
+  if (typeof IntersectionObserver === "function")
+    new IntersectionObserver((seen) => {
+      if (seen.some((e) => e.isIntersecting) && cube.el.parentNode !== card) card.append(cube.el);
+    }).observe(card);
 
   const panel = document.createElement("div");
   panel.className = "scn-panel";
@@ -91,7 +97,8 @@ export function scanStage(): ScanStage {
     el: root,
     update(s) {
       // The cube is shared (the sidebar card borrows it on other pages): take it back while on screen.
-      if (root.isConnected && cube.el.parentNode !== card) card.append(cube.el);
+      // Only while visible: drawn behind setup, it must not take the cube from setup's scan.
+      if (root.offsetParent !== null && cube.el.parentNode !== card) card.append(cube.el);
       const t = Date.now();
       samples.push([t, s.done]);
       while (samples.length > 2 && t - samples[0][0] > 15_000) samples.shift();

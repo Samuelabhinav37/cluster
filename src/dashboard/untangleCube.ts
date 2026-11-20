@@ -97,7 +97,9 @@ const SVG = "http://www.w3.org/2000/svg";
 const SCALE = 38;
 const PITCH = -0.52;
 const SPIN_PER_MS = 0.00042;
-const TURN_MS = 620;
+// Slow, steady turns with a rest between (2026-11-20 review: "solving slowly").
+const TURN_MS = 1000;
+const REST_MS = 350;
 const add = (a: V, b: V, k = 1): V => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];
 const ALL_NORMALS: V[] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 /** Ease out with a small overshoot, so a turn snaps into place like a real cube. */
@@ -178,6 +180,7 @@ export function untangleCube(turns = 18): UntangleCube {
   let done = 0;
   let target = 0;
   let turning: { m: Move; t0: number } | null = null;
+  let restUntil = 0;
   let frame = 0;
   let stopped = false;
   let shown = false;
@@ -203,7 +206,7 @@ export function untangleCube(turns = 18): UntangleCube {
     // Off the page (the screen moved on): stop drawing.
     if (svg.isConnected) shown = true;
     else if (shown) return;
-    if (!turning && done < target) turning = { m: plan[done], t0: now };
+    if (!turning && done < target && now >= restUntil) turning = { m: plan[done], t0: now };
     if (turning) {
       const t = Math.min(1, (now - turning.t0) / TURN_MS);
       draw(turning.m, ((turning.m.dir * Math.PI) / 2) * easeBack(t), yawAt(now));
@@ -211,6 +214,7 @@ export function untangleCube(turns = 18): UntangleCube {
         applyMove(cube, turning.m);
         done++;
         turning = null;
+        restUntil = now + REST_MS;
         if (done === plan.length) svg.classList.add("is-solved");
       }
     } else draw(null, 0, yawAt(now));
@@ -240,7 +244,7 @@ export function untangleCube(turns = 18): UntangleCube {
 }
 
 /** How far setup's quick scan of 100 emails turns the cube; the dashboard's read does the rest. */
-export const SETUP_SHARE = 0.35;
+export const SETUP_SHARE = 0.5;
 let shared: UntangleCube | null = null;
 /** One cube for the whole first read (2026-11-20 review): setup's scan turns
  * it partway, then the dashboard's read (its card, or the sidebar card on
