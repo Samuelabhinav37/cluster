@@ -31,7 +31,7 @@ import { MAIL_INDEX_CAP, MAIL_INDEX_MAX } from "../lib/mailIndex";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { categoryLabelName } from "../lib/categoryFilters";
 import { showLabel } from "../lib/clusterLabels";
-import { attend, pageHeader, progressBar, worldPanel } from "./welcome";
+import { attend, pageHeader, progressBar, stepLine, worldPanel } from "./welcome";
 import { untangleCube, type UntangleCube } from "./untangleCube";
 import { stopTyping, typeLine } from "./kaiBubble";
 import { startIdle } from "./kaiIdle";
@@ -538,6 +538,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   function render(newStep = false) {
     const step = STEPS[at];
     const body = el("div", newStep ? "onb-body onb-in" : "onb-body");
+    body.append(stepLine(BEFORE + at + 1));
     ({ hello: renderHello, label: renderLabel, scan: renderScan, found: renderFound })[step](body);
     pane.className = `onb-pane is-${step}`;
     world.replaceChildren(progressBar(BEFORE + at + 1));

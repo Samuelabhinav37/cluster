@@ -58,6 +58,15 @@ function tick(): SVGElement {
 /** Where you are in setup, as a list under Kai in the left panel: a tick by
  * each part that's done, the current part in bold, then the parts to come.
  * `done` is the current screen. */
+/** "Step 2 of 5" right over the question, as Slack and Stripe show it (Mobbin audit #4). */
+export function stepLine(done: number): HTMLElement {
+  const now = SETUP_PARTS.findIndex((p) => (p.screens as readonly number[]).includes(done));
+  // The step list in the panel already tells screen readers.
+  const line = el("p", "wel-step", `Step ${now + 1} of ${SETUP_PARTS.length}`);
+  line.setAttribute("aria-hidden", "true");
+  return line;
+}
+
 export function progressBar(done: number): HTMLElement {
   const track = el("ol", "step-list");
   const now = SETUP_PARTS.findIndex((p) => (p.screens as readonly number[]).includes(done));
@@ -295,7 +304,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     backBtn.hidden = !back;
     rememberKai(kaiHost);
     world.replaceChildren(progressBar(done));
-    stage.replaceChildren(backBtn, spot, el("h1", "wel-title", title), el("p", "wel-lead", why), ...rest);
+    stage.replaceChildren(backBtn, spot, stepLine(done), el("h1", "wel-title", title), el("p", "wel-lead", why), ...rest);
     // Kai flies from the middle of the panel to its spot over the question, instead of popping in there.
     travel(kaiHost, kai);
     idle?.reset();
@@ -331,7 +340,11 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
       if (e.key === "Enter") void save();
     };
     ok();
-    question(1, "What should I call you?", "Kai uses it when it talks to you.", "Let's start with you.", hello, input, go);
+    // The name is the one optional question: Kai talks without it.
+    const skipName = el("button", "onb-link wel-skip", "Skip");
+    skipName.type = "button";
+    skipName.onclick = () => askGmail();
+    question(1, "What should I call you?", "Kai uses it when it talks to you.", "Let's start with you.", hello, input, go, skipName);
     input.focus();
   }
 
@@ -343,7 +356,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     const rest: HTMLElement[] = [connectBtn];
     if (errorEl) rest.push(errorEl);
     if (trust instanceof HTMLElement) rest.push(trust);
-    question(2, "Connect your Gmail", "Google will ask you to pick an account.", `Thanks, ${name}.`, askName, ...rest);
+    question(2, "Connect your Gmail", "Google will ask you to pick an account.", name ? `Thanks, ${name}.` : "Thanks.", askName, ...rest);
     kai?.setMood("happy", 1600);
     connectBtn.focus();
   }

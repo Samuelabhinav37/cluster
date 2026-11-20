@@ -114,6 +114,18 @@ describe("connect gate", () => {
     expect(dash.el("connect-error").textContent).not.toMatch(/cancelled/);
   });
 
+  it("the name can be skipped: Kai goes on without it", async () => {
+    const gmail = notYetConnected(async () => "fresh-token");
+    const dash = await bootDashboard({ gmail, tolerateScanError: true });
+    (dash.el("welcome-start") as HTMLButtonElement).click();
+    expect(document.querySelector(".wel-step")!.textContent).toBe("Step 1 of 5");
+    (document.querySelector(".wel-skip") as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(document.querySelector(".wel-stage #connect-gmail-btn")).not.toBeNull());
+    expect(document.querySelector(".wel-step")!.textContent).toBe("Step 2 of 5");
+    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toBe("Thanks."), { timeout: 3000 });
+    expect(dash.storedSettings().userName).toBe("");
+  });
+
   it("Continue with Google is ready at once, with no address to type", async () => {
     const gmail = notYetConnected(async () => "fresh-token");
     const dash = await bootDashboard({ gmail, tolerateScanError: true });

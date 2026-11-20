@@ -5113,3 +5113,7 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .is-done .sl-mark { border-color: var(--label); background: var(--label); }
 /* The tick in the page colour, so it reads in light and dark. */
 .is-done .sl-mark::after { content: ""; position: absolute; left: 4.5px; top: 1.5px; width: 4px; height: 8px; border: solid var(--canvas); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+
+/* "Step 2 of 5" over the question (Mobbin audit #4); Skip under an optional one. */
+.wel-step { margin: 6px 0 -10px; font: 500 13px/1 var(--font); letter-spacing: 0.01em; color: var(--label-3); }
+.wel .wel-skip { align-self: flex-start; padding: 4px 0; }
