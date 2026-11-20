@@ -4909,9 +4909,10 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 
 .board-chip.hint { border-color: var(--label-2); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12); transition: box-shadow var(--t) var(--ease-out), border-color var(--t); }
 
-/* One text per screen: Kai's line is the heading. The screen's title stays
-   for screen readers only, so the page never shows two lines saying the same. */
-.onb-pane .onb-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* The question sits over the field with one line on why; Kai's bubble says
+   something shorter, never the same words (research 2026-11-20 Mobbin audit). */
+.wel.is-ask .wel-title, .onb-pane .onb-title { margin: 0; font: 600 clamp(28px, 2.8vw, 38px)/1.1 var(--font-display); letter-spacing: -0.02em; color: var(--label); }
+.wel.is-ask .wel-lead, .onb-pane .wel-lead { margin: -8px 0 6px; font-size: 16px; }
 
 /* ── Onboarding scene (2026-11-20, after clay.com) ─────────────────────────
    A soft sky, rolling hills with a few trees, coarse film grain over it all,

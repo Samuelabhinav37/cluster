@@ -295,13 +295,13 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   };
 
   function renderHello(body: HTMLElement) {
-    body.append(el("h1", "onb-title", name() ? `You're in, ${name()}.` : "You're in."));
+    body.append(el("h1", "onb-title", name() ? `You're in, ${name()}.` : "You're in."), el("p", "wel-lead", "Here's how Cluster sorts your mail."));
     body.append(primary("Show me", () => goTo(at + 1)));
   }
 
   /** One example email, and its label landing on it. */
   function renderLabel(body: HTMLElement) {
-    body.append(el("h1", "onb-title", "This is a label"));
+    body.append(el("h1", "onb-title", "Every email gets a label"), el("p", "wel-lead", "You'll see it in Gmail, next to the subject."));
     const demo = el("div", "lbl-demo");
     const mail = el("div", "lbl-mail");
     const words = el("span", "onb-words");
@@ -339,7 +339,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   }
 
   function renderScan(body: HTMLElement) {
-    body.append(el("h1", "onb-title", "Reading your mail"));
+    body.append(el("h1", "onb-title", "Reading your newest emails"), el("p", "wel-lead", "Cluster reads them on this computer."));
     const progress = el("div", "ss-progress");
     const track = el("div", "ss-track");
     track.setAttribute("aria-hidden", "true");
@@ -397,9 +397,9 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   /** "I found these": companies under Cluster's labels. In change mode they move. */
   function renderFound(body: HTMLElement) {
     if (found.length === 0) {
-      body.append(el("h1", "onb-title", "Ready to sort"));
+      body.append(el("h1", "onb-title", "Ready to sort"), el("p", "wel-lead", "New mail gets its label as it arrives."));
     } else {
-      body.append(el("h1", "onb-title", "Pick your labels"), renderTiles());
+      body.append(el("h1", "onb-title", "Pick your labels"), el("p", "wel-lead", "You can change them later in Labels."), renderTiles());
     }
     const readChoice = renderReadChoice();
     if (readChoice) body.append(readChoice);
@@ -559,16 +559,16 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     if (step === "hello") {
       if (!signedIn) return;
       kai.do("wave");
-      kai.say(`You're in${name() ? `, ${name()}` : ""}. Let me show you how I sort your mail.`, "happy");
+      kai.say("Glad you're here.", "happy");
     } else if (step === "label") {
       const tag = pane.querySelector(".lbl-tag");
-      kai.say("Every email gets a label, like this one.");
+      kai.say("Like this one.");
       later(900, () => {
         tag?.classList.add("in");
         if (tag) kai.react(tag, "hop", "📦", "joyful");
       });
     } else if (step === "scan") {
-      kai.say("Reading your newest emails.");
+      kai.say("Give me a moment.");
       kai.do("tilt");
       scanEnteredAt = Date.now();
       window.clearTimeout(streamTimer);
@@ -576,9 +576,9 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       if (scanned) countUp();
       scanDone();
     } else if (found.length === 0) {
-      kai.say("I'll label new mail as it arrives.");
+      kai.say("Nothing to pick yet.");
     } else {
-      kai.say("Pick the labels you want.", "proud");
+      kai.say("I found these in your mail.", "proud");
     }
   }
 

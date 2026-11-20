@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /// <reference types="vite/client" />
 //
-// First-run setup: hello, "This is a label", the scan, "Pick your labels".
+// First-run setup: hello, "Every email gets a label", the scan, "Pick your labels".
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { bootDashboard } from "./testHarness";
 
@@ -19,9 +19,9 @@ const click = (id: string) => (document.getElementById(id) as HTMLButtonElement)
 async function toFound(dash: Dash, hasMail = true) {
   expect(setupSection(dash).hidden).toBe(false);
   click("setup-next");
-  expect(title()).toBe("This is a label");
+  expect(title()).toBe("Every email gets a label");
   click("setup-next");
-  expect(title()).toBe("Reading your mail");
+  expect(title()).toBe("Reading your newest emails");
   // The mail streams in with its label, and the count says how far.
   if (hasMail) {
     await vi.waitFor(() => expect(document.querySelector("#scan-list .ss-row .ss-tag")).not.toBeNull());
@@ -60,7 +60,7 @@ describe("first-run setup", () => {
       ],
     });
     expect(title()).toBe("You're in, Samuel.");
-    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toContain("You're in, Samuel."), { timeout: 3000 });
+    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("Glad you're here."), { timeout: 3000 });
     await toFound(dash);
     expect(title()).toBe("Pick your labels");
     // One ticked tile per label the companies landed in.

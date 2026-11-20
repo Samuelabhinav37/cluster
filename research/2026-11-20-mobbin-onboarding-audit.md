@@ -72,7 +72,7 @@ Every claim about another app comes from the Mobbin screens linked below.
 | 5 | Skip | "I'll set it up myself" top right, only after sign-in. Name step has Back only. | Skip on every optional step, next to Continue. | Medium. |
 | 6 | Options | 8 label tiles, all ticked, each with an example sender. "Use these" or "No, ask me first". | Stripe rows with examples (like ours); Notion chips start at 0 with a count. | Small. Example senders are good. All ticked leaves nothing to decide; a count ("8 labels") would help. |
 | 7 | Character size and place | Kai at 180px in the middle of a big scene, bubble above it, far from the work. | Small character next to the question or task (Duolingo, Trello). | **Big.** Kai is the biggest thing on screen, but the button should be. |
-| 8 | Character introduction | First line: "I am going to help you with your email." Kai never says its name. | "Hi, I'm Koji!", "I'm Micaela, your Deputy Coach". | Small, cheap win: "Hi, I'm Kai." |
+| 8 | Character introduction | Kai says "Hi, I am Kai!" on the hello screen. | "Hi, I'm Koji!", "I'm Micaela, your Deputy Coach". | None. (First pass of this audit missed it.) |
 | 9 | Background | Black page, full Clay-style scene with hills, sky and floating toys behind every step. | Plain work area; decoration in one panel. Slack's panel shows what you're building. | Medium. Our scene is decoration only. A Slack-style panel could show your inbox being sorted as you answer. |
 | 10 | Scan | Untangle cube, bar, "58 of 100", senders streaming. | Plain bar and count, plus "you can leave this page, we'll tell you when it's done". | Small. The cube is our own thing. Add the "you can leave" line, since quota pauses can sit for about a minute. |
 | 11 | Dashboard | 5-stop spotlight tour with Kai, dots, Skip, then the "You're all set" card. Nothing after that. | Mostly a **checklist that stays** with % done (Stripe, Notion, WRITER, Langdock, Discord). Tours, when used, are 3 to 4 stops. | **Big.** Nothing stays to guide the first week. |
@@ -89,7 +89,9 @@ Every claim about another app comes from the Mobbin screens linked below.
 
 1. Heading over the field on every step, plus one reason line (#1, #2).
 2. "Continue with Google" button with no email field (#3).
-3. Kai smaller and next to the question; first line "Hi, I'm Kai." (#7, #8).
+3. Kai smaller and next to the question (#7).
+
+Step 1 built 2026-11-20: headings and a reason line on every screen, Kai's bubble shortened so it never repeats them.
 4. Replace the end card with a "Get started" checklist on the dashboard that stays until done. Shorten the tour to 3 stops (#11, #12).
 5. Step count and Skip next to the question (#4, #5).
 6. Later: turn the left scene into a live preview of the inbox being sorted (#9).

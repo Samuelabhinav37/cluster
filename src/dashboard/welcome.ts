@@ -288,8 +288,8 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     }
   }
 
-  /** Kai asks in the left panel; the answer and Continue are on the right. */
-  function question(done: number, line: string, back: (() => void) | null, ...rest: HTMLElement[]) {
+  /** The question and why we ask sit over the field; Kai's bubble adds a short aside, never the same words. */
+  function question(done: number, title: string, why: string, line: string, back: (() => void) | null, ...rest: HTMLElement[]) {
     wel.className = "wel is-ask";
     const backBtn = el("button", "wel-back", "Back");
     backBtn.type = "button";
@@ -297,7 +297,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     backBtn.hidden = !back;
     rememberKai(kaiHost);
     world.replaceChildren(spot, progressBar(done));
-    stage.replaceChildren(backBtn, ...rest);
+    stage.replaceChildren(backBtn, el("h1", "wel-title", title), el("p", "wel-lead", why), ...rest);
     // Kai flies from the middle to its spot by the question, instead of popping in there.
     travel(kaiHost, kai);
     idle?.reset();
@@ -333,7 +333,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
       if (e.key === "Enter") void save();
     };
     ok();
-    question(1, "What should I call you?", hello, input, go);
+    question(1, "What should I call you?", "Kai uses it when it talks to you.", "Let's start with you.", hello, input, go);
     input.focus();
   }
 
@@ -364,7 +364,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     const rest: HTMLElement[] = [input, connectBtn];
     if (errorEl) rest.push(errorEl);
     if (trust instanceof HTMLElement) rest.push(trust);
-    question(2, `Thanks, ${name}. What's your Gmail address?`, askName, ...rest);
+    question(2, "What's your Gmail address?", "Google will ask you to confirm it.", `Thanks, ${name}.`, askName, ...rest);
     kai?.setMood("happy", 1600);
     input.focus();
   }
