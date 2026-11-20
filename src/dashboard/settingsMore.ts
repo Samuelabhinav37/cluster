@@ -9,6 +9,8 @@ import { clashes, GO_SCREENS, keysOf, numberScreen, SHORTCUTS, usableKey } from 
 import { clearSyncedSettings, getSettings, updateSettings } from "../lib/settingsStore";
 import { kindModel, resetKindModel } from "./kindLearning";
 import { ctx, decisions } from "./state";
+import { categoryLabelName } from "../lib/categoryFilters";
+import type { SortBucket } from "../lib/sortTaxonomy";
 import { accuracyNumbers } from "../lib/correctionRate";
 import { holdAccuracy } from "../lib/quarantineReview";
 import { renderConfirmStep } from "./ui";
@@ -213,16 +215,36 @@ export async function renderListDates(now = Date.now()): Promise<void> {
   host.closest(".set-row")?.toggleAttribute("data-stale", stale);
 }
 
-/** "What Cluster learned": your corrections, each kind with a count and Reset. */
+/** Research idea 5: each sort correction as a plain rule ("amazon.com → Shopping") with Remove. Newest first. */
+function correctionRows(): HTMLElement[] {
+  const target = (o: string) => (o === "never" ? "never sorted" : o === "personal" ? "Personal" : categoryLabelName(o as SortBucket, ctx.settings.labelChoices));
+  return Object.entries(ctx.settings.sortOverrides)
+    .reverse()
+    .map(([key, to]) => {
+      const [who, kind] = key.split("|");
+      const row = Object.assign(document.createElement("div"), { className: "set-row plain" });
+      const name = Object.assign(document.createElement("span"), { className: "grow", textContent: `${who}${kind ? ` (${kind})` : ""} → ${target(to)}` });
+      const btn = Object.assign(document.createElement("button"), { type: "button", className: "btn", textContent: "Remove" });
+      btn.onclick = async () => {
+        btn.disabled = true;
+        const next = { ...ctx.settings.sortOverrides };
+        delete next[key];
+        ctx.settings = await updateSettings({ sortOverrides: next });
+        renderLearned();
+      };
+      const trail = Object.assign(document.createElement("span"), { className: "row-actions" });
+      trail.append(btn);
+      row.append(name, trail);
+      return row;
+    });
+}
+
+/** "What Cluster learned": your sort corrections one by one, then the other kinds as a count with Reset. */
 export function renderLearned(): void {
   const host = $("settings-learned");
   if (!host) return;
+  host.closest(".set-sec")?.classList.toggle("set-off", Object.keys(ctx.settings.sortOverrides).length === 0);
   const rows: [label: string, count: number, reset: () => Promise<unknown>][] = [
-    [
-      "Sort choices",
-      Object.keys(ctx.settings.sortOverrides).length,
-      () => updateSettings({ sortOverrides: {} }),
-    ],
     [
       "Person calls",
       Object.keys(ctx.settings.personOverrides).length,
@@ -231,6 +253,7 @@ export function renderLearned(): void {
     ["Receipt senders", Object.keys(kindModel().answers).length, resetKindModel],
   ];
   host.replaceChildren(
+    ...correctionRows(),
     ...rows.map(([label, count, reset]) => {
       const row = Object.assign(document.createElement("div"), { className: "set-row plain" });
       const name = Object.assign(document.createElement("span"), { className: "grow", textContent: label });

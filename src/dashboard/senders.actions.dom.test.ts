@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /// <reference types="vite/client" />
 import { describe, expect, it, vi } from "vitest";
-import { bootDashboard, confirmStep } from "./testHarness";
+import { bootDashboard } from "./testHarness";
 
 describe("Settings — Sign out", () => {
   it("asks about Cluster's filters, removes them on request, and revokes Google access", async () => {
@@ -35,16 +35,13 @@ describe("Settings — Sign out", () => {
 });
 
 describe("Settings — What Cluster learned", () => {
-  it("counts your sort corrections and forgets them on Reset", async () => {
-    const dash = await bootDashboard({ settings: { sortOverrides: { "deals@shop.example": "never" } } });
+  it("lists each sort correction as a rule and Remove forgets just that one", async () => {
+    const dash = await bootDashboard({ settings: { sortOverrides: { "deals@shop.example": "never", "news@paper.example": "newsletter" } } });
     dash.showScreen("settings");
     const host = dash.el("settings-learned");
-    const row = Array.from(host.querySelectorAll<HTMLElement>(".set-row")).find((r) =>
-      r.textContent?.startsWith("Sort choices"),
-    )!;
-    expect(row.querySelector(".ios-value")!.textContent).toBe("1");
+    expect(host.closest(".set-sec")!.classList.contains("set-off")).toBe(false);
+    const row = Array.from(host.querySelectorAll<HTMLElement>(".set-row")).find((r) => r.textContent?.startsWith("deals@shop.example → never sorted"))!;
     row.querySelector("button")!.click();
-    await confirmStep(row.querySelector(".row-actions > span:last-child") as HTMLElement);
-    await vi.waitFor(() => expect(dash.storedSettings().sortOverrides).toEqual({}));
+    await vi.waitFor(() => expect(dash.storedSettings().sortOverrides).toEqual({ "news@paper.example": "newsletter" }));
   });
 });
