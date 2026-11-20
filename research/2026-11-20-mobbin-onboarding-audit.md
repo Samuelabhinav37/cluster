@@ -94,4 +94,4 @@ Every claim about another app comes from the Mobbin screens linked below.
 Step 1 built 2026-11-20: headings and a reason line on every screen, Kai's bubble shortened so it never repeats them.
 4. Replace the end card with a "Get started" checklist on the dashboard that stays until done. Shorten the tour to 3 stops (#11, #12). Built 2026-11-20 (end card kept, its line now points at the checklist).
 5. Step count and Skip next to the question (#4, #5). Built 2026-11-20 (Step N of 5 over every question; Skip on the name, the one optional question).
-6. Later: turn the left scene into a live preview of the inbox being sorted (#9).
+6. Later: turn the left scene into a live preview of the inbox being sorted (#9). Built 2026-11-20 (a small inbox window on the hills: your name in its title as you type, your newest mail with its label as the scan reads it, then the labels you keep).

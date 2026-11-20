@@ -5117,3 +5117,26 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 /* "Step 2 of 5" over the question (Mobbin audit #4); Skip under an optional one. */
 .wel-step { margin: 6px 0 -10px; font: 500 13px/1 var(--font); letter-spacing: 0.01em; color: var(--label-3); }
 .wel .wel-skip { align-self: flex-start; padding: 4px 0; }
+
+/* The inbox preview on the panel (inboxPreview.ts, Mobbin audit #9): a small
+   mail window on the hills that fills in as you answer. */
+.ip { position: relative; z-index: 1; width: min(420px, 100%); margin: 0 0 40px; border-radius: 16px; background: color-mix(in srgb, var(--canvas) 88%, transparent); border: 1px solid var(--hairline); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28); backdrop-filter: blur(12px); overflow: hidden; color: var(--label); font: 400 12px/1.3 var(--font); }
+.ip-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--separator); }
+.ip-dots { width: 34px; height: 8px; background: radial-gradient(circle 4px at 4px 4px, var(--label-4) 98%, transparent) 0 0 / 13px 8px repeat-x; }
+.ip-title { font-weight: 600; font-size: 13px; }
+.ip-body { display: grid; grid-template-columns: 112px 1fr; min-height: 200px; }
+.ip-side { margin: 0; padding: 10px; list-style: none; border-right: 1px solid var(--separator); }
+.ip-label { padding: 5px 6px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--label-2); }
+.ip-rows { margin: 0; padding: 4px 0; list-style: none; min-width: 0; }
+.ip-row { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 12px; border-bottom: 1px solid var(--separator); }
+.ip-row:last-child { border-bottom: 0; }
+.ip-words { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.ip-words b, .ip-words small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ip-words b { font-weight: 600; }
+.ip-words small { color: var(--label-3); font-size: 11.5px; }
+.ip-tag { flex: none; padding: 3px 7px; border-radius: 999px; background: var(--neutral-fill); font-size: 11px; color: var(--label-2); }
+.ip-bar { display: block; height: 8px; border-radius: 4px; background: var(--neutral-fill); }
+.ip-in { animation: ip-in 0.35s var(--ease-out) both; }
+@keyframes ip-in { from { opacity: 0; transform: translateY(-6px); } }
+@media (prefers-reduced-motion: reduce) { .ip-in { animation: none; } }
+@media (max-width: 1000px) { .ip { display: none; } }

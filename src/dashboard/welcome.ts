@@ -8,6 +8,7 @@ import { ctx } from "./state";
 import { startIdle } from "./kaiIdle";
 import { rememberKai, travel } from "./kaiTravel";
 import { typeLine } from "./kaiBubble";
+import { inboxPreview } from "./inboxPreview";
 import { updateSettings } from "../lib/settingsStore";
 
 /** Step 1's two lines, said one after the other. */
@@ -157,6 +158,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
   const trust = gate.querySelector(".connect-trust:not(#connect-testing-note)");
   const wel = el("div", "wel");
   const world = worldPanel();
+  const preview = inboxPreview(ctx.settings.userName);
   const stage = el("div", "wel-stage");
   wel.append(pageHeader(), world, stage);
   gate.classList.add("is-welcome");
@@ -303,7 +305,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     backBtn.onclick = () => back?.();
     backBtn.hidden = !back;
     rememberKai(kaiHost);
-    world.replaceChildren(progressBar(done));
+    world.replaceChildren(preview.el, progressBar(done));
     stage.replaceChildren(backBtn, spot, stepLine(done), el("h1", "wel-title", title), el("p", "wel-lead", why), ...rest);
     // Kai flies from the middle of the panel to its spot over the question, instead of popping in there.
     travel(kaiHost, kai);
@@ -335,7 +337,11 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
       kai?.do("nod");
       askGmail();
     };
-    input.oninput = ok;
+    input.oninput = () => {
+      ok();
+      // The preview's title fills in as you type, like Slack's workspace name.
+      preview.setName(input.value);
+    };
     input.onkeydown = (e) => {
       if (e.key === "Enter") void save();
     };
@@ -343,7 +349,10 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     // The name is the one optional question: Kai talks without it.
     const skipName = el("button", "onb-link wel-skip", "Skip");
     skipName.type = "button";
-    skipName.onclick = () => askGmail();
+    skipName.onclick = () => {
+      preview.setName("");
+      askGmail();
+    };
     question(1, "What should I call you?", "Kai uses it when it talks to you.", "Let's start with you.", hello, input, go, skipName);
     input.focus();
   }

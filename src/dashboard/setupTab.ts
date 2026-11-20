@@ -32,6 +32,7 @@ import { gmailProvider } from "../lib/providers/gmailProvider";
 import { categoryLabelName } from "../lib/categoryFilters";
 import { showLabel } from "../lib/clusterLabels";
 import { attend, pageHeader, progressBar, stepLine, worldPanel } from "./welcome";
+import { inboxPreview } from "./inboxPreview";
 import { untangleCube, type UntangleCube } from "./untangleCube";
 import { stopTyping, typeLine } from "./kaiBubble";
 import { startIdle } from "./kaiIdle";
@@ -240,6 +241,8 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   skip.id = "setup-not-now";
   // The same page as the sign-in screens: header, Kai's panel on the left, the work on the right.
   const world = worldPanel();
+  // Your inbox as it fills in: newest mail with its label, then the labels you keep.
+  const preview = inboxPreview(ctx.settings.userName);
   const side = el("div", "onb-side");
   side.append(pageHeader(skip), world, pane);
   root.replaceChildren(side);
@@ -373,6 +376,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       streamed.add(key);
       const { li, tag, spot, emoji } = scanRow(m);
       list.prepend(li);
+      preview.addMail(m.fromDisplayName.trim() || m.fromAddress, m.subject, spot === "keep" ? null : spotParts(spot));
       kai.look(li);
       while (list.children.length > 3) list.lastElementChild?.remove();
       requestAnimationFrame(() => tag.classList.add("in"));
@@ -415,6 +419,8 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     const spots = [...new Set(found.map(spotOf))]
       .filter((s): s is SortBucket => s !== "keep")
       .sort((a, b) => (perLabel.get(b) ?? 0) - (perLabel.get(a) ?? 0));
+    const keptToPreview = () => preview.setLabels(spots.filter((s) => !off.has(s)).map(spotParts));
+    keptToPreview();
     const grid = el("div", "lbl-tiles");
     // Rows always full: 8 tiles in 2 columns, 6 or 9 in 3.
     grid.style.setProperty("--cols", String(spots.length % 3 === 0 ? 3 : 2));
@@ -443,6 +449,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
         if (off.has(spot)) off.delete(spot);
         else off.add(spot);
         sync();
+        keptToPreview();
         kai.react(tile, off.has(spot) ? "shrug" : "nodSmall");
       };
       grid.append(tile);
@@ -541,7 +548,8 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     body.append(stepLine(BEFORE + at + 1));
     ({ hello: renderHello, label: renderLabel, scan: renderScan, found: renderFound })[step](body);
     pane.className = `onb-pane is-${step}`;
-    world.replaceChildren(progressBar(BEFORE + at + 1));
+    preview.setName(name());
+    world.replaceChildren(preview.el, progressBar(BEFORE + at + 1));
     // Kai sits right over the question and stays put between steps, so it doesn't vanish and reappear.
     if (kai.row.parentNode === pane) {
       pane.querySelector(":scope > .onb-body")?.replaceWith(body);
