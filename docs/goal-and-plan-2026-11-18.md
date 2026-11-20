@@ -68,6 +68,7 @@ Every number on every screen and in the report:
 | 4.4 Care score | Done: opens, replies or mail you wrote, stars. Orders cleanup suggestions. Archive-unread and Gmail-web trash left out | `f8c9707` |
 | 4.5 Corrections as filters | Already built: corrections are include/exclude terms in each label's filter query (`categoryQueries.ts`), synced in chunks | |
 | 5.3 What happens + one action | Already built: row reason, Trash all, confirm names the count | |
+| Research 2026-11-19 (SOAR/SIEM) | 1 Screener one row per company `0acbc35`; 2+6 What Cluster does on its own + Waiting for you `01b079f`; 3 Not sure in Details `8121396`; 4 unsure labels go to the Screener `209a1f4`; 5 corrections listed with Remove `98c933b`; 7 already built (tiers, first-contact points); 8 three accuracy numbers in Diagnostics `adac0b9`; 9 Not now on warnings `395f77b`; 10 Block takes the campaign `e86c7d1`. Previews not added (Yahoo CIKM 2014: body changed AUC 0.973 to 0.971) | |
 | Left | 4.1 live test, 7.4 verification, 7.5 beta, 7.6 listing (need you); 7.3 and 4.10 held until after the live test | |
 | Not doing | Lazy spam list (makes a sync engine check async for a few ms of parsing) | |
 
