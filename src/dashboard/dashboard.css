@@ -331,7 +331,7 @@ a:hover {
     transition-delay: 0s !important;
     scroll-behavior: auto !important;
   }
-  .onb-in > *, .kg-panel, .kg-msg, .onb-bubble.pop { animation-name: onb-fade !important; }
+  .onb-in > *, .kg-panel, .kg-msg, .onb-bubble.pop, .wel.is-hello .wel-bubble.pop { animation-name: onb-fade !important; }
   .onb-opt:active, .onb-btn:active, .btn:active, .chip:active, .tool:active, .connect-btn:active { transform: none; }
   .sort-preview-bucket.active > i { animation-duration: 2.4s !important; }
 }
@@ -1905,19 +1905,26 @@ body[data-screen="setup"] .index-status {
 .onb-btn.ghost:hover { color: var(--label); background: var(--neutral-fill); }
 
 .onb-kai { flex: none; width: 120px; height: 120px; }
+/* Kai's speech bubble (research/2026-11-20-kai-speech-bubble-research.md): one
+   muted grey, no border or shadow, a small tail pointing at Kai, and the whole
+   line laid out before typing (.kb-rest) so the box never grows. */
 .onb-bubble {
-  max-width: 280px;
-  margin: 0 0 22px;
-  padding: 9px 13px;
-  border-radius: 14px 14px 14px 4px;
-  background: rgba(255, 255, 255, 0.92);
-  font: 500 13.5px/1.4 var(--font);
-  color: #18181b;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-  transform-origin: 0 100%;
+  position: relative;
+  max-width: 34ch;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 18px;
+  background: #2c2c2e;
+  color: #f5f5f7;
+  font: 450 15px/1.4 var(--font);
+  transform-origin: 0 50%;
+  cursor: default;
 }
-
-.onb-bubble.pop { animation: onb-bubble 0.35s var(--spring); }
+.onb-bubble::before { content: ""; position: absolute; left: -4px; top: 50%; width: 10px; height: 10px; margin-top: -5px; background: inherit; transform: rotate(45deg); border-radius: 0 0 0 2px; }
+.onb-bubble:empty::before { display: none; }
+.kb-rest { visibility: hidden; }
+.onb-bubble.pop { animation: kb-in 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes kb-in { from { opacity: 0; transform: translateX(-4px) scale(0.97); } }
 
 .onb-voice {
   display: grid;
@@ -3948,15 +3955,17 @@ body { background: var(--canvas); }
 .wel-go.wel-wait { visibility: hidden; }
 /* Step 1, small and quiet: a speech bubble with a tail down to Kai, a pill button. */
 .wel.is-hello .wel-stage { gap: 12px; }
-.wel.is-hello .wel-bubble { position: relative; padding: 9px 14px; border-radius: 14px; font: 500 15px/1.35 var(--font); }
-.wel.is-hello .wel-bubble:not(:empty)::after { content: ""; position: absolute; left: 50%; bottom: -6px; width: 12px; height: 12px; margin-left: -6px; background: rgba(255, 255, 255, 0.92); clip-path: polygon(100% 0, 100% 100%, 0 100%); transform: rotate(45deg); border-radius: 0 0 3px 0; }
+.wel.is-hello .wel-bubble { transform-origin: 50% 100%; }
+.wel.is-hello .wel-bubble::before { left: 50%; top: auto; bottom: -4px; margin: 0 0 0 -5px; border-radius: 0 0 2px 0; }
+.wel.is-hello .wel-bubble.pop { animation-name: kb-in-up; }
+@keyframes kb-in-up { from { opacity: 0; transform: translateY(4px) scale(0.97); } }
 .wel.is-hello .wel-bubble:empty { visibility: hidden; }
 .wel.is-hello .wel-go { width: auto; min-width: 160px; height: 40px; padding: 0 22px; margin-top: 0; border-radius: 20px; font: 600 14px/1 var(--font); box-shadow: none; }
 .wel.is-hello .wel-go:active:not(:disabled) { transform: scale(0.97); }
 .wel.is-hello .wel-go:focus-visible { outline: 2px solid var(--label-3); outline-offset: 3px; }
 .wel-kai { width: 104px; height: 104px; }
 .wel-ask { display: flex; align-items: center; gap: 18px; margin-bottom: 44px; } /* Kai's drawing runs below its box */
-.wel-bubble { margin: 0; max-width: 440px; padding: 14px 18px; border-radius: 16px 16px 16px 4px; font: 600 19px/1.35 var(--font); }
+.wel-bubble { margin: 0; padding: 12px 16px; font: 500 17px/1.35 var(--font); }
 .wel-input { height: 58px; padding: 0 18px; border: 2px solid var(--separator); border-radius: 14px; background: var(--neutral-fill); color: var(--label); font: 500 18px/1 var(--font); }
 .wel-input:focus { outline: none; border-color: var(--label-3); }
 /* A raised button that presses down, like Duolingo's. */
@@ -3971,7 +3980,8 @@ body { background: var(--canvas); }
 .onb-pane .onb-title { margin: 0; font-size: clamp(30px, 3.6vw, 40px); }
 /* Kai's drawing runs past its box (antenna, shadow): keep clear of the title. */
 .onb-kai-row { margin: 12px 0 48px; }
-.onb-kai-words { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.onb-kai-words { display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; }
+.onb-kai-words .onb-voice { margin-left: auto !important; } /* stays put while the bubble changes */
 .onb-kai-row .onb-voice { margin: 0; background: var(--neutral-fill); border-color: var(--separator); color: var(--label-2); }
 .onb-kai-row .onb-voice[aria-pressed="true"] { background: var(--label); color: var(--canvas); }
 .onb-actions { display: flex; flex-direction: column; align-items: stretch; gap: 12px; margin-top: 8px; }

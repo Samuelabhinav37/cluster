@@ -5,7 +5,7 @@ import "./kai/kaiLife.js";
 import type { KaiInstance } from "./kai/kaiLife";
 import { ctx } from "./state";
 import { rememberKai, travel, TRAVEL_MS } from "./kaiTravel";
-import { TYPE_MS } from "./welcome";
+import { TYPE_MS } from "./kaiBubble";
 
 export interface TourStop {
   selector: string;

@@ -31,7 +31,8 @@ import { MAIL_INDEX_CAP, MAIL_INDEX_MAX } from "../lib/mailIndex";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { categoryLabelName } from "../lib/categoryFilters";
 import { showLabel } from "../lib/clusterLabels";
-import { progressBar, TYPE_MS } from "./welcome";
+import { progressBar } from "./welcome";
+import { stopTyping, typeLine } from "./kaiBubble";
 import { startIdle } from "./kaiIdle";
 import { rememberKai, travel } from "./kaiTravel";
 import { startDashboardTour } from "./dashboardTour";
@@ -119,7 +120,7 @@ function kaiNarrator() {
         window.Kai(kaiHost, { src: "/characters/", imgWidth: 320 })
       : null;
   if (!kai) kaiHost.hidden = true;
-  let typing = 0;
+  let fresh = true;
   let last = "";
   // A small move with each line, so Kai talks with its body as well as the bubble.
   const GESTURES: KaiAction[] = ["nodSmall", "tilt", "nod", "lookAround"];
@@ -153,28 +154,19 @@ function kaiNarrator() {
     idle: kai && !reduced ? startIdle(kai) : null,
     say(text: string, mood?: KaiMood) {
       last = text;
-      clearInterval(typing);
       if (kai) {
         if (mood) kai.setMood(mood, 2400);
         kai.talk(Math.min(3000, text.length * 45));
         if (!reduced) kai.do(GESTURES[gesture++ % GESTURES.length]);
       }
       speak(text);
-      bubble.classList.remove("pop");
-      void bubble.offsetWidth;
-      bubble.classList.add("pop");
-      if (reduced) {
-        bubble.textContent = text;
-        return;
-      }
-      let n = 0;
-      bubble.textContent = "";
-      typing = window.setInterval(() => {
-        n += 1;
-        bubble.textContent = text.slice(0, n);
-        kai?.voice(text[n - 1] ?? " ");
-        if (n >= text.length) clearInterval(typing);
-      }, TYPE_MS);
+      // The entrance only on a screen's first line; later lines just type.
+      typeLine(bubble, text, kai, { pop: fresh });
+      fresh = false;
+    },
+    /** The next line starts a new screen. */
+    newScreen() {
+      fresh = true;
     },
     do(action: KaiAction) {
       kai?.do(action);
@@ -194,7 +186,7 @@ function kaiNarrator() {
       kai?.lookAt(target);
     },
     stop() {
-      clearInterval(typing);
+      stopTyping(bubble);
       if (canSpeak) speechSynthesis.cancel();
     },
   };
@@ -657,6 +649,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       travel(kai.row.querySelector<HTMLElement>(".onb-kai")!, kai.instance);
     }
     kai.idle?.reset();
+    if (newStep) kai.newScreen();
     if (newStep) guide(step);
   }
 
