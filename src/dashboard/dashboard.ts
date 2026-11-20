@@ -1,4 +1,5 @@
 import { NUMBER_SCREENS } from "../lib/keymap";
+import { SETUP_SHARE, sharedCube } from "./untangleCube";
 import { installCrashHandlers, PRIVACY_URL } from "../lib/crashLog";
 import { clearCountBadge } from "../lib/supervisor";
 import { scanCheckCounts, scanFound } from "../lib/securityScan";
@@ -1268,7 +1269,9 @@ function updateIndexStatus() {
   const firstRead = active.some((p) => p.phase !== "detail");
   if (homeRead && firstRead) paintHomeRead(homeRead, done, total, eta, parts[0], readSeen());
   if (homeRead && !firstRead) void refreshView();
-  indexStatusEl.classList.toggle("home-shows", !!homeRead && firstRead);
+  // Home's card stays in the page on other screens, just hidden: only an on-screen card stands in for this one.
+  const homeOnScreen = homeRead instanceof HTMLElement && homeRead.offsetParent !== null;
+  indexStatusEl.classList.toggle("home-shows", homeOnScreen && firstRead);
   const fill = document.createElement("div");
   fill.style.width = `${total > 0 ? Math.round((done / total) * 100) : 0}%`;
   const track = document.createElement("div");
@@ -1289,7 +1292,17 @@ function updateIndexStatus() {
   if (longRead) {
     // Labelling has no count: the bar moves on its own instead of disappearing.
     if (done >= total && sortRunning) track.classList.add("is-busy");
-    indexStatusEl.replaceChildren(head, ...(done < total || sortRunning ? [track] : []), ...(line ? [left] : []));
+    // The first read's cube, small beside the words, so the card looks like it is working.
+    // Only while Home's card (which holds it there) is not on screen.
+    const words = document.createElement("div");
+    words.className = "rc-words";
+    words.append(head, ...(done < total || sortRunning ? [track] : []), ...(line ? [left] : []));
+    const cube = (firstRead || (done >= total && sortRunning)) && !homeOnScreen ? sharedCube() : null;
+    if (cube) {
+      cube.progress(done >= total && sortRunning ? 1 : SETUP_SHARE + (total > 0 ? done / total : 0) * (0.7 - SETUP_SHARE));
+      indexStatusEl.classList.add("has-cube");
+    } else indexStatusEl.classList.remove("has-cube");
+    indexStatusEl.replaceChildren(...(cube ? [cube.el] : []), words);
     indexStatusEl.hidden = false;
   } else if (!indexStatusEl.dataset.job) indexStatusEl.hidden = true;
   // A new phase counts from zero again.

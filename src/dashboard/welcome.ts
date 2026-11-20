@@ -237,7 +237,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     stage.replaceChildren(
       el("p", "wel-eyebrow", "Welcome to Cluster"),
       el("h1", "wel-title", "Your Gmail, sorted."),
-      el("p", "wel-lead", "Cluster labels new mail, clears out the old and catches scams."),
+      el("p", "wel-lead", "Cluster labels your new mail, cleans out what you don't need and catches scams."),
       go,
     );
     const skip = new AbortController();
@@ -317,8 +317,8 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     backBtn.hidden = !back;
     rememberKai(kaiHost);
     setWorld(world, preview.el, progressBar(done));
-    // Where you are shows once, in the steps on the panel; here just Back over the question.
-    stage.replaceChildren(spot, backBtn, el("h1", "wel-title", title), el("p", "wel-lead", why), ...rest);
+    // Back first, at the top of the column, then Kai and the question.
+    stage.replaceChildren(backBtn, spot, el("h1", "wel-title", title), el("p", "wel-lead", why), ...rest);
     // Kai flies from the middle of the panel to its spot over the question, instead of popping in there.
     travel(kaiHost, kai);
     idle?.reset();

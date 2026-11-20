@@ -238,3 +238,14 @@ export function untangleCube(turns = 18): UntangleCube {
     },
   };
 }
+
+/** How far setup's quick scan of 100 emails turns the cube; the dashboard's read does the rest. */
+export const SETUP_SHARE = 0.35;
+let shared: UntangleCube | null = null;
+/** One cube for the whole first read (2026-11-20 review): setup's scan turns
+ * it partway, then the dashboard's read (its card, or the sidebar card on
+ * other pages) carries on with the same cube until labels go on and it is
+ * solved. Appending its element elsewhere moves it. */
+export function sharedCube(): UntangleCube {
+  return (shared ??= untangleCube(18));
+}

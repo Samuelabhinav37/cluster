@@ -5170,3 +5170,36 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .lbl-row[aria-checked="true"] .lbl-switch::after { transform: translateX(18px); background: var(--canvas); }
 @media (max-width: 600px) { .lbl-row-logos { display: none; } .lbl-row { gap: 12px; padding: 10px 12px; } }
 @media (prefers-reduced-motion: reduce) { .lbl-switch, .lbl-switch::after { transition: none; } }
+/* The sidebar read card with the first read's cube beside the words. */
+.index-status.read-card.has-cube { display: flex; align-items: center; gap: 12px; }
+.index-status.has-cube .unt-cube { flex: none; width: 52px; margin: 0; }
+.index-status.has-cube .unt-shadow { display: none; }
+.read-card .rc-words { flex: 1; min-width: 0; }
+
+/* ── Round 4 (2026-11-20 review) ──────────────────────────────────────────
+   One centred column on the right, like Runway, Dribbble, Arcade and
+   Adaline's split sign-up pages (Mobbin): about 440px wide, headings
+   centred, buttons as wide as the column, the privacy line centred under
+   them. Back sits at the top. Lists and rows inside keep left-aligned text. */
+.wel .wel-stage, .onb-side > .onb-pane, .wel.is-hello .wel-stage { width: 100%; max-width: 480px; margin: 0 auto; align-items: stretch; text-align: center; }
+.wel-stage > .onb-kai-spot, .onb-pane > .onb-kai-spot { justify-content: center; }
+.wel.is-hello .wel-lead, .wel.is-ask .wel-lead, .onb-pane .wel-lead { max-width: none; margin-left: auto; margin-right: auto; }
+.wel .wel-go, .wel.is-hello .wel-go, .wel.is-ask .wel-go, .onb-pane .wel-go { width: 100%; max-width: none; min-width: 0; align-self: stretch; }
+.wel .wel-input, .wel .connect-trust { max-width: none; }
+.wel .connect-trust, .wel .connect-error { text-align: center; }
+.wel .wel-back { align-self: flex-start; }
+.wel .wel-skip { align-self: center; }
+.onb-pane .onb-actions { align-items: stretch; text-align: center; }
+.onb-pane .lbl-demo, .onb-pane .ss-tallies, .onb-pane .lbl-pick, .onb-pane .onb-read { text-align: left; }
+.onb-pane .ss-work { justify-content: center; }
+
+/* Pick your labels: the list scrolls inside itself, so the page stays put
+   and Use these never leaves the screen. */
+.onb-pane.is-found .lbl-list { max-height: max(200px, calc(100vh - 560px)); overflow-y: auto; overscroll-behavior: contain; }
+@media (max-width: 600px) { .onb-pane.is-found .lbl-list { max-height: none; } }
+.wel.is-hello .wel-title { font-size: clamp(36px, 3.4vw, 48px); white-space: nowrap; }
+@media (max-width: 600px) { .wel.is-hello .wel-title { font-size: 34px; } }
+/* The setup screens hold the scan counts and the label list: a little wider than the sign-in column. */
+.onb-side > .onb-pane { max-width: 560px; }
+.onb-pane .ss-work .unt-cube { width: 190px; }
+.onb-pane .onb-actions .onb-link { align-self: center; }

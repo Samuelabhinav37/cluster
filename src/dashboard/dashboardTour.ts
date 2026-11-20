@@ -19,8 +19,6 @@ export const TOUR: TourStop[] = [
   { selector: "#ask-kai-open", line: "Press / to find any email or sender, or to ask me for something." },
 ];
 
-/** Kai's last line: what to do next, so it is clear the tour is over (Get started, startList.ts). */
-export const TOUR_BYE = "Try the three Get started steps at the bottom of the sidebar.";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -177,7 +175,9 @@ export function startDashboardTour(stops: TourStop[] = TOUR): void {
       const name = ctx.settings.userName;
       words.prepend(el("h2", "tour-title", name ? `You're all set, ${name}.` : "You're all set."));
       next.textContent = "Let's go";
-      type(TOUR_BYE);
+      // The heading says it all ("You're all set, Sam."): no line under it.
+      line.textContent = "";
+      line.hidden = true;
       kai?.lookAt(null);
       kai?.setMood("proud", 2400);
       kai?.do("celebrate");

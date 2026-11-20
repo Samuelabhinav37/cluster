@@ -6,7 +6,7 @@
 // prefers-reduced-motion. Everything shown comes from the read itself.
 
 import { senderTile } from "./senderTile";
-import { untangleCube } from "./untangleCube";
+import { SETUP_SHARE, sharedCube } from "./untangleCube";
 
 export interface ScanState {
   done: number;
@@ -43,7 +43,8 @@ export function scanStage(): ScanStage {
   root.setAttribute("aria-label", "Reading your mail");
   const card = document.createElement("div");
   card.className = "scn-card";
-  const cube = untangleCube();
+  // The cube from setup's scan, carrying on where it left off.
+  const cube = sharedCube();
   card.append(cube.el);
 
   const panel = document.createElement("div");
@@ -89,6 +90,8 @@ export function scanStage(): ScanStage {
   return {
     el: root,
     update(s) {
+      // The cube is shared (the sidebar card borrows it on other pages): take it back while on screen.
+      if (root.isConnected && cube.el.parentNode !== card) card.append(cube.el);
       const t = Date.now();
       samples.push([t, s.done]);
       while (samples.length > 2 && t - samples[0][0] > 15_000) samples.shift();
@@ -115,8 +118,8 @@ export function scanStage(): ScanStage {
       // Each phase counts from 0 again (the quick count hits "150 of 150" in a
       // second), so the cube spends its turns across the phases and only
       // solves once labels go on.
-      if (label === "Reading your mail") cube.progress(share * 0.6);
-      else if (label === "Reading your sent mail") cube.progress(0.6 + share * 0.25);
+      if (label === "Reading your mail") cube.progress(SETUP_SHARE + share * (0.7 - SETUP_SHARE));
+      else if (label === "Reading your sent mail") cube.progress(0.7 + share * 0.2);
       else if (label === "Putting labels on your inbox") cube.progress(1);
       if (s.latest && s.latest.address !== lastWho) {
         lastWho = s.latest.address;

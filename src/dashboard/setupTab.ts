@@ -32,7 +32,7 @@ import { categoryLabelName } from "../lib/categoryFilters";
 import { showLabel } from "../lib/clusterLabels";
 import { attend, pageHeader, progressBar, setWorld, worldPanel } from "./welcome";
 import { inboxPreview } from "./inboxPreview";
-import { untangleCube, type UntangleCube } from "./untangleCube";
+import { SETUP_SHARE, sharedCube, type UntangleCube } from "./untangleCube";
 import { stopTyping, typeLine } from "./kaiBubble";
 import { startIdle } from "./kaiIdle";
 import { rememberKai, travel } from "./kaiTravel";
@@ -325,7 +325,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     body.append(demo, primary("Got it", () => goTo(at + 1)));
   }
 
-  // The same untangle cube as the dashboard's first read, smaller.
+  // The same cube the dashboard's first read carries on with (sharedCube).
   let cube: UntangleCube | null = null;
 
   /** What the scan is finding, counted live (after AirOps and Elicit, which
@@ -348,7 +348,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
 
   /** The bar, "38 of 100", the tallies and the cube. */
   function paintScanCount(n: number) {
-    cube?.progress(n / Math.max(1, scanTotal));
+    cube?.progress((n / Math.max(1, scanTotal)) * SETUP_SHARE);
     tallyCounts(n).forEach((c, i) => {
       const row = pane.querySelector<HTMLElement>(`[data-tally="${i}"]`);
       const num = row?.querySelector("b");
@@ -387,8 +387,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       row.append(el("span", "", t.name), el("b", "", "0"));
       tallies.append(row);
     });
-    cube?.stop();
-    cube = untangleCube(12);
+    cube = sharedCube();
     const work = el("div", "ss-work");
     work.append(cube.el, tallies);
     body.append(work, progress);
