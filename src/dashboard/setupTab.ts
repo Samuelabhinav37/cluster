@@ -23,7 +23,7 @@ import { icon } from "./homeDashboard";
 import { senderTile } from "./senderTile";
 import { mapWithConcurrency } from "../lib/concurrency";
 import { boardOverride, pickPracticeSenders, practiceGuess, type BoardSpot, type PracticeMail, type PracticeSender } from "../lib/practiceSenders";
-import type { SortOverride } from "../lib/sortTaxonomy";
+import type { SortBucket, SortOverride } from "../lib/sortTaxonomy";
 import { renderTimeLimits, turnOnTimeLimits } from "./timeLimitsTab";
 import { countMailbox } from "../lib/gmailApi";
 import { readTimeText } from "../lib/gmailQuotaLedger";
@@ -204,6 +204,7 @@ async function startPlan(
   answers: OnboardingAnswers,
   readCap: number,
   corrections: Record<string, SortOverride> = {},
+  labelsOff: SortBucket[] = [],
 ): Promise<{ tidyFailed: boolean }> {
   const plan = buildOnboardingPlan(answers);
   const patch: Partial<ClusterSettings> = {
@@ -224,7 +225,7 @@ async function startPlan(
   renderTimeLimits();
   let tidyFailed = false;
   if (plan.tidy) {
-    tidyFailed = !(await turnOnTimeLimits().catch((err: unknown) => {
+    tidyFailed = !(await turnOnTimeLimits(labelsOff).catch((err: unknown) => {
       log.error("Setup could not turn on time limits", err);
       return false;
     }));
@@ -265,6 +266,11 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   let scanEnteredAt = 0;
   let signedIn = false;
   let found: PracticeSender[] = [];
+  // How many of the scanned emails each label would get, to order the tiles.
+  let perLabel = new Map<SortBucket, number>();
+  // Labels unticked on the picker: no label, that mail stays in the inbox.
+  const off = new Set<SortBucket>();
+  let toldOff = false;
   // Where each board sender sits (by host); missing means Cluster's guess.
   const placed = new Map<string, BoardSpot>();
   let changing = false;
@@ -408,9 +414,9 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     if (found.length === 0) {
       body.append(el("h1", "onb-title", "Ready to sort"));
     } else {
-      body.append(el("h1", "onb-title", changing ? "Move any that are wrong" : "I found these"));
+      body.append(el("h1", "onb-title", changing ? "Move any that are wrong" : "Pick your labels"));
       if (changing) body.append(el("p", "onb-hint", "Drag a company to another label. Or tap it, then tap the label."));
-      body.append(renderBoard());
+      body.append(changing ? renderBoard() : renderTiles());
     }
     const readChoice = renderReadChoice();
     if (readChoice) body.append(readChoice);
@@ -425,10 +431,10 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
         }),
       );
     } else {
-      actions.append(primary(found.length ? "Yes, use these" : "Yes, sort my mail", () => void finish("tidy"), "setup-go"));
+      actions.append(primary(found.length ? "Use these" : "Yes, sort my mail", () => void finish("tidy"), "setup-go"));
       if (found.length) {
         actions.append(
-          button("Change some", "onb-btn ghost onb-wide", () => {
+          button("Move a company", "onb-btn ghost onb-wide", () => {
             changing = true;
             render();
             kai.say("Grab one and drop it on another label.");
@@ -439,6 +445,55 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       actions.append(button("No, ask me first", "onb-link", () => void finish("ask"), "setup-ask"));
     }
     body.append(actions);
+  }
+
+  /** The labels as big tiles with a tick, like a console's app picker. Tap or
+   * Space toggles one; the arrow keys move between tiles. */
+  function renderTiles(): HTMLElement {
+    const spots = [...new Set(found.map(spotOf))]
+      .filter((s): s is SortBucket => s !== "keep")
+      .sort((a, b) => (perLabel.get(b) ?? 0) - (perLabel.get(a) ?? 0));
+    const grid = el("div", "lbl-tiles");
+    grid.setAttribute("role", "group");
+    grid.setAttribute("aria-label", "Labels");
+    for (const spot of spots) {
+      const { emoji, name: label } = spotParts(spot);
+      const who = found.filter((p) => spotOf(p) === spot);
+      const n = perLabel.get(spot) ?? 0;
+      const tile = el("button", "lbl-tile");
+      tile.type = "button";
+      tile.dataset.spot = spot;
+      tile.setAttribute("role", "checkbox");
+      const sync = () => tile.setAttribute("aria-checked", String(!off.has(spot)));
+      sync();
+      tile.append(
+        el("span", "lbl-tile-check"),
+        el("span", "lbl-tile-emoji", emoji),
+        el("b", "lbl-tile-name", label),
+        el("small", "lbl-tile-meta", who.map((p) => p.name).slice(0, 2).join(", ")),
+        el("small", "lbl-tile-count", n === 1 ? "1 email" : `${n} emails`),
+      );
+      tile.onclick = () => {
+        if (off.has(spot)) off.delete(spot);
+        else off.add(spot);
+        sync();
+        if (off.has(spot) && !toldOff) {
+          toldOff = true;
+          kai.say(`Okay. ${label} mail stays in your inbox.`);
+        } else kai.look(tile);
+      };
+      grid.append(tile);
+    }
+    grid.onkeydown = (e) => {
+      const tiles = Array.from(grid.querySelectorAll<HTMLElement>(".lbl-tile"));
+      const i = tiles.indexOf(document.activeElement as HTMLElement);
+      const cols = getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length || 1;
+      const d = ({ ArrowRight: 1, ArrowLeft: -1, ArrowDown: cols, ArrowUp: -cols } as Record<string, number>)[e.key];
+      if (i < 0 || !d) return;
+      e.preventDefault();
+      tiles[Math.max(0, Math.min(tiles.length - 1, i + d))].focus();
+    };
+    return grid;
   }
 
   /** Kai shows the move once: the first company lifts and nudges toward the next label. */
@@ -614,7 +669,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     const plan = { ...answers, hands };
     if (hands === "tidy") kai.say("Making your labels.");
     try {
-      const { tidyFailed } = await startPlan(plan, readAll ? MAIL_INDEX_MAX : MAIL_INDEX_CAP, corrections());
+      const { tidyFailed } = await startPlan(plan, readAll ? MAIL_INDEX_MAX : MAIL_INDEX_CAP, corrections(), [...off]);
       if (go) go.textContent = "All set";
       kai.say(tidyFailed ? "Saved. You can turn on the labels in Labels." : "Okay, let's go to your dashboard!", "joyful");
       kai.do("celebrate");
@@ -680,7 +735,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     } else if (found.length === 0) {
       kai.say("I'll label new mail as it comes in. Okay?");
     } else {
-      kai.say(`I found ${found.length} companies. Are these labels okay?`, "proud");
+      kai.say("These are the labels I'd use. Untick any you don't want.", "proud");
     }
   }
 
@@ -704,6 +759,11 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     }
     void scanNewest(onScanned).then(async (mail) => {
       found = pickPracticeSenders(mail, 8);
+      perLabel = new Map();
+      for (const m of mail) {
+        const b = practiceGuess(m);
+        if (b) perLabel.set(b, (perLabel.get(b) ?? 0) + 1);
+      }
       scanned = true;
       scanDone();
     });

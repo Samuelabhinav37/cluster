@@ -36,17 +36,39 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text?
   return node;
 }
 
-/** The thick progress bar along the top, `done` of ONBOARDING_STEPS filled. */
+/** The parts of setup and the screens in each (1 = name ... 6 = labels).
+ * Tour is last so the dashboard tour reads as part of setup, not a restart. */
+export const SETUP_PARTS = [
+  { name: "You", screens: [1] },
+  { name: "Gmail", screens: [2] },
+  { name: "Your mail", screens: [3, 4, 5] },
+  { name: "Labels", screens: [6] },
+  { name: "Tour", screens: [7] },
+] as const;
+
+/** Where you are in setup, bottom left like a console's setup: a tick over
+ * each part that's done, the current part's name over a thin bar, and
+ * empty bars for what's left. `done` is the current screen. */
 export function progressBar(done: number): HTMLElement {
-  const bar = el("div", "wel-bar");
-  bar.setAttribute("role", "progressbar");
-  bar.setAttribute("aria-valuemin", "0");
-  bar.setAttribute("aria-valuemax", String(ONBOARDING_STEPS));
-  bar.setAttribute("aria-valuenow", String(done));
-  const fill = el("span");
-  fill.style.width = `${(done / ONBOARDING_STEPS) * 100}%`;
-  bar.append(fill);
-  return bar;
+  const track = el("div", "step-track");
+  const now = SETUP_PARTS.findIndex((p) => (p.screens as readonly number[]).includes(done));
+  track.setAttribute("role", "progressbar");
+  track.setAttribute("aria-valuemin", "0");
+  track.setAttribute("aria-valuemax", String(ONBOARDING_STEPS));
+  track.setAttribute("aria-valuenow", String(done));
+  track.setAttribute("aria-valuetext", `${SETUP_PARTS[now]?.name ?? ""}, part ${now + 1} of ${SETUP_PARTS.length}`);
+  SETUP_PARTS.forEach((part, i) => {
+    const state = i < now ? "done" : i === now ? "now" : "next";
+    const node = el("div", `step-part is-${state}`);
+    const bar = el("i");
+    const fill = el("span");
+    const pos = (part.screens as readonly number[]).indexOf(done);
+    fill.style.width = state === "done" ? "100%" : state === "now" ? `${((pos + 0.5) / part.screens.length) * 100}%` : "0";
+    bar.append(fill);
+    node.append(el("b", "", state === "done" ? "✓" : state === "now" ? part.name : ""), bar);
+    track.append(node);
+  });
+  return track;
 }
 
 /** First word of what they typed: "Samuel Boman" is "Samuel". */

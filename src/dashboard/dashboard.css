@@ -4865,3 +4865,40 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 
 /* Stop mail: the optional "also trash their old mail" box beside a confirm (plan 5.4). */
 .confirm-extra { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+
+/* Setup's step tracker, bottom left (PS5 style): a tick per part done, the
+   current part named over a thin bar. */
+.step-track { position: fixed; left: 32px; bottom: 28px; z-index: 5; display: flex; gap: 8px; pointer-events: none; }
+.step-part { display: flex; flex-direction: column; gap: 8px; width: 92px; color: var(--label-2); font: 500 13px/1 var(--font); }
+.step-part b { height: 13px; font-weight: 500; white-space: nowrap; }
+.step-part.is-done b { text-align: center; color: var(--label-3); }
+.step-part.is-now b { color: var(--label); }
+.step-part i { display: block; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.16); overflow: hidden; }
+.step-part i span { display: block; height: 100%; background: var(--label); border-radius: inherit; transition: width var(--t-slow) var(--ease-out); }
+.step-part.is-done i span { background: var(--label-3); }
+@media (max-width: 640px) { .step-track { left: 16px; bottom: 16px; } .step-part { width: 56px; } }
+
+/* "Pick your labels": big tiles with a tick, like a console's app picker. */
+.lbl-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
+.lbl-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; border: 1px solid var(--separator); border-radius: 16px; background: #1c1c1e; color: var(--label); text-align: left; cursor: pointer; transition: transform var(--t-fast) var(--ease-out), opacity var(--t-fast), border-color var(--t-fast); }
+.lbl-tile:hover { border-color: var(--label-3); }
+.lbl-tile:active { transform: scale(0.97); }
+.lbl-tile:focus-visible { outline: 2px solid var(--label); outline-offset: 3px; }
+.lbl-tile[aria-checked="false"] { opacity: 0.45; }
+.lbl-tile-check { position: absolute; top: 12px; right: 12px; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--label-3); }
+.lbl-tile[aria-checked="true"] .lbl-tile-check { border-color: var(--label); background: var(--label); }
+.lbl-tile[aria-checked="true"] .lbl-tile-check::after { content: ""; position: absolute; left: 7px; top: 3px; width: 5px; height: 10px; border: solid var(--canvas); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.lbl-tile-emoji { font-size: 26px; line-height: 1; }
+.lbl-tile-name { font: 600 15px/1.25 var(--font); margin-top: 4px; }
+.lbl-tile-meta { color: var(--label-2); font: 400 12.5px/1.3 var(--font); }
+.lbl-tile-count { margin-top: 4px; color: var(--label-3); font: 500 12px/1 var(--font); }
+/* Room for the step tracker under the last row, and the skip link stays right. */
+.onb-pane { padding-bottom: 72px; }
+.onb-skip { margin-left: auto; }
+
+/* The tour's ending: the card in the middle, a welcome by name. */
+.tour.is-end .tour-card { top: 50%; left: 50%; transform: translate(-50%, -50%) !important; flex-direction: column; text-align: center; width: min(400px, calc(100vw - 32px)); padding: 28px 24px 22px; }
+.tour.is-end .tour-kai { width: 96px; height: 96px; margin-bottom: 18px; } /* the drawing runs below its box */
+.tour.is-end .tour-foot { justify-content: center; }
+.tour.is-end .tour-foot .grow { display: none; }
+.tour-title { margin: 0; font: 600 22px/1.2 var(--font); letter-spacing: -0.01em; }

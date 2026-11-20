@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /// <reference types="vite/client" />
 //
-// First-run setup: hello, "This is a label", the scan, "I found these".
+// First-run setup: hello, "This is a label", the scan, "Pick your labels".
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { bootDashboard } from "./testHarness";
 
@@ -27,7 +27,7 @@ async function toFound(dash: Dash, hasMail = true) {
     await vi.waitFor(() => expect(document.querySelector("#scan-list .ss-row .ss-tag")).not.toBeNull());
     expect(document.getElementById("scan-count")?.textContent).toMatch(/^\d+ of \d+$/);
   }
-  await vi.waitFor(() => expect(title()).toMatch(/^(I found these|Ready to sort)$/), { timeout: 10000 });
+  await vi.waitFor(() => expect(title()).toMatch(/^(Pick your labels|Ready to sort)$/), { timeout: 10000 });
 }
 
 /** No company mail: the last screen has no board, just Yes or Ask me first. */
@@ -62,14 +62,22 @@ describe("first-run setup", () => {
     expect(title()).toBe("You're in, Samuel.");
     await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toContain("Hi Samuel! I'm Kai."), { timeout: 3000 });
     await toFound(dash);
-    expect(title()).toBe("I found these");
+    expect(title()).toBe("Pick your labels");
+    // One ticked tile per label the companies landed in.
+    const tile = (spot: string) => document.querySelector<HTMLButtonElement>(`.lbl-tile[data-spot="${spot}"]`)!;
+    expect(tile("shipping").getAttribute("aria-checked")).toBe("true");
+    const tiles = Array.from(document.querySelectorAll<HTMLButtonElement>(".lbl-tile"));
+    const other = tiles.find((t) => t.dataset.spot !== "shipping")!;
+    other.click();
+    expect(other.getAttribute("aria-checked")).toBe("false");
+    const offSpot = other.dataset.spot!;
     // Free mail is a person, not a company: two companies on the board.
     const chip = (host: string) => document.querySelector<HTMLButtonElement>(`.board-chip[data-host="${host}"]`)!;
     const col = (spot: string) => document.querySelector<HTMLElement>(`.board-col[data-spot="${spot}"]`)!;
-    expect(document.querySelectorAll(".board-chip")).toHaveLength(2);
-    expect(col("shipping").contains(chip("amazon.com"))).toBe(true);
 
     click("setup-change");
+    expect(document.querySelectorAll(".board-chip")).toHaveLength(2);
+    expect(col("shipping").contains(chip("amazon.com"))).toBe(true);
     expect(title()).toBe("Move any that are wrong");
     expect(chip("amazon.com").draggable).toBe(true);
     // Tap a company, then a column.
@@ -79,11 +87,13 @@ describe("first-run setup", () => {
     expect(col("keep").contains(chip("amazon.com"))).toBe(true);
     await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("Got it. Amazon stays in your inbox."), { timeout: 3000 });
     click("setup-next"); // Done
-    expect(title()).toBe("I found these");
+    expect(title()).toBe("Pick your labels");
+    expect(tile(offSpot).getAttribute("aria-checked")).toBe("false");
 
     click("setup-go");
     await vi.waitFor(() => expect(dash.storedSettings().setupDone).toBe(true));
     expect(dash.storedSettings().sortOverrides).toEqual({ "@amazon.com": "never" });
+    await vi.waitFor(() => expect(dash.storedSettings().autoSort.labelsOff).toContain(offSpot));
     await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("Okay, let's go to your dashboard!"), { timeout: 3000 });
   });
 

@@ -278,11 +278,14 @@ export function fixesRow(now = Date.now()): HTMLElement | null {
 
 /** Setup's "Tidy for me": every kind that is off takes its stored choice,
  * then all of it goes to Gmail. */
-export async function turnOnTimeLimits(): Promise<boolean> {
+export async function turnOnTimeLimits(off: readonly string[] = []): Promise<boolean> {
   renderTimeLimits();
   for (const bucket of ALL_SORT_BUCKETS) {
     const select = selectFor(bucket);
-    if (select?.value === OFF) select.value = choiceValue(ctx.settings.autoSort.inboxHoursByBucket[bucket] ?? null);
+    if (!select) continue;
+    // Labels unticked in setup stay off: no label, their mail stays in the inbox.
+    if (off.includes(bucket)) select.value = OFF;
+    else if (select.value === OFF) select.value = choiceValue(ctx.settings.autoSort.inboxHoursByBucket[bucket] ?? null);
   }
   return queueSave();
 }

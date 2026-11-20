@@ -145,15 +145,23 @@ export function startDashboardTour(stops: TourStop[] = TOUR): void {
   }
 
   next.onclick = () => {
+    if (layer.classList.contains("is-end")) return end();
     if (at === shown.length - 1) {
-      if (next.disabled) return;
-      next.disabled = skip.disabled = true;
-      hole.style.opacity = "0";
+      // The ending, like a console's "Welcome to PlayStation 5": the card moves
+      // to the middle, Kai welcomes you by name and says the tour is over.
+      layer.classList.add("is-end");
+      // The page stays dimmed: the hole shrinks to nothing in the middle.
+      Object.assign(hole.style, { left: "50%", top: "50%", width: "0px", height: "0px" });
       count.textContent = "";
+      skip.hidden = true;
+      const name = ctx.settings.userName;
+      words.prepend(el("h2", "tour-title", name ? `Welcome to Cluster, ${name}.` : "Welcome to Cluster."));
+      next.textContent = "Start";
+      card.style.transform = "";
       type(TOUR_BYE);
       kai?.lookAt(null);
       kai?.do("wave");
-      window.setTimeout(end, reduced ? 1200 : TOUR_BYE.length * TYPE_MS + 1400);
+      next.focus();
       return;
     }
     at += 1;
