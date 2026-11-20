@@ -33,6 +33,7 @@ import { categoryLabelName } from "../lib/categoryFilters";
 import { showLabel } from "../lib/clusterLabels";
 import { progressBar, TYPE_MS } from "./welcome";
 import { startIdle } from "./kaiIdle";
+import { rememberKai, travel } from "./kaiTravel";
 import { startDashboardTour } from "./dashboardTour";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
@@ -148,6 +149,7 @@ function kaiNarrator() {
 
   return {
     row,
+    instance: kai,
     idle: kai && !reduced ? startIdle(kai) : null,
     say(text: string, mood?: KaiMood) {
       last = text;
@@ -236,17 +238,6 @@ async function startPlan(
     }));
   }
   return { tidyFailed };
-}
-
-/** Runs `go` once Home has left its first-read screen: a tour over "Reading your mail" points at nothing. */
-function afterFirstRead(go: () => void): void {
-  if (!document.querySelector(".home-read")) return go();
-  const watch = new MutationObserver(() => {
-    if (document.querySelector(".home-read")) return;
-    watch.disconnect();
-    go();
-  });
-  watch.observe(document.body, { childList: true, subtree: true });
 }
 
 export function wireSetup(select: (screen: string) => Promise<void>): void {
@@ -636,8 +627,10 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       kai.say(tidyFailed ? "Saved. You can turn on the labels in Labels." : "Okay, let's go to your dashboard!", "joyful");
       kai.do("celebrate");
       await wait(1600);
+      const host = kai.row.querySelector<HTMLElement>(".onb-kai");
+      if (host) rememberKai(host);
       await select("overview");
-      afterFirstRead(() => startDashboardTour());
+      startDashboardTour();
     } catch (err) {
       log.error("Setup could not be saved", err);
       busy = false;
@@ -658,7 +651,11 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     if (kai.row.parentNode === pane) {
       while (kai.row.nextSibling) kai.row.nextSibling.remove();
       pane.append(body);
-    } else pane.replaceChildren(kai.row, body);
+    } else {
+      pane.replaceChildren(kai.row, body);
+      // The same Kai as the welcome: it flies over from where it stood there.
+      travel(kai.row.querySelector<HTMLElement>(".onb-kai")!, kai.instance);
+    }
     kai.idle?.reset();
     if (newStep) guide(step);
   }

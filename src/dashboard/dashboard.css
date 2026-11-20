@@ -3955,7 +3955,7 @@ body { background: var(--canvas); }
 .wel.is-hello .wel-go:active:not(:disabled) { transform: scale(0.97); }
 .wel.is-hello .wel-go:focus-visible { outline: 2px solid var(--label-3); outline-offset: 3px; }
 .wel-kai { width: 104px; height: 104px; }
-.wel-ask { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+.wel-ask { display: flex; align-items: center; gap: 18px; margin-bottom: 44px; } /* Kai's drawing runs below its box */
 .wel-bubble { margin: 0; max-width: 440px; padding: 14px 18px; border-radius: 16px 16px 16px 4px; font: 600 19px/1.35 var(--font); }
 .wel-input { height: 58px; padding: 0 18px; border: 2px solid var(--separator); border-radius: 14px; background: var(--neutral-fill); color: var(--label); font: 500 18px/1 var(--font); }
 .wel-input:focus { outline: none; border-color: var(--label-3); }

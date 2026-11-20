@@ -4,6 +4,8 @@
 import "./kai/kaiLife.js";
 import type { KaiInstance } from "./kai/kaiLife";
 import { ctx } from "./state";
+import { rememberKai, travel, TRAVEL_MS } from "./kaiTravel";
+import { TYPE_MS } from "./welcome";
 
 export interface TourStop {
   selector: string;
@@ -11,12 +13,17 @@ export interface TourStop {
 }
 
 export const TOUR: TourStop[] = [
+  // Only while the first read runs: the tour starts at once, so Kai never goes quiet after setup.
+  { selector: ".home-read", line: "This is your dashboard. I'm labelling your mail here right now." },
   { selector: '.nav-item[data-screen="overview"]', line: "Home shows what's new in your inbox." },
   { selector: '.nav-item[data-screen="delete"]', line: "Cleanup finds old mail you can clear in one go." },
   { selector: '.nav-item[data-screen="organize"]', line: "Labels is where your labels live. Change them any time." },
   { selector: '.nav-item[data-screen="impersonation"]', line: "Security keeps scams and fake senders away from you." },
   { selector: "#top-settings", line: "Settings is here if you change your mind." },
 ];
+
+/** Kai's last line, so it is clear the tour is over. */
+export const TOUR_BYE = "That's the tour. I'll be down here if you need me.";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -64,10 +71,33 @@ export function startDashboardTour(stops: TourStop[] = TOUR): void {
   if (!kai) kaiHost.hidden = true;
 
   let at = 0;
+  let typing = 0;
   const end = () => {
+    clearInterval(typing);
     window.removeEventListener("resize", place);
     document.removeEventListener("keydown", onKey);
+    if (kai) rememberKai(kaiHost);
     layer.remove();
+    // Kai flies down to its corner, where it stays on the dashboard.
+    const dock = document.querySelector<HTMLElement>(".kai-guide .kg-kai");
+    if (dock) travel(dock, null);
+  };
+  /** Types the line with Kai's mouth following it. */
+  const type = (text: string) => {
+    clearInterval(typing);
+    if (reduced || !kai) {
+      line.textContent = text;
+      return;
+    }
+    let n = 0;
+    line.textContent = "";
+    kai.talk(text.length * TYPE_MS + 200);
+    typing = window.setInterval(() => {
+      n += 1;
+      line.textContent = text.slice(0, n);
+      kai.voice(text[n - 1] ?? " ");
+      if (n >= text.length) clearInterval(typing);
+    }, TYPE_MS);
   };
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") end();
@@ -99,7 +129,7 @@ export function startDashboardTour(stops: TourStop[] = TOUR): void {
     const stop = shown[at];
     count.textContent = `${at + 1} of ${shown.length}`;
     next.textContent = at === shown.length - 1 ? "Done" : "Next";
-    line.textContent = stop.line;
+    type(stop.line);
     if (!reduced) {
       line.classList.remove("pop");
       void line.offsetWidth;
@@ -109,7 +139,6 @@ export function startDashboardTour(stops: TourStop[] = TOUR): void {
     const target = document.querySelector(stop.selector);
     if (target && kai) {
       kai.lookAt(target);
-      kai.talk(Math.min(2400, stop.line.length * 45));
       if (at > 0) kai.do("hop");
     }
     next.focus();
@@ -117,8 +146,14 @@ export function startDashboardTour(stops: TourStop[] = TOUR): void {
 
   next.onclick = () => {
     if (at === shown.length - 1) {
-      kai?.do("celebrate");
-      window.setTimeout(end, reduced ? 0 : 500);
+      if (next.disabled) return;
+      next.disabled = skip.disabled = true;
+      hole.style.opacity = "0";
+      count.textContent = "";
+      type(TOUR_BYE);
+      kai?.lookAt(null);
+      kai?.do("wave");
+      window.setTimeout(end, reduced ? 1200 : TOUR_BYE.length * TYPE_MS + 1400);
       return;
     }
     at += 1;
@@ -128,5 +163,12 @@ export function startDashboardTour(stops: TourStop[] = TOUR): void {
   window.addEventListener("resize", place);
   document.addEventListener("keydown", onKey);
   kai?.do("wave");
+  // First placement without the slide, so the card doesn't fly in from the corner.
+  card.style.transition = "none";
   show();
+  void card.offsetWidth;
+  card.style.transition = "";
+  // The same Kai as setup: it flies into the card from where it stood.
+  travel(kaiHost, kai);
+  window.setTimeout(() => kai?.lookAt(document.querySelector(shown[at].selector)), TRAVEL_MS);
 }

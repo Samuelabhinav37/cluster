@@ -6,6 +6,7 @@ import "./kai/kaiLife.js";
 import type { KaiInstance } from "./kai/kaiLife";
 import { ctx } from "./state";
 import { startIdle } from "./kaiIdle";
+import { rememberKai, travel } from "./kaiTravel";
 import { updateSettings } from "../lib/settingsStore";
 import { setGmailLoginHint } from "../lib/gmailWebAuth";
 
@@ -220,7 +221,10 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     top.replaceChildren(backBtn, progressBar(done));
     const ask = el("div", "wel-ask");
     ask.append(kaiHost, bubble);
+    rememberKai(kaiHost);
     stage.replaceChildren(ask, ...rest);
+    // Kai flies from the middle to its spot by the question, instead of popping in there.
+    travel(kaiHost, kai);
     idle?.reset();
     say(line);
   }
