@@ -1,11 +1,9 @@
-// Setup's board (research/2026-11-15-onboarding-two-sources.md): companies
-// from the user's own newest mail, each placed in Cluster's guess, for the
-// user to move. Pure: the setup screen fetches the mail and saves the moves.
+// Setup's companies (research/2026-11-15-onboarding-two-sources.md): from
+// the user's own newest mail, each under Cluster's guessed label. Pure: the
+// setup screen fetches the mail.
 import { classifyMessageKind } from "./messageKind";
-import { classifySortBucket, type SortBucket, type SortOverride } from "./sortTaxonomy";
+import { classifySortBucket, type SortBucket } from "./sortTaxonomy";
 import { registrableDomain } from "./registrableDomain";
-import { isFreeMailDomain } from "./freeMail";
-import { correctionKey } from "./addressIdentity";
 
 export interface PracticeMail {
   fromAddress: string;
@@ -60,10 +58,3 @@ export function pickPracticeSenders(mail: PracticeMail[], n = 8): PracticeSender
   return picked;
 }
 
-/** What a board placement saves: nothing where Cluster guessed, else the new label or never sort. */
-export function boardOverride(sender: PracticeSender, spot: BoardSpot): [string, SortOverride] | null {
-  if (spot === sender.guess) return null;
-  // Never a whole free-mail domain: "@gmail.com" would be everyone on Gmail.
-  const key = isFreeMailDomain(registrableDomain(sender.host)) ? correctionKey(sender.address) : `@${sender.host}`;
-  return [key, spot === "keep" ? "never" : spot];
-}

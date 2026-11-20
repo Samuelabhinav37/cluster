@@ -49,7 +49,7 @@ describe("first-run setup", () => {
     expect(setupSection(again).hidden).toBe(true);
   });
 
-  it("Kai says hi by name, shows a label, scans, and saves only the companies moved", async () => {
+  it("Kai says hi by name, shows a label, scans, and saves the labels you untick", async () => {
     const dash = await bootDashboard({
       settings: { userName: "Samuel" },
       mailbox: [
@@ -60,7 +60,7 @@ describe("first-run setup", () => {
       ],
     });
     expect(title()).toBe("You're in, Samuel.");
-    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toContain("Hi Samuel! I'm Kai."), { timeout: 3000 });
+    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toContain("You're in, Samuel."), { timeout: 3000 });
     await toFound(dash);
     expect(title()).toBe("Pick your labels");
     // One ticked tile per label the companies landed in.
@@ -71,30 +71,13 @@ describe("first-run setup", () => {
     other.click();
     expect(other.getAttribute("aria-checked")).toBe("false");
     const offSpot = other.dataset.spot!;
-    // Free mail is a person, not a company: two companies on the board.
-    const chip = (host: string) => document.querySelector<HTMLButtonElement>(`.board-chip[data-host="${host}"]`)!;
-    const col = (spot: string) => document.querySelector<HTMLElement>(`.board-col[data-spot="${spot}"]`)!;
-
-    click("setup-change");
-    expect(document.querySelectorAll(".board-chip")).toHaveLength(2);
-    expect(col("shipping").contains(chip("amazon.com"))).toBe(true);
-    expect(title()).toBe("Move any that are wrong");
-    expect(chip("amazon.com").draggable).toBe(true);
-    // Tap a company, then a column.
-    chip("amazon.com").click();
-    expect(chip("amazon.com").getAttribute("aria-pressed")).toBe("true");
-    col("keep").click();
-    expect(col("keep").contains(chip("amazon.com"))).toBe(true);
-    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("Got it. Amazon stays in your inbox."), { timeout: 3000 });
-    click("setup-next"); // Done
-    expect(title()).toBe("Pick your labels");
-    expect(tile(offSpot).getAttribute("aria-checked")).toBe("false");
+    // Free mail is a person, not a company: only the two companies' labels get tiles.
+    expect(tiles).toHaveLength(2);
 
     click("setup-go");
     await vi.waitFor(() => expect(dash.storedSettings().setupDone).toBe(true));
-    expect(dash.storedSettings().sortOverrides).toEqual({ "@amazon.com": "never" });
     await vi.waitFor(() => expect(dash.storedSettings().autoSort.labelsOff).toContain(offSpot));
-    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("Okay, let's go to your dashboard!"), { timeout: 3000 });
+    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("All set."), { timeout: 3000 });
   });
 
   it("asks how much to read only when the mailbox is over 20,000, with a time for each", async () => {

@@ -2390,7 +2390,7 @@ body {
 /* the dashboard's own button look (40px tall, filled) is not Kai's */
 .kai-guide button { min-height: 0; transition: none; }
 .kai-guide .kg-tag:hover { background: var(--glass-solid); }
-.kg-launch { --kg-kai: 76px; position: relative; width: var(--kg-kai); }
+.kg-launch { --kg-kai: 56px; position: relative; width: var(--kg-kai); }
 .kai-guide .kai-button { display: block; padding: 0; border: 0; background: none; box-shadow: none; min-width: 0; min-height: 0; cursor: pointer; border-radius: 16px; }
 .kai-guide .kai-button:hover, .kai-guide .kai-button:active { background: none; box-shadow: none; transform: none; }
 .kai-button:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 4px; }
@@ -4023,8 +4023,8 @@ body { background: var(--canvas); }
 /* Dashboard tour: the page dims except a hole over what Kai means. */
 .tour { position: fixed; inset: 0; z-index: 60; }
 .tour-hole { position: fixed; border-radius: 14px; box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.6); transition: left var(--t) var(--spring-smooth), top var(--t) var(--spring-smooth), width var(--t) var(--spring-smooth), height var(--t) var(--spring-smooth); pointer-events: none; }
-.tour-card { position: fixed; top: 0; left: 0; display: flex; align-items: center; gap: 14px; width: min(420px, calc(100vw - 32px)); padding: 16px 18px; border-radius: 18px; background: var(--canvas); border: 1px solid var(--separator); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4); transition: transform var(--t-slow) var(--spring-smooth); }
-.tour-kai { width: 76px; height: 76px; }
+.tour-card { position: fixed; top: 0; left: 0; display: flex; align-items: center; gap: 14px; width: min(420px, calc(100vw - 32px)); padding: 18px 20px 14px; border-radius: 18px; background: var(--canvas); border: 1px solid var(--separator); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4); transition: transform var(--t-slow) var(--spring-smooth); }
+.tour-kai { width: 60px; height: 60px; margin-bottom: 16px; align-self: center; } /* the drawing runs below its box: keep it inside the card */
 .tour-words { display: flex; flex-direction: column; gap: 14px; flex: 1; min-width: 0; }
 .tour-line { margin: 0; color: var(--label); font: 600 16px/1.4 var(--font); }
 .tour-line.pop { animation: onb-rise var(--t) var(--ease-out); }
@@ -4881,7 +4881,8 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 @media (max-width: 640px) { .step-track { left: 16px; bottom: 16px; } .step-part { width: 56px; } }
 
 /* "Pick your labels": big tiles with a tick, like a console's app picker. */
-.lbl-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.lbl-tiles { display: grid; grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 560px) { .lbl-tiles { grid-template-columns: 1fr; } }
 .lbl-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; border: 1px solid var(--separator); border-radius: 16px; background: #1c1c1e; color: var(--label); text-align: left; cursor: pointer; transition: transform var(--t-fast) var(--ease-out), opacity var(--t-fast), border-color var(--t-fast); }
 .lbl-tile:hover { border-color: var(--label-3); }
 .lbl-tile:active { transform: scale(0.97); }
@@ -4934,3 +4935,8 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 @keyframes kb-in-down { from { opacity: 0; transform: translateY(-4px) scale(0.97); } }
 
 .board-chip.hint { border-color: var(--label-2); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12); transition: box-shadow var(--t) var(--ease-out), border-color var(--t); }
+
+/* One text per screen: Kai's line is the heading. The screen's title stays
+   for screen readers only, so the page never shows two lines saying the same. */
+.onb-pane .onb-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.onb-pane .onb-bubble, .wel.is-ask .wel-bubble { padding: 12px 16px; font: 500 17px/1.35 var(--font); letter-spacing: -0.01em; }

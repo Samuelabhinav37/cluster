@@ -67,7 +67,7 @@ describe("connect gate", () => {
     await throughWelcome();
     // Only the first name is kept, and Kai uses it.
     await vi.waitFor(() => expect(dash.storedSettings().userName).toBe("Samuel"));
-    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toContain("Nice to meet you, Samuel!"), { timeout: 3000 });
+    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toContain("Thanks, Samuel."), { timeout: 3000 });
     (dash.el("connect-gmail-btn") as HTMLButtonElement).click();
 
     await vi.waitFor(() => expect(gmail.listCandidateMessages).toHaveBeenCalled(), { timeout: 3000 });

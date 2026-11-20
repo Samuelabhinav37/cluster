@@ -14,14 +14,11 @@ export interface TourStop {
 
 export const TOUR: TourStop[] = [
   // Only while the first read runs: the tour starts at once, so Kai never goes quiet after setup.
-  { selector: ".home-read", line: "This is your dashboard. I'm labelling your mail here right now." },
-  { selector: "#ask-kai-open", line: "Search here. Type a company or a question, like mail from Amazon." },
-  { selector: '.nav-item[data-screen="overview"]', line: "Home shows what's new in your inbox." },
-  { selector: '.nav-item[data-screen="delete"]', line: "Cleanup finds old mail you can clear in one go." },
-  { selector: '.nav-item[data-screen="organize"]', line: "Labels is where your labels live. Change them any time." },
-  { selector: '.nav-item[data-screen="impersonation"]', line: "Security keeps scams and fake senders away from you." },
-  { selector: ".top-tool[data-details]", line: "Details shows the emails behind any number, so you can act on them." },
-  { selector: "#top-settings", line: "Settings is here if you change your mind." },
+  { selector: ".home-read", line: "I'm labelling your mail now." },
+  { selector: "#sidebar", line: "Cleanup, Labels and Security are here." },
+  { selector: "#ask-kai-open", line: "Search any sender or email." },
+  { selector: ".top-tool[data-details]", line: "Details lists the emails behind a number." },
+  { selector: "#top-settings", line: "Change anything in Settings." },
 ];
 
 /** Kai's last line, so it is clear the tour is over. */

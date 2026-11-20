@@ -22,8 +22,8 @@ import { ctx } from "./state";
 import { icon } from "./homeDashboard";
 import { senderTile } from "./senderTile";
 import { mapWithConcurrency } from "../lib/concurrency";
-import { boardOverride, pickPracticeSenders, practiceGuess, type BoardSpot, type PracticeMail, type PracticeSender } from "../lib/practiceSenders";
-import type { SortBucket, SortOverride } from "../lib/sortTaxonomy";
+import { pickPracticeSenders, practiceGuess, type BoardSpot, type PracticeMail, type PracticeSender } from "../lib/practiceSenders";
+import type { SortBucket } from "../lib/sortTaxonomy";
 import { renderTimeLimits, turnOnTimeLimits } from "./timeLimitsTab";
 import { countMailbox } from "../lib/gmailApi";
 import { readTimeText } from "../lib/gmailQuotaLedger";
@@ -59,7 +59,6 @@ const SCAN_MAX = 100;
 const SCAN_MS = 10_000;
 const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
-const SPRING = "linear(0, 0.062, 0.198, 0.356, 0.509, 0.642, 0.75, 0.833, 0.895, 0.938, 0.967, 0.985, 0.996, 1.003, 1.005, 1.006, 1)";
 
 /** Reads the newest mail one message at a time (each one reported as it lands), for at most 10 s. */
 async function scanNewest(onMail: (m: PracticeMail, read: number, total: number) => void): Promise<PracticeMail[]> {
@@ -203,13 +202,11 @@ function freshAnswers(): OnboardingAnswers {
 async function startPlan(
   answers: OnboardingAnswers,
   readCap: number,
-  corrections: Record<string, SortOverride> = {},
   labelsOff: SortBucket[] = [],
 ): Promise<{ tidyFailed: boolean }> {
   const plan = buildOnboardingPlan(answers);
   const patch: Partial<ClusterSettings> = {
     readCap,
-    sortOverrides: { ...ctx.settings.sortOverrides, ...corrections },
     persona: plan.persona,
     setupDone: true,
     onboarding: { version: 1, answers, answeredAt: Date.now() },
@@ -270,20 +267,8 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   let perLabel = new Map<SortBucket, number>();
   // Labels unticked on the picker: no label, that mail stays in the inbox.
   const off = new Set<SortBucket>();
-  let toldOff = false;
   // Where each board sender sits (by host); missing means Cluster's guess.
-  const placed = new Map<string, BoardSpot>();
-  let changing = false;
-  let selected = "";
-  const spotOf = (p: PracticeSender): BoardSpot => placed.get(p.host) ?? p.guess;
-  const corrections = () => {
-    const out: Record<string, SortOverride> = {};
-    for (const p of found) {
-      const saved = boardOverride(p, spotOf(p));
-      if (saved) out[saved[0]] = saved[1];
-    }
-    return out;
-  };
+  const spotOf = (p: PracticeSender): BoardSpot => p.guess;
   const spotParts = (spot: BoardSpot) => {
     if (spot === "keep") return { emoji: "📥", name: "Keep in inbox" };
     const [emoji, ...rest] = showLabel(categoryLabelName(spot, ctx.settings.labelChoices)).split(" ");
@@ -370,7 +355,6 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   let streamTimer = 0;
   let streamAt = 0;
   const streamed = new Set<string>();
-  let keptOne = false;
   let labelledOne = false;
   function streamNext() {
     const list = pane.querySelector("#scan-list");
@@ -388,13 +372,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       // Kai explains the first label and the first person, once each.
       if (spot !== "keep" && !labelledOne) {
         labelledOne = true;
-        later(500, () => {
-          kai.react(tag, "hop", emoji, "joyful");
-          kai.say("Each company gets its own label.");
-        });
-      } else if (spot === "keep" && !keptOne && labelledOne) {
-        keptOne = true;
-        later(400, () => kai.say("People you know stay in your inbox."));
+        later(500, () => kai.react(tag, "hop", emoji, "joyful"));
       }
       break;
     }
@@ -414,36 +392,13 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     if (found.length === 0) {
       body.append(el("h1", "onb-title", "Ready to sort"));
     } else {
-      body.append(el("h1", "onb-title", changing ? "Move any that are wrong" : "Pick your labels"));
-      if (changing) body.append(el("p", "onb-hint", "Drag a company to another label. Or tap it, then tap the label."));
-      body.append(changing ? renderBoard() : renderTiles());
+      body.append(el("h1", "onb-title", "Pick your labels"), renderTiles());
     }
     const readChoice = renderReadChoice();
     if (readChoice) body.append(readChoice);
     const actions = el("div", "onb-actions");
-    if (changing) {
-      actions.append(
-        primary("Done", () => {
-          changing = false;
-          selected = "";
-          render();
-          kai.say("Looks good to me. Shall we?", "happy");
-        }),
-      );
-    } else {
-      actions.append(primary(found.length ? "Use these" : "Yes, sort my mail", () => void finish("tidy"), "setup-go"));
-      if (found.length) {
-        actions.append(
-          button("Move a company", "onb-btn ghost onb-wide", () => {
-            changing = true;
-            render();
-            kai.say("Grab one and drop it on another label.");
-            demoDrag();
-          }, "setup-change"),
-        );
-      }
-      actions.append(button("No, ask me first", "onb-link", () => void finish("ask"), "setup-ask"));
-    }
+    actions.append(primary(found.length ? "Use these" : "Yes, sort my mail", () => void finish("tidy"), "setup-go"));
+    actions.append(button("No, ask me first", "onb-link", () => void finish("ask"), "setup-ask"));
     body.append(actions);
   }
 
@@ -454,6 +409,8 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       .filter((s): s is SortBucket => s !== "keep")
       .sort((a, b) => (perLabel.get(b) ?? 0) - (perLabel.get(a) ?? 0));
     const grid = el("div", "lbl-tiles");
+    // Rows always full: 8 tiles in 2 columns, 6 or 9 in 3.
+    grid.style.setProperty("--cols", String(spots.length % 3 === 0 ? 3 : 2));
     grid.setAttribute("role", "group");
     grid.setAttribute("aria-label", "Labels");
     for (const spot of spots) {
@@ -479,10 +436,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
         if (off.has(spot)) off.delete(spot);
         else off.add(spot);
         sync();
-        if (off.has(spot) && !toldOff) {
-          toldOff = true;
-          kai.say(`Okay. ${label} mail stays in your inbox.`);
-        } else kai.look(tile);
+        kai.look(tile);
       };
       grid.append(tile);
     }
@@ -496,107 +450,6 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       tiles[Math.max(0, Math.min(tiles.length - 1, i + d))].focus();
     };
     return grid;
-  }
-
-  /** Kai points at the first company and it glows softly once, so you know what to grab. */
-  function demoDrag() {
-    const chip = pane.querySelector<HTMLElement>(".board-chip");
-    if (!chip) return;
-    kai.pointAt(chip);
-    later(400, () => chip.classList.add("hint"));
-    later(2000, () => chip.classList.remove("hint"));
-  }
-
-  function renderBoard(): HTMLElement {
-    const keepUsed = changing || found.some((p) => spotOf(p) === "keep");
-    const spots: BoardSpot[] = [...new Set(found.map((p) => p.guess)), ...(keepUsed ? (["keep"] as const) : [])];
-    const board = el("div", `board${changing ? " editing" : ""}${selected ? " picking" : ""}`);
-    for (const spot of spots) {
-      const { emoji, name: label } = spotParts(spot);
-      const col = el("section", "board-col");
-      col.dataset.spot = spot;
-      const head = el("button", "board-head");
-      head.type = "button";
-      head.tabIndex = changing ? 0 : -1;
-      head.append(el("span", "board-emoji", emoji), el("b", "", label));
-      head.setAttribute("aria-label", selected ? `Move here: ${label}` : label);
-      const chips = el("div", "board-chips");
-      for (const p of found.filter((x) => spotOf(x) === spot)) {
-        const chip = el("button", `board-chip${selected === p.host ? " on" : ""}`);
-        chip.type = "button";
-        chip.dataset.host = p.host;
-        chip.setAttribute("aria-pressed", String(selected === p.host));
-        if (changing) {
-          chip.draggable = true;
-          chip.append(el("span", "board-grip", "⠿"));
-        } else chip.tabIndex = -1;
-        chip.append(senderTile(p.address, p.name, "sz-26"), el("span", "board-name", p.name));
-        chip.onclick = (e) => {
-          e.stopPropagation();
-          if (!changing) {
-            // A tap outside change mode starts it, with this company picked.
-            changing = true;
-            kai.say("Grab one and drop it on another label.");
-          }
-          selected = selected === p.host ? "" : p.host;
-          render();
-          if (selected) kai.say(`Now tap where ${p.name} goes.`);
-        };
-        chip.ondragstart = (e) => {
-          e.dataTransfer?.setData("text/plain", p.host);
-          chip.classList.add("dragging");
-        };
-        chip.ondragend = () => chip.classList.remove("dragging");
-        chips.append(chip);
-      }
-      col.ondragover = (e) => {
-        e.preventDefault();
-        col.classList.add("over");
-      };
-      col.ondragleave = () => col.classList.remove("over");
-      col.ondrop = (e) => {
-        e.preventDefault();
-        col.classList.remove("over");
-        const host = e.dataTransfer?.getData("text/plain");
-        if (host) move(host, spot);
-      };
-      // The header (a button, for the keyboard) or anywhere in the column takes the picked company.
-      col.onclick = () => {
-        if (selected) move(selected, spot);
-      };
-      col.append(head, chips);
-      board.append(col);
-    }
-    return board;
-  }
-
-  /** Moves a board company, sliding every chip from where it was (FLIP). */
-  function move(host: string, spot: BoardSpot) {
-    const p = found.find((x) => x.host === host);
-    selected = "";
-    if (!p || spotOf(p) === spot) {
-      render();
-      return;
-    }
-    const before = new Map<string, DOMRect>();
-    pane.querySelectorAll<HTMLElement>(".board-chip").forEach((c) => before.set(c.dataset.host ?? "", c.getBoundingClientRect()));
-    if (spot === p.guess) placed.delete(host);
-    else placed.set(host, spot);
-    render();
-    if (!reducedMotion()) {
-      pane.querySelectorAll<HTMLElement>(".board-chip").forEach((c) => {
-        const was = before.get(c.dataset.host ?? "");
-        if (!was || typeof c.animate !== "function") return;
-        const now = c.getBoundingClientRect();
-        const dx = was.left - now.left;
-        const dy = was.top - now.top;
-        if (dx || dy) c.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 420, easing: SPRING });
-      });
-    }
-    const col = pane.querySelector(`[data-spot="${spot}"]`);
-    const { emoji, name: label } = spotParts(spot);
-    if (col) kai.react(col, "nodSmall", emoji);
-    kai.say(spot === "keep" ? `Got it. ${p.name} stays in your inbox.` : `Got it. ${p.name} goes to ${label}.`);
   }
 
   /** "You have 48,210 emails": read the newest 20,000, or all of them. */
@@ -654,11 +507,11 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       go.textContent = "Setting up…";
     }
     const plan = { ...answers, hands };
-    if (hands === "tidy") kai.say("Making your labels.");
+    if (hands === "tidy") kai.say("Setting up your labels.");
     try {
-      const { tidyFailed } = await startPlan(plan, readAll ? MAIL_INDEX_MAX : MAIL_INDEX_CAP, corrections(), [...off]);
+      const { tidyFailed } = await startPlan(plan, readAll ? MAIL_INDEX_MAX : MAIL_INDEX_CAP, [...off]);
       if (go) go.textContent = "All set";
-      kai.say(tidyFailed ? "Saved. You can turn on the labels in Labels." : "Okay, let's go to your dashboard!", "joyful");
+      kai.say(tidyFailed ? "Saved. You can turn labels on in Labels." : "All set.", "joyful");
       kai.do("celebrate");
       await wait(1600);
       const host = kai.row.querySelector<HTMLElement>(".onb-kai");
@@ -699,20 +552,17 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   function guide(step: Step) {
     if (step === "hello") {
       if (!signedIn) return;
-      kai.do("peek");
       kai.do("wave");
-      kai.say(`Hi${name() ? ` ${name()}` : ""}! I'm Kai. I'll sort your mail into labels for you.`, "happy");
-      later(2600, () => kai.say("Let me show you how it works."));
+      kai.say(`You're in${name() ? `, ${name()}` : ""}. Let me show you how I sort your mail.`, "happy");
     } else if (step === "label") {
       const tag = pane.querySelector(".lbl-tag");
-      kai.say("Every email gets a label like this one.");
+      kai.say("Every email gets a label, like this one.");
       later(900, () => {
         tag?.classList.add("in");
         if (tag) kai.react(tag, "hop", "📦", "joyful");
       });
-      later(3200, () => kai.say("I'll do this for all your mail."));
     } else if (step === "scan") {
-      kai.say("Now I'm reading your newest emails and labelling each one.");
+      kai.say("Reading your newest emails.");
       kai.do("tilt");
       scanEnteredAt = Date.now();
       window.clearTimeout(streamTimer);
@@ -720,9 +570,9 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       if (scanned) countUp();
       scanDone();
     } else if (found.length === 0) {
-      kai.say("I'll label new mail as it comes in. Okay?");
+      kai.say("I'll label new mail as it arrives.");
     } else {
-      kai.say("These are the labels I'd use. Untick any you don't want.", "proud");
+      kai.say("Pick the labels you want.", "proud");
     }
   }
 
@@ -773,8 +623,8 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     if (!scanned || STEPS[at] !== "scan" || ctx.settings.setupDone) return;
     later(Math.max(0, 5000 - (Date.now() - scanEnteredAt)), () => {
       window.clearTimeout(streamTimer);
-      kai.say("Done. Let me group them for you.", "joyful");
-      later(1400, () => goTo(at + 1));
+      kai.do("nod");
+      later(600, () => goTo(at + 1));
     });
   }
 }

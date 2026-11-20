@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boardOverride, isCompanyMail, pickPracticeSenders } from "./practiceSenders";
+import { isCompanyMail, pickPracticeSenders } from "./practiceSenders";
 
 const m = (fromAddress: string, subject: string, extra: { promotion?: boolean; listMail?: boolean } = {}) => ({
   fromAddress,
@@ -25,14 +25,5 @@ describe("pickPracticeSenders", () => {
     expect(picked[0].host).toBe("amazon.com");
     expect(picked[0].guess).toBe("shipping");
     expect(isCompanyMail(mail[3])).toBe(false);
-  });
-
-  it("saves nothing where Cluster guessed, the new label when moved, never for Keep", () => {
-    const [amazon] = pickPracticeSenders(mail);
-    expect(boardOverride(amazon, amazon.guess)).toBeNull();
-    expect(boardOverride(amazon, "shopping")).toEqual(["@amazon.com", "shopping"]);
-    expect(boardOverride(amazon, "keep")).toEqual(["@amazon.com", "never"]);
-    // A free-mail sender is one person, never all of @gmail.com.
-    expect(boardOverride({ host: "gmail.com", address: "Jo.Smith@gmail.com", name: "Jo", guess: "receipt" }, "keep")).toEqual(["josmith@gmail.com", "never"]);
   });
 });

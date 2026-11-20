@@ -296,7 +296,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     const rest: HTMLElement[] = [input, connectBtn];
     if (errorEl) rest.push(errorEl);
     if (trust instanceof HTMLElement) rest.push(trust);
-    question(2, `Nice to meet you, ${name}! What's your Gmail?`, askName, ...rest);
+    question(2, `Thanks, ${name}. What's your Gmail address?`, askName, ...rest);
     kai?.setMood("happy", 1600);
     input.focus();
   }
