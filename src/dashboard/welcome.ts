@@ -116,6 +116,14 @@ export function worldPanel(): HTMLElement {
 }
 
 /** Puts `nodes` on the panel, keeping its sky canvases. */
+/** The inbox window with Kai perched on its top edge (2026-11-20 review), as one block that floats together. */
+export function perch(preview: HTMLElement, spot?: HTMLElement | null): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "ip-perch";
+  wrap.append(preview, ...(spot ? [spot] : []));
+  return wrap;
+}
+
 export function setWorld(world: HTMLElement, ...nodes: Node[]): void {
   world.replaceChildren(...Array.from(world.querySelectorAll(":scope > .onb-sky")), ...nodes);
 }
@@ -329,8 +337,8 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     wel.className = "wel is-ask";
     backBtn.onclick = () => back?.();
     backBtn.hidden = !back;
-    // Kai sits in the panel at the inbox window's corner with one short line; the right side is only the question.
-    setWorld(world, preview.el, spot, progressBar(done));
+    // Kai sits on the inbox window's top edge with one short line; the right side is only the question.
+    setWorld(world, perch(preview.el, spot), progressBar(done));
     stage.replaceChildren(el("h1", "wel-title", title), ...(why ? [el("p", "wel-lead", why)] : []), ...rest);
     say(line, true);
   }

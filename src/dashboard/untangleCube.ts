@@ -96,7 +96,10 @@ export function isSolved(cube: Cubie[]): boolean {
 const SVG = "http://www.w3.org/2000/svg";
 const SCALE = 38;
 const PITCH = -0.52;
-const SPIN_PER_MS = 0.00042;
+// Held at one three-quarter angle with a slow sway, not spun round: a full spin hid the
+// layer turns, so the cube read as "just rotating" (2026-11-20 review).
+const SWAY = 0.12;
+const SWAY_MS = 4200;
 // Slow, steady turns with a rest between (2026-11-20 review: "solving slowly").
 const TURN_MS = 1000;
 const REST_MS = 350;
@@ -194,7 +197,7 @@ export function untangleCube(turns = 18): UntangleCube {
   let stopped = false;
   let shown = false;
   const yaw0 = performance.now();
-  const yawAt = (now: number) => (reduced ? 0.6 : 0.6 + (now - yaw0) * SPIN_PER_MS);
+  const yawAt = (now: number) => (reduced ? 0.6 : 0.6 + SWAY * Math.sin(((now - yaw0) / SWAY_MS) * Math.PI * 2));
 
   /** A turn on another axis than the next one to solve, so it never just cancels it. */
   function wanderMove(): Move {

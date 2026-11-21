@@ -27,7 +27,7 @@ import { MAIL_INDEX_CAP, MAIL_INDEX_MAX } from "../lib/mailIndex";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { categoryLabelName } from "../lib/categoryFilters";
 import { showLabel } from "../lib/clusterLabels";
-import { kaiDock, pageHeader, progressBar, setWorld, worldPanel } from "./welcome";
+import { kaiDock, pageHeader, perch, progressBar, setWorld, worldPanel } from "./welcome";
 import { inboxPreview } from "./inboxPreview";
 import { SETUP_SHARE, sharedCube, type UntangleCube } from "./untangleCube";
 import { startDashboardTour } from "./dashboardTour";
@@ -414,9 +414,8 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     ({ label: renderLabel, scan: renderScan, found: renderFound })[step](body);
     pane.className = `onb-pane is-${step}`;
     preview.setName(name());
-    // Kai docks at the inbox window's corner and says one short line (Trello's mascot by its board; Hootsuite, ManyChat on Mobbin).
-    const dock = kai();
-    setWorld(world, preview.el, ...(dock ? [dock.spot] : []), progressBar(BEFORE + at + 1));
+    // Kai perches on the inbox window's top edge and says one short line (Trello's mascot by its board on Mobbin).
+    setWorld(world, perch(preview.el, kai()?.spot), progressBar(BEFORE + at + 1));
     // Kai stays out of the steps (2026-11-20 review): it says hello on the welcome and comes back for the tour.
     pane.replaceChildren(body);
     if (newStep) guide(step);
