@@ -27,7 +27,7 @@ import { MAIL_INDEX_CAP, MAIL_INDEX_MAX } from "../lib/mailIndex";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { categoryLabelName } from "../lib/categoryFilters";
 import { showLabel } from "../lib/clusterLabels";
-import { pageHeader, progressBar, setWorld, worldPanel } from "./welcome";
+import { kaiDock, pageHeader, progressBar, setWorld, worldPanel } from "./welcome";
 import { inboxPreview } from "./inboxPreview";
 import { SETUP_SHARE, sharedCube, type UntangleCube } from "./untangleCube";
 import { startDashboardTour } from "./dashboardTour";
@@ -140,6 +140,9 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   const side = el("div", "onb-side");
   side.append(pageHeader(skip), world, pane);
   root.replaceChildren(side);
+  // The same Kai as the welcome, now small at the inbox window's corner. Looked up each
+  // time: setup is drawn behind the sign-in screen, before the welcome has made Kai.
+  const kai = () => kaiDock();
   const timers: number[] = [];
   const later = (ms: number, run: () => void) => timers.push(window.setTimeout(run, ms));
   const clearLater = () => timers.splice(0).forEach((t) => window.clearTimeout(t));
@@ -222,7 +225,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     cube = sharedCube();
     const head = el("div", "ss-head");
     head.append(cube.el, el("h1", "onb-title", "Reading your emails"));
-    body.append(head, el("p", "wel-lead", "Cluster reads them on this computer."));
+    body.append(head);
     const progress = el("div", "ss-progress");
     const track = el("div", "ss-track");
     track.setAttribute("aria-hidden", "true");
@@ -233,10 +236,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     count.id = "scan-count";
     count.setAttribute("role", "status");
     progress.append(track, count);
-    // The mail being read, each one getting its label like the label step's examples.
-    const feed = el("ul", "lbl-demo ss-feed");
-    feed.id = "scan-feed";
-    body.append(feed, progress);
+    body.append(progress);
     queueMicrotask(() => paintScanCount(scanned ? 0 : readSoFar));
   }
 
@@ -255,25 +255,9 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       const spot: BoardSpot = practiceGuess(m) ?? "keep";
       const sender = m.fromDisplayName.trim() || m.fromAddress;
       preview.addMail(sender, m.subject, spot === "keep" ? null : spotParts(spot), m.fromAddress);
-      feedMail(sender, m.subject, spot, m.fromAddress);
       break;
     }
     streamTimer = window.setTimeout(streamNext, 700);
-  }
-
-  /** One read email at the top of the scan list, its label landing a beat later. Three on screen. */
-  function feedMail(sender: string, subject: string, spot: BoardSpot, address: string) {
-    const feed = pane.querySelector("#scan-feed");
-    if (!feed) return;
-    const mail = el("li", "lbl-mail ss-in");
-    const words = el("span", "onb-words");
-    words.append(el("b", "", sender), el("small", "", subject || "(no subject)"));
-    const { emoji, name } = spot === "keep" ? { emoji: "📥", name: "Inbox" } : spotParts(spot);
-    const tag = el("span", "lbl-tag", `${emoji} ${name}`);
-    mail.append(senderTile(address, sender, "sz-34"), words, tag);
-    feed.prepend(mail);
-    while (feed.children.length > 3) feed.lastElementChild?.remove();
-    later(reducedMotion() ? 0 : 350, () => tag.classList.add("in"));
   }
 
   /** A message read mid-scan: the count moves; the stream picks it up. */
@@ -290,12 +274,12 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       body.append(el("h1", "onb-title", "Ready to sort"), el("p", "wel-lead", "New mail gets its label as it arrives."));
     } else {
       body.append(el("h1", "onb-title", "Pick your labels"), renderLabelList());
+      kai()?.say("Here's what I found in your mail.", "excited");
     }
     const readChoice = renderReadChoice();
     if (readChoice) body.append(readChoice);
     const actions = el("div", "onb-actions");
     actions.append(primary(found.length ? "Use these" : "Yes, sort my mail", () => void finish("tidy"), "setup-go"));
-    actions.append(button("No, ask me first", "onb-link", () => void finish("ask"), "setup-ask"));
     body.append(actions);
   }
 
@@ -310,10 +294,6 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     const keptToPreview = () => preview.setLabels(spots.filter((s) => !off.has(s)).map(spotParts));
     keptToPreview();
     const wrap = el("div", "lbl-pick");
-    const count = el("p", "lbl-count");
-    count.setAttribute("aria-live", "polite");
-    const showCount = () => (count.textContent = `${spots.length - spots.filter((s) => off.has(s)).length} of ${spots.length} labels on`);
-    showCount();
     const list = el("ul", "lbl-list");
     list.setAttribute("aria-label", "Labels");
     for (const spot of spots) {
@@ -336,7 +316,6 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
         if (off.has(spot)) off.delete(spot);
         else off.add(spot);
         sync();
-        showCount();
         keptToPreview();
       };
       const li = el("li", "");
@@ -351,7 +330,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       e.preventDefault();
       rows[Math.max(0, Math.min(rows.length - 1, i + d))].focus();
     };
-    wrap.append(count, list);
+    wrap.append(list);
     return wrap;
   }
 
@@ -409,11 +388,13 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       go.disabled = true;
       go.textContent = "Setting up…";
     }
+    kai()?.say("Putting your labels in Gmail.");
     const plan = { ...answers, hands };
     try {
       const { tidyFailed } = await startPlan(plan, readAll ? MAIL_INDEX_MAX : MAIL_INDEX_CAP, [...off]);
       if (go) go.textContent = "All set";
       if (tidyFailed && go) go.textContent = "Saved. Turn labels on in Labels.";
+      if (!tidyFailed) kai()?.say("All set!", "joyful");
       await wait(tidyFailed ? 1600 : 700);
       await select("overview");
       startDashboardTour();
@@ -433,7 +414,9 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     ({ label: renderLabel, scan: renderScan, found: renderFound })[step](body);
     pane.className = `onb-pane is-${step}`;
     preview.setName(name());
-    setWorld(world, preview.el, progressBar(BEFORE + at + 1));
+    // Kai docks at the inbox window's corner and says one short line (Trello's mascot by its board; Hootsuite, ManyChat on Mobbin).
+    const dock = kai();
+    setWorld(world, preview.el, ...(dock ? [dock.spot] : []), progressBar(BEFORE + at + 1));
     // Kai stays out of the steps (2026-11-20 review): it says hello on the welcome and comes back for the tour.
     pane.replaceChildren(body);
     if (newStep) guide(step);
@@ -443,8 +426,10 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   function guide(step: Step) {
     if (step === "label") {
       if (!signedIn) return;
+      kai()?.say("This is how your mail will look in Gmail.");
       pane.querySelectorAll(".lbl-tag").forEach((tag, i) => later(900 + i * 900, () => tag.classList.add("in")));
     } else if (step === "scan") {
+      kai()?.say("This only takes a few seconds.", "determined");
       scanEnteredAt = Date.now();
       window.clearTimeout(streamTimer);
       streamNext();

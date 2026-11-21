@@ -4,7 +4,7 @@
 // get the plain "Welcome back" gate.
 import "./kai/kaiLife.js";
 import "./sky/skyEngine.js";
-import type { KaiInstance } from "./kai/kaiLife";
+import type { KaiInstance, KaiMood } from "./kai/kaiLife";
 import { ctx } from "./state";
 import { startIdle } from "./kaiIdle";
 import { typeLine } from "./kaiBubble";
@@ -167,6 +167,10 @@ export const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? "";
  * Builds the welcome inside the gate. The last screen holds the gate's own
  * Connect button, error line and trust note, so the sign-in code is unchanged.
  */
+/** The welcome's Kai, for setup's steps: its spot (Kai and bubble) and a way to say a line. */
+let dock: { spot: HTMLElement; say(text: string, mood?: KaiMood): void } | null = null;
+export const kaiDock = () => dock;
+
 export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): void {
   const errorEl = document.getElementById("connect-error");
   const trust = gate.querySelector(".connect-trust:not(#connect-testing-note)");
@@ -205,6 +209,14 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
   const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
   if (kai && !reduced) startIdle(kai);
   const say = (text: string, pop = false) => typeLine(bubble, text, kai, { pop });
+  // Setup (setupTab.ts) borrows this Kai for its steps once signed in.
+  dock = {
+    spot,
+    say(text, mood) {
+      if (mood) kai?.setMood(mood, 2400);
+      say(text, true);
+    },
+  };
 
   const bigButton = (label: string, onClick: () => void) => {
     const b = el("button", "connect-btn wel-go", label);
@@ -241,7 +253,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     stage.replaceChildren(
       // One short line under one short heading, like Notion Mail's and Superhuman's welcome (Mobbin).
       el("h1", "wel-title", "Welcome to Cluster"),
-      el("p", "wel-lead", "Let's sort your Gmail. It takes about a minute."),
+      el("p", "wel-lead", "Let's sort your Gmail."),
       go,
     );
     const skip = new AbortController();
@@ -313,13 +325,14 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
   }
 
   /** The question and why we ask sit over the field; Kai's bubble adds a short aside, never the same words. */
-  function question(done: number, title: string, why: string, back: (() => void) | null, ...rest: HTMLElement[]) {
+  function question(done: number, title: string, why: string, line: string, back: (() => void) | null, ...rest: HTMLElement[]) {
     wel.className = "wel is-ask";
     backBtn.onclick = () => back?.();
     backBtn.hidden = !back;
-    setWorld(world, preview.el, progressBar(done));
-    // Kai says hello on the welcome only (2026-11-20 review): the questions stand alone. Back lives in the header row.
+    // Kai sits in the panel at the inbox window's corner with one short line; the right side is only the question.
+    setWorld(world, preview.el, spot, progressBar(done));
     stage.replaceChildren(el("h1", "wel-title", title), ...(why ? [el("p", "wel-lead", why)] : []), ...rest);
+    say(line, true);
   }
 
   function askName() {
@@ -351,7 +364,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
       if (e.key === "Enter") void save();
     };
     ok();
-    question(1, "What should I call you?", "", hello, input, go);
+    question(1, "What should I call you?", "", "Let's start with you.", hello, input, go);
     input.focus();
   }
 
@@ -363,7 +376,8 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     const rest: HTMLElement[] = [connectBtn];
     if (errorEl) rest.push(errorEl);
     if (trust instanceof HTMLElement) rest.push(trust);
-    question(2, "Connect your Gmail", "Google will ask you to pick an account.", askName, ...rest);
+    question(2, "Connect your Gmail", "Google will ask you to pick an account.", name ? `Nice to meet you, ${name}!` : "Nice to meet you!", askName, ...rest);
+    kai?.setMood("joyful", 1600);
     connectBtn.focus();
   }
 

@@ -76,8 +76,6 @@ describe("first-run setup", () => {
     click("setup-go");
     await vi.waitFor(() => expect(dash.storedSettings().setupDone).toBe(true));
     await vi.waitFor(() => expect(dash.storedSettings().autoSort.labelsOff).toContain(offSpot));
-    // Kai stays out of the steps: no narrator line on the setup screens.
-    expect(document.getElementById("setup-kai-line")).toBeNull();
   });
 
   it("asks how much to read only when the mailbox is over 20,000, with a time for each", async () => {
@@ -116,14 +114,4 @@ describe("first-run setup", () => {
     expect(document.getElementById("settings-change-setup")).toBeNull();
   });
 
-  it("No, ask me first saves the answers but never turns on Gmail filters", async () => {
-    const dash = await bootEmpty();
-    await toFound(dash, false);
-    click("setup-ask");
-    await vi.waitFor(() => expect(dash.storedSettings().persona).toBe("calm"));
-    expect(dash.storedSettings().setupDone).toBe(true);
-    expect(dash.storedSettings().autoSort.timeLimitsEnabled).toBe(false);
-    // Sorting waits for a yes; the phishing hold is on for everyone (decision B).
-    expect(dash.storedSettings().autoQuarantineHighRisk).toBe(true);
-  });
 });

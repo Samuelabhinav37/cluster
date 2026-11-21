@@ -5149,7 +5149,6 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 
 /* Pick your labels: one grouped list with switches (setupTab.ts renderLabelList). */
 .lbl-pick { display: flex; flex-direction: column; gap: 10px; }
-.lbl-count { margin: 0; font: 500 13px/1 var(--font); color: var(--label-3); font-variant-numeric: tabular-nums; }
 .lbl-list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--separator); border-radius: 16px; background: var(--glass-solid, #161618); overflow: hidden; }
 .lbl-list li + li { border-top: 1px solid var(--separator); }
 .lbl-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 64px; padding: 10px 16px; border: 0; background: none; color: var(--label); text-align: left; cursor: pointer; transition: background var(--t-fast); }
@@ -5206,16 +5205,6 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 /* ── Round 5 (2026-11-20 review) ── */
 /* The scan: the cube beside the mail being read, each one getting its label. */
 .onb-pane .ss-work .unt-cube { width: 150px; }
-.onb-pane .ss-feed { flex: 1; min-width: 0; min-height: 222px; margin: 0; text-align: left; }
-.onb-pane .ss-feed .lbl-mail { padding: 12px 14px; gap: 12px; }
-.onb-pane .ss-feed .onb-words { min-width: 0; flex: 1; }
-.onb-pane .ss-feed .onb-words b, .onb-pane .ss-feed .onb-words small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.onb-pane .ss-feed .onb-words b { font-size: 15px; }
-.onb-pane .ss-feed .onb-words small { font-size: 13px; }
-.onb-pane .ss-feed .lbl-tag { padding: 6px 10px; font-size: 13px; }
-.ss-feed .ss-in { animation: ss-feed-in 0.45s var(--spring-smooth, ease-out) both; }
-@keyframes ss-feed-in { from { opacity: 0; transform: translateY(-10px); } }
-@media (prefers-reduced-motion: reduce) { .ss-feed .ss-in { animation: none; } }
 @media (max-width: 720px) { .onb-pane .ss-work .unt-cube { width: 120px; align-self: center; } }
 
 /* Cleanup and Labels wait for the first read (body.first-reading, dashboard.ts). */
@@ -5233,7 +5222,6 @@ body.first-reading .read-wait { display: flex; flex-direction: column; align-ite
 /* The scan stacks: the cube over the mail being labelled, both full width. */
 .onb-pane .ss-work { flex-direction: column; align-items: stretch; gap: 16px; }
 .onb-pane .ss-work .unt-cube { width: 130px; align-self: center; }
-.onb-pane .ss-feed { width: 100%; min-height: 0; height: 222px; overflow: hidden; }
 /* Get started as wide as the read card under it. */
 .start-list { margin-left: 0; margin-right: 0; }
 
@@ -5246,4 +5234,14 @@ body.first-reading .read-wait { display: flex; flex-direction: column; align-ite
 .onb-pane .ss-head .unt-cube { flex: none; width: 52px; margin: 0; }
 .ss-head .unt-shadow { display: none; }
 .ss-head .onb-title { margin: 0; }
-.onb-pane .ss-feed { margin-top: 8px; }
+
+/* ── Round 7 (2026-11-20 review) ──
+   Kai docked at the inbox window's bottom right corner in the left panel, its
+   line in a bubble above it (Trello's mascot by its board; Hootsuite, ManyChat,
+   Vanta keep theirs in the picture panel; Mobbin). The right side is only the question. */
+.onb-world > .ip ~ .onb-kai-spot { position: absolute; right: 7%; bottom: 13%; z-index: 3; align-items: flex-end; gap: 10px; }
+.onb-world > .ip ~ .onb-kai-spot .onb-kai,
+.wel .onb-world > .ip ~ .onb-kai-spot .wel-kai { width: 84px; height: 84px; margin: 0 4px 10px 0; }
+.onb-world > .ip ~ .onb-kai-spot .onb-bubble { max-width: 26ch; padding: 10px 14px; font-size: 15px; text-align: left; transform-origin: 85% 100%; }
+.onb-world > .ip ~ .onb-kai-spot .onb-bubble::before { left: auto; right: 44px; }
+@media (max-width: 1000px) { .onb-world > .ip ~ .onb-kai-spot { display: none; } }
