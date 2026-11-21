@@ -288,6 +288,8 @@ export function untangleCube(turns = 18): UntangleCube {
 
 /** How far setup's quick scan of 100 emails turns the cube; the dashboard's read does the rest. */
 export const SETUP_SHARE = 0.5;
+/** Where labelling holds the cube: still turning, one step short of solved, until labelling ends. */
+export const LABELS_SHARE = 0.9;
 let shared: UntangleCube | null = null;
 /** One cube for the whole first read (2026-11-20 review): setup's scan turns
  * it partway, then the dashboard's read (its card, or the sidebar card on

@@ -1,5 +1,5 @@
 import { NUMBER_SCREENS } from "../lib/keymap";
-import { SETUP_SHARE, sharedCube } from "./untangleCube";
+import { LABELS_SHARE, SETUP_SHARE, sharedCube } from "./untangleCube";
 import { installCrashHandlers, PRIVACY_URL } from "../lib/crashLog";
 import { clearCountBadge } from "../lib/supervisor";
 import { scanCheckCounts, scanFound } from "../lib/securityScan";
@@ -1206,6 +1206,8 @@ const VIEW_REFRESH_EVERY = 500;
 let readSince = 0;
 /** A sort is labelling the inbox; it shares Gmail's per-minute budget, so the read waits between steps. */
 let sortRunning = false;
+/** Whether the first read or its labelling was running at the last status update. */
+let cubeBusy = false;
 
 /** Bar pinned to the bottom while mail is still being read. */
 /** What the first-read stage shows besides the count: who was just read, and how many senders so far. */
@@ -1227,6 +1229,10 @@ function updateIndexStatus() {
     .filter((p): p is SyncProgress => p?.phase === "reading" || p?.phase === "sent" || p?.phase === "detail");
   // Cleanup and Labels wait for the first read instead of showing a part of your mail.
   document.body.classList.toggle("first-reading", firstReadProgress() !== undefined);
+  // Reading and then labelling just ended: now the cube may finish solving.
+  const busy = firstReadProgress() !== undefined || sortRunning;
+  if (cubeBusy && !busy) sharedCube().progress(1);
+  cubeBusy = busy;
   // A running Check mail or sort owns the card until it finishes.
   if (indexStatusEl.dataset.job === "run") return;
   if (active.length === 0) readSince = 0;
@@ -1302,7 +1308,7 @@ function updateIndexStatus() {
     words.append(head, ...(done < total || sortRunning ? [track] : []), ...(line ? [left] : []));
     const cube = homeOnScreen ? null : sharedCube();
     if (cube) {
-      cube.progress(done >= total && sortRunning ? 1 : SETUP_SHARE + (total > 0 ? done / total : 0) * (0.7 - SETUP_SHARE));
+      cube.progress(done >= total && sortRunning ? LABELS_SHARE : SETUP_SHARE + (total > 0 ? done / total : 0) * (0.7 - SETUP_SHARE));
       indexStatusEl.classList.add("has-cube");
     } else indexStatusEl.classList.remove("has-cube");
     indexStatusEl.replaceChildren(...(cube ? [cube.el] : []), words);

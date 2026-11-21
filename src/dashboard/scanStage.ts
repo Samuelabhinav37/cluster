@@ -6,7 +6,7 @@
 // prefers-reduced-motion. Everything shown comes from the read itself.
 
 import { senderTile } from "./senderTile";
-import { SETUP_SHARE, sharedCube } from "./untangleCube";
+import { LABELS_SHARE, SETUP_SHARE, sharedCube } from "./untangleCube";
 
 export interface ScanState {
   done: number;
@@ -126,8 +126,9 @@ export function scanStage(): ScanStage {
       // second), so the cube spends its turns across the phases and only
       // solves once labels go on.
       if (label === "Reading your mail") cube.progress(SETUP_SHARE + share * (0.7 - SETUP_SHARE));
-      else if (label === "Reading your sent mail") cube.progress(0.7 + share * 0.2);
-      else if (label === "Putting labels on your inbox") cube.progress(1);
+      else if (label === "Reading your sent mail") cube.progress(0.7 + share * (LABELS_SHARE - 0.7));
+      // Labelling has no count, so the cube waits short of solved; it is solved when the first read ends.
+      else if (label === "Putting labels on your inbox") cube.progress(LABELS_SHARE);
       if (s.latest && s.latest.address !== lastWho) {
         lastWho = s.latest.address;
         const month = MONTH.format(s.latest.receivedAt);
