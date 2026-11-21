@@ -34,7 +34,7 @@ for you, what is waiting for you, and gives you the next action in one click.
 Each step: one commit, tests in `homeDashboard.test.ts` (or the file named), preview screenshot at desktop and 375 px, `tsc`, `eslint`, `npm test`, `check:bundle`. No push.
 
 0. **Room.** Delete dead CSS from the onboarding rounds (`.onb-voice`, `.onb-kai-row`, `.ss-feed` leftovers, unused `.lbl-count`); 26 matches to check one by one. Preview seed gets 60 days of mail so change badges show.
-1. **Calm zeros.** A tile whose number is 0 shows a muted "–"-free "0" and "✓ All caught up" (Screener) / "✓ Nothing to clear" (Cleanup) in its foot. (Midday, HoneyBook, Stripe Health)
+1. **Calm zeros.** A tile whose number is 0 shows a muted "0" and "✓ All caught up" (Screener) / "✓ Nothing to clear" (Cleanup) in its foot. (Midday, HoneyBook, Stripe Health)
 2. **Updated stamp.** Beside the date range: "Updated 2 min ago" from `sweptAt` or the last read; the stale warning stays. (Klaviyo, Stripe)
 3. **Action buttons under the greeting.** Up to three, each hidden when its count is 0: "Clean up" (opens Cleanup's confirm via existing `HomeAct`), "Check new senders" (Screener), "Sort now". (Mercury, Midday, Aboard)
 4. **Cluster's work card (HoneyBook "Automations").** Two tabs: *Waiting* (moves today's `#overview-waiting` list in) and *Activity* (newest 6 `ActionLogEntry`: time, summary, Undo where `undo` exists). Empty Waiting: "✓ Nothing waiting". "View all" opens Settings > Diagnostics. Placement: see question C.
