@@ -4837,7 +4837,8 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .unt-cube { display: block; width: min(100%, 300px); height: auto; margin: 0 auto; overflow: visible; }
 .unt-shadow { fill: var(--label); opacity: 0.08; }
 .unt-face { fill: #0b0b0c; stroke: rgba(255, 255, 255, 0.16); stroke-width: 0.8; stroke-linejoin: round; }
-.unt-sticker { stroke: none; filter: brightness(calc(0.72 + var(--l, 0.5) * 0.45)); }
+/* Flat shades, no per-sticker filter: cheaper to paint while it turns. */
+.unt-sticker { stroke: none; }
 .unt-sticker.c0 { fill: #fafafa; } .unt-sticker.c1 { fill: #d4d4d8; } .unt-sticker.c2 { fill: #a1a1aa; }
 .unt-sticker.c3 { fill: #71717a; } .unt-sticker.c4 { fill: #52525b; } .unt-sticker.c5 { fill: #3a3a40; }
 :root[data-theme="light"] .unt-face { stroke: rgba(0, 0, 0, 0.25); }
@@ -5238,12 +5239,21 @@ body.first-reading .read-wait { display: flex; flex-direction: column; align-ite
 /* ── Round 8 (2026-11-20 review) ──
    Kai perched on the inbox window's top edge, left side, its line in a bubble
    to its right. The window and Kai float together (.ip-perch). */
-.ip-perch { position: relative; z-index: 1; width: min(640px, 100%); margin: 96px 0 40px; animation: ip-float 7s ease-in-out infinite alternate; }
+.ip-perch { position: relative; z-index: 1; width: min(640px, 100%); margin: 124px 0 32px; animation: ip-float 7s ease-in-out infinite alternate; }
 .ip-perch > .ip { width: 100%; margin: 0; animation: none; }
-.ip-perch > .onb-kai-spot { position: absolute; left: 24px; bottom: calc(100% + 10px); z-index: 2; flex-direction: row; align-items: center; gap: 12px; }
+.ip-perch > .onb-kai-spot { position: absolute; left: 24px; bottom: calc(100% + 30px); z-index: 2; flex-direction: row; align-items: center; gap: 12px; }
 .ip-perch > .onb-kai-spot .onb-kai,
 .wel .onb-world .ip-perch > .onb-kai-spot .wel-kai { order: -1; width: 84px; height: 84px; margin: 0; }
 .ip-perch > .onb-kai-spot .onb-bubble { max-width: 28ch; padding: 10px 14px; font-size: 15px; text-align: left; transform-origin: 0 50%; margin-bottom: 26px; }
 .ip-perch > .onb-kai-spot .onb-bubble::before { left: -4px; right: auto; top: 50%; bottom: auto; margin: -5px 0 0; }
 @media (max-width: 1000px) { .ip-perch > .onb-kai-spot { display: none; } }
 @media (prefers-reduced-motion: reduce) { .ip-perch { animation: none; } }
+
+/* Kai out teaching (setupTab.ts roamTo): fixed on the page, standing left of what it
+   explains, its line in a bubble above it. */
+.onb-kai-spot.is-roaming { position: fixed; z-index: 60; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; transform: translate(-100%, -62%); pointer-events: none; }
+.onb-kai-spot.is-roaming .onb-kai { width: 84px; height: 84px; margin: 0; }
+.onb-kai-spot.is-roaming .onb-bubble { max-width: 24ch; padding: 10px 14px; font: 500 15px/1.35 var(--font); text-align: left; }
+.onb-kai-spot.is-roaming .onb-bubble::before { left: auto; right: 36px; top: auto; bottom: -4px; margin: 0; }
+.onb-kai-spot.is-roaming.is-right { align-items: flex-start; transform: translate(0, -62%); }
+.onb-kai-spot.is-roaming.is-right .onb-bubble::before { right: auto; left: 36px; }

@@ -27,6 +27,7 @@ import { MAIL_INDEX_CAP, MAIL_INDEX_MAX } from "../lib/mailIndex";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { categoryLabelName } from "../lib/categoryFilters";
 import { showLabel } from "../lib/clusterLabels";
+import { travel } from "./kaiTravel";
 import { kaiDock, pageHeader, perch, progressBar, setWorld, worldPanel } from "./welcome";
 import { inboxPreview } from "./inboxPreview";
 import { SETUP_SHARE, sharedCube, type UntangleCube } from "./untangleCube";
@@ -415,20 +416,87 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     pane.className = `onb-pane is-${step}`;
     preview.setName(name());
     // Kai perches on the inbox window's top edge and says one short line (Trello's mascot by its board on Mobbin).
+    roamReset();
     setWorld(world, perch(preview.el, kai()?.spot), progressBar(BEFORE + at + 1));
     // Kai stays out of the steps (2026-11-20 review): it says hello on the welcome and comes back for the tour.
     pane.replaceChildren(body);
     if (newStep) guide(step);
   }
 
+  /** Kai leaves its perch and flies to stand beside `target`, like Duolingo's owl
+   * walking over to what it explains. Off on narrow screens, where Kai is hidden. */
+  function roamTo(target: Element, side: "left" | "right" = "left") {
+    const d = kai();
+    const host = d?.spot.querySelector<HTMLElement>(".onb-kai");
+    if (!d || !host || window.innerWidth < 1000) return;
+    const from = host.getBoundingClientRect();
+    const r = target.getBoundingClientRect();
+    // Out of the floating window (its transform would carry a fixed box along) to the page.
+    if (d.spot.parentNode !== document.body) document.body.append(d.spot);
+    d.spot.classList.add("is-roaming");
+    d.spot.classList.toggle("is-right", side === "right");
+    d.spot.style.left = `${Math.round(side === "right" ? r.right + 16 : r.left - 16)}px`;
+    d.spot.style.top = `${Math.round(r.top + r.height / 2)}px`;
+    travel(host, d.kai, from);
+    d.kai?.pointAt(target);
+  }
+  /** Back on the inbox window's edge. */
+  function roamHome() {
+    const d = kai();
+    const host = d?.spot.querySelector<HTMLElement>(".onb-kai");
+    const home = world.querySelector(".ip-perch");
+    if (!d || !host || !home || !d.spot.classList.contains("is-roaming")) return;
+    const from = host.getBoundingClientRect();
+    roamReset();
+    home.append(d.spot);
+    travel(host, d.kai, from);
+  }
+  function roamReset() {
+    const spot = kai()?.spot;
+    if (!spot) return;
+    spot.classList.remove("is-roaming", "is-right");
+    spot.style.left = spot.style.top = "";
+  }
+
+  /** The label lesson: Kai flies to each example as its label lands and says what it is,
+   * then goes back and says where labels show in Gmail. */
+  function teachLabels() {
+    const rows = Array.from(pane.querySelectorAll<HTMLElement>(".lbl-mail"));
+    const names = LABEL_DEMO.map(([, , , bucket]) => categoryLabelName(bucket, ctx.settings.labelChoices));
+    const lines = [`This is a label: ${names[0]}.`, `Sign-in codes go under ${names[1]}.`, `And newsletters under ${names[2]}.`];
+    kai()?.say("Let me show you how labels work.");
+    rows.forEach((row, i) => {
+      const at0 = 1600 + i * 2600;
+      later(at0, () => {
+        roamTo(row);
+        kai()?.say(lines[i] ?? "");
+      });
+      later(at0 + 700, () => row.querySelector(".lbl-tag")?.classList.add("in"));
+    });
+    later(1600 + rows.length * 2600, () => {
+      roamHome();
+      kai()?.say("In Gmail, each label works like a folder.", "happy");
+    });
+  }
+
   /** What plays when a screen opens. */
   function guide(step: Step) {
     if (step === "label") {
       if (!signedIn) return;
-      kai()?.say("This is how your mail will look in Gmail.");
-      pane.querySelectorAll(".lbl-tag").forEach((tag, i) => later(900 + i * 900, () => tag.classList.add("in")));
+      teachLabels();
     } else if (step === "scan") {
       kai()?.say("This only takes a few seconds.", "determined");
+      // Then it shows the same thing on your real mail: over to the first labelled email and back.
+      later(2600, () => {
+        const tag = preview.el.querySelector(".ip-row .ip-tag");
+        if (!tag) return;
+        roamTo(tag, "right");
+        kai()?.say("Each email gets its label as I read it.");
+      });
+      later(6200, () => {
+        roamHome();
+        kai()?.say("Almost done.");
+      });
       scanEnteredAt = Date.now();
       window.clearTimeout(streamTimer);
       streamNext();
@@ -439,6 +507,8 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
 
   skip.onclick = async () => {
     clearLater();
+    // Kai may be out teaching, on the page itself: it must not stay over the dashboard.
+    if (kai()?.spot.parentNode === document.body) kai()?.spot.remove();
     ctx.settings = await updateSettings({ setupDone: true });
     await select("overview");
   };

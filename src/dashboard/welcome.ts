@@ -176,7 +176,7 @@ export const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? "";
  * Connect button, error line and trust note, so the sign-in code is unchanged.
  */
 /** The welcome's Kai, for setup's steps: its spot (Kai and bubble) and a way to say a line. */
-let dock: { spot: HTMLElement; say(text: string, mood?: KaiMood): void } | null = null;
+let dock: { spot: HTMLElement; kai: KaiInstance | null; say(text: string, mood?: KaiMood): void } | null = null;
 export const kaiDock = () => dock;
 
 export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): void {
@@ -220,6 +220,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
   // Setup (setupTab.ts) borrows this Kai for its steps once signed in.
   dock = {
     spot,
+    kai,
     say(text, mood) {
       if (mood) kai?.setMood(mood, 2400);
       say(text, true);

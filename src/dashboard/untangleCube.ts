@@ -96,13 +96,14 @@ export function isSolved(cube: Cubie[]): boolean {
 const SVG = "http://www.w3.org/2000/svg";
 const SCALE = 38;
 const PITCH = -0.52;
-// Held at one three-quarter angle with a slow sway, not spun round: a full spin hid the
-// layer turns, so the cube read as "just rotating" (2026-11-20 review).
-const SWAY = 0.12;
-const SWAY_MS = 4200;
+// Held still at one three-quarter angle: a spin hid the layer turns, so the cube read as
+// "just rotating" (2026-11-20 review). Only a turning layer moves, drawn at about 24 frames
+// a second, and nothing is redrawn between turns, to go easy on the CPU.
+const YAW = 0.6;
+const FRAME_MS = 42;
 // Slow, steady turns with a rest between (2026-11-20 review: "solving slowly").
 const TURN_MS = 1000;
-const REST_MS = 350;
+const REST_MS = 180;
 /** Detours open at once while waiting for the read to earn the next solving turn. */
 const WOBBLE_MAX = 2;
 const add = (a: V, b: V, k = 1): V => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];
@@ -196,8 +197,7 @@ export function untangleCube(turns = 18): UntangleCube {
   let frame = 0;
   let stopped = false;
   let shown = false;
-  const yaw0 = performance.now();
-  const yawAt = (now: number) => (reduced ? 0.6 : 0.6 + SWAY * Math.sin(((now - yaw0) / SWAY_MS) * Math.PI * 2));
+  let drawnAt = 0;
 
   /** A turn on another axis than the next one to solve, so it never just cancels it. */
   function wanderMove(): Move {
@@ -233,7 +233,7 @@ export function untangleCube(turns = 18): UntangleCube {
     turning = { m, t0: now, kind: "out" };
   }
 
-  // Always running while on screen: the cube spins and keeps turning, so it never looks stuck.
+  // Always turning while on screen and unsolved, so it never looks stuck.
   function tick(now: number) {
     frame = 0;
     if (stopped) return;
@@ -243,28 +243,25 @@ export function untangleCube(turns = 18): UntangleCube {
     if (!turning && now >= restUntil) nextTurn(now);
     if (turning) {
       const t = Math.min(1, (now - turning.t0) / TURN_MS);
-      draw(turning.m, ((turning.m.dir * Math.PI) / 2) * easeBack(t), yawAt(now));
+      if (t < 1 && now - drawnAt >= FRAME_MS) {
+        drawnAt = now;
+        draw(turning.m, ((turning.m.dir * Math.PI) / 2) * easeBack(t), YAW);
+      }
       if (t >= 1) {
         applyMove(cube, turning.m);
         if (turning.kind === "solve") real++;
         if (turning.kind === "back") open--;
         turning = null;
         restUntil = now + REST_MS;
+        draw(null, 0, YAW);
         if (pending.length === 0) svg.classList.add("is-solved");
       }
-    } else draw(null, 0, yawAt(now));
+    }
+    // Solved: nothing left to draw.
     if (pending.length > 0 || turning) frame = requestAnimationFrame(tick);
-    else frame = requestAnimationFrame(spin);
-  }
-  // Solved: it just spins.
-  function spin(now: number) {
-    frame = 0;
-    if (stopped || (!svg.isConnected && shown)) return;
-    draw(null, 0, yawAt(now));
-    frame = requestAnimationFrame(spin);
   }
 
-  draw(null, 0, yawAt(yaw0));
+  draw(null, 0, YAW);
   if (!reduced) frame = requestAnimationFrame(tick);
   return {
     el: svg,
@@ -275,7 +272,7 @@ export function untangleCube(turns = 18): UntangleCube {
           applyMove(cube, pending.shift()!.m);
           real++;
         }
-        draw(null, 0, yawAt(0));
+        draw(null, 0, YAW);
         svg.classList.toggle("is-solved", pending.length === 0);
         return;
       }
