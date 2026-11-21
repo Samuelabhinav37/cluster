@@ -458,24 +458,30 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     spot.style.left = spot.style.top = "";
   }
 
-  /** The label lesson: Kai flies to each example as its label lands and says what it is,
-   * then goes back and says where labels show in Gmail. */
+  /** The label lesson, taught like a product tour (Deel, Turo, Zoho on Mobbin) and
+   * Duolingo's owl: one short line per example, the same pattern each time, and only
+   * the example being explained lit. No linking words between lines (2026-11-20 review). */
   function teachLabels() {
+    const demo = pane.querySelector<HTMLElement>(".lbl-demo");
     const rows = Array.from(pane.querySelectorAll<HTMLElement>(".lbl-mail"));
     const names = LABEL_DEMO.map(([, , , bucket]) => categoryLabelName(bucket, ctx.settings.labelChoices));
-    const lines = [`This is a label: ${names[0]}.`, `Sign-in codes go under ${names[1]}.`, `And newsletters under ${names[2]}.`];
-    kai()?.say("Let me show you how labels work.");
+    const lines = [`Orders go in ${names[0]}.`, `Codes go in ${names[1]}.`, `Newsletters go in ${names[2]}.`];
+    const STEP = 3200;
+    kai()?.say("Watch your mail get labels.");
     rows.forEach((row, i) => {
-      const at0 = 1600 + i * 2600;
+      const at0 = 1800 + i * STEP;
       later(at0, () => {
+        demo?.classList.add("is-teaching");
+        rows.forEach((r) => r.classList.toggle("is-taught", r === row));
         roamTo(row);
         kai()?.say(lines[i] ?? "");
       });
       later(at0 + 700, () => row.querySelector(".lbl-tag")?.classList.add("in"));
     });
-    later(1600 + rows.length * 2600, () => {
+    later(1800 + rows.length * STEP, () => {
+      demo?.classList.remove("is-teaching");
       roamHome();
-      kai()?.say("In Gmail, each label works like a folder.", "happy");
+      kai()?.say("Each label is a folder in Gmail.", "happy");
     });
   }
 
@@ -485,17 +491,17 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       if (!signedIn) return;
       teachLabels();
     } else if (step === "scan") {
-      kai()?.say("This only takes a few seconds.", "determined");
+      kai()?.say("I'm reading your mail.", "determined");
       // Then it shows the same thing on your real mail: over to the first labelled email and back.
       later(2600, () => {
         const tag = preview.el.querySelector(".ip-row .ip-tag");
         if (!tag) return;
         roamTo(tag, "right");
-        kai()?.say("Each email gets its label as I read it.");
+        kai()?.say("Each email gets a label.");
       });
       later(6200, () => {
         roamHome();
-        kai()?.say("Almost done.");
+        kai()?.say("Almost done!");
       });
       scanEnteredAt = Date.now();
       window.clearTimeout(streamTimer);

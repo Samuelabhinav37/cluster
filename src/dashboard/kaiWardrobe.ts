@@ -63,9 +63,8 @@ export const wearGlasses = (kai: KaiInstance | null, glasses: KaiGlasses | null)
 
 const CLOSET: Array<() => [KaiHat | null, KaiGlasses | null]> = [
   () => ["beanie", null],
-  () => [null, "shades"],
   () => ["crown", null],
-  () => ["party", "round"],
+  () => ["party", null],
   () => [null, null],
 ];
 

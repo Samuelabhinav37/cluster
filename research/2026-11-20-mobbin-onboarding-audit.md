@@ -121,3 +121,13 @@ use-case rows (icon, name, one line), [Outlook](https://mobbin.com/screens/a9dcc
 filter rows with a check. Tiles only win when each item has a picture (Hulu, Paramount+).
 Built: one grouped list, each row an emoji, the label, "Amazon, UPS · 12 emails",
 the senders' logos and a switch, with "8 of 8 labels on" over it.
+
+## Mascot teaching (2026-11-20, round 9)
+
+Mobbin: Deel, Turo, Ditto, Zoho CRM, Flodesk tours; Duolingo lessons (iOS).
+- One idea per tip, one short sentence, pointed at the thing it explains.
+- The target is lit and the rest is dimmed (Turo, Zoho).
+- The same sentence pattern repeats, so the second example is learned from the first (Duolingo).
+- No linking words between tips: each tip stands alone.
+Built: Kai's label lines are "Orders go in X." / "Codes go in Y." / "Newsletters go in Z.", the taught example stays lit, then "Each label is a folder in Gmail."
+Not built: user-paced tips (a Next in the bubble, as Deel/Turo/Duolingo do); the lesson runs on a timer.

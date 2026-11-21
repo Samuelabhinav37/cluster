@@ -5257,3 +5257,6 @@ body.first-reading .read-wait { display: flex; flex-direction: column; align-ite
 .onb-kai-spot.is-roaming .onb-bubble::before { left: auto; right: 36px; top: auto; bottom: -4px; margin: 0; }
 .onb-kai-spot.is-roaming.is-right { align-items: flex-start; transform: translate(0, -62%); }
 .onb-kai-spot.is-roaming.is-right .onb-bubble::before { right: auto; left: 36px; }
+/* Kai's label lesson: the example being explained stays lit, the rest dim. */
+.lbl-demo .lbl-mail { transition: opacity 0.3s ease; }
+.lbl-demo.is-teaching .lbl-mail:not(.is-taught) { opacity: 0.35; }
