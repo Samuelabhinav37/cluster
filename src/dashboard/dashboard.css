@@ -3157,7 +3157,7 @@ select:not([multiple]):hover { background-color: var(--neutral-fill-hover); }
 
 
 
-body[data-screen="overview"] #index-status.home-shows { display: none; }
+#index-status.home-shows { display: none; }
 @media (max-width: 760px) {
   
   .home-hero { flex-direction: column; align-items: flex-start; }
@@ -5111,7 +5111,6 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 .onb-head-end, .onb-head .onb-skip { white-space: nowrap; }
 
 /* Hello: a small label, a short statement, one line on what Cluster does. */
-.wel-eyebrow { margin: 0 0 14px; font: 500 15px/1 var(--font); color: var(--label-3); }
 .wel.is-hello .wel-title { margin: 0 0 14px; font-size: clamp(40px, 4.4vw, 60px); line-height: 1.02; letter-spacing: -0.035em; }
 .wel.is-hello .wel-lead { max-width: 30ch; margin: 0 0 32px; font-size: 19px; line-height: 1.45; color: var(--label-2); }
 
@@ -5237,3 +5236,14 @@ body.first-reading .read-wait { display: flex; flex-direction: column; align-ite
 .onb-pane .ss-feed { width: 100%; min-height: 0; height: 222px; overflow: hidden; }
 /* Get started as wide as the read card under it. */
 .start-list { margin-left: 0; margin-right: 0; }
+
+/* ── Round 6 (2026-11-20 review) ── */
+/* Headings break evenly instead of leaving one word on a line, and are sized to fit one line where they can. */
+.wel-title, .onb-title, .wel-lead { text-wrap: balance; }
+.wel.is-ask .wel-title, .onb-pane .onb-title { font-size: clamp(30px, 2.6vw, 38px); }
+/* The scan: a small cube beside the heading, the labelling list under it. */
+.ss-head { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.onb-pane .ss-head .unt-cube { flex: none; width: 52px; margin: 0; }
+.ss-head .unt-shadow { display: none; }
+.ss-head .onb-title { margin: 0; }
+.onb-pane .ss-feed { margin-top: 8px; }

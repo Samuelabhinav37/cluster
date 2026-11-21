@@ -62,9 +62,8 @@ describe("connect gate", () => {
     expect(gmail.listCandidateMessages).not.toHaveBeenCalled();
 
     await throughWelcome();
-    // Only the first name is kept, and Kai uses it.
+    // Only the first name is kept.
     await vi.waitFor(() => expect(dash.storedSettings().userName).toBe("Samuel"));
-    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toContain("Nice to meet you, Samuel!"), { timeout: 3000 });
     (dash.el("connect-gmail-btn") as HTMLButtonElement).click();
 
     await vi.waitFor(() => expect(gmail.listCandidateMessages).toHaveBeenCalled(), { timeout: 3000 });
@@ -114,16 +113,13 @@ describe("connect gate", () => {
     expect(dash.el("connect-error").textContent).not.toMatch(/cancelled/);
   });
 
-  it("the name can be skipped: Kai goes on without it", async () => {
+  it("the name is required: no Skip, and Continue waits for a name", async () => {
     const gmail = notYetConnected(async () => "fresh-token");
     const dash = await bootDashboard({ gmail, tolerateScanError: true });
     (dash.el("welcome-start") as HTMLButtonElement).click();
     expect(document.querySelector(".step-item.is-now .step-name")!.textContent).toBe("You");
-    (document.querySelector(".wel-skip") as HTMLButtonElement).click();
-    await vi.waitFor(() => expect(document.querySelector(".wel-stage #connect-gmail-btn")).not.toBeNull());
-    expect(document.querySelector(".step-item.is-now .step-name")!.textContent).toBe("Gmail");
-    await vi.waitFor(() => expect(dash.el("welcome-kai-line").textContent).toBe("Nice to meet you!"), { timeout: 3000 });
-    expect(dash.storedSettings().userName).toBe("");
+    expect(document.querySelector(".wel-skip")).toBeNull();
+    expect((dash.el("welcome-name-next") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("Continue with Google is ready at once, with no address to type", async () => {

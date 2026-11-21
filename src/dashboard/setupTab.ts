@@ -1,24 +1,21 @@
 // First-run setup, after the welcome (welcome.ts) and sign-in. Duolingo
-// style: Kai and a speech bubble at the top of each screen, one big button
-// at the bottom (research/2026-11-15-onboarding-two-sources.md).
+// style: one big button at the bottom of each screen; Kai stays out of the
+// steps and comes back for the dashboard tour (research/2026-11-15-onboarding-two-sources.md).
 //
 // 1. label: three example emails get their labels, one at a time.
 // 2. scan: the newest 100 emails are read (10 s cap). The screen shows that
 //    work: a plain bar with the count, and the mail itself streaming in, each
 //    one getting its label as in step 2 (Buell & Norton 2011: showing the work
-//    makes a wait feel worth it). Kai explains what is happening.
+//    makes a wait feel worth it).
 // 3. found: "I found these", grouped under Cluster's labels. "Yes, use these"
 //    (Tidy for me), "Change some" (drag or tap to move), or "No, ask me first".
-// Then Kai heads to the dashboard and gives a short tour (dashboardTour.ts).
+// Then the dashboard, where Kai gives a short tour (dashboardTour.ts).
 // Only the last button changes anything; only moved companies are saved.
-import "./kai/kaiLife.js";
-import type { KaiAction, KaiInstance, KaiMood } from "./kai/kaiLife";
 import type { ClusterSettings } from "../lib/settingsStore";
 import { updateSettings } from "../lib/settingsStore";
 import { log } from "../lib/log";
 import { buildOnboardingPlan, type OnboardingAnswers } from "../lib/onboardingPlan";
 import { ctx } from "./state";
-import { icon } from "./homeDashboard";
 import { senderTile } from "./senderTile";
 import { mapWithConcurrency } from "../lib/concurrency";
 import { pickPracticeSenders, practiceGuess, type BoardSpot, type PracticeMail, type PracticeSender } from "../lib/practiceSenders";
@@ -30,14 +27,10 @@ import { MAIL_INDEX_CAP, MAIL_INDEX_MAX } from "../lib/mailIndex";
 import { gmailProvider } from "../lib/providers/gmailProvider";
 import { categoryLabelName } from "../lib/categoryFilters";
 import { showLabel } from "../lib/clusterLabels";
-import { attend, pageHeader, progressBar, setWorld, worldPanel } from "./welcome";
+import { pageHeader, progressBar, setWorld, worldPanel } from "./welcome";
 import { inboxPreview } from "./inboxPreview";
 import { SETUP_SHARE, sharedCube, type UntangleCube } from "./untangleCube";
-import { stopTyping, typeLine } from "./kaiBubble";
-import { startIdle } from "./kaiIdle";
-import { rememberKai, travel } from "./kaiTravel";
 import { startDashboardTour } from "./dashboardTour";
-import { dressUpOnClick, wearGlasses, wearHat } from "./kaiWardrobe";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
 
@@ -94,115 +87,6 @@ async function scanNewest(onMail: (m: PracticeMail, read: number, total: number)
   return [...mail];
 }
 
-const VOICE_PREF = "cluster.kaiVoice";
-
-/** Kai with a speech bubble that types the line, and an optional voice. One row, moved between screens. */
-function kaiNarrator() {
-  const reduced = reducedMotion();
-  const row = el("div", "onb-kai-spot onb-kai-row");
-  const bubble = el("p", "onb-bubble wel-bubble");
-  bubble.id = "setup-kai-line";
-  bubble.setAttribute("aria-live", "polite");
-  const kaiHost = el("div", "onb-kai wel-kai");
-  const voiceBtn = el("button", "onb-voice");
-  voiceBtn.type = "button";
-  voiceBtn.setAttribute("aria-label", "Hear Kai");
-  voiceBtn.title = "Hear Kai";
-  voiceBtn.append(icon("volume"));
-  let voiceOn = false;
-  try {
-    voiceOn = localStorage.getItem(VOICE_PREF) === "on";
-  } catch {
-    // Storage blocked: voice starts off.
-  }
-  const canSpeak = typeof speechSynthesis !== "undefined";
-  voiceBtn.hidden = !canSpeak;
-  const showVoice = () => voiceBtn.setAttribute("aria-pressed", String(voiceOn));
-  showVoice();
-  const words = el("div", "onb-kai-words");
-  words.append(bubble);
-  row.append(words, kaiHost);
-  const kai: KaiInstance | null =
-    ctx.settings.showKai && typeof window.Kai === "function"
-      ? // Not calm: in setup Kai floats, breathes and glances around while it talks.
-        window.Kai(kaiHost, { src: "/characters/", imgWidth: 320 })
-      : null;
-  if (!kai) kaiHost.hidden = true;
-  dressUpOnClick(kai);
-  let fresh = true;
-  let last = "";
-  // A small move with each line, so Kai talks with its body as well as the bubble.
-  const GESTURES: KaiAction[] = ["nodSmall", "tilt", "nod", "lookAround"];
-  let gesture = 0;
-
-  const speak = (text: string) => {
-    if (!canSpeak || !voiceOn) return;
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    // A voice on this computer, so the line isn't sent anywhere to be read aloud.
-    const local = speechSynthesis.getVoices().find((v) => v.localService && v.lang.startsWith("en"));
-    if (local) u.voice = local;
-    speechSynthesis.speak(u);
-  };
-
-  voiceBtn.onclick = () => {
-    voiceOn = !voiceOn;
-    try {
-      localStorage.setItem(VOICE_PREF, voiceOn ? "on" : "off");
-    } catch {
-      // Storage blocked: the choice lasts this visit.
-    }
-    showVoice();
-    if (voiceOn) speak(last);
-    else speechSynthesis.cancel();
-  };
-
-  return {
-    row,
-    /** The voice switch, which sits in the page header. */
-    voiceBtn,
-    instance: kai,
-    idle: kai && !reduced ? startIdle(kai) : null,
-    say(text: string, mood?: KaiMood) {
-      last = text;
-      if (kai) {
-        if (mood) kai.setMood(mood, 2400);
-        kai.talk(Math.min(3000, text.length * 45));
-        if (!reduced) kai.do(GESTURES[gesture++ % GESTURES.length]);
-      }
-      speak(text);
-      // The entrance only on a screen's first line; later lines just type.
-      typeLine(bubble, text, kai, { pop: fresh });
-      fresh = false;
-    },
-    /** The next line starts a new screen. */
-    newScreen() {
-      fresh = true;
-    },
-    do(action: KaiAction) {
-      kai?.do(action);
-    },
-    /** One beat for something on screen: look at it, a small move, and maybe its emoji. */
-    react(target: Element, action: KaiAction, emoji?: string, mood?: KaiMood) {
-      if (!kai) return;
-      kai.lookAt(target);
-      kai.do(action);
-      if (mood) kai.setMood(mood, 1600);
-      if (emoji && !reduced) kai.emote(emoji);
-    },
-    pointAt(target: Element | null) {
-      if (target) kai?.pointAt(target);
-    },
-    look(target: Element) {
-      kai?.lookAt(target);
-    },
-    stop() {
-      stopTyping(bubble);
-      if (canSpeak) speechSynthesis.cancel();
-    },
-  };
-}
-
 function freshAnswers(): OnboardingAnswers {
   const saved = ctx.settings.onboarding?.answers;
   return saved
@@ -249,16 +133,13 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   const skip = el("button", "onb-skip", "I'll set it up myself");
   skip.type = "button";
   skip.id = "setup-not-now";
-  // The same page as the sign-in screens: header, Kai's panel on the left, the work on the right.
+  // The same page as the sign-in screens: header, the inbox panel on the left, the work on the right.
   const world = worldPanel();
   // Your inbox as it fills in: newest mail with its label, then the labels you keep.
   const preview = inboxPreview(ctx.settings.userName);
   const side = el("div", "onb-side");
   side.append(pageHeader(skip), world, pane);
   root.replaceChildren(side);
-  const kai = kaiNarrator();
-  side.querySelector(".onb-head-end")?.prepend(kai.voiceBtn);
-  attend(kai.instance, side);
   const timers: number[] = [];
   const later = (ms: number, run: () => void) => timers.push(window.setTimeout(run, ms));
   const clearLater = () => timers.splice(0).forEach((t) => window.clearTimeout(t));
@@ -337,7 +218,11 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   }
 
   function renderScan(body: HTMLElement) {
-    body.append(el("h1", "onb-title", "Reading your newest emails"), el("p", "wel-lead", "Cluster reads them on this computer."));
+    // The cube spins beside the heading like a working sign; the labelling list gets the room.
+    cube = sharedCube();
+    const head = el("div", "ss-head");
+    head.append(cube.el, el("h1", "onb-title", "Reading your emails"));
+    body.append(head, el("p", "wel-lead", "Cluster reads them on this computer."));
     const progress = el("div", "ss-progress");
     const track = el("div", "ss-track");
     track.setAttribute("aria-hidden", "true");
@@ -351,10 +236,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     // The mail being read, each one getting its label like the label step's examples.
     const feed = el("ul", "lbl-demo ss-feed");
     feed.id = "scan-feed";
-    cube = sharedCube();
-    const work = el("div", "ss-work");
-    work.append(cube.el, feed);
-    body.append(work, progress);
+    body.append(feed, progress);
     queueMicrotask(() => paintScanCount(scanned ? 0 : readSoFar));
   }
 
@@ -362,7 +244,6 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
   let streamTimer = 0;
   let streamAt = 0;
   const streamed = new Set<string>();
-  let labelledOne = false;
   function streamNext() {
     if (STEPS[at] !== "scan") return;
     while (streamAt < readMail.length) {
@@ -375,10 +256,6 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       const sender = m.fromDisplayName.trim() || m.fromAddress;
       preview.addMail(sender, m.subject, spot === "keep" ? null : spotParts(spot), m.fromAddress);
       feedMail(sender, m.subject, spot, m.fromAddress);
-      if (spot !== "keep" && !labelledOne) {
-        labelledOne = true;
-        later(300, () => kai.say("See? Each one gets its label.", "excited"));
-      }
       break;
     }
     streamTimer = window.setTimeout(streamNext, 700);
@@ -412,7 +289,7 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     if (found.length === 0) {
       body.append(el("h1", "onb-title", "Ready to sort"), el("p", "wel-lead", "New mail gets its label as it arrives."));
     } else {
-      body.append(el("h1", "onb-title", "Pick your labels"), el("p", "wel-lead", "Turn off any you don't want. You can change them later."), renderLabelList());
+      body.append(el("h1", "onb-title", "Pick your labels"), renderLabelList());
     }
     const readChoice = renderReadChoice();
     if (readChoice) body.append(readChoice);
@@ -461,7 +338,6 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
         sync();
         showCount();
         keptToPreview();
-        kai.react(row, off.has(spot) ? "shrug" : "nodSmall");
       };
       const li = el("li", "");
       li.append(row);
@@ -534,16 +410,11 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
       go.textContent = "Setting up…";
     }
     const plan = { ...answers, hands };
-    if (hands === "tidy") kai.say("Setting up your labels.");
     try {
       const { tidyFailed } = await startPlan(plan, readAll ? MAIL_INDEX_MAX : MAIL_INDEX_CAP, [...off]);
       if (go) go.textContent = "All set";
-      kai.say(tidyFailed ? "Saved. You can turn labels on in Labels." : "All set.", "joyful");
-      if (!tidyFailed) wearHat(kai.instance, "party");
-      kai.do("celebrate");
-      await wait(1600);
-      const host = kai.row.querySelector<HTMLElement>(".onb-kai");
-      if (host) rememberKai(host);
+      if (tidyFailed && go) go.textContent = "Saved. Turn labels on in Labels.";
+      await wait(tidyFailed ? 1600 : 700);
       await select("overview");
       startDashboardTour();
     } catch (err) {
@@ -563,58 +434,33 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     pane.className = `onb-pane is-${step}`;
     preview.setName(name());
     setWorld(world, preview.el, progressBar(BEFORE + at + 1));
-    // Kai sits right over the question and stays put between steps, so it doesn't vanish and reappear.
-    if (kai.row.parentNode === pane) {
-      pane.querySelector(":scope > .onb-body")?.replaceWith(body);
-    } else {
-      pane.replaceChildren(kai.row, body);
-      // The same Kai as the welcome: it flies over from where it stood there.
-      travel(kai.row.querySelector<HTMLElement>(".onb-kai")!, kai.instance);
-    }
-    kai.idle?.reset();
-    if (newStep) kai.newScreen();
+    // Kai stays out of the steps (2026-11-20 review): it says hello on the welcome and comes back for the tour.
+    pane.replaceChildren(body);
     if (newStep) guide(step);
   }
 
-  /** What Kai says and does when a screen opens. */
+  /** What plays when a screen opens. */
   function guide(step: Step) {
     if (step === "label") {
       if (!signedIn) return;
-      kai.say(name() ? `You're in, ${name()}! Watch this.` : "You're in! Watch this.", "excited");
-      pane.querySelectorAll(".lbl-tag").forEach((tag, i) =>
-        later(1100 + i * 900, () => {
-          tag.classList.add("in");
-          kai.react(tag, i === 2 ? "hop" : "nodSmall", undefined, i === 2 ? "joyful" : "happy");
-        }),
-      );
+      pane.querySelectorAll(".lbl-tag").forEach((tag, i) => later(900 + i * 900, () => tag.classList.add("in")));
     } else if (step === "scan") {
-      // Reading glasses on while it reads; off again on the next screen.
-      wearGlasses(kai.instance, "round");
-      kai.say("Reading glasses on. Give me a moment.", "determined");
       scanEnteredAt = Date.now();
       window.clearTimeout(streamTimer);
       streamNext();
       if (scanned) countUp();
       scanDone();
-    } else {
-      wearGlasses(kai.instance, null);
-      if (found.length === 0) kai.say("Nothing to pick yet.");
-      else {
-        kai.say("Look what I found in your mail!", "excited");
-        later(1400, () => kai.do("hop"));
-      }
     }
   }
 
   skip.onclick = async () => {
     clearLater();
-    kai.stop();
     ctx.settings = await updateSettings({ setupDone: true });
     await select("overview");
   };
 
   render(true);
-  // Setup draws behind the sign-in screen; Kai says hello and the scan starts once signed in.
+  // Setup draws behind the sign-in screen; the scan starts once signed in.
   beginScan = () => {
     beginScan = () => {};
     if (ctx.settings.setupDone) return;
@@ -651,14 +497,13 @@ export function wireSetup(select: (screen: string) => Promise<void>): void {
     if (!scanned || STEPS[at] !== "scan" || ctx.settings.setupDone) return;
     later(Math.max(0, 9000 - (Date.now() - scanEnteredAt)), () => {
       window.clearTimeout(streamTimer);
-      kai.do("nod");
       later(600, () => goTo(at + 1));
     });
   }
 }
 
 let beginScan = () => {};
-/** Called once Gmail is signed in: Kai says hello and the scan of the newest mail starts. */
+/** Called once Gmail is signed in: the scan of the newest mail starts. */
 export function setupSignedIn(): void {
   beginScan();
 }

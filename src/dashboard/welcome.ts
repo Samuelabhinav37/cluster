@@ -7,7 +7,6 @@ import "./sky/skyEngine.js";
 import type { KaiInstance } from "./kai/kaiLife";
 import { ctx } from "./state";
 import { startIdle } from "./kaiIdle";
-import { rememberKai, travel } from "./kaiTravel";
 import { typeLine } from "./kaiBubble";
 import { inboxPreview } from "./inboxPreview";
 import { dressUpOnClick } from "./kaiWardrobe";
@@ -124,7 +123,7 @@ export function setWorld(world: HTMLElement, ...nodes: Node[]): void {
 /** Kai pays attention on every onboarding screen: it looks where the cursor
  * goes (a short delay, then back at you), looks at the field you type in and
  * holds still while you type. Off with reduced motion. Returns a stop. */
-export function attend(kai: KaiInstance | null, root: HTMLElement, skipWhen: () => boolean = () => false): () => void {
+function attend(kai: KaiInstance | null, root: HTMLElement, skipWhen: () => boolean = () => false): () => void {
   const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
   if (!kai || reduced) return () => {};
   const stop = new AbortController();
@@ -204,7 +203,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     if (e.animationName === "wel-appear" || e.animationName === "wel-fade") kaiHost.classList.remove("wel-appear");
   });
   const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-  const idle = kai && !reduced ? startIdle(kai) : null;
+  if (kai && !reduced) startIdle(kai);
   const say = (text: string, pop = false) => typeLine(bubble, text, kai, { pop });
 
   const bigButton = (label: string, onClick: () => void) => {
@@ -240,9 +239,9 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     setWorld(world, spot);
     backBtn.hidden = true;
     stage.replaceChildren(
-      el("p", "wel-eyebrow", "Welcome to Cluster"),
-      el("h1", "wel-title", "Your Gmail, sorted."),
-      el("p", "wel-lead", "Cluster labels your new mail, cleans out what you don't need and catches scams."),
+      // One short line under one short heading, like Notion Mail's and Superhuman's welcome (Mobbin).
+      el("h1", "wel-title", "Welcome to Cluster"),
+      el("p", "wel-lead", "Let's sort your Gmail. It takes about a minute."),
       go,
     );
     const skip = new AbortController();
@@ -314,18 +313,13 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
   }
 
   /** The question and why we ask sit over the field; Kai's bubble adds a short aside, never the same words. */
-  function question(done: number, title: string, why: string, line: string, back: (() => void) | null, ...rest: HTMLElement[]) {
+  function question(done: number, title: string, why: string, back: (() => void) | null, ...rest: HTMLElement[]) {
     wel.className = "wel is-ask";
     backBtn.onclick = () => back?.();
     backBtn.hidden = !back;
-    rememberKai(kaiHost);
     setWorld(world, preview.el, progressBar(done));
-    // Kai, then the question. Back lives in the header row (showWelcome).
-    stage.replaceChildren(spot, el("h1", "wel-title", title), ...(why ? [el("p", "wel-lead", why)] : []), ...rest);
-    // Kai flies from the middle of the panel to its spot over the question, instead of popping in there.
-    travel(kaiHost, kai);
-    idle?.reset();
-    say(line, true);
+    // Kai says hello on the welcome only (2026-11-20 review): the questions stand alone. Back lives in the header row.
+    stage.replaceChildren(el("h1", "wel-title", title), ...(why ? [el("p", "wel-lead", why)] : []), ...rest);
   }
 
   function askName() {
@@ -340,16 +334,12 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     const go = bigButton("Continue", () => void save());
     go.id = "welcome-name-next";
     const ok = () => {
-      const was = go.disabled;
       go.disabled = !input.value.trim();
-      // A smile the moment there's a name to use.
-      if (was && !go.disabled) kai?.setMood("happy", 1400);
     };
     const save = async () => {
       if (!input.value.trim()) return;
       name = firstName(input.value);
       ctx.settings = await updateSettings({ userName: name });
-      kai?.do("nod");
       askGmail();
     };
     input.oninput = () => {
@@ -361,14 +351,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
       if (e.key === "Enter") void save();
     };
     ok();
-    // The name is the one optional question: Kai talks without it.
-    const skipName = el("button", "onb-link wel-skip", "Skip");
-    skipName.type = "button";
-    skipName.onclick = () => {
-      preview.setName("");
-      askGmail();
-    };
-    question(1, "What should I call you?", "", "Let's start with you.", hello, input, go, skipName);
+    question(1, "What should I call you?", "", hello, input, go);
     input.focus();
   }
 
@@ -380,9 +363,7 @@ export function showWelcome(gate: HTMLElement, connectBtn: HTMLButtonElement): v
     const rest: HTMLElement[] = [connectBtn];
     if (errorEl) rest.push(errorEl);
     if (trust instanceof HTMLElement) rest.push(trust);
-    question(2, "Connect your Gmail", "Google will ask you to pick an account.", name ? `Nice to meet you, ${name}!` : "Nice to meet you!", askName, ...rest);
-    kai?.setMood("joyful", 1600);
-    kai?.do("hop");
+    question(2, "Connect your Gmail", "Google will ask you to pick an account.", askName, ...rest);
     connectBtn.focus();
   }
 

@@ -20,7 +20,7 @@ async function toFound(dash: Dash, hasMail = true) {
   expect(setupSection(dash).hidden).toBe(false);
   expect(title()).toBe("Labels sort your mail");
   click("setup-next");
-  expect(title()).toBe("Reading your newest emails");
+  expect(title()).toBe("Reading your emails");
   // The mail streams in with its label, and the count says how far.
   if (hasMail) {
     // The mail streams into the inbox window with its label.
@@ -49,7 +49,7 @@ describe("first-run setup", () => {
     expect(setupSection(again).hidden).toBe(true);
   });
 
-  it("Kai says hi by name, shows a label, scans, and saves the labels you untick", async () => {
+  it("shows a label, scans, and saves the labels you untick", async () => {
     const dash = await bootDashboard({
       settings: { userName: "Samuel" },
       mailbox: [
@@ -60,7 +60,6 @@ describe("first-run setup", () => {
       ],
     });
     expect(title()).toBe("Labels sort your mail");
-    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("You're in, Samuel! Watch this."), { timeout: 3000 });
     await toFound(dash);
     expect(title()).toBe("Pick your labels");
     // One ticked tile per label the companies landed in.
@@ -77,7 +76,8 @@ describe("first-run setup", () => {
     click("setup-go");
     await vi.waitFor(() => expect(dash.storedSettings().setupDone).toBe(true));
     await vi.waitFor(() => expect(dash.storedSettings().autoSort.labelsOff).toContain(offSpot));
-    await vi.waitFor(() => expect(dash.el("setup-kai-line").textContent).toBe("All set."), { timeout: 3000 });
+    // Kai stays out of the steps: no narrator line on the setup screens.
+    expect(document.getElementById("setup-kai-line")).toBeNull();
   });
 
   it("asks how much to read only when the mailbox is over 20,000, with a time for each", async () => {

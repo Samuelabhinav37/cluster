@@ -100,6 +100,8 @@ const SPIN_PER_MS = 0.00042;
 // Slow, steady turns with a rest between (2026-11-20 review: "solving slowly").
 const TURN_MS = 1000;
 const REST_MS = 350;
+/** Detours open at once while waiting for the read to earn the next solving turn. */
+const WOBBLE_MAX = 2;
 const add = (a: V, b: V, k = 1): V => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];
 const ALL_NORMALS: V[] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 /** Ease out with a small overshoot, so a turn snaps into place like a real cube. */
@@ -177,15 +179,28 @@ export function untangleCube(turns = 18): UntangleCube {
   // Start from the scramble: apply its turns (the solution's inverse) up front.
   for (const m of solution(plan)) applyMove(cube, m);
   const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-  let done = 0;
+  // The turns left to solve it. Reading earns solving turns (`target`); while it
+  // hasn't earned one, the cube keeps working anyway (2026-11-20 review: "keep on
+  // solving, don't stop"): it turns a layer out of the way and later turns it back.
+  // At most WOBBLE_MAX of those are open, so the final unwind is short, and it is
+  // only solved once everything is read.
+  const pending: Array<{ m: Move; back: boolean }> = plan.map((m) => ({ m, back: false }));
+  let real = 0;
   let target = 0;
-  let turning: { m: Move; t0: number } | null = null;
+  let open = 0;
+  let turning: { m: Move; t0: number; kind: "solve" | "out" | "back" } | null = null;
   let restUntil = 0;
   let frame = 0;
   let stopped = false;
   let shown = false;
   const yaw0 = performance.now();
   const yawAt = (now: number) => (reduced ? 0.6 : 0.6 + (now - yaw0) * SPIN_PER_MS);
+
+  /** A turn on another axis than the next one to solve, so it never just cancels it. */
+  function wanderMove(): Move {
+    const axes = ([0, 1, 2] as Axis[]).filter((a) => a !== pending[0]?.m.axis);
+    return { axis: axes[Math.floor(Math.random() * axes.length)], layer: Math.random() < 0.5 ? -1 : 1, dir: Math.random() < 0.5 ? -1 : 1 };
+  }
 
   function draw(m: Move | null, angle: number, yaw: number) {
     body.replaceChildren(
@@ -199,26 +214,51 @@ export function untangleCube(turns = 18): UntangleCube {
     );
   }
 
-  // Always running while on screen: the cube spins between turns, so it never looks stuck.
+  /** The next turn: earned solving first, else an open detour back once enough are open, else a new detour. */
+  function nextTurn(now: number) {
+    const front = pending[0];
+    if (!front) return;
+    // Fully earned (all read): only unwinding now, no more detours.
+    if (real < target || target === plan.length || (front.back && open >= WOBBLE_MAX)) {
+      pending.shift();
+      turning = { m: front.m, t0: now, kind: front.back ? "back" : "solve" };
+      return;
+    }
+    const m = wanderMove();
+    pending.unshift({ m: { ...m, dir: m.dir === 1 ? -1 : 1 }, back: true });
+    open++;
+    turning = { m, t0: now, kind: "out" };
+  }
+
+  // Always running while on screen: the cube spins and keeps turning, so it never looks stuck.
   function tick(now: number) {
     frame = 0;
     if (stopped) return;
     // Off the page (the screen moved on): stop drawing.
     if (svg.isConnected) shown = true;
     else if (shown) return;
-    if (!turning && done < target && now >= restUntil) turning = { m: plan[done], t0: now };
+    if (!turning && now >= restUntil) nextTurn(now);
     if (turning) {
       const t = Math.min(1, (now - turning.t0) / TURN_MS);
       draw(turning.m, ((turning.m.dir * Math.PI) / 2) * easeBack(t), yawAt(now));
       if (t >= 1) {
         applyMove(cube, turning.m);
-        done++;
+        if (turning.kind === "solve") real++;
+        if (turning.kind === "back") open--;
         turning = null;
         restUntil = now + REST_MS;
-        if (done === plan.length) svg.classList.add("is-solved");
+        if (pending.length === 0) svg.classList.add("is-solved");
       }
     } else draw(null, 0, yawAt(now));
-    frame = requestAnimationFrame(tick);
+    if (pending.length > 0 || turning) frame = requestAnimationFrame(tick);
+    else frame = requestAnimationFrame(spin);
+  }
+  // Solved: it just spins.
+  function spin(now: number) {
+    frame = 0;
+    if (stopped || (!svg.isConnected && shown)) return;
+    draw(null, 0, yawAt(now));
+    frame = requestAnimationFrame(spin);
   }
 
   draw(null, 0, yawAt(yaw0));
@@ -228,9 +268,12 @@ export function untangleCube(turns = 18): UntangleCube {
     progress(share) {
       target = Math.max(target, Math.min(plan.length, Math.floor(Math.max(0, Math.min(1, share)) * plan.length)));
       if (reduced) {
-        while (done < target) applyMove(cube, plan[done++]);
+        while (real < target) {
+          applyMove(cube, pending.shift()!.m);
+          real++;
+        }
         draw(null, 0, yawAt(0));
-        svg.classList.toggle("is-solved", done === plan.length);
+        svg.classList.toggle("is-solved", pending.length === 0);
         return;
       }
       if (!frame && !stopped) frame = requestAnimationFrame(tick);
