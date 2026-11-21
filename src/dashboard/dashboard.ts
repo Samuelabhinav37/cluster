@@ -1,5 +1,5 @@
 import { NUMBER_SCREENS } from "../lib/keymap";
-import { LABELS_SHARE, SETUP_SHARE, sharedCube } from "./untangleCube";
+import { LABELS_SHARE, SETUP_SHARE, sharedCube, untangleCube, type UntangleCube } from "./untangleCube";
 import { installCrashHandlers, PRIVACY_URL } from "../lib/crashLog";
 import { clearCountBadge } from "../lib/supervisor";
 import { scanCheckCounts, scanFound } from "../lib/securityScan";
@@ -1208,6 +1208,8 @@ let readSince = 0;
 let sortRunning = false;
 /** Whether the first read or its labelling was running at the last status update. */
 let cubeBusy = false;
+/** The cube for a read after the first one, made fresh per read. */
+let laterCube: UntangleCube | null = null;
 
 /** Bar pinned to the bottom while mail is still being read. */
 /** What the first-read stage shows besides the count: who was just read, and how many senders so far. */
@@ -1235,7 +1237,10 @@ function updateIndexStatus() {
   cubeBusy = busy;
   // A running Check mail or sort owns the card until it finishes.
   if (indexStatusEl.dataset.job === "run") return;
-  if (active.length === 0) readSince = 0;
+  if (active.length === 0) {
+    readSince = 0;
+    laterCube = null;
+  }
   if (active.length === 0 || !statusEl.hidden) {
     // A finished job's card stays for its few seconds.
     if (!indexStatusEl.dataset.job) indexStatusEl.hidden = true;
@@ -1290,9 +1295,8 @@ function updateIndexStatus() {
   // The card: what's being read and how far, the bar, then "1,240 of 5,000 · about 6 min left".
   const head = document.createElement("div");
   head.className = "rc-head";
-  const pct = document.createElement("span");
-  pct.textContent = done < total && total > 0 ? `${Math.floor((done / total) * 100)}%` : "";
-  head.append(Object.assign(document.createElement("b"), { textContent: parts[0] }), pct);
+  // No percent: the bar and "650 of 1,530" say it, and in the narrow sidebar it cut the title off.
+  head.append(Object.assign(document.createElement("b"), { textContent: parts[0] }));
   const line = parts.slice(1).join(" · ");
   const left = Object.assign(document.createElement("span"), { className: "rc-eta", textContent: line });
   readSince ||= Date.now();
@@ -1306,8 +1310,11 @@ function updateIndexStatus() {
     const words = document.createElement("div");
     words.className = "rc-words";
     words.append(head, ...(done < total || sortRunning ? [track] : []), ...(line ? [left] : []));
-    const cube = homeOnScreen ? null : sharedCube();
-    if (cube) {
+    // The first read carries on setup's cube; a later read (the detail read, a re-read) gets its
+    // own, since the shared one is solved by then and would sit still (2026-11-20 review).
+    const cube = homeOnScreen ? null : firstRead || sortRunning ? sharedCube() : (laterCube ??= untangleCube(12));
+    if (cube === laterCube) cube?.progress(total > 0 ? done / total : 0);
+    else if (cube) {
       cube.progress(done >= total && sortRunning ? LABELS_SHARE : SETUP_SHARE + (total > 0 ? done / total : 0) * (0.7 - SETUP_SHARE));
       indexStatusEl.classList.add("has-cube");
     } else indexStatusEl.classList.remove("has-cube");

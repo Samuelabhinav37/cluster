@@ -5170,8 +5170,12 @@ section[data-screen="organize"].paged > .page-head { display: none !important; }
 @media (max-width: 600px) { .lbl-row-logos { display: none; } .lbl-row { gap: 12px; padding: 10px 12px; } }
 @media (prefers-reduced-motion: reduce) { .lbl-switch, .lbl-switch::after { transition: none; } }
 /* The sidebar read card with the first read's cube beside the words. */
-.index-status.read-card.has-cube { display: flex; align-items: center; gap: 12px; }
-.index-status.has-cube .unt-cube { flex: none; width: 52px; margin: 0; }
+/* Cube small beside the title only; the bar and the count get the card's full width (Juicebox's sidebar progress card, Mobbin). */
+.index-status.read-card.has-cube { display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 10px; align-items: center; }
+.index-status.has-cube .unt-cube { grid-row: 1; width: 32px; margin: 0; }
+.index-status.has-cube .rc-words { display: contents; }
+.index-status.has-cube .rc-head { grid-column: 2; }
+.index-status.has-cube .scan-track, .index-status.has-cube .rc-eta { grid-column: 1 / -1; }
 .index-status.has-cube .unt-shadow { display: none; }
 .read-card .rc-words { flex: 1; min-width: 0; }
 
@@ -5260,3 +5264,46 @@ body.first-reading .read-wait { display: flex; flex-direction: column; align-ite
 /* Kai's label lesson: the example being explained stays lit, the rest dim. */
 .lbl-demo .lbl-mail { transition: opacity 0.3s ease; }
 .lbl-demo.is-teaching .lbl-mail:not(.is-taught) { opacity: 0.35; }
+
+/* ── Settings, Stripe style (2026-11-20 review; Mobbin: Stripe Managed Payments,
+   Revenue Recognition settings) ──
+   Flat on the page, no boxed cards. Each section: a heading over a hairline.
+   Each row in three columns: the setting's name, then what it does, then its
+   control on the right. Hairlines between rows. Switches in the one muted
+   colour: green stays for real "good" states only. */
+section[data-screen="settings"] .settings-list { max-width: 880px; }
+section[data-screen="settings"] .settings-list > .set-sec > h2,
+section[data-screen="settings"] .settings-list .set-sec .section-head { display: block; margin: 0; padding: 0 0 12px; border-bottom: 1px solid var(--hairline); font: 600 18px/1.3 var(--font); letter-spacing: -0.01em; color: var(--label); }
+section[data-screen="settings"] .settings-list .set-sec + .set-sec { margin-top: 48px; }
+section[data-screen="settings"] .settings-list .set-rows { margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+section[data-screen="settings"] .settings-list .set-row,
+section[data-screen="settings"] .settings-list .set-row:not(:has(> .set-ic)),
+section[data-screen="settings"] .settings-list .set-row.plain {
+  display: grid; grid-template-columns: 220px minmax(0, 1fr) auto; column-gap: 32px; align-items: start;
+  min-height: 0; padding: 18px 0; border: 0; border-bottom: 1px solid var(--hairline); border-radius: 0; background: none;
+}
+section[data-screen="settings"] .settings-list .set-row:hover { background: none; }
+section[data-screen="settings"] .settings-list .set-row > .set-ic { display: none; }
+/* The name and its description are one span in the markup; contents lets them take a column each. */
+section[data-screen="settings"] .settings-list .set-row > .grow { display: contents; font: 500 14px/1.45 var(--font); color: var(--label); }
+section[data-screen="settings"] .settings-list .set-row .sub { grid-column: 2; grid-row: 1; margin: 0; font: 400 14px/1.45 var(--font); color: var(--label-3); }
+section[data-screen="settings"] .settings-list .set-row > :not(.grow):not(.set-ic) { grid-column: 3; grid-row: 1; align-self: start; justify-self: end; }
+input.switch:checked { background: var(--label); }
+input.switch:checked::after { background: var(--canvas); }
+@media (max-width: 760px) {
+  section[data-screen="settings"] .settings-list .set-row,
+  section[data-screen="settings"] .settings-list .set-row:not(:has(> .set-ic)),
+  section[data-screen="settings"] .settings-list .set-row.plain { grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; }
+  section[data-screen="settings"] .settings-list .set-row .sub { grid-column: 1; grid-row: 2; }
+  section[data-screen="settings"] .settings-list .set-row > :not(.grow):not(.set-ic) { grid-column: 2; }
+}
+/* Rows kept working but not shown (set-off) stay hidden under the Stripe grid. */
+section[data-screen="settings"] .settings-list .set-off,
+section[data-screen="settings"] .settings-list .set-row.set-off { display: none; }
+/* Settings' own nav needs the sidebar: Get started waits on the other pages. */
+body[data-screen="settings"] #sidebar .start-list { display: none; }
+/* Diagnostics rows (run log) use the same three columns. */
+section[data-screen="settings"] #settings-runs .run-row { grid-template-columns: 220px minmax(0, 1fr) auto; column-gap: 32px; align-items: start; }
+section[data-screen="settings"] #settings-runs .run-row .grow { display: contents; }
+section[data-screen="settings"] .settings-list .set-row .grow > b { grid-column: 1; grid-row: 1; font-weight: 500; color: var(--label); }
+section[data-screen="settings"] #settings-runs .run-row .run-when { grid-column: 3; grid-row: 1; }
